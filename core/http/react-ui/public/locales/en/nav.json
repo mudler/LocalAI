@@ -110,7 +110,8 @@
       "addons": "Install, turn on and open add-ons.",
       "triggers": "Start a chat by itself, on a schedule or when a file arrives."
     },
-    "operateSupporting": "What runs on this server, how it is used, and how it is set up."
+    "operateSupporting": "What runs on this server, how it is used, and how it is set up.",
+    "updates": "Updates"
   },
   "pinnedPages": "Pinned pages",
   "new": "New",
@@ -124,5 +125,7 @@
   "inboxUnread_other": "Notifications, {{count}} unread",
   "inboxArrived": "New notification: {{title}}",
   "inboxArrivedMany_one": "{{count}} new notification",
-  "inboxArrivedMany_other": "{{count}} new notifications"
+  "inboxArrivedMany_other": "{{count}} new notifications",
+  "updatesBadge_one": "{{count}} update needs you",
+  "updatesBadge_other": "{{count}} updates need you"
 }

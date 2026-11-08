@@ -32,8 +32,10 @@ export function BulkUpgradeTrigger({ bulk, labels = {}, className = 'dk-btn dk-b
   )
 }
 
-export function BulkUpgradeDialog({ bulk, labels = {} }) {
-  const { t } = useTranslation('upgrade')
+// `ns` names the translation namespace of the words (dialog.*, item.*): the
+// Updates page brings its own so the wording there is "update".
+export function BulkUpgradeDialog({ bulk, labels = {}, ns = 'upgrade' }) {
+  const { t } = useTranslation(ns)
   if (!bulk.open) return null
   const { run, running, summary, items, selected } = bulk
   const finished = Boolean(run) && !running

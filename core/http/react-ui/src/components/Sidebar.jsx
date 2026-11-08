@@ -12,6 +12,7 @@ import { topDestinations } from '../utils/destinations'
 import { primaryActive, primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
+import { useUpdates } from '../contexts/UpdatesContext'
 import Icon from './Icon'
 import './sidebar.css'
 import { NavInboxEntry } from './inbox/InboxTriggers'
@@ -99,6 +100,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
   const { operations } = useOperations()
+  const updates = useUpdates()
   const { builtin } = useNavigation()
   const branding = useBranding()
   const navigate = useNavigate()
@@ -213,10 +215,23 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
     return hubs.filter(hub => hub.id !== operateHub.id).flatMap(hub => hubEntry(hub) ?? [])
   }
   const adminItem = hubEntry(operateHub)
-  const operateBadge = activeOps > 0 ? (
-    <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
-      {failedOps > 0 ? failedOps : activeOps}
+  // One badge on the Operate entry. Precedence: failed operations (red), then
+  // the updates that need a person (accent, red when one failed), then the
+  // operations that are running. The shell-level UpdatesProvider counts them.
+  const updateBadge = updates && updates.enabled ? updates.badge : null
+  const operateBadge = failedOps > 0 ? (
+    <span className="nav-badge nav-badge--error">{failedOps}</span>
+  ) : updateBadge && updateBadge.count > 0 ? (
+    <span
+      className={`nav-badge${updateBadge.failed ? ' nav-badge--error' : ''}`}
+      title={t('updatesBadge', { count: updateBadge.count })}
+      data-testid="operate-updates-badge"
+    >
+      <span aria-hidden="true">{updateBadge.count}</span>
+      <span className="sr-only">{t('updatesBadge', { count: updateBadge.count })}</span>
     </span>
+  ) : activeOps > 0 ? (
+    <span className="nav-badge">{activeOps}</span>
   ) : null
 
   return (

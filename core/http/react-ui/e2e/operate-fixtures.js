@@ -117,6 +117,29 @@ export const LOG_LINES = [
   { timestamp: '2026-10-08T14:31:53Z', stream: 'stdout', text: 'backend is not running. The next request tries the load again.' },
 ]
 
+// The backend read model of GET /api/backends/updates, built from the old map
+// of GET /api/backends/upgrades ({ name: { backend_name, installed_version,
+// available_version, node_drift } }), for the specs that still say it that way.
+export function readModelOf(upgrades = {}) {
+  const now = new Date().toISOString()
+  return {
+    checkedAt: now,
+    sources: { gallery: { state: 'ok', checkedAt: now }, library: { state: 'ok', checkedAt: now } },
+    autoUpdate: { backends: false },
+    items: Object.values(upgrades).map(u => ({
+      id: `gallery:${u.backend_name}`, kind: 'gallery', name: u.backend_name, state: 'update',
+      installedVersion: u.installed_version, availableVersion: u.available_version,
+      nodes: (u.node_drift || []).map(d => ({ nodeId: d.node_id, drift: true })),
+      driftNodes: (u.node_drift || []).length,
+    })),
+  }
+}
+
+export async function mockReadModel(page, upgrades = {}, answer = (route, body) => route.fulfill({ json: body })) {
+  await page.route('**/api/backends/updates', route => answer(route, readModelOf(upgrades)))
+  await page.route('**/api/backends/updates/check', route => answer(route, readModelOf(upgrades)))
+}
+
 // Route every call the Operate pages make. Later routes win, so a spec can call
 // this first and override one endpoint after.
 //
@@ -124,7 +147,7 @@ export const LOG_LINES = [
 //   nodes        the cluster API's list
 //   resources    GET /api/resources (null answers 503)
 //   loaded       GET /system loaded_models
-//   upgrades     GET /api/backends/upgrades
+//   upgrades     GET /api/backends/upgrades and the read model of GET /api/backends/updates
 //   operations   GET /api/operations
 //   history      GET /api/operations/history
 //   traces       GET /api/traces/summary
@@ -161,6 +184,9 @@ export async function mockOperate(page, {
     : answer(route, { error: 'resource monitor disabled' }, 503)))
   await page.route('**/system', route => answer(route, { backends: [], loaded_models: loaded }))
   await page.route('**/api/backends/upgrades', route => answer(route, upgrades))
+  // The shell's UpdatesProvider reads the read model, not the old map: build
+  // it from `upgrades` so a spec keeps saying "this backend has an update".
+  await mockReadModel(page, upgrades, answer)
   await page.route('**/api/operations', route => answer(route, { operations }))
   await page.route('**/api/operations/history', route => answer(route, { operations: history }))
   await page.route('**/api/traces/summary', route => answer(route, traces))

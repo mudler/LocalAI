@@ -1,0 +1,198 @@
+{
+  "title": "Atualizações",
+  "supporting": "Backends, backends de biblioteca e add-ons que têm uma versão mais nova.",
+  "loading": "Carregando atualizações",
+  "adminOnly": {
+    "title": "As atualizações são para administradores",
+    "body": "Peça a um administrador para ver o que está desatualizado neste servidor."
+  },
+  "loadError": {
+    "title": "Não foi possível carregar a lista de atualizações."
+  },
+  "strip": {
+    "label": "Resumo das atualizações",
+    "checking": "Procurando atualizações...",
+    "checkNow": "Verificar agora",
+    "checkedJustNow": "Verificado agora mesmo",
+    "ready": "{{count}} prontas",
+    "updating": "{{count}} em andamento",
+    "needs_one": "{{count}} precisa de você",
+    "needs_other": "{{count}} precisam de você",
+    "lastCheck": "Última verificação {{when}}",
+    "headline": {
+      "loading": "Carregando atualizações",
+      "loadError": "Não foi possível carregar a lista de atualizações",
+      "updates_one": "{{count}} atualização disponível",
+      "updates_other": "{{count}} atualizações disponíveis",
+      "current": "Tudo está atualizado",
+      "never": "Nenhuma verificação foi feita ainda",
+      "couldNot": "Não foi possível procurar atualizações",
+      "noneButFailed": "Nenhuma atualização encontrada, mas a verificação falhou para: {{sources}}",
+      "noneButNever": "Nenhuma atualização encontrada, mas ainda não verificado: {{sources}}",
+      "unavailable": "Neste servidor não é possível procurar atualizações"
+    }
+  },
+  "when": {
+    "justNow": "agora mesmo"
+  },
+  "source": {
+    "label": "De onde vêm as atualizações",
+    "name": {
+      "gallery": "Galeria de backends",
+      "library": "Biblioteca de backends",
+      "addons": "Add-ons"
+    },
+    "checked": "verificado {{when}}",
+    "ok": "verificado",
+    "never": "ainda não verificado",
+    "loading": "lendo",
+    "unavailable": "indisponível neste servidor",
+    "unavailableWhy": "indisponível: {{reason}}",
+    "failed": "a verificação falhou: {{error}}",
+    "addonsUnreadable": "não foi possível ler os add-ons"
+  },
+  "auto": {
+    "backends": "Atualizar backends automaticamente:",
+    "addons": "Atualizar add-ons automaticamente:",
+    "on": "ativado",
+    "off": "desativado",
+    "settings": "Configurações"
+  },
+  "disabled": {
+    "title": "As atualizações de backends estão desativadas neste servidor.",
+    "body": "Os backends abaixo estão listados, mas nada pode atualizá-los aqui. A configuração do servidor desativou a instalação de backends."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "A verificação da galeria de backends falhou, então podem faltar atualizações de backends.",
+      "library": "A verificação da biblioteca falhou, então podem faltar atualizações de backends de biblioteca.",
+      "addons": "A verificação dos add-ons falhou, então podem faltar atualizações de add-ons."
+    },
+    "lastGood": "A lista abaixo é da última verificação bem-sucedida, {{when}}. Motivo: {{error}}.",
+    "noGood": "Nenhuma verificação funcionou ainda. Motivo: {{error}}.",
+    "again": "Verificar de novo"
+  },
+  "filter": {
+    "label": "Filtrar atualizações",
+    "all": "Todas",
+    "ready": "Prontas",
+    "needs-you": "Precisam de você",
+    "updating": "Em andamento",
+    "current": "Atualizadas",
+    "none": "Nada corresponde a este filtro."
+  },
+  "group": {
+    "needs": "Precisam de você",
+    "updating": "Em andamento",
+    "ready": "Prontas para atualizar",
+    "current_one": "{{count}} atualizada",
+    "current_other": "{{count}} atualizadas",
+    "selectAll": "Selecionar todas as prontas",
+    "selectNone": "Não selecionar nenhuma",
+    "show": "Mostrar",
+    "hide": "Ocultar"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Backend de biblioteca",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Galeria de backends",
+      "library": "Biblioteca: {{id}}",
+      "libraryUnnamed": "Biblioteca"
+    },
+    "signed": "assinado",
+    "versions": "de {{from}} para {{to}}",
+    "nodes_one": "{{count}} nó",
+    "nodes_other": "{{count}} nós",
+    "drift_one": "{{count}} difere",
+    "drift_other": "{{count}} diferem",
+    "old": "de uma verificação anterior",
+    "select": "Selecionar {{name}}",
+    "update": "Atualizar",
+    "updateNamed": "Atualizar {{name}}",
+    "check": "Verificar",
+    "checkNamed": "Verificar se {{name}} tem atualização",
+    "retry": "Tentar de novo",
+    "retryNamed": "Tentar {{name}} de novo",
+    "review": "Revisar",
+    "reviewNamed": "Revisar a atualização de {{name}}",
+    "cancel": "Cancelar",
+    "cancelNamed": "Cancelar a atualização de {{name}}",
+    "progress": "Progresso da atualização de {{name}}",
+    "failed": "A atualização falhou: {{message}}",
+    "failedWhy": "Atualização com falha: {{message}}",
+    "noReason": "nenhum motivo informado",
+    "startFailed": "A atualização não pôde começar: {{message}}",
+    "unchanged": "A atualização terminou, mas a versão não mudou.",
+    "unconfirmed": "A atualização terminou, mas nenhuma verificação pôde confirmá-la.",
+    "held": "Aguardando aprovação. {{version}} pede acesso que você não aprovou ({{count}} novos).",
+    "blocked": {
+      "installsDisabled": "As atualizações de backends estão desativadas neste servidor.",
+      "incompatible": "A versão {{version}} não pode rodar neste host.",
+      "integrity": "A biblioteca lista a versão instalada com conteúdo diferente. Nada foi alterado."
+    },
+    "updatingPhase": "Atualizando: {{phase}}",
+    "updatingPlain": "Atualizando",
+    "addonConfirm": "Precisa da sua confirmação neste navegador"
+  },
+  "bulk": {
+    "start": "Atualizar {{count}} prontas",
+    "running": "Atualizando {{current}} de {{total}}",
+    "summary": "{{done}} atualizadas, {{failed}} com falha, {{skipped}} ignoradas",
+    "details": "Detalhes",
+    "retryFailed": "Tentar as falhas de novo ({{count}})",
+    "dismiss": "Dispensar"
+  },
+  "check": {
+    "result_one": "Verificação concluída: {{count}} atualização.",
+    "result_other": "Verificação concluída: {{count}} atualizações.",
+    "failedSources_one": "{{count}} fonte falhou.",
+    "failedSources_other": "{{count}} fontes falharam.",
+    "throttled": "Uma verificação foi feita há pouco. Este é o resultado dela."
+  },
+  "live": {
+    "updated": "{{name}} foi atualizado.",
+    "failed": "{{name}} não foi atualizado."
+  },
+  "empty": {
+    "title": "Nada para atualizar ainda",
+    "body": "Instale um backend ou um add-on e as atualizações dele aparecem aqui.",
+    "backends": "Abrir Backends",
+    "addons": "Abrir Apps"
+  },
+  "trigger": {
+    "all": "Atualizar tudo ({{count}})"
+  },
+  "dialog": {
+    "title": "Atualizar as prontas",
+    "intro": "Escolha o que atualizar. Cada uma é atualizada separadamente, uma depois da outra, e só conta como concluída quando uma nova verificação não a lista mais. Uma falha não interrompe as outras.",
+    "selection": "Escolha o que atualizar",
+    "selectAll": "Selecionar tudo",
+    "selectNone": "Não selecionar nada",
+    "item": "Atualizar {{name}}",
+    "versions": "de {{from}} para {{to}}",
+    "blocked": "Não pode começar",
+    "start": "Atualizar selecionadas",
+    "starting": "Atualizando...",
+    "retry": "Tentar as falhas de novo ({{count}})",
+    "again": "Nova seleção",
+    "close": "Fechar",
+    "closeRunning": "Fechar (continua rodando)",
+    "runningNote": "Fechar esta janela não interrompe as atualizações.",
+    "progress": "Atualizando {{current}} de {{total}}",
+    "summary": "{{done}} atualizadas, {{failed}} com falha, {{skipped}} ignoradas",
+    "empty": "Nada para atualizar.",
+    "selectedCount_one": "{{count}} selecionada",
+    "selectedCount_other": "{{count}} selecionadas"
+  },
+  "item": {
+    "queued": "Na fila",
+    "upgrading": "Atualizando",
+    "done": "Atualizada",
+    "failed": "Falhou",
+    "skipped": "Ignorada"
+  }
+}

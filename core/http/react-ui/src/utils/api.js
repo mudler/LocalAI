@@ -132,6 +132,10 @@ export const backendsApi = {
   checkUpgrades: () => fetchJSON(API_CONFIG.endpoints.backendsUpgrades),
   forceCheckUpgrades: () => postJSON(API_CONFIG.endpoints.backendsUpgradesCheck, {}),
   upgrade: (name) => postJSON(API_CONFIG.endpoints.upgradeBackend(name), {}),
+  // The read model of the Updates page. checkUpdates answers from the cache;
+  // checkUpdatesNow runs a real check and waits for it (at most 45 s).
+  updates: () => fetchJSON(API_CONFIG.endpoints.backendUpdates),
+  checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.backendUpdatesCheck, {}),
 }
 
 // Chats API: conversations the server keeps. A message sent while a turn runs

@@ -1,0 +1,198 @@
+{
+  "title": "Aktualisierungen",
+  "supporting": "Backends, Bibliotheks-Backends und Add-ons, für die es eine neuere Version gibt.",
+  "loading": "Aktualisierungen werden geladen",
+  "adminOnly": {
+    "title": "Aktualisierungen sind für Administratoren",
+    "body": "Bitten Sie einen Administrator, nachzusehen, was auf diesem Server veraltet ist."
+  },
+  "loadError": {
+    "title": "Die Liste der Aktualisierungen konnte nicht geladen werden."
+  },
+  "strip": {
+    "label": "Übersicht der Aktualisierungen",
+    "checking": "Es wird nach Aktualisierungen gesucht ...",
+    "checkNow": "Jetzt prüfen",
+    "checkedJustNow": "Gerade geprüft",
+    "ready": "{{count}} bereit",
+    "updating": "{{count}} in Arbeit",
+    "needs_one": "{{count}} braucht Sie",
+    "needs_other": "{{count}} brauchen Sie",
+    "lastCheck": "Letzte Prüfung {{when}}",
+    "headline": {
+      "loading": "Aktualisierungen werden geladen",
+      "loadError": "Die Liste der Aktualisierungen konnte nicht geladen werden",
+      "updates_one": "{{count}} Aktualisierung verfügbar",
+      "updates_other": "{{count}} Aktualisierungen verfügbar",
+      "current": "Alles ist aktuell",
+      "never": "Es wurde noch nicht geprüft",
+      "couldNot": "Die Prüfung auf Aktualisierungen ist fehlgeschlagen",
+      "noneButFailed": "Keine Aktualisierungen gefunden, aber die Prüfung ist fehlgeschlagen für: {{sources}}",
+      "noneButNever": "Keine Aktualisierungen gefunden, aber noch nicht geprüft: {{sources}}",
+      "unavailable": "Auf diesem Server kann nicht nach Aktualisierungen gesucht werden"
+    }
+  },
+  "when": {
+    "justNow": "gerade eben"
+  },
+  "source": {
+    "label": "Woher Aktualisierungen kommen",
+    "name": {
+      "gallery": "Backend-Galerie",
+      "library": "Backend-Bibliothek",
+      "addons": "Add-ons"
+    },
+    "checked": "geprüft {{when}}",
+    "ok": "geprüft",
+    "never": "noch nicht geprüft",
+    "loading": "wird gelesen",
+    "unavailable": "auf diesem Server nicht verfügbar",
+    "unavailableWhy": "nicht verfügbar: {{reason}}",
+    "failed": "Prüfung fehlgeschlagen: {{error}}",
+    "addonsUnreadable": "die Add-ons konnten nicht gelesen werden"
+  },
+  "auto": {
+    "backends": "Backends automatisch aktualisieren:",
+    "addons": "Add-ons automatisch aktualisieren:",
+    "on": "an",
+    "off": "aus",
+    "settings": "Einstellungen"
+  },
+  "disabled": {
+    "title": "Backend-Aktualisierungen sind auf diesem Server abgeschaltet.",
+    "body": "Die Backends unten werden angezeigt, aber hier kann sie nichts aktualisieren. Die Serverkonfiguration hat das Installieren von Backends abgeschaltet."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "Die Prüfung der Backend-Galerie ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Backends.",
+      "library": "Die Prüfung der Bibliothek ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Bibliotheks-Backends.",
+      "addons": "Die Prüfung der Add-ons ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Add-ons."
+    },
+    "lastGood": "Die Liste unten stammt von der letzten erfolgreichen Prüfung, {{when}}. Grund: {{error}}.",
+    "noGood": "Bisher war keine Prüfung erfolgreich. Grund: {{error}}.",
+    "again": "Erneut prüfen"
+  },
+  "filter": {
+    "label": "Aktualisierungen filtern",
+    "all": "Alle",
+    "ready": "Bereit",
+    "needs-you": "Braucht Sie",
+    "updating": "In Arbeit",
+    "current": "Aktuell",
+    "none": "Nichts passt zu diesem Filter."
+  },
+  "group": {
+    "needs": "Braucht Sie",
+    "updating": "In Arbeit",
+    "ready": "Bereit zur Aktualisierung",
+    "current_one": "{{count}} aktuell",
+    "current_other": "{{count}} aktuell",
+    "selectAll": "Alle Bereiten wählen",
+    "selectNone": "Keine wählen",
+    "show": "Anzeigen",
+    "hide": "Ausblenden"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Bibliotheks-Backend",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Backend-Galerie",
+      "library": "Bibliothek: {{id}}",
+      "libraryUnnamed": "Bibliothek"
+    },
+    "signed": "signiert",
+    "versions": "{{from}} auf {{to}}",
+    "nodes_one": "{{count}} Knoten",
+    "nodes_other": "{{count}} Knoten",
+    "drift_one": "{{count}} weicht ab",
+    "drift_other": "{{count}} weichen ab",
+    "old": "von einer früheren Prüfung",
+    "select": "{{name}} auswählen",
+    "update": "Aktualisieren",
+    "updateNamed": "{{name}} aktualisieren",
+    "check": "Prüfen",
+    "checkNamed": "{{name}} auf eine Aktualisierung prüfen",
+    "retry": "Wiederholen",
+    "retryNamed": "{{name}} wiederholen",
+    "review": "Prüfen",
+    "reviewNamed": "Die Aktualisierung von {{name}} prüfen",
+    "cancel": "Abbrechen",
+    "cancelNamed": "Die Aktualisierung von {{name}} abbrechen",
+    "progress": "Fortschritt der Aktualisierung von {{name}}",
+    "failed": "Die Aktualisierung ist fehlgeschlagen: {{message}}",
+    "failedWhy": "Aktualisierung fehlgeschlagen: {{message}}",
+    "noReason": "kein Grund angegeben",
+    "startFailed": "Die Aktualisierung konnte nicht starten: {{message}}",
+    "unchanged": "Die Aktualisierung ist beendet, aber die Version hat sich nicht geändert.",
+    "unconfirmed": "Die Aktualisierung ist beendet, aber keine Prüfung konnte sie bestätigen.",
+    "held": "Wartet auf Freigabe. {{version}} verlangt Zugriff, den Sie nicht freigegeben haben ({{count}} neu).",
+    "blocked": {
+      "installsDisabled": "Backend-Aktualisierungen sind auf diesem Server abgeschaltet.",
+      "incompatible": "Version {{version}} läuft auf diesem Host nicht.",
+      "integrity": "Die Bibliothek führt die installierte Version mit anderem Inhalt. Es wurde nichts geändert."
+    },
+    "updatingPhase": "Wird aktualisiert: {{phase}}",
+    "updatingPlain": "Wird aktualisiert",
+    "addonConfirm": "Braucht Ihre Bestätigung in diesem Browser"
+  },
+  "bulk": {
+    "start": "Bereite aktualisieren ({{count}})",
+    "running": "{{current}} von {{total}} wird aktualisiert",
+    "summary": "{{done}} aktualisiert, {{failed}} fehlgeschlagen, {{skipped}} übersprungen",
+    "details": "Details",
+    "retryFailed": "Fehlgeschlagene wiederholen ({{count}})",
+    "dismiss": "Schließen"
+  },
+  "check": {
+    "result_one": "Prüfung beendet: {{count}} Aktualisierung.",
+    "result_other": "Prüfung beendet: {{count}} Aktualisierungen.",
+    "failedSources_one": "{{count}} Quelle ist fehlgeschlagen.",
+    "failedSources_other": "{{count}} Quellen sind fehlgeschlagen.",
+    "throttled": "Vor einem Moment lief eine Prüfung. Das ist ihr Ergebnis."
+  },
+  "live": {
+    "updated": "{{name}} wurde aktualisiert.",
+    "failed": "{{name}} wurde nicht aktualisiert."
+  },
+  "empty": {
+    "title": "Noch nichts zu aktualisieren",
+    "body": "Installieren Sie ein Backend oder ein Add-on, dann erscheinen die Aktualisierungen hier.",
+    "backends": "Backends öffnen",
+    "addons": "Apps öffnen"
+  },
+  "trigger": {
+    "all": "Alle aktualisieren ({{count}})"
+  },
+  "dialog": {
+    "title": "Bereite aktualisieren",
+    "intro": "Wählen Sie, was aktualisiert wird. Jedes wird einzeln nacheinander aktualisiert und gilt erst als fertig, wenn eine neue Prüfung es nicht mehr auflistet. Ein Fehler stoppt die anderen nicht.",
+    "selection": "Wählen, was aktualisiert wird",
+    "selectAll": "Alle wählen",
+    "selectNone": "Keine wählen",
+    "item": "{{name}} aktualisieren",
+    "versions": "{{from}} auf {{to}}",
+    "blocked": "Kann nicht starten",
+    "start": "Auswahl aktualisieren",
+    "starting": "Wird aktualisiert ...",
+    "retry": "Fehlgeschlagene wiederholen ({{count}})",
+    "again": "Neue Auswahl",
+    "close": "Schließen",
+    "closeRunning": "Schließen (läuft weiter)",
+    "runningNote": "Das Schließen dieses Fensters stoppt die Aktualisierungen nicht.",
+    "progress": "{{current}} von {{total}} wird aktualisiert",
+    "summary": "{{done}} aktualisiert, {{failed}} fehlgeschlagen, {{skipped}} übersprungen",
+    "empty": "Nichts zu aktualisieren.",
+    "selectedCount_one": "{{count}} ausgewählt",
+    "selectedCount_other": "{{count}} ausgewählt"
+  },
+  "item": {
+    "queued": "In der Warteschlange",
+    "upgrading": "Wird aktualisiert",
+    "done": "Aktualisiert",
+    "failed": "Fehlgeschlagen",
+    "skipped": "Übersprungen"
+  }
+}

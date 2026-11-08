@@ -111,7 +111,8 @@
       "addons": "Add-ons installieren und die Apps öffnen, die sie bereitstellen.",
       "triggers": "Starte einen Chat von selbst, nach Zeitplan oder wenn eine Datei eintrifft."
     },
-    "operateSupporting": "Was auf diesem Server läuft, wie er genutzt wird und wie er eingerichtet ist."
+    "operateSupporting": "Was auf diesem Server läuft, wie er genutzt wird und wie er eingerichtet ist.",
+    "updates": "Aktualisierungen"
   },
   "pinnedPages": "Angeheftete Seiten",
   "new": "Neu",
@@ -125,5 +126,7 @@
   "inboxUnread_other": "Benachrichtigungen, {{count}} ungelesen",
   "inboxArrived": "Neue Benachrichtigung: {{title}}",
   "inboxArrivedMany_one": "{{count}} neue Benachrichtigung",
-  "inboxArrivedMany_other": "{{count}} neue Benachrichtigungen"
+  "inboxArrivedMany_other": "{{count}} neue Benachrichtigungen",
+  "updatesBadge_one": "{{count}} Aktualisierung braucht Sie",
+  "updatesBadge_other": "{{count}} Aktualisierungen brauchen Sie"
 }

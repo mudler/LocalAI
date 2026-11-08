@@ -111,7 +111,8 @@
       "addons": "Pasang add-on dan buka aplikasi yang disediakannya.",
       "triggers": "Mulai obrolan secara otomatis, sesuai jadwal atau saat ada berkas masuk."
     },
-    "operateSupporting": "Apa yang berjalan di server ini, bagaimana server ini dipakai, dan bagaimana pengaturannya."
+    "operateSupporting": "Apa yang berjalan di server ini, bagaimana server ini dipakai, dan bagaimana pengaturannya.",
+    "updates": "Pembaruan"
   },
   "pinnedPages": "Halaman yang disematkan",
   "new": "Baru",
@@ -125,5 +126,7 @@
   "inboxUnread_other": "Notifikasi, {{count}} belum dibaca",
   "inboxArrived": "Notifikasi baru: {{title}}",
   "inboxArrivedMany_one": "{{count}} notifikasi baru",
-  "inboxArrivedMany_other": "{{count}} notifikasi baru"
+  "inboxArrivedMany_other": "{{count}} notifikasi baru",
+  "updatesBadge_one": "{{count}} pembaruan butuh Anda",
+  "updatesBadge_other": "{{count}} pembaruan butuh Anda"
 }

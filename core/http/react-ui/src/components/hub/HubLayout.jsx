@@ -24,6 +24,12 @@ function TabBadge({ signal, summary }) {
   if (signal.kind === 'attention') {
     return <span className="dk-hubtab-attn">{value}</span>
   }
+  if (signal.kind === 'update') {
+    // Accent, not amber: an optional update is not a decision. Red when one
+    // failed, so a failure is never read as news.
+    const level = summary.signals.updatesLevel === 'error' ? 'error' : 'update'
+    return <span className="dk-hubtab-count hub-updates-count" data-level={level} data-testid="updates-tab-count">{value}</span>
+  }
   if (signal.kind === 'error') {
     return <span className="dk-hubtab-attn" data-level="error" title={String(value)}>{value}</span>
   }

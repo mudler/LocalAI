@@ -1,0 +1,198 @@
+{
+  "title": "Pembaruan",
+  "supporting": "Backend, backend pustaka, dan add-on yang punya versi lebih baru.",
+  "loading": "Memuat pembaruan",
+  "adminOnly": {
+    "title": "Pembaruan untuk administrator",
+    "body": "Minta administrator untuk melihat apa yang sudah usang di server ini."
+  },
+  "loadError": {
+    "title": "Daftar pembaruan tidak dapat dimuat."
+  },
+  "strip": {
+    "label": "Ringkasan pembaruan",
+    "checking": "Mencari pembaruan...",
+    "checkNow": "Periksa sekarang",
+    "checkedJustNow": "Baru saja diperiksa",
+    "ready": "{{count}} siap",
+    "updating": "{{count}} berjalan",
+    "needs_one": "{{count}} butuh Anda",
+    "needs_other": "{{count}} butuh Anda",
+    "lastCheck": "Pemeriksaan terakhir {{when}}",
+    "headline": {
+      "loading": "Memuat pembaruan",
+      "loadError": "Daftar pembaruan tidak dapat dimuat",
+      "updates_one": "{{count}} pembaruan tersedia",
+      "updates_other": "{{count}} pembaruan tersedia",
+      "current": "Semuanya sudah terbaru",
+      "never": "Belum ada pemeriksaan yang berjalan",
+      "couldNot": "Tidak dapat memeriksa pembaruan",
+      "noneButFailed": "Tidak ada pembaruan ditemukan, tetapi pemeriksaan gagal untuk: {{sources}}",
+      "noneButNever": "Tidak ada pembaruan ditemukan, tetapi belum diperiksa: {{sources}}",
+      "unavailable": "Pembaruan tidak dapat diperiksa di server ini"
+    }
+  },
+  "when": {
+    "justNow": "baru saja"
+  },
+  "source": {
+    "label": "Dari mana pembaruan berasal",
+    "name": {
+      "gallery": "Galeri backend",
+      "library": "Pustaka backend",
+      "addons": "Add-on"
+    },
+    "checked": "diperiksa {{when}}",
+    "ok": "diperiksa",
+    "never": "belum diperiksa",
+    "loading": "membaca",
+    "unavailable": "tidak tersedia di server ini",
+    "unavailableWhy": "tidak tersedia: {{reason}}",
+    "failed": "pemeriksaan gagal: {{error}}",
+    "addonsUnreadable": "add-on tidak dapat dibaca"
+  },
+  "auto": {
+    "backends": "Perbarui backend otomatis:",
+    "addons": "Perbarui add-on otomatis:",
+    "on": "aktif",
+    "off": "nonaktif",
+    "settings": "Pengaturan"
+  },
+  "disabled": {
+    "title": "Pembaruan backend dimatikan di server ini.",
+    "body": "Backend di bawah ditampilkan, tetapi tidak ada yang dapat memperbaruinya di sini. Konfigurasi server mematikan pemasangan backend."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "Pemeriksaan galeri backend gagal, jadi mungkin ada pembaruan backend yang tidak ditampilkan.",
+      "library": "Pemeriksaan pustaka gagal, jadi mungkin ada pembaruan backend pustaka yang tidak ditampilkan.",
+      "addons": "Pemeriksaan add-on gagal, jadi mungkin ada pembaruan add-on yang tidak ditampilkan."
+    },
+    "lastGood": "Daftar di bawah berasal dari pemeriksaan berhasil terakhir, {{when}}. Alasan: {{error}}.",
+    "noGood": "Belum ada pemeriksaan yang berhasil. Alasan: {{error}}.",
+    "again": "Periksa lagi"
+  },
+  "filter": {
+    "label": "Saring pembaruan",
+    "all": "Semua",
+    "ready": "Siap",
+    "needs-you": "Butuh Anda",
+    "updating": "Berjalan",
+    "current": "Terbaru",
+    "none": "Tidak ada yang cocok dengan saringan ini."
+  },
+  "group": {
+    "needs": "Butuh Anda",
+    "updating": "Berjalan",
+    "ready": "Siap diperbarui",
+    "current_one": "{{count}} terbaru",
+    "current_other": "{{count}} terbaru",
+    "selectAll": "Pilih semua yang siap",
+    "selectNone": "Jangan pilih apa pun",
+    "show": "Tampilkan",
+    "hide": "Sembunyikan"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Backend pustaka",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Galeri backend",
+      "library": "Pustaka: {{id}}",
+      "libraryUnnamed": "Pustaka"
+    },
+    "signed": "bertanda tangan",
+    "versions": "{{from}} ke {{to}}",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} node",
+    "drift_one": "{{count}} berbeda",
+    "drift_other": "{{count}} berbeda",
+    "old": "dari pemeriksaan sebelumnya",
+    "select": "Pilih {{name}}",
+    "update": "Perbarui",
+    "updateNamed": "Perbarui {{name}}",
+    "check": "Periksa",
+    "checkNamed": "Periksa pembaruan {{name}}",
+    "retry": "Coba lagi",
+    "retryNamed": "Coba {{name}} lagi",
+    "review": "Tinjau",
+    "reviewNamed": "Tinjau pembaruan {{name}}",
+    "cancel": "Batal",
+    "cancelNamed": "Batalkan pembaruan {{name}}",
+    "progress": "Kemajuan pembaruan {{name}}",
+    "failed": "Pembaruan gagal: {{message}}",
+    "failedWhy": "Pembaruan gagal: {{message}}",
+    "noReason": "tidak ada alasan",
+    "startFailed": "Pembaruan tidak dapat dimulai: {{message}}",
+    "unchanged": "Pembaruan selesai tetapi versinya tidak berubah.",
+    "unconfirmed": "Pembaruan selesai, tetapi tidak ada pemeriksaan yang dapat memastikannya.",
+    "held": "Menunggu persetujuan. {{version}} meminta akses yang belum Anda setujui ({{count}} baru).",
+    "blocked": {
+      "installsDisabled": "Pembaruan backend dimatikan di server ini.",
+      "incompatible": "Versi {{version}} tidak dapat berjalan di host ini.",
+      "integrity": "Pustaka mencantumkan versi terpasang dengan isi berbeda. Tidak ada yang diubah."
+    },
+    "updatingPhase": "Memperbarui: {{phase}}",
+    "updatingPlain": "Memperbarui",
+    "addonConfirm": "Perlu konfirmasi Anda di peramban ini"
+  },
+  "bulk": {
+    "start": "Perbarui {{count}} yang siap",
+    "running": "Memperbarui {{current}} dari {{total}}",
+    "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
+    "details": "Detail",
+    "retryFailed": "Coba lagi yang gagal ({{count}})",
+    "dismiss": "Tutup"
+  },
+  "check": {
+    "result_one": "Pemeriksaan selesai: {{count}} pembaruan.",
+    "result_other": "Pemeriksaan selesai: {{count}} pembaruan.",
+    "failedSources_one": "{{count}} sumber gagal.",
+    "failedSources_other": "{{count}} sumber gagal.",
+    "throttled": "Sebuah pemeriksaan berjalan beberapa saat lalu. Ini hasilnya."
+  },
+  "live": {
+    "updated": "{{name}} telah diperbarui.",
+    "failed": "{{name}} tidak diperbarui."
+  },
+  "empty": {
+    "title": "Belum ada yang perlu diperbarui",
+    "body": "Pasang backend atau add-on dan pembaruannya muncul di sini.",
+    "backends": "Buka Backend",
+    "addons": "Buka Aplikasi"
+  },
+  "trigger": {
+    "all": "Perbarui semua ({{count}})"
+  },
+  "dialog": {
+    "title": "Perbarui yang siap",
+    "intro": "Pilih apa yang diperbarui. Masing-masing diperbarui sendiri, satu per satu, dan dianggap selesai hanya jika pemeriksaan baru tidak lagi mencantumkannya. Satu kegagalan tidak menghentikan yang lain.",
+    "selection": "Pilih apa yang diperbarui",
+    "selectAll": "Pilih semua",
+    "selectNone": "Jangan pilih apa pun",
+    "item": "Perbarui {{name}}",
+    "versions": "{{from}} ke {{to}}",
+    "blocked": "Tidak dapat dimulai",
+    "start": "Perbarui yang dipilih",
+    "starting": "Memperbarui...",
+    "retry": "Coba lagi yang gagal ({{count}})",
+    "again": "Pilihan baru",
+    "close": "Tutup",
+    "closeRunning": "Tutup (tetap berjalan)",
+    "runningNote": "Menutup jendela ini tidak menghentikan pembaruan.",
+    "progress": "Memperbarui {{current}} dari {{total}}",
+    "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
+    "empty": "Tidak ada yang perlu diperbarui.",
+    "selectedCount_one": "{{count}} dipilih",
+    "selectedCount_other": "{{count}} dipilih"
+  },
+  "item": {
+    "queued": "Mengantre",
+    "upgrading": "Memperbarui",
+    "done": "Diperbarui",
+    "failed": "Gagal",
+    "skipped": "Dilewati"
+  }
+}

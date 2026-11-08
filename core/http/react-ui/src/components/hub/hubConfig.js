@@ -26,7 +26,8 @@
 //   signals       tab only: values from the Operate summary (see
 //                 OperateSummaryContext), each drawn as a neutral count
 //                 (kind `count`) or an attention badge (kind `attention`,
-//                 or `error` for failures)
+//                 or `error` for failures); kind `update` is the accent count
+//                 of the Updates tab, red when an update failed
 
 import { FEATURE_ADDONS } from '../../utils/capabilities.js'
 
@@ -107,13 +108,23 @@ export const operateHub = {
       id: 'runtime',
       labelKey: 'hub.runtime',
       icon: 'server',
-      signals: [{ key: 'backends', kind: 'attention' }, { key: 'activity', kind: 'count' }],
+      signals: [{ key: 'activity', kind: 'count' }],
       items: [
         { path: '/app/backends', labelKey: 'items.backends', adminOnly: true },
         { path: '/app/activity', labelKey: 'items.activity', adminOnly: true },
         { path: '/app/backend-logs', labelKey: 'items.logs', adminOnly: true },
         { path: '/app/failover', labelKey: 'items.failover', adminOnly: true, unlessFeature: 'distributed' },
       ],
+    },
+    {
+      // What is out of date and what is changing: gallery and library backends
+      // and add-ons. The number is what needs a person (utils/updates badgeOf),
+      // from the shell-level UpdatesProvider.
+      id: 'updates',
+      labelKey: 'hub.updates',
+      icon: 'arrow-up',
+      signals: [{ key: 'updates', kind: 'update' }],
+      items: [{ path: '/app/updates', labelKey: 'hub.updates', adminOnly: true }],
     },
     {
       id: 'traffic',

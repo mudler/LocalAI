@@ -54,6 +54,7 @@ export function backendRows(snapshot, { operations = [], auto = false } = {}) {
       to,
       subtype: it.state,
       availableVersion: it.availableVersion || '',
+      installedVersion: it.installedVersion || '',
       reason: it.reason || '',
       sourceId: it.sourceId || '',
       signed: Boolean(it.signed),

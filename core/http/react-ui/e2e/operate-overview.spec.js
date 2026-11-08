@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { mockReadModel } from './operate-fixtures.js'
 
 // Operate overview (src/pages/OperateOverview.jsx).
 //
@@ -24,6 +25,8 @@ const ONE_UPGRADE = {
 async function mockQuiet(page, { upgrades = NO_UPGRADES, operations = [] } = {}) {
   await page.route('**/api/backends/upgrades', route =>
     route.fulfill({ json: upgrades }))
+  // The shell reads the update read model; the Status page names its items.
+  await mockReadModel(page, upgrades)
   await page.route('**/api/operations', route =>
     route.fulfill({ json: operations }))
   await page.route('**/api/nodes', route =>
@@ -67,12 +70,13 @@ test.describe('Administration overview', () => {
     await expect(page.locator(ITEM, { hasText: 'qwen3-8b' })).toBeVisible()
   })
 
-  test('the Runtime tab reports backend updates beside the label', async ({ page }) => {
+  test('the Updates tab reports the updates that need a person, and Runtime no longer does', async ({ page }) => {
     await mockQuiet(page, { upgrades: ONE_UPGRADE })
     await page.goto('/app/operate')
-    const runtime = page.locator('.dk-hubtabs [data-hub-tab="runtime"]')
-    await expect(runtime).toBeVisible()
-    await expect(runtime.locator('.dk-hubtab-attn')).toContainText('1')
+    const updates = page.locator('.dk-hubtabs [data-hub-tab="updates"]')
+    await expect(updates).toBeVisible()
+    await expect(updates.getByTestId('updates-tab-count')).toHaveText('1')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"] .dk-hubtab-attn')).toHaveCount(0)
   })
 
   test('the Status tab carries the attention count and nothing else claims one', async ({ page }) => {

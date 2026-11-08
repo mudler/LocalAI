@@ -16,6 +16,7 @@ import AppearanceSync from './components/wellknown/AppearanceSync'
 import { displayVersion } from './utils/version'
 import { apiUrl } from './utils/basePath'
 import { InboxProvider } from './contexts/InboxContext'
+import { UpdatesProvider } from './contexts/UpdatesContext'
 import { MobileInboxButton } from './components/inbox/InboxTriggers'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -121,6 +122,7 @@ export default function App() {
 
   return (
     <InboxProvider features={features}>
+    <UpdatesProvider features={features}>
       <div className={layoutClasses}>
         <AppearanceSync />
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} features={features} />
@@ -212,6 +214,7 @@ export default function App() {
         {/* On a chat page the stack rises above the composer. */}
         <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
       </div>
+    </UpdatesProvider>
     </InboxProvider>
   )
 }

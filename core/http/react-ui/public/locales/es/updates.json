@@ -1,0 +1,198 @@
+{
+  "title": "Actualizaciones",
+  "supporting": "Backends, backends de biblioteca y add-ons que tienen una versión más nueva.",
+  "loading": "Cargando actualizaciones",
+  "adminOnly": {
+    "title": "Las actualizaciones son para administradores",
+    "body": "Pide a un administrador que revise qué está desactualizado en este servidor."
+  },
+  "loadError": {
+    "title": "No se pudo cargar la lista de actualizaciones."
+  },
+  "strip": {
+    "label": "Resumen de actualizaciones",
+    "checking": "Buscando actualizaciones...",
+    "checkNow": "Comprobar ahora",
+    "checkedJustNow": "Comprobado ahora mismo",
+    "ready": "{{count}} listas",
+    "updating": "{{count}} en curso",
+    "needs_one": "{{count}} te necesita",
+    "needs_other": "{{count}} te necesitan",
+    "lastCheck": "Última comprobación {{when}}",
+    "headline": {
+      "loading": "Cargando actualizaciones",
+      "loadError": "No se pudo cargar la lista de actualizaciones",
+      "updates_one": "{{count}} actualización disponible",
+      "updates_other": "{{count}} actualizaciones disponibles",
+      "current": "Todo está al día",
+      "never": "Todavía no se ha comprobado",
+      "couldNot": "No se pudo buscar actualizaciones",
+      "noneButFailed": "No se encontraron actualizaciones, pero la comprobación falló para: {{sources}}",
+      "noneButNever": "No se encontraron actualizaciones, pero aún no se ha comprobado: {{sources}}",
+      "unavailable": "En este servidor no se pueden buscar actualizaciones"
+    }
+  },
+  "when": {
+    "justNow": "ahora mismo"
+  },
+  "source": {
+    "label": "De dónde vienen las actualizaciones",
+    "name": {
+      "gallery": "Galería de backends",
+      "library": "Biblioteca de backends",
+      "addons": "Add-ons"
+    },
+    "checked": "comprobado {{when}}",
+    "ok": "comprobado",
+    "never": "aún sin comprobar",
+    "loading": "leyendo",
+    "unavailable": "no disponible en este servidor",
+    "unavailableWhy": "no disponible: {{reason}}",
+    "failed": "la comprobación falló: {{error}}",
+    "addonsUnreadable": "no se pudieron leer los add-ons"
+  },
+  "auto": {
+    "backends": "Actualizar backends automáticamente:",
+    "addons": "Actualizar add-ons automáticamente:",
+    "on": "activado",
+    "off": "desactivado",
+    "settings": "Ajustes"
+  },
+  "disabled": {
+    "title": "Las actualizaciones de backends están desactivadas en este servidor.",
+    "body": "Los backends de abajo se muestran, pero aquí nada puede actualizarlos. La configuración del servidor desactivó la instalación de backends."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "Falló la comprobación de la galería de backends, así que puede haber actualizaciones de backends que no se muestran.",
+      "library": "Falló la comprobación de la biblioteca, así que puede haber actualizaciones de backends de biblioteca que no se muestran.",
+      "addons": "Falló la comprobación de los add-ons, así que puede haber actualizaciones de add-ons que no se muestran."
+    },
+    "lastGood": "La lista de abajo es de la última comprobación correcta, {{when}}. Motivo: {{error}}.",
+    "noGood": "Ninguna comprobación ha funcionado todavía. Motivo: {{error}}.",
+    "again": "Comprobar de nuevo"
+  },
+  "filter": {
+    "label": "Filtrar actualizaciones",
+    "all": "Todas",
+    "ready": "Listas",
+    "needs-you": "Te necesitan",
+    "updating": "En curso",
+    "current": "Al día",
+    "none": "Nada coincide con este filtro."
+  },
+  "group": {
+    "needs": "Te necesitan",
+    "updating": "En curso",
+    "ready": "Listas para actualizar",
+    "current_one": "{{count}} al día",
+    "current_other": "{{count}} al día",
+    "selectAll": "Seleccionar todas las listas",
+    "selectNone": "No seleccionar ninguna",
+    "show": "Mostrar",
+    "hide": "Ocultar"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Backend de biblioteca",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Galería de backends",
+      "library": "Biblioteca: {{id}}",
+      "libraryUnnamed": "Biblioteca"
+    },
+    "signed": "firmado",
+    "versions": "{{from}} a {{to}}",
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodos",
+    "drift_one": "{{count}} difiere",
+    "drift_other": "{{count}} difieren",
+    "old": "de una comprobación anterior",
+    "select": "Seleccionar {{name}}",
+    "update": "Actualizar",
+    "updateNamed": "Actualizar {{name}}",
+    "check": "Comprobar",
+    "checkNamed": "Comprobar si {{name}} tiene una actualización",
+    "retry": "Reintentar",
+    "retryNamed": "Reintentar {{name}}",
+    "review": "Revisar",
+    "reviewNamed": "Revisar la actualización de {{name}}",
+    "cancel": "Cancelar",
+    "cancelNamed": "Cancelar la actualización de {{name}}",
+    "progress": "Progreso de la actualización de {{name}}",
+    "failed": "La actualización falló: {{message}}",
+    "failedWhy": "Actualización fallida: {{message}}",
+    "noReason": "sin motivo indicado",
+    "startFailed": "La actualización no pudo empezar: {{message}}",
+    "unchanged": "La actualización terminó pero la versión no cambió.",
+    "unconfirmed": "La actualización terminó, pero ninguna comprobación pudo confirmarla.",
+    "held": "En espera de aprobación. {{version}} pide acceso que no has aprobado ({{count}} nuevos).",
+    "blocked": {
+      "installsDisabled": "Las actualizaciones de backends están desactivadas en este servidor.",
+      "incompatible": "La versión {{version}} no puede ejecutarse en este host.",
+      "integrity": "La biblioteca lista la versión instalada con otro contenido. No se cambió nada."
+    },
+    "updatingPhase": "Actualizando: {{phase}}",
+    "updatingPlain": "Actualizando",
+    "addonConfirm": "Necesita tu confirmación en este navegador"
+  },
+  "bulk": {
+    "start": "Actualizar {{count}} listas",
+    "running": "Actualizando {{current}} de {{total}}",
+    "summary": "{{done}} actualizadas, {{failed}} con error, {{skipped}} omitidas",
+    "details": "Detalles",
+    "retryFailed": "Reintentar las fallidas ({{count}})",
+    "dismiss": "Descartar"
+  },
+  "check": {
+    "result_one": "Comprobación terminada: {{count}} actualización.",
+    "result_other": "Comprobación terminada: {{count}} actualizaciones.",
+    "failedSources_one": "Falló {{count}} fuente.",
+    "failedSources_other": "Fallaron {{count}} fuentes.",
+    "throttled": "Hace un momento se hizo una comprobación. Este es su resultado."
+  },
+  "live": {
+    "updated": "{{name}} se actualizó.",
+    "failed": "{{name}} no se actualizó."
+  },
+  "empty": {
+    "title": "Aún no hay nada que actualizar",
+    "body": "Instala un backend o un add-on y sus actualizaciones aparecerán aquí.",
+    "backends": "Abrir Backends",
+    "addons": "Abrir Apps"
+  },
+  "trigger": {
+    "all": "Actualizar todo ({{count}})"
+  },
+  "dialog": {
+    "title": "Actualizar las listas",
+    "intro": "Elige qué actualizar. Cada una se actualiza por separado, una tras otra, y cuenta como terminada solo cuando una nueva comprobación ya no la lista. Un fallo no detiene las demás.",
+    "selection": "Elige qué actualizar",
+    "selectAll": "Seleccionar todo",
+    "selectNone": "No seleccionar nada",
+    "item": "Actualizar {{name}}",
+    "versions": "{{from}} a {{to}}",
+    "blocked": "No puede empezar",
+    "start": "Actualizar selección",
+    "starting": "Actualizando...",
+    "retry": "Reintentar las fallidas ({{count}})",
+    "again": "Nueva selección",
+    "close": "Cerrar",
+    "closeRunning": "Cerrar (sigue en marcha)",
+    "runningNote": "Cerrar esta ventana no detiene las actualizaciones.",
+    "progress": "Actualizando {{current}} de {{total}}",
+    "summary": "{{done}} actualizadas, {{failed}} con error, {{skipped}} omitidas",
+    "empty": "No hay nada que actualizar.",
+    "selectedCount_one": "{{count}} seleccionada",
+    "selectedCount_other": "{{count}} seleccionadas"
+  },
+  "item": {
+    "queued": "En cola",
+    "upgrading": "Actualizando",
+    "done": "Actualizada",
+    "failed": "Falló",
+    "skipped": "Omitida"
+  }
+}

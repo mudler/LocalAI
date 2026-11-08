@@ -15,7 +15,7 @@ test('an update is a row state and a line above the list, not a banner or a rail
   const updates = page.getByTestId('backends-updates')
   await expect(updates).toContainText('1 update available')
   await expect(updates.getByRole('button', { name: 'Review' })).toBeVisible()
-  await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"] .dk-hubtab-attn')).toContainText('1')
+  await expect(page.locator('.dk-hubtabs [data-hub-tab="updates"]').getByTestId('updates-tab-count')).toHaveText('1')
 
   // Nothing here is a filled card with an edge.
   await expect(page.locator('.bk-notice')).toHaveCount(0)

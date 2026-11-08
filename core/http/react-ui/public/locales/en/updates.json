@@ -1,0 +1,198 @@
+{
+  "title": "Updates",
+  "supporting": "Backends, library backends and add-ons that have a newer version.",
+  "loading": "Loading updates",
+  "adminOnly": {
+    "title": "Updates are for administrators",
+    "body": "Ask an administrator to look at what is out of date on this server."
+  },
+  "loadError": {
+    "title": "Could not load the list of updates."
+  },
+  "strip": {
+    "label": "Update summary",
+    "checking": "Checking for updates...",
+    "checkNow": "Check now",
+    "checkedJustNow": "Checked just now",
+    "ready": "{{count}} ready",
+    "updating": "{{count}} updating",
+    "needs_one": "{{count}} needs you",
+    "needs_other": "{{count}} need you",
+    "lastCheck": "Last check {{when}}",
+    "headline": {
+      "loading": "Loading updates",
+      "loadError": "Could not load the list of updates",
+      "updates_one": "{{count}} update available",
+      "updates_other": "{{count}} updates available",
+      "current": "Everything is up to date",
+      "never": "No check has run yet",
+      "couldNot": "Could not check for updates",
+      "noneButFailed": "No updates found, but the check failed for: {{sources}}",
+      "noneButNever": "No updates found, but not checked yet: {{sources}}",
+      "unavailable": "Updates cannot be checked on this server"
+    }
+  },
+  "when": {
+    "justNow": "just now"
+  },
+  "source": {
+    "label": "Where updates come from",
+    "name": {
+      "gallery": "Backend gallery",
+      "library": "Backend library",
+      "addons": "Add-ons"
+    },
+    "checked": "checked {{when}}",
+    "ok": "checked",
+    "never": "not checked yet",
+    "loading": "reading",
+    "unavailable": "not available on this server",
+    "unavailableWhy": "not available: {{reason}}",
+    "failed": "check failed: {{error}}",
+    "addonsUnreadable": "the add-ons could not be read"
+  },
+  "auto": {
+    "backends": "Update backends automatically:",
+    "addons": "Update add-ons automatically:",
+    "on": "on",
+    "off": "off",
+    "settings": "Settings"
+  },
+  "disabled": {
+    "title": "Backend updates are turned off on this server.",
+    "body": "The backends below are listed, but nothing can update them here. The server configuration turned backend installs off."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "The backend gallery check failed, so backends may have updates that are not shown.",
+      "library": "The library check failed, so library backends may have updates that are not shown.",
+      "addons": "The add-on check failed, so add-ons may have updates that are not shown."
+    },
+    "lastGood": "The list below is from the last good check, {{when}}. Reason: {{error}}.",
+    "noGood": "No check has worked yet. Reason: {{error}}.",
+    "again": "Check again"
+  },
+  "filter": {
+    "label": "Filter updates",
+    "all": "All",
+    "ready": "Ready",
+    "needs-you": "Needs you",
+    "updating": "Updating",
+    "current": "Up to date",
+    "none": "Nothing matches this filter."
+  },
+  "group": {
+    "needs": "Needs you",
+    "updating": "Updating",
+    "ready": "Ready to update",
+    "current_one": "{{count}} up to date",
+    "current_other": "{{count}} up to date",
+    "selectAll": "Select all ready",
+    "selectNone": "Select none",
+    "show": "Show",
+    "hide": "Hide"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Library backend",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Backend gallery",
+      "library": "Library: {{id}}",
+      "libraryUnnamed": "Library"
+    },
+    "signed": "signed",
+    "versions": "{{from}} to {{to}}",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "drift_one": "{{count}} differs",
+    "drift_other": "{{count}} differ",
+    "old": "from an earlier check",
+    "select": "Select {{name}}",
+    "update": "Update",
+    "updateNamed": "Update {{name}}",
+    "check": "Check",
+    "checkNamed": "Check {{name}} for an update",
+    "retry": "Retry",
+    "retryNamed": "Retry {{name}}",
+    "review": "Review",
+    "reviewNamed": "Review the update of {{name}}",
+    "cancel": "Cancel",
+    "cancelNamed": "Cancel the update of {{name}}",
+    "progress": "Progress of the update of {{name}}",
+    "failed": "The update failed: {{message}}",
+    "failedWhy": "Update failed: {{message}}",
+    "noReason": "no reason given",
+    "startFailed": "The update could not start: {{message}}",
+    "unchanged": "The update ended but the version did not change.",
+    "unconfirmed": "The update ended, but no check could confirm it.",
+    "held": "Held for approval. {{version}} asks for access that you have not approved ({{count}} new).",
+    "blocked": {
+      "installsDisabled": "Backend updates are turned off on this server.",
+      "incompatible": "Version {{version}} cannot run on this host.",
+      "integrity": "The library lists the installed version with different contents. Nothing was changed."
+    },
+    "updatingPhase": "Updating: {{phase}}",
+    "updatingPlain": "Updating",
+    "addonConfirm": "Needs your confirmation in this browser"
+  },
+  "bulk": {
+    "start": "Update {{count}} ready",
+    "running": "Updating {{current}} of {{total}}",
+    "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
+    "details": "Details",
+    "retryFailed": "Retry failed ({{count}})",
+    "dismiss": "Dismiss"
+  },
+  "check": {
+    "result_one": "Check finished: {{count}} update.",
+    "result_other": "Check finished: {{count}} updates.",
+    "failedSources_one": "{{count}} source failed.",
+    "failedSources_other": "{{count}} sources failed.",
+    "throttled": "A check ran moments ago. This is its result."
+  },
+  "live": {
+    "updated": "{{name}} was updated.",
+    "failed": "{{name}} was not updated."
+  },
+  "empty": {
+    "title": "Nothing to update yet",
+    "body": "Install a backend or an add-on and its updates show here.",
+    "backends": "Open Backends",
+    "addons": "Open Apps"
+  },
+  "trigger": {
+    "all": "Update all ({{count}})"
+  },
+  "dialog": {
+    "title": "Update ready",
+    "intro": "Choose what to update. Each one is updated on its own, one after another, and counts as done only when a new check no longer lists it. A failure does not stop the others.",
+    "selection": "Select what to update",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "item": "Update {{name}}",
+    "versions": "{{from}} to {{to}}",
+    "blocked": "Cannot start",
+    "start": "Update selected",
+    "starting": "Updating...",
+    "retry": "Retry failed ({{count}})",
+    "again": "New selection",
+    "close": "Close",
+    "closeRunning": "Close (keeps running)",
+    "runningNote": "Closing this window does not stop the updates.",
+    "progress": "Updating {{current}} of {{total}}",
+    "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
+    "empty": "Nothing to update.",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected"
+  },
+  "item": {
+    "queued": "Queued",
+    "upgrading": "Updating",
+    "done": "Updated",
+    "failed": "Failed",
+    "skipped": "Skipped"
+  }
+}

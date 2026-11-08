@@ -111,7 +111,8 @@
       "addons": "Instala complementos y abre las apps que ofrecen.",
       "triggers": "Inicia un chat por sí solo, con una programación o cuando llega un archivo."
     },
-    "operateSupporting": "Qué se ejecuta en este servidor, cómo se usa y cómo está configurado."
+    "operateSupporting": "Qué se ejecuta en este servidor, cómo se usa y cómo está configurado.",
+    "updates": "Actualizaciones"
   },
   "pinnedPages": "Páginas fijadas",
   "new": "Nuevo",
@@ -125,5 +126,7 @@
   "inboxUnread_other": "Notificaciones, {{count}} sin leer",
   "inboxArrived": "Nueva notificación: {{title}}",
   "inboxArrivedMany_one": "{{count}} notificación nueva",
-  "inboxArrivedMany_other": "{{count}} notificaciones nuevas"
+  "inboxArrivedMany_other": "{{count}} notificaciones nuevas",
+  "updatesBadge_one": "{{count}} actualización te necesita",
+  "updatesBadge_other": "{{count}} actualizaciones te necesitan"
 }

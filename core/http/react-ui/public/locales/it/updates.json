@@ -1,0 +1,198 @@
+{
+  "title": "Aggiornamenti",
+  "supporting": "Backend, backend di libreria e add-on che hanno una versione più recente.",
+  "loading": "Caricamento degli aggiornamenti",
+  "adminOnly": {
+    "title": "Gli aggiornamenti sono per gli amministratori",
+    "body": "Chiedi a un amministratore di controllare cosa è obsoleto su questo server."
+  },
+  "loadError": {
+    "title": "Impossibile caricare l'elenco degli aggiornamenti."
+  },
+  "strip": {
+    "label": "Riepilogo degli aggiornamenti",
+    "checking": "Ricerca di aggiornamenti...",
+    "checkNow": "Controlla ora",
+    "checkedJustNow": "Controllato proprio ora",
+    "ready": "{{count}} pronti",
+    "updating": "{{count}} in corso",
+    "needs_one": "{{count}} ha bisogno di te",
+    "needs_other": "{{count}} hanno bisogno di te",
+    "lastCheck": "Ultimo controllo {{when}}",
+    "headline": {
+      "loading": "Caricamento degli aggiornamenti",
+      "loadError": "Impossibile caricare l'elenco degli aggiornamenti",
+      "updates_one": "{{count}} aggiornamento disponibile",
+      "updates_other": "{{count}} aggiornamenti disponibili",
+      "current": "Tutto è aggiornato",
+      "never": "Nessun controllo è ancora stato eseguito",
+      "couldNot": "Impossibile cercare aggiornamenti",
+      "noneButFailed": "Nessun aggiornamento trovato, ma il controllo è fallito per: {{sources}}",
+      "noneButNever": "Nessun aggiornamento trovato, ma non ancora controllato: {{sources}}",
+      "unavailable": "Su questo server non si possono cercare aggiornamenti"
+    }
+  },
+  "when": {
+    "justNow": "proprio ora"
+  },
+  "source": {
+    "label": "Da dove arrivano gli aggiornamenti",
+    "name": {
+      "gallery": "Galleria dei backend",
+      "library": "Libreria dei backend",
+      "addons": "Add-on"
+    },
+    "checked": "controllato {{when}}",
+    "ok": "controllato",
+    "never": "non ancora controllato",
+    "loading": "lettura",
+    "unavailable": "non disponibile su questo server",
+    "unavailableWhy": "non disponibile: {{reason}}",
+    "failed": "controllo fallito: {{error}}",
+    "addonsUnreadable": "non è stato possibile leggere gli add-on"
+  },
+  "auto": {
+    "backends": "Aggiorna i backend automaticamente:",
+    "addons": "Aggiorna gli add-on automaticamente:",
+    "on": "attivo",
+    "off": "disattivato",
+    "settings": "Impostazioni"
+  },
+  "disabled": {
+    "title": "Gli aggiornamenti dei backend sono disattivati su questo server.",
+    "body": "I backend qui sotto sono elencati, ma qui nulla può aggiornarli. La configurazione del server ha disattivato l'installazione dei backend."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "Il controllo della galleria dei backend è fallito, quindi potrebbero mancare aggiornamenti dei backend.",
+      "library": "Il controllo della libreria è fallito, quindi potrebbero mancare aggiornamenti dei backend di libreria.",
+      "addons": "Il controllo degli add-on è fallito, quindi potrebbero mancare aggiornamenti degli add-on."
+    },
+    "lastGood": "L'elenco qui sotto viene dall'ultimo controllo riuscito, {{when}}. Motivo: {{error}}.",
+    "noGood": "Nessun controllo è ancora riuscito. Motivo: {{error}}.",
+    "again": "Controlla di nuovo"
+  },
+  "filter": {
+    "label": "Filtra gli aggiornamenti",
+    "all": "Tutti",
+    "ready": "Pronti",
+    "needs-you": "Richiedono te",
+    "updating": "In corso",
+    "current": "Aggiornati",
+    "none": "Nulla corrisponde a questo filtro."
+  },
+  "group": {
+    "needs": "Richiedono te",
+    "updating": "In corso",
+    "ready": "Pronti da aggiornare",
+    "current_one": "{{count}} aggiornato",
+    "current_other": "{{count}} aggiornati",
+    "selectAll": "Seleziona tutti i pronti",
+    "selectNone": "Non selezionare nulla",
+    "show": "Mostra",
+    "hide": "Nascondi"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Backend di libreria",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Galleria dei backend",
+      "library": "Libreria: {{id}}",
+      "libraryUnnamed": "Libreria"
+    },
+    "signed": "firmato",
+    "versions": "da {{from}} a {{to}}",
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodi",
+    "drift_one": "{{count}} differisce",
+    "drift_other": "{{count}} differiscono",
+    "old": "da un controllo precedente",
+    "select": "Seleziona {{name}}",
+    "update": "Aggiorna",
+    "updateNamed": "Aggiorna {{name}}",
+    "check": "Controlla",
+    "checkNamed": "Controlla se {{name}} ha un aggiornamento",
+    "retry": "Riprova",
+    "retryNamed": "Riprova {{name}}",
+    "review": "Rivedi",
+    "reviewNamed": "Rivedi l'aggiornamento di {{name}}",
+    "cancel": "Annulla",
+    "cancelNamed": "Annulla l'aggiornamento di {{name}}",
+    "progress": "Avanzamento dell'aggiornamento di {{name}}",
+    "failed": "L'aggiornamento è fallito: {{message}}",
+    "failedWhy": "Aggiornamento fallito: {{message}}",
+    "noReason": "nessun motivo indicato",
+    "startFailed": "L'aggiornamento non è potuto partire: {{message}}",
+    "unchanged": "L'aggiornamento è terminato ma la versione non è cambiata.",
+    "unconfirmed": "L'aggiornamento è terminato, ma nessun controllo ha potuto confermarlo.",
+    "held": "In attesa di approvazione. {{version}} chiede accessi che non hai approvato ({{count}} nuovi).",
+    "blocked": {
+      "installsDisabled": "Gli aggiornamenti dei backend sono disattivati su questo server.",
+      "incompatible": "La versione {{version}} non può funzionare su questo host.",
+      "integrity": "La libreria elenca la versione installata con contenuto diverso. Non è stato cambiato nulla."
+    },
+    "updatingPhase": "In aggiornamento: {{phase}}",
+    "updatingPlain": "In aggiornamento",
+    "addonConfirm": "Richiede la tua conferma in questo browser"
+  },
+  "bulk": {
+    "start": "Aggiorna {{count}} pronti",
+    "running": "Aggiornamento {{current}} di {{total}}",
+    "summary": "{{done}} aggiornati, {{failed}} falliti, {{skipped}} saltati",
+    "details": "Dettagli",
+    "retryFailed": "Riprova i falliti ({{count}})",
+    "dismiss": "Chiudi"
+  },
+  "check": {
+    "result_one": "Controllo terminato: {{count}} aggiornamento.",
+    "result_other": "Controllo terminato: {{count}} aggiornamenti.",
+    "failedSources_one": "{{count}} fonte è fallita.",
+    "failedSources_other": "{{count}} fonti sono fallite.",
+    "throttled": "Un controllo è stato eseguito un momento fa. Questo è il suo risultato."
+  },
+  "live": {
+    "updated": "{{name}} è stato aggiornato.",
+    "failed": "{{name}} non è stato aggiornato."
+  },
+  "empty": {
+    "title": "Ancora nulla da aggiornare",
+    "body": "Installa un backend o un add-on e i suoi aggiornamenti compariranno qui.",
+    "backends": "Apri i backend",
+    "addons": "Apri le app"
+  },
+  "trigger": {
+    "all": "Aggiorna tutto ({{count}})"
+  },
+  "dialog": {
+    "title": "Aggiorna i pronti",
+    "intro": "Scegli cosa aggiornare. Ognuno viene aggiornato per conto suo, uno dopo l'altro, e conta come finito solo quando un nuovo controllo non lo elenca più. Un errore non ferma gli altri.",
+    "selection": "Scegli cosa aggiornare",
+    "selectAll": "Seleziona tutto",
+    "selectNone": "Non selezionare nulla",
+    "item": "Aggiorna {{name}}",
+    "versions": "da {{from}} a {{to}}",
+    "blocked": "Non può partire",
+    "start": "Aggiorna selezione",
+    "starting": "Aggiornamento...",
+    "retry": "Riprova i falliti ({{count}})",
+    "again": "Nuova selezione",
+    "close": "Chiudi",
+    "closeRunning": "Chiudi (continua in background)",
+    "runningNote": "Chiudere questa finestra non ferma gli aggiornamenti.",
+    "progress": "Aggiornamento {{current}} di {{total}}",
+    "summary": "{{done}} aggiornati, {{failed}} falliti, {{skipped}} saltati",
+    "empty": "Nulla da aggiornare.",
+    "selectedCount_one": "{{count}} selezionato",
+    "selectedCount_other": "{{count}} selezionati"
+  },
+  "item": {
+    "queued": "In coda",
+    "upgrading": "In aggiornamento",
+    "done": "Aggiornato",
+    "failed": "Fallito",
+    "skipped": "Saltato"
+  }
+}

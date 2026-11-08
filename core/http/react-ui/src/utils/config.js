@@ -29,6 +29,8 @@ export const API_CONFIG = {
     deleteInstalledBackend: (name) => `/api/backends/system/delete/${name}`,
     backendsUpgrades: '/api/backends/upgrades',
     backendsUpgradesCheck: '/api/backends/upgrades/check',
+    backendUpdates: '/api/backends/updates',
+    backendUpdatesCheck: '/api/backends/updates/check',
     upgradeBackend: (name) => `/api/backends/upgrade/${name}`,
 
     // Resources
