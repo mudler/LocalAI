@@ -52,7 +52,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("coordinator: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&configRow{}, &counterRow{}, &auditRow{}); err != nil {
+	if err := db.AutoMigrate(&configRow{}, &counterRow{}, &auditRow{}, &reportRow{}); err != nil {
 		return nil, fmt.Errorf("coordinator: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -155,6 +155,9 @@ func (s *gormStore) Delete(ctx context.Context, agentID string) error {
 		}
 		if res.RowsAffected == 0 {
 			return ErrNotFound
+		}
+		if err := tx.Where("coordinator_id = ?", agentID).Delete(&reportRow{}).Error; err != nil {
+			return err
 		}
 		return tx.Where("agent_id = ?", agentID).Delete(&counterRow{}).Error
 	})
@@ -298,6 +301,9 @@ func (s *gormStore) Prune(ctx context.Context, before time.Time) (int, error) {
 	if res.Error != nil {
 		return 0, res.Error
 	}
+	if _, err := s.PruneReports(ctx, before); err != nil {
+		return int(res.RowsAffected), err
+	}
 	// The buckets are few (one per day and kind, one per minute with a send),
 	// so read the distinct names and drop the old ones by name.
 	var buckets []string
@@ -318,4 +324,77 @@ func (s *gormStore) Prune(ctx context.Context, before time.Time) (int, error) {
 		old = old[n:]
 	}
 	return int(res.RowsAffected), nil
+}
+
+// reportRow is a helper report. The index serves the sweeper: the reports
+// that are not finished, oldest first.
+type reportRow struct {
+	ChildID       string `gorm:"primaryKey;size:64"`
+	ParentChat    string `gorm:"size:64"`
+	CoordinatorID string `gorm:"size:64;index"`
+	Principal     string `gorm:"size:255"`
+	Title         string `gorm:"size:255"`
+	Created       time.Time
+	LeaseUntil    time.Time
+	Finished      bool `gorm:"index:idx_studio_coordinator_reports_due,priority:1"`
+	Done          time.Time
+}
+
+func (reportRow) TableName() string { return "studio_coordinator_reports" }
+
+func (r reportRow) report() Report {
+	return Report{
+		ChildID: r.ChildID, ParentChat: r.ParentChat, CoordinatorID: r.CoordinatorID,
+		Principal: r.Principal, Title: r.Title,
+		Created: r.Created.UTC(), LeaseUntil: r.LeaseUntil.UTC(), Done: r.Done.UTC(),
+	}
+}
+
+func (s *gormStore) AddReport(ctx context.Context, r Report) error {
+	if err := r.validate(); err != nil {
+		return err
+	}
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&reportRow{
+		ChildID: r.ChildID, ParentChat: r.ParentChat, CoordinatorID: r.CoordinatorID,
+		Principal: r.Principal, Title: r.Title, Created: r.Created.UTC(),
+	}).Error
+}
+
+func (s *gormStore) DueReports(ctx context.Context, now time.Time, limit int) ([]Report, error) {
+	var rows []reportRow
+	err := s.db.WithContext(ctx).Where("finished = ? AND lease_until <= ?", false, now.UTC()).
+		Order("created, child_id").Limit(max(limit, 1)).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Report, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.report())
+	}
+	return out, nil
+}
+
+func (s *gormStore) ClaimReport(ctx context.Context, childID string, now, until time.Time) (bool, error) {
+	res := s.db.WithContext(ctx).Model(&reportRow{}).
+		Where("child_id = ? AND finished = ? AND lease_until <= ?", childID, false, now.UTC()).
+		Update("lease_until", until.UTC())
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected == 1, nil
+}
+
+func (s *gormStore) FinishReport(ctx context.Context, childID string, at time.Time) error {
+	return s.db.WithContext(ctx).Model(&reportRow{}).Where("child_id = ? AND finished = ?", childID, false).
+		Updates(map[string]any{"finished": true, "done": at.UTC()}).Error
+}
+
+func (s *gormStore) ReleaseReport(ctx context.Context, childID string) error {
+	return s.db.WithContext(ctx).Model(&reportRow{}).Where("child_id = ? AND finished = ?", childID, false).
+		Update("lease_until", time.Time{}).Error
+}
+
+func (s *gormStore) PruneReports(ctx context.Context, before time.Time) (int, error) {
+	res := s.db.WithContext(ctx).Where("finished = ? OR created < ?", true, before.UTC()).Delete(&reportRow{})
+	return int(res.RowsAffected), res.Error
 }

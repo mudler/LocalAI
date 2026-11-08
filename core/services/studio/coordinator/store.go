@@ -41,4 +41,25 @@ type Store interface {
 	// Prune drops the audit entries older than before and the counters whose
 	// period ended before it (day and minute buckets).
 	Prune(ctx context.Context, before time.Time) (int, error)
+
+	// AddReport records a helper whose end must be reported to the
+	// coordinator. It is idempotent on ChildID: a second call changes nothing,
+	// not even a report that is done.
+	AddReport(ctx context.Context, r Report) error
+	// DueReports returns the reports that are not done and have no lease
+	// running at now, oldest first, at most limit.
+	DueReports(ctx context.Context, now time.Time, limit int) ([]Report, error)
+	// ClaimReport takes the lease of a report until until. It succeeds for
+	// exactly one caller while the lease runs, and never for a done or
+	// unknown report.
+	ClaimReport(ctx context.Context, childID string, now, until time.Time) (bool, error)
+	// FinishReport marks the report delivered. An unknown report is not an
+	// error.
+	FinishReport(ctx context.Context, childID string, at time.Time) error
+	// ReleaseReport drops the lease so the report is due at once. An unknown
+	// report is not an error.
+	ReleaseReport(ctx context.Context, childID string) error
+	// PruneReports drops the reports that are done and the ones created
+	// before before, and returns how many.
+	PruneReports(ctx context.Context, before time.Time) (int, error)
 }

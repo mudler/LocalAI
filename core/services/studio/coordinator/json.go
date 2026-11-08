@@ -20,6 +20,8 @@ import (
 type jsonStore struct {
 	mu       sync.Mutex
 	path     string // empty: memory only
+	reports  map[string]Report
+	repPath  string // coordinator-reports.json, empty: memory only
 	byID     map[string]Config
 	counters map[string]map[string]int
 	audit    []AuditEntry // ascending ID
@@ -28,7 +30,7 @@ type jsonStore struct {
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
 func NewJSON(dir string) (Store, error) {
-	s := &jsonStore{byID: map[string]Config{}, counters: map[string]map[string]int{}, nextID: 1}
+	s := &jsonStore{byID: map[string]Config{}, counters: map[string]map[string]int{}, reports: map[string]Report{}, nextID: 1}
 	if dir == "" {
 		return s, nil
 	}
@@ -36,21 +38,51 @@ func NewJSON(dir string) (Store, error) {
 		return nil, err
 	}
 	s.path = filepath.Join(dir, "coordinators.json")
+	s.repPath = filepath.Join(dir, "coordinator-reports.json")
 	raw, err := os.ReadFile(s.path)
-	if os.IsNotExist(err) {
-		return s, nil
-	}
-	if err != nil {
+	switch {
+	case os.IsNotExist(err):
+	case err != nil:
 		return nil, err
+	default:
+		var all []Config
+		if err := json.Unmarshal(raw, &all); err != nil {
+			return nil, fmt.Errorf("coordinator: read %s: %w", s.path, err)
+		}
+		for _, c := range all {
+			s.byID[c.AgentID] = c.clone()
+		}
 	}
-	var all []Config
-	if err := json.Unmarshal(raw, &all); err != nil {
-		return nil, fmt.Errorf("coordinator: read %s: %w", s.path, err)
-	}
-	for _, c := range all {
-		s.byID[c.AgentID] = c.clone()
+	// The reports survive a restart, so a helper that ended while the process
+	// was down is still reported.
+	raw, err = os.ReadFile(s.repPath)
+	switch {
+	case os.IsNotExist(err):
+	case err != nil:
+		return nil, err
+	default:
+		var reps []Report
+		if err := json.Unmarshal(raw, &reps); err != nil {
+			return nil, fmt.Errorf("coordinator: read %s: %w", s.repPath, err)
+		}
+		for _, r := range reps {
+			s.reports[r.ChildID] = r
+		}
 	}
 	return s, nil
+}
+
+// saveReports writes the reports file; the caller holds the lock.
+func (s *jsonStore) saveReports() error {
+	if s.repPath == "" {
+		return nil
+	}
+	all := make([]Report, 0, len(s.reports))
+	for _, r := range s.reports {
+		all = append(all, r)
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].ChildID < all[j].ChildID })
+	return atomicfile.WriteJSON(s.repPath, all, 0o600)
 }
 
 // save writes the file; the caller holds the lock.
@@ -147,6 +179,16 @@ func (s *jsonStore) Delete(_ context.Context, agentID string) error {
 		return err
 	}
 	delete(s.counters, agentID)
+	dropped := false
+	for id, r := range s.reports {
+		if r.CoordinatorID == agentID {
+			delete(s.reports, id)
+			dropped = true
+		}
+	}
+	if dropped {
+		return s.saveReports()
+	}
 	return nil
 }
 
@@ -267,6 +309,9 @@ func (s *jsonStore) Prune(_ context.Context, before time.Time) (int, error) {
 		kept = append(kept, e)
 	}
 	s.audit = kept
+	if _, err := s.pruneReports(before); err != nil {
+		return dropped, err
+	}
 	for _, m := range s.counters {
 		for b := range m {
 			if end, ok := bucketEnd(b); ok && !end.After(before) {
@@ -275,4 +320,115 @@ func (s *jsonStore) Prune(_ context.Context, before time.Time) (int, error) {
 		}
 	}
 	return dropped, nil
+}
+
+func (s *jsonStore) AddReport(_ context.Context, r Report) error {
+	if err := r.validate(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.reports[r.ChildID]; ok {
+		return nil
+	}
+	r.Created, r.LeaseUntil, r.Done = r.Created.UTC(), time.Time{}, time.Time{}
+	s.reports[r.ChildID] = r
+	if err := s.saveReports(); err != nil {
+		delete(s.reports, r.ChildID)
+		return err
+	}
+	return nil
+}
+
+func (s *jsonStore) DueReports(_ context.Context, now time.Time, limit int) ([]Report, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Report
+	for _, r := range s.reports {
+		if r.Done.IsZero() && !r.LeaseUntil.After(now) {
+			out = append(out, r)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].Created.Equal(out[j].Created) {
+			return out[i].Created.Before(out[j].Created)
+		}
+		return out[i].ChildID < out[j].ChildID
+	})
+	if limit < 1 {
+		limit = 1
+	}
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+// updateReport applies f to an open report under the lock and saves; f says
+// whether it changed the report.
+func (s *jsonStore) updateReport(childID string, f func(r *Report) bool) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old, ok := s.reports[childID]
+	if !ok || !old.Done.IsZero() {
+		return false, nil
+	}
+	r := old
+	if !f(&r) {
+		return false, nil
+	}
+	s.reports[childID] = r
+	if err := s.saveReports(); err != nil {
+		s.reports[childID] = old
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *jsonStore) ClaimReport(_ context.Context, childID string, now, until time.Time) (bool, error) {
+	return s.updateReport(childID, func(r *Report) bool {
+		if r.LeaseUntil.After(now) {
+			return false
+		}
+		r.LeaseUntil = until.UTC()
+		return true
+	})
+}
+
+func (s *jsonStore) FinishReport(_ context.Context, childID string, at time.Time) error {
+	_, err := s.updateReport(childID, func(r *Report) bool {
+		r.Done = at.UTC()
+		return true
+	})
+	return err
+}
+
+func (s *jsonStore) ReleaseReport(_ context.Context, childID string) error {
+	_, err := s.updateReport(childID, func(r *Report) bool {
+		r.LeaseUntil = time.Time{}
+		return true
+	})
+	return err
+}
+
+func (s *jsonStore) PruneReports(_ context.Context, before time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pruneReports(before)
+}
+
+// pruneReports drops the finished reports and the ones created before before;
+// the caller holds the lock.
+func (s *jsonStore) pruneReports(before time.Time) (int, error) {
+	n := 0
+	for id, r := range s.reports {
+		if !r.Done.IsZero() || r.Created.Before(before) {
+			delete(s.reports, id)
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	return n, s.saveReports()
 }

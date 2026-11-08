@@ -359,4 +359,136 @@ func Run(newStore NewStore) {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(HaveLen(1))
 	})
+
+	report := func(child string, created time.Time) coordinator.Report {
+		return coordinator.Report{
+			ChildID: child, ParentChat: "chat-1", CoordinatorID: "a1", Principal: "u1",
+			Title: "check " + child, Created: created,
+		}
+	}
+	due := func(s coordinator.Store, now time.Time) []string {
+		GinkgoHelper()
+		got, err := s.DueReports(ctx, now, 100)
+		Expect(err).NotTo(HaveOccurred())
+		ids := make([]string, 0, len(got))
+		for _, r := range got {
+			ids = append(ids, r.ChildID)
+		}
+		return ids
+	}
+
+	It("AddReportIsIdempotent", func() {
+		s := newStore()
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed())
+		again := report("c1", t0.Add(time.Hour))
+		again.Title = "changed"
+		Expect(s.AddReport(ctx, again)).To(Succeed())
+		got, err := s.DueReports(ctx, t0.Add(2*time.Hour), 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Title).To(Equal("check c1"), "the first row stays")
+		Expect(got[0].Created).To(Equal(t0))
+		Expect(got[0].ParentChat).To(Equal("chat-1"))
+		Expect(got[0].Principal).To(Equal("u1"))
+		Expect(s.AddReport(ctx, coordinator.Report{})).To(MatchError(coordinator.ErrInvalid))
+	})
+
+	It("DueReportsAreOldestFirstAndLimited", func() {
+		s := newStore()
+		Expect(s.AddReport(ctx, report("c2", t0.Add(2*time.Minute)))).To(Succeed())
+		Expect(s.AddReport(ctx, report("c1", t0.Add(time.Minute)))).To(Succeed())
+		Expect(s.AddReport(ctx, report("c3", t0.Add(3*time.Minute)))).To(Succeed())
+		Expect(due(s, t0.Add(time.Hour))).To(Equal([]string{"c1", "c2", "c3"}))
+		got, err := s.DueReports(ctx, t0.Add(time.Hour), 2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(2))
+	})
+
+	It("ClaimReportIsExclusiveUnderConcurrency", func() {
+		s := newStore()
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed())
+		var wins atomic.Int32
+		var wg sync.WaitGroup
+		for range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ok, err := s.ClaimReport(ctx, "c1", t0, t0.Add(2*time.Minute))
+				Expect(err).NotTo(HaveOccurred())
+				if ok {
+					wins.Add(1)
+				}
+			}()
+		}
+		wg.Wait()
+		Expect(wins.Load()).To(Equal(int32(1)))
+		Expect(due(s, t0.Add(time.Minute))).To(BeEmpty(), "a claimed report is not due while the lease runs")
+		ok, err := s.ClaimReport(ctx, "nope", t0, t0.Add(time.Minute))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse(), "an unknown report cannot be claimed")
+	})
+
+	It("AnExpiredLeaseCanBeClaimedAgain", func() {
+		s := newStore()
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed())
+		ok, _ := s.ClaimReport(ctx, "c1", t0, t0.Add(2*time.Minute))
+		Expect(ok).To(BeTrue())
+		ok, _ = s.ClaimReport(ctx, "c1", t0.Add(time.Minute), t0.Add(3*time.Minute))
+		Expect(ok).To(BeFalse(), "the lease still runs")
+		Expect(due(s, t0.Add(2*time.Minute))).To(Equal([]string{"c1"}), "due the moment the lease ends")
+		ok, err := s.ClaimReport(ctx, "c1", t0.Add(2*time.Minute), t0.Add(4*time.Minute))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue(), "another frontend takes it after the lease")
+	})
+
+	It("AFinishedReportIsNeverDue", func() {
+		s := newStore()
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed())
+		ok, _ := s.ClaimReport(ctx, "c1", t0, t0.Add(time.Minute))
+		Expect(ok).To(BeTrue())
+		Expect(s.FinishReport(ctx, "c1", t0.Add(time.Second))).To(Succeed())
+		Expect(due(s, t0.Add(24*time.Hour))).To(BeEmpty())
+		ok, err := s.ClaimReport(ctx, "c1", t0.Add(24*time.Hour), t0.Add(25*time.Hour))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed(), "adding it again does not reopen it")
+		Expect(due(s, t0.Add(24*time.Hour))).To(BeEmpty())
+		Expect(s.FinishReport(ctx, "missing", t0)).To(Succeed(), "finishing an unknown report is not an error")
+	})
+
+	It("ReleaseReportMakesItDueAtOnce", func() {
+		s := newStore()
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed())
+		ok, _ := s.ClaimReport(ctx, "c1", t0, t0.Add(time.Hour))
+		Expect(ok).To(BeTrue())
+		Expect(s.ReleaseReport(ctx, "c1")).To(Succeed())
+		Expect(due(s, t0.Add(time.Second))).To(Equal([]string{"c1"}))
+		Expect(s.ReleaseReport(ctx, "missing")).To(Succeed())
+	})
+
+	It("PruneDropsFinishedAndAncientReports", func() {
+		s := newStore()
+		Expect(s.AddReport(ctx, report("old", t0.Add(-8*24*time.Hour)))).To(Succeed())
+		Expect(s.AddReport(ctx, report("done", t0.Add(-time.Hour)))).To(Succeed())
+		Expect(s.AddReport(ctx, report("fresh", t0.Add(-time.Hour)))).To(Succeed())
+		Expect(s.FinishReport(ctx, "done", t0)).To(Succeed())
+		n, err := s.PruneReports(ctx, t0.Add(-7*24*time.Hour))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(2))
+		Expect(due(s, t0.Add(time.Hour))).To(Equal([]string{"fresh"}))
+		Expect(s.AddReport(ctx, report("done", t0))).To(Succeed(), "a pruned report can be added again")
+		Expect(due(s, t0.Add(time.Hour))).To(ConsistOf("fresh", "done"))
+	})
+
+	It("DeleteRemovesTheReportsOfTheAgent", func() {
+		s := newStore()
+		Expect(s.Put(ctx, Sample("a1", "u1"))).To(Succeed())
+		Expect(s.Put(ctx, Sample("a2", "u1"))).To(Succeed())
+		Expect(s.AddReport(ctx, report("c1", t0))).To(Succeed())
+		other := report("c2", t0)
+		other.CoordinatorID = "a2"
+		Expect(s.AddReport(ctx, other)).To(Succeed())
+		Expect(s.Delete(ctx, "a1")).To(Succeed())
+		Expect(due(s, t0.Add(time.Hour))).To(Equal([]string{"c2"}))
+	})
 }
