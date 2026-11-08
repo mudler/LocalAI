@@ -138,7 +138,8 @@
     "updatingPlain": "更新中",
     "addonConfirm": "需要你在此浏览器中确认",
     "nodesAction": "节点",
-    "nodesNamed": "显示 {{name}} 的节点"
+    "nodesNamed": "显示 {{name}} 的节点",
+    "needsConfirm": "{{name}} 运行在节点上，需要先经过你的确认。请使用该行的更新。"
   },
   "bulk": {
     "start": "更新 {{count}} 项就绪",

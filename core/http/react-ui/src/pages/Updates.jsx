@@ -14,7 +14,7 @@ import Icon from '../components/Icon'
 import { useUpdates, CHECK_COOLDOWN_MS } from '../contexts/UpdatesContext'
 import { useUpdateActions } from '../hooks/useUpdateActions'
 import { backendsApi } from '../utils/api'
-import { nodeView } from '../utils/nodeUpdates'
+import { isClusterRow, nodeView, splitUpdate } from '../utils/nodeUpdates'
 import { addonsApi } from '../utils/addonsClient'
 import {
   breakdownOf, currentBackendRows, filterCounts, filterRows, groupRows, headlineOf, normalizeFilter,
@@ -103,17 +103,33 @@ function UpdatesPage({ updates }) {
   const lastChecked = updates.snapshot ? updates.snapshot.checkedAt : ''
 
   // A backend that nodes report is updated node by node, after a confirmation
-  // that names the models that stop. A backend with no node to update (or a
-  // single machine) keeps the plain update.
-  const { update: updateRow } = actions
+  // that names the models that stop. Every path that would start such an
+  // update (a row's Update, its Retry, the Update ready button) opens the one
+  // dialog; nothing starts until it is confirmed. The rows that need no
+  // confirmation (single machine, library, add-on) start when it is.
+  const { update: updateRow, retry: retryRow } = actions
+  const todoOf = useCallback((row) => {
+    const item = updates.snapshot && (updates.snapshot.items || []).find(i => i.id === row.id)
+    return item ? nodeView(item).todo : []
+  }, [updates.snapshot])
   const onUpdate = useCallback((row) => {
-    if (row.kind === 'gallery' && Array.isArray(row.nodes) && row.nodes.length > 0) {
-      const item = updates.snapshot && (updates.snapshot.items || []).find(i => i.id === row.id)
-      const todo = item ? nodeView(item).todo : []
-      if (todo.length > 0) { setNodePlan(todo); return }
+    if (isClusterRow(row)) {
+      const todo = todoOf(row)
+      if (todo.length > 0) setNodePlan({ entries: todo, restIds: new Set() })
+      return
     }
     updateRow(row)
-  }, [updates.snapshot, updateRow])
+  }, [todoOf, updateRow])
+  const onRetry = useCallback((row) => {
+    if (isClusterRow(row)) onUpdate(row)
+    else retryRow(row)
+  }, [onUpdate, retryRow])
+  const { bulk: bulkRun } = actions
+  const onBulkStart = useCallback(() => {
+    const { entries, restIds } = splitUpdate({ rows: actions.rows, selected: bulkRun.selected, items: updates.snapshot ? updates.snapshot.items : [] })
+    if (entries.length === 0) { bulkRun.start(restIds); return }
+    setNodePlan({ entries, restIds })
+  }, [actions.rows, bulkRun, updates.snapshot])
 
   const setFilter = useCallback((next) => {
     setParams((prev) => {
@@ -152,7 +168,7 @@ function UpdatesPage({ updates }) {
         icon="arrow-up"
         busy={running}
         disabled={running || bulk.selected.size === 0}
-        onClick={bulk.start}
+        onClick={onBulkStart}
         data-testid="updates-update-ready"
       >
         {running
@@ -181,7 +197,7 @@ function UpdatesPage({ updates }) {
       selected={bulk.selected.has(row.id)}
       onToggle={bulk.toggle}
       onUpdate={onUpdate}
-      onRetry={actions.retry}
+      onRetry={onRetry}
       onReview={(r) => actions.setReview(r.grant)}
       onCancel={actions.cancel}
       onCheck={actions.check}
@@ -299,7 +315,13 @@ function UpdatesPage({ updates }) {
       )}
       {body()}
       {narrow && primary && <div className="uc-sticky" data-testid="updates-sticky">{primary}</div>}
-      {nodePlan && <NodeUpdateDialog entries={nodePlan} onClose={() => setNodePlan(null)} />}
+      {nodePlan && (
+        <NodeUpdateDialog
+          entries={nodePlan.entries}
+          onClose={() => setNodePlan(null)}
+          onStart={() => { if (nodePlan.restIds.size > 0) bulkRun.start(nodePlan.restIds) }}
+        />
+      )}
       <UpgradeConfirm upgrade={actions.confirmApi} />
       {actions.review && (
         <ApproveUpgradeDialog

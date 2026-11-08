@@ -138,7 +138,8 @@
     "updatingPlain": "업데이트 중",
     "addonConfirm": "이 브라우저에서 확인이 필요합니다",
     "nodesAction": "노드",
-    "nodesNamed": "{{name}}의 노드 보기"
+    "nodesNamed": "{{name}}의 노드 보기",
+    "needsConfirm": "{{name}}은(는) 노드에서 실행되므로 먼저 확인이 필요합니다. 해당 행의 업데이트를 사용하세요."
   },
   "bulk": {
     "start": "준비된 {{count}}개 업데이트",

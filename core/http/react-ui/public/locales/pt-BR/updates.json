@@ -138,7 +138,8 @@
     "updatingPlain": "Atualizando",
     "addonConfirm": "Precisa da sua confirmação neste navegador",
     "nodesAction": "Nós",
-    "nodesNamed": "Mostrar os nós de {{name}}"
+    "nodesNamed": "Mostrar os nós de {{name}}",
+    "needsConfirm": "{{name}} roda em nós e precisa antes da sua confirmação. Use Atualizar na linha dele."
   },
   "bulk": {
     "start": "Atualizar {{count}} prontas",

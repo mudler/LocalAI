@@ -138,7 +138,8 @@
     "updatingPlain": "Actualizando",
     "addonConfirm": "Necesita tu confirmación en este navegador",
     "nodesAction": "Nodos",
-    "nodesNamed": "Mostrar los nodos de {{name}}"
+    "nodesNamed": "Mostrar los nodos de {{name}}",
+    "needsConfirm": "{{name}} se ejecuta en nodos y necesita antes su confirmación. Use Actualizar en su fila."
   },
   "bulk": {
     "start": "Actualizar {{count}} listas",

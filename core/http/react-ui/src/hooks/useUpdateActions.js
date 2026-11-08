@@ -10,6 +10,7 @@ import { useAddonActions } from '../components/addons/useAddonActions'
 import { upgradeFailureWords } from '../components/addons/updateReview'
 import { applyLocal, bulkItemsOf } from '../utils/updates'
 import { runAddonRow, runGalleryRow, runLibraryRow } from '../utils/updateRun'
+import { isClusterRow } from '../utils/nodeUpdates'
 
 // Everything the Updates page does to a row: one update with real completion,
 // the run of "Update ready", cancel, retry and the add-on dialogs. It owns what
@@ -60,6 +61,9 @@ export function useUpdateActions({ updates }) {
   // error and a fresh check no longer lists the item.
   const runRow = useCallback(async (row, signal) => {
     if (inFlight.current.has(row.id)) return { ok: false, message: '' }
+    // Never the plain fan-out for a backend that nodes report: it would stop
+    // their models with no confirmation. The page sends those to the node dialog.
+    if (isClusterRow(row)) return { ok: false, message: t('row.needsConfirm', { name: row.name }) }
     inFlight.current.add(row.id)
     const stop = signal || ctl.current.signal
     try {

@@ -138,7 +138,8 @@
     "updatingPlain": "Wird aktualisiert",
     "addonConfirm": "Braucht Ihre Bestätigung in diesem Browser",
     "nodesAction": "Knoten",
-    "nodesNamed": "Knoten von {{name}} anzeigen"
+    "nodesNamed": "Knoten von {{name}} anzeigen",
+    "needsConfirm": "{{name}} läuft auf Knoten und braucht zuerst Ihre Bestätigung. Nutzen Sie Aktualisieren in der Zeile."
   },
   "bulk": {
     "start": "Bereite aktualisieren ({{count}})",

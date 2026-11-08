@@ -138,7 +138,8 @@
     "updatingPlain": "Mise à jour",
     "addonConfirm": "Demande votre confirmation dans ce navigateur",
     "nodesAction": "Nœuds",
-    "nodesNamed": "Afficher les nœuds de {{name}}"
+    "nodesNamed": "Afficher les nœuds de {{name}}",
+    "needsConfirm": "{{name}} tourne sur des nœuds et demande d’abord votre confirmation. Utilisez Mettre à jour sur sa ligne."
   },
   "bulk": {
     "start": "Mettre à jour {{count}} prêtes",

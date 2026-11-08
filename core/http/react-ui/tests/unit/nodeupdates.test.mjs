@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  entriesFromPairs, entryOf, hasNodeView, nodeConfirmed, nodeStateOf, nodeView, planEntries, planTotals, stopKind,
+  entriesFromPairs, entryOf, hasNodeView, isClusterRow, splitUpdate, nodeConfirmed, nodeStateOf, nodeView, planEntries, planTotals, stopKind,
 } from '../../src/utils/nodeUpdates.js'
 import { runNodeRow, confirmNodeUpdated } from '../../src/utils/updateRun.js'
 import { beginRun, runSequential } from '../../src/utils/bulkUpgrade.js'
@@ -195,4 +195,39 @@ test('sequence: a node that is skipped after a stop is not counted as done', asy
   const done = await runSequential(run, async (it) => { if (stop) return { ok: false, skipped: true }; stop = true; return { ok: true } })
   assert.equal(done.status.x.phase, 'done')
   assert.equal(done.status.y.phase, 'skipped')
+})
+
+test('a cluster row is a gallery backend that any node reports', () => {
+  assert.equal(isClusterRow({ kind: 'gallery', nodes: [{}] }), true, 'one worker is enough: it still stops its models')
+  assert.equal(isClusterRow({ kind: 'gallery', nodes: [] }), false)
+  assert.equal(isClusterRow({ kind: 'gallery' }), false)
+  assert.equal(isClusterRow({ kind: 'library', nodes: [{}, {}] }), false)
+  assert.equal(isClusterRow({ kind: 'addon', nodes: [{}] }), false)
+})
+
+test('split: cluster rows become one combined plan, everything else keeps its own way', () => {
+  const vllm = item({ id: 'gallery:vllm', name: 'vllm', nodes: [{ nodeId: 'a', nodeName: 'gpu-a', version: '0.9.4', models: ['m1'] }] })
+  const items = [item(), vllm, { id: 'gallery:whisper', kind: 'gallery', name: 'whisper' }]
+  const rows = [
+    { id: 'gallery:llama-cpp', kind: 'gallery', nodes: item().nodes },
+    { id: 'gallery:vllm', kind: 'gallery', nodes: vllm.nodes },
+    { id: 'gallery:whisper', kind: 'gallery' },
+    { id: 'library:official/piper', kind: 'library' },
+    { id: 'addon:notes', kind: 'addon' },
+  ]
+  const all = splitUpdate({ rows, selected: new Set(rows.map(r => r.id)), items })
+  assert.deepEqual(all.entries.map(e => e.key), ['llama-cpp@a', 'llama-cpp@b', 'vllm@a'])
+  assert.deepEqual([...all.restIds].sort(), ['addon:notes', 'gallery:whisper', 'library:official/piper'])
+  const onlyOne = splitUpdate({ rows, selected: new Set(['gallery:vllm', 'addon:notes']), items })
+  assert.deepEqual(onlyOne.entries.map(e => e.key), ['vllm@a'])
+  assert.deepEqual([...onlyOne.restIds], ['addon:notes'])
+  // Nothing selected on a cluster: no entry and no plain update for it.
+  const none = splitUpdate({ rows, selected: new Set(['gallery:whisper']), items })
+  assert.deepEqual(none.entries, [])
+  assert.deepEqual([...none.restIds], ['gallery:whisper'])
+  // A cluster row whose nodes all are current or unreachable has nothing to confirm and does not fall back.
+  const current = item({ nodes: [{ nodeId: 'c', nodeName: 'cpu-c', status: 'healthy', version: '0.9.7' }] })
+  const stuck = splitUpdate({ rows: [{ id: 'gallery:llama-cpp', kind: 'gallery', nodes: current.nodes }], selected: new Set(['gallery:llama-cpp']), items: [current] })
+  assert.deepEqual(stuck.entries, [])
+  assert.equal(stuck.restIds.size, 0)
 })

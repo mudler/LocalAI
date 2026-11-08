@@ -138,7 +138,8 @@
     "updatingPlain": "In aggiornamento",
     "addonConfirm": "Richiede la tua conferma in questo browser",
     "nodesAction": "Nodi",
-    "nodesNamed": "Mostra i nodi di {{name}}"
+    "nodesNamed": "Mostra i nodi di {{name}}",
+    "needsConfirm": "{{name}} gira su dei nodi e richiede prima la tua conferma. Usa Aggiorna sulla sua riga."
   },
   "bulk": {
     "start": "Aggiorna {{count}} pronti",

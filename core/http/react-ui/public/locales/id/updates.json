@@ -138,7 +138,8 @@
     "updatingPlain": "Memperbarui",
     "addonConfirm": "Perlu konfirmasi Anda di peramban ini",
     "nodesAction": "Node",
-    "nodesNamed": "Tampilkan node {{name}}"
+    "nodesNamed": "Tampilkan node {{name}}",
+    "needsConfirm": "{{name}} berjalan di node dan perlu konfirmasi Anda lebih dulu. Gunakan Perbarui pada barisnya."
   },
   "bulk": {
     "start": "Perbarui {{count}} yang siap",

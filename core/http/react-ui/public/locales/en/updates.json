@@ -138,7 +138,8 @@
     "updatingPlain": "Updating",
     "addonConfirm": "Needs your confirmation in this browser",
     "nodesAction": "Nodes",
-    "nodesNamed": "Show the nodes of {{name}}"
+    "nodesNamed": "Show the nodes of {{name}}",
+    "needsConfirm": "{{name}} runs on nodes and needs your confirmation first. Use Update on its row."
   },
   "bulk": {
     "start": "Update {{count}} ready",

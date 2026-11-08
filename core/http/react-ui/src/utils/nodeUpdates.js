@@ -90,11 +90,12 @@ export function hasNodeView(row) {
 // nodes, optionally of one backend, optionally on some nodes only, and only
 // the nodes that need it. Entries are ordered by backend and node name, so a
 // run is predictable.
-export function planEntries(items, { backend, nodeIds } = {}) {
+export function planEntries(items, { backend, nodeIds, itemIds } = {}) {
   const out = []
   for (const item of items || []) {
     if (!item || item.kind !== 'gallery') continue
     if (backend && item.name !== backend) continue
+    if (itemIds && !itemIds.has(item.id)) continue
     for (const e of nodeView(item).todo) {
       if (nodeIds && !nodeIds.has(e.nodeId)) continue
       out.push(e)
@@ -181,4 +182,28 @@ export function entriesFromPairs({ pairs, items, nodes, upgrades }) {
     })
   }
   return out
+}
+
+// A backend row that nodes report. An update of it reaches every worker that
+// has it, and a worker stops the running models of the backend first, so it
+// never starts without the confirmation of the node dialog.
+export function isClusterRow(row) {
+  return Boolean(row && row.kind === 'gallery' && Array.isArray(row.nodes) && row.nodes.length > 0)
+}
+
+// Splits what the Updates page was asked to update into the nodes to confirm
+// and the rest. `rows` are the page rows, `selected` the ids asked for,
+// `items` the backend read model. The cluster rows become the entries of one
+// combined dialog; every other row (single machine, library, add-on) keeps its
+// own way. A cluster row with no node left to update adds no entry and does
+// not fall back to the plain update.
+export function splitUpdate({ rows, selected, items }) {
+  const ids = new Set()
+  const clusterIds = new Set()
+  for (const row of rows || []) {
+    if (!selected.has(row.id)) continue
+    if (isClusterRow(row)) clusterIds.add(row.id)
+    else ids.add(row.id)
+  }
+  return { entries: planEntries(items, { itemIds: clusterIds }), restIds: ids }
 }

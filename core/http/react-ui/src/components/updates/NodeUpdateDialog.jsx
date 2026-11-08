@@ -17,7 +17,7 @@ import './node-updates.css'
 // The same dialog is used from the per-node view, from the Nodes page and
 // from the page of one node. It confirms first, then shows each node's result
 // as it ends, one node after another.
-export default function NodeUpdateDialog({ entries, onClose, onSettled }) {
+export default function NodeUpdateDialog({ entries, onClose, onSettled, onStart }) {
   const { t } = useTranslation('updates')
   const nu = useNodeUpdateRun({ entries, onSettled })
   const { run, running, summary } = nu
@@ -65,7 +65,7 @@ export default function NodeUpdateDialog({ entries, onClose, onSettled }) {
     foot = (
       <>
         <Button data-autofocus onClick={onClose} data-testid="node-update-cancel">{t('node.cancel')}</Button>
-        <Button variant="primary" icon="arrow-up" onClick={nu.start} data-testid="node-update-confirm">{confirmLabel}</Button>
+        <Button variant="primary" icon="arrow-up" onClick={() => { if (nu.start() && onStart) onStart() }} data-testid="node-update-confirm">{confirmLabel}</Button>
       </>
     )
   } else if (phase === 'running') {
