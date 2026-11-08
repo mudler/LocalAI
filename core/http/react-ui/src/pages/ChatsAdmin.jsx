@@ -8,9 +8,16 @@ import { StatusMark, formatWhen } from '../components/agents/AgentBits'
 // eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
+import CoordinatorAudit from '../components/agents/CoordinatorAudit'
+// eslint-disable-next-line no-unused-vars
+import { CoordinatorStateChip, PauseDialog, usageLine, whenOrDash } from '../components/agents/CoordinatorBits'
+// eslint-disable-next-line no-unused-vars
+import { Button, LoadError } from '../components/ui'
+// eslint-disable-next-line no-unused-vars
 import LoadingSpinner from '../components/LoadingSpinner'
 import './agents.css'
 import './agent-jobs.css'
+import './coordinator.css'
 
 // The administrator's view of every user's saved agents, triggers and
 // messaging connectors (/api/chats/admin/*): the owner of each, and the two
@@ -25,6 +32,12 @@ export default function ChatsAdmin() {
   const [loading, setLoading] = useState(true)
   const [runs, setRuns] = useState({}) // trigger id -> runs
   const [toDelete, setToDelete] = useState(null) // { kind, item }
+  // The coordinators of every user; null leaves the section out (the server has none).
+  const [coordinators, setCoordinators] = useState(null)
+  const [coordError, setCoordError] = useState(null)
+  const [toPause, setToPause] = useState(null)
+  const [pausing, setPausing] = useState(false)
+  const [auditOpen, setAuditOpen] = useState(false)
 
   const on = (name) => features[name] !== false
   const load = useCallback(async () => {
@@ -36,6 +49,16 @@ export default function ChatsAdmin() {
       read(on('connectors'), chatAdminApi.connectors, 'connectors'),
     ])
     setData({ agents, triggers, connectors })
+    if (on('agents')) {
+      // A 404 means this server has no coordinators: the section is left out and
+      // the others stay. Any other failure is said inside the section.
+      try {
+        setCoordinators((await chatAdminApi.coordinators()).coordinators || [])
+        setCoordError(null)
+      } catch (err) {
+        if (err?.status === 404) { setCoordinators(null); setCoordError(null) } else { setCoordinators(prev => prev || []); setCoordError(err) }
+      }
+    }
     setLoading(false)
   // features is read through on(); it changes only when featuresLoaded does.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -64,6 +87,21 @@ export default function ChatsAdmin() {
     setToDelete(null)
     const call = kind === 'agent' ? chatAdminApi.deleteAgent : kind === 'trigger' ? chatAdminApi.deleteTrigger : chatAdminApi.deleteConnector
     act(() => call(item.id), t('admin.deleted', { name: item.name }))
+  }
+
+  const pause = async () => {
+    const c = toPause
+    setPausing(true)
+    try {
+      await chatAdminApi.pauseCoordinator(c.id)
+      addToast(t('admin.coordinators.paused', { name: c.name }), 'success')
+      setToPause(null)
+      load()
+    } catch (err) {
+      addToast(t('admin.actionFailed', { message: err.message }), 'error')
+    } finally {
+      setPausing(false)
+    }
   }
 
   const table = (id, head, rows) => (
@@ -147,6 +185,41 @@ export default function ChatsAdmin() {
           )))}
         </section>
       )}
+
+      {(coordinators !== null || coordError) && on('agents') && (
+        <section className="aj-sec crd-admin" data-testid="admin-coordinators">
+          <h2 className="ag-eyebrow" id="adm-coordinators">{t('admin.coordinators.title', { count: (coordinators || []).length })}</h2>
+          <p className="ag-note">{t('admin.coordinators.lead')}</p>
+          {coordError && <LoadError title={t('admin.coordinators.loadFailed')} error={coordError} onRetry={load} />}
+          {!coordError && (coordinators || []).length === 0 ? <p className="ag-note" data-testid="admin-coordinators-empty">{t('admin.coordinators.none')}</p> : (coordinators || []).length > 0 && table('adm-coordinators', [t('admin.owner'), t('admin.name'), t('admin.state'), t('admin.coordinators.nextWake'), t('admin.coordinators.usage'), ''], coordinators.map(c => (
+            <tr key={c.id} data-testid="admin-coordinator-row" data-paused={c.paused || undefined}>
+              <td className="aj-mono">{c.owner}</td>
+              <td><span className="aj-name">{c.name}</span><span className="aj-sub"><span>{t('admin.coordinators.contacts', { count: c.contacts })}</span></span><span className="crd-sub crd-narrow-only">{c.owner}</span><span className="crd-sub crd-narrow-only">{usageLine(t, c.usage).runs}</span><span className="crd-sub crd-narrow-only">{usageLine(t, c.usage).sent}</span></td>
+              <td><CoordinatorStateChip coordinator={c} testId="admin-coordinator-state" />{c.paused && c.paused_by && <span className="crd-sub">{t('admin.coordinators.pausedBy', { who: c.paused_by })}</span>}</td>
+              <td>{c.paused ? '\u2014' : whenOrDash(c.next_wake)}</td>
+              <td className="aj-mono"><span>{usageLine(t, c.usage).runs}</span><span className="crd-sub">{usageLine(t, c.usage).sent}</span></td>
+              <td className="dk-table-actions">
+                {c.paused
+                  ? <Button size="sm" icon="play" onClick={() => act(() => chatAdminApi.resumeCoordinator(c.id), t('admin.coordinators.resumed', { name: c.name }))} aria-label={t('admin.coordinators.resumeFor', { name: c.name })}>{t('admin.coordinators.resume')}</Button>
+                  : <Button size="sm" icon="pause" onClick={() => setToPause(c)} aria-label={t('admin.coordinators.pauseFor', { name: c.name })}>{t('admin.coordinators.pause')}</Button>}
+              </td>
+            </tr>
+          )))}
+          <div className="crd-admin__audit">
+            <Button size="sm" variant="ghost" icon={auditOpen ? 'chevron-up' : 'chevron-down'} aria-expanded={auditOpen} aria-controls="adm-coordinator-audit" onClick={() => setAuditOpen(o => !o)} data-testid="admin-audit-toggle">
+              {auditOpen ? t('admin.coordinators.hideAudit') : t('admin.coordinators.showAudit')}
+            </Button>
+            {auditOpen && (
+              <div id="adm-coordinator-audit" className="crd-admin__audit-body">
+                <h3 className="ag-eyebrow" id="adm-coordinator-audit-h">{t('coordinator.audit.title')}</h3>
+                <CoordinatorAudit load={chatAdminApi.coordinatorAudit} coordinators={coordinators || []} showCoordinator testId="admin-coordinator-audit" labelId="adm-coordinator-audit-h" />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {toPause && <PauseDialog admin name={toPause.name} pending={pausing} onConfirm={pause} onCancel={() => setToPause(null)} />}
 
       <ChatDeleteConfirm
         item={toDelete?.item || null}
