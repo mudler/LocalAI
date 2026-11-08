@@ -177,7 +177,7 @@ you return.
 In a cluster, a backend that more than one node has shows a **Nodes** action.
 It opens `/app/updates/backend/<name>`, which lists each node with its version,
 the models that use the backend there, and its state, and updates one node or
-every node that needs it. **Update** on such a row opens the same confirmation.
+every node that needs it. **Update** and **Retry** on such a row, and **Update N ready** when the selection holds one, open the same confirmation. It lists every affected node and the models that stop, and nothing starts until you confirm. The other selected rows start when you confirm.
 Every update that touches a node asks first, because a worker stops the models
 that use the backend: see [the Nodes page]({{% relref "features/distributed-mode" %}}).
 On a single machine there is no **Nodes** action and **Update** starts at once.
