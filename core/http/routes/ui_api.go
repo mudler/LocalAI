@@ -1772,6 +1772,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, applicationInstance.UpgradeChecker().GetAvailableUpgrades())
 	}, adminMiddleware)
 
+	// The read model and the check that waits. A nil checker is safe: the
+	// handlers answer with disabled sources.
+	var updates localai.BackendUpdatesProvider
+	if applicationInstance != nil {
+		updates = applicationInstance.UpgradeChecker()
+	}
+	app.GET("/api/backends/updates", localai.BackendUpdatesEndpoint(updates), adminMiddleware)
+	app.POST("/api/backends/updates/check", localai.CheckBackendUpdatesEndpoint(updates), adminMiddleware)
+
 	app.POST("/api/backends/upgrade/:name", func(c echo.Context) error {
 		backendName := c.Param("name")
 		backendName, err := url.QueryUnescape(backendName)

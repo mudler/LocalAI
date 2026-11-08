@@ -320,6 +320,21 @@ var _ = Describe("Backend API Routes", func() {
 			})
 		})
 
+		Describe("the backend update read model without a checker", func() {
+			It("answers with disabled sources on both routes instead of failing", func() {
+				for _, r := range [][2]string{{http.MethodGet, "/api/backends/updates"}, {http.MethodPost, "/api/backends/updates/check"}} {
+					req := httptest.NewRequest(r[0], r[1], nil)
+					rec := httptest.NewRecorder()
+					upgradeApp.ServeHTTP(rec, req)
+					Expect(rec.Code).To(Equal(http.StatusOK), r[0]+" "+r[1])
+					var got map[string]any
+					Expect(json.Unmarshal(rec.Body.Bytes(), &got)).To(Succeed())
+					Expect(got["items"]).To(BeEmpty())
+					Expect(got["sources"].(map[string]any)["gallery"].(map[string]any)["state"]).To(Equal("disabled"))
+				}
+			})
+		})
+
 		Describe("POST /api/backends/upgrades/check", func() {
 			It("should trigger an upgrade check and return 200", func() {
 				req := httptest.NewRequest(http.MethodPost, "/api/backends/upgrades/check", nil)

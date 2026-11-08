@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -9,10 +11,12 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +25,16 @@ import (
 const (
 	upgradeInitialDelay  = 10 * time.Second
 	upgradeCheckInterval = 6 * time.Hour
+)
+
+// Variables so that tests can shorten them.
+var (
+	// checkNowTimeout bounds a check an administrator asked for. It is the
+	// figure the add-on update check uses.
+	checkNowTimeout = 45 * time.Second
+	// checkNowCooldown is how long a finished check answers the next
+	// check-now call, so a double click does not ask the registries twice.
+	checkNowCooldown = 15 * time.Second
 )
 
 // UpgradeChecker periodically checks for backend upgrades and optionally
@@ -63,6 +77,26 @@ type UpgradeChecker struct {
 	// failed check keeps the previous lastUpgrades, so this is the only sign
 	// that the cached list may be old.
 	lastCheckErr error
+	// lastSuccess is the end of the last check that did not fail.
+	lastSuccess time.Time
+
+	// The library source has its own cache and clock: it is checked with the
+	// gallery, but it can fail alone.
+	libUpdates     []backendlib.Update
+	libCheckedAt   time.Time
+	libLastSuccess time.Time
+	libErr         string
+
+	// libraryRefreshFn refreshes the library index before a check an
+	// administrator asked for. nil when this instance needs none: a frontend
+	// asks the owner live at each check.
+	libraryRefreshFn func(ctx context.Context) error
+	// loadedModelsFn lists the models loaded on the nodes, to name the models
+	// an update would stop. nil in standalone mode.
+	loadedModelsFn func(ctx context.Context) ([]backendupdates.LoadedModel, error)
+
+	// flight coalesces concurrent CheckNow calls into one check.
+	flight singleflight.Group
 }
 
 // NewUpgradeChecker creates a new UpgradeChecker service.
@@ -228,6 +262,211 @@ func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context) {
 	}
 }
 
+// detectGallery asks the active backend manager (the workers, in distributed
+// mode) for the backends with a newer build and stores the answer. A failure
+// keeps the previous list and records the error. It installs nothing.
+func (uc *UpgradeChecker) detectGallery(ctx context.Context) (map[string]gallery.UpgradeInfo, error) {
+	var (
+		upgrades map[string]gallery.UpgradeInfo
+		err      error
+	)
+	if uc.backendManagerFn != nil {
+		if bm := uc.backendManagerFn(); bm != nil {
+			upgrades, err = bm.CheckUpgrades(ctx)
+		}
+	}
+	if upgrades == nil && err == nil {
+		upgrades, err = gallery.CheckBackendUpgrades(ctx, uc.galleries, uc.systemState)
+	}
+
+	uc.mu.Lock()
+	defer uc.mu.Unlock()
+	now := time.Now()
+	uc.lastCheckTime = now
+	uc.lastCheckErr = err
+	if err != nil {
+		return nil, err
+	}
+	uc.lastSuccess = now
+	uc.lastUpgrades = upgrades
+	return upgrades, nil
+}
+
+// detectLibrary reads the library backends with a newer build. With refresh it
+// first refreshes the library index; a refresh that fails is the error of the
+// source and the previous list stays. It installs nothing. A host without a
+// library records nothing.
+func (uc *UpgradeChecker) detectLibrary(ctx context.Context, refresh bool) {
+	lib := uc.library()
+	if lib == nil {
+		return
+	}
+	var (
+		updates []backendlib.Update
+		err     error
+	)
+	if refresh && uc.libraryRefreshFn != nil {
+		if rerr := uc.libraryRefreshFn(ctx); rerr != nil {
+			err = fmt.Errorf("refresh the library: %w", rerr)
+		}
+	}
+	if err == nil {
+		updates, err = lib.Updates(ctx)
+	}
+	uc.mu.Lock()
+	defer uc.mu.Unlock()
+	now := time.Now()
+	uc.libCheckedAt = now
+	if err != nil {
+		uc.libErr = err.Error()
+		xlog.Debug("Library backend update check failed", "error", err)
+		return
+	}
+	uc.libErr = ""
+	uc.libLastSuccess = now
+	uc.libUpdates = updates
+}
+
+func (uc *UpgradeChecker) library() libraryUpgrader {
+	if uc.libraryFn == nil {
+		return nil
+	}
+	return uc.libraryFn()
+}
+
+// SetLibraryRefresh sets the call that refreshes the library index before a
+// check an administrator asked for.
+func (uc *UpgradeChecker) SetLibraryRefresh(fn func(ctx context.Context) error) {
+	uc.libraryRefreshFn = fn
+}
+
+// SetLoadedModels sets the call that lists the models loaded on the nodes.
+func (uc *UpgradeChecker) SetLoadedModels(fn func(ctx context.Context) ([]backendupdates.LoadedModel, error)) {
+	uc.loadedModelsFn = fn
+}
+
+// UpdatesSnapshot returns the read model from this instance's cache. It
+// contacts no registry. A nil checker answers with both sources disabled.
+//
+// In distributed mode the cache is per frontend (mode 4 of
+// .agents/distributed-state.md): each frontend answers from what its own
+// last check found, and checkedAt tells how old that is.
+func (uc *UpgradeChecker) UpdatesSnapshot(ctx context.Context) backendupdates.Snapshot {
+	return uc.snapshot(ctx, false)
+}
+
+func (uc *UpgradeChecker) snapshot(ctx context.Context, throttled bool) backendupdates.Snapshot {
+	if uc == nil {
+		const why = "backend updates are not checked on this server: installs are disabled or no backend gallery is configured"
+		return backendupdates.Build(backendupdates.Input{
+			GalleryStatus: backendupdates.SourceStatus{Disabled: true, Reason: why},
+			LibraryStatus: backendupdates.SourceStatus{Disabled: true, Reason: why},
+		})
+	}
+	uc.mu.RLock()
+	in := backendupdates.Input{
+		Gallery: make(map[string]gallery.UpgradeInfo, len(uc.lastUpgrades)),
+		GalleryStatus: backendupdates.SourceStatus{
+			CheckedAt: uc.lastCheckTime, LastSuccess: uc.lastSuccess,
+		},
+		Library: append([]backendlib.Update(nil), uc.libUpdates...),
+		LibraryStatus: backendupdates.SourceStatus{
+			CheckedAt: uc.libCheckedAt, LastSuccess: uc.libLastSuccess, Err: uc.libErr,
+		},
+		AutoBackends:     uc.appConfig != nil && uc.appConfig.AutoUpgradeBackends,
+		InstallsDisabled: uc.appConfig != nil && uc.appConfig.DisableBackendInstall,
+		Throttled:        throttled,
+	}
+	for k, v := range uc.lastUpgrades {
+		in.Gallery[k] = v
+	}
+	if uc.lastCheckErr != nil {
+		in.GalleryStatus.Err = uc.lastCheckErr.Error()
+	}
+	uc.mu.RUnlock()
+
+	if uc.db != nil {
+		in.LibraryStatus.Note = "Library backends of this host. Library backends installed on cluster workers are not listed."
+	}
+	if uc.library() == nil {
+		in.LibraryStatus = backendupdates.SourceStatus{Disabled: true, Reason: "the add-on backend library is not enabled on this instance"}
+	}
+	if uc.loadedModelsFn != nil && len(in.Gallery) > 0 {
+		if loaded, err := uc.loadedModelsFn(ctx); err == nil {
+			in.Loaded = loaded
+		} else {
+			xlog.Debug("Could not list the loaded models for the update view", "error", err)
+		}
+	}
+	return backendupdates.Build(in)
+}
+
+// CheckNow runs a check and waits for it: the gallery backends, and the
+// library backends after a refresh of the library index. It returns the new
+// read model. Failures are in the status of the source, and the previous list
+// stays. It installs nothing, so any frontend can run it, leader or not; it
+// updates the cache of this instance only.
+//
+// Callers that arrive while a check runs wait for that check. A call within
+// checkNowCooldown of the last check is answered from it with Throttled set.
+// The check is bounded by checkNowTimeout; when it runs out, the source shows
+// the timeout as its error.
+func (uc *UpgradeChecker) CheckNow(ctx context.Context) backendupdates.Snapshot {
+	if uc == nil {
+		return uc.snapshot(ctx, false)
+	}
+	uc.mu.RLock()
+	recent := !uc.lastCheckTime.IsZero() && time.Since(uc.lastCheckTime) < checkNowCooldown
+	uc.mu.RUnlock()
+	if recent {
+		return uc.snapshot(ctx, true)
+	}
+	// The check outlives a caller that leaves, so the callers that wait for the
+	// same check still get an answer.
+	ch := uc.flight.DoChan("check", func() (any, error) {
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkNowTimeout)
+		defer cancel()
+		uc.checkFresh(cctx)
+		return nil, nil
+	})
+	select {
+	case <-ch:
+	case <-ctx.Done():
+	}
+	return uc.snapshot(ctx, false)
+}
+
+// checkFresh is the detection of CheckNow.
+func (uc *UpgradeChecker) checkFresh(ctx context.Context) {
+	if _, err := uc.detectGallery(ctx); err != nil {
+		xlog.Debug("Backend update check failed", "error", err)
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			uc.mu.Lock()
+			uc.lastCheckErr = fmt.Errorf("the check timed out after %s: %w", checkNowTimeout, err)
+			uc.mu.Unlock()
+		}
+	}
+	uc.detectLibrary(ctx, true)
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		uc.mu.Lock()
+		if uc.libErr != "" {
+			uc.libErr = fmt.Sprintf("the check timed out after %s: %s", checkNowTimeout, uc.libErr)
+		}
+		uc.mu.Unlock()
+	}
+}
+
+// LastSuccessTime returns when the last check that did not fail finished, or
+// the zero time.
+func (uc *UpgradeChecker) LastSuccessTime() time.Time {
+	if uc == nil {
+		return time.Time{}
+	}
+	uc.mu.RLock()
+	defer uc.mu.RUnlock()
+	return uc.lastSuccess
+}
+
 // LastCheckTime returns when the last check finished, successful or not. It is
 // the zero time before the first check.
 func (uc *UpgradeChecker) LastCheckTime() time.Time {
@@ -268,31 +507,18 @@ func (uc *UpgradeChecker) runOnDemand(ctx context.Context) {
 // installs them when the setting is on.
 func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) {
 	if autoUpgrade {
-		defer uc.upgradeLibraryBackends(ctx)
+		defer func() {
+			uc.upgradeLibraryBackends(ctx)
+			// The pass may have installed library updates.
+			uc.detectLibrary(ctx, false)
+		}()
 	}
-	var (
-		upgrades map[string]gallery.UpgradeInfo
-		err      error
-	)
-	if uc.backendManagerFn != nil {
-		if bm := uc.backendManagerFn(); bm != nil {
-			upgrades, err = bm.CheckUpgrades(ctx)
-		}
-	}
-	if upgrades == nil && err == nil {
-		upgrades, err = gallery.CheckBackendUpgrades(ctx, uc.galleries, uc.systemState)
-	}
-
-	uc.mu.Lock()
-	uc.lastCheckTime = time.Now()
-	uc.lastCheckErr = err
+	upgrades, err := uc.detectGallery(ctx)
+	uc.detectLibrary(ctx, false)
 	if err != nil {
 		xlog.Debug("Backend upgrade check failed", "error", err)
-		uc.mu.Unlock()
 		return
 	}
-	uc.lastUpgrades = upgrades
-	uc.mu.Unlock()
 
 	if len(upgrades) == 0 {
 		xlog.Debug("All backends up to date")

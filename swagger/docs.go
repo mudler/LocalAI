@@ -15271,6 +15271,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/backends/updates": {
+            "get": {
+                "description": "Gallery and library backends with a newer build, the state of each source (checkedAt, lastSuccessAt, error, stale) and what the automatic update covers. Answers from the cache of the instance that serves the request; in a cluster each frontend has its own cache. Contacts no registry.",
+                "tags": [
+                    "backends"
+                ],
+                "summary": "List the backend updates",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/backendupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/updates/check": {
+            "post": {
+                "description": "Refreshes the sources, waits for the check (at most 45 seconds) and returns the new data. A failed check shows as an error in the state of its source and keeps the previous list. Callers that arrive during a check share it; a call within 15 seconds of the last check is answered from it with throttled set. In a cluster the frontend that gets the request updates its own cache only. Installs nothing.",
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Check for backend updates now",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/backendupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
         "/backends/upgrade/{name}": {
             "post": {
                 "tags": [
@@ -18162,6 +18196,158 @@ const docTemplate = `{
                 }
             }
         },
+        "backendupdates.AutoUpdate": {
+            "type": "object",
+            "properties": {
+                "backends": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "backendupdates.Item": {
+            "type": "object",
+            "properties": {
+                "availableDigest": {
+                    "type": "string"
+                },
+                "availableVersion": {
+                    "type": "string"
+                },
+                "driftNodes": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "installedDigest": {
+                    "type": "string"
+                },
+                "installedVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nodes": {
+                    "description": "Nodes is every node that reports the backend (cluster only).\nDriftNodes is the subset that differs from the majority.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/backendupdates.Node"
+                    }
+                },
+                "reason": {
+                    "description": "Reason is why the backend is flagged when version and digest alone\nwould not flag it (the stale reason).",
+                    "type": "string"
+                },
+                "signed": {
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "description": "SourceID and Signed are set on library items.",
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "backendupdates.Node": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "drift": {
+                    "description": "Drift is true when the node differs from the cluster majority.",
+                    "type": "boolean"
+                },
+                "models": {
+                    "description": "Models are the models loaded on this node whose recorded backend is\nthis one. The registry records the backend a model was loaded with,\nwhich can be empty or a different name than the installed variant, so\nan empty list does not prove that nothing would stop.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "nodeName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "backendupdates.Snapshot": {
+            "type": "object",
+            "properties": {
+                "autoUpdate": {
+                    "$ref": "#/definitions/backendupdates.AutoUpdate"
+                },
+                "checkedAt": {
+                    "description": "CheckedAt is the latest check of any source; zero (omitted) before the\nfirst check.",
+                    "type": "string"
+                },
+                "installsDisabled": {
+                    "description": "InstallsDisabled is true when this server refuses backend installs, so\nno item can be updated here.",
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/backendupdates.Item"
+                    }
+                },
+                "sources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/backendupdates.Source"
+                    }
+                },
+                "throttled": {
+                    "description": "Throttled is set by a check-now call that was answered from a check\nthat ran a few seconds ago.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "backendupdates.Source": {
+            "type": "object",
+            "properties": {
+                "checkedAt": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error is the error of the last check, empty when it succeeded.",
+                    "type": "string"
+                },
+                "lastSuccessAt": {
+                    "type": "string"
+                },
+                "note": {
+                    "description": "Note states a limit of what the source can see.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why a source is disabled.",
+                    "type": "string"
+                },
+                "stale": {
+                    "description": "Stale is true when the items of this source come from an older check\nthan CheckedAt, because the last one failed.",
+                    "type": "boolean"
+                },
+                "state": {
+                    "description": "State is ok, failed, never or disabled.",
+                    "type": "string"
+                }
+            }
+        },
         "builtin.Entry": {
             "type": "object",
             "properties": {
@@ -19180,6 +19366,26 @@ const docTemplate = `{
                 }
             }
         },
+        "gallery.NodeVersionInfo": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "node_status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "gallery.StorageFile": {
             "type": "object",
             "properties": {
@@ -19251,6 +19457,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/gallery.NodeDriftInfo"
+                    }
+                },
+                "nodes": {
+                    "description": "Nodes lists every node that reports this backend, with the version it\nhas, so a view of one backend can show the nodes that are current too.\nEmpty in single-node mode.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.NodeVersionInfo"
                     }
                 },
                 "reason": {
