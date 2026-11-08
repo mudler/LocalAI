@@ -180,9 +180,9 @@ var _ = Describe("Backend API Routes", func() {
 
 	Describe("Backend upgrade API", func() {
 		var (
-			galleryFile        string
-			upgradeApp         *echo.Echo
-			upgradeGallerySvc  *galleryop.GalleryService
+			galleryFile       string
+			upgradeApp        *echo.Echo
+			upgradeGallerySvc *galleryop.GalleryService
 		)
 
 		BeforeEach(func() {
