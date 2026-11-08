@@ -11,6 +11,7 @@ import HomeUndoToast from '../components/home/HomeUndoToast'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import Icon from '../components/Icon'
 import './operate.css'
+import { shouldReconnect } from '../utils/logSocket'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -47,6 +48,7 @@ function BackendLogsDetail({ modelId, embedded = false }) {
   const logContainerRef = useRef(null)
   const wsRef = useRef(null)
   const reconnectTimerRef = useRef(null)
+  const closedRef = useRef(false)
   const loadingRef = useRef(true)
   const scrolledToTimestampRef = useRef(false)
   const pendingLinesRef = useRef([])
@@ -110,6 +112,8 @@ function BackendLogsDetail({ modelId, embedded = false }) {
     }
 
     ws.onclose = () => {
+      // Closed by our own cleanup (unmount or another log): do not reconnect.
+      if (!shouldReconnect({ closed: closedRef.current, current: wsRef.current, ws })) return
       setWsConnected(false)
       reconnectTimerRef.current = setTimeout(connectWebSocket, 3000)
     }
@@ -126,9 +130,13 @@ function BackendLogsDetail({ modelId, embedded = false }) {
   }, [modelId])
 
   useEffect(() => {
+    closedRef.current = false
     connectWebSocket()
     return () => {
-      if (wsRef.current) wsRef.current.close()
+      closedRef.current = true
+      const ws = wsRef.current
+      wsRef.current = null
+      if (ws) ws.close()
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       if (flushTimerRef.current) cancelAnimationFrame(flushTimerRef.current)
     }
