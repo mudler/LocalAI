@@ -132,6 +132,12 @@ if grep -q "moe_cache_size" llama.cpp/common/common.h; then
 else
     HAS_MOE_CACHE=0
 fi
+# Share of MoE cache misses computed on the CPU (--moe-cache-cpu-share). Older forks lack the field.
+if grep -q "moe_cache_cpu_share" llama.cpp/common/common.h; then
+    HAS_MOE_CACHE_CPU_SHARE=1
+else
+    HAS_MOE_CACHE_CPU_SHARE=0
+fi
 # On-demand tensor reading (--lazy-mode). Forks that branched earlier lack the field.
 if grep -q "llama_lazy_mode lazy_mode" llama.cpp/common/common.h; then
     HAS_LAZY_MODE=1
@@ -181,6 +187,7 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_MTMD_INIT_OPT ${HAS_MTMD_INIT_OPT}
 #define LOCALAI_HAS_N_CPU_FFN_HELPER ${HAS_N_CPU_FFN_HELPER}
 #define LOCALAI_HAS_MOE_CACHE ${HAS_MOE_CACHE}
+#define LOCALAI_HAS_MOE_CACHE_CPU_SHARE ${HAS_MOE_CACHE_CPU_SHARE}
 #define LOCALAI_HAS_LAZY_MODE ${HAS_LAZY_MODE}
 #define LOCALAI_HAS_RERANK_FILES ${HAS_RERANK_FILES}
 #define LOCALAI_HAS_REALTIME ${HAS_REALTIME}

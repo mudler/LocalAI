@@ -392,6 +392,28 @@ A cache that is too small can thrash, because every token evicts its own experts
 A rough starting point is about 10% of the total expert size.
 LocalAI sets no value on its own.
 
+Once the cache is full, every miss is uploaded to the GPU by default.
+You can let the CPU compute a share of the misses from the host experts instead, with `moe_cache_cpu_share`:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+  - moe_cache_mib:4096
+  - moe_cache_cpu_share:0.5
+```
+
+The value is a number from 0 to 1.
+It is `0` by default, which uploads every miss.
+It applies only when the cache is on (`moe_cache_mib` greater than 0).
+Other values are ignored with a warning.
+The best value depends on your hardware.
+In the upstream tests, a small cache did best with a high share and a large cache with a low one.
+To find the cache size and the share for your machine, use `scripts/moe-cache-tune.py` from the llama.cpp repository.
+It wraps a plain `llama-server` command and prints the recommended `--moe-cache-mib` and `--moe-cache-cpu-share`.
+
 CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
 RAM and VRAM do not form one interchangeable allocation pool.
 Leave memory for the KV cache, compute buffers, the operating system, and other processes.
