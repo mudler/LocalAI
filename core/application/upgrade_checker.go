@@ -59,6 +59,10 @@ type UpgradeChecker struct {
 	mu            sync.RWMutex
 	lastUpgrades  map[string]gallery.UpgradeInfo
 	lastCheckTime time.Time
+	// lastCheckErr is the error of the last check, nil when it succeeded. A
+	// failed check keeps the previous lastUpgrades, so this is the only sign
+	// that the cached list may be old.
+	lastCheckErr error
 }
 
 // NewUpgradeChecker creates a new UpgradeChecker service.
@@ -224,6 +228,29 @@ func (uc *UpgradeChecker) upgradeLibraryBackends(ctx context.Context) {
 	}
 }
 
+// LastCheckTime returns when the last check finished, successful or not. It is
+// the zero time before the first check.
+func (uc *UpgradeChecker) LastCheckTime() time.Time {
+	if uc == nil {
+		return time.Time{}
+	}
+	uc.mu.RLock()
+	defer uc.mu.RUnlock()
+	return uc.lastCheckTime
+}
+
+// LastCheckError returns the error of the last check, or nil when it
+// succeeded or none ran. After an error GetAvailableUpgrades still returns the
+// results of the last good check.
+func (uc *UpgradeChecker) LastCheckError() error {
+	if uc == nil {
+		return nil
+	}
+	uc.mu.RLock()
+	defer uc.mu.RUnlock()
+	return uc.lastCheckErr
+}
+
 // runLeaderPass is the periodic pass: it detects and installs. In distributed
 // mode only the advisory lock holder calls it.
 func (uc *UpgradeChecker) runLeaderPass(ctx context.Context) {
@@ -258,6 +285,7 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) {
 
 	uc.mu.Lock()
 	uc.lastCheckTime = time.Now()
+	uc.lastCheckErr = err
 	if err != nil {
 		xlog.Debug("Backend upgrade check failed", "error", err)
 		uc.mu.Unlock()

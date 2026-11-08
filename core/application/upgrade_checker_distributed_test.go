@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,12 +24,16 @@ type countingBackendManager struct {
 	mu       sync.Mutex
 	checks   int
 	upgrades []string
+	checkErr error
 }
 
 func (m *countingBackendManager) CheckUpgrades(context.Context) (map[string]gallery.UpgradeInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.checks++
+	if m.checkErr != nil {
+		return nil, m.checkErr
+	}
 	return map[string]gallery.UpgradeInfo{"llama-cpp": {BackendName: "llama-cpp", AvailableVersion: "2"}}, nil
 }
 
@@ -107,5 +112,31 @@ var _ = Describe("who runs the automatic backend upgrade", func() {
 		n.Store(int32(len(u)))
 		uc.TriggerCheck()
 		Eventually(func() int { _, u := bm.counts(); return len(u) }, 2*time.Second).Should(BeNumerically(">", int(n.Load())))
+	})
+})
+
+var _ = Describe("the record of the last check", func() {
+	It("keeps the time and the error of a failed check, and clears the error on success", func() {
+		bm := &countingBackendManager{checkErr: errors.New("registry unreachable")}
+		uc := NewUpgradeChecker(&config.ApplicationConfig{}, nil, nil, func() galleryop.BackendManager { return bm })
+		Expect(uc.LastCheckTime()).To(BeZero())
+		Expect(uc.LastCheckError()).NotTo(HaveOccurred())
+
+		uc.runCheck(context.Background(), false)
+		Expect(uc.LastCheckTime()).NotTo(BeZero())
+		Expect(uc.LastCheckError()).To(MatchError("registry unreachable"))
+
+		bm.mu.Lock()
+		bm.checkErr = nil
+		bm.mu.Unlock()
+		uc.runCheck(context.Background(), false)
+		Expect(uc.LastCheckError()).NotTo(HaveOccurred())
+		Expect(uc.GetAvailableUpgrades()).To(HaveKey("llama-cpp"))
+	})
+
+	It("is safe on a nil checker", func() {
+		var uc *UpgradeChecker
+		Expect(uc.LastCheckTime()).To(BeZero())
+		Expect(uc.LastCheckError()).NotTo(HaveOccurred())
 	})
 })
