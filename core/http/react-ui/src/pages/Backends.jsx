@@ -33,6 +33,7 @@ import Icon from '../components/Icon'
 import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
 import { UpdateBadge } from '../components/upgrade/UpgradeBits'
+import { newGate, startFetch, requestRefresh, finishFetch } from '../utils/refreshGate'
 import './operate.css'
 
 const CATALOG_FILTERS = [
@@ -195,12 +196,21 @@ export default function Backends() {
     setSearch(query)
   }, [activeView, query])
 
+  // Reads of the catalog can overlap (the debounced one, a refresh after an
+  // install). The gate applies only the newest response and remembers a
+  // refresh that was asked for while one was running.
+  const gate = useRef(newGate())
+  const fetchBackendsRef = useRef(null)
   const fetchBackends = useCallback(async () => {
+    const started = startFetch(gate.current)
+    gate.current = started.gate
+    let applies = true
     try {
       setLoading(true)
       const params = { page: 1, items: 9999, sort: sortBy, order: sortOrder }
       if (activeView === 'catalog' && search) params.term = search
       const data = await backendsApi.list(params)
+      if (started.token !== gate.current.latest) { applies = false; return true }
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
       setAllBackends(list)
       setLoadError(null)
@@ -211,15 +221,22 @@ export default function Backends() {
       }
       return true
     } catch (err) {
+      if (started.token !== gate.current.latest) { applies = false; return false }
       // A failed read replaces the list with the error; it never looks empty.
       setLoadError(err)
       return false
     } finally {
-      loadedOnce.current = true
-      setCatalogReady(true)
-      setLoading(false)
+      const ended = finishFetch(gate.current, started.token)
+      gate.current = ended.gate
+      if (applies) {
+        loadedOnce.current = true
+        setCatalogReady(true)
+      }
+      if (ended.idle) setLoading(false)
+      if (ended.rerun) fetchBackendsRef.current?.()
     }
   }, [activeView, search, sortBy, sortOrder, preferDevLoaded])
+  fetchBackendsRef.current = fetchBackends
 
   const debouncedFetch = useDebouncedCallback(fetchBackends)
   useEffect(() => { debouncedFetch() }, [debouncedFetch, fetchBackends])
@@ -252,7 +269,9 @@ export default function Backends() {
   // Install and delete change what is installed, so the lists are read again
   // whenever the set of operations changes.
   useEffect(() => {
-    if (!loading) fetchBackends()
+    const ask = requestRefresh(gate.current)
+    gate.current = ask.gate
+    if (ask.runNow) fetchBackends()
     fetchInstalled()
     modelsApi.listCapabilities().then(data => setModels(Array.isArray(data?.data) ? data.data : [])).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps

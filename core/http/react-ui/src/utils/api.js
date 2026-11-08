@@ -4,12 +4,16 @@ import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
+import { reportUnauthorized } from './sessionEvents'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
 
 async function handleResponse(response) {
   if (!response.ok) {
+    // One place hears every expired session. The session provider decides
+    // whether this 401 ends it; the call still fails as before.
+    if (response.status === 401) reportUnauthorized(response.url)
     let errorMessage = `HTTP ${response.status}`
     let errorBody = null
     try {
