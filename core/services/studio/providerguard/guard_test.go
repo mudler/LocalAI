@@ -101,7 +101,6 @@ var allowed = []entry{
 	{"core/http/auth/features.go", "Telegram bots", "the name of a feature permission; the platform is the content"},
 	{ui + "components/users/UsersPanel.jsx", "Telegram bots", "the name of a feature permission; the platform is the content"},
 	{"core/services/addons/tools/consumers.go", "such as Telegram", "an example of a chat platform in a note for add-on authors"},
-	{locales, "mcpPage.family", "chat platforms as examples of messaging connectors"},
 	{locales, "connectorsPage.noAddonHint", "a chat platform as an example of what a connector add-on carries"},
 	{"docs/content/reference/cli-reference.md", "(Telegram, Slack)", "help text that gives chat platforms as examples"},
 	{"docs/content/getting-started/_index.en.md", "Telegram", "a chat platform as an example of where an agent can answer"},
