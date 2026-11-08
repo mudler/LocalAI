@@ -1,16 +1,16 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { usePendingChanges } from '../hooks/usePendingChanges'
-import { disablePush, enablePush, pushState } from '../utils/chatPush'
-import { relativeDate } from '../utils/fileBrowser'
+import { usePendingChanges } from '../../hooks/usePendingChanges'
+import { disablePush, enablePush, pushState } from '../../utils/chatPush'
+import { relativeDate } from '../../utils/fileBrowser'
 import {
-  badgeText, failed, filterItems, groupByDay, iconOf, reasonText, sourceOf, targetOf, toneOf,
-} from '../utils/inbox'
-import ActionMenu from './ActionMenu'
-import Icon from './Icon'
-import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows } from './ui'
+  failed, filterItems, groupByDay, iconOf, reasonText, sourceOf, targetOf, toneOf,
+} from '../../utils/inbox'
+import ActionMenu from '../ActionMenu'
+import Icon from '../Icon'
+import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows } from '../ui'
 import './inbox.css'
 
 // How long a notification that just came in keeps its highlight.
@@ -117,45 +117,57 @@ function InboxItem({ n, day, t, locale, fresh, busy, onOpen, onRead, onDelete })
   )
 }
 
-// The inbox button of the chat header and its panel: a popover on a wide
-// screen, a sheet over the bottom of the screen on a phone.
-export default function ChatInbox({ inbox }) {
+// The panel of the notification inbox, opened from the navbar entry or the bell
+// of the phone header (contexts/InboxContext.jsx): a popover beside the sidebar
+// on a wide screen, a sheet over the bottom of the screen on a phone. It is
+// drawn only while open, so the language file and the code of this chunk load
+// on the first opening. The trigger that opened it (anchorEl) places it and is
+// ignored by the click-outside rule, so a second click on it closes the panel.
+export default function InboxPanel({ inbox, anchorEl, onClose }) {
   const { t, i18n } = useTranslation('chats')
   const navigate = useNavigate()
   const titleId = useId()
-  const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
   // confirm: '' (none), 'all' or 'read': which clear the person is asked to confirm.
   const [confirm, setConfirm] = useState('')
   const [done, setDone] = useState('')
   const [busy, setBusy] = useState(false)
   const [fresh, setFresh] = useState(() => new Set())
-  const [announce, setAnnounce] = useState('')
   const waiting = usePendingChanges()
-  const ref = useRef(null)
-  const btnRef = useRef(null)
   const panelRef = useRef(null)
 
-  const close = useCallback((refocus) => {
-    setOpen(false)
-    if (refocus) btnRef.current?.focus()
-  }, [])
+  // Beside the sidebar, the bottom edge on the entry that opened it. The
+  // numbers go in as custom properties so the stylesheet owns the layout; on a
+  // phone the sheet ignores them.
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = panelRef.current
+      if (!el || !anchorEl?.isConnected) return
+      const rect = anchorEl.getBoundingClientRect()
+      const side = anchorEl.closest('.sidebar')?.getBoundingClientRect()
+      el.style.setProperty('--nx-left', `${Math.round((side ? side.right : rect.right) + 8)}px`)
+      el.style.setProperty('--nx-bottom', `${Math.max(8, Math.round(window.innerHeight - rect.bottom))}px`)
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [anchorEl])
 
   // The panel floats over the page: a click outside or Esc closes it. A click
-  // in the panel's own menu (drawn at the end of the page) is not outside.
+  // on a trigger belongs to the trigger, which toggles; a click in the panel's
+  // own menu (drawn at the end of the page) is not outside.
   useEffect(() => {
-    if (!open) return undefined
     const onDown = (e) => {
-      if (ref.current?.contains(e.target)) return
-      if (e.target?.closest?.('.popover')) return
-      setOpen(false)
+      if (panelRef.current?.contains(e.target)) return
+      if (e.target?.closest?.('.popover, [data-inbox-trigger]')) return
+      onClose(false)
     }
     const onKey = (e) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()
       // Esc first backs out of a question, then closes the panel.
       if (confirm) setConfirm('')
-      else close(true)
+      else onClose(true)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
@@ -163,33 +175,28 @@ export default function ChatInbox({ inbox }) {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open, confirm, close])
+  }, [confirm, onClose])
 
-  // A question or a result belongs to one opening of the panel. Opening reads
-  // the list again, so a failure since the last read shows, and moves focus
-  // into the panel.
+  // Opening reads the list again, so a failure since the last read shows, and
+  // moves focus into the panel.
   useEffect(() => {
-    if (!open) { setConfirm(''); setDone(''); setError(''); return }
     inbox.refresh()
-    waiting.refresh()
     panelRef.current?.focus({ preventScroll: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opening
-  }, [open])
+  }, [])
 
-  // New arrivals: a highlight for a few seconds and one polite announcement.
+  // New arrivals keep a highlight for a few seconds. The announcement is the
+  // provider's, so it is made once whichever page is open.
   useEffect(() => {
     const list = inbox.arrived || []
     if (list.length === 0) return undefined
     setFresh(new Set(list.map(n => n.id)))
-    setAnnounce(list.length === 1 ? t('inbox.arrived', { title: list[0].title }) : t('inbox.arrivedMany', { count: list.length }))
     const timer = setTimeout(() => setFresh(new Set()), FRESH_MS)
     return () => clearTimeout(timer)
-  }, [inbox.arrived, t])
+  }, [inbox.arrived])
 
   const shown = useMemo(() => filterItems(inbox.items, inbox.filter), [inbox.items, inbox.filter])
   const groups = useMemo(() => groupByDay(shown), [shown])
-
-  if (inbox.off) return null
 
   // A failed mark or delete shows in the panel; the list is as the server has it.
   const attempt = async (call) => {
@@ -203,7 +210,7 @@ export default function ChatInbox({ inbox }) {
     if (!n.read) await inbox.markRead([n.id]).catch(() => {})
     const target = targetOf(n)
     if (target) {
-      setOpen(false)
+      onClose(false)
       navigate(target)
     }
   }
@@ -242,11 +249,6 @@ export default function ChatInbox({ inbox }) {
     }
   }
 
-  // The badge counts what needs a look: unread notifications and the changes
-  // that wait for an answer.
-  const attention = inbox.unread + waiting.count
-  const badge = badgeText(attention)
-  const buttonName = attention > 0 ? t('inbox.buttonUnread', { count: attention }) : t('inbox.title')
   const filters = [
     { id: 'all', label: t('inbox.filterAll') },
     { id: 'unread', label: t('inbox.filterUnread') },
@@ -272,130 +274,114 @@ export default function ChatInbox({ inbox }) {
   }
 
   return (
-    <div className="nx" data-testid="chat-inbox" ref={ref}>
-      <button
-        ref={btnRef}
-        type="button"
-        className="cx-icobtn cx-icobtn--lg nx-btn"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={buttonName}
-        title={t('inbox.title')}
-        onClick={() => setOpen(!open)}
+    <>
+      <div className="nx-scrim" aria-hidden="true" onClick={() => onClose(true)} />
+      <div
+        className="nx-panel"
+        role="dialog"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        ref={panelRef}
+        onKeyDown={onPanelKey}
+        data-testid="inbox-panel"
       >
-        <Icon name="inbox" />
-        {badge && <span key={badge} className="nx-badge" data-testid="inbox-count" aria-hidden="true">{badge}</span>}
-      </button>
-      <div className="sr-only" role="status" aria-live="polite" data-testid="inbox-live">{announce}</div>
-      {open && <div className="nx-scrim" aria-hidden="true" onClick={() => close(true)} />}
-      {open && (
-        <div
-          className="nx-panel"
-          role="dialog"
-          aria-labelledby={titleId}
-          tabIndex={-1}
-          ref={panelRef}
-          onKeyDown={onPanelKey}
-          data-testid="inbox-panel"
-        >
-          <header className="nx-head">
-            <div className="nx-head__row">
-              <h2 id={titleId} className="nx-head__title">{t('inbox.title')}</h2>
-              {inbox.unread > 0 && <span className="nx-head__count">{t('inbox.unread', { count: inbox.unread })}</span>}
-              <span className="nx-head__acts">
-                <span data-testid="inbox-menu">
-                  <ActionMenu items={menu} ariaLabel={t('inbox.more')} compact />
-                </span>
-                <Button variant="ghost" size="sm" icon="close" className="nx-head__close" aria-label={t('inbox.close')} onClick={() => close(true)} />
+        <header className="nx-head">
+          <div className="nx-head__row">
+            <h2 id={titleId} className="nx-head__title">{t('inbox.title')}</h2>
+            {inbox.unread > 0 && <span className="nx-head__count">{t('inbox.unread', { count: inbox.unread })}</span>}
+            <span className="nx-head__acts">
+              <span data-testid="inbox-menu">
+                <ActionMenu items={menu} ariaLabel={t('inbox.more')} compact />
               </span>
-            </div>
-            {(inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-head__tools">
-              <Segmented
-                className="nx-filter"
-                label={t('inbox.filterLabel')}
-                value={inbox.filter}
-                onChange={(f) => { setConfirm(''); inbox.setFilter(f) }}
-                options={filters}
-                itemTestId="inbox-filter-"
-              />
-              <Button variant="ghost" size="sm" icon="check" className="nx-mark-all" disabled={inbox.unread === 0 || busy} onClick={() => attempt(() => inbox.markAllRead())} data-testid="inbox-mark-all">
-                {t('inbox.markAll')}
-              </Button>
-            </div>}
-          </header>
-          {confirm && inbox.total > 0 && (
-            <Callout
-              tone="warn"
-              className="nx-confirm"
-              role="alertdialog"
-              aria-labelledby={`${titleId}-confirm`}
-              testId="inbox-confirm"
-              actions={(
-                <>
-                  <Button variant="danger" size="sm" data-testid="inbox-confirm-yes" autoFocus busy={busy} onClick={() => clear(confirm === 'read')}>
-                    {confirm === 'read' ? t('inbox.clearRead') : t('inbox.clearAll')}
-                  </Button>
-                  {confirm === 'all' && readCount > 0 && readCount < inbox.total && (
-                    <Button size="sm" data-testid="inbox-confirm-read" onClick={() => setConfirm('read')}>{t('inbox.onlyRead', { count: readCount })}</Button>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={() => setConfirm('')}>{t('inbox.cancel')}</Button>
-                </>
-              )}
-            >
-              <span id={`${titleId}-confirm`}>{confirm === 'read' ? t('inbox.confirmRead', { count: readCount }) : t('inbox.confirmAll', { count: inbox.total })}</span>
-            </Callout>
-          )}
-          <div className="nx-body">
-            {waiting.count > 0 && (
-              <button
-                type="button" className="nx-waiting" data-testid="inbox-proposals"
-                onClick={() => { setOpen(false); navigate('/app/chats/proposals') }}
-              >
-                <span className="nx-tile nx-tile--accent" aria-hidden="true"><Icon name="edit" /></span>
-                <span className="nx-waiting__text">
-                  <span className="nx-item__title">{t('inbox.proposalsWaiting', { count: waiting.count })}</span>
-                  <span className="nx-item__body">{t('inbox.proposalsBody')}</span>
-                </span>
-                <Icon name="arrow-right" className="nx-item__go" />
-              </button>
-            )}
-            {done && <p className="nx-note nx-note--ok" role="status" data-testid="inbox-done"><Icon name="check-circle" />{done}</p>}
-            {error && <p className="nx-note nx-note--error" role="alert"><Icon name="alert-circle" />{error}</p>}
-            {failedLoad && (
-              <LoadError className="nx-load-error" title={t('inbox.loadError')} error={inbox.error} onRetry={() => inbox.refresh()} testId="inbox-load-error" />
-            )}
-            {firstLoad && <SkeletonRows count={4} />}
-            {empty}
-            {ready && inbox.filter === 'all' && inbox.unread === 0 && shown.length > 0 && (
-              <p className="nx-note" data-testid="inbox-caught-up-note"><Icon name="check-circle" />{t('inbox.caughtUp')}</p>
-            )}
-            {groups.map(g => (
-              <section key={g.day} className="nx-group" aria-labelledby={`${titleId}-${g.day}`}>
-                <h3 id={`${titleId}-${g.day}`} className="nx-day">{t(`inbox.day.${g.day}`)}</h3>
-                <ul className="nx-list">
-                  {g.items.map(n => (
-                    <InboxItem
-                      key={n.id} n={n} day={g.day} t={t} locale={i18n.language} fresh={fresh.has(n.id)} busy={busy}
-                      onOpen={openItem}
-                      onRead={(x) => attempt(() => inbox.markRead([x.id]))}
-                      onDelete={(x) => attempt(() => inbox.remove([x.id]))}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
-            {inbox.filter !== 'failed' && inbox.items.length > 0 && inbox.items.length < inbox.listTotal && (
-              <div className="nx-more">
-                <span>{t('inbox.showing', { shown: inbox.items.length, total: inbox.listTotal })}</span>
-                <Button variant="ghost" size="sm" icon="chevron-down" data-testid="inbox-more" disabled={busy} onClick={() => attempt(() => inbox.showMore())}>{t('inbox.showMore')}</Button>
-              </div>
-            )}
+              <Button variant="ghost" size="sm" icon="close" className="nx-head__close" aria-label={t('inbox.close')} onClick={() => onClose(true)} />
+            </span>
           </div>
-          <footer className="nx-foot">
-            <PushSwitch t={t} />
-          </footer>
+          {(inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-head__tools">
+            <Segmented
+              className="nx-filter"
+              label={t('inbox.filterLabel')}
+              value={inbox.filter}
+              onChange={(f) => { setConfirm(''); inbox.setFilter(f) }}
+              options={filters}
+              itemTestId="inbox-filter-"
+            />
+            <Button variant="ghost" size="sm" icon="check" className="nx-mark-all" disabled={inbox.unread === 0 || busy} onClick={() => attempt(() => inbox.markAllRead())} data-testid="inbox-mark-all">
+              {t('inbox.markAll')}
+            </Button>
+          </div>}
+        </header>
+        {confirm && inbox.total > 0 && (
+          <Callout
+            tone="warn"
+            className="nx-confirm"
+            role="alertdialog"
+            aria-labelledby={`${titleId}-confirm`}
+            testId="inbox-confirm"
+            actions={(
+              <>
+                <Button variant="danger" size="sm" data-testid="inbox-confirm-yes" autoFocus busy={busy} onClick={() => clear(confirm === 'read')}>
+                  {confirm === 'read' ? t('inbox.clearRead') : t('inbox.clearAll')}
+                </Button>
+                {confirm === 'all' && readCount > 0 && readCount < inbox.total && (
+                  <Button size="sm" data-testid="inbox-confirm-read" onClick={() => setConfirm('read')}>{t('inbox.onlyRead', { count: readCount })}</Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setConfirm('')}>{t('inbox.cancel')}</Button>
+              </>
+            )}
+          >
+            <span id={`${titleId}-confirm`}>{confirm === 'read' ? t('inbox.confirmRead', { count: readCount }) : t('inbox.confirmAll', { count: inbox.total })}</span>
+          </Callout>
+        )}
+        <div className="nx-body">
+          {waiting.count > 0 && (
+            <button
+              type="button" className="nx-waiting" data-testid="inbox-proposals"
+              onClick={() => { onClose(false); navigate('/app/chats/proposals') }}
+            >
+              <span className="nx-tile nx-tile--accent" aria-hidden="true"><Icon name="edit" /></span>
+              <span className="nx-waiting__text">
+                <span className="nx-item__title">{t('inbox.proposalsWaiting', { count: waiting.count })}</span>
+                <span className="nx-item__body">{t('inbox.proposalsBody')}</span>
+              </span>
+              <Icon name="arrow-right" className="nx-item__go" />
+            </button>
+          )}
+          {done && <p className="nx-note nx-note--ok" role="status" data-testid="inbox-done"><Icon name="check-circle" />{done}</p>}
+          {error && <p className="nx-note nx-note--error" role="alert"><Icon name="alert-circle" />{error}</p>}
+          {failedLoad && (
+            <LoadError className="nx-load-error" title={t('inbox.loadError')} error={inbox.error} onRetry={() => inbox.refresh()} testId="inbox-load-error" />
+          )}
+          {firstLoad && <SkeletonRows count={4} />}
+          {empty}
+          {ready && inbox.filter === 'all' && inbox.unread === 0 && shown.length > 0 && (
+            <p className="nx-note" data-testid="inbox-caught-up-note"><Icon name="check-circle" />{t('inbox.caughtUp')}</p>
+          )}
+          {groups.map(g => (
+            <section key={g.day} className="nx-group" aria-labelledby={`${titleId}-${g.day}`}>
+              <h3 id={`${titleId}-${g.day}`} className="nx-day">{t(`inbox.day.${g.day}`)}</h3>
+              <ul className="nx-list">
+                {g.items.map(n => (
+                  <InboxItem
+                    key={n.id} n={n} day={g.day} t={t} locale={i18n.language} fresh={fresh.has(n.id)} busy={busy}
+                    onOpen={openItem}
+                    onRead={(x) => attempt(() => inbox.markRead([x.id]))}
+                    onDelete={(x) => attempt(() => inbox.remove([x.id]))}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
+          {inbox.filter !== 'failed' && inbox.items.length > 0 && inbox.items.length < inbox.listTotal && (
+            <div className="nx-more">
+              <span>{t('inbox.showing', { shown: inbox.items.length, total: inbox.listTotal })}</span>
+              <Button variant="ghost" size="sm" icon="chevron-down" data-testid="inbox-more" disabled={busy} onClick={() => attempt(() => inbox.showMore())}>{t('inbox.showMore')}</Button>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+        <footer className="nx-foot">
+          <PushSwitch t={t} />
+        </footer>
+      </div>
+    </>
   )
 }

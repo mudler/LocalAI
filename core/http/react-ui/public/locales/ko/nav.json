@@ -74,7 +74,8 @@
     "connections": "연결",
     "chatsAdmin": "모든 사용자의 채팅",
     "pages": "페이지",
-    "allChats": "모든 채팅"
+    "allChats": "모든 채팅",
+    "inbox": "알림"
   },
   "footer": {
     "github": "GitHub",
@@ -119,5 +120,10 @@
   "untitledChat": "제목 없는 채팅",
   "chatRunning": "진행 중",
   "automatedWaiting": "확인을 기다리는 자동 채팅: {{count}}",
-  "automatedRunning": "실행 중인 자동 채팅: {{count}}"
+  "automatedRunning": "실행 중인 자동 채팅: {{count}}",
+  "inboxUnread_one": "알림, 읽지 않음 {{count}}개",
+  "inboxUnread_other": "알림, 읽지 않음 {{count}}개",
+  "inboxArrived": "새 알림: {{title}}",
+  "inboxArrivedMany_one": "새 알림 {{count}}개",
+  "inboxArrivedMany_other": "새 알림 {{count}}개"
 }

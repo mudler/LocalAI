@@ -1,40 +1,23 @@
-/* The notification inbox of the chat header: the button with its unread
-   badge, and the panel it opens (a popover from 641 px, a bottom sheet
-   below). Tokens only; motion uses the kit keyframes. */
-
-.nx { position: relative; }
-.nx-btn { position: relative; }
-.nx-badge {
-  position: absolute;
-  top: 2px;
-  right: 0;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--radius-full);
-  background: var(--dk-accent);
-  box-shadow: 0 0 0 2px var(--color-bg-primary);
-  color: var(--color-primary-text);
-  font-size: var(--fs-meta);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  line-height: 18px;
-  text-align: center;
-  pointer-events: none;
-}
+/* The panel of the notification inbox (InboxPanel.jsx): a popover beside the
+   sidebar from 640 px, a bottom sheet below. It is position: fixed, a sibling
+   of the app layout, because the sidebar is transformed on a phone and a fixed
+   child of it would be placed against the sidebar, not the window. The entry
+   and the bell are in inbox-entry.css, which is always loaded; this file loads
+   with the panel. Tokens only; motion uses the kit keyframes. */
 
 /* ---- the panel ---------------------------------------------------------- */
 
 .nx-scrim { display: none; }
 .nx-panel {
-  position: absolute;
-  top: calc(100% + var(--sp-2));
-  right: 0;
+  position: fixed;
+  /* InboxPanel.jsx sets these from the entry that opened the panel. */
+  bottom: var(--nx-bottom, var(--sp-2));
+  left: var(--nx-left, var(--sp-2));
   z-index: var(--dk-z-popover);
   display: flex;
   flex-direction: column;
   width: min(400px, calc(100vw - var(--sp-8)));
-  max-height: min(600px, calc(100dvh - 96px));
+  max-height: min(600px, calc(100dvh - var(--sp-4)));
   overflow: hidden;
   border: 1px solid var(--dk-edge);
   border-radius: var(--r-lg);
@@ -44,7 +27,7 @@
   font-size: var(--fs-small);
   line-height: var(--lh-small);
   text-align: left;
-  transform-origin: top right;
+  transform-origin: bottom left;
 }
 .nx-panel:focus { outline: none; }
 .nx-panel:focus-visible { box-shadow: var(--dk-shadow-float), var(--focus-ring); }
@@ -132,7 +115,6 @@
 @media (prefers-reduced-motion: no-preference) {
   .nx-item.is-fresh { animation: dk-page-in var(--dur-slow) var(--ease-out) both; }
   .nx-panel { animation: dk-pop-in var(--dur-base) var(--ease-out) both; }
-  .nx-badge { animation: dk-pop-in var(--dur-base) var(--ease-out) both; }
 }
 
 .nx-item__main {
@@ -282,7 +264,7 @@
 
 /* ---- phone: a sheet over the bottom of the screen ------------------------ */
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .nx-scrim {
     display: block;
     position: fixed;
@@ -292,7 +274,6 @@
   }
   .nx-panel {
     position: fixed;
-    top: auto;
     right: 0;
     bottom: 0;
     left: 0;

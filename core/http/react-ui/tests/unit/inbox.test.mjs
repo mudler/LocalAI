@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, dayOf, groupByDay, filterItems,
+  hasUnreadFailure, entryVisible, inboxOff, streamWanted,
 } from '../../src/utils/inbox.js'
 
 const note = (extra = {}) => ({ id: 1, kind: 'run_ended', status: 'ok', title: 'T', body: '', link: '', read: false, created: '', ...extra })
@@ -67,4 +68,41 @@ test('inbox: the filters pick unread or failed items', () => {
   assert.deepEqual(filterItems(items, 'unread').map(n => n.id), [1, 3])
   assert.deepEqual(filterItems(items, 'failed').map(n => n.id), [2, 3])
   assert.deepEqual(filterItems(undefined, 'all'), [])
+})
+
+test('inbox: the badge is red only when an unread item failed', () => {
+  assert.equal(hasUnreadFailure([]), false)
+  assert.equal(hasUnreadFailure(undefined), false)
+  assert.equal(hasUnreadFailure([note(), note({ id: 2, status: 'failed', read: true })]), false)
+  assert.equal(hasUnreadFailure([note(), note({ id: 2, status: 'failed' })]), true)
+})
+
+test('inbox: the navbar entry is for an administrator always and for others once they have items', () => {
+  const base = { enabled: true, off: false, loaded: true, isAdmin: false, total: 0, everHad: false, open: false }
+  // An administrator sees it with an empty inbox; anyone else does not.
+  assert.equal(entryVisible({ ...base, isAdmin: true }), true)
+  assert.equal(entryVisible(base), false)
+  assert.equal(entryVisible({ ...base, total: 3 }), true)
+  // It stays after the list was cleared, and while the panel is open.
+  assert.equal(entryVisible({ ...base, everHad: true }), true)
+  assert.equal(entryVisible({ ...base, open: true }), true)
+})
+
+test('inbox: nobody sees the entry when the inbox is off or not read yet', () => {
+  const base = { enabled: true, off: false, loaded: true, isAdmin: true, total: 5, everHad: true, open: true }
+  assert.equal(entryVisible({ ...base, enabled: false }), false)
+  assert.equal(entryVisible({ ...base, off: true }), false)
+  assert.equal(entryVisible({ ...base, loaded: false }), false)
+})
+
+test('inbox: 403, 404 and 409 mean there is no inbox, other failures are retried', () => {
+  for (const s of [403, 404, 409]) assert.equal(inboxOff(s), true)
+  for (const s of [undefined, 0, 401, 500, 502]) assert.equal(inboxOff(s), false)
+})
+
+test('inbox: the stream is open only for an enabled hook on a visible tab', () => {
+  assert.equal(streamWanted({ enabled: true, visible: true, off: false }), true)
+  assert.equal(streamWanted({ enabled: false, visible: true, off: false }), false)
+  assert.equal(streamWanted({ enabled: true, visible: false, off: false }), false)
+  assert.equal(streamWanted({ enabled: true, visible: true, off: true }), false)
 })

@@ -14,6 +14,7 @@ import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
 import './sidebar.css'
+import { NavInboxEntry } from './inbox/InboxTriggers'
 import AppsPinnedLinks from './AppsPinnedLinks'
 import PagesPinnedLinks from './PagesPinnedLinks'
 import SidebarChats from './SidebarChats'
@@ -87,9 +88,11 @@ function saveSectionState(state) {
   try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(state)) } catch (_) { /* ignore */ }
 }
 
-export default function Sidebar({ isOpen, onClose }) {
+// features is the answer of /api/features, read once by App (the inbox needs it
+// too); null until it arrived.
+export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   const { t } = useTranslation('nav')
-  const [features, setFeatures] = useState({})
+  const features = featuresProp || {}
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
@@ -101,10 +104,6 @@ export default function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate()
   const location = useLocation()
   const closeBtnRef = useRef(null)
-
-  useEffect(() => {
-    fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
-  }, [])
 
   // Stay in sync with external collapse dispatches (e.g. the chat
   // page's focus mode). The collapse-toggle button still owns the
@@ -308,6 +307,10 @@ export default function Sidebar({ isOpen, onClose }) {
           })}
 
         </nav>
+
+        {/* Notifications: pinned above Administration. It shows for an
+            administrator and for anyone who has items (InboxContext). */}
+        <NavInboxEntry collapsed={collapsed} onOpen={onClose} />
 
         {/* Administration: pinned above the footer so it stays in reach when the list scrolls. */}
         {adminItem && (

@@ -90,3 +90,36 @@ export function filterItems(items, filter) {
   if (filter === 'unread') return list.filter(n => !n.read)
   return list
 }
+
+// True when an unread item is a failure. The badge of the navbar entry turns
+// red for it: something went wrong and nobody has looked yet.
+export function hasUnreadFailure(items) {
+  return (items || []).some(n => !n.read && failed(n))
+}
+
+// Whether the navbar entry is drawn. An administrator always sees it, because
+// the digest and result items land there and an empty entry says where they
+// go. Anyone else sees it once the inbox holds something, and keeps it for the
+// rest of the session (everHad) and while the panel is open, so clearing the
+// list does not take the button from under the person's hand. Nobody sees it
+// when the inbox is off (chats off, no chats feature, or the server says
+// there is none) or before the first answer.
+export function entryVisible({ enabled, off, loaded, isAdmin, total, everHad, open }) {
+  if (!enabled || off || !loaded) return false
+  if (isAdmin) return true
+  return total > 0 || everHad || open
+}
+
+// The answers that say "no inbox here": 404 and 409 (the server keeps none) and
+// 403 (this person lacks the chats feature). The hook stops asking at once,
+// where any other failure is retried.
+export function inboxOff(status) {
+  return status === 403 || status === 404 || status === 409
+}
+
+// Whether the notification stream should be open: the hook is on, the tab is
+// showing and the server has not said there is no inbox. A hidden tab holds no
+// connection, which matters on plain HTTP where a browser keeps few per host.
+export function streamWanted({ enabled, visible, off }) {
+  return Boolean(enabled && visible && !off)
+}

@@ -74,7 +74,8 @@
     "connections": "Conexões",
     "chatsAdmin": "Chats de todos os usuários",
     "pages": "Páginas",
-    "allChats": "Todos os chats"
+    "allChats": "Todos os chats",
+    "inbox": "Notificações"
   },
   "footer": {
     "github": "GitHub",
@@ -119,5 +120,10 @@
   "untitledChat": "Chat sem título",
   "chatRunning": "Em andamento",
   "automatedWaiting": "Chats automáticos aguardando você: {{count}}",
-  "automatedRunning": "Chats automáticos em execução: {{count}}"
+  "automatedRunning": "Chats automáticos em execução: {{count}}",
+  "inboxUnread_one": "Notificações, {{count}} não lida",
+  "inboxUnread_other": "Notificações, {{count}} não lidas",
+  "inboxArrived": "Nova notificação: {{title}}",
+  "inboxArrivedMany_one": "{{count}} nova notificação",
+  "inboxArrivedMany_other": "{{count}} novas notificações"
 }

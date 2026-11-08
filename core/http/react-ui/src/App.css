@@ -6833,14 +6833,29 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 /* Collapsed, the label is gone and the item centres its icon: an inline badge
    would shove that icon off the rail's axis. Pinning it to the corner keeps the
    count visible without moving anything else. */
-.sidebar.collapsed .nav-badge {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  line-height: 16px;
-  font-size: 0.5625rem;
+@media (min-width: 640px) {
+  .sidebar.collapsed .nav-badge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 0.5625rem;
+  }
+}
+/* The tablet rail is not .collapsed, but it has no label column either. The
+   phone drawer is always expanded, so it keeps the inline badge. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .sidebar:not(.open) .nav-badge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 0.5625rem;
+  }
 }
 
 /* Native file inputs carry their own button and filename text, so the standard

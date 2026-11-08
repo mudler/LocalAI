@@ -11,7 +11,7 @@ import { useModels } from '../hooks/useModels'
 import { CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
 import { pickLiveModels } from '../utils/liveModels'
 import { cardsByTool } from '../utils/chatEgress'
-import { useInbox } from '../hooks/useInbox'
+import { useInboxEntry } from '../contexts/InboxContext'
 import { useOriginContext } from '../hooks/useOriginContext'
 import { isAutomated, knownKind, resolveOrigin } from '../utils/originChats'
 import { foldNotes, isConnectorChat } from '../utils/connectorChat'
@@ -91,8 +91,6 @@ import HomeUndoToast from '../components/home/HomeUndoToast'
 import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
-// eslint-disable-next-line no-unused-vars
-import ChatInbox from '../components/ChatInbox'
 import { ChatSendContext } from '../components/chat/chatSendContext'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
@@ -152,7 +150,8 @@ function ChatPage() {
   // (useComposerTransition): no empty page while the transcript is read.
   const arrival = useComposerArrival(routeId, { textareaRef, pageRef })
   const chat = useServerChat({ seed: arrival.seed })
-  const inbox = useInbox()
+  // Opening a chat marks its notifications read on the server; the shell's inbox reads again.
+  const inbox = useInboxEntry()
   const { select, activeId } = chat
 
   // An old chat link or the Home page names a model with ?model=; it is a hint
@@ -1212,7 +1211,6 @@ function ChatPage() {
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
-          extra={<ChatInbox inbox={inbox} />}
         />
 
         {find.open && (
