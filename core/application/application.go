@@ -72,6 +72,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
+	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -793,6 +794,15 @@ func (a *Application) Shutdown() error {
 			if closeErr := a.voiceProfileStore.Close(); err == nil {
 				err = closeErr
 			}
+		}
+		// Last, so traces of work that ended during shutdown still persist.
+		// The trace consumers are process-wide and write after the request
+		// returns; without this a write lands in DataPath after Shutdown and
+		// races whoever removes the directory next. Release before closing,
+		// so no store is reopened under DataPath in between.
+		if a.applicationConfig != nil && a.applicationConfig.DataPath != "" {
+			trace.ReleaseBackendTracePersistence(a.applicationConfig.DataPath)
+			tracepersist.CloseUnder(a.applicationConfig.DataPath)
 		}
 	})
 	return err
