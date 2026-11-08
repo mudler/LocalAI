@@ -5693,7 +5693,7 @@ the same ID and do not submit a new upgrade.
 ### Automatic upgrade
 
 By default add-ons upgrade only when an administrator starts the upgrade. The
-setting **Upgrade add-ons automatically** (`auto_upgrade_addons` in the runtime
+setting **Update add-ons automatically** (`auto_upgrade_addons` in the runtime
 settings, flag `--auto-upgrade-addons` or `LOCALAI_AUTO_UPGRADE_ADDONS`) is off by
 default, like the matching setting for backends. When you turn it on, the owner checks
 the library of every installed add-on shortly after start and then every six hours,
@@ -5707,6 +5707,14 @@ tried again until the library lists a different one. With the setting off, nothi
 upgrades by itself. Each scheduled pass reads the current owner-host policy, so
 changes take effect without a restart. If the owner policy is unavailable, the
 pass skips upgrades and logs an error; it does not use frontend-local settings.
+
+### On the Updates page
+
+**Operate → Updates** lists the add-ons that have an update, next to the backends, with
+the same states: ready, updating, failed, held for approval, and cannot update. It shows
+the time of the last add-on check and **Check now** reads the library of every installed
+add-on again. A held upgrade opens the same approval dialog as in Apps. An upgrade or a
+check needs the administrator's own browser session, as everywhere else. See [Backends]({{% relref "features/backends#the-updates-page" %}}).
 
 ### In the page
 

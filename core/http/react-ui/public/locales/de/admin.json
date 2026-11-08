@@ -173,6 +173,16 @@
     "network": {
       "title": "Netzwerk der Befehle",
       "where": "{{name}} verwaltet die Netzwerkeinstellungen der Befehle, die es ausführt, auf seiner eigenen Seite."
+    },
+    "autoUpgradeAddons": "Add-ons automatisch aktualisieren",
+    "addonUpdates": {
+      "label": "Add-on-Aktualisierungen",
+      "note": "Der Add-on-Eigentümer wendet diese Einstellung an. Neue Generationen können ausführbaren Code starten.",
+      "unavailable": "Eigentümer-Einstellungen nicht verfügbar oder geändert: {{message}}",
+      "reload": "Neu laden und Änderungen übernehmen",
+      "retry": "Denselben Vorgang wiederholen",
+      "policy": "Eigentümer-Richtlinie · Revision {{revision}}",
+      "apply": "Aktualisierungseinstellung anwenden"
     }
   },
   "backends": {

@@ -173,6 +173,16 @@
     "network": {
       "title": "Jaringan perintah",
       "where": "{{name}} menyimpan pengaturan jaringan untuk perintah yang dijalankannya di halamannya sendiri."
+    },
+    "autoUpgradeAddons": "Perbarui add-on otomatis",
+    "addonUpdates": {
+      "label": "Pembaruan add-on",
+      "note": "Pemilik add-on menerapkan pengaturan ini. Generasi baru dapat menjalankan kode.",
+      "unavailable": "Pengaturan pemilik tidak tersedia atau berubah: {{message}}",
+      "reload": "Muat ulang dan terapkan ulang suntingan",
+      "retry": "Coba operasi yang sama lagi",
+      "policy": "Kebijakan pemilik · revisi {{revision}}",
+      "apply": "Terapkan pengaturan pembaruan"
     }
   },
   "backends": {
