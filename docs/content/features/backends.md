@@ -84,23 +84,26 @@ page while you scroll a long list.
   The button shows how many filters are on.
 - The line under the controls shows how many backends are listed, each active
   filter as a chip that you can remove, and, when updates exist, **N updates
-  available · Review**.
-- **More** holds the actions you need less often: **Check for updates** asks
-  the server to check now instead of waiting for its next scheduled check,
+  available · Review**. **Review** opens the [Updates page](#the-updates-page)
+  on the ready updates.
+- **More** holds the actions you need less often: **Updates** opens the
+  Updates page, where **Check now** runs a real check,
   **Install from URL…** installs a backend from an OCI image, a URL or a path,
   and **Manage libraries…** opens the library sources panel.
 
 Each row shows the backend, its version and its state: **Current**, **Update
 1.2.0**, **Not installed**, **Queued**, **Removing**, or a progress bar while it
 installs, with **Cancel** in the row. A failed install says why, with **Retry**.
-The one action that matters sits in the row (**Install**, **Update**). The row
-menu (⋮) holds **Reinstall backend** and **Delete backend** in both views, and
-the chevron opens the row for the rest. **Review** opens a dialog where you
-pick which pending updates to run; **Update** on a row opens the same dialog
-with only that backend checked, so nothing starts until you confirm. They run
-one after another, a failure does not stop the others, you can close the
-dialog while they run, and **Retry failed** runs the failed ones again. The
-upgrades run as operations in Activity.
+The one action that matters sits in the row (**Install**, or **Review** when
+an update exists). The row menu (⋮) holds **Reinstall backend** and **Delete
+backend** in both views, and the chevron opens the row for the rest. This page
+starts no update of a gallery backend. **Review** on a row only opens the
+Updates page: the page of that backend when nodes report it (it asks before
+it updates a node), otherwise the list of ready updates. The update runs there,
+as an operation in Activity. A backend that came from a library keeps its
+**Update** button in the row, which installs the newer build that library
+lists and shows the progress in the row. The same update is also listed on
+the Updates page.
 
 The current view, search, filter, open row, and target node are stored in the
 URL. Browser Back and shared links therefore restore the same state.
@@ -181,6 +184,16 @@ every node that needs it. **Update** and **Retry** on such a row, and **Update N
 Every update that touches a node asks first, because a worker stops the models
 that use the backend: see [the Nodes page]({{% relref "features/distributed-mode" %}}).
 On a single machine there is no **Nodes** action and **Update** starts at once.
+
+### Shortcuts from other pages
+
+Other pages show that an update exists and send you here; none of them runs a bulk
+update of its own. The Backends page has **Review** in its rows and in the line above
+its list. The Operate **Status** page lists the backends with an update as one row,
+"N updates available", with **Review**. The Apps page has **Open Updates**. The
+**Nodes** page keeps its **Update** button for the nodes you selected, which opens the same
+confirmation as this page, and a node's **Backends** tab has **Update** for a backend that
+is behind on that node.
 
 ### The count on the Updates tab and on Operate
 
