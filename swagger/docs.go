@@ -27233,6 +27233,9 @@ const docTemplate = `{
                 "body": {
                     "type": "string"
                 },
+                "code": {
+                    "type": "string"
+                },
                 "created": {
                     "type": "string"
                 },
@@ -27244,6 +27247,10 @@ const docTemplate = `{
                 },
                 "link": {
                     "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {}
                 },
                 "read": {
                     "type": "boolean"

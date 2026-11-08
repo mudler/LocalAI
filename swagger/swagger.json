@@ -27230,6 +27230,9 @@
                 "body": {
                     "type": "string"
                 },
+                "code": {
+                    "type": "string"
+                },
                 "created": {
                     "type": "string"
                 },
@@ -27241,6 +27244,10 @@
                 },
                 "link": {
                     "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {}
                 },
                 "read": {
                     "type": "boolean"

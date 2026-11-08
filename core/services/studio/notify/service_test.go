@@ -163,4 +163,86 @@ var _ = Describe("the notification service", func() {
 		n, _ = svc.Count(ctx, "u1")
 		Expect(n).To(BeEquivalentTo(0), "count after both expired")
 	})
+
+	Describe("keyed upserts", func() {
+		set := func(title string, ids ...string) notify.Notification {
+			return notify.Notification{Principal: "u1", Key: "updates.digest", Kind: notify.KindNeedsAttention, Source: notify.SourceSystem,
+				Title: title, Code: "updates.digest", Ids: ids}
+		}
+		ctx := context.Background()
+
+		It("announces a created or revived row once, and edits the rest quietly", func() {
+			svc := newService(nil, nil)
+			var hooked []string
+			svc.OnAdd(func(n notify.Notification) { hooked = append(hooked, n.Title) })
+			ch, cancel := svc.Subscribe("u1")
+			defer cancel()
+
+			a, res, err := svc.Upsert(ctx, set("2 updates", "a", "b"), notify.ModeSet)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).To(Equal(notify.ResultCreated))
+			Expect(recv(ch).Title).To(Equal("2 updates"))
+
+			_, res, _ = svc.Upsert(ctx, set("2 updates", "a", "b"), notify.ModeSet)
+			Expect(res).To(Equal(notify.ResultUnchanged))
+			none(ch)
+
+			_, res, _ = svc.Upsert(ctx, set("1 update", "a"), notify.ModeSet)
+			Expect(res).To(Equal(notify.ResultUpdated))
+			Expect(recv(ch).Op).To(Equal(notify.OpChanged), "an edit tells the tabs to read again")
+
+			Expect(svc.Delete(ctx, "u1", []int64{a.ID})).To(Succeed())
+			Expect(recv(ch).Op).To(Equal(notify.OpChanged))
+			_, res, _ = svc.Upsert(ctx, set("1 update", "a"), notify.ModeSet)
+			Expect(res).To(Equal(notify.ResultUnchanged), "dismissed with the same ids")
+			none(ch)
+
+			got, res, _ := svc.Upsert(ctx, set("2 updates", "a", "c"), notify.ModeSet)
+			Expect(res).To(Equal(notify.ResultRevived))
+			Expect(recv(ch).ID).To(Equal(got.ID), "the revived row is heard as an arrival")
+			Expect(hooked).To(Equal([]string{"2 updates", "2 updates"}), "push and Telegram only on create and revive")
+
+			_, res, _ = svc.Upsert(ctx, set("none"), notify.ModeSet)
+			Expect(res).To(Equal(notify.ResultRemoved))
+			Expect(recv(ch).Op).To(Equal(notify.OpChanged))
+			Expect(hooked).To(HaveLen(2))
+		})
+
+		It("does not tell the clients about an edit of a hidden row", func() {
+			svc := newService(nil, nil)
+			a, _, _ := svc.Upsert(ctx, set("2 updates", "a", "b"), notify.ModeSet)
+			Expect(svc.Delete(ctx, "u1", []int64{a.ID})).To(Succeed())
+			ch, cancel := svc.Subscribe("u1")
+			defer cancel()
+			_, res, _ := svc.Upsert(ctx, set("1 update", "b"), notify.ModeSet)
+			Expect(res).To(Equal(notify.ResultUpdated))
+			none(ch)
+		})
+
+		It("keeps a set row in view past the age limit", func() {
+			st, _ := notify.NewJSON("")
+			now := time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
+			clock := now
+			svc := notify.NewService(notify.Options{Store: st, Clock: func() time.Time { return clock }})
+			_, _, _ = svc.Upsert(ctx, set("2 updates", "a", "b"), notify.ModeSet)
+			clock = now.Add(2 * notify.MaxAge)
+			got, _ := svc.List(ctx, "u1", false, 0)
+			Expect(got).To(HaveLen(1))
+		})
+
+		It("shows a row that one frontend revived to the other, with one hook call in the cluster", func() {
+			net := testutil.NewFakeBus()
+			st, _ := notify.NewJSON("")
+			one := newService(notify.NewBroadcastFanout(net, nil), st)
+			two := newService(notify.NewBroadcastFanout(net, nil), st)
+			calls := 0
+			one.OnAdd(func(notify.Notification) { calls++ })
+			two.OnAdd(func(notify.Notification) { calls++ })
+			ch, cancel := two.Subscribe("u1")
+			defer cancel()
+			_, _, _ = one.Upsert(ctx, set("1 update", "a"), notify.ModeSet)
+			Expect(recv(ch).Title).To(Equal("1 update"))
+			Expect(calls).To(Equal(1), "the frontend that stores it runs the hooks")
+		})
+	})
 })

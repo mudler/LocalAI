@@ -7979,6 +7979,8 @@ definitions:
     properties:
       body:
         type: string
+      code:
+        type: string
       created:
         type: string
       id:
@@ -7987,6 +7989,9 @@ definitions:
         type: string
       link:
         type: string
+      params:
+        additionalProperties: {}
+        type: object
       read:
         type: boolean
       source:

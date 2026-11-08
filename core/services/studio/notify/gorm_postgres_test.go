@@ -30,13 +30,15 @@ var _ = Describe("GORM on PostgreSQL", func() {
 			It("runs the contract", func() { Skip("LOCALAI_TEST_POSTGRES_URL is not set") })
 			return
 		}
-		notifytest.Run(func() notify.Store {
+		pg := func() notify.Store {
 			db := openPostgres()
 			s, err := notify.NewGORM(db)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(db.Exec("DELETE FROM studio_notifications").Error).To(Succeed())
 			return s
-		})
+		}
+		notifytest.Run(pg)
+		notifytest.RunKeyed(pg)
 	})
 
 	Describe("the push store contract", func() {

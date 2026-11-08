@@ -1403,17 +1403,23 @@ type ChatsBuiltinToolList struct {
 // ChatsNotification is one item of the inbox. Kind is run_ended, run_failed or
 // needs_attention; Status is ok or failed. Source is what sent it: trigger,
 // connector or system (empty on items stored before sources existed). Link is
-// the in-app path that opens what it is about.
+// the in-app path that opens what it is about. Code and Params are set on the
+// items that the UI words itself, in the language of the person (the update
+// digest and the results of automatic updates, for example): Code names the
+// kind and Params holds its numbers and names. Title and Body are then the
+// English fallback, and the text of push and Telegram.
 type ChatsNotification struct {
-	ID      int64     `json:"id"`
-	Kind    string    `json:"kind"`
-	Status  string    `json:"status"`
-	Source  string    `json:"source,omitempty"`
-	Title   string    `json:"title"`
-	Body    string    `json:"body"`
-	Link    string    `json:"link"`
-	Read    bool      `json:"read"`
-	Created time.Time `json:"created"`
+	ID      int64          `json:"id"`
+	Kind    string         `json:"kind"`
+	Status  string         `json:"status"`
+	Source  string         `json:"source,omitempty"`
+	Title   string         `json:"title"`
+	Body    string         `json:"body"`
+	Link    string         `json:"link"`
+	Read    bool           `json:"read"`
+	Created time.Time      `json:"created"`
+	Code    string         `json:"code,omitempty"`
+	Params  map[string]any `json:"params,omitempty"`
 }
 
 // ChatsNotificationList is the response of the inbox list endpoint.
