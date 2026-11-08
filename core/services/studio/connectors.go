@@ -1146,11 +1146,21 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
-	_, err := c.start(ctx, b, chatID, m.Text, up, earlier)
+	res, err := c.start(ctx, b, chatID, m.Text, up, earlier)
 	if was {
 		c.smu.Lock()
 		st.joining--
 		c.smu.Unlock()
+	}
+	if err == nil && res.Held && !was {
+		// A paused or over-budget coordinator holds the message as a waiting
+		// one. The sender gets no reply and no turn is followed.
+		cancel()
+		c.smu.Lock()
+		st.active, st.grant = false, nil
+		c.smu.Unlock()
+		c.svc.access.clear(chatID)
+		return
 	}
 	if err != nil {
 		if !was {

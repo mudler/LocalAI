@@ -56,3 +56,32 @@ A contact must be valid when you save it:
 store, so every frontend of a cluster sees the same state. A standalone server
 without a database keeps them in files under the data path. The wake-ups run on
 one frontend at a time, the one that holds the reaper lock.
+
+## Pause, budget and held messages
+
+These limits are enforced in the server, never only in the prompt. A message
+that cannot run now is not dropped: it waits as a waiting message of the chat,
+in the order it arrived, and runs once the coordinator may run again.
+
+- **Pause.** While a coordinator is paused, every message to its chat is held,
+  yours too. No turn starts, no loop of the chat runs, and an interrupted turn
+  is not resumed. A turn that is still running does not take the held messages.
+- **Run budget.** Wakes that come from a schedule, from the reply of a contact
+  or from the report of a helper take one run of the budget of the day (UTC)
+  of that coordinator. The operator sets the budget with the setting
+  `chats_coordinator_runs_per_day`. When it is spent, the wake is held. Your
+  own message never takes from the budget. A message that joins a turn that is
+  running, or that waits and goes on after it, starts no new run and is not
+  counted.
+- **Concurrency.** The operator limit `chats_coordinator_max_running` is the
+  count of coordinator chats with a turn running, in the whole cluster. A wake
+  that would pass it is held. Your own message, and chats that are not
+  coordinators, are not limited by it. The count is read just before the turn
+  starts, so two coordinators that start in the same instant can pass it by
+  one until the next check.
+
+**State mode.** The pause flag and the run counters are in the shared store.
+Each frontend reads them at the moment it decides, so all frontends give the
+same answer. The budget is taken with one atomic update in the store: of many
+senders that race for the last run, one gets it and the others are held. When
+a message of a connector is held, the sender gets no reply.

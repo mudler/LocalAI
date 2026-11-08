@@ -112,6 +112,10 @@ func (s *Service) resumeInterruptedVia(ctx context.Context, p, conv string) (Sen
 func (s *Service) ResumeInterrupted(ctx context.Context, p, conv string) (SendResult, error) {
 	unlock := s.lock(key(p, conv))
 	defer unlock()
+	if s.coordinatorHoldsChat(ctx, p, conv) {
+		// Before the claim, so the attempt is not spent.
+		return SendResult{Held: true}, nil
+	}
 	runID := newID()
 	switch err := s.d.Store.ClaimResume(ctx, p, conv, runID); {
 	case errors.Is(err, store.ErrTurnRunning), errors.Is(err, store.ErrNotResumable):
@@ -120,6 +124,9 @@ func (s *Service) ResumeInterrupted(ctx context.Context, p, conv string) (SendRe
 		return SendResult{}, err
 	}
 	if err := s.startClaimed(ctx, p, conv, runID, session.Message{Resume: true}); err != nil {
+		if errors.Is(err, ErrCoordinatorHeld) {
+			return SendResult{Held: true}, nil
+		}
 		return SendResult{}, err
 	}
 	return SendResult{Started: true}, nil

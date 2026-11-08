@@ -40,7 +40,7 @@ func (s *Service) SendBackground(ctx context.Context, user, conv, text string, u
 	if s.d.Workers == nil || len(up) > 0 {
 		return s.SendWithFiles(ctx, user, conv, text, up)
 	}
-	req := workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text}
+	req := workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text, Wake: string(WakeFrom(ctx))}
 	if g, ok := turnGrantFrom(ctx); ok {
 		req.Grant = g.wire()
 	}
@@ -59,7 +59,7 @@ func (s *Service) SendBackground(ctx context.Context, user, conv, text string, u
 	case reply.Error != "":
 		return SendResult{}, fmt.Errorf("%w: %s", ErrWorkerRefused, reply.Error)
 	}
-	return SendResult{Started: reply.Started, PendingID: reply.PendingID}, nil
+	return SendResult{Started: reply.Started, PendingID: reply.PendingID, Held: reply.Held}, nil
 }
 
 // ServeStart runs a start that a frontend sent to this chat worker. The turn
@@ -83,6 +83,7 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if req.Sender != nil {
 		ctx = withTurnWho(ctx, turnWho{Sender: senderOf(req.Sender)})
 	}
+	ctx = WithWake(ctx, WakeSource(req.Wake))
 	var res SendResult
 	var err error
 	if req.Resume {
@@ -96,7 +97,7 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if res.Started {
 		s.limitWorkerRun(ctx, req.Principal, req.ChatID)
 	}
-	return workerctl.ChatStartReply{Started: res.Started, PendingID: res.PendingID}
+	return workerctl.ChatStartReply{Started: res.Started, PendingID: res.PendingID, Held: res.Held}
 }
 
 // checkWorkerRoom returns ErrWorkerFull when this chat worker runs

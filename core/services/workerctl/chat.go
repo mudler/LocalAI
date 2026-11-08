@@ -13,6 +13,10 @@ type ChatStartRequest struct {
 	// whose resume is due, instead of starting a turn from Text. The worker
 	// takes the claim in the store, so a repeated request starts nothing.
 	Resume bool `json:"resume,omitempty"`
+	// Wake is what asks a coordinator chat to run (schedule, reply or
+	// helper); empty for a person's message. The worker charges the run
+	// budget of the coordinator by it.
+	Wake string `json:"wake,omitempty"`
 	// Grant is set for a connector message: what the sender of the turn may
 	// do. The worker keeps it for the turn, so a tool it builds is offered
 	// only for the capabilities in it. A start without a grant for a connector
@@ -75,5 +79,8 @@ type ChatGrant struct {
 type ChatStartReply struct {
 	Started   bool   `json:"started,omitempty"`
 	PendingID string `json:"pending_id,omitempty"`
-	Error     string `json:"error,omitempty"`
+	// Held says the message of a coordinator chat was kept waiting because
+	// the coordinator is paused or over its budget.
+	Held  bool   `json:"held,omitempty"`
+	Error string `json:"error,omitempty"`
 }
