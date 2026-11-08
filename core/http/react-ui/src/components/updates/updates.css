@@ -43,8 +43,8 @@
 .uc-page .ui-callout { margin-bottom: var(--sp-4); }
 
 /* ---- Filter and groups ----------------------------------------------------- */
-.uc-page .ui-seg { align-self: flex-start; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; margin: var(--sp-2) 0 var(--sp-4); }
-.uc-page .ui-seg__item { flex: none; }
+/* The filter wraps on a narrow screen (the kit default) instead of scrolling sideways and hiding "Up to date". */
+.uc-page .ui-seg { align-self: flex-start; max-width: 100%; margin: var(--sp-2) 0 var(--sp-4); }
 .uc-group { margin-bottom: var(--sp-5); }
 .uc-group__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .uc-group__title { margin: 0 0 var(--sp-2); font-size: var(--text-sm); line-height: 18px; font-weight: var(--font-weight-semibold); color: var(--dk-text); letter-spacing: 0; text-transform: none; }
