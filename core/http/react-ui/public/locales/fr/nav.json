@@ -42,7 +42,8 @@
       "addons": "Install, turn on and open add-ons.",
       "triggers": "Démarrez un chat automatiquement, selon un calendrier ou à l'arrivée d'un fichier."
     },
-    "operateSupporting": "Ce qui tourne sur ce serveur, comment il est utilisé et comment il est configuré."
+    "operateSupporting": "Ce qui tourne sur ce serveur, comment il est utilisé et comment il est configuré.",
+    "updates": "Mises à jour"
   },
   "operate": {
     "inference": "Inférence",
@@ -101,7 +102,8 @@
     "connections": "Connexions",
     "chatsAdmin": "Chats de tous les utilisateurs",
     "pages": "Pages",
-    "allChats": "Toutes les conversations"
+    "allChats": "Toutes les conversations",
+    "inbox": "Notifications"
   },
   "footer": {
     "github": "GitHub",
@@ -122,5 +124,12 @@
   "untitledChat": "Conversation sans titre",
   "chatRunning": "En cours",
   "automatedWaiting": "Chats automatiques qui vous attendent : {{count}}",
-  "automatedRunning": "Chats automatiques en cours : {{count}}"
+  "automatedRunning": "Chats automatiques en cours : {{count}}",
+  "inboxUnread_one": "Notifications, {{count}} non lue",
+  "inboxUnread_other": "Notifications, {{count}} non lues",
+  "inboxArrived": "Nouvelle notification : {{title}}",
+  "inboxArrivedMany_one": "{{count}} nouvelle notification",
+  "inboxArrivedMany_other": "{{count}} nouvelles notifications",
+  "updatesBadge_one": "{{count}} mise à jour a besoin de vous",
+  "updatesBadge_other": "{{count}} mises à jour ont besoin de vous"
 }

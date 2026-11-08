@@ -34,6 +34,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListBackends:              "GET /backends",
 	ToolListKnownBackends:         "GET /backends/known",
 	ToolListBackendLibraryUpdates: "GET /backends/library/updates",
+	ToolBackendUpdates:            "GET /backends/updates (action list), POST /backends/updates/check (action check)",
 	ToolSystemInfo:                "GET /version + GET /system (composed)",
 	ToolListNodes:                 "GET /api/nodes",
 	ToolListScheduling:            "GET /api/nodes/scheduling",

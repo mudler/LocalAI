@@ -173,6 +173,16 @@
     "network": {
       "title": "명령의 네트워크",
       "where": "{{name}}은(는) 자신이 실행하는 명령의 네트워크 설정을 자체 페이지에서 관리합니다."
+    },
+    "autoUpgradeAddons": "애드온 자동 업데이트",
+    "addonUpdates": {
+      "label": "애드온 업데이트",
+      "note": "애드온 소유자가 이 설정을 적용합니다. 새 세대는 실행 코드를 돌릴 수 있습니다.",
+      "unavailable": "소유자 설정을 사용할 수 없거나 바뀌었습니다: {{message}}",
+      "reload": "다시 불러와 편집 내용 재적용",
+      "retry": "같은 작업 다시 시도",
+      "policy": "소유자 정책 · 리비전 {{revision}}",
+      "apply": "업데이트 설정 적용"
     }
   },
   "backends": {

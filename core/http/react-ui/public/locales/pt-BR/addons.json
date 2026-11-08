@@ -606,7 +606,6 @@
     },
     "progress": "Atualizando {{name}}. Seus dados são copiados primeiro.",
     "done": "Atualizado para a versão {{version}}.",
-    "browseUpdate": "A atualização {{version}} está disponível. Gerencie em Instalados.",
     "errors": {
       "stale_installed": "A versão instalada mudou desde a verificação. Verifique as atualizações novamente.",
       "candidate_changed": "A biblioteca não oferece mais a versão verificada. Verifique as atualizações novamente.",
@@ -636,15 +635,14 @@
     "checkAll": "Verificar atualizações",
     "notCheckedYet": "As atualizações ainda não foram verificadas.",
     "checkingAll": "Verificando...",
-    "checkAllDone": "{{count}} complementos verificados.",
-    "checkAllFailed": "{{count}} não puderam ser verificados.",
     "checkResult": {
       "done": "Verificado.",
       "failed": "A verificação não foi concluída.",
       "justNow": "Verificado agora mesmo."
     },
     "waitingService": "O serviço de complementos está iniciando. O LocalAI pergunta de novo sobre a atualização em {{seconds}} s.",
-    "checkAgain": "Verificar agora"
+    "checkAgain": "Verificar agora",
+    "open": "Abrir Atualizações"
   },
   "install": {
     "stepsLabel": "Install steps",

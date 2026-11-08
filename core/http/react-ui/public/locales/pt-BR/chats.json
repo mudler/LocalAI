@@ -706,7 +706,41 @@
     "arrivedMany_other": "{{count}} novas notificações",
     "proposalsWaiting_one": "{{count}} alteração aguarda você",
     "proposalsWaiting_other": "{{count}} alterações aguardam você",
-    "proposalsBody": "Um modelo propôs uma alteração. Nada é salvo até você responder."
+    "proposalsBody": "Um modelo propôs uma alteração. Nada é salvo até você responder.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} atualização de backend disponível",
+        "title_other": "{{count}} atualizações de backend disponíveis",
+        "more": "{{items}} e mais {{count}}"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Complementos"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} atualizado automaticamente",
+        "updated_other": "{{count}} atualizados automaticamente",
+        "failed_one": "{{count}} falhou",
+        "failed_other": "{{count}} falharam",
+        "held_one": "{{count}} aguarda aprovação",
+        "held_other": "{{count}} aguardam aprovação",
+        "bodyUpdated": "Atualizados: {{items}}.",
+        "bodyFailed": "Falharam: {{items}}.",
+        "bodyHeld": "Aguardando sua aprovação: {{items}}.",
+        "more": "{{items}} e mais {{count}}"
+      },
+      "checkFailed": {
+        "title": "A verificação de atualizações falhou",
+        "body": "Não foi possível verificar: {{sources}}. As duas últimas verificações automáticas falharam, então a lista pode estar sem atualizações.",
+        "source": {
+          "gallery": "galeria de backends",
+          "library": "biblioteca de backends",
+          "addons": "complementos"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Lendo a alteração do gatilho...",

@@ -26,6 +26,13 @@ export const STATUS = {
   failed: { tone: 'error', icon: 'alert-circle', label: 'failed' },
   'update-available': { tone: 'warn', icon: 'arrow-up', label: 'updateAvailable' },
   'no-runs': { tone: 'idle', icon: 'circle', label: 'noRunsYet' },
+  // The Updates page. An optional update is not a decision, so its chip is the
+  // accent tone (`update-available` stays amber on the pages that use it).
+  'update-ready': { tone: 'accent', icon: 'arrow-up', label: 'updateAvailable' },
+  updating: { tone: 'accent', icon: 'spinner', label: 'updating', busy: true },
+  held: { tone: 'warn', icon: 'lock', label: 'heldForApproval' },
+  blocked: { tone: 'warn', icon: 'warning', label: 'cannotUpdate' },
+  differs: { tone: 'accent', icon: 'arrow-up', label: 'differsFromCluster' },
 }
 
 // Words other parts of the app already use, and the state they mean. The

@@ -1,0 +1,256 @@
+{
+  "title": "Mises à jour",
+  "supporting": "Les backends, backends de bibliothèque et add-ons qui ont une version plus récente.",
+  "loading": "Chargement des mises à jour",
+  "adminOnly": {
+    "title": "Les mises à jour sont réservées aux administrateurs",
+    "body": "Demandez à un administrateur de regarder ce qui est périmé sur ce serveur."
+  },
+  "loadError": {
+    "title": "Impossible de charger la liste des mises à jour."
+  },
+  "strip": {
+    "label": "Résumé des mises à jour",
+    "checking": "Recherche de mises à jour...",
+    "checkNow": "Vérifier maintenant",
+    "checkedJustNow": "Vérifié à l'instant",
+    "ready": "{{count}} prêtes",
+    "updating": "{{count}} en cours",
+    "needs_one": "{{count}} a besoin de vous",
+    "needs_other": "{{count}} ont besoin de vous",
+    "lastCheck": "Dernière vérification {{when}}",
+    "headline": {
+      "loading": "Chargement des mises à jour",
+      "loadError": "Impossible de charger la liste des mises à jour",
+      "updates_one": "{{count}} mise à jour disponible",
+      "updates_other": "{{count}} mises à jour disponibles",
+      "current": "Tout est à jour",
+      "never": "Aucune vérification n'a encore eu lieu",
+      "couldNot": "Impossible de rechercher les mises à jour",
+      "noneButFailed": "Aucune mise à jour trouvée, mais la vérification a échoué pour : {{sources}}",
+      "noneButNever": "Aucune mise à jour trouvée, mais pas encore vérifié : {{sources}}",
+      "unavailable": "Les mises à jour ne peuvent pas être vérifiées sur ce serveur"
+    }
+  },
+  "when": {
+    "justNow": "à l'instant"
+  },
+  "source": {
+    "label": "D'où viennent les mises à jour",
+    "name": {
+      "gallery": "Galerie de backends",
+      "library": "Bibliothèque de backends",
+      "addons": "Add-ons"
+    },
+    "checked": "vérifié {{when}}",
+    "ok": "vérifié",
+    "never": "pas encore vérifié",
+    "loading": "lecture",
+    "unavailable": "indisponible sur ce serveur",
+    "unavailableWhy": "indisponible : {{reason}}",
+    "failed": "échec de la vérification : {{error}}",
+    "addonsUnreadable": "les add-ons n'ont pas pu être lus"
+  },
+  "auto": {
+    "backends": "Mettre à jour les backends automatiquement :",
+    "addons": "Mettre à jour les add-ons automatiquement :",
+    "on": "activé",
+    "off": "désactivé",
+    "settings": "Réglages"
+  },
+  "disabled": {
+    "title": "Les mises à jour de backends sont désactivées sur ce serveur.",
+    "body": "Les backends ci-dessous sont listés, mais rien ne peut les mettre à jour ici. La configuration du serveur a désactivé l'installation de backends."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "La vérification de la galerie de backends a échoué, des mises à jour de backends peuvent donc manquer.",
+      "library": "La vérification de la bibliothèque a échoué, des mises à jour de backends de bibliothèque peuvent donc manquer.",
+      "addons": "La vérification des add-ons a échoué, des mises à jour d'add-ons peuvent donc manquer."
+    },
+    "lastGood": "La liste ci-dessous vient de la dernière vérification réussie, {{when}}. Raison : {{error}}.",
+    "noGood": "Aucune vérification n'a encore réussi. Raison : {{error}}.",
+    "again": "Vérifier à nouveau"
+  },
+  "filter": {
+    "label": "Filtrer les mises à jour",
+    "all": "Toutes",
+    "ready": "Prêtes",
+    "needs-you": "À traiter",
+    "updating": "En cours",
+    "current": "À jour",
+    "none": "Rien ne correspond à ce filtre."
+  },
+  "group": {
+    "needs": "À traiter",
+    "updating": "En cours",
+    "ready": "Prêtes à mettre à jour",
+    "current_one": "{{count}} à jour",
+    "current_other": "{{count}} à jour",
+    "selectAll": "Sélectionner toutes les prêtes",
+    "selectNone": "Ne rien sélectionner",
+    "show": "Afficher",
+    "hide": "Masquer"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Backend de bibliothèque",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Galerie de backends",
+      "library": "Bibliothèque : {{id}}",
+      "libraryUnnamed": "Bibliothèque"
+    },
+    "signed": "signé",
+    "versions": "{{from}} vers {{to}}",
+    "nodes_one": "{{count}} nœud",
+    "nodes_other": "{{count}} nœuds",
+    "drift_one": "{{count}} diffère",
+    "drift_other": "{{count}} diffèrent",
+    "old": "d'une vérification antérieure",
+    "select": "Sélectionner {{name}}",
+    "update": "Mettre à jour",
+    "updateNamed": "Mettre à jour {{name}}",
+    "check": "Vérifier",
+    "checkNamed": "Vérifier si {{name}} a une mise à jour",
+    "retry": "Réessayer",
+    "retryNamed": "Réessayer {{name}}",
+    "review": "Examiner",
+    "reviewNamed": "Examiner la mise à jour de {{name}}",
+    "cancel": "Annuler",
+    "cancelNamed": "Annuler la mise à jour de {{name}}",
+    "progress": "Progression de la mise à jour de {{name}}",
+    "failed": "La mise à jour a échoué : {{message}}",
+    "failedWhy": "Échec de la mise à jour : {{message}}",
+    "noReason": "aucune raison donnée",
+    "startFailed": "La mise à jour n'a pas pu démarrer : {{message}}",
+    "unchanged": "La mise à jour est terminée mais la version n'a pas changé.",
+    "unconfirmed": "La mise à jour est terminée, mais aucune vérification n'a pu la confirmer.",
+    "held": "En attente d'approbation. {{version}} demande un accès que vous n'avez pas approuvé ({{count}} nouveaux).",
+    "blocked": {
+      "installsDisabled": "Les mises à jour de backends sont désactivées sur ce serveur.",
+      "incompatible": "La version {{version}} ne peut pas s'exécuter sur cet hôte.",
+      "integrity": "La bibliothèque liste la version installée avec un contenu différent. Rien n'a été modifié."
+    },
+    "updatingPhase": "Mise à jour : {{phase}}",
+    "updatingPlain": "Mise à jour",
+    "addonConfirm": "Demande votre confirmation dans ce navigateur",
+    "nodesAction": "Nœuds",
+    "nodesNamed": "Afficher les nœuds de {{name}}",
+    "needsConfirm": "{{name}} tourne sur des nœuds et demande d’abord votre confirmation. Utilisez Mettre à jour sur sa ligne."
+  },
+  "bulk": {
+    "start": "Mettre à jour {{count}} prêtes",
+    "running": "Mise à jour {{current}} sur {{total}}",
+    "summary": "{{done}} mises à jour, {{failed}} en échec, {{skipped}} ignorées",
+    "details": "Détails",
+    "retryFailed": "Réessayer les échecs ({{count}})",
+    "dismiss": "Fermer"
+  },
+  "check": {
+    "result_one": "Vérification terminée : {{count}} mise à jour.",
+    "result_other": "Vérification terminée : {{count}} mises à jour.",
+    "failedSources_one": "{{count}} source en échec.",
+    "failedSources_other": "{{count}} sources en échec.",
+    "throttled": "Une vérification a eu lieu il y a un instant. Voici son résultat."
+  },
+  "live": {
+    "updated": "{{name}} a été mis à jour.",
+    "failed": "{{name}} n'a pas été mis à jour."
+  },
+  "empty": {
+    "title": "Rien à mettre à jour pour l'instant",
+    "body": "Installez un backend ou un add-on et ses mises à jour apparaîtront ici.",
+    "backends": "Ouvrir les backends",
+    "addons": "Ouvrir les apps"
+  },
+  "dialog": {
+    "title": "Mettre à jour les prêtes",
+    "intro": "Choisissez ce qu'il faut mettre à jour. Chaque élément est mis à jour séparément, l'un après l'autre, et compte comme terminé seulement quand une nouvelle vérification ne le liste plus. Un échec n'arrête pas les autres.",
+    "selection": "Choisir ce qu'il faut mettre à jour",
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Ne rien sélectionner",
+    "item": "Mettre à jour {{name}}",
+    "versions": "{{from}} vers {{to}}",
+    "blocked": "Ne peut pas démarrer",
+    "start": "Mettre à jour la sélection",
+    "starting": "Mise à jour...",
+    "retry": "Réessayer les échecs ({{count}})",
+    "again": "Nouvelle sélection",
+    "close": "Fermer",
+    "closeRunning": "Fermer (continue en arrière-plan)",
+    "runningNote": "Fermer cette fenêtre n'arrête pas les mises à jour.",
+    "progress": "Mise à jour {{current}} sur {{total}}",
+    "summary": "{{done}} mises à jour, {{failed}} en échec, {{skipped}} ignorées",
+    "empty": "Rien à mettre à jour.",
+    "selectedCount_one": "{{count}} sélectionné",
+    "selectedCount_other": "{{count}} sélectionnés"
+  },
+  "item": {
+    "queued": "En file",
+    "upgrading": "Mise à jour",
+    "done": "Mis à jour",
+    "failed": "Échec",
+    "skipped": "Ignoré"
+  },
+  "node": {
+    "breadcrumb": "Fil d’Ariane",
+    "reload": "Réessayer",
+    "noneTitle": "{{name}} n’a aucun nœud à mettre à jour",
+    "noneBody": "Aucune mise à jour n’est listée pour ce backend sur aucun nœud. Il est peut-être à jour partout, ou vient d’être mis à jour.",
+    "back": "Retour aux mises à jour",
+    "supporting_one": "La version {{version}} est disponible. {{nodes}} l’ont installée, et {{count}} d’entre eux a besoin de la mise à jour.",
+    "supporting_other": "La version {{version}} est disponible. {{nodes}} l’ont installée, et {{count}} d’entre eux ont besoin de la mise à jour.",
+    "supportingDrift_one": "Les nœuds n’ont pas tous le même build. {{count}} sur {{nodes}} diffère du cluster.",
+    "supportingDrift_other": "Les nœuds n’ont pas tous le même build. {{count}} sur {{nodes}} diffèrent du cluster.",
+    "warning": "La mise à jour arrête les modèles qui utilisent ce backend sur chaque nœud. Un modèle redémarre quand une requête en a besoin.",
+    "driftNote": "Un nœud qui diffère du cluster n’est pas toujours en retard : il peut être plus récent. La mise à jour le place sur la version de la galerie.",
+    "tableLabel": "Nœuds qui ont {{name}}",
+    "col": {
+      "node": "Nœud",
+      "installed": "Installée",
+      "models": "Modèles en cours qui l’utilisent",
+      "state": "État",
+      "action": "Action"
+    },
+    "noneRecorded": "Aucun enregistré",
+    "state": {
+      "current": "À jour",
+      "unreachable": "Injoignable"
+    },
+    "updateN_one": "Mettre à jour {{count}} nœud",
+    "updateN_other": "Mettre à jour {{count}} nœuds",
+    "updateNamed": "Mettre à jour {{name}}",
+    "models_one": "{{count}} modèle",
+    "models_other": "{{count}} modèles",
+    "nodes_one": "{{count}} nœud",
+    "nodes_other": "{{count}} nœuds",
+    "stops": "Arrête {{models}}",
+    "title_one": "Mettre à jour {{backend}} sur {{count}} nœud ?",
+    "title_other": "Mettre à jour {{backend}} sur {{count}} nœuds ?",
+    "titleMany_one": "Mettre à jour {{count}} backend sur {{nodes}} ?",
+    "titleMany_other": "Mettre à jour {{count}} backends sur {{nodes}} ?",
+    "runningTitle": "Mise à jour des nœuds",
+    "doneTitle": "Mise à jour terminée",
+    "intro": "Chaque nœud arrête les modèles qui utilisent {{backend}}, installe la nouvelle version et redémarre un modèle quand une requête en a besoin. Impossible de l’annuler d’ici.",
+    "introMany": "Chaque nœud arrête les modèles qui utilisent ces backends, installe les nouvelles versions et redémarre un modèle quand une requête en a besoin. Impossible de l’annuler d’ici.",
+    "stopKnown_one": "{{count}} modèle s’arrête.",
+    "stopKnown_other": "{{count}} modèles s’arrêtent.",
+    "stopPartial_one": "{{count}} modèle est enregistré comme arrêté. Sur d’autres nœuds aucun modèle n’est enregistré, et l’enregistrement peut en manquer, donc d’autres peuvent s’arrêter.",
+    "stopPartial_other": "{{count}} modèles sont enregistrés comme arrêtés. Sur d’autres nœuds aucun modèle n’est enregistré, et l’enregistrement peut en manquer, donc d’autres peuvent s’arrêter.",
+    "stopNone": "Aucun modèle chargé n’est enregistré sur ces nœuds. L’enregistrement n’est pas complet, donc un modèle qui utilise ce backend peut quand même s’arrêter.",
+    "sequence": "Les nœuds sont mis à jour l’un après l’autre. Cette fenêtre montre chaque résultat à sa fin.",
+    "confirmStop_one": "Mettre à jour {{count}} nœud et arrêter {{models}}",
+    "confirmStop_other": "Mettre à jour {{count}} nœuds et arrêter {{models}}",
+    "confirmStopAtLeast_one": "Mettre à jour {{count}} nœud et arrêter au moins {{models}}",
+    "confirmStopAtLeast_other": "Mettre à jour {{count}} nœuds et arrêter au moins {{models}}",
+    "confirmPlain_one": "Mettre à jour {{count}} nœud",
+    "confirmPlain_other": "Mettre à jour {{count}} nœuds",
+    "cancel": "Annuler",
+    "stop": "Arrêter après ce nœud",
+    "listLabel": "Nœuds à mettre à jour",
+    "runningNote": "Arrêter empêche les nœuds qui n’ont pas commencé de démarrer."
+  }
+}

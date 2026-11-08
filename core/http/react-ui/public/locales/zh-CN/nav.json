@@ -74,7 +74,8 @@
     "connections": "连接",
     "chatsAdmin": "所有用户的聊天",
     "pages": "页面",
-    "allChats": "全部对话"
+    "allChats": "全部对话",
+    "inbox": "通知"
   },
   "footer": {
     "github": "GitHub",
@@ -110,7 +111,8 @@
       "addons": "安装附加组件并打开它们提供的应用。",
       "triggers": "按计划或在文件到达时自动开始对话。"
     },
-    "operateSupporting": "此服务器上运行的内容、使用情况和配置。"
+    "operateSupporting": "此服务器上运行的内容、使用情况和配置。",
+    "updates": "更新"
   },
   "pinnedPages": "已固定的页面",
   "new": "新",
@@ -119,5 +121,12 @@
   "untitledChat": "未命名对话",
   "chatRunning": "进行中",
   "automatedWaiting": "等待你处理的自动聊天：{{count}}",
-  "automatedRunning": "运行中的自动聊天：{{count}}"
+  "automatedRunning": "运行中的自动聊天：{{count}}",
+  "inboxUnread_one": "通知，{{count}} 条未读",
+  "inboxUnread_other": "通知，{{count}} 条未读",
+  "inboxArrived": "新通知：{{title}}",
+  "inboxArrivedMany_one": "{{count}} 条新通知",
+  "inboxArrivedMany_other": "{{count}} 条新通知",
+  "updatesBadge_one": "{{count}} 项更新需要你处理",
+  "updatesBadge_other": "{{count}} 项更新需要你处理"
 }

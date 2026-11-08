@@ -12,8 +12,10 @@ import { topDestinations } from '../utils/destinations'
 import { primaryActive, primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
+import { useUpdates } from '../contexts/UpdatesContext'
 import Icon from './Icon'
 import './sidebar.css'
+import { NavInboxEntry } from './inbox/InboxTriggers'
 import AppsPinnedLinks from './AppsPinnedLinks'
 import PagesPinnedLinks from './PagesPinnedLinks'
 import SidebarChats from './SidebarChats'
@@ -87,24 +89,23 @@ function saveSectionState(state) {
   try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(state)) } catch (_) { /* ignore */ }
 }
 
-export default function Sidebar({ isOpen, onClose }) {
+// features is the answer of /api/features, read once by App (the inbox needs it
+// too); null until it arrived.
+export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   const { t } = useTranslation('nav')
-  const [features, setFeatures] = useState({})
+  const features = featuresProp || {}
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
   const { operations } = useOperations()
+  const updates = useUpdates()
   const { builtin } = useNavigation()
   const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
   const closeBtnRef = useRef(null)
-
-  useEffect(() => {
-    fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
-  }, [])
 
   // Stay in sync with external collapse dispatches (e.g. the chat
   // page's focus mode). The collapse-toggle button still owns the
@@ -214,10 +215,23 @@ export default function Sidebar({ isOpen, onClose }) {
     return hubs.filter(hub => hub.id !== operateHub.id).flatMap(hub => hubEntry(hub) ?? [])
   }
   const adminItem = hubEntry(operateHub)
-  const operateBadge = activeOps > 0 ? (
-    <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
-      {failedOps > 0 ? failedOps : activeOps}
+  // One badge on the Operate entry. Precedence: failed operations (red), then
+  // the updates that need a person (accent, red when one failed), then the
+  // operations that are running. The shell-level UpdatesProvider counts them.
+  const updateBadge = updates && updates.enabled ? updates.badge : null
+  const operateBadge = failedOps > 0 ? (
+    <span className="nav-badge nav-badge--error">{failedOps}</span>
+  ) : updateBadge && updateBadge.count > 0 ? (
+    <span
+      className={`nav-badge${updateBadge.failed ? ' nav-badge--error' : ''}`}
+      title={t('updatesBadge', { count: updateBadge.count })}
+      data-testid="operate-updates-badge"
+    >
+      <span aria-hidden="true">{updateBadge.count}</span>
+      <span className="sr-only">{t('updatesBadge', { count: updateBadge.count })}</span>
     </span>
+  ) : activeOps > 0 ? (
+    <span className="nav-badge">{activeOps}</span>
   ) : null
 
   return (
@@ -308,6 +322,10 @@ export default function Sidebar({ isOpen, onClose }) {
           })}
 
         </nav>
+
+        {/* Notifications: pinned above Administration. It shows for an
+            administrator and for anyone who has items (InboxContext). */}
+        <NavInboxEntry collapsed={collapsed} onOpen={onClose} />
 
         {/* Administration: pinned above the footer so it stays in reach when the list scrolls. */}
         {adminItem && (

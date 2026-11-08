@@ -127,7 +127,11 @@
     "failed": "실패",
     "updateAvailable": "업데이트 있음",
     "ready": "준비됨",
-    "noRunsYet": "실행 기록 없음"
+    "noRunsYet": "실행 기록 없음",
+    "updating": "업데이트 중",
+    "heldForApproval": "승인 대기 중",
+    "cannotUpdate": "업데이트할 수 없음",
+    "differsFromCluster": "클러스터와 다름"
   },
   "share": {
     "title": "\"{{name}}\" 공유",

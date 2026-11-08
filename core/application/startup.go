@@ -489,6 +489,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 			return nil
 		})
+		uc.SetLibraryRefresh(application.refreshBackendLibraries)
+		uc.SetLoadedModels(application.loadedModels)
 		// A request that proves a backend is older than the server marks it
 		// stale; refresh the upgrade cache so /backends/upgrades shows it.
 		gallery.SetStaleBackendNotifier(uc.TriggerCheck)
@@ -498,6 +500,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if gs := application.GalleryService(); gs != nil {
 			gs.OnBackendOpCompleted = uc.TriggerCheck
 		}
+		uc.SetAnnouncer(application.updateEmitter())
 		go uc.Run(options.Context)
 	}
 

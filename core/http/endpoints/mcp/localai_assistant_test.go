@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -69,6 +70,14 @@ func (stubClient) ListBackends(_ context.Context) ([]localaitools.Backend, error
 
 func (stubClient) ListBackendLibraryUpdates(_ context.Context) ([]localaitools.BackendLibraryUpdate, error) {
 	return nil, nil
+}
+
+func (stubClient) BackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	return &backendupdates.Snapshot{}, nil
+}
+
+func (stubClient) CheckBackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	return &backendupdates.Snapshot{}, nil
 }
 
 func (stubClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {

@@ -26,6 +26,7 @@ const PAGES = [
   ['/app/operate', 'Operate overview'],
   ['/app/backends', 'Backends'],
   ['/app/activity', 'Activity'],
+  ['/app/updates', 'Updates'],
   ['/app/settings', 'Settings'],
   ['/app/nodes', 'Nodes'],
   ['/app/scheduling', 'Placement rules'],

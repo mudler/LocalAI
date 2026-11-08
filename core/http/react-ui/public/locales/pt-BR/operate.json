@@ -1,12 +1,8 @@
 {
   "backends": {
     "filterLabel": "Filtrar backends",
-    "check": "Verificar atualizações",
     "reinstallBackend": "Reinstalar backend",
     "deleteBackend": "Excluir backend",
-    "updateAllTitle": "Atualizar todos os backends",
-    "updateAllIntro": "Escolha quais backends atualizar. Cada um é atualizado separadamente, um após o outro. Uma falha não interrompe os demais.",
-    "updateSelected": "Atualizar selecionados",
     "loadFailedTitle": "Não foi possível carregar o catálogo de backends.",
     "filtersButton": "Filtros",
     "filtersDone": "Concluir",
@@ -27,7 +23,6 @@
     "countOf": "{{shown}} de {{total}} backends",
     "activeFilters": "Filtros ativos",
     "removeFilter": "Remover filtro: {{name}}",
-    "checking": "Procurando atualizações…",
     "updatesAvailable_one": "{{count}} atualização disponível",
     "updatesAvailable_other": "{{count}} atualizações disponíveis",
     "reviewUpdates": "Revisar",
@@ -54,9 +49,9 @@
     "viewInAddons": "Ver em Complementos",
     "upgradeWaiting": "Aguardando o serviço de complementos iniciar. Próxima verificação em {{seconds}} s.",
     "addonStage": {
-      "submitting": "Submitting upgrade",
+      "submitting": "Submitting update",
       "accepted": "Accepted by owner",
-      "running": "Running upgrade",
+      "running": "Running update",
       "preparing-package": "Preparing package",
       "committing-package": "Committing package",
       "backing-up": "Creating and verifying backup",
@@ -65,13 +60,13 @@
       "migrating": "Starting candidate and checking migration",
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
-      "completed": "Upgrade completed",
-      "failed": "Upgrade failed"
+      "completed": "Update completed",
+      "failed": "Update failed"
     },
     "addonFailure": {
-      "upgrade_failed": "Upgrade failed. Check the owner logs for details.",
-      "interrupted": "Upgrade interrupted by owner shutdown or restart. It was not replayed.",
-      "recovery_required": "Upgrade interrupted. Data recovery is required before this add-on can run."
+      "upgrade_failed": "Update failed. Check the owner logs for details.",
+      "interrupted": "Update interrupted by owner shutdown or restart. It was not replayed.",
+      "recovery_required": "Update interrupted. Data recovery is required before this add-on can run."
     }
   }
 }

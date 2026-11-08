@@ -2,7 +2,9 @@ import { createContext, useContext, useState, useCallback, useMemo } from 'react
 import { backendsApi, modelsApi, nodesApi, resourcesApi, systemApi, tracesApi } from '../utils/api'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
+import { useUpdates } from './UpdatesContext'
 import { useDistributedMode } from '../hooks/useDistributedMode'
+import { galleryUpdateMap } from '../utils/updates'
 import { appendSample, capacityOf } from '../utils/operateStatus'
 
 // The state of the installation, assembled once for everything in the Operate
@@ -38,7 +40,6 @@ async function settle(promise, fallback) {
 }
 
 export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_MS }) {
-  const [upgrades, setUpgrades] = useState({})
   const [nodes, setNodes] = useState([])
   const [resources, setResources] = useState(null)
   const [resourcesLoaded, setResourcesLoaded] = useState(false)
@@ -54,17 +55,21 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const [samples, setSamples] = useState([])
   const [ready, setReady] = useState(false)
   const { operations } = useOperations()
+  // The updates come from the shell-level provider (UpdatesContext), which
+  // reads the cached read model once a minute for the whole app. This provider
+  // used to poll /api/backends/upgrades itself every 15 s for the same fact.
+  const updates = useUpdates()
+  const updateRows = updates && updates.rows
+  // The gallery backends that have a newer build, by name, with the nodes
+  // that differ.
+  const upgrades = useMemo(() => galleryUpdateMap(updateRows), [updateRows])
   // The cluster API answers 503 when distributed mode is off, so asking for it
   // on a single-node install is a guaranteed miss on every tick. The rail gates
   // the Nodes entry the same way.
   const { enabled: distributed, loading: distributedLoading } = useDistributedMode()
 
   const fetchSummary = useCallback(async () => {
-    const [u, n, r, tr, bi, mi, sys] = await Promise.all([
-      // GET /api/backends/upgrades returns the upgrade checker's cached view.
-      // Never POST /upgrades/check on a timer — that forces a real registry
-      // check.
-      settle(backendsApi.checkUpgrades(), {}),
+    const [n, r, tr, bi, mi, sys] = await Promise.all([
       distributed ? settle(nodesApi.list(), []) : Promise.resolve([]),
       settle(resourcesApi.get(), null),
       settle(tracesApi.summary(), null),
@@ -74,7 +79,6 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       // live on workers, and the Nodes entry carries the cluster signal.
       distributed ? Promise.resolve(null) : settle(systemApi.info(), null),
     ])
-    setUpgrades(u && typeof u === 'object' ? u : {})
     setNodes(Array.isArray(n) ? n : (n?.nodes || []))
     setResources(r)
     setResourcesLoaded(true)
@@ -103,13 +107,12 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
     // problem, so a running install belongs in the rail's activity count and
     // not in here.
     const attention = [
-      ...upgradeList.map(u => ({
-        id: `upgrade:${u.backend_name}`,
+      ...(upgradeList.length > 0 ? [{
+        id: 'updates',
         kind: 'backend-update',
-        name: u.backend_name,
-        from: u.installed_version,
-        to: u.available_version,
-      })),
+        count: upgradeList.length,
+        names: upgradeList.map(u => u.backend_name),
+      }] : []),
       ...failedOps.map(op => ({
         id: `op:${op.id || op.uid || op.name}`,
         kind: 'operation-failed',
@@ -143,7 +146,8 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       attention,
       signals: {
         attention: attention.length || null,
-        backends: upgradeList.length || null,
+        updates: updates && updates.badge && updates.badge.count ? updates.badge.count : null,
+        updatesLevel: updates && updates.badge && updates.badge.failed ? 'error' : 'update',
         activity: operations.length || null,
         nodes: nodes.length ? `${nodes.length - unhealthyNodes.length}/${nodes.length}` : null,
         host: memoryPercent(resources),
@@ -152,7 +156,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         running: running || null,
       },
     }
-  }, [upgrades, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading])
+  }, [upgrades, updates, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading])
 
   return (
     <OperateSummaryContext.Provider value={value}>

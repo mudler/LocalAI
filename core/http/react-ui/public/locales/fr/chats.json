@@ -706,7 +706,41 @@
     "arrivedMany_other": "{{count}} nouvelles notifications",
     "proposalsWaiting_one": "{{count}} modification vous attend",
     "proposalsWaiting_other": "{{count}} modifications vous attendent",
-    "proposalsBody": "Un modèle a proposé une modification. Rien n'est enregistré avant votre réponse."
+    "proposalsBody": "Un modèle a proposé une modification. Rien n'est enregistré avant votre réponse.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} mise à jour de backend disponible",
+        "title_other": "{{count}} mises à jour de backend disponibles",
+        "more": "{{items}} et {{count}} de plus"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Modules complémentaires"
+        },
+        "title": "{{family}} : {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} mis à jour automatiquement",
+        "updated_other": "{{count}} mis à jour automatiquement",
+        "failed_one": "{{count}} en échec",
+        "failed_other": "{{count}} en échec",
+        "held_one": "{{count}} attend une approbation",
+        "held_other": "{{count}} attendent une approbation",
+        "bodyUpdated": "Mis à jour : {{items}}.",
+        "bodyFailed": "En échec : {{items}}.",
+        "bodyHeld": "En attente de votre approbation : {{items}}.",
+        "more": "{{items}} et {{count}} de plus"
+      },
+      "checkFailed": {
+        "title": "La vérification des mises à jour a échoué",
+        "body": "Vérification impossible : {{sources}}. Les deux dernières vérifications automatiques ont échoué, donc des mises à jour peuvent manquer dans la liste.",
+        "source": {
+          "gallery": "galerie de backends",
+          "library": "bibliothèque de backends",
+          "addons": "modules complémentaires"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",

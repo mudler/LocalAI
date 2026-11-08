@@ -112,14 +112,15 @@ test.describe('Status headline and ledger', () => {
 })
 
 test.describe('Status actions', () => {
-  test('Update starts the backend update', async ({ page }) => {
+  test('the update item opens the Updates page and starts nothing', async ({ page }) => {
     await mockOperate(page, { upgrades: UPGRADE_LLAMA })
     const calls = []
     await page.route('**/api/backends/upgrade/llama-cpp', route => { calls.push(route.request().method()); return route.fulfill({ json: { status: 'ok' } }) })
     await page.goto('/app/operate')
 
-    await page.getByTestId('operate-attention-item').getByRole('button', { name: 'Update' }).click()
-    await expect.poll(() => calls).toEqual(['POST'])
+    await page.getByTestId('operate-attention-item').getByRole('link', { name: 'Review' }).click()
+    await expect(page).toHaveURL(/\/app\/updates\?filter=ready/)
+    expect(calls).toEqual([])
   })
 
   test('Retry installs the failed model again, after moving the failure to the record', async ({ page }) => {
@@ -232,7 +233,7 @@ test.describe('Status layout', () => {
     await expect(headline(page)).toHaveText('2 things need you.')
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(1)
-    await expect(page.getByTestId('operate-attention-item').first().getByRole('button', { name: 'Update' })).toBeVisible()
+    await expect(page.getByTestId('operate-attention-item').first().getByRole('link', { name: 'Review' })).toBeVisible()
     await head(page, 'running').click()
     await expect(head(page, 'running')).toHaveAttribute('aria-expanded', 'true')
   })

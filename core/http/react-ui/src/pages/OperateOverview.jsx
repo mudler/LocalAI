@@ -2,7 +2,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { backendsApi } from '../utils/api'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
 import { useOperationActions, isRetryable } from '../hooks/useOperationActions'
 import {
@@ -26,8 +25,13 @@ import './operate.css'
 // The numbers come from the Operate summary the hub already polls. Nothing is
 // asked for twice, and nothing is drawn that the API did not say.
 
+// The first names of the backends that have an update.
+const NAMES_SHOWN = 3
+const updateNames = names => names.slice(0, NAMES_SHOWN).join(', ') + (names.length > NAMES_SHOWN ? ', \u2026' : '')
+
 export default function OperateOverview() {
   const { t } = useTranslation('operate')
+  const { t: tu } = useTranslation('updates')
   const { addToast } = useOutletContext() || {}
   const summary = useOperateSummary()
   const actions = useOperationActions(addToast)
@@ -77,19 +81,6 @@ export default function OperateOverview() {
     else next.delete(key)
     return next
   })
-
-  const updateBackend = useCallback(async (name) => {
-    markPending(`update:${name}`, true)
-    try {
-      await backendsApi.upgrade(name)
-      addToast?.(t('needs.updateStarted', { name }), 'info')
-      await refresh?.()
-    } catch (err) {
-      addToast?.(t('needs.updateFailed', { name, message: err.message }), 'error')
-    } finally {
-      markPending(`update:${name}`, false)
-    }
-  }, [addToast, refresh, t])
 
   const retryOperation = useCallback(async (item, op) => {
     markPending(item.id, true)
@@ -149,25 +140,18 @@ export default function OperateOverview() {
                 <li key={item.id} className="op-item" data-testid="operate-attention-item" data-kind={item.kind}>
                   <div className="op-item__text">
                     <strong className="op-item__title">
-                      {item.kind === 'backend-update' && t('needs.backendUpdate', { name: item.name, from: item.from, to: item.to })}
+                      {item.kind === 'backend-update' && tu('strip.headline.updates', { count: item.count })}
                       {item.kind === 'operation-failed' && t('needs.operationFailed', { name: item.name })}
                       {item.kind === 'node-unhealthy' && t('needs.nodeUnhealthy', { name: item.name })}
                     </strong>
                     <span className="op-item__detail">
-                      {item.kind === 'backend-update' && t('needs.backendUpdateDetail', { from: item.from, to: item.to })}
+                      {item.kind === 'backend-update' && updateNames(item.names)}
                       {item.kind !== 'backend-update' && item.detail}
                     </span>
                   </div>
                   <div className="op-item__acts">
                     {item.kind === 'backend-update' && (
-                      <button
-                        type="button"
-                        className="dk-btn dk-btn--secondary dk-btn--sm"
-                        disabled={pending.has(`update:${item.name}`)}
-                        onClick={() => updateBackend(item.name)}
-                      >
-                        {t('needs.update')}
-                      </button>
+                      <Link className="dk-btn dk-btn--secondary dk-btn--sm" to="/app/updates?filter=ready" data-testid="operate-review-updates">{tu('row.review')}</Link>
                     )}
                     {item.kind === 'operation-failed' && op && (
                       <>

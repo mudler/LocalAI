@@ -13,9 +13,9 @@ async function shot(page, name, options = {}) {
 }
 
 
-// The changes that wait for the person when they are not in the chat: a count
-// on the inbox button, a row in the inbox panel that opens the Proposals page,
-// and the same card there for each change. The API is stubbed.
+// The changes that wait for the person when they are not in the chat: a row in
+// the inbox panel that opens the Proposals page, and the same card there for
+// each change. The badge counts unread notifications only. The API is stubbed.
 
 const AT = '2026-11-03T09:00:00Z'
 const later = () => new Date(Date.now() + 5 * 3600_000).toISOString()
@@ -43,11 +43,12 @@ async function serve(page, list) {
   return s
 }
 
-test('the inbox button counts the waiting changes and the panel opens the Proposals page', async ({ page }) => {
+test('the inbox panel lists the waiting changes and opens the Proposals page', async ({ page }) => {
   await serve(page, [make('a1'), make('b2')])
   await page.goto('/app/chats/c1')
-  await expect(page.getByTestId('inbox-count')).toHaveText('2')
-  await expect(inboxButton(page)).toHaveAccessibleName('Notifications, 2 unread')
+  // Waiting changes are not unread notifications: no badge.
+  await expect(inboxButton(page)).toHaveAccessibleName('Notifications')
+  await expect(page.getByTestId('inbox-count')).toHaveCount(0)
   await inboxButton(page).click()
   const row = page.getByTestId('inbox-proposals')
   await expect(row).toContainText('2 changes wait for you')

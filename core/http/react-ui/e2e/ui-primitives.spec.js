@@ -128,12 +128,12 @@ test.describe('UI primitives', () => {
     test(`status chips: words, an icon and 4.5:1 text in ${theme}`, async ({ page }) => {
       await openCatalog(page, { theme })
       const chips = page.getByTestId('chips').locator('.ui-chip')
-      expect(await chips.count()).toBe(7)
+      expect(await chips.count()).toBe(12)
       const read = await chips.evaluateAll(els => els.map(el => {
         const cs = getComputedStyle(el)
         return { text: el.textContent, icon: !!el.querySelector('.ui-chip__icon'), fg: cs.color, bg: cs.backgroundColor, h: el.getBoundingClientRect().height }
       }))
-      expect(read.map(c => c.text)).toEqual(['Running', 'Ready', 'Starting', 'Stopped', 'Failed', 'Update available', 'No runs yet'])
+      expect(read.map(c => c.text)).toEqual(['Running', 'Ready', 'Starting', 'Stopped', 'Failed', 'Update available', 'No runs yet', 'Update available', 'Updating', 'Held for approval', 'Cannot update', 'Differs from the cluster'])
       for (const c of read) {
         expect(c.icon).toBe(true)
         expect(c.h).toBe(22)

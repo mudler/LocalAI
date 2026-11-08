@@ -489,7 +489,7 @@
     },
     "state": {
       "ready": "Bereit",
-      "upgrading": "Upgrade läuft",
+      "upgrading": "Update läuft",
       "restoring": "Wiederherstellung läuft",
       "needs-recovery": "Wiederherstellung nötig",
       "purging": "Bereinigung läuft"
@@ -606,7 +606,6 @@
     },
     "progress": "{{name}} wird aktualisiert. Zuerst werden die Daten gesichert.",
     "done": "Auf Version {{version}} aktualisiert.",
-    "browseUpdate": "Update {{version}} ist verfügbar. Verwaltung unter Installiert.",
     "errors": {
       "stale_installed": "Die installierte Version hat sich seit der Prüfung geändert. Bitte erneut nach Updates suchen.",
       "candidate_changed": "Die Bibliothek bietet die geprüfte Version nicht mehr an. Bitte erneut nach Updates suchen.",
@@ -636,15 +635,14 @@
     "checkAll": "Nach Updates suchen",
     "notCheckedYet": "Updates wurden noch nicht geprüft.",
     "checkingAll": "Prüfe...",
-    "checkAllDone": "{{count}} Add-ons geprüft.",
-    "checkAllFailed": "{{count}} konnten nicht geprüft werden.",
     "checkResult": {
       "done": "Geprüft.",
       "failed": "Die Prüfung wurde nicht abgeschlossen.",
       "justNow": "Gerade eben geprüft."
     },
-    "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach dem Upgrade.",
-    "checkAgain": "Jetzt prüfen"
+    "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach der Aktualisierung.",
+    "checkAgain": "Jetzt prüfen",
+    "open": "Aktualisierungen öffnen"
   },
   "install": {
     "stepsLabel": "Install steps",

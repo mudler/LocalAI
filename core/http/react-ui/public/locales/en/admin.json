@@ -41,7 +41,7 @@
     "saved": "Settings saved successfully",
     "saveFailed": "Save failed: {{message}}",
     "loadFailed": "Failed to load settings: {{message}}",
-    "autoUpgradeAddons": "Upgrade add-ons automatically",
+    "autoUpgradeAddons": "Update add-ons automatically",
     "sections": {
       "branding": "Branding",
       "watchdog": "Watchdog",
@@ -124,6 +124,15 @@
     "network": {
       "title": "Network of commands",
       "where": "{{name}} keeps the network settings of the commands it runs on its own page."
+    },
+    "addonUpdates": {
+      "label": "Add-on updates",
+      "note": "The add-on owner applies this setting. New generations can run executable code.",
+      "unavailable": "Owner settings unavailable or changed: {{message}}",
+      "reload": "Reload and rebase edits",
+      "retry": "Retry same operation",
+      "policy": "Owner policy · revision {{revision}}",
+      "apply": "Apply update setting"
     }
   },
   "traces": {

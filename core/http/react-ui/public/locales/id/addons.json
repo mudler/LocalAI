@@ -489,7 +489,7 @@
     },
     "state": {
       "ready": "Siap",
-      "upgrading": "Meningkatkan",
+      "upgrading": "Memperbarui",
       "restoring": "Memulihkan",
       "needs-recovery": "Perlu pemulihan",
       "purging": "Membersihkan"
@@ -606,17 +606,16 @@
     },
     "progress": "Memperbarui {{name}}. Datanya dicadangkan lebih dulu.",
     "done": "Diperbarui ke versi {{version}}.",
-    "browseUpdate": "Pembaruan {{version}} tersedia. Kelola di Terpasang.",
     "errors": {
       "stale_installed": "Versi terpasang berubah sejak diperiksa. Periksa pembaruan lagi.",
       "candidate_changed": "Pustaka tidak lagi menawarkan versi yang diperiksa. Periksa pembaruan lagi.",
-      "upgrade_conflict": "Peningkatan ini sudah tercatat di operasi lain. Peningkatan tidak diterapkan dua kali.",
+      "upgrade_conflict": "Pembaruan ini sudah tercatat di operasi lain. Pembaruan tidak diterapkan dua kali.",
       "incompatible": "Versi baru tidak kompatibel dengan host ini. Tidak ada yang diubah.",
       "integrity_error": "Pustaka mencantumkan versi terpasang dengan isi berbeda. Tidak ada yang diubah.",
-      "upgrade_failed": "Peningkatan tidak selesai dan versi terpasang dipertahankan. Anda dapat mencoba lagi.",
+      "upgrade_failed": "Pembaruan tidak selesai dan versi terpasang dipertahankan. Anda dapat mencoba lagi.",
       "operation_conflict": "Operasi tidak sesuai dengan keadaan saat ini. Tidak ada yang diterapkan.",
-      "check_failed": "Pustaka tidak dapat dibaca, jadi peningkatan tidak dimulai. Tidak ada yang diubah.",
-      "unknownOutcome": "Hasil peningkatan tidak diketahui. Baca statusnya lagi; jangan mulai yang lain.",
+      "check_failed": "Pustaka tidak dapat dibaca, jadi pembaruan tidak dimulai. Tidak ada yang diubah.",
+      "unknownOutcome": "Hasil pembaruan tidak diketahui. Baca statusnya lagi; jangan mulai yang lain.",
       "auth": "Masuk lagi untuk melanjutkan.",
       "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
       "network": "Jaringan tidak dapat dijangkau.",
@@ -631,20 +630,19 @@
       "integrity": "Pustaka mencantumkan versi ini dengan isi berbeda. Versi ini tidak ditawarkan sebagai pembaruan.",
       "recovery": "Data add-on ini perlu dipulihkan dulu. Pulihkan cadangan di Detail, lalu perbarui.",
       "current": "Pemeriksaan terakhir tidak menemukan pembaruan. Pemberitahuan mungkin sudah usang. Periksa lagi.",
-      "unpinned": "Pustaka melaporkan pembaruan tetapi tidak menyebutkan build yang akan dipasang, jadi tidak dapat ditingkatkan dari sini. Periksa lagi nanti."
+      "unpinned": "Pustaka melaporkan pembaruan tetapi tidak menyebutkan build yang akan dipasang, jadi tidak dapat diperbarui dari sini. Periksa lagi nanti."
     },
     "checkAll": "Periksa pembaruan",
     "notCheckedYet": "Pembaruan belum diperiksa.",
     "checkingAll": "Memeriksa...",
-    "checkAllDone": "{{count}} add-on diperiksa.",
-    "checkAllFailed": "{{count}} tidak dapat diperiksa.",
     "checkResult": {
       "done": "Sudah diperiksa.",
       "failed": "Pemeriksaan tidak selesai.",
       "justNow": "Baru saja diperiksa."
     },
-    "waitingService": "Layanan add-on sedang dimulai. LocalAI menanyakan peningkatan lagi dalam {{seconds}} dtk.",
-    "checkAgain": "Periksa sekarang"
+    "waitingService": "Layanan add-on sedang dimulai. LocalAI menanyakan pembaruan lagi dalam {{seconds}} dtk.",
+    "checkAgain": "Periksa sekarang",
+    "open": "Buka Pembaruan"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -784,9 +782,9 @@
   "hostAccess": {
     "addonsTitle": "Add-on",
     "approve": {
-      "action": "Setujui dan tingkatkan",
+      "action": "Setujui dan perbarui",
       "body": "Versi {{current}} dari {{name}} tetap berjalan. Jika Anda setuju, versi baru dapat menjalankan aksi ini. Yang baru ditandai.",
-      "done": "{{name}} telah ditingkatkan.",
+      "done": "{{name}} telah diperbarui.",
       "title": "Setujui akses host untuk {{name}} {{version}}"
     },
     "asksNothing": "Add-on ini tidak meminta akses host.",

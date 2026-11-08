@@ -706,7 +706,41 @@
     "arrivedMany_other": "{{count}} neue Benachrichtigungen",
     "proposalsWaiting_one": "{{count}} Änderung wartet auf dich",
     "proposalsWaiting_other": "{{count}} Änderungen warten auf dich",
-    "proposalsBody": "Ein Modell hat eine Änderung vorgeschlagen. Nichts wird gespeichert, bevor du antwortest."
+    "proposalsBody": "Ein Modell hat eine Änderung vorgeschlagen. Nichts wird gespeichert, bevor du antwortest.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} Backend-Update verfügbar",
+        "title_other": "{{count}} Backend-Updates verfügbar",
+        "more": "{{items}} und {{count}} weitere"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Add-ons"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} automatisch aktualisiert",
+        "updated_other": "{{count}} automatisch aktualisiert",
+        "failed_one": "{{count}} fehlgeschlagen",
+        "failed_other": "{{count}} fehlgeschlagen",
+        "held_one": "{{count}} wartet auf Freigabe",
+        "held_other": "{{count}} warten auf Freigabe",
+        "bodyUpdated": "Aktualisiert: {{items}}.",
+        "bodyFailed": "Fehlgeschlagen: {{items}}.",
+        "bodyHeld": "Wartet auf Ihre Freigabe: {{items}}.",
+        "more": "{{items}} und {{count}} weitere"
+      },
+      "checkFailed": {
+        "title": "Die Update-Prüfung ist fehlgeschlagen",
+        "body": "Nicht prüfbar: {{sources}}. Die letzten beiden automatischen Prüfungen sind fehlgeschlagen, daher fehlen in der Liste möglicherweise Updates.",
+        "source": {
+          "gallery": "Backend-Galerie",
+          "library": "Backend-Bibliothek",
+          "addons": "Add-ons"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",

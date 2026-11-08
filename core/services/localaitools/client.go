@@ -6,6 +6,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
@@ -65,6 +66,13 @@ type LocalAIClient interface {
 	// have a newer build in their library. It reads the cached index and
 	// installs nothing.
 	ListBackendLibraryUpdates(ctx context.Context) ([]BackendLibraryUpdate, error)
+	// BackendUpdates returns the gallery and library backends that have a
+	// newer build, with the freshness of each source. It answers from the
+	// cache of the instance and contacts no registry.
+	BackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error)
+	// CheckBackendUpdates checks the registries now, waits for the check and
+	// returns the new data. It installs nothing.
+	CheckBackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error)
 	InstallBackend(ctx context.Context, req InstallBackendRequest) (jobID string, err error)
 	// InstallLibraryBackend installs a backend from a library entry. It
 	// returns when the install is done.

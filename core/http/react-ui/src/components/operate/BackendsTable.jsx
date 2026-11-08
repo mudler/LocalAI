@@ -48,7 +48,7 @@ export function StateCell({ state }) {
       return <span className="bk-state bk-state--error" title={state.error}><Icon name="alert-circle" /> {t('backends.state.failed')}</span>
     case 'update':
       return (
-        <span className="bk-state bk-state--warn" data-library={state.library ? '' : undefined}>
+        <span className="bk-state bk-state--update" data-library={state.library ? '' : undefined}>
           <Icon name="arrow-up" /> {state.to ? t('backends.state.updateTo', { version: state.to }) : t('backends.state.update')}
         </span>
       )

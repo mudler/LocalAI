@@ -25,6 +25,8 @@ const (
 	routeBackendsApply          = "/backends/apply"
 	routeBackendsLibraryInstall = "/backends/library/install"
 	routeBackendsLibraryUpdates = "/backends/library/updates"
+	routeBackendsUpdates        = "/backends/updates"
+	routeBackendsUpdatesCheck   = "/backends/updates/check"
 	routeNodes                  = "/api/nodes"
 	routeScheduling             = "/api/nodes/scheduling"
 	routeVRAMEstimate           = "/api/models/vram-estimate"

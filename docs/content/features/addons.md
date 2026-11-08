@@ -1920,10 +1920,10 @@ again from the same library is a reinstall.
 
 The Backends page marks a backend that came from a library with the library ID, and the
 detail view shows the digest that `metadata.json` pinned. A backend of a gallery has no
-mark, and the gallery upgrade check and the review of updates are unchanged.
+mark, and the gallery update check is the one of the Updates page.
 
 When the cached index of the library lists a different build than the one installed, the
-backend shows "Update available" and an Update button. The check is
+backend shows "Update available" and an Update button in its row. The check is
 `GET /backends/library/updates`. It reads the index the last refresh cached, so it does
 not use the network, and it installs nothing. The build to compare is the one in the
 channel of the installed version. If the library no longer lists that version and has
@@ -5607,8 +5607,8 @@ The status also carries `installedVersion`, `installedDigest`, `candidateVersion
   digests. A different digest is an update even when the version label is the same.
 - A development build installed from a mutable entry (a moving tag such as
   `0.0.0-development`, with no digest in the library) is compared by the digest that its tag
-  names. Its label is not compared as a version. An explicit check (**Check for updates**,
-  **Check again** or the automatic upgrade) resolves the tag in the registry and keeps the
+  names. Its label is not compared as a version. An explicit check (**Check now** on the
+  Updates page, **Check again** or the automatic update) resolves the tag in the registry and keeps the
   digest, so a later status read compares against it and does not use the network. Before
   the first explicit check the state is `unknown`. When the tag names another build, the
   state is `update-available` with that digest as `candidateDigest` and the label with the
@@ -5693,13 +5693,13 @@ the same ID and do not submit a new upgrade.
 ### Automatic upgrade
 
 By default add-ons upgrade only when an administrator starts the upgrade. The
-setting **Upgrade add-ons automatically** (`auto_upgrade_addons` in the runtime
+setting **Update add-ons automatically** (`auto_upgrade_addons` in the runtime
 settings, flag `--auto-upgrade-addons` or `LOCALAI_AUTO_UPGRADE_ADDONS`) is off by
 default, like the matching setting for backends. When you turn it on, the owner checks
 the library of every installed add-on shortly after start and then every six hours,
 the same schedule as the backend update check. When a library lists a newer version
 for the channel the add-on was installed from, the owner runs the same pinned upgrade
-that the **Upgrade** action runs. The digest and signature checks, the compatibility
+that the **Update** action runs. The digest and signature checks, the compatibility
 checks, the data backup and the recovery behavior above all apply, and an upgrade that
 fails any of them changes nothing and is written to the log. An automatic upgrade never
 changes the library, the channel or the trusted signer. A candidate that failed is not
@@ -5708,66 +5708,67 @@ upgrades by itself. Each scheduled pass reads the current owner-host policy, so
 changes take effect without a restart. If the owner policy is unavailable, the
 pass skips upgrades and logs an error; it does not use frontend-local settings.
 
+At the end of a pass the owner writes one item to the inbox of the administrators when it did something: "Add-ons: 1 updated automatically, 1 waiting for approval". It names the add-ons that were upgraded, the ones that failed, and the ones that wait for an administrator because the new version needs host access that nobody approved (an automatic upgrade never approves). A failure or a wait links to the updates that need you. A pass that did nothing writes nothing, and the same add-on failing or waiting for the same candidate again is not written again, also after a restart. The owner is the only writer, so the item exists once in a cluster. With the setting off nothing is written, and add-on updates are not in the backend digest of the inbox; see [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}}).
+
+### On the Updates page
+
+**Operate → Updates** lists the add-ons that have an update, next to the backends, with
+the same states: ready, updating, failed, held for approval, and cannot update. It shows
+the time of the last add-on check and **Check now** reads the library of every installed
+add-on again. A held upgrade opens the same approval dialog as in Apps. An upgrade or a
+check needs the administrator's own browser session, as everywhere else. See [Backends]({{% relref "features/backends#the-updates-page" %}}).
+
 ### In the page
 
 The Installed list and the management sheet show a badge with the candidate version and
 the short digest, and the compatibility reasons of an incompatible candidate. An
-administrator gets **Check for updates** with the time of the last check, and **Upgrade**
-when the state is `update-available`. **Upgrade** opens a confirmation that names the
+administrator gets **Check again** on one add-on, with the time of the last check, and
+**Update** when the state is `update-available`. **Update** opens a confirmation that names the
 library, the channel, the installed and the new version and digest, and says that the data
 of the add-on is backed up first. It then shows progress and, on failure, the error and the
 kept version. Anyone else sees the status without actions.
 
-The **Upgrade** action is on the card of the add-on in the list and on its entry in **Find
+The **Update** action is on the card of the add-on in the list and on its entry in **Find
 add-ons**, next to the update notice, and in its details. All of them open the same
 confirmation.
 
-When the notice is shown but the upgrade cannot start, the card says why instead of hiding the
+When the notice is shown but the update cannot start, the card says why instead of hiding the
 action:
 
 | What the card says | Cause | What to do |
 |---|---|---|
-| Only an administrator can upgrade it | Your account is not an administrator. | Ask an administrator. |
+| Only an administrator can update it | Your account is not an administrator. | Ask an administrator. |
 | The update is not confirmed yet | The check did not resolve a candidate to pin (no digest). | Select **Check again**. |
 | The library names no build to install | A check ran and the owner still reports an update without a digest to pin. | Check again later. |
 | The last check failed | The library could not be read. | Select **Check again**. |
 | The update cannot run here, with the reasons | The state is `incompatible`. | None until the host or the platform fits. |
 | The library lists this version with different contents | The state is `integrity-error`. It is never an update. | None. |
-| The data needs recovery first | The add-on is in the recovery state. | Restore a backup in the details, then upgrade. |
+| The data needs recovery first | The add-on is in the recovery state. | Restore a backup in the details, then update. |
 | The latest check found no update | The list showed a cached notice that a newer evaluation no longer supports. | Select **Check again**. |
 
 After **Check again**, the card shows the answer of the check: "Checked just now" (or the
 time of the check) and what the check found, for example that the add-on is up to date. When
-the check found an update with a digest, **Upgrade** replaces the reason. A check that fails
+the check found an update with a digest, **Update** replaces the reason. A check that fails
 shows why, and you can run it again.
 
-**Upgrade all (N)** shows in the bar of the list for administrators when at least one add-on
-has an update. It opens a dialog that lists every add-on with an update: the name, the
-installed and the new version, and, for one that cannot start, the reason above. Only add-ons
-that can start can be selected; **Select all** and **Select none** change the selection.
-**Upgrade selected** then runs the single-add-on upgrade for each selected add-on, one after
-another, never in parallel. Each is its own operation with its own operation ID and its own
-pinned digests, so the owner decides every one again. The dialog shows each add-on as queued,
-upgrading, done, failed (with the reason the owner gave) or skipped. A failure does not stop
-the others. You can close the dialog while it runs: the upgrades continue and the bar shows
-the progress and then a summary. **Retry failed** runs the failed add-ons again as new
-operations.
+The Apps page has no bulk update and no check of all add-ons. **Open Updates** in its
+bar goes to the Updates page, where **Update N ready** runs the add-on updates one after
+another (a failure does not stop the others, and a held one waits for approval), and
+**Check now** reads the library of every installed add-on again. A check applies
+nothing, and an add-on that cannot be checked does not stop the others. Add-ons that
+share a library are all checked, whether they are turned on or off, and every one with a
+newer build is listed together. An installed version that this server can no longer run
+cannot be turned on: the server says so and you update it first.
 
-**Check for updates** in the bar of the list reads the library of every installed add-on
-again; it applies nothing, and an add-on that cannot be checked does not stop the others.
-Add-ons that share a library are all checked, whether they are turned on or off, and every
-one with a newer build is listed together. An installed version that this server can no longer
-run cannot be turned on: the server says so and you upgrade it first.
-
-An upgrade started from the list, the details, **Find add-ons** or **Upgrade all** keeps
+An update started from the list, the details, **Find add-ons** or the Updates page keeps
 running when you leave the page. It appears in the Activity page under the **Add-ons**
 filter, with progress, **Cancel** and **Retry**. Cancel stops the request, and the page then
-reads the operation to report what the owner did. The list of upgrades is kept by the
+reads the operation to report what the owner did. The list of updates is kept by the
 browser that started them, so it is lost on a page reload. Background tracking continues
 across navigation only within the same authentication session. An authentication
 refresh, account or permission change, logout initiation, or removal of the
 authentication provider expires pending observations. Late replies then cannot
-verify an upgrade or publish its result into the new session. This does not undo
+verify an update or publish its result into the new session. This does not undo
 an operation already accepted by the server.
 
 While the add-on service restarts (an upgrade restarts it), the page cannot read the

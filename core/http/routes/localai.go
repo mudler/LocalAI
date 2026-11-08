@@ -131,6 +131,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
 		router.GET("/backends/upgrades", backendGalleryEndpointService.GetUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
+		// Read model and a check that waits. The checker is nil-safe, so a
+		// server without one answers with disabled sources.
+		router.GET("/backends/updates", localai.BackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
+		router.POST("/backends/updates/check", localai.CheckBackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
 		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		// Custom model import endpoint
 		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)

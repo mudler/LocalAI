@@ -308,7 +308,41 @@
     "arrivedMany_other": "{{count}} new notifications",
     "proposalsWaiting_one": "{{count}} change waits for you",
     "proposalsWaiting_other": "{{count}} changes wait for you",
-    "proposalsBody": "A model proposed a change. Nothing is saved until you answer."
+    "proposalsBody": "A model proposed a change. Nothing is saved until you answer.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} backend update available",
+        "title_other": "{{count}} backend updates available",
+        "more": "{{items}} and {{count}} more"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Add-ons"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} updated automatically",
+        "updated_other": "{{count}} updated automatically",
+        "failed_one": "{{count}} failed",
+        "failed_other": "{{count}} failed",
+        "held_one": "{{count}} waiting for approval",
+        "held_other": "{{count}} waiting for approval",
+        "bodyUpdated": "Updated: {{items}}.",
+        "bodyFailed": "Failed: {{items}}.",
+        "bodyHeld": "Waiting for your approval: {{items}}.",
+        "more": "{{items}} and {{count}} more"
+      },
+      "checkFailed": {
+        "title": "The update check failed",
+        "body": "Could not check: {{sources}}. The last two automatic checks failed, so updates may be missing from the list.",
+        "source": {
+          "gallery": "backend gallery",
+          "library": "backend library",
+          "addons": "add-ons"
+        }
+      }
+    }
   },
   "connectorsPage": {
     "title": "Connections",

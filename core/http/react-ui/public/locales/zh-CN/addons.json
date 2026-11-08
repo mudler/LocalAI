@@ -68,7 +68,7 @@
       "paused": "在它恢复之前,附加组件的页面和工具会暂停。"
     },
     "busy": {
-      "upgrading": "附加组件服务器正忙（正在升级 {{names}}）",
+      "upgrading": "附加组件服务器正忙（正在更新 {{names}}）",
       "generic": "附加组件服务器正忙",
       "unreachable": "无法连接附加组件服务器",
       "reason": "显示的是最近一次已知的状态。本页会自动重试。",
@@ -489,7 +489,7 @@
     },
     "state": {
       "ready": "就绪",
-      "upgrading": "正在升级",
+      "upgrading": "正在更新",
       "restoring": "正在恢复",
       "needs-recovery": "需要恢复",
       "purging": "正在清除"
@@ -593,58 +593,56 @@
     "installed": "已安装",
     "candidate": "可用",
     "reasons": "不匹配的原因",
-    "upgrade": "升级",
+    "upgrade": "更新",
     "confirm": {
-      "title": "将 {{name}} 升级到 {{version}}？",
+      "title": "将 {{name}} 更新到 {{version}}？",
       "body": "在备份和迁移数据期间附加组件会停止，随后新版本启动。如果新版本无法启动，当前版本会继续运行。",
       "data": "更改之前会先备份其数据。",
-      "action": "升级",
+      "action": "更新",
       "library": "库",
       "channel": "频道",
       "from": "从",
       "to": "到"
     },
-    "progress": "正在升级 {{name}}。先备份其数据。",
-    "done": "已升级到版本 {{version}}。",
-    "browseUpdate": "更新 {{version}} 可用。请在“已安装”中管理。",
+    "progress": "正在更新 {{name}}。先备份其数据。",
+    "done": "已更新到版本 {{version}}。",
     "errors": {
       "stale_installed": "检查之后已安装的版本发生了变化。请再次检查更新。",
       "candidate_changed": "库不再提供您检查过的版本。请再次检查更新。",
-      "upgrade_conflict": "此升级已记录在另一个操作下，没有重复应用。",
+      "upgrade_conflict": "此更新已记录在另一个操作下，没有重复应用。",
       "incompatible": "新版本与此主机不兼容。未做任何更改。",
       "integrity_error": "库列出的已安装版本内容不同。未做任何更改。",
-      "upgrade_failed": "升级未完成，已保留已安装的版本。您可以重试。",
+      "upgrade_failed": "更新未完成，已保留已安装的版本。您可以重试。",
       "operation_conflict": "该操作与当前状态不符。未应用任何内容。",
-      "check_failed": "无法读取库，因此未开始升级。未做任何更改。",
-      "unknownOutcome": "升级结果未知。请再次读取其状态，不要再开始另一个升级。",
+      "check_failed": "无法读取库，因此未开始更新。未做任何更改。",
+      "unknownOutcome": "更新结果未知。请再次读取其状态，不要再开始另一个更新。",
       "auth": "请重新登录以继续。",
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
       "network": "无法连接到网络。",
       "unavailable": "附加组件服务不可用，请重试。"
     },
-    "upgradeNamed": "升级 {{name}}",
+    "upgradeNamed": "更新 {{name}}",
     "why": {
-      "role": "有可用更新,只有管理员可以升级。",
+      "role": "有可用更新，只有管理员可以更新。",
       "needs-check": "已报告有更新,但详情尚未确认。请重新检查以确认。",
       "check-failed": "上次检查失败,无法确认更新。请重新检查。",
       "incompatible": "存在更新,但无法在此运行:",
       "integrity": "库中列出的此版本内容不同,不会作为更新提供。",
-      "recovery": "此插件的数据需要先恢复。请在详情中恢复备份,然后再升级。",
+      "recovery": "此插件的数据需要先恢复。请在详情中恢复备份,然后再更新。",
       "current": "上次检查未发现更新,该提示可能已过期。请重新检查。",
-      "unpinned": "库报告有更新，但没有指明要安装的构建，因此无法在此升级。请稍后再检查。"
+      "unpinned": "库报告有更新，但没有指明要安装的构建，因此无法在此更新。请稍后再检查。"
     },
     "checkAll": "检查更新",
     "notCheckedYet": "尚未检查更新。",
     "checkingAll": "正在检查...",
-    "checkAllDone": "已检查 {{count}} 个插件。",
-    "checkAllFailed": "{{count}} 个无法检查。",
     "checkResult": {
       "done": "已检查。",
       "failed": "检查未完成。",
       "justNow": "刚刚检查过。"
     },
-    "waitingService": "插件服务正在启动。LocalAI 将在 {{seconds}} 秒后再次查询升级状态。",
-    "checkAgain": "立即检查"
+    "waitingService": "插件服务正在启动。LocalAI 将在 {{seconds}} 秒后再次查询更新状态。",
+    "checkAgain": "立即检查",
+    "open": "打开更新"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -784,9 +782,9 @@
   "hostAccess": {
     "addonsTitle": "插件",
     "approve": {
-      "action": "批准并升级",
+      "action": "批准并更新",
       "body": "{{name}} 的 {{current}} 版本继续运行。批准后，新版本可以运行这些操作。新增项已标出。",
-      "done": "{{name}} 已升级。",
+      "done": "{{name}} 已更新。",
       "title": "批准 {{name}} {{version}} 的主机访问"
     },
     "asksNothing": "此插件不请求主机访问。",
@@ -1018,7 +1016,7 @@
   "operation": {
     "kind": {
       "install": "正在安装…",
-      "upgrade": "正在升级…",
+      "upgrade": "正在更新…",
       "uninstall": "正在移除…",
       "enable": "正在启动…",
       "disable": "正在停止…",

@@ -706,7 +706,41 @@
     "arrivedMany_other": "새 알림 {{count}}개",
     "proposalsWaiting_one": "변경 {{count}}개가 기다리고 있습니다",
     "proposalsWaiting_other": "변경 {{count}}개가 기다리고 있습니다",
-    "proposalsBody": "모델이 변경을 제안했습니다. 답하기 전에는 아무것도 저장되지 않습니다."
+    "proposalsBody": "모델이 변경을 제안했습니다. 답하기 전에는 아무것도 저장되지 않습니다.",
+    "codes": {
+      "digest": {
+        "title_one": "백엔드 업데이트 {{count}}개 사용 가능",
+        "title_other": "백엔드 업데이트 {{count}}개 사용 가능",
+        "more": "{{items}} 외 {{count}}개"
+      },
+      "result": {
+        "family": {
+          "backends": "백엔드",
+          "addons": "애드온"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}}개 자동 업데이트됨",
+        "updated_other": "{{count}}개 자동 업데이트됨",
+        "failed_one": "{{count}}개 실패",
+        "failed_other": "{{count}}개 실패",
+        "held_one": "{{count}}개 승인 대기 중",
+        "held_other": "{{count}}개 승인 대기 중",
+        "bodyUpdated": "업데이트됨: {{items}}.",
+        "bodyFailed": "실패: {{items}}.",
+        "bodyHeld": "승인 대기 중: {{items}}.",
+        "more": "{{items}} 외 {{count}}개"
+      },
+      "checkFailed": {
+        "title": "업데이트 확인에 실패했습니다",
+        "body": "확인할 수 없음: {{sources}}. 최근 자동 확인 두 번이 실패해서 목록에 일부 업데이트가 없을 수 있습니다.",
+        "source": {
+          "gallery": "백엔드 갤러리",
+          "library": "백엔드 라이브러리",
+          "addons": "애드온"
+        }
+      }
+    }
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",

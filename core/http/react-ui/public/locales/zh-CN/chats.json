@@ -706,7 +706,41 @@
     "arrivedMany_other": "{{count}} 条新通知",
     "proposalsWaiting_one": "{{count}} 项更改等待你处理",
     "proposalsWaiting_other": "{{count}} 项更改等待你处理",
-    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。"
+    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。",
+    "codes": {
+      "digest": {
+        "title_one": "有 {{count}} 个后端更新可用",
+        "title_other": "有 {{count}} 个后端更新可用",
+        "more": "{{items}} 等另外 {{count}} 个"
+      },
+      "result": {
+        "family": {
+          "backends": "后端",
+          "addons": "附加组件"
+        },
+        "title": "{{family}}：{{parts}}",
+        "join": "，",
+        "updated_one": "{{count}} 个已自动更新",
+        "updated_other": "{{count}} 个已自动更新",
+        "failed_one": "{{count}} 个失败",
+        "failed_other": "{{count}} 个失败",
+        "held_one": "{{count}} 个等待批准",
+        "held_other": "{{count}} 个等待批准",
+        "bodyUpdated": "已更新：{{items}}。",
+        "bodyFailed": "失败：{{items}}。",
+        "bodyHeld": "等待你批准：{{items}}。",
+        "more": "{{items}} 等另外 {{count}} 个"
+      },
+      "checkFailed": {
+        "title": "更新检查失败",
+        "body": "无法检查：{{sources}}。最近两次自动检查都失败了，列表中可能缺少一些更新。",
+        "source": {
+          "gallery": "后端库",
+          "library": "后端资源库",
+          "addons": "附加组件"
+        }
+      }
+    }
   },
   "change": {
     "loading": "正在读取触发器更改...",
