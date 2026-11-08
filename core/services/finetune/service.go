@@ -39,6 +39,10 @@ type FineTuneService struct {
 	// and the subsequent Set atomic with respect to readers.
 	mu sync.Mutex
 
+	// launchExport runs the export body in the background. Tests replace it so
+	// a claimed export does not need a real backend; nil means a goroutine.
+	launchExport func(run func())
+
 	// jobs is the cross-replica job store: an in-memory map kept consistent across
 	// replicas via NATS, optionally read-through to PostgreSQL in distributed mode.
 	jobs *syncstate.SyncedMap[string, *schema.FineTuneJob]
@@ -564,6 +568,14 @@ func sanitizeModelName(s string) string {
 	return strings.ToLower(s)
 }
 
+func (s *FineTuneService) launchExportFn(run func()) {
+	if s.launchExport != nil {
+		s.launchExport(run)
+		return
+	}
+	go run()
+}
+
 // ExportModel starts an async model export from a checkpoint and returns the intended model name immediately.
 func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string, req schema.ExportRequest) (string, error) {
 	s.mu.Lock()
@@ -580,7 +592,21 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 		s.mu.Unlock()
 		return "", fmt.Errorf("export already in progress for job %s", jobID)
 	}
+	// Claim the export in the same critical section as the check, so two
+	// concurrent calls cannot both pass it. Every error path below gives the
+	// claim back.
+	prevExportStatus := job.ExportStatus
+	job.ExportStatus = "exporting"
 	s.mu.Unlock()
+
+	claimed := true
+	defer func() {
+		if claimed {
+			s.mu.Lock()
+			job.ExportStatus = prevExportStatus
+			s.mu.Unlock()
+		}
+	}()
 
 	// Compute model name
 	modelName := req.Name
@@ -625,9 +651,10 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 	}
 	s.saveJobState(job)
 	s.mu.Unlock()
+	claimed = false
 
 	// Launch the export in a background goroutine
-	go func() {
+	s.launchExportFn(func() {
 		s.setExportMessage(job, "Loading export backend...")
 
 		exportModelID := job.ModelID
@@ -724,7 +751,7 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 		}
 		s.saveJobState(job)
 		s.mu.Unlock()
-	}()
+	})
 
 	return modelName, nil
 }
