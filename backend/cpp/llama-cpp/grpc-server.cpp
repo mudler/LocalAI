@@ -1231,6 +1231,22 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 #endif
                 }
             }
+        } else if (!strcmp(optname, "moe_cache_cpu_share")) {
+            // Share of MoE cache misses the CPU computes from the host experts instead of
+            // uploading them (upstream --moe-cache-cpu-share). A float from 0 to 1;
+            // invalid values keep the default (0).
+            if (optval != NULL) {
+                const auto share = llama_grpc::parse_moe_cache_cpu_share(optval_str);
+                if (!share) {
+                    SRV_WRN("moe_cache_cpu_share: ignoring invalid value '%s' (expected a number from 0 to 1)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_MOE_CACHE_CPU_SHARE
+                    params.moe_cache_cpu_share = *share;
+#else
+                    SRV_WRN("%s", "moe_cache_cpu_share: this llama.cpp build has no MoE cache CPU share, ignoring\n");
+#endif
+                }
+            }
         } else if (!strcmp(optname, "lazy_mode") || !strcmp(optname, "lazy-mode") || !strcmp(optname, "lzm")) {
             // On-demand reading of large tensors such as per-layer embeddings
             // (upstream -lzm / --lazy-mode). Accepts on, auto or off; "on" needs mmap.
