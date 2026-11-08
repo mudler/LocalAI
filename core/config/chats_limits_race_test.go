@@ -17,10 +17,12 @@ var _ = Describe("chats limits read while settings are applied", func() {
 		days, runs, perChat, perUser, daily := 10, 5, 2, 3, 4
 		interval, runLimit := "2m", "20m"
 		perUserTrig, maxCap := 7, 100
+		coordHelpers := 9
 		rs := &config.RuntimeSettings{
 			ChatsEgressAuditDays: &days, ChatsLoopMaxRuns: &runs, ChatsLoopMaxPerChat: &perChat,
 			ChatsLoopMaxPerUser: &perUser, ChatsLoopDailyRuns: &daily, ChatsLoopMinInterval: &interval,
 			ChatsTriggerRunLimit: &runLimit, ChatsTriggerMaxPerUser: &perUserTrig, ChatsTriggerMaxDailyCap: &maxCap,
+			ChatsCoordinatorHelpersCeiling: &coordHelpers,
 		}
 		var wg sync.WaitGroup
 		stop := make(chan struct{})
@@ -43,6 +45,7 @@ var _ = Describe("chats limits read while settings are applied", func() {
 					_ = o.EffectiveChatsTriggerRunLimit()
 					_ = o.EffectiveChatsTriggerMaxPerUser()
 					_ = o.EffectiveChatsTriggerMaxDailyCap()
+					_ = o.EffectiveChatsCoordinatorHelpersCeiling()
 				}
 			}()
 		}
@@ -56,5 +59,6 @@ var _ = Describe("chats limits read while settings are applied", func() {
 		Expect(o.EffectiveChatsTriggerRunLimit()).To(Equal(20 * time.Minute))
 		Expect(o.EffectiveChatsTriggerMaxPerUser()).To(Equal(7))
 		Expect(o.EffectiveChatsTriggerMaxDailyCap()).To(Equal(100))
+		Expect(o.EffectiveChatsCoordinatorHelpersCeiling()).To(Equal(9))
 	})
 })

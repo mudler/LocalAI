@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -333,6 +334,38 @@ var _ = Describe("Settings endpoints", func() {
 		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(raw)).To(ContainSubstring(`"chats_trigger_run_limit": "30m`))
+	})
+
+	It("checks and saves the coordinator limits of the chats", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsCoordinatorHelpersCeiling()).To(Equal(config.DefaultChatsCoordinatorHelpersCeiling), "unset: the default")
+		for _, c := range []struct {
+			key string
+			hi  int
+		}{
+			{"chats_coordinator_helpers_ceiling", config.MaxChatsCoordinatorHelpersCeiling},
+			{"chats_coordinator_depth_ceiling", config.MaxChatsCoordinatorDepthCeiling},
+			{"chats_coordinator_runs_per_day", config.MaxChatsCoordinatorRunsPerDay},
+			{"chats_coordinator_max_running", config.MaxChatsCoordinatorMaxRunning},
+			{"chats_coordinator_audit_days", config.MaxChatsCoordinatorAuditDays},
+		} {
+			for _, v := range []int{0, c.hi + 1} {
+				body := fmt.Sprintf(`{%q:%d}`, c.key, v)
+				rec := post(body)
+				Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+				Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_coordinator_"), body)
+			}
+		}
+		rec := post(`{"chats_coordinator_helpers_ceiling":12,"chats_coordinator_depth_ceiling":2,"chats_coordinator_runs_per_day":20,"chats_coordinator_max_running":3,"chats_coordinator_audit_days":30}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsCoordinatorHelpersCeiling()).To(Equal(12))
+		Expect(cfg.EffectiveChatsCoordinatorDepthCeiling()).To(Equal(2))
+		Expect(cfg.EffectiveChatsCoordinatorRunsPerDay()).To(Equal(20))
+		Expect(cfg.EffectiveChatsCoordinatorMaxRunning()).To(Equal(3))
+		Expect(cfg.EffectiveChatsCoordinatorAuditDays()).To(Equal(30))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_coordinator_audit_days": 30`))
 	})
 
 	It("errors when DynamicConfigsDir is unset", func() {
