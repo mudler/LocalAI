@@ -132,6 +132,8 @@ export const LOG_LINES = [
 //   installed    GET /backends
 //   models       GET /api/models/capabilities
 //   delayMs      holds every answer, for a loading state
+//   hold         a promise that holds every answer until it settles; a loading
+//                state tied to the test, not to the speed of the machine
 export async function mockOperate(page, {
   distributed = false,
   nodes = NODES,
@@ -145,8 +147,10 @@ export async function mockOperate(page, {
   installed = INSTALLED,
   models = MODEL_CAPS,
   delayMs = 0,
+  hold = null,
 } = {}) {
   const answer = async (route, body, status = 200) => {
+    if (hold) await hold
     if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs))
     return route.fulfill({ status, json: body })
   }
