@@ -208,3 +208,40 @@ or `depth_limit`).
 **State mode.** The count reads the shared chat store, so a helper that runs on
 another frontend counts. As for any cap that is read and then used, two
 frontends that start a helper at the same moment can pass the limit by one.
+
+## Wake-ups
+
+A coordinator with `WakeEvery` set (5 minutes to 24 hours) is woken on that
+schedule. A wake posts one message into the one chat of the coordinator:
+`[Coordinator wake: schedule at <time>]` and the wake note the creator wrote
+(or a default line that tells the model to read its state, work, write its
+state and stop). A new coordinator is due at once, so its first wake comes at
+the next pass.
+
+One pass (every 30 seconds) does three things:
+
+1. For each coordinator that is due, it claims the wake in the store and sets
+   the next one `WakeEvery` from now. A coordinator that was missed for many
+   periods wakes once. A paused coordinator, or one with `WakeEvery` 0, is
+   not woken.
+2. It skips the wake without a trace when the chat has a turn running or
+   messages waiting, so wakes never pile up. When the coordinator may not run
+   (over the run budget, or at the concurrency limit), the wake is not sent and
+   one audit row (kind `wake`) says why. The next wake time still moves.
+3. It starts the messages that wait for a coordinator that may run now: a reply
+   that was held for the run budget starts when the budget allows it (the day
+   turns at UTC midnight), with no one pressing anything.
+
+A wake turn is followed. When it runs longer than the trigger run limit
+(Settings, Tools), it is stopped and one audit row (kind `wake`, reason
+`timeout`) is written. A chat that was deleted is made again by the next wake.
+The same pass prunes the audit rows older than the audit days (at most once an
+hour in a process).
+
+**State mode.** Single-runner. The pass runs in the step of the chat reaper, on
+the frontend that holds its advisory lock, so no new lock exists. The reaper
+runs only on a process that hosts the background work of the chats: a chat
+worker or a dedicated add-on owner does not take the lock, so it cannot hold the
+wake-ups back. The wake claim is also a conditional update in the shared store,
+so a pass that runs twice at once (a lock that changed hands) wakes a
+coordinator once. Without a database the one process is the leader.

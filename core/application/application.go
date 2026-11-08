@@ -197,6 +197,7 @@ type Application struct {
 	studioLoopsStop        context.CancelFunc
 	studioCoordinatorStore coordinator.Store
 	studioCoordinators     *studio.Coordinators
+	studioCoordinatorTick  atomic.Pointer[studio.Coordinators] // the same host, for the reaper step that starts before it exists
 	studioConnStore        connectors.Store
 	studioMCPStore         mcpconns.Store
 	studioMCPConns         *mcpconns.Service
@@ -742,6 +743,9 @@ func (a *Application) Shutdown() error {
 		}
 		if a.studioLoops != nil {
 			a.studioLoops.Close()
+		}
+		if a.studioCoordinators != nil {
+			a.studioCoordinators.Close()
 		}
 		if a.studioPusher != nil {
 			a.studioPusher.Close()

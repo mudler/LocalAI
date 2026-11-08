@@ -305,41 +305,69 @@ const (
 // holds the advisory lock.
 func (a *Application) startStudioReaper(svc *studio.Service) {
 	ctx := a.backgroundContext()
-	reap := func() {
-		n, err := svc.ReapStale(ctx, studioTurnTimeout)
-		if err != nil {
-			xlog.Warn("Chats: could not reap stale turns", "error", err)
-		} else if n > 0 {
-			xlog.Info("Chats: ended turns whose frontend stopped", "turns", n)
-		}
-	}
-	// The same tick resumes the interrupted turns that are due (see
-	// studio.Service.SweepResumes). The store's claim keeps two sweeps from
-	// starting one turn twice, and the lock keeps the work on one frontend.
-	sweep := func() {
-		n, err := svc.SweepResumes(ctx)
-		if err != nil {
-			xlog.Warn("Chats: could not resume interrupted turns", "error", err)
-		} else if n > 0 {
-			xlog.Info("Chats: resumed interrupted turns", "turns", n)
-		}
-	}
 	if a.authDB == nil {
 		// The JSON store settles its own claims when it loads, so nothing is
-		// left to reap; the turns it interrupted may still resume.
-		if a.applicationConfig.ChatsAutoResume {
-			a.everyStudioTick(ctx, sweep)
+		// left to reap; the turns it interrupted may still resume, and the
+		// coordinators wake: this is one process, so it is the leader.
+		if a.hostsStudioBackground() || a.applicationConfig.ChatsAutoResume {
+			a.everyStudioTick(ctx, a.studioReaperStep(ctx, svc, false))
 		}
 		return
 	}
-	step := func() { reap(); sweep() }
+	step := a.studioReaperStep(ctx, svc, true)
 	if a.Distributed() != nil {
+		if !a.hostsStudioBackground() {
+			// A chat worker or an add-on owner has no coordinator host, so it
+			// must not hold the lock that carries the wake-ups of the
+			// coordinators. The frontends reap.
+			xlog.Info("Chats: this process does not run the reaper; the frontends do")
+			return
+		}
 		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, step)
 		return
 	}
 	// The conditional update of a reap is safe to race with another process.
 	step()
 	a.everyStudioTick(ctx, step)
+}
+
+// hostsStudioBackground says whether this process runs the background hosts of
+// the chats (triggers, loops, coordinators, agent jobs): not a chat worker and
+// not a dedicated add-on owner.
+func (a *Application) hostsStudioBackground() bool {
+	return !a.applicationConfig.Distributed.ChatWorker && !a.ownsAddonsOnly()
+}
+
+// studioReaperStep is one pass of the reaper leader: it frees the turns of
+// frontends that stopped (withReap), resumes the interrupted turns that are
+// due, and wakes the coordinators (see studio.Coordinators.Tick). The store's
+// claims keep two passes from doing the same work twice, and the lock keeps the
+// work on one frontend. Without a database there is nothing to reap.
+func (a *Application) studioReaperStep(ctx context.Context, svc *studio.Service, withReap bool) func() {
+	return func() {
+		if withReap {
+			n, err := svc.ReapStale(ctx, studioTurnTimeout)
+			if err != nil {
+				xlog.Warn("Chats: could not reap stale turns", "error", err)
+			} else if n > 0 {
+				xlog.Info("Chats: ended turns whose frontend stopped", "turns", n)
+			}
+		}
+		// A resume is the same tick's work (see studio.Service.SweepResumes).
+		if withReap || a.applicationConfig.ChatsAutoResume {
+			n, err := svc.SweepResumes(ctx)
+			if err != nil {
+				xlog.Warn("Chats: could not resume interrupted turns", "error", err)
+			} else if n > 0 {
+				xlog.Info("Chats: resumed interrupted turns", "turns", n)
+			}
+		}
+		if host := a.studioCoordinatorTick.Load(); host != nil {
+			if err := host.Tick(ctx); err != nil {
+				xlog.Warn("Chats: the coordinator tick failed", "error", err)
+			}
+		}
+	}
 }
 
 // everyStudioTick runs f every studioReapEvery until ctx ends.

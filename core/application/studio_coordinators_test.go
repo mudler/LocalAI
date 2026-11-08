@@ -7,8 +7,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/coordinator"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,6 +57,32 @@ var _ = Describe("coordinator host at startup", func() {
 		app := newApp(config.WithDataPath(""))
 		Expect(app.StudioService().Coordinators()).NotTo(BeNil())
 	})
+
+	// The reaper step carries the wake-ups of the coordinators: on the leader
+	// with a database, and in the one process without one.
+	DescribeTable("the reaper step ticks the coordinators",
+		func(authDB bool) {
+			opts := []config.AppOption{config.WithDataPath(GinkgoT().TempDir())}
+			if authDB {
+				opts = append(opts, config.WithAuthEnabled(true), config.WithAuthDatabaseURL(filepath.Join(GinkgoT().TempDir(), "auth.db")))
+			}
+			app := newApp(opts...)
+			host := app.StudioService().Coordinators()
+			Expect(host).NotTo(BeNil())
+			v, err := host.Create(context.Background(), "", studio.CoordinatorInput{
+				Agent:  agents.Agent{Name: "Desk", Model: "m"},
+				Config: coordinator.Config{WakeEvery: 10 * time.Minute},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(v.Config.LastWake.IsZero()).To(BeTrue())
+			app.studioReaperStep(context.Background(), app.StudioService(), authDB)()
+			got, err := app.studioCoordinatorStore.Get(context.Background(), v.Agent.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.LastWake.IsZero()).To(BeFalse(), "the step woke the due coordinator")
+		},
+		Entry("with a database", true),
+		Entry("without a database", false),
+	)
 
 	It("has no host when the chats are off", func() {
 		app := &Application{applicationConfig: config.NewApplicationConfig()}

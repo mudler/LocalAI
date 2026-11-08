@@ -68,9 +68,10 @@ type CoordinatorOptions struct {
 // every frontend of a cluster sees the same state. Wake-ups run on one
 // frontend at a time (the leader of the reaper).
 type Coordinators struct {
-	svc *Service
-	o   CoordinatorOptions
-	log *slog.Logger
+	svc  *Service
+	o    CoordinatorOptions
+	log  *slog.Logger
+	wake wakeState
 }
 
 // NewCoordinators returns the coordinator host of a service.
@@ -84,7 +85,9 @@ func NewCoordinators(svc *Service, o CoordinatorOptions) (*Coordinators, error) 
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Coordinators{svc: svc, o: o, log: o.Logger}, nil
+	h := &Coordinators{svc: svc, o: o, log: o.Logger}
+	h.wake.init()
+	return h, nil
 }
 
 // SetCoordinators gives the service its coordinator host. Without one there

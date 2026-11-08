@@ -60,4 +60,5 @@ func (a *Application) startStudioCoordinators(svc *studio.Service) {
 	}
 	svc.SetCoordinators(host)
 	a.studioCoordinators = host
+	a.studioCoordinatorTick.Store(host)
 }
