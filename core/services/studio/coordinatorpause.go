@@ -61,7 +61,7 @@ func (h *Coordinators) viewOf(ctx context.Context, cfg coordinator.Config) (Coor
 // Calling it again on a paused coordinator repeats steps 3 only, so a stop
 // that did not get through can be sent again. Waiting messages stay.
 func (h *Coordinators) Pause(ctx context.Context, by CoordinatorActor, agentID string) (CoordinatorView, error) {
-	cfg, err := h.authorize(ctx, by, agentID)
+	_, err := h.authorize(ctx, by, agentID)
 	if err != nil {
 		return CoordinatorView{}, err
 	}
@@ -115,7 +115,7 @@ func (h *Coordinators) halt(ctx context.Context, cfg coordinator.Config) {
 // and then starts the messages that were held: they run as one turn, in the
 // order they arrived.
 func (h *Coordinators) Resume(ctx context.Context, by CoordinatorActor, agentID string) (CoordinatorView, error) {
-	cfg, err := h.authorize(ctx, by, agentID)
+	_, err := h.authorize(ctx, by, agentID)
 	if err != nil {
 		return CoordinatorView{}, err
 	}
