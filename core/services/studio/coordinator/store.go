@@ -29,4 +29,12 @@ type Store interface {
 	// atomic: with limit n, exactly n callers get true.
 	Reserve(ctx context.Context, agentID, bucket string, limit int) (bool, error)
 	Used(ctx context.Context, agentID, bucket string) (int, error)
+
+	// AddAudit appends an entry. A zero At means now; the ID is assigned.
+	AddAudit(ctx context.Context, e AuditEntry) error
+	// Audit returns the entries that match, newest first.
+	Audit(ctx context.Context, q AuditQuery) ([]AuditEntry, error)
+	// Prune drops the audit entries older than before and the counters whose
+	// period ended before it (day and minute buckets).
+	Prune(ctx context.Context, before time.Time) (int, error)
 }

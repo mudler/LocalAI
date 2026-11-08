@@ -221,4 +221,125 @@ func Run(newStore NewStore) {
 		Expect(s.Used(ctx, "a2", "b1")).To(Equal(1))
 		Expect(s.Delete(ctx, "a1")).To(MatchError(coordinator.ErrNotFound))
 	})
+
+	addAudit := func(s coordinator.Store, e coordinator.AuditEntry) {
+		GinkgoHelper()
+		Expect(s.AddAudit(ctx, e)).To(Succeed())
+	}
+	entry := func(coordID, principal, kind, outcome string, at time.Time) coordinator.AuditEntry {
+		return coordinator.AuditEntry{At: at, CoordinatorID: coordID, Principal: principal, Kind: kind, Outcome: outcome, Reason: coordinator.ReasonOK}
+	}
+
+	It("AuditNewestFirstWithCursor", func() {
+		s := newStore()
+		for i := range 5 {
+			addAudit(s, entry("a1", "u1", coordinator.KindContact, coordinator.OutcomeSent, t0.Add(time.Duration(i)*time.Minute)))
+		}
+		page, err := s.Audit(ctx, coordinator.AuditQuery{Limit: 2})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(page).To(HaveLen(2))
+		Expect(page[0].ID).To(BeNumerically(">", page[1].ID))
+		Expect(page[0].At).To(Equal(t0.Add(4 * time.Minute)))
+		next, err := s.Audit(ctx, coordinator.AuditQuery{Limit: 2, Before: page[1].ID})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(next).To(HaveLen(2))
+		Expect(next[0].ID).To(BeNumerically("<", page[1].ID))
+		Expect(next[0].At).To(Equal(t0.Add(2 * time.Minute)))
+		Expect(next[1].At).To(Equal(t0.Add(1 * time.Minute)))
+		all, err := s.Audit(ctx, coordinator.AuditQuery{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(all).To(HaveLen(5), "Limit 0 is a page of 50")
+	})
+
+	It("AuditKeepsEveryField", func() {
+		s := newStore()
+		e := coordinator.AuditEntry{
+			At: t0, CoordinatorID: "a1", Principal: "u1", Kind: coordinator.KindContact, Outcome: coordinator.OutcomeDenied,
+			Reason: coordinator.ReasonNotAContact, Actor: "coordinator", Target: "ops", Via: "connector", Length: 42, Hash: "abc",
+		}
+		addAudit(s, e)
+		got, err := s.Audit(ctx, coordinator.AuditQuery{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1))
+		e.ID = got[0].ID
+		Expect(e.ID).NotTo(BeZero())
+		Expect(got[0]).To(Equal(e))
+	})
+
+	It("AuditAtZeroIsNow", func() {
+		s := newStore()
+		before := time.Now().Add(-time.Second)
+		addAudit(s, coordinator.AuditEntry{CoordinatorID: "a1", Kind: coordinator.KindWake, Outcome: coordinator.OutcomeInfo})
+		got, err := s.Audit(ctx, coordinator.AuditQuery{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].At).To(BeTemporally(">", before))
+	})
+
+	It("AuditFilters", func() {
+		s := newStore()
+		addAudit(s, entry("a1", "u1", coordinator.KindContact, coordinator.OutcomeSent, t0))
+		addAudit(s, entry("a1", "u1", coordinator.KindContact, coordinator.OutcomeDenied, t0.Add(time.Hour)))
+		addAudit(s, entry("a2", "u2", coordinator.KindPause, coordinator.OutcomeInfo, t0.Add(2*time.Hour)))
+		addAudit(s, entry("a2", "u2", coordinator.KindWake, coordinator.OutcomeInfo, t0.Add(3*time.Hour)))
+		count := func(q coordinator.AuditQuery) int {
+			GinkgoHelper()
+			got, err := s.Audit(ctx, q)
+			Expect(err).NotTo(HaveOccurred())
+			return len(got)
+		}
+		Expect(count(coordinator.AuditQuery{CoordinatorID: "a1"})).To(Equal(2))
+		Expect(count(coordinator.AuditQuery{Principal: "u2"})).To(Equal(2))
+		Expect(count(coordinator.AuditQuery{Kind: coordinator.KindContact})).To(Equal(2))
+		Expect(count(coordinator.AuditQuery{Outcome: coordinator.OutcomeDenied})).To(Equal(1))
+		Expect(count(coordinator.AuditQuery{CoordinatorID: "a1", Outcome: coordinator.OutcomeSent})).To(Equal(1))
+		Expect(count(coordinator.AuditQuery{Since: t0.Add(time.Hour)})).To(Equal(3), "Since is inclusive")
+		Expect(count(coordinator.AuditQuery{Until: t0.Add(time.Hour)})).To(Equal(1), "Until is exclusive")
+		Expect(count(coordinator.AuditQuery{Since: t0.Add(time.Hour), Until: t0.Add(3 * time.Hour)})).To(Equal(2))
+		Expect(count(coordinator.AuditQuery{CoordinatorID: "nobody"})).To(BeZero())
+	})
+
+	It("AuditCapsTheLimit", func() {
+		s := newStore()
+		for i := range 510 {
+			addAudit(s, entry("a1", "u1", coordinator.KindWake, coordinator.OutcomeInfo, t0.Add(time.Duration(i)*time.Second)))
+		}
+		got, err := s.Audit(ctx, coordinator.AuditQuery{Limit: 10000})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(500))
+	})
+
+	It("PruneDropsOldRowsAndOldCounters", func() {
+		s := newStore()
+		Expect(s.Put(ctx, Sample("a1", "u1"))).To(Succeed())
+		addAudit(s, entry("a1", "u1", coordinator.KindWake, coordinator.OutcomeInfo, t0.Add(-100*24*time.Hour)))
+		addAudit(s, entry("a1", "u1", coordinator.KindWake, coordinator.OutcomeInfo, t0))
+		old, now := t0.Add(-100*24*time.Hour), t0
+		for _, b := range []string{coordinator.DayBucket("send", old), coordinator.DayBucket("send", now), coordinator.MinuteBucket(old), coordinator.MinuteBucket(now)} {
+			ok, err := s.Reserve(ctx, "a1", b, 5)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		}
+		n, err := s.Prune(ctx, t0.Add(-90*24*time.Hour))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(1))
+		got, err := s.Audit(ctx, coordinator.AuditQuery{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].At).To(Equal(t0))
+		Expect(s.Used(ctx, "a1", coordinator.DayBucket("send", old))).To(Equal(0))
+		Expect(s.Used(ctx, "a1", coordinator.MinuteBucket(old))).To(Equal(0))
+		Expect(s.Used(ctx, "a1", coordinator.DayBucket("send", now))).To(Equal(1))
+		Expect(s.Used(ctx, "a1", coordinator.MinuteBucket(now))).To(Equal(1))
+	})
+
+	It("AuditSurvivesDelete", func() {
+		s := newStore()
+		Expect(s.Put(ctx, Sample("a1", "u1"))).To(Succeed())
+		addAudit(s, entry("a1", "u1", coordinator.KindContact, coordinator.OutcomeSent, t0))
+		Expect(s.Delete(ctx, "a1")).To(Succeed())
+		got, err := s.Audit(ctx, coordinator.AuditQuery{CoordinatorID: "a1"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1))
+	})
 }

@@ -22,11 +22,13 @@ type jsonStore struct {
 	path     string // empty: memory only
 	byID     map[string]Config
 	counters map[string]map[string]int
+	audit    []AuditEntry // ascending ID
+	nextID   int64
 }
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
 func NewJSON(dir string) (Store, error) {
-	s := &jsonStore{byID: map[string]Config{}, counters: map[string]map[string]int{}}
+	s := &jsonStore{byID: map[string]Config{}, counters: map[string]map[string]int{}, nextID: 1}
 	if dir == "" {
 		return s, nil
 	}
@@ -204,4 +206,62 @@ func (s *jsonStore) Used(_ context.Context, agentID, bucket string) (int, error)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.counters[agentID][bucket], nil
+}
+
+func (s *jsonStore) AddAudit(_ context.Context, e AuditEntry) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if e.At.IsZero() {
+		e.At = time.Now()
+	}
+	e.At = e.At.UTC()
+	e.ID = s.nextID
+	s.nextID++
+	s.audit = append(s.audit, e)
+	return nil
+}
+
+func (s *jsonStore) Audit(_ context.Context, q AuditQuery) ([]AuditEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	limit := q.limit()
+	var out []AuditEntry
+	for i := len(s.audit) - 1; i >= 0 && len(out) < limit; i-- {
+		e := s.audit[i]
+		switch {
+		case q.Before > 0 && e.ID >= q.Before,
+			q.CoordinatorID != "" && e.CoordinatorID != q.CoordinatorID,
+			q.Principal != "" && e.Principal != q.Principal,
+			q.Kind != "" && e.Kind != q.Kind,
+			q.Outcome != "" && e.Outcome != q.Outcome,
+			!q.Since.IsZero() && e.At.Before(q.Since),
+			!q.Until.IsZero() && !e.At.Before(q.Until):
+			continue
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+func (s *jsonStore) Prune(_ context.Context, before time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := s.audit[:0]
+	dropped := 0
+	for _, e := range s.audit {
+		if e.At.Before(before) {
+			dropped++
+			continue
+		}
+		kept = append(kept, e)
+	}
+	s.audit = kept
+	for _, m := range s.counters {
+		for b := range m {
+			if end, ok := bucketEnd(b); ok && !end.After(before) {
+				delete(m, b)
+			}
+		}
+	}
+	return dropped, nil
 }

@@ -52,7 +52,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("coordinator: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&configRow{}, &counterRow{}); err != nil {
+	if err := db.AutoMigrate(&configRow{}, &counterRow{}, &auditRow{}); err != nil {
 		return nil, fmt.Errorf("coordinator: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -216,4 +216,96 @@ func (s *gormStore) Used(ctx context.Context, agentID, bucket string) (int, erro
 		return 0, nil
 	}
 	return r.N, err
+}
+
+// auditRow is one audit entry. The two indexes serve the admin view (all
+// coordinators of a principal) and the view of one coordinator, newest first.
+type auditRow struct {
+	ID            int64     `gorm:"primaryKey;autoIncrement;index:idx_studio_coordinator_audit_coord,priority:2;index:idx_studio_coordinator_audit_principal,priority:2"`
+	At            time.Time `gorm:"index"`
+	CoordinatorID string    `gorm:"size:64;index:idx_studio_coordinator_audit_coord,priority:1"`
+	Principal     string    `gorm:"size:255;index:idx_studio_coordinator_audit_principal,priority:1"`
+	Kind          string    `gorm:"size:16"`
+	Outcome       string    `gorm:"size:16"`
+	Reason        string    `gorm:"size:32"`
+	Actor         string    `gorm:"size:255"`
+	Target        string    `gorm:"size:255"`
+	Via           string    `gorm:"size:16"`
+	Length        int
+	Hash          string `gorm:"size:64"`
+}
+
+func (auditRow) TableName() string { return "studio_coordinator_audit" }
+
+func (s *gormStore) AddAudit(ctx context.Context, e AuditEntry) error {
+	if e.At.IsZero() {
+		e.At = time.Now()
+	}
+	r := auditRow{
+		At: e.At.UTC(), CoordinatorID: e.CoordinatorID, Principal: e.Principal, Kind: e.Kind,
+		Outcome: e.Outcome, Reason: e.Reason, Actor: e.Actor, Target: e.Target, Via: e.Via,
+		Length: e.Length, Hash: e.Hash,
+	}
+	return s.db.WithContext(ctx).Create(&r).Error
+}
+
+func (s *gormStore) Audit(ctx context.Context, q AuditQuery) ([]AuditEntry, error) {
+	db := s.db.WithContext(ctx).Model(&auditRow{})
+	for col, v := range map[string]string{
+		"coordinator_id": q.CoordinatorID, "principal": q.Principal, "kind": q.Kind, "outcome": q.Outcome,
+	} {
+		if v != "" {
+			db = db.Where(col+" = ?", v)
+		}
+	}
+	if !q.Since.IsZero() {
+		db = db.Where("at >= ?", q.Since.UTC())
+	}
+	if !q.Until.IsZero() {
+		db = db.Where("at < ?", q.Until.UTC())
+	}
+	if q.Before > 0 {
+		db = db.Where("id < ?", q.Before)
+	}
+	var rows []auditRow
+	if err := db.Order("id DESC").Limit(q.limit()).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]AuditEntry, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, AuditEntry{
+			ID: r.ID, At: r.At.UTC(), CoordinatorID: r.CoordinatorID, Principal: r.Principal, Kind: r.Kind,
+			Outcome: r.Outcome, Reason: r.Reason, Actor: r.Actor, Target: r.Target, Via: r.Via,
+			Length: r.Length, Hash: r.Hash,
+		})
+	}
+	return out, nil
+}
+
+func (s *gormStore) Prune(ctx context.Context, before time.Time) (int, error) {
+	db := s.db.WithContext(ctx)
+	res := db.Where("at < ?", before.UTC()).Delete(&auditRow{})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	// The buckets are few (one per day and kind, one per minute with a send),
+	// so read the distinct names and drop the old ones by name.
+	var buckets []string
+	if err := db.Model(&counterRow{}).Distinct().Pluck("bucket", &buckets).Error; err != nil {
+		return int(res.RowsAffected), err
+	}
+	var old []string
+	for _, b := range buckets {
+		if end, ok := bucketEnd(b); ok && !end.After(before) {
+			old = append(old, b)
+		}
+	}
+	for len(old) > 0 {
+		n := min(len(old), 500)
+		if err := db.Where("bucket IN ?", old[:n]).Delete(&counterRow{}).Error; err != nil {
+			return int(res.RowsAffected), err
+		}
+		old = old[n:]
+	}
+	return int(res.RowsAffected), nil
 }
