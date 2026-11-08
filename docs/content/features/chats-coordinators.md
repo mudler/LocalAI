@@ -85,3 +85,33 @@ Each frontend reads them at the moment it decides, so all frontends give the
 same answer. The budget is taken with one atomic update in the store: of many
 senders that race for the last run, one gets it and the others are held. When
 a message of a connector is held, the sender gets no reply.
+
+## Pause and resume
+
+One switch stops a coordinator. The owner or any administrator can press it,
+from any frontend. Pause does this, in order:
+
+1. It sets the flag in the shared store. From then on every frontend holds the
+   messages to the chat (yours too), starts no turn, no loop run and no resume,
+   and the contact tool refuses every send, also in a turn that is still
+   running when the flag is set.
+2. It writes one audit row (kind `pause`, with who pressed it), only when the
+   state changed. Pressing it twice writes one row.
+3. It stops the turn of the chat and its background helpers, on whichever
+   frontend they run, and pauses the goal and the active loops of the chat.
+
+Resume clears the flag, writes one audit row (kind `resume`) and starts the
+held messages as one turn, in the order they arrived. The goal and the loops
+that pause stopped stay paused: start them again when you want them. A
+message that was held because the run budget was spent stays held until the
+budget allows it, because resume treats held messages as wakes.
+
+The audit log is readable by the owner for their own coordinators and by an
+administrator for all of them. The log keeps the length and a hash of each
+message, never the text.
+
+**State mode.** The pause flag is in the shared store, so pressing it on one
+frontend takes effect on all of them at the next check. The stop for a turn
+that runs on another frontend travels over the message bus, as the stop button
+does. If a stop is lost, the flag still holds every new message and denies
+every send, and pressing pause again repeats the stop.
