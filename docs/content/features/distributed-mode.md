@@ -350,6 +350,8 @@ on any frontend whether or not it holds the lock, and it installs nothing.
 was checked (see [Checking for backend updates]({{% relref "features/backends#checking-for-backend-updates" %}})). A standalone server has
 no lock and installs after any check.
 
+The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "features/addons#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
+
 ### Watching Backend Installs
 
 While a worker downloads a backend, the admin operations strip at the top

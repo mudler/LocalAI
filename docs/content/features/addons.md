@@ -5708,6 +5708,8 @@ upgrades by itself. Each scheduled pass reads the current owner-host policy, so
 changes take effect without a restart. If the owner policy is unavailable, the
 pass skips upgrades and logs an error; it does not use frontend-local settings.
 
+At the end of a pass the owner writes one item to the inbox of the administrators when it did something: "Add-ons: 1 updated automatically, 1 waiting for approval". It names the add-ons that were upgraded, the ones that failed, and the ones that wait for an administrator because the new version needs host access that nobody approved (an automatic upgrade never approves). A failure or a wait links to the updates that need you. A pass that did nothing writes nothing, and the same add-on failing or waiting for the same candidate again is not written again, also after a restart. The owner is the only writer, so the item exists once in a cluster. With the setting off nothing is written, and add-on updates are not in the backend digest of the inbox; see [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}}).
+
 ### On the Updates page
 
 **Operate → Updates** lists the add-ons that have an update, next to the backends, with

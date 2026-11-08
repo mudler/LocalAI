@@ -983,7 +983,7 @@ Most items are written once. LocalAI itself writes a few kinds that it keeps up 
 - Delete, **Clear read** and **Clear all** do not forget a keyed item: they hide it. It stays hidden while the set is the same or smaller, and it comes back, unread, only for a new id. Marking it read keeps it in the list, and later edits do not make it unread again.
 - A **once item** is posted when its key is new and never again, also after you deleted it. LocalAI uses one for each result of an automatic update, so a failure that repeats at the next pass does not fill the inbox.
 
-Some items have a `code` and `params` in the API (`updates.digest`, `updates.result`, `updates.checkFailed`). The app words them in your language from the params. `title` and `body` stay in English: they are the fallback for a client that does not know the code, and the text of browser push and Telegram.
+Some items have a `code` and `params` in the API (`updates.digest`, `updates.result`, `updates.checkFailed`). The app words them in your language from the params. `title` and `body` stay in English: they are the fallback for a client that does not know the code, and the text of browser push and Telegram. The update items are described in [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}}).
 
 ```
 curl ".../api/chats/notifications?unread=1"          # the unread ones, and the unread count

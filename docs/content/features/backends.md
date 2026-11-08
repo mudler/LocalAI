@@ -197,6 +197,26 @@ order: failed operations first (red, counting the failed operations), then the
 count above, then the number of operations that are running. The tab always
 shows the count above, so the two numbers differ while an operation has failed.
 
+## Updates in the inbox
+
+Administrators get updates in the [inbox]({{% relref "features/chats-agents#inbox" %}}) (the **Notifications** entry in the sidebar), so they see them on any page and, through browser push and a Telegram chat, away from the browser. Three kinds of item exist. Every one has a `code` and `params`, so the app words it in your language. Every one is for administrators only (when authentication is off, for the one local user). With the chats off there are none.
+
+- **The digest**, "N backend updates available". It counts the backend updates (gallery and library) that need a person: the same updates the badge of the Updates tab counts for backends. It does not count a backend that **Update backends automatically** covers, so with that setting on there is no digest, and a stored digest is removed. With the setting off, every update that the last check found is counted, and a server that refuses backend installs counts none. There is one digest for each administrator, kept up to date in place:
+  - the first update creates it;
+  - a **new update** brings it back as a new, unread item at the top, and pushes it once. A new update is an id that the digest did not show before: a backend and the version or digest it would move to. A newer release of a backend that the digest already listed is a new update;
+  - when updates are done, the count goes down quietly: the item keeps its place and its read state, and nothing is pushed;
+  - when you delete it, it is hidden, not forgotten. It stays hidden while the updates are the same or fewer, and it comes back, unread, for the next new update;
+  - when none is left it is removed. A later update is then new again.
+  The digest changes only when every source that can be checked answered in that pass. A failed check does not turn "unknown" into "all done".
+- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Add-ons write their own item in their own pass (see [Add-ons]({{% relref "features/addons#automatic-upgrade" %}})).
+- **The failed check**, "The update check failed". When the automatic check of the backend gallery or the backend library fails in two passes in a row (more than half a day), one item names the sources. It is removed when the check works again, and written again only if a source fails again for two passes. The Updates page shows the same failure on its source line at once.
+
+Each item opens the Updates page on the list it is about: the digest opens **Ready**, a result with a failure or a held update opens **Needs you**.
+
+**What is not in the digest.** Add-on updates are not counted in the digest. The state of an add-on update is read by the add-on owner with the session of an administrator, and the frontend that writes the digest may not be the owner; the digest would then change with whichever frontend holds the lock. The Updates page and its badge show add-ons. With **Update add-ons automatically** on, the add-on result is in the inbox. With it off, an add-on update shows on the page and in the badge only.
+
+**Who writes them.** The digest, the failed-check item and the backend result are written at the end of the automatic pass, by the process that runs it. In [distributed mode]({{% relref "features/distributed-mode#automatic-backend-updates" %}}) that is the frontend that holds the update lock (`KeyBackendUpgradeCheck`), so there is one writer for the cluster, and its push and Telegram forward happen once. A standalone server writes after each pass that may install. A check you start with **Check now**, a trigger after an operation, and the first check of a frontend write nothing.
+
 ## Checking for backend updates
 
 `GET /backends/updates` (the UI uses the alias `GET /api/backends/updates`)
