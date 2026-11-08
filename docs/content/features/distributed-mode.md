@@ -332,6 +332,21 @@ during installation as well as the committed snapshot.
 The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
 {{% /notice %}}
 
+### Automatic backend updates
+
+With **Update backends automatically** on (`auto_upgrade_backends`), one
+frontend installs the newer backends on the workers. Every six hours the
+frontends compete for a database lock and the one that holds it checks and
+installs. A frontend that does not hold the lock never installs, so two
+frontends never start the same update at once.
+
+Every frontend still checks for updates on its own, once after start and again
+after each backend operation, to fill its own list of available updates. That
+list is kept in the memory of the frontend, so two frontends can show a
+different list for a short time. A check you start from the UI refreshes only
+the frontend that answers it, and it installs nothing. A standalone server has
+no lock and installs after any check.
+
 ### Watching Backend Installs
 
 While a worker downloads a backend, the admin operations strip at the top
