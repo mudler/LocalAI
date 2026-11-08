@@ -74,6 +74,7 @@
 #include "slot_cache.h"
 #include "message_content.h"
 #include "moe_cache_option.h"
+#include "option_parse.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
 #include "realtime_session.h"
@@ -642,9 +643,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     // Raw upstream llama-server flags collected from any option entry that
     // starts with '-'. Applied once after the loop via common_params_parse.
-    std::vector<std::string> extra_argv;
-    bool passthrough_main_gpu_layers = false;
-    bool passthrough_draft_gpu_layers = false;
+    std::vector<llama_grpc::passthrough_flag> extra_flags;
 
     // O_DIRECT intent from the `direct_io` option. Upstream folded
     // use_mmap/use_mlock/use_direct_io into a single common_params::load_mode
@@ -652,6 +651,11 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // can only be reduced to one value once all of them have been read, held
     // here until the mmap/mlock fields arrive further down.
     bool want_direct_io = false;
+
+    // reasoning_budget:0 has always switched thinking off. Keep that unless
+    // enable_reasoning is given, whichever comes first in the options.
+    bool enable_reasoning_explicit = false;
+    bool legacy_budget_zero_disables = false;
 
     auto add_device_options = [&](const std::string & devices) {
         const std::regex regex{ R"([,]+)" };
@@ -666,8 +670,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             const auto end = device.find_last_not_of(" \t\n\r");
             device = device.substr(start, end - start + 1);
 
-            extra_argv.push_back("--device");
-            extra_argv.push_back(device);
+            extra_flags.push_back({"--device", device});
         }
     };
 
@@ -976,11 +979,39 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             }
 
         // --- reasoning budget (upstream --reasoning-budget) ---
-        // -1 unlimited, 0 disabled, >0 token budget for thinking blocks.
+        // reasoning_budget is the token cap of the thinking block
+        // (common_params::sampling.reasoning_budget_tokens): -1 unlimited,
+        // 0 end thinking at once, N > 0 cap. enable_reasoning is the on/off
+        // switch of thinking (common_params::enable_reasoning): -1 auto, 0 off,
+        // 1 on. Both used to write enable_reasoning, so `reasoning_budget:0`
+        // is kept as "thinking off" (unless enable_reasoning is set explicitly),
+        // and a number above 1 given to enable_reasoning still means "on".
         // Distinct from per-request `enable_thinking` (chat_template_kwargs).
-        } else if (!strcmp(optname, "enable_reasoning") || !strcmp(optname, "reasoning_budget")) {
+        } else if (!strcmp(optname, "enable_reasoning")) {
             if (optval != NULL) {
-                try { params.enable_reasoning = std::stoi(optval_str); } catch (...) {}
+                bool capped = false;
+                const auto v = llama_grpc::parse_enable_reasoning(optval_str, capped);
+                if (!v) {
+                    SRV_WRN("enable_reasoning: ignoring invalid value '%s' (expected on, off, auto, 1, 0 or -1)\n", optval_str.c_str());
+                } else {
+                    if (capped) {
+                        SRV_WRN("enable_reasoning: '%s' only turns thinking on; use reasoning_budget for a token cap\n", optval_str.c_str());
+                    }
+                    params.enable_reasoning = *v;
+                    enable_reasoning_explicit = true;
+                }
+            }
+        } else if (!strcmp(optname, "reasoning_budget")) {
+            if (optval != NULL) {
+                const auto v = llama_grpc::parse_reasoning_budget_tokens(optval_str);
+                if (!v) {
+                    SRV_WRN("reasoning_budget: ignoring invalid value '%s' (expected -1, 0 or a token count)\n", optval_str.c_str());
+                } else {
+                    params.sampling.reasoning_budget_tokens = *v;
+                    if (*v == 0) {
+                        legacy_budget_zero_disables = true;
+                    }
+                }
             }
 
         // --- prefill assistant turn (upstream --no-prefill-assistant) ---
@@ -1106,7 +1137,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         } else if (!strcmp(optname, "draft_ctx_size")) {
             // The draft context size is no longer a separate field upstream: the draft
             // shares the target context size. Accept the option for backward
-            // compatibility but silently ignore it.
+            // compatibility, but say that it does nothing.
+            SRV_WRN("%s", "draft_ctx_size: ignored, the draft context uses the context size of the target model\n");
 
         // --- ngram_mod family (upstream --spec-ngram-mod-*) ---
         } else if (!strcmp(optname, "spec_ngram_mod_n_min")) {
@@ -1157,9 +1189,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             params.speculative.ngram_cache.lookup_cache_dynamic = optval_str;
 
         // --- draft model KV cache types (upstream --spec-draft-type-k / -v) ---
-        } else if (!strcmp(optname, "draft_cache_type_k") || !strcmp(optname, "spec_draft_cache_type_k")) {
+        } else if (!strcmp(optname, "draft_cache_type_k") || !strcmp(optname, "spec_draft_cache_type_k") || !strcmp(optname, "spec_draft_type_k")) {
             params.speculative.draft.cache_type_k = kv_cache_type_from_str(optval_str);
-        } else if (!strcmp(optname, "draft_cache_type_v") || !strcmp(optname, "spec_draft_cache_type_v")) {
+        } else if (!strcmp(optname, "draft_cache_type_v") || !strcmp(optname, "spec_draft_cache_type_v") || !strcmp(optname, "spec_draft_type_v")) {
             params.speculative.draft.cache_type_v = kv_cache_type_from_str(optval_str);
 
         // --- draft model thread counts (upstream --spec-draft-threads / -batch) ---
@@ -1283,6 +1315,90 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 } catch (...) {}
             }
 
+        // --- dense FFN weights on CPU (upstream --n-cpu-ffn): the dense-model
+        //     twin of n_cpu_moe, for the first N layers ---
+        } else if (!strcmp(optname, "n_cpu_ffn")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("n_cpu_ffn: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_N_CPU_FFN_DENSE
+                    llm_add_n_cpu_ffn_overrides(*n, LLM_FFN_DENSE_REGEX, params.tensor_buft_overrides);
+#else
+                    SRV_WRN("%s", "n_cpu_ffn: this llama.cpp build has no --n-cpu-ffn, ignoring\n");
+#endif
+                }
+            }
+
+        // --- context limit per parallel slot (upstream --kv-unified-per-slot) ---
+        // Sizes the shared KV pool to parallel * N when context_size is unset.
+        } else if (!strcmp(optname, "kv_unified_per_slot")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("kv_unified_per_slot: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_KV_UNIFIED_PER_SLOT
+                    params.kv_unified_per_slot = *n;
+#else
+                    SRV_WRN("%s", "kv_unified_per_slot: this llama.cpp build has no --kv-unified-per-slot, ignoring\n");
+#endif
+                }
+            }
+
+        // --- YaRN original context size (upstream --yarn-orig-ctx); 0 = model value ---
+        } else if (!strcmp(optname, "yarn_orig_ctx")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("yarn_orig_ctx: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+                    params.yarn_orig_ctx = *n;
+                }
+            }
+
+        // --- draft context micro-batch (upstream --spec-draft-n-ubatch); 0 = same as the target ---
+        } else if (!strcmp(optname, "spec_draft_n_ubatch")) {
+            if (optval != NULL) {
+                const auto n = llama_grpc::parse_non_negative_int(optval_str);
+                if (!n) {
+                    SRV_WRN("spec_draft_n_ubatch: ignoring invalid value '%s' (expected a non-negative integer)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_SPEC_DRAFT_N_UBATCH
+                    params.speculative.draft.n_ubatch = *n;
+#else
+                    SRV_WRN("%s", "spec_draft_n_ubatch: this llama.cpp build has no --spec-draft-n-ubatch, ignoring\n");
+#endif
+                }
+            }
+
+        // --- draft sampling (upstream --spec-draft-sampling): greedy | probabilistic ---
+        } else if (!strcmp(optname, "spec_draft_sampling")) {
+            if (optval != NULL) {
+                const auto v = llama_grpc::parse_draft_sampling(optval_str);
+                if (!v) {
+                    SRV_WRN("spec_draft_sampling: ignoring invalid value '%s' (expected greedy or probabilistic)\n", optval_str.c_str());
+                } else {
+#if LOCALAI_HAS_SPEC_DRAFT_SAMPLING
+                    params.speculative.draft.probabilistic = (*v == llama_grpc::draft_sampling::probabilistic);
+#else
+                    SRV_WRN("%s", "spec_draft_sampling: this llama.cpp build has no --spec-draft-sampling, ignoring\n");
+#endif
+                }
+            }
+
+        // --- devices of the draft model (upstream --spec-draft-device): handed to
+        //     upstream's own device-list parser like the `device` option ---
+        } else if (!strcmp(optname, "spec_draft_device") || !strcmp(optname, "draft_device")) {
+            if (optval != NULL) {
+#if LOCALAI_HAS_SPEC_DRAFT_DEVICE
+                extra_flags.push_back({"--spec-draft-device", optval_str});
+#else
+                SRV_WRN("%s", "spec_draft_device: this llama.cpp build has no --spec-draft-device, ignoring\n");
+#endif
+            }
+
         // --- draft model tensor buffer overrides (upstream --spec-draft-override-tensor) ---
         } else if (!strcmp(optname, "draft_override_tensor") || !strcmp(optname, "spec_draft_override_tensor")) {
             // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
@@ -1330,26 +1446,20 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     "[llama-cpp] ignoring passthrough flag that would exit: %s\n",
                     flag.c_str());
             } else {
-                extra_argv.push_back(flag);
-                passthrough_main_gpu_layers =
-                    passthrough_main_gpu_layers ||
-                    flag == "-ngl" ||
-                    flag == "--gpu-layers" ||
-                    flag == "--n-gpu-layers";
-                passthrough_draft_gpu_layers =
-                    passthrough_draft_gpu_layers ||
-                    flag == "--spec-draft-ngl" ||
-                    flag == "-ngld" ||
-                    flag == "--gpu-layers-draft" ||
-                    flag == "--n-gpu-layers-draft";
+                llama_grpc::passthrough_flag raw{flag};
                 // Preserve the whole value after the first ':' so embedded
                 // colons (e.g. host:port) survive strtok's truncation of optval.
                 auto colon = opt.find(':');
                 if (colon != std::string::npos) {
-                    extra_argv.push_back(opt.substr(colon + 1));
+                    raw.push_back(opt.substr(colon + 1));
                 }
+                extra_flags.push_back(std::move(raw));
             }
         }
+    }
+
+    if (legacy_budget_zero_disables && !enable_reasoning_explicit) {
+        params.enable_reasoning = 0;
     }
 
     // The model options win over LLAMACPP_PARALLEL, including an explicit
@@ -1420,7 +1530,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // LocalAI keeps mmap, mlock and direct-I/O as three independent settings,
     // while upstream now carries a single load mode. Fold them with the
     // precedence the separate booleans used to give: direct I/O bypasses the
-    // page cache entirely, mlock implies mmap, and everything off is a plain
+    // page cache entirely, mlock goes with mmap unless mmap is off, and everything off is a plain
     // buffered read. Forks that branched before ggml-org/llama.cpp#20834 still
     // expose the booleans; prepare.sh probes the checkout and sets
     // LOCALAI_LEGACY_LOAD_MODE in the generated llama_compat.h accordingly.
@@ -1432,7 +1542,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     if (want_direct_io) {
         params.load_mode = LLAMA_LOAD_MODE_DIRECT_IO;
     } else if (request->mlock()) {
-        params.load_mode = LLAMA_LOAD_MODE_MLOCK;
+        // Upstream's MLOCK alone reads the model into locked memory without
+        // mmap (llama-model-loader.cpp maps only MMAP, MMAP_MLOCK and AUTO).
+        // Keep mmap with mlock unless mmap is switched off on purpose.
+        params.load_mode = request->mmap() ? LLAMA_LOAD_MODE_MMAP_MLOCK : LLAMA_LOAD_MODE_MLOCK;
     } else if (request->mmap()) {
         params.load_mode = LLAMA_LOAD_MODE_MMAP;
     } else {
@@ -1493,35 +1606,90 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // Apply any raw upstream flags last so an explicit passthrough flag wins
     // over the LocalAI-resolved field it maps to (e.g. --ctx-size beats
     // context_size). This is the same parser llama-server itself uses.
-    if (!extra_argv.empty()) {
+    //
+    // Raw flags do not win over what LocalAI sets for every request: cache_prompt
+    // (prompt_cache_all) and the sampling keys of PredictOptions (temperature,
+    // top_k, top_p, min_p, seed, ...) are sent with each call and replace the
+    // server defaults these flags would set. Use the YAML fields for those.
+    if (!extra_flags.empty()) {
         // common_params_parser_init resets a few fields for the SERVER example
         // (n_parallel -> -1, use_color). Snapshot n_parallel so an unrelated
         // passthrough flag can't silently clobber LocalAI's resolved value.
         const int saved_n_parallel = params.n_parallel;
-        // Newer upstream parsers assert that these fields still contain their
-        // negative initialization sentinels. LocalAI resolves them from the
-        // model request before applying passthrough options, so stage the
-        // sentinels and restore the values unless a raw flag overrides them.
-        const auto saved_gpu_layers =
-            llama_grpc::prepare_passthrough_gpu_layers(
-                params.n_gpu_layers,
-                params.speculative.draft.n_gpu_layers);
 
-        std::vector<char *> argv;
-        std::string prog = "llama-server";
-        argv.push_back(prog.data());
-        for (auto & a : extra_argv) {
-            argv.push_back(a.data());
-        }
+        auto is_main_ngl = [](const std::string & f) {
+            return f == "-ngl" || f == "--gpu-layers" || f == "--n-gpu-layers";
+        };
+        auto is_draft_ngl = [](const std::string & f) {
+            return f == "--spec-draft-ngl" || f == "-ngld" ||
+                   f == "--gpu-layers-draft" || f == "--n-gpu-layers-draft";
+        };
 
-        // ctx_arg.params is a reference, so this overlays the given flags onto
-        // `params` in place. Returns false on a recoverable parse error (and
-        // self-restores params); may exit() on a hard error, exactly as
-        // passing the same bad flag to llama-server would.
-        if (!common_params_parse((int)argv.size(), argv.data(), params,
-                                 LLAMA_EXAMPLE_SERVER)) {
-            fprintf(stderr,
-                "[llama-cpp] failed to parse passthrough options; ignoring them\n");
+        // Parses the given flags into `target`, which is `params` or a scratch
+        // copy. Newer upstream parsers assert that the GPU layer fields still
+        // contain their negative initialization sentinels. LocalAI resolves them
+        // from the model request before applying passthrough options, so stage
+        // the sentinels and restore the values unless a raw flag overrides them.
+        // The environment guard keeps LLAMA_ARG_* variables and llama.cpp config
+        // files from overriding the values LocalAI resolved.
+        auto parse_flags = [&](common_params & target,
+                               const std::vector<llama_grpc::passthrough_flag> & flags) {
+            bool main_set = false;
+            bool draft_set = false;
+            std::string prog = "llama-server";
+            std::vector<std::string> storage;
+            for (const auto & f : flags) {
+                main_set  = main_set  || is_main_ngl(f[0]);
+                draft_set = draft_set || is_draft_ngl(f[0]);
+                storage.insert(storage.end(), f.begin(), f.end());
+            }
+            std::vector<char *> argv;
+            argv.push_back(prog.data());
+            for (auto & a : storage) {
+                argv.push_back(a.data());
+            }
+            const auto saved_gpu_layers =
+                llama_grpc::prepare_passthrough_gpu_layers(
+                    target.n_gpu_layers,
+                    target.speculative.draft.n_gpu_layers);
+            bool ok;
+            {
+                llama_grpc::scoped_upstream_env_scrub env_scrub;
+                // `target` is overlaid in place. Returns false on a recoverable
+                // parse error (and self-restores it); may exit() on a hard error,
+                // exactly as passing the same bad flag to llama-server would.
+                ok = common_params_parse((int)argv.size(), argv.data(), target,
+                                         LLAMA_EXAMPLE_SERVER);
+            }
+            llama_grpc::restore_passthrough_gpu_layers(
+                target.n_gpu_layers,
+                target.speculative.draft.n_gpu_layers,
+                saved_gpu_layers,
+                ok && main_set,
+                ok && draft_set);
+            return ok;
+        };
+
+        if (!parse_flags(params, extra_flags)) {
+            // The parser refused the list and left `params` as it was. One bad
+            // flag (a removed one, or a value form of a boolean) must not discard
+            // the good ones: check each flag on a scratch copy, then apply the
+            // ones that parse. The parser prints why a flag was refused.
+            std::vector<llama_grpc::passthrough_flag> dropped;
+            const auto kept = llama_grpc::keep_parsable_flags(
+                extra_flags,
+                [&](const llama_grpc::passthrough_flag & f) {
+                    common_params one = params;
+                    return parse_flags(one, std::vector<llama_grpc::passthrough_flag>{f});
+                },
+                dropped);
+            for (const auto & f : dropped) {
+                fprintf(stderr, "[llama-cpp] ignoring passthrough flag that failed to parse: %s\n", f[0].c_str());
+            }
+            if (!kept.empty() && !parse_flags(params, kept)) {
+                fprintf(stderr,
+                    "[llama-cpp] failed to parse passthrough options; ignoring them\n");
+            }
         }
 
         // Restore n_parallel unless a passthrough flag explicitly set it
@@ -1529,12 +1697,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         if (params.n_parallel == -1) {
             params.n_parallel = saved_n_parallel;
         }
-        llama_grpc::restore_passthrough_gpu_layers(
-            params.n_gpu_layers,
-            params.speculative.draft.n_gpu_layers,
-            saved_gpu_layers,
-            passthrough_main_gpu_layers,
-            passthrough_draft_gpu_layers);
     }
 
     // The library initializer now creates both threadpools before the server
