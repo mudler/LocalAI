@@ -5779,7 +5779,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: 3c405e5f08748517a530ecdbf00a10ed52798ce11ce5f734fe80742cddbd4151
+      sha256: c082d8ee146945e455b6d450f47c34748272195a94896a5ea1e0da748fd56449
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -12411,7 +12411,7 @@
     - long-context
   files:
     - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
-      sha256: c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747
+      sha256: d15d4b6de55f662ac40e867702d31afe738d032fa06b829b2b1a21a49d4a48ee
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
@@ -12477,10 +12477,10 @@
     - speculative
   files:
     - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
-      sha256: c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747
+      sha256: d15d4b6de55f662ac40e867702d31afe738d032fa06b829b2b1a21a49d4a48ee
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
     - filename: llama-cpp/models/qwen3.8-27b/mtp-Qwen3.8-27B-Q4_0.gguf
-      sha256: c5be331f82fb61f5304adfa00ccd60c6743c8ce52255d66fa863446231d49ba4
+      sha256: 98a72f16e648f77e15b3dcfc7828702e2211f05b95777cb27dc85cb87e621db4
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mtp-Qwen3.8-27B-Q4_0.gguf
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
@@ -12602,7 +12602,7 @@
     - long-context
   files:
     - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q8_0.gguf
-      sha256: aab65c67ef0dad127960efef9247f1832bca105faa1c7a052cc039b223cf86a1
+      sha256: 6bc9e7220d8400574fd62df25f04a961cb5cbb0d766cf0118c21c36c0059c35a
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q8_0.gguf
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
@@ -24897,7 +24897,7 @@
     - multimodal
   files:
     - filename: gemma-4-E2B-it-Q8_0.gguf
-      sha256: 996d08777aadc6bfd3c7375ef70ba25a0f55240075860754fdb18d6d860aa63a
+      sha256: c36d5e6be0d91124d8b995f5ad4e1ab0d307f6d95cdd08308820350dbd96ad15
       uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/gemma-4-E2B-it-Q8_0.gguf
     - filename: mmproj-gemma-4-E2B-it-bf16.gguf
       sha256: e42083b71a9e31e0f722171d551f6d92b101544001c4dde040306a8f2160fe8c
