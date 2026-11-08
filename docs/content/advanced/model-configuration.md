@@ -715,6 +715,8 @@ These load-time options control how the backend parses `<think>` reasoning block
 | `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
 
 {{% notice note %}}
+Before this change both names wrote the on/off switch, so `reasoning_budget:N` with `N` > 1 only turned thinking on and never capped it. It now sets the real token cap. `reasoning_budget:0` and `enable_reasoning:0` keep switching thinking off; `reasoning_budget:1` is now a one-token cap, not "on".
+
 This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
 
 - `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
@@ -723,8 +725,6 @@ This is the load-time reasoning configuration. The orthogonal per-request `enabl
 
 The `/v1/responses` endpoint accepts the same effort levels through `reasoning.effort`.
 It also forwards request `metadata` to the backend, including `enable_thinking` overrides.
-
-Before this change both names wrote the on/off switch, so `reasoning_budget:N` with `N` > 1 only turned thinking on and never capped it. It now sets the real token cap. `reasoning_budget:0` and `enable_reasoning:0` keep switching thinking off; `reasoning_budget:1` is now a one-token cap, not "on".
 
 ```json
 {
@@ -857,8 +857,20 @@ Notes:
   overrides the LocalAI option it maps to (e.g. `--ctx-size:8192` overrides
   `context_size`).
 - **Power-user territory:** an invalid flag or value is rejected by the upstream
-  parser exactly as it would be by `llama-server`, which can fail model loading.
-  Prefer the named options above when one exists.
+  parser exactly as it would be by `llama-server`. When the list is refused, the
+  flags that are valid are still applied and each rejected one is named in the
+  log; only a failure of the valid set drops all of them. Prefer the named
+  options above when one exists.
+- **Environment and config files are ignored:** while the flags are parsed, the
+  `LLAMA_ARG_*` environment variables and the user-level llama.cpp config file
+  are hidden, so they cannot change values LocalAI has resolved. Put settings in
+  `options:`. A system-wide `/etc/llama.cpp/config.ini` is still read.
+- **Per-request values win:** LocalAI sends `cache_prompt` and the sampling
+  parameters (`temperature`, `top_k`, `top_p`, `min_p`, `typical_p`, `seed`,
+  repeat/frequency/presence penalties, `mirostat*`, `n_keep`) with every request.
+  Raw flags such as `--cache-prompt`, `--temp`, `--top-k` or `--seed` only change
+  the server defaults, so they have no effect. Use `prompt_cache_all` and the
+  `parameters:` section of the model file instead.
 - Flags that would terminate the process (such as `--help`, `--usage`,
   `--version`, `--license`, `--list-devices`, `--cache-list`, and
   `--completion*`) are ignored.
@@ -867,12 +879,12 @@ Notes:
 
 The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "features/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
 
-The fields below come from upstream llama.cpp's **CLI completion tool** and are passed through to the gRPC backend for compatibility, but the gRPC server itself does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
+Of the fields below, only `prompt_cache_all` is used by the `llama-cpp` gRPC server. The others come from upstream llama.cpp's **CLI completion tool** and are passed through for compatibility, but the server does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `prompt_cache_path` | string | (legacy / unused by llama-cpp gRPC server) Path to a file-backed prompt cache for upstream's CLI completion tool. |
-| `prompt_cache_all` | bool | (legacy / unused by llama-cpp gRPC server) |
+| `prompt_cache_all` | bool | **Used by `llama-cpp`**: sent with every request as llama.cpp's `cache_prompt`, which lets a slot reuse the KV cache of a matching prompt prefix. Default `true`; set `prompt_cache_all: false` in the model file to turn it off. A raw `--cache-prompt` flag in `options:` does not change it. |
 | `prompt_cache_ro` | bool | (legacy / unused by llama-cpp gRPC server) |
 
 ### Text Processing

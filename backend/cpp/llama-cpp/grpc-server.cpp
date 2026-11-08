@@ -643,21 +643,19 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     // Raw upstream llama-server flags collected from any option entry that
     // starts with '-'. Applied once after the loop via common_params_parse.
-    std::vector<std::string> extra_argv;
-    bool passthrough_main_gpu_layers = false;
-    bool passthrough_draft_gpu_layers = false;
+    std::vector<llama_grpc::passthrough_flag> extra_flags;
 
     // O_DIRECT intent from the `direct_io` option. Upstream folded
     // use_mmap/use_mlock/use_direct_io into a single common_params::load_mode
     // enum (ggml-org/llama.cpp#20834), so the three independent LocalAI settings
     // can only be reduced to one value once all of them have been read, held
     // here until the mmap/mlock fields arrive further down.
+    bool want_direct_io = false;
+
     // reasoning_budget:0 has always switched thinking off. Keep that unless
     // enable_reasoning is given, whichever comes first in the options.
     bool enable_reasoning_explicit = false;
     bool legacy_budget_zero_disables = false;
-
-    bool want_direct_io = false;
 
     auto add_device_options = [&](const std::string & devices) {
         const std::regex regex{ R"([,]+)" };
@@ -672,8 +670,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             const auto end = device.find_last_not_of(" \t\n\r");
             device = device.substr(start, end - start + 1);
 
-            extra_argv.push_back("--device");
-            extra_argv.push_back(device);
+            extra_flags.push_back({"--device", device});
         }
     };
 
@@ -1315,6 +1312,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                             {buft_overrides_main.back().c_str(), ggml_backend_cpu_buffer_type()});
                     }
 #endif
+                } catch (...) {}
+            }
+
         // --- dense FFN weights on CPU (upstream --n-cpu-ffn): the dense-model
         //     twin of n_cpu_moe, for the first N layers ---
         } else if (!strcmp(optname, "n_cpu_ffn")) {
@@ -1399,9 +1399,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 #endif
             }
 
-                } catch (...) {}
-            }
-
         // --- draft model tensor buffer overrides (upstream --spec-draft-override-tensor) ---
         } else if (!strcmp(optname, "draft_override_tensor") || !strcmp(optname, "spec_draft_override_tensor")) {
             // Format: <tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...
@@ -1449,26 +1446,20 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     "[llama-cpp] ignoring passthrough flag that would exit: %s\n",
                     flag.c_str());
             } else {
-                extra_argv.push_back(flag);
-                passthrough_main_gpu_layers =
-                    passthrough_main_gpu_layers ||
-                    flag == "-ngl" ||
-                    flag == "--gpu-layers" ||
-                    flag == "--n-gpu-layers";
-                passthrough_draft_gpu_layers =
-                    passthrough_draft_gpu_layers ||
-                    flag == "--spec-draft-ngl" ||
-                    flag == "-ngld" ||
-                    flag == "--gpu-layers-draft" ||
-                    flag == "--n-gpu-layers-draft";
+                llama_grpc::passthrough_flag raw{flag};
                 // Preserve the whole value after the first ':' so embedded
                 // colons (e.g. host:port) survive strtok's truncation of optval.
                 auto colon = opt.find(':');
                 if (colon != std::string::npos) {
-                    extra_argv.push_back(opt.substr(colon + 1));
+                    raw.push_back(opt.substr(colon + 1));
                 }
+                extra_flags.push_back(std::move(raw));
             }
         }
+    }
+
+    if (legacy_budget_zero_disables && !enable_reasoning_explicit) {
+        params.enable_reasoning = 0;
     }
 
     // The model options win over LLAMACPP_PARALLEL, including an explicit
@@ -1542,10 +1533,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // page cache entirely, mlock goes with mmap unless mmap is off, and everything off is a plain
     // buffered read. Forks that branched before ggml-org/llama.cpp#20834 still
     // expose the booleans; prepare.sh probes the checkout and sets
-    if (legacy_budget_zero_disables && !enable_reasoning_explicit) {
-        params.enable_reasoning = 0;
-    }
-
     // LOCALAI_LEGACY_LOAD_MODE in the generated llama_compat.h accordingly.
 #if LOCALAI_LEGACY_LOAD_MODE
     params.use_mlock     = request->mlock();
@@ -1619,35 +1606,90 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // Apply any raw upstream flags last so an explicit passthrough flag wins
     // over the LocalAI-resolved field it maps to (e.g. --ctx-size beats
     // context_size). This is the same parser llama-server itself uses.
-    if (!extra_argv.empty()) {
+    //
+    // Raw flags do not win over what LocalAI sets for every request: cache_prompt
+    // (prompt_cache_all) and the sampling keys of PredictOptions (temperature,
+    // top_k, top_p, min_p, seed, ...) are sent with each call and replace the
+    // server defaults these flags would set. Use the YAML fields for those.
+    if (!extra_flags.empty()) {
         // common_params_parser_init resets a few fields for the SERVER example
         // (n_parallel -> -1, use_color). Snapshot n_parallel so an unrelated
         // passthrough flag can't silently clobber LocalAI's resolved value.
         const int saved_n_parallel = params.n_parallel;
-        // Newer upstream parsers assert that these fields still contain their
-        // negative initialization sentinels. LocalAI resolves them from the
-        // model request before applying passthrough options, so stage the
-        // sentinels and restore the values unless a raw flag overrides them.
-        const auto saved_gpu_layers =
-            llama_grpc::prepare_passthrough_gpu_layers(
-                params.n_gpu_layers,
-                params.speculative.draft.n_gpu_layers);
 
-        std::vector<char *> argv;
-        std::string prog = "llama-server";
-        argv.push_back(prog.data());
-        for (auto & a : extra_argv) {
-            argv.push_back(a.data());
-        }
+        auto is_main_ngl = [](const std::string & f) {
+            return f == "-ngl" || f == "--gpu-layers" || f == "--n-gpu-layers";
+        };
+        auto is_draft_ngl = [](const std::string & f) {
+            return f == "--spec-draft-ngl" || f == "-ngld" ||
+                   f == "--gpu-layers-draft" || f == "--n-gpu-layers-draft";
+        };
 
-        // ctx_arg.params is a reference, so this overlays the given flags onto
-        // `params` in place. Returns false on a recoverable parse error (and
-        // self-restores params); may exit() on a hard error, exactly as
-        // passing the same bad flag to llama-server would.
-        if (!common_params_parse((int)argv.size(), argv.data(), params,
-                                 LLAMA_EXAMPLE_SERVER)) {
-            fprintf(stderr,
-                "[llama-cpp] failed to parse passthrough options; ignoring them\n");
+        // Parses the given flags into `target`, which is `params` or a scratch
+        // copy. Newer upstream parsers assert that the GPU layer fields still
+        // contain their negative initialization sentinels. LocalAI resolves them
+        // from the model request before applying passthrough options, so stage
+        // the sentinels and restore the values unless a raw flag overrides them.
+        // The environment guard keeps LLAMA_ARG_* variables and llama.cpp config
+        // files from overriding the values LocalAI resolved.
+        auto parse_flags = [&](common_params & target,
+                               const std::vector<llama_grpc::passthrough_flag> & flags) {
+            bool main_set = false;
+            bool draft_set = false;
+            std::string prog = "llama-server";
+            std::vector<std::string> storage;
+            for (const auto & f : flags) {
+                main_set  = main_set  || is_main_ngl(f[0]);
+                draft_set = draft_set || is_draft_ngl(f[0]);
+                storage.insert(storage.end(), f.begin(), f.end());
+            }
+            std::vector<char *> argv;
+            argv.push_back(prog.data());
+            for (auto & a : storage) {
+                argv.push_back(a.data());
+            }
+            const auto saved_gpu_layers =
+                llama_grpc::prepare_passthrough_gpu_layers(
+                    target.n_gpu_layers,
+                    target.speculative.draft.n_gpu_layers);
+            bool ok;
+            {
+                llama_grpc::scoped_upstream_env_scrub env_scrub;
+                // `target` is overlaid in place. Returns false on a recoverable
+                // parse error (and self-restores it); may exit() on a hard error,
+                // exactly as passing the same bad flag to llama-server would.
+                ok = common_params_parse((int)argv.size(), argv.data(), target,
+                                         LLAMA_EXAMPLE_SERVER);
+            }
+            llama_grpc::restore_passthrough_gpu_layers(
+                target.n_gpu_layers,
+                target.speculative.draft.n_gpu_layers,
+                saved_gpu_layers,
+                ok && main_set,
+                ok && draft_set);
+            return ok;
+        };
+
+        if (!parse_flags(params, extra_flags)) {
+            // The parser refused the list and left `params` as it was. One bad
+            // flag (a removed one, or a value form of a boolean) must not discard
+            // the good ones: check each flag on a scratch copy, then apply the
+            // ones that parse. The parser prints why a flag was refused.
+            std::vector<llama_grpc::passthrough_flag> dropped;
+            const auto kept = llama_grpc::keep_parsable_flags(
+                extra_flags,
+                [&](const llama_grpc::passthrough_flag & f) {
+                    common_params one = params;
+                    return parse_flags(one, std::vector<llama_grpc::passthrough_flag>{f});
+                },
+                dropped);
+            for (const auto & f : dropped) {
+                fprintf(stderr, "[llama-cpp] ignoring passthrough flag that failed to parse: %s\n", f[0].c_str());
+            }
+            if (!kept.empty() && !parse_flags(params, kept)) {
+                fprintf(stderr,
+                    "[llama-cpp] failed to parse passthrough options; ignoring them\n");
+            }
         }
 
         // Restore n_parallel unless a passthrough flag explicitly set it
@@ -1655,12 +1697,6 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         if (params.n_parallel == -1) {
             params.n_parallel = saved_n_parallel;
         }
-        llama_grpc::restore_passthrough_gpu_layers(
-            params.n_gpu_layers,
-            params.speculative.draft.n_gpu_layers,
-            saved_gpu_layers,
-            passthrough_main_gpu_layers,
-            passthrough_draft_gpu_layers);
     }
 
     // The library initializer now creates both threadpools before the server
