@@ -177,6 +177,13 @@ var _ = Describe("the tools that run without asking, in the view of a connection
 			{Tool: "send-key"},
 		}))
 	})
+	It("says the owner and paired senders run every relaxable tool without asking in Allow all", func() {
+		got := svc.approvalsOf(ctx, binding(connectors.WriteAuto))
+		Expect(got).To(Equal([]ToolApproval{
+			{Tool: "power-action", RunsWithoutAsking: []string{"owner", "paired"}},
+			{Tool: "send-key", RunsWithoutAsking: []string{"owner", "paired"}},
+		}))
+	})
 	It("says nothing runs while the write mode is off", func() {
 		settings.put("alice", "pikvm", contract.ApprovalSettingKey("power-action"), contract.ApprovalSkip)
 		got := svc.approvalsOf(ctx, binding(connectors.WriteOff))
