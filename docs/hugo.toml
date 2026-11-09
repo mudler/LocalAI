@@ -24,6 +24,9 @@ enableEmoji = true
   [markup.tableOfContents]
     endLevel = 3
     startLevel = 1
+  [markup.highlight]
+    # Colour code with the chroma style of the active theme variant.
+    noClasses = false
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
@@ -34,7 +37,6 @@ enableEmoji = true
 [params]
   # Relearn theme parameters
   editURL = 'https://github.com/mudler/LocalAI/edit/master/docs/content/'
-  description = 'LocalAI documentation'
   author = 'Ettore Di Giacinto'
   showVisitedLinks = true
   disableBreadcrumb = false
@@ -48,8 +50,14 @@ enableEmoji = true
   disableGenerator = false
   disableLanguageSwitchingButton = true
   
-  # Theme variant - dark/blue style
-  themeVariant = [ 'zen-dark' , 'neon', 'auto' ]
+  # Colour variants. They are generated from the LocalAI theme tokens, see
+  # tools/gen-theme-variants.py. "auto" follows the system setting and uses
+  # the first two variants, light then dark. Each variant has its own logo.
+  themeVariant = [
+    { identifier = 'auto', name = 'System' },
+    { identifier = 'localai-light', name = 'Light', params = { logo = { src = 'images/logo/lockup-light.svg' } } },
+    { identifier = 'localai-dark', name = 'Dark', params = { logo = { src = 'images/logo/lockup-dark.svg' } } },
+  ]
   
   # ordersectionsby = 'weight'
 

@@ -8,7 +8,7 @@ aliases = ["/basics/getting_started/"]
 
 ![Quickstart journey: install, start LocalAI, pick a model, then chat or curl the API](/images/diagrams/quickstart-journey.png)
 
-**LocalAI** is an open-source server for running open models on your own hardware. Its REST API follows the OpenAI and Anthropic formats. It allows you to run [LLMs]({{% relref "/features/text-generation" %}}), generate images, and produce audio, all locally or on-premises, on consumer-grade hardware, with several model families and architectures.
+**LocalAI** is an open source server that speaks the OpenAI and Anthropic APIs. It runs [LLMs]({{% relref "/features/text-generation" %}}), generates images and produces audio on hardware you choose, from a consumer-grade computer to a server, with many model families and architectures.
 
 LocalAI comes with a **built-in web interface** for chatting with models, managing installations, configuring AI agents, and more, with no extra tools needed.
 
