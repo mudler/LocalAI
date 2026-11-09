@@ -1,5 +1,11 @@
---extra-index-url https://download.pytorch.org/whl/cu121
-torch
+--extra-index-url https://download.pytorch.org/whl/cu128
+# Keep the CUDA 12 runtime tested in #12356. An extra index alone does not
+# prevent the resolver from selecting newer CUDA 13 wheels from PyPI.
+torch==2.8.0+cu128
+torchaudio==2.8.0+cu128
+# TorchCodec 0.7 targets the PyTorch 2.8 ABI.
+torchcodec==0.7.0
+transformers==4.57.3
 soundfile
 numpy
-voxcpm
+voxcpm==2.0.3
