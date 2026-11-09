@@ -1,6 +1,6 @@
 {
   "title": "Gmail",
-  "intro": "Laissez vos agents lire les e-mails de votre compte Google. Si vous l’autorisez, ils peuvent aussi enregistrer des brouillons et les envoyer après que vous avez approuvé chacun.",
+  "intro": "Laissez vos agents lire le courrier de votre compte Google. Si vous l'autorisez, ils peuvent aussi enregistrer des brouillons et les envoyer, une fois que vous avez approuvé chacun, sauf si vous choisissez Tout autoriser.",
   "limits": "Choisissez « Se connecter avec Google » pour ajouter une connexion et vous connecter à votre compte Google. Cette page règle les libellés et le mode d’écriture de chaque connexion. Un agent ne travaille dans votre boîte que lorsque vous le lui demandez dans un chat.",
   "edit": "Modifier la connexion Gmail",
   "name": "Nom",
@@ -46,21 +46,21 @@
     "hint": "Enregistrer un brouillon et envoyer un brouillon existant. Il ne supprime, ne met à la corbeille, n’étiquette et ne transfère jamais d’e-mail, et il ne change jamais vos réglages.",
     "off": "Lecture seule",
     "propose": "Vous demande d’abord",
-    "auto": "Agit sans demander",
+    "auto": "Tout autoriser",
     "line": {
       "off": "Il ne peut rien enregistrer ni envoyer.",
       "propose": "Chaque brouillon et chaque envoi attendent votre accord.",
-      "auto": "Vos chats font le changement aussitôt."
+      "auto": "Vos chats enregistrent des brouillons et envoient tout de suite."
     },
     "note": {
       "off": "L’accès en écriture est désactivé : cette connexion ne fait que lire.",
       "propose": "Chaque brouillon et chaque envoi attendent dans vos approbations jusqu’à ce que vous les confirmiez. Vous voyez d’abord les destinataires et le texte. Il demande aussi l’accès en écriture facultatif que vous autorisez à la connexion.",
-      "auto": "Chaque brouillon et chaque envoi attendent quand même dans vos approbations : ce module n’écrit jamais sans l’accord d’une personne. Il demande aussi l’accès en écriture facultatif que vous autorisez à la connexion."
+      "auto": "Un de vos chats enregistre des brouillons et envoie le courrier tout de suite, sans demander. Un courriel envoyé ne peut pas être rappelé. Les exécutions sans vous attendent toujours votre confirmation."
     },
     "row": {
       "off": "Lecture seule",
       "propose": "Vous demande d’abord",
-      "auto": "Vous demande d’abord"
+      "auto": "Tout autoriser"
     }
   },
   "approval": {

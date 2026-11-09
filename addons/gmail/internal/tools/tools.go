@@ -11,7 +11,8 @@
 // What Gmail returns is text that other people wrote, and mail is the most
 // hostile text there is. Every result is wrapped in an object that says so,
 // the add-on never follows a link, loads an image or runs anything it reads,
-// and it sends nothing without a person's approval of the exact mail.
+// and it sends nothing without a person's approval of the exact mail unless the
+// person chose the Allow all write mode.
 package tools
 
 import (

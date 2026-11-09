@@ -5,7 +5,7 @@ import { Field, Notice } from '../../../internal/connector-ui/src/controls'
 import { WriteModeChip, WriteModeField } from '../../../internal/connector-ui/src/addonparts'
 import './i18n'
 import ProposalCard from './ProposalCard'
-import { extraBody, extraForm, extraValid, hasAll, labelsIssue, parseLabels, OFFERED_MODES, writeModeOf } from './labels'
+import { extraBody, extraForm, extraValid, hasAll, labelsIssue, parseLabels, WRITE_MODES, writeModeOf } from './labels'
 
 // The labels the agent may use. The host refuses any other one before the
 // add-on is called, and the add-on refuses a message without the label. The
@@ -22,7 +22,7 @@ function GmailFields({ form, setForm, t }) {
         )}
       </Field>
       {hasAll(list) && <Notice tone="warn" role="note" testId="gmail-all-note" className="cn-note">{t('allNote')}</Notice>}
-      <WriteModeField ns="gmail" form={form} setForm={setForm} t={t} modes={OFFERED_MODES} modeOf={writeModeOf} />
+      <WriteModeField ns="gmail" form={form} setForm={setForm} t={t} modes={WRITE_MODES} modeOf={writeModeOf} />
     </>
   )
 }

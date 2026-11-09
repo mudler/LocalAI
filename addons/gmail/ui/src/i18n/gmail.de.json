@@ -1,6 +1,6 @@
 {
   "title": "Gmail",
-  "intro": "Lass deine Agenten die Mails deines Google-Kontos lesen. Wenn du es erlaubst, können sie auch Entwürfe speichern und senden, nachdem du jeden einzelnen freigegeben hast.",
+  "intro": "Lass deine Agenten die Mails deines Google-Kontos lesen. Wenn du es erlaubst, können sie auch Entwürfe speichern und senden, nachdem du jeden freigegeben hast, es sei denn, du wählst Alles erlauben.",
   "limits": "Wähle „Mit Google verbinden“, um eine Verbindung hinzuzufügen und dich bei deinem Google-Konto anzumelden. Diese Seite legt die Labels und den Schreibmodus jeder Verbindung fest. Ein Agent arbeitet in deinem Postfach nur, wenn du ihn in einem Chat darum bittest.",
   "edit": "Gmail-Verbindung bearbeiten",
   "name": "Name",
@@ -46,21 +46,21 @@
     "hint": "Einen Entwurf speichern und einen vorhandenen Entwurf senden. Er löscht, verschiebt in den Papierkorb, beschriftet oder leitet nie Mails weiter und ändert nie deine Einstellungen.",
     "off": "Nur lesen",
     "propose": "Fragt dich zuerst",
-    "auto": "Handelt ohne Rückfrage",
+    "auto": "Alles erlauben",
     "line": {
       "off": "Er kann nichts speichern oder senden.",
       "propose": "Jeder Entwurf und jedes Senden wartet auf dein OK.",
-      "auto": "Deine Chats führen die Änderung sofort aus."
+      "auto": "Deine Chats speichern Entwürfe und senden sofort."
     },
     "note": {
       "off": "Der Schreibzugriff ist aus: Diese Verbindung liest nur.",
       "propose": "Jeder Entwurf und jedes Senden wartet in deinen Freigaben, bis du es bestätigst. Du siehst vorher die Empfänger und den Text. Dafür braucht es außerdem den optionalen Schreibzugriff, den du beim Verbinden erlaubst.",
-      "auto": "Jeder Entwurf und jedes Senden wartet trotzdem in deinen Freigaben: Dieses Add-on schreibt nie ohne das OK einer Person. Dafür braucht es außerdem den optionalen Schreibzugriff, den du beim Verbinden erlaubst."
+      "auto": "Ein Chat von dir speichert Entwürfe und sendet Mails sofort, ohne Rückfrage. Eine gesendete Mail lässt sich nicht zurückholen. Läufe ohne dich warten weiterhin auf deine Bestätigung."
     },
     "row": {
       "off": "Nur lesen",
       "propose": "Fragt dich zuerst",
-      "auto": "Fragt dich zuerst"
+      "auto": "Alles erlauben"
     }
   },
   "approval": {

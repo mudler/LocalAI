@@ -1,6 +1,6 @@
 {
   "title": "Gmail",
-  "intro": "Permite que tus agentes lean el correo de tu cuenta de Google. Si lo autorizas, también pueden guardar borradores y enviarlos después de que apruebes cada uno.",
+  "intro": "Permite que tus agentes lean el correo de tu cuenta de Google. Si lo autorizas, también pueden guardar borradores y enviarlos, después de que apruebes cada uno, salvo que elijas Permitir todo.",
   "limits": "Elige «Conectar con Google» para añadir una conexión e iniciar sesión en tu cuenta de Google. Esta página define las etiquetas y el modo de escritura de cada conexión. Un agente trabaja en tu buzón solo cuando se lo pides en un chat.",
   "edit": "Editar la conexión de Gmail",
   "name": "Nombre",
@@ -46,21 +46,21 @@
     "hint": "Guardar un borrador y enviar un borrador que ya existe. Nunca elimina, envía a la papelera, etiqueta ni reenvía correo, y nunca cambia tus ajustes.",
     "off": "Solo lectura",
     "propose": "Te pregunta antes",
-    "auto": "Actúa sin preguntar",
+    "auto": "Permitir todo",
     "line": {
       "off": "No puede guardar ni enviar nada.",
       "propose": "Cada borrador y cada envío esperan tu confirmación.",
-      "auto": "Tus chats hacen el cambio al instante."
+      "auto": "Tus chats guardan borradores y envían al instante."
     },
     "note": {
       "off": "El acceso de escritura está desactivado: esta conexión solo lee.",
       "propose": "Cada borrador y cada envío esperan en tus aprobaciones hasta que los confirmes. Antes ves los destinatarios y el texto. También necesita el acceso de escritura opcional que permites al conectar.",
-      "auto": "Cada borrador y cada envío siguen esperando en tus aprobaciones: este complemento nunca escribe sin la confirmación de una persona. También necesita el acceso de escritura opcional que permites al conectar."
+      "auto": "Un chat tuyo guarda borradores y envía correos al instante, sin preguntar. Un correo enviado no se puede retirar. Las ejecuciones sin ti presente siguen esperando tu confirmación. También necesita el acceso de escritura opcional que permites al conectar."
     },
     "row": {
       "off": "Solo lectura",
       "propose": "Te pregunta antes",
-      "auto": "Te pregunta antes"
+      "auto": "Permitir todo"
     }
   },
   "approval": {
