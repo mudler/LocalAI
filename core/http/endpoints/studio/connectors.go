@@ -50,11 +50,15 @@ func connectorOut(i studiosvc.ConnectorInfo, lang string) schema.ChatsConnector 
 	if allow == nil {
 		allow = []string{}
 	}
+	inbound := i.InboundMedia
+	if inbound == nil {
+		inbound = []string{}
+	}
 	return schema.ChatsConnector{Caps: capsOut(i.Caps), Grants: grantsOut(i.Grants), Paired: pairedOut(i.Paired), ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, CredentialsOnly: i.CredentialsOnly(), Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, AllowTrust: i.AllowTrust, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
 		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ReplyLanguage: i.ReplyLang(), UILanguage: i.UILanguage, Options: i.Options,
 		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval), Duplicate: duplicateOut(i, lang),
-		Share: shareOut(i.Share), AuthKind: authKindOut(i.AuthKind), OAuth: oauthOut(i.OAuth), UsedBy: i.UsedBy}
+		Share: shareOut(i.Share), AuthKind: authKindOut(i.AuthKind), OAuth: oauthOut(i.OAuth), UsedBy: i.UsedBy, InboundMedia: inbound}
 }
 
 func shareOut(s *studiosvc.ShareState) *schema.ChatsConnectorShare {
@@ -180,7 +184,8 @@ func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AuthKind: req.AuthKind, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, AllowTrust: req.AllowTrust, NotifyChat: req.NotifyChat,
 		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ReplyLanguage: req.ReplyLanguage, UILanguage: req.UILanguage, Options: req.Options,
-		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, ConfirmAnyResource: req.ConfirmAnyResource, ConfirmWiderToken: req.ConfirmWiderToken, ConfirmDuplicate: req.ConfirmDuplicate, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval)}
+		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, ConfirmAnyResource: req.ConfirmAnyResource, ConfirmWiderToken: req.ConfirmWiderToken, ConfirmDuplicate: req.ConfirmDuplicate, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval),
+		InboundMedia: req.InboundMedia}
 }
 
 var connectorRules = []errRule{
@@ -364,7 +369,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 
 // UpdateConnector replaces a binding.
 // @Summary Replace a connector binding.
-// @Description The body replaces every field except the token, which is kept unless the request has a new one, and send_files and reply_language, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.
+// @Description The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Param request body schema.ChatsConnectorWrite true "the binding"

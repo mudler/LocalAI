@@ -46,13 +46,14 @@ type tgFile struct {
 }
 
 // The kinds of file that a reference names. A reference is the kind, a
-// colon and the file_id of Telegram; the host passes it back unchanged.
+// colon and the file_id of Telegram; the host passes it back unchanged. The
+// kinds are the media kinds of the contract, which a binding can limit.
 const (
-	refPhoto     = "photo"
-	refVoice     = "voice"
-	refAudio     = "audio"
-	refVideoNote = "video_note"
-	refDocument  = "document"
+	refPhoto     = contract.ConnectorMediaPhoto
+	refVoice     = contract.ConnectorMediaVoice
+	refAudio     = contract.ConnectorMediaAudio
+	refVideoNote = contract.ConnectorMediaVideoNote
+	refDocument  = contract.ConnectorMediaDocument
 )
 
 var refKinds = map[string]bool{refPhoto: true, refVoice: true, refAudio: true, refVideoNote: true, refDocument: true}
@@ -90,6 +91,17 @@ func mediaRefs(m tgMessage) []string {
 	return nil
 }
 
+// mediaKinds are the kinds of references that mediaRefs made, one for each,
+// for ConnectorMessage.MediaKinds.
+func mediaKinds(refs []string) []string {
+	var out []string
+	for _, r := range refs {
+		kind, _, _ := strings.Cut(r, ":")
+		out = append(out, kind)
+	}
+	return out
+}
+
 // bestPhoto is the largest size of a photo that the add-on can hand over
 // (at most MaxDownloadBytes; the host's limit is checked when it is read).
 // Telegram sends each photo in several sizes; when none says that it fits,
@@ -122,6 +134,7 @@ func mergeAlbums(ups []update) []contract.ConnectorMessage {
 			if last.Chat == u.Chat && last.SenderID == u.SenderID && len(last.Media)+len(u.Media) <= contract.MaxConnectorMedia {
 				last.Cursor = u.Cursor
 				last.Media = append(last.Media, u.Media...)
+				last.MediaKinds = append(last.MediaKinds, u.MediaKinds...)
 				if u.Text != "" {
 					last.Text = strings.TrimSpace(last.Text + "\n\n" + u.Text)
 				}
