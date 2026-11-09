@@ -119,3 +119,14 @@ var _ = Describe("the resources of an agent", func() {
 		Entry("the same resource twice", resourcesets.Sets{"tables": {{ID: "db-a", Mode: "read"}, {ID: "db-a", Mode: "write"}}}),
 	)
 })
+
+var _ = Describe("the sandbox profile of an agent", func() {
+	It("is empty or a profile ID", func() {
+		a := agents.Agent{Name: "A", Model: "m", SandboxProfile: "media"}
+		Expect(agents.Validate(a)).To(Succeed())
+		a.SandboxProfile = ""
+		Expect(agents.Validate(a)).To(Succeed())
+		a.SandboxProfile = "Media Pro"
+		Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid))
+	})
+})

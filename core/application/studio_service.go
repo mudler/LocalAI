@@ -163,6 +163,7 @@ func (a *Application) initStudioService() {
 		UserSetting:       a.studioUserSetting,
 		SetUserSetting:    a.studioSetUserSetting,
 		EgressSettings:    a.studioEgressSettings,
+		SandboxPolicy:     a.studioSandboxPolicy,
 		EgressAudit:       a.studioEgressAudit(),
 		EgressAuditDays:   func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },
 		FindUser:          a.studioFindUser(),

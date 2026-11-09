@@ -989,6 +989,12 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 		return ToolResult{}, err
 	}
 	out.Call("", resource)
+	if def.Execution != nil {
+		// The host decided the environment of a commands call (the profile of
+		// the chat). It goes in after the arguments were checked, so the model
+		// cannot name it.
+		body = withExecutionCall(ctx, body)
+	}
 	if def.Credentialed {
 		id := gateway.ConnectionOverride(ctx)
 		key := ""
@@ -1250,3 +1256,27 @@ func (r ToolResult) JSON() string {
 
 // String describes a definition for logs.
 func (d ToolDefinition) String() string { return fmt.Sprintf("%s (%s)", d.Name, d.Kind) }
+
+// withExecutionCall adds the ExecutionCall of ctx to the arguments of a
+// commands tool, under contract.ExecutionCallArgKey. A call without options
+// is left as it is.
+func withExecutionCall(ctx context.Context, body json.RawMessage) json.RawMessage {
+	c, ok := contract.ExecutionCallFrom(ctx)
+	if !ok || c == (contract.ExecutionCall{}) {
+		return body
+	}
+	var in map[string]json.RawMessage
+	if json.Unmarshal(body, &in) != nil {
+		return body
+	}
+	raw, err := json.Marshal(c)
+	if err != nil {
+		return body
+	}
+	in[contract.ExecutionCallArgKey] = raw
+	out, err := json.Marshal(in)
+	if err != nil {
+		return body
+	}
+	return out
+}

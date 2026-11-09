@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/sandboxpolicy"
 )
 
 // studioEgressSettings reads a fresh bounded owner policy on every request.
@@ -47,6 +48,24 @@ func (a *Application) studioEgressSettings(ctx context.Context) (egress.Settings
 		out.AllowedHosts = append(out.AllowedHosts, egress.AllowedHost{Host: h.Host, Port: h.Port})
 	}
 	return out, nil
+}
+
+// studioSandboxPolicy is the administrator's policy for sandbox profiles, from
+// the owner policy. Without add-ons there is no sandbox with profiles, and the
+// open default stands. When the owner cannot be read the error goes up: the
+// caller runs the fallback profile rather than a profile the policy may close.
+func (a *Application) studioSandboxPolicy(ctx context.Context) (sandboxpolicy.Policy, error) {
+	if err := ctx.Err(); err != nil {
+		return sandboxpolicy.Policy{}, err
+	}
+	if !a.applicationConfig.Addons.Enabled {
+		return sandboxpolicy.Policy{}, nil
+	}
+	snapshot, err := a.readAddonHostPolicy(ctx)
+	if err != nil {
+		return sandboxpolicy.Policy{}, err
+	}
+	return snapshot.Policy.SandboxPolicy(), nil
 }
 
 // studioToolPins never substitutes frontend pins when the owner is unavailable.
