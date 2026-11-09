@@ -45,6 +45,23 @@ body contains metadata marked `multipart upload omitted`; API traces do not
 store the uploaded audio. Response capture follows the configured trace size
 limit. Backend traces have their own payload capture behavior.
 
+### faster-whisper request options
+
+With a faster-whisper model, the transcription endpoint accepts these form fields:
+
+- `language`: the source language code, such as `it`. An empty value or `auto` enables language detection.
+- `translate`: set to `true` to translate speech into English.
+- `prompt`: text passed as the initial prompt, such as names or domain vocabulary.
+- `temperature`: a positive value selects the sampling temperature. Zero keeps faster-whisper's default fallback schedule.
+
+For example:
+
+```bash
+curl http://localhost:8080/v1/audio/transcriptions \
+  -F file="@speech.wav" -F model="<FASTER_WHISPER_MODEL>" \
+  -F language="it" -F translate="true" -F prompt="LocalAI"
+```
+
 ## Example
 
 Download one of the models from [here](https://huggingface.co/ggerganov/whisper.cpp/tree/main) in the `models` folder,
