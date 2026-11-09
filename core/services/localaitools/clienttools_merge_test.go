@@ -49,17 +49,15 @@ import (
 // voice and face take anti_spoofing for verify (about 340 bytes together).
 // All three are fields their routes read.
 //
-// 9,250 to 9,700: upscale_image (401 bytes). Upscaling is a separate route
-// and model use case with its own required scale; it shares no state with
-// generate_image, and a single-purpose tool stays cheaper than an action
-// enum on an image tool that most turns do not need. The tool search can
-// defer the whole group on a small context window.
-//
-// transform_audio (690 bytes before the trim). It is one route with one flat
-// schema, and the params map stays a single allow-listed argument rather
-// than a field per backend key, which is what keeps it from being larger. It
-// shares no state with the other audio tools, so it is not a merge candidate.
-const clientBudgetBytes = 10900
+// 9,250 to 9,700: upscale_image (401 bytes) and transform_audio (690 bytes).
+// Each is its own route and model use case; neither shares state with an
+// existing tool. transform_audio is one flat schema with a single
+// allow-listed params map instead of a field per backend key. The argument
+// descriptions of the whole group were shortened in the same change (the
+// group would be 10,289 bytes without that); no argument was removed. The
+// group measures 9,651 bytes. Upscaling and transform are not merge
+// candidates, and the tool search can defer the group on a small window.
+const clientBudgetBytes = 9700
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {

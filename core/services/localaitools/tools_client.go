@@ -31,7 +31,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		client.ListModels)
 	if keep(ToolGenerateImage) {
 		addClientTool(s, ToolGenerateImage,
-			"Make images from a prompt. image starts from a picture (img2img); with mask, repaint the masked area. ref_images guide some models. Saves files.",
+			"Make images from a prompt. With image: img2img; with image and mask: repaint the white area. Saves files.",
 			func(ctx context.Context, in GenerateImageToolInput) (*ImageResult, error) {
 				return generateImage(ctx, client, in)
 			})
@@ -48,7 +48,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 	if keep(ToolDescribeImage) {
 		addClientTool(s, ToolDescribeImage,
-			"Describe an image or answer a question about it, including text in it.",
+			"Describe an image or answer a question about it.",
 			client.DescribeImage)
 	}
 	if keep(ToolEmbed) {
@@ -68,12 +68,12 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 	if keep(ToolGenerateVideo) {
 		addClientTool(s, ToolGenerateVideo,
-			"Generate a video from a prompt, with optional start/end images, audio and references. Can take minutes. Saves a file.",
+			"Video from a prompt, optional start/end images, audio, references. Can take minutes. Saves a file.",
 			client.GenerateVideo)
 	}
 	if keep(ToolGenerateSound) {
 		addClientTool(s, ToolGenerateSound,
-			"Generate a sound effect or music from a description. Saves an audio file.",
+			"Sound effect or music from a description. Saves a file.",
 			client.GenerateSound)
 	}
 	if keep(ToolUpscaleImage) {
