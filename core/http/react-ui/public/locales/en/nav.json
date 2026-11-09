@@ -132,5 +132,6 @@
   "inboxOps_other": "{{count}} operations in progress",
   "inboxOpsFailed_one": "{{count}} operation failed",
   "inboxOpsFailed_other": "{{count}} operations failed",
-  "inboxOpsFailedAnnounce": "An operation failed. See the Activity tab in Notifications."
+  "inboxOpsFailedAnnounce": "An operation failed. See the Activity tab in Notifications.",
+  "activityEntry": "Activity"
 }

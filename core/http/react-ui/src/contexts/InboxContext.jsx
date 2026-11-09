@@ -3,8 +3,10 @@ import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useM
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { useActivitySummary } from '../hooks/useActivityFeed'
+import { useOperations } from '../hooks/useOperations'
 import { useInbox } from '../hooks/useInbox'
 import { badgeText, entryVisible, hasUnreadFailure } from '../utils/inbox'
+import { recentRecords } from '../utils/opsActivity'
 import '../components/inbox/inbox-entry.css'
 
 // The panel and its language file load on the first opening, not with the shell.
@@ -51,12 +53,32 @@ export function InboxProvider({ features, children }) {
     if (!everRef.current && inbox.total > 0) { everRef.current = true; setEverHad(true) }
   }, [inbox.total])
 
-  const visible = entryVisible({ enabled, off: inbox.off, loaded, isAdmin, total: inbox.total, everHad, open })
-
-  // The panel goes with the entry when the inbox turns off under it.
+  // No inbox here: the chats are off for the server or the person, or the
+  // server keeps none. Messages have nowhere to live then, but an administrator
+  // still needs the operations, so the entry stays for them while there is
+  // something to show: work that runs or failed, work that finished a moment
+  // ago, or any work seen since the page opened. It opens on the Activity tab
+  // alone and makes no request to the chats.
+  const inboxGone = features !== null && (!enabled || inbox.off)
+  const { history, fetchHistory } = useOperations()
   useEffect(() => {
-    if (open && (!enabled || inbox.off)) setOpen(false)
-  }, [open, enabled, inbox.off])
+    if (inboxGone && isAdmin) fetchHistory()
+  }, [inboxGone, isAdmin, fetchHistory])
+  const opsSeenRef = useRef(false)
+  const opsNow = ops.count > 0 || ops.failed
+  if (opsNow) opsSeenRef.current = true
+  const recentDone = inboxGone && isAdmin && recentRecords(history).length > 0
+  const opsEntry = inboxGone && isAdmin && (opsNow || opsSeenRef.current || recentDone || open)
+
+  const visible = inboxGone
+    ? opsEntry
+    : entryVisible({ enabled, off: inbox.off, loaded, isAdmin, total: inbox.total, everHad, open })
+
+  // The panel goes with the entry when the inbox turns off under it, unless
+  // the operations keep the entry.
+  useEffect(() => {
+    if (open && (!enabled || inbox.off) && !opsEntry) setOpen(false)
+  }, [open, enabled, inbox.off, opsEntry])
 
   const close = useCallback((refocus) => {
     setOpen(false)
@@ -105,9 +127,10 @@ export function InboxProvider({ features, children }) {
     badge: badgeText(unread),
     failed: hasUnreadFailure(inbox.items),
     ops,
+    opsOnly: inboxGone,
     toggle,
     refresh: inbox.refresh,
-  }), [visible, open, unread, ops, inbox.items, toggle, inbox.refresh])
+  }), [visible, open, unread, ops, inboxGone, inbox.items, toggle, inbox.refresh])
 
   return (
     <InboxContext.Provider value={value}>
@@ -115,7 +138,7 @@ export function InboxProvider({ features, children }) {
       {visible && <div className="sr-only" role="status" aria-live="polite" data-testid="inbox-live">{announce}</div>}
       {open && visible && (
         <Suspense fallback={null}>
-          <InboxPanel inbox={inbox} anchorEl={anchorEl} onClose={close} />
+          <InboxPanel inbox={inbox} anchorEl={anchorEl} onClose={close} opsOnly={inboxGone} />
         </Suspense>
       )}
     </InboxContext.Provider>
@@ -124,7 +147,7 @@ export function InboxProvider({ features, children }) {
 
 // The inbox state for a trigger or a page. Outside the provider (a test of one
 // component) the entry is simply not there.
-const NONE = { visible: false, open: false, unread: 0, badge: '', failed: false, ops: NO_OPS, toggle: () => {}, refresh: () => {} }
+const NONE = { visible: false, open: false, unread: 0, badge: '', failed: false, ops: NO_OPS, opsOnly: false, toggle: () => {}, refresh: () => {} }
 export function useInboxEntry() {
   return useContext(InboxContext) || NONE
 }

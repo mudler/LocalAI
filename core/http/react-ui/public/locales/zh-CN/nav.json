@@ -133,5 +133,6 @@
   "inboxOps_other": "{{count}} 个操作进行中",
   "inboxOpsFailed_one": "{{count}} 个操作失败",
   "inboxOpsFailed_other": "{{count}} 个操作失败",
-  "inboxOpsFailedAnnounce": "有操作失败。请在通知的“活动”标签页中查看。"
+  "inboxOpsFailedAnnounce": "有操作失败。请在通知的“活动”标签页中查看。",
+  "activityEntry": "活动"
 }

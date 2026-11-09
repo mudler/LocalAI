@@ -128,7 +128,7 @@ function InboxItem({ n, day, t, locale, fresh, busy, onOpen, onRead, onDelete })
 // drawn only while open, so the language file and the code of this chunk load
 // on the first opening. The trigger that opened it (anchorEl) places it and is
 // ignored by the click-outside rule, so a second click on it closes the panel.
-export default function InboxPanel({ inbox, anchorEl, onClose }) {
+export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }) {
   const { t, i18n } = useTranslation('chats')
   const navigate = useNavigate()
   const titleId = useId()
@@ -138,7 +138,9 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
   const [done, setDone] = useState('')
   const [busy, setBusy] = useState(false)
   const [fresh, setFresh] = useState(() => new Set())
-  const waiting = usePendingChanges()
+  // opsOnly: there is no inbox (chats off). The panel is the Activity pane
+  // alone, and nothing here asks the chats for anything.
+  const waiting = usePendingChanges({ enabled: !opsOnly })
   const panelRef = useRef(null)
 
   // Administrators get a second tab, Activity, for the operations (installs,
@@ -148,8 +150,8 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
   const { isAdmin } = useAuth()
   const ops = useActivitySummary()
   const [tab, setTab] = useState(() => (isAdmin ? openingTab(ops) : 'notifications'))
-  const tabs = isAdmin
-  const onNotifications = !tabs || tab === 'notifications'
+  const tabs = isAdmin && !opsOnly
+  const onNotifications = !opsOnly && (!tabs || tab === 'notifications')
   const pickTab = (next) => { setConfirm(''); setTab(next) }
   const tabLabels = { notifications: t('inbox.tabs.notifications'), activity: t('inbox.tabs.activity') }
   const activityBadge = ops.failed ? ops.failedCount : ops.count
@@ -205,7 +207,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
   // Opening reads the list again, so a failure since the last read shows, and
   // moves focus into the panel.
   useEffect(() => {
-    inbox.refresh()
+    if (!opsOnly) inbox.refresh()
     panelRef.current?.focus({ preventScroll: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opening
   }, [])
@@ -312,8 +314,8 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
       >
         <header className="nx-head">
           <div className="nx-head__row">
-            <h2 id={titleId} className="nx-head__title">{t('inbox.title')}</h2>
-            {inbox.unread > 0 && <span className="nx-head__count">{t('inbox.unread', { count: inbox.unread })}</span>}
+            <h2 id={titleId} className="nx-head__title">{opsOnly ? t('inbox.tabs.activity') : t('inbox.title')}</h2>
+            {!opsOnly && inbox.unread > 0 && <span className="nx-head__count">{t('inbox.unread', { count: inbox.unread })}</span>}
             <span className="nx-head__acts">
               {onNotifications && (
                 <span data-testid="inbox-menu">
@@ -382,14 +384,12 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
             <span id={`${titleId}-confirm`}>{confirm === 'read' ? t('inbox.confirmRead', { count: readCount }) : t('inbox.confirmAll', { count: inbox.total })}</span>
           </Callout>
         )}
-        {tabs && (
+        {isAdmin && (
           // Kept mounted while the other tab shows, so a cancel waiting for its
           // undo does not become final by a click on a tab.
           <div
             className="nx-body"
-            role="tabpanel"
-            id={`${titleId}-pane-activity`}
-            aria-labelledby={`${titleId}-tab-activity`}
+            {...(tabs ? { role: 'tabpanel', id: `${titleId}-pane-activity`, 'aria-labelledby': `${titleId}-tab-activity` } : {})}
             hidden={onNotifications}
             data-testid="inbox-pane-activity"
           >

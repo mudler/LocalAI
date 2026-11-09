@@ -133,5 +133,6 @@
   "inboxOps_other": "{{count}} operazioni in corso",
   "inboxOpsFailed_one": "{{count}} operazione non riuscita",
   "inboxOpsFailed_other": "{{count}} operazioni non riuscite",
-  "inboxOpsFailedAnnounce": "Un'operazione non è riuscita. Guarda la scheda Attività nelle notifiche."
+  "inboxOpsFailedAnnounce": "Un'operazione non è riuscita. Guarda la scheda Attività nelle notifiche.",
+  "activityEntry": "Attività"
 }

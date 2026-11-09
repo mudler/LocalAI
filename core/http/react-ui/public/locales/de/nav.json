@@ -133,5 +133,6 @@
   "inboxOps_other": "{{count}} Vorgänge laufen",
   "inboxOpsFailed_one": "{{count}} Vorgang fehlgeschlagen",
   "inboxOpsFailed_other": "{{count}} Vorgänge fehlgeschlagen",
-  "inboxOpsFailedAnnounce": "Ein Vorgang ist fehlgeschlagen. Siehe den Tab Aktivität in den Benachrichtigungen."
+  "inboxOpsFailedAnnounce": "Ein Vorgang ist fehlgeschlagen. Siehe den Tab Aktivität in den Benachrichtigungen.",
+  "activityEntry": "Aktivität"
 }

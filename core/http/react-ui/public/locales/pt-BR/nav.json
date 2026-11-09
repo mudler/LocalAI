@@ -133,5 +133,6 @@
   "inboxOps_other": "{{count}} operações em andamento",
   "inboxOpsFailed_one": "{{count}} operação falhou",
   "inboxOpsFailed_other": "{{count}} operações falharam",
-  "inboxOpsFailedAnnounce": "Uma operação falhou. Veja a aba Atividade em Notificações."
+  "inboxOpsFailedAnnounce": "Uma operação falhou. Veja a aba Atividade em Notificações.",
+  "activityEntry": "Atividade"
 }

@@ -133,5 +133,6 @@
   "inboxOps_other": "작업 {{count}}개 진행 중",
   "inboxOpsFailed_one": "작업 {{count}}개 실패",
   "inboxOpsFailed_other": "작업 {{count}}개 실패",
-  "inboxOpsFailedAnnounce": "작업이 실패했습니다. 알림의 활동 탭을 확인하세요."
+  "inboxOpsFailedAnnounce": "작업이 실패했습니다. 알림의 활동 탭을 확인하세요.",
+  "activityEntry": "활동"
 }

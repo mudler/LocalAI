@@ -216,7 +216,7 @@ test('ops activity: no language falls back to English for a string of the tab', 
   }
   const want = {
     chats: leaves(read('en', 'chats').inbox.tabs, 'inbox.tabs').concat(leaves(read('en', 'chats').inbox.ops, 'inbox.ops')),
-    nav: ['inboxOps_one', 'inboxOps_other', 'inboxOpsFailed_one', 'inboxOpsFailed_other', 'inboxOpsFailedAnnounce'],
+    nav: ['inboxOps_one', 'inboxOps_other', 'inboxOpsFailed_one', 'inboxOpsFailed_other', 'inboxOpsFailedAnnounce', 'activityEntry'],
   }
   // Words that are the same in English and the language.
   const same = new Set(['fr/chats:inbox.tabs.notifications'])

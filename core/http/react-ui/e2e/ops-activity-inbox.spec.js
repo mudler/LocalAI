@@ -511,3 +511,104 @@ test.describe('Operations in the inbox: a phone', () => {
     await expect(panel.getByTestId('inbox-item')).toHaveCount(2)
   })
 })
+
+test.describe('Operations in the inbox: chats off', () => {
+  // With the chats off there is no inbox, but an administrator still has the
+  // operations: the entry, the ring and the Activity pane, and no request to the
+  // chats for notifications or changes.
+  const chatsOff = (page) => page.route('**/api/features', route => route.fulfill({ json: { chats: false } }))
+  const chatCalls = (page) => {
+    const seen = []
+    page.on('request', (req) => { if (/\/api\/chats\/(notifications\?.*limit=50|changes)/.test(req.url())) seen.push(req.url()) })
+    return seen
+  }
+
+  test('an administrator with a running operation has the entry, the ring and an Activity panel', async ({ page }) => {
+    await stubInbox(page, unreadInbox())
+    await chatsOff(page)
+    await stubOps(page, busy())
+    const calls = chatCalls(page)
+    await page.goto('/app')
+    const entry = page.getByTestId('nav-inbox')
+    await expect(entry).toBeVisible()
+    await expect(entry).toContainText('Activity')
+    await expect(page.getByTestId('inbox-ring')).toBeVisible()
+    await expect(page.getByTestId('inbox-ring-dot')).toBeVisible()
+    // No messages, so no badge.
+    await expect(page.getByTestId('inbox-count')).toHaveCount(0)
+    await entry.click()
+    const panel = page.getByRole('dialog', { name: 'Activity' })
+    await expect(panel).toBeVisible()
+    await expect(panel.getByTestId('inbox-op')).toHaveCount(3)
+    await expect(panel.getByTestId('inbox-op-failed')).toHaveCount(1)
+    // The Notifications tab, its filters, its menu and its push switch are not there.
+    await expect(panel.getByRole('tablist')).toHaveCount(0)
+    await expect(panel.getByTestId('inbox-menu')).toHaveCount(0)
+    await expect(panel.getByTestId('inbox-filter-all')).toHaveCount(0)
+    await expect(panel.getByTestId('inbox-item')).toHaveCount(0)
+    await expect(panel.getByTestId('inbox-see-all')).toBeVisible()
+    await page.waitForTimeout(1500)
+    expect(calls).toEqual([])
+  })
+
+  test('the panel stays after the work ends, for the rest of the visit', async ({ page }) => {
+    await stubInbox(page, unreadInbox())
+    await chatsOff(page)
+    const ops = makeOps({ operations: [op('qwen3-14b')] })
+    await stubOps(page, ops)
+    await page.goto('/app')
+    await expect(page.getByTestId('inbox-ring')).toBeVisible()
+    await page.getByTestId('nav-inbox').click()
+    ops.operations = []
+    ops.history = [record('qwen3-14b', { finishedAt: ago(0.1) })]
+    await expect(page.getByRole('dialog', { name: 'Activity' }).getByTestId('inbox-op-recent')).toContainText('Installed qwen3-14b', { timeout: 15_000 })
+    await expect(page.getByTestId('nav-inbox')).toBeVisible()
+  })
+
+  test('an administrator whose operation finished a moment ago still has the entry', async ({ page }) => {
+    await stubInbox(page, unreadInbox())
+    await chatsOff(page)
+    await stubOps(page, makeOps({ history: [record('gemma-3-4b')] }))
+    await page.goto('/app')
+    await expect(page.getByTestId('nav-inbox')).toBeVisible()
+    await expect(page.getByTestId('inbox-ring')).toHaveCount(0)
+  })
+
+  test('an administrator with nothing running and nothing recent has no entry', async ({ page }) => {
+    await stubInbox(page, unreadInbox())
+    await chatsOff(page)
+    await stubOps(page, makeOps())
+    const calls = chatCalls(page)
+    await page.goto('/app')
+    await expect(page.locator('.sidebar-nav').first()).toBeVisible()
+    await page.waitForTimeout(1500)
+    await expect(page.getByTestId('nav-inbox')).toHaveCount(0)
+    await expect(page.getByTestId('mobile-inbox')).toHaveCount(0)
+    expect(calls).toEqual([])
+  })
+
+  test('someone who is not an administrator has no entry, whatever runs', async ({ page }) => {
+    await stubInbox(page, unreadInbox())
+    await chatsOff(page)
+    await stubOps(page, busy())
+    await page.route('**/api/auth/status', route => route.fulfill({
+      json: statusFixture('member', { user: { ...MEMBER, provider: 'local', permissions: { chat: true } } }),
+    }))
+    await page.goto('/app')
+    await expect(page.locator('.sidebar-nav').first()).toBeVisible()
+    await page.waitForTimeout(1500)
+    await expect(page.getByTestId('nav-inbox')).toHaveCount(0)
+    await expect(page.getByTestId('inbox-ring')).toHaveCount(0)
+  })
+
+  test('a phone has the bell with the ring and the Activity sheet', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await stubInbox(page, unreadInbox())
+    await chatsOff(page)
+    await stubOps(page, busy())
+    await page.goto('/app')
+    await expect(page.getByTestId('mobile-inbox-ring')).toBeVisible()
+    await inboxButton(page).click()
+    await expect(page.getByRole('dialog', { name: 'Activity' }).getByTestId('inbox-op')).toHaveCount(3)
+  })
+})

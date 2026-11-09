@@ -9,8 +9,8 @@ import OpsRing from './OpsRing'
 // ring. The words come from nav, which is always loaded.
 function useEntryName() {
   const { t } = useTranslation('nav')
-  const { unread, ops } = useInboxEntry()
-  const parts = [unread > 0 ? t('inboxUnread', { count: unread }) : t('items.inbox')]
+  const { unread, ops, opsOnly } = useInboxEntry()
+  const parts = [opsOnly ? t('activityEntry') : unread > 0 ? t('inboxUnread', { count: unread }) : t('items.inbox')]
   if (ops.count > 0) parts.push(t('inboxOps', { count: ops.count }))
   if (ops.failed) parts.push(t('inboxOpsFailed', { count: ops.failedCount }))
   return parts.join(', ')
@@ -37,11 +37,11 @@ function EntryIcon({ ops, testId, navIcon = false }) {
 // inert main area and the sheet do not fight.
 export function NavInboxEntry({ collapsed, onOpen }) {
   const { t } = useTranslation('nav')
-  const { visible, open, badge, failed, ops, toggle } = useInboxEntry()
+  const { visible, open, badge, failed, ops, opsOnly, toggle } = useInboxEntry()
   const ref = useRef(null)
   const name = useEntryName()
   if (!visible) return null
-  const label = t('items.inbox')
+  const label = opsOnly ? t('activityEntry') : t('items.inbox')
   return (
     <div className="sidebar-nav sidebar-nav--pinned nav-inbox-block">
       <button
@@ -70,7 +70,7 @@ export function NavInboxEntry({ collapsed, onOpen }) {
 // drawer. It opens the same panel, as a sheet.
 export function MobileInboxButton() {
   const { t } = useTranslation('nav')
-  const { visible, open, badge, failed, ops, toggle } = useInboxEntry()
+  const { visible, open, badge, failed, ops, opsOnly, toggle } = useInboxEntry()
   const ref = useRef(null)
   const name = useEntryName()
   if (!visible) return null
@@ -84,7 +84,7 @@ export function MobileInboxButton() {
       aria-haspopup="dialog"
       aria-expanded={open}
       aria-label={name}
-      title={t('items.inbox')}
+      title={opsOnly ? t('activityEntry') : t('items.inbox')}
       onClick={() => toggle(ref.current)}
     >
       <EntryIcon ops={ops} testId="mobile-inbox-ring" />

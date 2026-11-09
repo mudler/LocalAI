@@ -62,8 +62,12 @@ wait of 8 seconds applies here too, with the same **Undo** toast. Closing the
 panel sends a cancel that is still waiting, as leaving the page does; changing
 tab does not.
 
-The panel needs the chats feature, as the notification inbox does. Where the
-inbox is off, the entry is not shown. Use the Activity page there.
+Where the chats feature is off there is no notification inbox. An administrator
+still gets the entry, named **Activity**, while an operation runs or failed,
+shortly after one finished, and for the rest of the visit once one has been
+seen. It opens the Activity tab alone, with no notification list, filters or
+browser-notification switch, and it asks the chats for nothing. Anyone else,
+and an administrator with nothing to show, sees no entry; use the Activity page.
 
 ## The Activity page
 

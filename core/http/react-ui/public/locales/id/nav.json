@@ -133,5 +133,6 @@
   "inboxOps_other": "{{count}} operasi sedang berjalan",
   "inboxOpsFailed_one": "{{count}} operasi gagal",
   "inboxOpsFailed_other": "{{count}} operasi gagal",
-  "inboxOpsFailedAnnounce": "Sebuah operasi gagal. Lihat tab Aktivitas di Notifikasi."
+  "inboxOpsFailedAnnounce": "Sebuah operasi gagal. Lihat tab Aktivitas di Notifikasi.",
+  "activityEntry": "Aktivitas"
 }
