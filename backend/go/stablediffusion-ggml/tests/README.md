@@ -16,6 +16,8 @@ The test compiles the binding against the upstream header and stubs inference;
 no models or native libraries are required. It checks image batch cleanup,
 empty/failed generation, missing pixels, PNG write failures, video result cleanup
 (including audio and metadata), and upscaler validation and exception cleanup.
+It also checks the audio layout: a stereo ramp must reach the staged WAV unchanged and
+load back unchanged (sd.cpp audio is interleaved).
 It does not run successful video encoding or inference. The linker discards
 unused binding functions so only the exercised native API calls need stubs.
 
