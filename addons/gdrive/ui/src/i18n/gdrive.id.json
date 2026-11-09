@@ -51,21 +51,21 @@
     "hint": "Membuat file teks, mengganti teks file, mengganti nama atau memindahkan file, dan memindahkan file ke sampah. Agen tidak pernah membagikan file atau menghapusnya secara permanen.",
     "off": "Hanya baca",
     "propose": "Tanya Anda dulu",
-    "auto": "Bertindak tanpa bertanya",
+    "auto": "Izinkan semua",
     "line": {
       "off": "Agen tidak dapat mengubah apa pun di Drive.",
       "propose": "Setiap perubahan menunggu persetujuan Anda.",
-      "auto": "Obrolan Anda langsung membuat perubahan."
+      "auto": "Chat Anda langsung membuat perubahan."
     },
     "note": {
       "off": "Akses tulis mati: koneksi ini hanya membaca.",
       "propose": "Setiap perubahan menunggu di persetujuan Anda sampai Anda mengonfirmasinya. Ini juga memerlukan akses tulis opsional yang Anda izinkan saat menghubungkan.",
-      "auto": "Setiap perubahan tetap menunggu di persetujuan Anda: add-on ini tidak pernah menulis tanpa persetujuan seseorang. Ini juga memerlukan akses tulis opsional yang Anda izinkan saat menghubungkan."
+      "auto": "Chat Anda langsung membuat setiap perubahan, tanpa bertanya, dan LocalAI tidak dapat membatalkannya. Jalan tanpa kehadiran Anda tetap menunggu konfirmasi Anda."
     },
     "row": {
       "off": "Hanya baca",
       "propose": "Tanya Anda dulu",
-      "auto": "Tanya Anda dulu"
+      "auto": "Izinkan semua"
     }
   },
   "approval": {

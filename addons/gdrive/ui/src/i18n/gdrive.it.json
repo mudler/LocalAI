@@ -11,7 +11,7 @@
   "allFolders": {
     "label": "Tutte le cartelle (Il mio Drive e Drive condivisi)",
     "hint": "L'agente può leggere ogni file che il tuo accesso Google riesce a vedere, nel tuo Drive e nei Drive condivisi. Se è disattivato, usa solo le cartelle dell'elenco.",
-    "warning": "Così l'agente può leggere ogni file raggiungibile con il tuo accesso Google, non solo quelli di una cartella. La modalità di scrittura qui sotto resta valida e ogni modifica attende comunque il tuo consenso.",
+    "warning": "Così l'agente può leggere ogni file raggiungibile con il tuo accesso Google, non solo quelli di una cartella. La modalità di scrittura qui sotto resta valida.",
     "confirm": "Ho capito: consenti tutte le cartelle",
     "row": "Tutte le cartelle (Il mio Drive e Drive condivisi)"
   },
@@ -51,7 +51,7 @@
     "hint": "Creare un file di testo, sostituire il testo di un file, rinominare o spostare un file e spostare un file nel cestino. Non condivide mai un file e non ne elimina nessuno in modo definitivo.",
     "off": "Sola lettura",
     "propose": "Chiede prima a te",
-    "auto": "Agisce senza chiedere",
+    "auto": "Consenti tutto",
     "line": {
       "off": "Non può modificare nulla in Drive.",
       "propose": "Ogni modifica aspetta il tuo OK.",
@@ -60,12 +60,12 @@
     "note": {
       "off": "L'accesso in scrittura è disattivato: questa connessione legge soltanto.",
       "propose": "Ogni modifica aspetta nelle tue approvazioni finché non la confermi. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione.",
-      "auto": "Ogni modifica aspetta comunque nelle tue approvazioni: questo add-on non scrive mai senza l'OK di una persona. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione."
+      "auto": "Una tua chat fa ogni modifica subito, senza chiedere, e LocalAI non può annullarla. Le esecuzioni senza di te presente aspettano comunque la tua conferma. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione."
     },
     "row": {
       "off": "Sola lettura",
       "propose": "Chiede prima a te",
-      "auto": "Chiede prima a te"
+      "auto": "Consenti tutto"
     }
   },
   "approval": {

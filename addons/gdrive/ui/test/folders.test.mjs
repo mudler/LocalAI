@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ALL_FOLDERS, ALL_FOLDERS_CONFIRM, OFFERED_MODES, extraBody, extraForm, extraValid, folderId, foldersIssue, foldersProblem, parseFolders, WRITE_MODES, writeModeOf } from '../src/folders.js'
+import { ALL_FOLDERS, ALL_FOLDERS_CONFIRM, extraBody, extraForm, extraValid, folderId, foldersIssue, foldersProblem, parseFolders, WRITE_MODES, writeModeOf } from '../src/folders.js'
 import { canSave, connectorPayload, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/gdrive.en.json' with { type: 'json' }
 import manifest from '../../manifest.json' with { type: 'json' }
@@ -40,21 +40,27 @@ test('gdrive: the list and the write mode ride in the update, a saved one reads 
   assert.deepEqual(extraBody({ folders_text: '' }).resources, [], 'an empty list clears the list')
 })
 
-test('gdrive: an unknown write mode is read only', () => {
-  assert.deepEqual(WRITE_MODES, ['off', 'propose', 'auto'])
+test('gdrive: an unknown write mode is read only, and Allow all is offered and kept', () => {
+  assert.deepEqual(WRITE_MODES, ['off', 'propose', 'auto'], 'auto is offered')
   assert.equal(writeModeOf('x'), 'off')
   assert.equal(writeModeOf(undefined), 'off')
+  assert.equal(writeModeOf('auto'), 'auto')
+  assert.equal(extraBody({ folders_text: 'a', write_mode: 'auto' }).write_mode, 'auto', 'a saved auto round-trips to the request')
+  assert.equal(extraForm({ resources: ['a'], write_mode: 'auto' }).write_mode, 'auto', 'and reads back after a reload')
+  assert.equal(extraForm({ resources: ['a'] }).write_mode, 'off', 'a connection without a mode stays read only')
 })
 
 test('gdrive: every key the shared page and this page use has words', () => {
   const need = ['title', 'intro', 'limits', 'edit', 'name', 'folders', 'foldersHelp', 'foldersShape', 'foldersMany', 'agent', 'agentNone', 'test', 'testOk', 'save', 'cancel', 'editButton', 'delete', 'empty', 'noFolders', 'foldersOf', 'agentOf', 'inactive']
   for (const k of need) assert.ok(en[k], k)
   for (const k of ['title', 'message', 'confirm']) assert.ok(en.confirmDelete[k], k)
-  for (const m of OFFERED_MODES) {
+  for (const m of WRITE_MODES) {
     assert.ok(en.writeMode[m], m)
     for (const part of ['line', 'note', 'row']) assert.ok(en.writeMode[part][m], `${part}.${m}`)
   }
-  assert.ok(en.writeMode.row.auto, 'a connection that has auto reads as asking first')
+  assert.equal(en.writeMode.auto, 'Allow all')
+  assert.notEqual(en.writeMode.row.auto, en.writeMode.row.propose, 'auto no longer reads as asking first')
+  assert.match(en.writeMode.note.auto, /cannot undo/, 'the warning is in the note')
 })
 
 test('gdrive: the page is declared for the connector kind', () => {
@@ -106,4 +112,17 @@ test('gdrive: a connection with no agent and no trigger saves, and its approval 
 test('gdrive: the manifest lets the host honor * and the words for All folders exist', () => {
   assert.equal(manifest.capabilities.connector.kinds[0].wildcardResources, true)
   for (const k of ['label', 'hint', 'warning', 'confirm', 'row']) assert.ok(en.allFolders[k], k)
+})
+
+test('gdrive: Allow all has words in every language the add-on ships', async () => {
+  const { readFileSync } = await import('node:fs')
+  for (const loc of ['en','it','es','de','fr','zh-CN','id','ko','pt-BR']) {
+    const w = JSON.parse(readFileSync(new URL(`../src/i18n/gdrive.${loc}.json`, import.meta.url), 'utf8')).writeMode
+    for (const path of [['auto'], ['line', 'auto'], ['note', 'auto'], ['row', 'auto']]) {
+      const v = path.reduce((o, k) => o?.[k], w)
+      assert.equal(typeof v, 'string', `${loc}: writeMode.${path.join('.')}`)
+      assert.ok(v.length > 0)
+    }
+    assert.notEqual(w.row.auto, w.row.propose, `${loc}: Allow all must not read as Asks you first`)
+  }
 })

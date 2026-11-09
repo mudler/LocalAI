@@ -189,7 +189,7 @@
       },
       {
         "name": "create-file",
-        "description": "Create a text file in a folder. The person must approve the change; do not say it was created until the result says so. Needs the optional write permission of the connection. Content is text up to 64 KiB. It cannot share a file or make it public.",
+        "description": "Create a text file in a folder. The change may wait for the person to approve it; do not say it was created until the result says so. Needs the optional write permission of the connection. Content is text up to 64 KiB. It cannot share a file or make it public.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -230,12 +230,11 @@
             "name"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       },
       {
         "name": "update-file",
-        "description": "Rename a file or replace its text content, or both. Content can be replaced for plain text files only. The person must approve the change. Needs the optional write permission of the connection, which reaches only files this connection created.",
+        "description": "Rename a file or replace its text content, or both. Content can be replaced for plain text files only. The change may wait for the person to approve it; do not say it was made until the result says so. Needs the optional write permission of the connection, which reaches only files this connection created.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -266,12 +265,11 @@
             "fileId"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       },
       {
         "name": "move-file",
-        "description": "Move a file or folder to another folder inside the allowed folder. The person must approve the change. Needs the optional write permission of the connection, which reaches only files this connection created.",
+        "description": "Move a file or folder to another folder inside the allowed folder. The change may wait for the person to approve it; do not say it was made until the result says so. Needs the optional write permission of the connection, which reaches only files this connection created.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -298,12 +296,11 @@
             "newParent"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       },
       {
         "name": "trash-file",
-        "description": "Move a file to the trash, where the person can restore it. It does not delete for good and does not work on folders. The person must approve the change. Needs the optional write permission of the connection, which reaches only files this connection created.",
+        "description": "Move a file to the trash, where the person can restore it. It does not delete for good and does not work on folders. The change may wait for the person to approve it; do not say it was made until the result says so. Needs the optional write permission of the connection, which reaches only files this connection created.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -324,8 +321,7 @@
             "fileId"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       }
     ],
     "credentials": [
