@@ -1,0 +1,21 @@
+/* LocalAI docs: small additions on top of the Relearn theme.
+   Colours come from the localai-light and localai-dark variants. */
+
+@font-face {
+  font-family: "Geist";
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/geist/Geist-Bold.ttf") format("truetype");
+}
+
+:root {
+  --MAIN-TITLES-font: "Geist", "Roboto Flex", "Helvetica", "Arial", sans-serif;
+  --MAIN-TITLES-font-variation-settings: normal;
+  --MAIN-TITLES-font-weight: 700;
+  --MAIN-TITLES-H1-font-variation-settings: normal;
+  --MAIN-TITLES-H1-font-weight: 700;
+}
+
+:root {
+  --LOGO-IMAGE-width: 12rem;
+}

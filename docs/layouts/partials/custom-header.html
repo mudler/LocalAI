@@ -1,0 +1,25 @@
+<!-- compat way of adding custom scripts in old Hugo documentation -->
+{{- $filePath := "css/custom.css" }}
+{{- with partial "asset.gotmpl" (print "/" $filePath) }}
+    <link href="{{ .RelPermalink }}" rel="stylesheet"{{ partial "_relearn/integrityAttribute.gotmpl" . }}>
+{{- else }}
+  {{- with partial "_relearn/staticResource.gotmpl" $filePath }}
+    {{- with partial "asset.gotmpl" . }}
+    <link href="{{ .RelPermalink }}" rel="stylesheet"{{ partial "_relearn/integrityAttribute.gotmpl" . }}>
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- $filePath := "js/custom.js" }}
+{{- with partial "asset.gotmpl" (print "/" $filePath) }}
+    <script src="{{ .RelPermalink }}"{{ partial "_relearn/integrityAttribute.gotmpl" . }} defer></script>
+{{- else }}
+  {{- with partial "_relearn/staticResource.gotmpl" $filePath }}
+    {{- with partial "asset.gotmpl" . }}
+    <script src="{{ .RelPermalink }}"{{ partial "_relearn/integrityAttribute.gotmpl" . }} defer></script>
+    {{- end }}
+  {{- end }}
+{{- end }}
+<link rel="apple-touch-icon" href="{{ "apple-touch-icon.png" | relURL }}">
+<link rel="manifest" href="{{ "site.webmanifest" | relURL }}">
+<meta name="theme-color" content="#005b69">
