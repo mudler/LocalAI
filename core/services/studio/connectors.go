@@ -459,6 +459,12 @@ poll:
 			if ctx.Err() != nil {
 				return
 			}
+			// This frontend may have lost the lead while the poll was in
+			// flight: the new leader reads the update again from the stored
+			// offset, so handing it over here would answer it twice.
+			if c.o.Lead != nil && !c.o.Lead(ctx) {
+				return
+			}
 			// The same function as the host operation: it reads the binding
 			// again, so a changed allowlist, agent or token applies, and a
 			// binding that was switched off ends the loop.
