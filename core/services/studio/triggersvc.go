@@ -263,7 +263,7 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 	}
 	opts := triggers.Options{
 		Store: h.o.Store, Admin: h.svc.admin,
-		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted,
+		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted, Pause: h.switchOff,
 		Retention: h.o.Retention, MaxDailyCap: func() int { return h.Limits().MaxDailyCap },
 		Logf: func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
 	}
@@ -642,6 +642,42 @@ func (h *Triggers) switchOff(t triggers.Trigger, why string) {
 	h.tell(ctx, t, "", notify.KindNeedsAttention, notify.StatusFailed, t.Name+" was switched off", "It was switched off because "+why+".")
 }
 
+// failuresToPause is how many failed runs in a row switch a recurring schedule
+// trigger off.
+const failuresToPause = 3
+
+// pauseOnFailures switches t off when its last failuresToPause runs that ended
+// all failed. A skipped run says nothing about the trigger, so it is passed
+// over; a run that is done or blocked ends the streak. It reads the rows the
+// Runner keeps, so no counter is stored. A one-off or a file trigger is not
+// paused: it has no regular cadence to run away with.
+func (h *Triggers) pauseOnFailures(ctx context.Context, t triggers.Trigger) {
+	if t.Kind != triggers.KindSchedule || t.OneOff() {
+		return
+	}
+	runs, err := h.o.Store.ListRuns(ctx, t.ID, 4*failuresToPause)
+	if err != nil {
+		return
+	}
+	failed := 0
+	for _, r := range runs {
+		switch {
+		case r.Status == triggers.StatusFailed:
+			failed++
+		case r.Status == triggers.StatusSkipped || !r.Status.Final():
+			continue
+		default:
+			failed = -1
+		}
+		if failed < 0 || failed >= failuresToPause {
+			break
+		}
+	}
+	if failed >= failuresToPause {
+		h.switchOff(t, fmt.Sprintf("its last %d runs failed", failuresToPause))
+	}
+}
+
 // supervise waits for the end of the run's turn and reports it. It also
 // enforces the time limit. It leaves a run alone when the host closes: the next
 // leader finishes it.
@@ -726,6 +762,7 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 	if status == triggers.StatusFailed {
 		h.tell(ctx, t, chatID, notify.KindRunFailed, notify.StatusFailed, t.Name+" failed", reason)
 		h.reportFailure(ctx, t, reason)
+		h.pauseOnFailures(ctx, t)
 		h.retire(ctx, t)
 		return
 	}

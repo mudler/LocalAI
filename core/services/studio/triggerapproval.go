@@ -203,7 +203,7 @@ func (h *Triggers) autoVerdict(ctx context.Context, v hostmsg.Voice, a workspace
 	for _, l := range live {
 		used += h.runsPerDay(l, now)
 	}
-	if need := h.runsPerDay(capped(t, lim), now); used+need > lim.MaxRunsPerDay {
+	if need := h.runsPerDay(capped(t, lim, now), now); used+need > lim.MaxRunsPerDay {
 		return v.T("verdict.runs", "n", used+need, "max", lim.MaxRunsPerDay)
 	}
 	return ""
@@ -267,8 +267,8 @@ func (h *Triggers) canAskActs(ctx context.Context, t triggers.Trigger) bool {
 }
 
 // capped is t with the daily limit of the owner applied.
-func capped(t triggers.Trigger, lim connectors.Limits) triggers.Trigger {
-	if !t.OneOff() && t.CapOrDefault() > lim.MaxRunsPerDay {
+func capped(t triggers.Trigger, lim connectors.Limits, now time.Time) triggers.Trigger {
+	if !t.OneOff() && t.EffectiveCap(now) > lim.MaxRunsPerDay {
 		t.DailyCap = lim.MaxRunsPerDay
 	}
 	return t
@@ -281,7 +281,7 @@ func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p tri
 	lim := ap.Limits()
 	now := h.o.Clock().UTC()
 	t, err := h.confirm(ctx, p.Owner, p.ID, "", func(t *triggers.Trigger) {
-		*t = capped(*t, lim)
+		*t = capped(*t, lim, now)
 		// The owner's approval has no time limit of its own, so only the
 		// administrator's ceiling applies to a run limit.
 		if ceiling := h.RunLimit(); t.RunLimit > ceiling {

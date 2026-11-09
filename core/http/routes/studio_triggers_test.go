@@ -66,11 +66,38 @@ var _ = Describe("Chats triggers endpoints", func() {
 		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
 		got := decodeJSON(put)
 		Expect(got["plan"]).To(HaveKeyWithValue("widget", "inbox"), "a save from a form dropped the plan")
-		Expect(got["cost"]).To(HaveKeyWithValue("max_runs_per_day", BeNumerically("==", 24)), "the daily limit bounds a quarter-hourly schedule")
+		Expect(got["cost"]).To(HaveKeyWithValue("max_runs_per_day", BeNumerically("==", 96)), "a quarter-hourly schedule that sets no limit gets one run for each firing of a day")
 
 		file := s.do("alice", http.MethodPost, "/api/chats/triggers", map[string]any{"name": "Drop", "prompt": "Read it.", "kind": "file", "folder": "/",
 			"enabled": true, "model": "test-model"})
 		Expect(file.Code).To(Equal(http.StatusBadRequest), "the whole home is not a folder to watch: %s", file.Body.String())
+	})
+
+	It("refuses a schedule under 5 minutes on create and update, and accepts 5", func() {
+		for _, when := range []string{"* * * * *", "*/4 * * * *"} {
+			body := map[string]any{}
+			for k, v := range good {
+				body[k] = v
+			}
+			body["schedule"] = when
+			rec := s.do("alice", http.MethodPost, "/api/chats/triggers", body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), "%s: %s", when, rec.Body.String())
+			Expect(rec.Body.String()).To(ContainSubstring("every 5 minutes"))
+		}
+		body := map[string]any{}
+		for k, v := range good {
+			body[k] = v
+		}
+		body["schedule"] = "*/5 * * * *"
+		t := create("alice", body)
+		Expect(t["daily_cap"]).To(BeNumerically("==", 288))
+		body["schedule"] = "*/2 * * * *"
+		put := s.do("alice", http.MethodPut, "/api/chats/triggers/"+t["id"].(string), body)
+		Expect(put.Code).To(Equal(http.StatusBadRequest), put.Body.String())
+		body["schedule"] = "*/5 * * * *"
+		body["daily_cap"] = 288 // the form sends back the default it was shown
+		put = s.do("alice", http.MethodPut, "/api/chats/triggers/"+t["id"].(string), body)
+		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
 	})
 
 	It("creates, reads, lists, switches, runs, replaces and deletes a trigger", func() {

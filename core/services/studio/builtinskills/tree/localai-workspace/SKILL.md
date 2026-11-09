@@ -59,7 +59,7 @@ LocalAI runs a trigger as the user: a new chat that gets the trigger's prompt, o
 
 Every proposal fills `reads` (a few words), `writes` (the data file), `widget` (the id of the widget in `LocalAI/home.json`) and `estimated_tokens` (one run: its prompt, what it reads, and the answer; a run that reads a day of mail is about 1,500 tokens). The card shows them, with the cost and how to stop it. When the user confirms, LocalAI writes the trigger's id into the widget as `trigger`, and the widget shows when it runs, its last run and a Pause button.
 
-Costs: every run is a chat turn on the user's model, so it uses tokens and, on a remote model, sends data out. A schedule from a chat runs at most once an hour: a shorter one is refused. Suggest the slowest schedule that does the job (once a day is usually enough), and say what one run costs.
+Costs: every run is a chat turn on the user's model, so it uses tokens and, on a remote model, sends data out. A schedule runs at most once every 5 minutes: a shorter one is refused. A trigger that runs more often than hourly is switched off after 3 runs in a row that hit its daily limit, and any schedule trigger is switched off after 3 failed runs in a row. Suggest the slowest schedule that does the job (once a day is usually enough), and say what one run costs.
 
 The prompt of a run is all the run knows. Write it so it stands alone: what to read, which file to rewrite, and the widget-data shape (the run puts `source` and `note` inside that file). End it by telling the run to finish with one short plain sentence about what changed: the user reads it in the inbox and in the chat. Never ask the run for JSON as its answer; LocalAI adds the closing sentence rule to every run anyway.
 

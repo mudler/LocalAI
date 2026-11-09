@@ -183,12 +183,12 @@ var _ = Describe("timers and approval modes in a connector chat", func() {
 			}
 		})
 
-		It("still refuses a recurring schedule more often than hourly", func() {
+		It("still refuses a recurring schedule more often than every 5 minutes", func() {
 			setup(connectors.Approval{})
-			args = `{"name":"Fast","prompt":"RUN","when":"*/5 * * * *","time_zone":"UTC"}`
+			args = `{"name":"Fast","prompt":"RUN","when":"*/2 * * * *","time_zone":"UTC"}`
 			say("propose")
 			waitFor("the model's answer", func() bool { return len(r.h.ResultsFor("propose_trigger")) == 1 })
-			Expect(r.h.ResultsFor("propose_trigger")[0].Err).To(MatchError(ContainSubstring("once an hour")))
+			Expect(r.h.ResultsFor("propose_trigger")[0].Err).To(MatchError(ContainSubstring("once every 5 minutes")))
 		})
 
 		It("lapses when its time passes before anybody answers", func() {

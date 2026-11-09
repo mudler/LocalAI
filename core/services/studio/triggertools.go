@@ -40,7 +40,7 @@ const proposeTriggerDescription = "Propose a trigger: a task that runs by itself
 	"It must not ask the run to print JSON or any other output: LocalAI already tells the run to finish with one short plain sentence, which the user reads. " +
 	"when is a schedule text (\"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields) " +
 	"or {\"file_arrives_in\": folder} with a folder inside the user's files, such as /Contracts. " +
-	"A schedule runs at most once an hour; a shorter one is refused. " +
+	"A schedule runs at most once every 5 minutes; a shorter one is refused. " +
 	"time_zone is an IANA name such as Europe/Rome; when absent, the person's own zone is used when they confirm. " +
 	"Fill reads, writes, widget and estimated_tokens so the person sees what a run does and costs before they confirm: " +
 	"writes is the data file a run rewrites and widget the id of the Home widget in home.json that shows it. " +
@@ -112,7 +112,7 @@ const connectorProposeNote = " This chat is in a messaging app. The host writes 
 	"and the person answers there in plain words, so do not repeat the proposal or any code. Depending on the owner's settings the host may also set the trigger up at once and tell the person; " +
 	"the result of this tool says which happened, so never say more than it says. " +
 	"For \"do it in 10 minutes\" or \"at 18:00\" use a one-off timer: when {\"in\": \"10 minutes\"} or {\"at\": \"18:00\"} with time_zone; it runs once, at least a minute from now, and is then removed. " +
-	"Every run is one model run, so propose a recurring trigger only when the person asks for one; a recurring one runs at most once an hour. " +
+	"Every run is one model run, so propose a recurring trigger only when the person asks for one; a recurring one runs at most once every 5 minutes, and each run costs tokens, so pick the slowest schedule that does the job. " +
 	"Use delivery.target origin when the person wants the result in this chat, and a mode that fits (on_change for a watch, on_problem for a check). " +
 	"Set access read_only only when the runs just read and report. " +
 	"A run only reads unless acts says more, and only the acts named below can be asked for here; anything else is dropped and the person is told. " +
@@ -132,7 +132,7 @@ const updateTriggerDescription = "Change a trigger of the user, named by its ref
 	"Any other change does nothing by itself: a card shows the user the fields before and after, and nothing changes until they press Apply, so never say that the change is made until they do. " +
 	"This holds for acts and delivery too: a change that widens acts, or moves the answers to another place, is applied only when the user presses Apply on the card. " +
 	"acts is the whole list that the trigger should have, within what the agent holds; delivery is only for a trigger that was proposed in a messaging app. " +
-	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once an hour, and writes is a path inside the user's files. " + triggerFilesNote
+	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once every 5 minutes, and writes is a path inside the user's files. " + triggerFilesNote
 
 const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"ref":{"type":"string","minLength":1,"description":"The ref of the trigger, from list_triggers."},` +

@@ -263,3 +263,26 @@ var _ = Describe("a one-off trigger", func() {
 		Expect(p.Expired(now.Add(31 * time.Minute))).To(BeTrue())
 	})
 })
+
+var _ = Describe("the daily limit that grows with the cadence", func() {
+	It("gives one run per firing in a day, from 24 up to the maximum", func() {
+		Expect(DefaultCapFor(0)).To(Equal(24), "a schedule that runs once")
+		Expect(DefaultCapFor(24 * time.Hour)).To(Equal(24))
+		Expect(DefaultCapFor(time.Hour)).To(Equal(24))
+		Expect(DefaultCapFor(30 * time.Minute)).To(Equal(48))
+		Expect(DefaultCapFor(15 * time.Minute)).To(Equal(96))
+		Expect(DefaultCapFor(5 * time.Minute)).To(Equal(288))
+		Expect(DefaultCapFor(time.Minute)).To(Equal(MaxDailyCap), "never above the maximum")
+	})
+
+	It("follows the schedule of a trigger and keeps a limit that is set", func() {
+		now := time.Date(2026, 10, 22, 7, 0, 0, 0, time.UTC)
+		tr := Trigger{Kind: KindSchedule, Schedule: "*/5 * * * *", TZ: "UTC"}
+		Expect(tr.EffectiveCap(now)).To(Equal(288))
+		tr.Schedule = "daily 08:00"
+		Expect(tr.EffectiveCap(now)).To(Equal(24))
+		tr.Schedule, tr.DailyCap = "*/5 * * * *", 10
+		Expect(tr.EffectiveCap(now)).To(Equal(10), "a limit that is set stays")
+		Expect(Trigger{Kind: KindFile}.EffectiveCap(now)).To(Equal(24), "a file trigger has no cadence")
+	})
+})

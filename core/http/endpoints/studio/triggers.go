@@ -39,7 +39,7 @@ const costRuns = 10
 
 func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigger, withLast bool) schema.ChatsTrigger {
 	out := schema.ChatsTrigger{ID: t.ID, Name: t.Name, Prompt: t.Prompt, Kind: string(t.Kind), Schedule: t.Schedule, TimeZone: t.TZ,
-		Folder: host.RelFolder(t), QuietSeconds: int(t.Quiet / time.Second), DailyCap: t.CapOrDefault(), RunLimit: runLimitOut(t.RunLimit), EffectiveRunLimit: host.RunLimitText(t), Enabled: t.Enabled,
+		Folder: host.RelFolder(t), QuietSeconds: int(t.Quiet / time.Second), DailyCap: host.DailyCapOf(t), RunLimit: runLimitOut(t.RunLimit), EffectiveRunLimit: host.RunLimitText(t), Enabled: t.Enabled,
 		AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Summary: host.Summary(t),
 		Plan: schema.ChatsTriggerPlan{Reads: t.Reads, Writes: t.Writes, Widget: t.Widget},
 		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)},

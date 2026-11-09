@@ -96,7 +96,8 @@ type Trigger struct {
 	Folder string
 	Quiet  time.Duration
 	// DailyCap is the number of runs one day may admit, by due day (zero means
-	// DefaultDailyCap). A day is a day of TZ; a file trigger
+	// the default of EffectiveCap, which grows with the cadence of a schedule).
+	// A day is a day of TZ; a file trigger
 	// without TZ uses the location of the Runner's clock.
 	DailyCap int
 	// RunLimit is the longest one run may take. Zero means the administrator's
@@ -365,12 +366,45 @@ func (t Trigger) QuietOrDefault() time.Duration {
 	return t.Quiet
 }
 
-// CapOrDefault gives DailyCap, or DefaultDailyCap when it is zero.
+// CapOrDefault gives DailyCap, or DefaultDailyCap when it is zero. It does not
+// know the schedule: EffectiveCap does.
 func (t Trigger) CapOrDefault() int {
 	if t.DailyCap <= 0 {
 		return DefaultDailyCap
 	}
 	return t.DailyCap
+}
+
+// DefaultCapFor is the daily limit of a schedule trigger that sets none: one
+// run for each time the schedule can fire in a day, so a cap does not cut a
+// fast schedule short, and never less than DefaultDailyCap or more than
+// MaxDailyCap. gap is the shortest time between two runs (Schedule.MinGap);
+// zero, a schedule that runs once, gives DefaultDailyCap.
+func DefaultCapFor(gap time.Duration) int {
+	if gap <= 0 {
+		return DefaultDailyCap
+	}
+	per := int((24*time.Hour + gap - 1) / gap)
+	return min(max(per, DefaultDailyCap), MaxDailyCap)
+}
+
+// EffectiveCap is the daily limit of the trigger at now, before the
+// administrator's ceiling: DailyCap when it is set, else a default that grows
+// with the cadence of a schedule (DefaultCapFor) and is DefaultDailyCap for
+// the other kinds.
+func (t Trigger) EffectiveCap(now time.Time) int {
+	if t.DailyCap > 0 || t.Kind != KindSchedule {
+		return t.CapOrDefault()
+	}
+	sch, err := ParseSchedule(t.Schedule)
+	if err != nil {
+		return DefaultDailyCap
+	}
+	loc, err := t.Location()
+	if err != nil {
+		return DefaultDailyCap
+	}
+	return DefaultCapFor(sch.MinGap(now, loc))
 }
 
 // EffectiveRunLimit is the time one run of the trigger may take: RunLimit, but

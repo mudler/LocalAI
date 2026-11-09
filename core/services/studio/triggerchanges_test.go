@@ -189,8 +189,8 @@ var _ = Describe("trigger changes from a chat", func() {
 	})
 
 	It("an edit is checked like a proposal", func() {
-		res := c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"when":"*/15 * * * *"}`, ref))
-		Expect(res.Err).To(MatchError(ContainSubstring("runs at most once an hour")))
+		res := c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"when":"*/2 * * * *"}`, ref))
+		Expect(res.Err).To(MatchError(ContainSubstring("runs at most once every 5 minutes")))
 		res = c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"writes":"../bob/x.json"}`, ref))
 		Expect(res.Err).To(MatchError(ContainSubstring("writes is not a path in your files")))
 		res = c.call(r, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"when":{"file_arrives_in":"/Nowhere"}}`, ref))

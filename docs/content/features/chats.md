@@ -465,7 +465,7 @@ and how often:
 | | Loop | [Trigger](/features/chats-agents/) |
 |---|---|---|
 | Where it runs | In the chat where you started it, which keeps its history | A new chat for each run |
-| How often | From every minute (or as the model decides) | At most once an hour, on a schedule, or when a file arrives |
+| How often | From every minute (or as the model decides) | At most once every 5 minutes, on a schedule, or when a file arrives |
 | How long | Until you stop it, it reaches its run limit, or the model says it is done | Until you switch it off |
 | Good for | Watching something now: a build, a deploy, a long job | Routine work: a morning summary, filing new documents |
 
