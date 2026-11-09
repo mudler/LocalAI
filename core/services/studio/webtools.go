@@ -207,7 +207,7 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		g := &out[i]
 		g.Providers[t.ID] = provider
 		// Only a tool an add-on may replace says who serves the group: a tool
-		// that only LocalAI serves (list_sandbox_profiles next to bash) does
+		// that only LocalAI serves (sandbox_profile next to bash) does
 		// not make the group mixed.
 		if t.Replaceable || !replaceable[t.Group] {
 			switch {

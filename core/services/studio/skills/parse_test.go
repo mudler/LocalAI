@@ -108,7 +108,7 @@ var _ = Describe("SandboxHint", func() {
 		h := SandboxHint("media", "base", known)
 		Expect(h).To(ContainSubstring("wants the sandbox profile media"))
 		Expect(h).To(ContainSubstring("runs base"))
-		Expect(h).To(ContainSubstring("use_sandbox_profile"))
+		Expect(h).To(ContainSubstring("sandbox_profile"))
 	})
 	It("says nothing when there is nothing to say", func() {
 		Expect(SandboxHint("", "base", known)).To(BeEmpty())

@@ -1161,9 +1161,9 @@ running chat keeps its sandbox until it restarts, and the row shows when a newer
 image is available. A profile the administrator did not give you is shown but
 cannot be picked.
 
-The model has two tools for this in the **Run commands** group:
-`list_sandbox_profiles` (the profiles, their programs and whether you may use
-each one) and `use_sandbox_profile` (switch). They follow the rules of the row.
+The model has one tool for this in the **Run commands** group, `sandbox_profile`:
+the action `list` gives the profiles, their programs and whether you may use
+each one, and the action `use` switches. It follows the rules of the row.
 A saved agent has a `sandbox_profile` field, for its unattended runs and as the
 starting profile of its chats.
 
@@ -1562,7 +1562,7 @@ it off, so a chat that never touches the menu works as before:
 
 | Row | Group | Tools |
 |-----|-------|-------|
-| **Run commands** | `shell` | `bash`, whoever serves it: the Sandbox add-on (isolated) or the built-in bash on this machine; `list_sandbox_profiles` and `use_sandbox_profile` when the add-on has profiles |
+| **Run commands** | `shell` | `bash`, whoever serves it: the Sandbox add-on (isolated) or the built-in bash on this machine; `sandbox_profile` when the add-on has profiles |
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
@@ -1713,7 +1713,7 @@ In the web UI, the **Skills** item in the sidebar, right after Knowledge, opens 
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, by name and description only, and tells the model to call the `load_skill` tool with a skill's name before a task that matches it. `load_skill` returns the instructions of the skill, the text after its frontmatter. It offers exactly the skills of that list: for each name the nearest skill, not switched off, and the skills of the add-ons the chat can use now. Any other name is refused with the names of the chat's skills and the near ones first (for example `Did you mean pdf?` for `PDF`).
 
-An optional `sandbox` key names the sandbox profile the skill works best in, for example `sandbox: media` for a skill that cuts video with ffmpeg. It is a hint and nothing more. The index marks the skill as preferring that profile. When the chat runs another profile, `load_skill` adds a line that tells the model the skill wants the named profile, and the model may offer to switch with `use_sandbox_profile`. It never switches by itself and nothing restarts the sandbox. If a tool is missing, the model says which profile has it. A value that is not a profile ID is ignored.
+An optional `sandbox` key names the sandbox profile the skill works best in, for example `sandbox: media` for a skill that cuts video with ffmpeg. It is a hint and nothing more. The index marks the skill as preferring that profile. When the chat runs another profile, `load_skill` adds a line that tells the model the skill wants the named profile, and the model may offer to switch with `sandbox_profile` (action `use`). It never switches by itself and nothing restarts the sandbox. If a tool is missing, the model says which profile has it. A value that is not a profile ID is ignored.
 
 ```yaml
 ---

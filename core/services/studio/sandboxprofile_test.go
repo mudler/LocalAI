@@ -252,26 +252,26 @@ var _ = Describe("sandbox profiles", func() {
 				return append(steps, studiotest.ToolStep{Say: "done"})
 			}
 		}
-		It("offers list_sandbox_profiles and use_sandbox_profile with the commands, and not without a sandbox that has profiles", func() {
+		It("offers sandbox_profile with the commands, and not without a sandbox that has profiles", func() {
 			r := newProfileRig(script())
 			id := create(r.svc, alice)
 			sent(r.svc, alice, id, "go")
 			idle(r.svc, alice, id)
-			Expect(r.h.ToolNames(id)).To(ContainElements("list_sandbox_profiles", "use_sandbox_profile"))
+			Expect(r.h.ToolNames(id)).To(ContainElement("sandbox_profile"))
 			plain := &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}
 			svc, h, _ := newCapsChat(isolatedAddons{fakeAddons: plain, mode: "isolated"}, nil)
 			id = create(svc, alice)
 			sent(svc, alice, id, "go")
 			idle(svc, alice, id)
-			Expect(h.ToolNames(id)).NotTo(ContainElement("use_sandbox_profile"), "an add-on without profiles has nothing to pick")
+			Expect(h.ToolNames(id)).NotTo(ContainElement("sandbox_profile"), "an add-on without profiles has nothing to pick")
 		})
 
 		It("lists the profiles with their programs, the policy and the state of the images", func() {
-			r := newProfileRig(script(studiotest.ToolStep{Tool: "list_sandbox_profiles", Args: `{}`}))
+			r := newProfileRig(script(studiotest.ToolStep{Tool: "sandbox_profile", Args: `{"action":"list"}`}))
 			r.setPolicy(sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"video": {Roles: []string{"admin"}}}})
 			id := create(r.svc, alice)
 			r.run(alice, id)
-			out := r.h.ResultsFor("list_sandbox_profiles")
+			out := r.h.ResultsFor("sandbox_profile")
 			Expect(out).To(HaveLen(1))
 			Expect(out[0].Out).To(ContainSubstring("This chat runs the base profile."))
 			Expect(out[0].Out).To(ContainSubstring("- media: Base plus ffmpeg. Programs: python3 (pandas), jq, ffmpeg. Its image is being prepared (40%)"))
@@ -280,10 +280,10 @@ var _ = Describe("sandbox profiles", func() {
 		})
 
 		It("switches the profile of the chat, with the same rules as the picker", func() {
-			r := newProfileRig(script(studiotest.ToolStep{Tool: "use_sandbox_profile", Args: `{"profile":"media"}`}, studiotest.ToolStep{Tool: "use_sandbox_profile", Args: `{"profile":"nope"}`}))
+			r := newProfileRig(script(studiotest.ToolStep{Tool: "sandbox_profile", Args: `{"action":"use","profile":"media"}`}, studiotest.ToolStep{Tool: "sandbox_profile", Args: `{"action":"use","profile":"nope"}`}))
 			id := create(r.svc, alice)
 			r.run(alice, id)
-			res := r.h.ResultsFor("use_sandbox_profile")
+			res := r.h.ResultsFor("sandbox_profile")
 			Expect(res).To(HaveLen(2))
 			Expect(res[0].Out).To(ContainSubstring("The sandbox profile is media now."))
 			Expect(res[0].Out).To(ContainSubstring("files stay"))
@@ -294,11 +294,11 @@ var _ = Describe("sandbox profiles", func() {
 		})
 
 		It("refuses a profile the policy closed, and says so to the model", func() {
-			r := newProfileRig(script(studiotest.ToolStep{Tool: "use_sandbox_profile", Args: `{"profile":"video"}`}))
+			r := newProfileRig(script(studiotest.ToolStep{Tool: "sandbox_profile", Args: `{"action":"use","profile":"video"}`}))
 			r.setPolicy(sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"video": {Roles: []string{"admin"}}}})
 			id := create(r.svc, alice)
 			r.run(alice, id)
-			Expect(r.h.ResultsFor("use_sandbox_profile")[0].Out).To(ContainSubstring("Not permitted"))
+			Expect(r.h.ResultsFor("sandbox_profile")[0].Out).To(ContainSubstring("Not permitted"))
 			v, _ := r.svc.SandboxProfiles(context.Background(), alice, id)
 			Expect(v.Selected).To(BeEmpty())
 		})
@@ -309,7 +309,7 @@ var _ = Describe("sandbox profiles", func() {
 			Expect(r.svc.SetBuiltinsOff(context.Background(), alice, id, []string{"shell"})).To(Succeed())
 			sent(r.svc, alice, id, "go")
 			idle(r.svc, alice, id)
-			Expect(r.h.ToolNames(id)).NotTo(ContainElement("use_sandbox_profile"))
+			Expect(r.h.ToolNames(id)).NotTo(ContainElement("sandbox_profile"))
 		})
 	})
 

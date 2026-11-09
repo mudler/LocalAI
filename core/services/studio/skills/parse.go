@@ -135,7 +135,7 @@ func SandboxHint(skillProfile, active string, known []string) string {
 		return ""
 	}
 	return "This skill wants the sandbox profile " + skillProfile + "; this chat runs " + active +
-		". If a tool is missing, tell the user and offer to call use_sandbox_profile (do not switch without asking)."
+		". If a tool is missing, tell the user and offer to call sandbox_profile with action use (do not switch without asking)."
 }
 
 // Locked reads the optional "locked" key of the frontmatter: the owner's mark

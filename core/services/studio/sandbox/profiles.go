@@ -90,7 +90,7 @@ func MissingToolNote(active string, all []contract.ExecutionProfile) string {
 	if len(more) > 0 {
 		note += " Profiles with more programs: " + strings.Join(more, "; ") + "."
 	}
-	return note + " Tell the user, and offer use_sandbox_profile to switch. Do not try to install it.]"
+	return note + " Tell the user, and offer sandbox_profile (action use) to switch. Do not try to install it.]"
 }
 
 func profileByID(all []contract.ExecutionProfile, id string) (contract.ExecutionProfile, bool) {
