@@ -158,9 +158,12 @@ per-user one, so the collections made while auth was off stay visible and
 usable, and switching auth off again returns to the same data. The fine-tuning
 and quantization job endpoints answer that account as they answer without
 auth, with the jobs of every user. Every other account keeps its own storage
-area. The account is matched by e-mail, case-insensitively; treat the address
-like `LOCALAI_ADMIN_EMAIL` and register it before anyone else can. Legacy API
-keys (`LOCALAI_API_KEY`) are not the owner.
+area. The account is matched by e-mail, case-insensitively, and must hold the
+**admin** role: LocalAI grants that role only on a verified e-mail, so an OAuth
+identity that merely reports the owner's address without verification keeps its
+own area. Treat the address like `LOCALAI_ADMIN_EMAIL` and register it before
+anyone else can. Legacy API keys (`LOCALAI_API_KEY`) are not the owner, and an
+owner account that loses the admin role loses the root area with it.
 
 ```bash
 LOCALAI_AUTH=true \

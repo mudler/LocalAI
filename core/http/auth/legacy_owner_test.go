@@ -88,10 +88,25 @@ var _ = Describe("Legacy owner storage scope", func() {
 		Expect(rec.Body.String()).To(Equal("[legacy-api-key]"))
 	})
 
-	It("matches the owner by e-mail only", func() {
-		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test"}, "Owner@Example.test")).To(BeTrue())
-		Expect(auth.IsLegacyOwner(&auth.User{Email: ""}, "")).To(BeFalse())
-		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test.evil"}, "owner@example.test")).To(BeFalse())
+	It("matches the owner by e-mail and the admin role", func() {
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test", Role: auth.RoleAdmin}, "Owner@Example.test")).To(BeTrue())
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test", Role: auth.RoleUser}, "owner@example.test")).To(BeFalse())
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "", Role: auth.RoleAdmin}, "")).To(BeFalse())
+		Expect(auth.IsLegacyOwner(&auth.User{Email: "owner@example.test.evil", Role: auth.RoleAdmin}, "owner@example.test")).To(BeFalse())
 		Expect(auth.IsLegacyOwner(nil, "owner@example.test")).To(BeFalse())
+	})
+
+	It("keeps an OIDC identity with the owner's unverified e-mail in its own area", func() {
+		// The OAuth callback stores the IdP's e-mail even when it is not
+		// verified, but only grants the admin role on a verified one. Such an
+		// identity is an active user with the owner's address and role "user".
+		mallory := createTestUser(db, "owner@example.test", auth.RoleUser, auth.ProviderOIDC)
+		rec := doRequest(appWithOwner("owner@example.test"), http.MethodGet, "/scope",
+			withSessionCookie(session(mallory.ID)))
+		Expect(rec.Body.String()).To(Equal("[" + mallory.ID + "]"))
+		key, _, err := auth.CreateAPIKey(db, mallory.ID, "k", mallory.Role, hmacSecret, nil)
+		Expect(err).NotTo(HaveOccurred())
+		rec = doRequest(appWithOwner("owner@example.test"), http.MethodGet, "/scope", withBearerToken(key))
+		Expect(rec.Body.String()).To(Equal("[" + mallory.ID + "]"))
 	})
 })

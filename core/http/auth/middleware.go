@@ -235,9 +235,17 @@ func GetUser(c echo.Context) *User {
 
 // IsLegacyOwner reports whether user is the account configured to own the
 // data created before user authentication was enabled.
+//
+// The e-mail alone is not proof: an OAuth provider may report an address it
+// has not verified, and e-mail addresses are not unique across identities.
+// The owner must therefore also hold the admin role, which LocalAI only grants
+// on a verified e-mail (or to the first account / LOCALAI_ADMIN_EMAIL on local
+// registration). An unverified identity that claims the owner's address keeps
+// its own storage area.
 func IsLegacyOwner(user *User, legacyOwnerEmail string) bool {
 	owner := strings.TrimSpace(legacyOwnerEmail)
-	return user != nil && owner != "" && strings.EqualFold(strings.TrimSpace(user.Email), owner)
+	return user != nil && owner != "" && user.Role == RoleAdmin &&
+		strings.EqualFold(strings.TrimSpace(user.Email), owner)
 }
 
 // GetStorageUserID returns the user ID that scopes per-user storage
