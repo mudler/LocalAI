@@ -383,6 +383,14 @@ func parseJSONLegacy(s string) ([]map[string]any, error) {
 	offset := 0
 
 	for offset < len(s) {
+		// On prose almost every offset fails within a byte or two. Skipping
+		// those without a decoder matters because the streaming endpoints
+		// re-parse the whole accumulated text on every token.
+		if end := jsonSyntaxErrorEnd(s, offset); end > 0 {
+			offset = end
+			continue
+		}
+
 		var obj map[string]any
 		decoder := json.NewDecoder(strings.NewReader(s[offset:]))
 
@@ -409,6 +417,46 @@ func parseJSONLegacy(s string) ([]map[string]any, error) {
 	}
 
 	return objs, nil
+}
+
+// jsonSyntaxErrorEnd covers the syntax errors a json.Decoder reading
+// s[offset:] hits before it reads any value: the first non-space byte cannot
+// begin a value, or a true, false or null is broken off by a wrong byte. For
+// those it returns offset plus the SyntaxError.Offset the decoder would
+// report. Otherwise it returns -1, and the decoder must start at offset, not
+// after the spaces, because the offsets it reports depend on where it starts.
+func jsonSyntaxErrorEnd(s string, offset int) int {
+	i := offset
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r') {
+		i++
+	}
+	if i == len(s) {
+		return -1
+	}
+	var literal string
+	switch s[i] {
+	case 't':
+		literal = "true"
+	case 'f':
+		literal = "false"
+	case 'n':
+		literal = "null"
+	case '{', '[', '"', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		return -1
+	default:
+		return i + 1
+	}
+	for k := range len(literal) {
+		if i+k == len(s) {
+			// Cut off by the end of the input: the decoder reports
+			// io.ErrUnexpectedEOF, not a syntax error.
+			return -1
+		}
+		if s[i+k] != literal[k] {
+			return i + k + 1
+		}
+	}
+	return -1
 }
 
 // GetXMLFormatPreset returns a preset XML format by name, or nil if not found

@@ -340,6 +340,14 @@ roses are red
 			Expect(result).To(Equal(expected))
 		})
 
+		It("should find objects between prose and broken literals", func() {
+			input := `Sure, true and false are literals, nul and fals are not. ` +
+				`First {"name":"a"}, then {"name":"b"}`
+			result, err := ParseJSON(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal([]map[string]any{{"name": "a"}, {"name": "b"}}))
+		})
+
 		PIt("should handle JSON with syntax errors gracefully", func() {
 			input := `{"key1": "value1", "key2": }`
 			expected := []map[string]any{
