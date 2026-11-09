@@ -184,6 +184,8 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec)}
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
+	// replaceable marks a group that has a tool an add-on may replace.
+	replaceable := map[string]bool{}
 	for _, t := range s.builtins.Tools() {
 		if t.Group == "" || (!t.On() && !t.Covers) {
 			continue
@@ -204,11 +206,19 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		}
 		g := &out[i]
 		g.Providers[t.ID] = provider
-		switch {
-		case g.Provider == "":
-			g.Provider = provider
-		case g.Provider != provider:
-			g.Provider = MixedProvider
+		// Only a tool an add-on may replace says who serves the group: a tool
+		// that only LocalAI serves (list_sandbox_profiles next to bash) does
+		// not make the group mixed.
+		if t.Replaceable || !replaceable[t.Group] {
+			switch {
+			case g.Provider == "" || (t.Replaceable && !replaceable[t.Group]):
+				g.Provider = provider
+			case g.Provider != provider:
+				g.Provider = MixedProvider
+			}
+			if t.Replaceable {
+				replaceable[t.Group] = true
+			}
 		}
 		// The tool is built to learn whether it can serve this chat: it may
 		// depend on the user (saved agents and triggers need their feature)

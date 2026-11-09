@@ -240,7 +240,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 				} else if t.External {
 					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents, builtins.GroupMemory), t.ID)
 				} else {
-					Expect(t.Group).To(BeElementOf(builtins.GroupTriggers, builtins.GroupChanges, builtins.GroupHistory), t.ID)
+					Expect(t.Group).To(BeElementOf(builtins.GroupTriggers, builtins.GroupChanges, builtins.GroupHistory, builtins.GroupShell), t.ID)
 				}
 				Expect(t.Setting).To(BeEmpty(), t.ID)
 				continue
@@ -251,7 +251,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 			}
 			Expect(t.Replaceable).To(BeTrue(), t.ID)
 		}
-		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "search_chats", "read_chat", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "send_message", "propose_change", "revert_change", "load_skill", "goal_done", "goal_blocked", "spawn_agent"}),
+		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "list_sandbox_profiles", "use_sandbox_profile", "search_chats", "read_chat", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "send_message", "propose_change", "revert_change", "load_skill", "goal_done", "goal_blocked", "spawn_agent"}),
 			"a service without files has no file or media group")
 		for _, id := range []string{"web_search", "web_fetch"} {
 			t, ok := svc.Builtins().Lookup(id)
