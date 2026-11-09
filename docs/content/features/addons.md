@@ -2184,7 +2184,7 @@ refreshed:
 | Skills per add-on | 16 |
 | Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
 | A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
-| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
+| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, `assemble-media`, `fframes-video`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
 | `shadows` | optional; must repeat `name` and name a slot: one the skill declares with `slot` (needs `api` 2), or a default slot (`xlsx`, `docx`, `pptx`, `pdf`) |
 | `slot` | optional, needs `shadows` and `api` 2; see Document skill providers |
 
@@ -2218,7 +2218,7 @@ holds no list of formats: the add-on that provides a skill declares its slot.
 For manifests that declare nothing, the host reads four default slots (`docx`,
 `pptx`, `pdf`, `xlsx`) from a data file in the contract, so existing packages
 keep working.
-Core does not embed these document procedures. Its three remaining built-in skills cannot be replaced.
+Core does not embed these document procedures. Its remaining built-in skills cannot be replaced.
 The existing `shadows` declaration identifies a document provider:
 
 ```json
