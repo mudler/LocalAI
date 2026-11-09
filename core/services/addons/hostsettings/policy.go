@@ -78,12 +78,25 @@ func (p Policy) MarshalJSON() ([]byte, error) {
 	if p.ToolProviders == nil {
 		p.ToolProviders = map[string]string{}
 	}
+	sp := p.SandboxPolicy().Normalized()
 	return json.Marshal(struct {
 		plain
-		// Shadow the omitempty fields of plain: the keys are always written.
-		ConnectorFilesCeiling int64                `json:"connector_files_ceiling_bytes"`
-		SandboxProfiles       sandboxpolicy.Policy `json:"sandbox_profiles"`
-	}{plain(p), p.ConnectorFilesCeiling, p.SandboxPolicy().Normalized()})
+		// Shadow the omitempty fields of plain: the keys are always written,
+		// the sandbox policy with every one of its keys, so a reader sees the
+		// whole shape.
+		ConnectorFilesCeiling int64               `json:"connector_files_ceiling_bytes"`
+		SandboxProfiles       sandboxProfilesWire `json:"sandbox_profiles"`
+	}{plain(p), p.ConnectorFilesCeiling, sandboxProfilesWire{sp.Default, sp.Access, sp.MemoryMiB, sp.DiskMiB, sp.PinPrevious}})
+}
+
+// sandboxProfilesWire is the sandbox profile policy as it is written: every
+// key, with an empty value when the policy has none.
+type sandboxProfilesWire struct {
+	Default     string                          `json:"default"`
+	Access      map[string]sandboxpolicy.Access `json:"access"`
+	MemoryMiB   int                             `json:"memory_mib"`
+	DiskMiB     int                             `json:"disk_mib"`
+	PinPrevious []string                        `json:"pin_previous"`
 }
 
 // Patch changes only present keys. An empty string clears a string field;

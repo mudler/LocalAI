@@ -7,7 +7,7 @@ import "context"
 // under which the host passes the ExecutionCall to the add-on. The model
 // cannot set it: no tool schema has such a property and the host refuses an
 // argument the schema does not name. The host puts it in after that check.
-const ExecutionCallArgKey = "sandbox"
+const ExecutionCallArgKey = "execution"
 
 // ExecutionCall is what the host decides for one call of a commands tool: the
 // profile of the chat, the administrator's pin to the previous image and the

@@ -42,7 +42,7 @@ var _ = Describe("The sandbox profile policy", func() {
 		Expect(p.Allows("video", "alice", "user")).To(BeTrue())
 		Expect(p.DefaultProfile()).To(Equal("base"))
 		raw, _ := json.Marshal(snap.Policy)
-		Expect(string(raw)).To(ContainSubstring(`"sandbox_profiles":{}`))
+		Expect(string(raw)).To(ContainSubstring(`"sandbox_profiles":{"default":"","access":{},"memory_mib":0,"disk_mib":0,"pin_previous":[]}`))
 	})
 
 	It("is set as a whole, survives a reopen and is cleared by an empty object", func() {

@@ -48,14 +48,14 @@ func (s *Service) registerSandboxTools() error {
 	}
 	if err := s.builtins.Register(builtins.Tool{
 		ID: listSandboxProfilesName, Group: builtins.GroupShell, Unlisted: true, ReadOnly: true,
-		Label: "Sandbox profiles", Description: "Let a chat list the sandbox profiles it can run commands in.",
+		Label: "Command profiles", Description: "Let a chat list the sandbox profiles it can run commands in.",
 		Build: build(listSandboxProfilesDescription, `{"type":"object","properties":{},"additionalProperties":false}`, s.listSandboxProfilesTool),
 	}); err != nil {
 		return err
 	}
 	return s.builtins.Register(builtins.Tool{
 		ID: useSandboxProfileName, Group: builtins.GroupShell, Unlisted: true,
-		Label: "Switch sandbox profile", Description: "Let a chat switch the sandbox profile of its commands.",
+		Label: "Switch command profile", Description: "Let a chat switch the sandbox profile of its commands.",
 		Build: build(useSandboxProfileDescription,
 			`{"type":"object","properties":{"profile":{"type":"string","description":"The profile ID, as list_sandbox_profiles gives it."}},"required":["profile"],"additionalProperties":false}`,
 			s.useSandboxProfileTool),

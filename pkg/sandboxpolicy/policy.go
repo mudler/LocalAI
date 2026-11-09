@@ -80,22 +80,62 @@ func (p Policy) Normalized() Policy {
 	return p
 }
 
+// decode reads a policy and drops the empty lists and maps, so a policy that
+// was written with every key reads back equal to one that was never set.
+func decode(raw []byte) (Policy, error) {
+	type plain Policy
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	var v plain
+	if err := d.Decode(&v); err != nil {
+		return Policy{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	if d.More() {
+		return Policy{}, fmt.Errorf("%w: trailing data", ErrInvalid)
+	}
+	return Policy(v), nil
+}
+
+// canonical drops the empty lists and maps and the open entries of Access.
+func (p Policy) canonical() Policy {
+	access := map[string]Access{}
+	for id, a := range p.Access {
+		if !a.Open() {
+			access[id] = a
+		}
+	}
+	p.Access = access
+	if len(access) == 0 {
+		p.Access = nil
+	}
+	if len(p.PinPrevious) == 0 {
+		p.PinPrevious = nil
+	}
+	return p
+}
+
+// UnmarshalJSON reads a policy as Parse does, but does not validate it: the
+// owner store validates the whole policy when it opens.
+func (p *Policy) UnmarshalJSON(raw []byte) error {
+	v, err := decode(raw)
+	*p = v.canonical()
+	return err
+}
+
 // Parse reads a policy from JSON. Unknown fields, repeated keys and trailing
 // data are refused.
 func Parse(raw []byte) (Policy, error) {
 	if len(raw) > maxPolicyBytes {
 		return Policy{}, fmt.Errorf("%w: too large", ErrInvalid)
 	}
-	d := json.NewDecoder(bytes.NewReader(raw))
-	d.DisallowUnknownFields()
-	var p Policy
-	if err := d.Decode(&p); err != nil {
-		return Policy{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	p, err := decode(raw)
+	if err != nil {
+		return Policy{}, err
 	}
-	if d.More() {
-		return Policy{}, fmt.Errorf("%w: trailing data", ErrInvalid)
+	if err := p.Validate(); err != nil {
+		return Policy{}, err
 	}
-	return p, p.Validate()
+	return p.canonical(), nil
 }
 
 // Validate checks the shape of the policy. It does not know the profiles of the

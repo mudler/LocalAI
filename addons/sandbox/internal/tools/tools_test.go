@@ -133,11 +133,11 @@ var _ = Describe("Sandbox tools", func() {
 	It("passes what the host decided for the call, and keeps it out of the arguments", func() {
 		f := &fakeRunner{out: "ok"}
 		_, err := act(f, env("bash", "alice", "conv1", map[string]any{"command": "ffmpeg -version",
-			"sandbox": map[string]any{"profile": "media", "pin": true, "memoryMiB": 1024, "diskMiB": 2048}}))
+			"execution": map[string]any{"profile": "media", "pin": true, "memoryMiB": 1024, "diskMiB": 2048}}))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(f.got).To(HaveLen(1))
 		Expect(f.got[0].Call).To(Equal(sandbox.CallOptions{Profile: "media", Pin: true, MemoryMiB: 1024, DiskMiB: 2048}))
-		Expect(string(f.got[0].Args)).NotTo(ContainSubstring("sandbox"))
+		Expect(string(f.got[0].Args)).NotTo(ContainSubstring("execution"))
 		Expect(string(f.got[0].Args)).To(ContainSubstring("ffmpeg"))
 	})
 
@@ -146,7 +146,7 @@ var _ = Describe("Sandbox tools", func() {
 		_, err := act(f, env("bash", "alice", "conv1", map[string]any{"command": "x"}))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(f.got[0].Call).To(Equal(sandbox.CallOptions{}))
-		_, err = act(f, env("bash", "alice", "conv1", map[string]any{"command": "x", "sandbox": "media"}))
+		_, err = act(f, env("bash", "alice", "conv1", map[string]any{"command": "x", "execution": "media"}))
 		Expect(err).To(HaveOccurred())
 		Expect(f.got).To(HaveLen(1), "a call with unreadable options ran")
 	})
