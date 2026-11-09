@@ -89,10 +89,9 @@ export function followName(name, oldText, newText) {
 
 // The write mode of the host: off refuses every write tool, propose stores
 // each call for a person to confirm, auto (shown as Allow all) lets a chat of
-// the person run the tools that may run unasked at once. Typed text always
-// waits for a person, and the switches of the settings below (typing, hard
-// power actions) still apply: Allow all only drops the card for power actions
-// and key presses. A new connection starts at off.
+// the person run every write tool at once. The switches of the settings below
+// (typing, hard power actions) are administrator policy and still apply: Allow
+// all drops the card, not the switch. A new connection starts at off.
 export const WRITE_MODES = ['off', 'propose', 'auto']
 export const writeModeOf = (m) => (WRITE_MODES.includes(m) ? m : 'off')
 

@@ -127,9 +127,8 @@
       },
       {
         "name": "type-text",
-        "description": "Type text on the keyboard of the machine the PiKVM controls, into whatever has the focus. A newline presses Enter. At most 200 characters by default (1000 at most), no control characters except newline and tab, no private keys, tokens or password lists. Off until an administrator allows typing for this device. A person confirms every call and sees the exact text.",
+        "description": "Type text on the keyboard of the machine the PiKVM controls, into whatever has the focus. A newline presses Enter. At most 200 characters by default (1000 at most), no control characters except newline and tab, no private keys, tokens or password lists. Off until an administrator allows typing for this device. A person confirms every call and sees the exact text, unless the owner chose Allow all.",
         "kind": "write",
-        "approval": "always",
         "inputSchema": {
           "type": "object",
           "properties": {

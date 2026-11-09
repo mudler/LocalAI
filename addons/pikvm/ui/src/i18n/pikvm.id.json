@@ -66,7 +66,7 @@
   },
   "writeMode": {
     "label": "Apa yang boleh dilakukan agen pada perangkat ini",
-    "hint": "Membaca status selalu diizinkan. Setiap tindakan Anda konfirmasi, kecuali Anda memilih Izinkan semua atau Don't ask untuk sebuah alat di bagian bawah. Teks yang diketik selalu dikonfirmasi.",
+    "hint": "Membaca status selalu diizinkan. Setiap tindakan Anda konfirmasi, kecuali Anda memilih Izinkan semua atau Don't ask untuk sebuah alat di bagian bawah.",
     "off": "Hanya baca",
     "propose": "Tanya Anda dulu",
     "line": {
@@ -77,7 +77,7 @@
     "note": {
       "off": "Akses tulis nonaktif: koneksi ini hanya membaca status.",
       "propose": "Setiap tindakan daya, teks, dan penekanan tombol menunggu di persetujuan Anda sampai Anda mengonfirmasinya, kecuali Anda mematikannya untuk alat itu. Mengetik dan tindakan daya paksa juga memerlukan sakelar di bawah.",
-      "auto": "Chat Anda langsung menekan tombol daya dan tombol lain pada mesin, tanpa kartu, dan pekerjaan yang belum disimpan akan hilang. Ini tidak dapat dibatalkan. Teks yang diketik tetap menunggu konfirmasi Anda, dan pengetikan serta tindakan daya paksa tetap memerlukan sakelar di bawah. Jalan tanpa kehadiran Anda tetap menunggu konfirmasi Anda."
+      "auto": "Chat Anda langsung menekan tombol daya, menekan tombol, dan mengetik teks pada mesin, tanpa kartu. Pekerjaan yang belum disimpan akan hilang, teks yang diketik dapat menjalankan perintah, dan semuanya tidak dapat dibatalkan. Pengetikan dan tindakan daya paksa tetap memerlukan sakelar di bawah. Jalan tanpa kehadiran Anda tetap menunggu konfirmasi Anda."
     },
     "row": {
       "off": "Hanya baca",
@@ -98,7 +98,7 @@
     "broken": "Sakelar yang tersimpan tidak dapat dibaca, jadi semuanya dianggap nonaktif. Simpan lagi untuk memperbaikinya.",
     "none": "Tambahkan koneksi PiKVM untuk mengatur sakelarnya.",
     "typing": "Izinkan mengetik dan menekan tombol",
-    "typingHint": "Memungkinkan chat meminta untuk mengetik teks dan menekan tombol. Teks yang diketik selalu menunggu konfirmasi Anda. Penekanan tombol juga, kecuali Anda memilih Don't ask untuknya atau Izinkan semua.",
+    "typingHint": "Memungkinkan chat meminta untuk mengetik teks dan menekan tombol. Semuanya menunggu konfirmasi Anda, kecuali Anda memilih Don't ask untuk penekanan tombol atau Izinkan semua.",
     "maxChars": "Teks terpanjang",
     "maxCharsHint": "Karakter dalam satu teks yang diketik. Bawaan {{default}}, paling banyak 1000.",
     "maxCharsShape": "Masukkan bilangan bulat dari 1 sampai 1000.",
@@ -150,7 +150,7 @@
       "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
       "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
     },
-    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "textAlways": "Teks yang diketik tidak punya Don't ask, karena dapat memasukkan kata sandi atau perintah. Teks itu menunggu konfirmasi Anda kecuali koneksi diatur ke Izinkan semua.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
     "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",

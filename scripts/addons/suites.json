@@ -2440,7 +2440,9 @@
       "mail/send-message: runs from a chat turn in Allow all, and the default is not Allow all",
       "pikvm/power-action: runs from a chat turn in Allow all, and the default is not Allow all",
       "pikvm/send-key: runs from a chat turn in Allow all, and the default is not Allow all",
-      "pikvm/type-text: keeps waiting for a person in Allow all",
+      "pikvm/type-text: waits for a person in propose mode",
+      "pikvm/type-text: runs from a chat turn in Allow all, and the default is not Allow all",
+      "keeps no hard approval on any write tool of these add-ons",
       "refuses every write in off mode"
     ],
     "report": ".cache/addons/logs/policy.json"
@@ -2747,7 +2749,9 @@
           "mail/send-message: runs from a chat turn in Allow all, and the default is not Allow all",
           "pikvm/power-action: runs from a chat turn in Allow all, and the default is not Allow all",
           "pikvm/send-key: runs from a chat turn in Allow all, and the default is not Allow all",
-          "pikvm/type-text: keeps waiting for a person in Allow all",
+          "pikvm/type-text: waits for a person in propose mode",
+          "pikvm/type-text: runs from a chat turn in Allow all, and the default is not Allow all",
+          "keeps no hard approval on any write tool of these add-ons",
           "refuses every write in off mode"
         ]
       },

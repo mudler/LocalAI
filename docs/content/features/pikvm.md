@@ -59,7 +59,7 @@ The add-on then accepts that exact certificate for that exact address, and nothi
 | `get-power-state` | read | Whether ATX control is enabled and busy, the power LED (on or off) and whether the disk LED shows activity. |
 | `get-keyboard-state` | read | Whether the keyboard of the device is connected to the target, and the Caps, Num and Scroll Lock LEDs. |
 | `power-action` | write, confirmed (you can choose Don't ask) | Press a power button: `on`, `off` or `reset`. The forced actions `off_hard`, `reset_hard` and `long_press` need a switch. |
-| `type-text` | write, always confirmed, needs the typing switch | Type text on the target. |
+| `type-text` | write, confirmed (**Allow all** skips the card), needs the typing switch | Type text on the target. |
 | `send-key` | write, confirmed (you can choose Don't ask), needs the typing switch | Press keys from a short allowlist. |
 
 Two more tools, `get-settings` and `set-settings`, belong to the add-on page. A model never sees them.
@@ -68,11 +68,11 @@ Everything the device returns is marked as untrusted data, and the add-on's skil
 
 ## Changes and confirmation
 
-All three write tools declare `approval: always` in the manifest. By default a person confirms **every call**: the mode **Read only** refuses them all, and **Asks you first** stores each as a proposal that waits for a confirmation card. `type-text` always asks, in every write mode. For `power-action` and `send-key` you can change that, as described next. A proposal expires after 10 minutes (power) or 5 minutes (typing and keys).
+All three write tools declare `approval: always` in the manifest. By default a person confirms **every call**: the mode **Read only** refuses them all, and **Asks you first** stores each as a proposal that waits for a confirmation card. For `power-action` and `send-key` you can stop being asked one by one, as described next, and **Allow all** stops it for all three tools (see [Allow all](#allow-all)). A proposal expires after 10 minutes (power) or 5 minutes (typing and keys).
 
 ### Not asking for some actions
 
-On the add-on page, the section **Ask before acting** has one choice for **Power actions** and one for **Key presses**: **Ask each time** (the default) or **Don't ask**. There is no choice for typed text, because it can enter a password or a command.
+On the add-on page, the section **Ask before acting** has one choice for **Power actions** and one for **Key presses**: **Ask each time** (the default) or **Don't ask**. There is no choice for typed text, because it can enter a password or a command; it waits for you unless the connection is on **Allow all**.
 
 - The choice is yours alone. It is saved from your own browser session, it applies to all your PiKVM connections, and no chat, agent or model can change it.
 - With **Don't ask**, a chat can switch the machine off or reset it at once, with no card, and unsaved work on it is lost. If an administrator allowed the hard power actions, those run without asking too. Read the warning on the page before you choose it.
@@ -85,11 +85,10 @@ On the add-on page, the section **Ask before acting** has one choice for **Power
 
 The write mode of a connection has a third choice, **Allow all**, for someone who wants the agent to act without asking. It is never the default and is never chosen for you: a new connection starts on **Read only**, and a connection keeps the mode it has.
 
-With **Allow all**, a chat of yours runs `power-action` and `send-key` at once, with no card. Unsaved work on the machine is lost when it is switched off or reset, and a key press goes to whatever has the focus, so this cannot be taken back. The page warns about it. The per-tool choices of **Ask before acting** are not asked in this mode, and the row of the connection lists both tools as running without asking.
+With **Allow all**, a chat of yours runs `power-action`, `send-key` and `type-text` at once, with no card. Unsaved work on the machine is lost when it is switched off or reset, and typed text and key presses go to whatever has the focus, so a shell command or a password can be entered and none of it can be taken back. The page warns about it. If you want a confirmation, choose **Asks you first**. The per-tool choices of **Ask before acting** are not asked in this mode, and the row of the connection lists both tools that have a choice as running without asking.
 
 These rules hold in every write mode, **Allow all** included:
 
-- `type-text` always waits for a person. It can enter a password or a command, so it has no mode that skips the card.
 - The switches of an administrator for each device stay in force. Typing and key presses need **Allow typing and key presses**, the forced power actions (`off_hard`, `reset_hard`, `long_press`) need **Allow hard power actions**, and the add-on refuses a call when the switch is off. **Allow all** does not turn a switch on.
 - The same limits on text and keys, the stale-state check and the rule that nothing is sent twice.
 - A run without you present, such as an agent started by a trigger, still leaves a proposal that waits for a person.

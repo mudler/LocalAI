@@ -66,7 +66,7 @@
   },
   "writeMode": {
     "label": "Ce que l’agent peut faire avec cet appareil",
-    "hint": "La lecture de l’état est toujours autorisée. Chaque action est confirmée par vous, sauf si vous choisissez Tout autoriser ou Don't ask pour un outil dans la section ci-dessous. Le texte saisi est toujours confirmé.",
+    "hint": "La lecture de l’état est toujours autorisée. Chaque action est confirmée par vous, sauf si vous choisissez Tout autoriser ou Don't ask pour un outil dans la section ci-dessous.",
     "off": "Lecture seule",
     "propose": "Vous demande d’abord",
     "line": {
@@ -77,7 +77,7 @@
     "note": {
       "off": "L’accès en écriture est désactivé : cette connexion ne fait que lire l’état.",
       "propose": "Chaque action d’alimentation, saisie de texte et appui de touche attend dans vos approbations jusqu’à votre confirmation, sauf si vous l’avez désactivé pour cet outil. La saisie et les actions d’alimentation forcées exigent aussi l’interrupteur ci-dessous.",
-      "auto": "Un de vos chats appuie tout de suite sur le bouton d'alimentation et sur des touches de la machine, sans carte, et le travail non enregistré est perdu. Cela ne peut pas être annulé. Le texte saisi attend toujours votre confirmation, et la saisie et les actions d'alimentation forcées exigent toujours l'interrupteur ci-dessous. Les exécutions sans vous attendent toujours votre confirmation."
+      "auto": "Un de vos chats appuie sur le bouton d'alimentation, appuie sur des touches et tape du texte sur la machine tout de suite, sans carte. Le travail non enregistré est perdu, le texte saisi peut lancer une commande et rien de cela ne peut être annulé. La saisie et les actions d'alimentation forcées exigent toujours l'interrupteur ci-dessous. Les exécutions sans vous attendent toujours votre confirmation."
     },
     "row": {
       "off": "Lecture seule",
@@ -98,7 +98,7 @@
     "broken": "Les interrupteurs enregistrés n’ont pas pu être lus, donc tout est considéré comme désactivé. Enregistrez-les de nouveau pour les réparer.",
     "none": "Ajoutez une connexion PiKVM pour régler ses interrupteurs.",
     "typing": "Autoriser la saisie et les appuis de touches",
-    "typingHint": "Permet à un chat de demander de taper du texte et d’appuyer sur des touches. Le texte saisi attend toujours votre confirmation. Les touches aussi, sauf si vous avez choisi Don't ask pour elles ou Tout autoriser.",
+    "typingHint": "Permet à un chat de demander de taper du texte et d’appuyer sur des touches. Ils attendent votre confirmation, sauf si vous avez choisi Don't ask pour les touches ou Tout autoriser.",
     "maxChars": "Texte le plus long",
     "maxCharsHint": "Caractères dans un texte saisi. Par défaut {{default}}, au plus 1000.",
     "maxCharsShape": "Saisissez un nombre entier de 1 à 1000.",
@@ -150,7 +150,7 @@
       "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
       "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
     },
-    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "textAlways": "Le texte saisi n'a pas de Don't ask, car il peut entrer un mot de passe ou une commande. Il attend votre confirmation, sauf si la connexion est sur Tout autoriser.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
     "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",

@@ -15,7 +15,7 @@ import (
 
 // The write mode auto is shown as "Allow all". These cases run the shipped
 // manifests through the broker: a write waits for a person in propose mode,
-// runs at once in auto mode, and the tools that keep a hard rule still wait.
+// runs at once in auto mode. No write tool of these add-ons keeps a hard rule.
 var _ = Describe("the Allow all write mode on the shipped add-ons", Label("proposals", "credentials", "approval", "allowall"), func() {
 	ctx := context.Background()
 	who := named("owner")
@@ -24,7 +24,6 @@ var _ = Describe("the Allow all write mode on the shipped add-ons", Label("propo
 	cases := map[string]struct {
 		resource string
 		tools    []tool
-		hard     []tool
 	}{
 		"mail": {resource: "ann@example.com", tools: []tool{
 			{"send-message", `{"tool":"send-message","mailbox":"ann@example.com","to":["bob@example.org"],"subject":"Hi","body":"Hello"}`},
@@ -43,7 +42,6 @@ var _ = Describe("the Allow all write mode on the shipped add-ons", Label("propo
 		"pikvm": {resource: "https://pikvm.local", tools: []tool{
 			{"power-action", `{"tool":"power-action","device":"https://pikvm.local","command":"off"}`},
 			{"send-key", `{"tool":"send-key","device":"https://pikvm.local","keys":["escape"]}`},
-		}, hard: []tool{
 			{"type-text", `{"tool":"type-text","device":"https://pikvm.local","text":"hunter2"}`},
 		}},
 	}
@@ -93,20 +91,17 @@ var _ = Describe("the Allow all write mode on the shipped add-ons", Label("propo
 				Expect(spy.applies).To(HaveLen(1))
 			})
 		}
-		for _, t := range c.hard {
-			t := t
-			It(addon+"/"+t.name+": keeps waiting for a person in Allow all", func() {
-				f, spy := open(addon, gateway.WriteAuto)
-				p, err := propose(f, addon, t)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(p.AwaitsPerson).To(BeTrue())
-				Expect(p.Hold).To(Equal("approval_always"))
-				_, err = f.broker.Confirm(ctx, chat("owner"), "op-1")
-				Expect(err).To(MatchError(ErrForbidden))
-				Expect(spy.applies).To(BeEmpty())
-			})
-		}
 	}
+
+	It("keeps no hard approval on any write tool of these add-ons", func() {
+		for addon := range cases {
+			for _, d := range shippedManifest("addons/" + addon + "/manifest.json").Capabilities.ToolDefinitions {
+				if d.Kind == contract.ToolKindWrite {
+					Expect(d.HardApproval()).To(BeFalse(), addon+"/"+d.Name)
+				}
+			}
+		}
+	})
 
 	It("refuses every write in off mode", func() {
 		for addon, c := range cases {

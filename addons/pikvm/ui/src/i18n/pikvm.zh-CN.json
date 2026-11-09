@@ -66,7 +66,7 @@
   },
   "writeMode": {
     "label": "智能体可以对这台设备做什么",
-    "hint": "读取状态始终允许。每项操作都由你确认，除非你选择“全部允许”，或在下方为某个工具选择 Don't ask。输入的文本始终需要确认。",
+    "hint": "读取状态始终允许。每项操作都由你确认，除非你选择“全部允许”，或在下方为某个工具选择 Don't ask。",
     "off": "只读",
     "propose": "先问你",
     "line": {
@@ -77,7 +77,7 @@
     "note": {
       "off": "写入权限已关闭：此连接只读取状态。",
       "propose": "每次电源操作、文本输入和按键都在你的审批中等待，直到你确认，除非你为该工具关闭了确认。输入和强制电源操作还需要下方的开关。",
-      "auto": "你的聊天会立即按下机器的电源按钮和按键，没有确认卡片，机器上未保存的工作会丢失，且无法撤销。输入的文本仍然等待你的确认，输入和强制电源操作仍然需要下方的开关。你不在场时的运行仍然要等待你的确认。"
+      "auto": "你的聊天会立即按下机器的电源按钮、按键并输入文本，没有确认卡片。未保存的工作会丢失，输入的文本可能执行命令，且一切都无法撤销。输入和强制电源操作仍然需要下方的开关。你不在场时的运行仍然要等待你的确认。"
     },
     "row": {
       "off": "只读",
@@ -98,7 +98,7 @@
     "broken": "无法读取已保存的开关，因此一律视为关闭。请重新保存以修复。",
     "none": "添加 PiKVM 连接后才能设置它的开关。",
     "typing": "允许输入和按键",
-    "typingHint": "允许聊天请求输入文本和按键。输入的文本始终等待你的确认。按键也是，除非你为它们选择了 Don't ask 或“全部允许”。",
+    "typingHint": "允许聊天请求输入文本和按键。它们都等待你的确认，除非你为按键选择了 Don't ask，或选择了“全部允许”。",
     "maxChars": "文本最大长度",
     "maxCharsHint": "单次输入文本的字符数。默认 {{default}}，最多 1000。",
     "maxCharsShape": "请输入 1 到 1000 的整数。",
@@ -150,7 +150,7 @@
       "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
       "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
     },
-    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "textAlways": "输入的文本没有 Don't ask，因为它可以输入密码或命令。除非此连接设为“全部允许”，否则它会等待你的确认。",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
     "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",

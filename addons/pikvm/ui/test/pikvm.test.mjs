@@ -119,8 +119,9 @@ test('pikvm: Allow all has words in every language the add-on ships', async () =
   }
 })
 
-test('pikvm: the Allow all note says typed text and the device switches still hold', () => {
-  assert.match(en.writeMode.note.auto, /Typed text still waits/)
+test('pikvm: the Allow all note says typing and key presses run at once and the device switches still hold', () => {
+  assert.match(en.writeMode.note.auto, /types text on the machine at once/)
+  assert.doesNotMatch(en.writeMode.note.auto, /still waits/)
   assert.match(en.writeMode.note.auto, /still need the switch/)
-  assert.match(en.writeMode.note.auto, /cannot be taken back/)
+  assert.match(en.writeMode.note.auto, /none of it can be taken back/)
 })

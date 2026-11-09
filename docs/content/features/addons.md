@@ -3970,16 +3970,16 @@ A sender who is only on the allowlist, a sender let in because the bot accepts a
 role, a trigger, an agent job, a page, a sub-agent, and any call with no chat still get a
 proposal that waits for a person. The setting is read again when the call is applied, so
 switching it back stops a call that was stored a moment earlier. A tool that is not
-marked `approvalOverridable` is never relaxed, whatever the setting holds.
+marked `approvalOverridable` is never relaxed, whatever the setting holds. In a cluster
+the decision for a messaging chat needs the grant of the turn, which lives on the
+frontend that runs it; a call without it asks.
 
 The write mode **auto**, which the add-on pages call **Allow all**, lifts the same ceiling
 for these tools: with a connection on **auto**, a tool marked `approvalOverridable` runs
 without a card whatever its `approval-<tool>` setting says, because the person chose to let
 the agent act without asking for the whole connection. A tool with `"approval": "always"`
 that is not `approvalOverridable` still waits for a person in every write mode. Use that
-for an action that must never run unasked, such as typing arbitrary text on a machine. In a cluster
-the decision for a messaging chat needs the grant of the turn, which lives on the
-frontend that runs it; a call without it asks.
+for an action that must never run unasked. The mail, Gmail, Google Drive and PiKVM add-ons declare none.
 
 Every call that runs without a card is logged with the add-on, the tool, the connection,
 the user and the outcome (`applied`, `rejected`, `unknown` or `not_run`), and never the
