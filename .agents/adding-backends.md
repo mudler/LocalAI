@@ -357,7 +357,7 @@ Then boot it inside a fresh `ubuntu:24.04` (which intentionally does *not* have 
 
 ## Importer integration
 
-When you add a new backend, you MUST also make it importable via the model import form (`/import-model`). The import form dropdown is sourced dynamically from `GET /backends/known` — it reads the importer registry at `core/gallery/importers/importers.go`, so the steps below are the ONLY way to make your backend show up.
+When you add a new backend, you MUST also make it importable via the model import form (`/app/import-model`). The import form dropdown is sourced dynamically from `GET /backends/known` — it reads the importer registry at `core/gallery/importers/importers.go`, so the steps below are the ONLY way to make your backend show up.
 
 Required steps:
 
