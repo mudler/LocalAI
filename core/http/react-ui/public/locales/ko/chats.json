@@ -1352,6 +1352,6 @@
     "mcp": "MCP 서버"
   },
   "triggersPage": {
-    "runLimit": "실행 한 번의 시간 제한"
+    "runLimit": "실행 시간 제한"
   }
 }
