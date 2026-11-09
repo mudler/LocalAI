@@ -382,7 +382,7 @@ This matters because the mismatch does not fail cleanly upstream: a reference pa
 
 ### ffmpeg is required on the host
 
-The engine writes frames and a WAV and composes the `ffmpeg` command line; LocalAI runs it. That process boundary is deliberate upstream, so the backend image ships no `ffmpeg`: install one on the host, or point `options: [ffmpeg:/path/to/ffmpeg]` at a binary. Without it, generation succeeds and the mux fails with a message saying so.
+The engine writes frames and a WAV and composes the `ffmpeg` command line; LocalAI runs it. That process boundary is deliberate upstream, so the backend image ships no `ffmpeg`: install one on the host, or point `options: [ffmpeg:/path/to/ffmpeg]` at a binary. Without it, generation succeeds and the mux fails with a message saying so. When a model also produces audio, the mux pads the audio with silence to the video length, so every frame is kept; this needs `ffmpeg` 4.2 or newer.
 
 ### MiniMax-H3 model configuration
 

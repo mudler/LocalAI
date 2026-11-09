@@ -1298,6 +1298,15 @@ static int write_interleaved_float_wav(const sd_audio_t* a, char* wav_path, size
     return 0;
 }
 
+// Video length in seconds ("-t" value) and the matching "apad" filter that
+// pads the audio with silence up to that length. The filter needs ffmpeg 4.2
+// or newer (whole_dur).
+static void format_mux_duration(int num_frames, int fps, char* dur, size_t dur_size,
+                                char* apad, size_t apad_size) {
+    snprintf(dur, dur_size, "%.6f", fps > 0 ? (double)num_frames / fps : 0.0);
+    snprintf(apad, apad_size, "apad=whole_dur=%s", dur);
+}
+
 // Pipe raw RGB/RGBA frames to ffmpeg stdin and let it produce an MP4 at dst.
 // Uses fork+execvp to avoid shell interpretation of dst. When `audio` is
 // non-null, the audio waveform is staged to a temp WAV and added as a second
@@ -1317,6 +1326,9 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
     char fps_str[32];
     snprintf(size_str, sizeof(size_str), "%dx%d", width, height);
     snprintf(fps_str, sizeof(fps_str), "%d", fps);
+    char dur_str[32];
+    char apad_str[48];
+    format_mux_duration(num_frames, fps, dur_str, sizeof(dur_str), apad_str, sizeof(apad_str));
 
     // Optional audio: write a temp WAV file if the model produced audio.
     char wav_path[4096] = {0};
@@ -1380,10 +1392,20 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
             argv.push_back(const_cast<char*>("aac"));
             argv.push_back(const_cast<char*>("-b:a"));
             argv.push_back(const_cast<char*>("192k"));
-            // -shortest so the final clip ends with the shorter of the two
-            // streams — guards against an audio buffer that overshoots the
-            // video duration (or vice versa) on certain LTX variants.
-            argv.push_back(const_cast<char*>("-shortest"));
+            // Make the audio exactly as long as the video: pad it with silence
+            // and cut the output at the last frame. The audio of a video model
+            // can be a little shorter than the frames (MiniMax-H3 has 40 audio
+            // latents per second, so 56 frames at 24 fps give 2.325 s of audio
+            // for 2.333 s of video), and -shortest then dropped the last frame.
+            // An audio buffer longer than the video is still cut.
+            if (fps > 0) {
+                argv.push_back(const_cast<char*>("-af"));
+                argv.push_back(apad_str);
+                argv.push_back(const_cast<char*>("-t"));
+                argv.push_back(dur_str);
+            } else {
+                argv.push_back(const_cast<char*>("-shortest"));
+            }
         }
         argv.push_back(const_cast<char*>("-c:v"));
         argv.push_back(const_cast<char*>("libx264"));

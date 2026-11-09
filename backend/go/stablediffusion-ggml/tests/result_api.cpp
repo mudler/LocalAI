@@ -149,5 +149,15 @@ int main(int argc, char** argv) {
         free(back.data);
         unlink(wav);
     }
+    // Mux length: 56 frames at 24 fps must give the exact video duration and an
+    // apad filter for the same value, so the audio is padded and not cut short.
+    {
+        char dur[32], apad[48];
+        format_mux_duration(56, 24, dur, sizeof(dur), apad, sizeof(apad));
+        assert(strcmp(dur, "2.333333") == 0);
+        assert(strcmp(apad, "apad=whole_dur=2.333333") == 0);
+        format_mux_duration(24, 24, dur, sizeof(dur), apad, sizeof(apad));
+        assert(strcmp(dur, "1.000000") == 0);
+    }
     puts("result API binding checks passed");
 }
