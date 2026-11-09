@@ -170,6 +170,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 				progress = int(status.Progress)
 				isDeletion = status.Deletion
+				if status.Upgrade {
+					taskType = galleryop.TaskUpgrade
+				}
 				// Admission publishes a "queued" status before the op reaches
 				// the worker, so a queued op HAS a status: the phase is the
 				// only truthful signal. Reading "queued" off a missing status

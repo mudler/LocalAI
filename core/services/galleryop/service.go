@@ -196,6 +196,10 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 			if !op.Deletion {
 				op.Deletion = prev.Deletion
 			}
+			// Same for an upgrade: only admission knows it.
+			if !op.Upgrade {
+				op.Upgrade = prev.Upgrade
+			}
 		}
 	}
 	g.statuses[s] = op
@@ -732,8 +736,11 @@ func (g *GalleryService) runBackendOp(op *ManagementOp[gallery.GalleryBackend, a
 	// Create DB record for distributed tracking
 	if g.galleryStore != nil {
 		opType := "backend_install"
-		if op.Delete {
+		switch {
+		case op.Delete:
 			opType = "backend_delete"
+		case op.Upgrade:
+			opType = "backend_upgrade"
 		}
 		if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
 			ID:                 op.ID,
