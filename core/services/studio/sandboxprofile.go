@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/sandboxpolicy"
@@ -375,4 +376,34 @@ func (s *Service) AdminSandboxProfiles(ctx context.Context, user string) (addon 
 	}
 	st := s.imageStatus(ctx, p, "", cat)
 	return cat.Addon, infoOf(cat, pol, p, sandboxpolicy.RoleAdmin, st), nil
+}
+
+// sandboxHint returns the hint of load_skill for a chat: a skill that wants a
+// sandbox profile other than the one the chat runs says so, and the model may
+// offer the switch. It never switches. A chat whose commands run in no sandbox
+// with profiles gets no hint.
+func (s *Service) sandboxHint(a workspace.Actor) func(context.Context, skills.Skill) string {
+	return func(ctx context.Context, sk skills.Skill) string {
+		if sk.Sandbox == "" {
+			return ""
+		}
+		rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+		if err != nil {
+			return ""
+		}
+		cat, ok := s.profileCatalogOf(ctx, a.Principal)
+		if !ok {
+			return ""
+		}
+		pol, err := s.sandboxPolicy(ctx)
+		if err != nil {
+			return ""
+		}
+		id, _ := s.resolveProfile(ctx, rec, cat, pol)
+		known := make([]string, len(cat.Exec.Profiles))
+		for i, p := range cat.Exec.Profiles {
+			known[i] = p.ID
+		}
+		return skills.SandboxHint(sk.Sandbox, id, known)
+	}
 }

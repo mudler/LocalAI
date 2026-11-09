@@ -59,3 +59,45 @@ const CallArgKey = contract.ExecutionCallArgKey
 // profile of the chat, the pin to the previous image and the caps on memory
 // and disk (see contract.ExecutionCall).
 type CallOptions = contract.ExecutionCall
+
+// MissingToolNote is the line a call gets when a command was not found (exit
+// code 127): it names the profile the sandbox runs and the profiles that have
+// more programs, so the first missing tool gives a clear error instead of a
+// bare "command not found". It never switches the profile: the model tells the
+// user and may offer the switch.
+func MissingToolNote(active string, all []contract.ExecutionProfile) string {
+	var more []string
+	for _, o := range all {
+		if o.ID == active {
+			continue
+		}
+		cur, _ := profileByID(all, active)
+		have := map[string]bool{}
+		for _, t := range cur.Tools {
+			have[t.Name] = true
+		}
+		var extra []string
+		for _, t := range o.Tools {
+			if !have[t.Name] {
+				extra = append(extra, t.Name)
+			}
+		}
+		if len(extra) > 0 {
+			more = append(more, fmt.Sprintf("%s (adds %s)", o.ID, strings.Join(extra, ", ")))
+		}
+	}
+	note := "[A program was not found in the " + active + " sandbox profile."
+	if len(more) > 0 {
+		note += " Profiles with more programs: " + strings.Join(more, "; ") + "."
+	}
+	return note + " Tell the user, and offer use_sandbox_profile to switch. Do not try to install it.]"
+}
+
+func profileByID(all []contract.ExecutionProfile, id string) (contract.ExecutionProfile, bool) {
+	for _, p := range all {
+		if p.ID == id {
+			return p, true
+		}
+	}
+	return contract.ExecutionProfile{}, false
+}

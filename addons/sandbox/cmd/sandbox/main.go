@@ -112,6 +112,7 @@ func main() {
 			StateDir:     filepath.Join(s.DataDir, "run"),
 			KeepStateDir: true,
 			Tools:        tools.Runs,
+			MissingTool:  func(profile string) string { return sandbox.MissingToolNote(profile, profiles.Declared()) },
 			Profile: func(ctx context.Context, r runner.Request) (runner.Choice, error) {
 				c, err := deliv.Resolve(ctx, r.Call.Profile, r.Call.Pin, profiles.Caps{MemoryMiB: r.Call.MemoryMiB, DiskMiB: r.Call.DiskMiB})
 				return runner.Choice{ID: c.ID, Image: c.Image, CPUs: c.CPUs, Memory: c.Memory, Disk: c.Disk, Notice: c.Notice}, err

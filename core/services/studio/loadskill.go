@@ -50,7 +50,7 @@ type loadOpts struct {
 	provided *bool
 	// hint, when set, is asked for a text to put before the instructions of
 	// the skill it loaded (see skills.SandboxHint). "" adds nothing.
-	hint func(skills.Skill) string
+	hint func(context.Context, skills.Skill) string
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -103,7 +103,7 @@ func (s *Service) fitLoadSkill(a workspace.Actor, tools []session.Tool) []sessio
 	}
 	// Final tools may only narrow the freshly checked descriptor at call time.
 	provided := addonRunner(tools) != ""
-	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), provided: &provided})
+	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), provided: &provided, hint: s.sandboxHint(a)})
 	return tools
 }
 
@@ -245,7 +245,7 @@ func (s *Service) loadSkill(ctx context.Context, p string, list []skills.Skill, 
 	}
 	body := skills.Body(data)
 	if o.hint != nil {
-		if h := o.hint(sk); h != "" {
+		if h := o.hint(ctx, sk); h != "" {
 			body = h + "\n\n" + body
 		}
 	}

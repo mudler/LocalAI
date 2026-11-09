@@ -29,3 +29,17 @@ func TestProfileNoteNamesTheProfileItsToolsAndTheOthers(t *testing.T) {
 		t.Errorf("sentence = %q", s)
 	}
 }
+
+func TestMissingToolNoteNamesTheProfileAndThoseWithMore(t *testing.T) {
+	base := contract.ExecutionProfile{ID: "base", Tools: []contract.ProfileTool{{Name: "jq"}}}
+	media := contract.ExecutionProfile{ID: "media", Tools: []contract.ProfileTool{{Name: "jq"}, {Name: "ffmpeg"}}}
+	got := sandbox.MissingToolNote("base", []contract.ExecutionProfile{base, media})
+	for _, want := range []string{"not found in the base sandbox profile", "media (adds ffmpeg)", "use_sandbox_profile", "Do not try to install"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q lacks %q", got, want)
+		}
+	}
+	if got := sandbox.MissingToolNote("media", []contract.ExecutionProfile{base, media}); strings.Contains(got, "Profiles with more programs") {
+		t.Errorf("media has the most programs, so no profile has more: %q", got)
+	}
+}

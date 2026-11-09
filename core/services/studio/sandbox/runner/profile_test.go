@@ -55,6 +55,7 @@ var _ = Describe("the profile of a call", func() {
 		m, err = runner.New(runner.Options{
 			Backend: func() (sandbox.Backend, error) { return backend, nil },
 			Store:   r.st, Actor: r.actor, View: r.view,
+			MissingTool: func(profile string) string { return "[missing in " + profile + "]" },
 			Profile: func(_ context.Context, req runner.Request) (runner.Choice, error) {
 				c, ok := choices[req.Call.Profile]
 				if !ok {
@@ -111,6 +112,19 @@ var _ = Describe("the profile of a call", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).To(HavePrefix("[media failed, ran base]\n"))
 		Expect(out).To(ContainSubstring("hi"))
+	})
+
+	It("names the profile when a command is not found", func() {
+		n++
+		raw, _ := json.Marshal(map[string]any{"command": "no-such-program-xyz"})
+		out, err := m.Run(r.ctx, runner.Request{User: alice.Principal, Conversation: alice.ChatID, Operation: fmt.Sprintf("m%d", n), Tool: "bash", Args: raw,
+			Call: sandbox.CallOptions{Profile: "base"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("[exit code 127]"))
+		Expect(out).To(HaveSuffix("[missing in base]"))
+		ok, err := run("base")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).NotTo(ContainSubstring("missing in"), "a command that ran needs no note")
 	})
 
 	It("fails the call, and keeps no sandbox, when the profile cannot be chosen", func() {

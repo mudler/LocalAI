@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -77,6 +78,7 @@ type profileRig struct {
 	h    *studiotest.ToolHarness
 	fa   *profileAddons
 	pol  *sandboxpolicy.Policy
+	f    *files.Service
 	mu   sync.Mutex
 	admn map[string]bool
 }
@@ -84,6 +86,7 @@ type profileRig struct {
 func newProfileRig(script func(workspace.Actor, string) []studiotest.ToolStep) *profileRig {
 	r := &profileRig{fa: newProfileAddons(alice, "bob", "root"), pol: &sandboxpolicy.Policy{}, admn: map[string]bool{"root": true}}
 	f := newFiles()
+	r.f = f
 	if script == nil {
 		script = func(workspace.Actor, string) []studiotest.ToolStep {
 			return []studiotest.ToolStep{{Tool: "bash", Args: `{"command":"ffmpeg -version"}`}, {Say: "ok"}}
@@ -305,6 +308,52 @@ var _ = Describe("sandbox profiles", func() {
 			sent(r.svc, alice, id, "go")
 			idle(r.svc, alice, id)
 			Expect(r.h.ToolNames(id)).NotTo(ContainElement("use_sandbox_profile"))
+		})
+	})
+
+	Describe("the sandbox hint of a skill", func() {
+		writeSkill := func(f *files.Service, name, profile string) {
+			Expect(f.EnsureShared(context.Background())).To(Succeed())
+			body := "---\nname: " + name + "\ndescription: Cut video.\nsandbox: " + profile + "\n---\nRun ffmpeg.\n"
+			_, err := f.Store().Put(context.Background(), workspace.Actor{Principal: files.AdminPrincipal}, "/skills/"+name+"/SKILL.md",
+				strings.NewReader(body), workspace.PutOptions{Overwrite: true})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		load := func(r *profileRig, id string) string {
+			r.run(alice, id)
+			res := r.h.ResultsFor("load_skill")
+			Expect(res).NotTo(BeEmpty())
+			return res[len(res)-1].Out
+		}
+		It("says the skill wants another profile, offers the switch and does not switch", func() {
+			r := newProfileRig(func(workspace.Actor, string) []studiotest.ToolStep {
+				return []studiotest.ToolStep{{Tool: "load_skill", Args: `{"name":"cut"}`}, {Say: "ok"}}
+			})
+			writeSkill(r.f, "cut", "media")
+			id := create(r.svc, alice)
+			out := load(r, id)
+			Expect(out).To(ContainSubstring("This skill wants the sandbox profile media; this chat runs base."))
+			Expect(out).To(ContainSubstring("Run ffmpeg."))
+			v, _ := r.svc.SandboxProfiles(context.Background(), alice, id)
+			Expect(v.Profile).To(Equal("base"), "a hint never switches the profile")
+			Expect(v.Selected).To(BeEmpty())
+		})
+		It("adds nothing when the chat runs the profile the skill wants", func() {
+			r := newProfileRig(func(workspace.Actor, string) []studiotest.ToolStep {
+				return []studiotest.ToolStep{{Tool: "load_skill", Args: `{"name":"cut"}`}, {Say: "ok"}}
+			})
+			writeSkill(r.f, "cut", "media")
+			id := create(r.svc, alice)
+			Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "media")).To(Succeed())
+			Expect(load(r, id)).NotTo(ContainSubstring("This skill wants"))
+		})
+		It("ignores a profile the add-on does not have", func() {
+			r := newProfileRig(func(workspace.Actor, string) []studiotest.ToolStep {
+				return []studiotest.ToolStep{{Tool: "load_skill", Args: `{"name":"cut"}`}, {Say: "ok"}}
+			})
+			writeSkill(r.f, "cut", "gpu")
+			id := create(r.svc, alice)
+			Expect(load(r, id)).NotTo(ContainSubstring("This skill wants"))
 		})
 	})
 })

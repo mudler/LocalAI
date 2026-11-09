@@ -92,7 +92,11 @@ type Options struct {
 	// made again, so a switch restarts the guest (the files stay, processes
 	// and packages are lost). It must fall back by itself when a profile
 	// cannot be had; an error fails the call.
-	Profile           func(ctx context.Context, r Request) (Choice, error)
+	Profile func(ctx context.Context, r Request) (Choice, error)
+	// MissingTool, when set, returns a line that goes after the output of a
+	// call whose command was not found (exit code 127), given the profile the
+	// sandbox runs.
+	MissingTool       func(profile string) string
 	PerUser, Total    int
 	IdleAfter, MaxAge time.Duration
 	Now               func() time.Time
@@ -535,6 +539,9 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	out, runErr := tool.Run(ctx, r.Args)
 	if e.notice != "" {
 		out = e.notice + "\n" + out
+	}
+	if m.o.MissingTool != nil && e.profile != "" && strings.Contains(out, "[exit code 127]") {
+		out += "\n" + m.o.MissingTool(e.profile)
 	}
 	// The call's changes become one change set, whether or not the command
 	// succeeded: a failing script may still have written files.
