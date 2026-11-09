@@ -5,6 +5,7 @@ import { useHubAuth } from '../components/hub/useHubAuth'
 import { destinationsFor, destinationsForNavigation } from '../utils/destinations'
 import { useNavigation } from '../context/NavigationContext'
 import Icon from '../components/Icon'
+import Mascot from '../components/ui/Mascot'
 import './notfound.css'
 
 // The page for an address that is not a page. It says what was asked for and
@@ -21,6 +22,7 @@ export default function NotFound() {
 
   return (
     <div className="page page--narrow nf" data-testid="not-found">
+      <Mascot pose="welcome" size="md" />
       <p className="nf-code" aria-hidden="true">404</p>
       <h1 className="nf-title">{t('notFound.title')}</h1>
       <p className="nf-text">{t('notFound.text')}</p>
