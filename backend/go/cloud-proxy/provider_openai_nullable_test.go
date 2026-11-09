@@ -50,6 +50,15 @@ func TestPredict_OpenAI_CollapsesNullableToolTypes(t *testing.T) {
 	g.Expect(params["required"]).To(Equal([]any{"input"}))
 }
 
+func TestPredict_OpenAI_DropsNullRequired(t *testing.T) {
+	g := NewWithT(t)
+	// Shape of the built-in list_files tool: no required parameters, emitted as null.
+	params := sentToolSchema(t, `[{"type":"function","function":{"name":"list_files","parameters":`+
+		`{"type":"object","required":null,"properties":{"path":{"type":"string","enum":null}}}}}]`)
+	g.Expect(params).NotTo(HaveKey("required"))
+	g.Expect(params["properties"].(map[string]any)["path"]).To(Equal(map[string]any{"type": "string"}))
+}
+
 func TestPredict_OpenAI_PlainToolSchemaUnchanged(t *testing.T) {
 	g := NewWithT(t)
 	plain := `[{"type":"function","function":{"name":"f","parameters":{"type":"object","properties":{"q":{"type":"string"}}}}}]`
