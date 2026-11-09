@@ -45,7 +45,7 @@
   --BOX-BG-color: rgba( 255, 253, 247, 1 ); /* background color of colored boxes */
   --BOX-TEXT-color: rgba( 35, 42, 82, 1 ); /* text color of colored box content */
   --BOX-NEUTRAL-color: rgba( 230, 217, 189, 1 ); /* background color of neutral boxes */
-  --BOX-BLUE-color: rgba( 74, 90, 160, 1 ); /* note and info boxes */
+  --BOX-BLUE-color: rgba( 74, 90, 160, 1 ); /* info boxes */
   --BOX-BLUE-TEXT-color: rgba( 61, 76, 147, 1 ); /* text color of blue boxes */
   --BOX-CYAN-color: rgba( 0, 91, 105, 1 ); /* cyan boxes */
   --BOX-CYAN-TEXT-color: rgba( 0, 91, 105, 1 ); /* text color of cyan boxes */
@@ -53,10 +53,10 @@
   --BOX-GREEN-TEXT-color: rgba( 29, 110, 70, 1 ); /* text color of green boxes */
   --BOX-GREY-color: rgba( 77, 84, 120, 1 ); /* grey boxes */
   --BOX-GREY-TEXT-color: rgba( 77, 84, 120, 1 ); /* text color of grey boxes */
-  --BOX-ORANGE-color: rgba( 140, 84, 0, 1 ); /* warning boxes */
+  --BOX-ORANGE-color: rgba( 140, 84, 0, 1 ); /* note boxes */
   --BOX-ORANGE-TEXT-color: rgba( 122, 74, 0, 1 ); /* text color of orange boxes */
   --BOX-YELLOW-color: rgba( 140, 84, 0, 1 ); /* yellow boxes */
   --BOX-YELLOW-TEXT-color: rgba( 122, 74, 0, 1 ); /* text color of yellow boxes */
-  --BOX-RED-color: rgba( 179, 38, 30, 1 ); /* caution boxes */
+  --BOX-RED-color: rgba( 179, 38, 30, 1 ); /* warning and caution boxes */
   --BOX-RED-TEXT-color: rgba( 165, 29, 22, 1 ); /* text color of red boxes */
 }

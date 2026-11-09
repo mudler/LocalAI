@@ -28,6 +28,15 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[LocalAI Assistant]({{% relref "/features/localai-assistant" %}})** - Chat to administer your LocalAI instance.
 - **[Terminal agent]({{% relref "/features/terminal-agent" %}})** - `local-ai chat`, an agent in your shell that runs commands behind an approval gate.
 
+## Files, documents and Home
+
+- **[Files and shared folders]({{% relref "/features/files" %}})** - Your files, the Trash, archives and sharing.
+- **[Sandbox]({{% relref "/features/sandbox" %}})** - An add-on that runs commands and code in an isolated runtime.
+- **[Office documents]({{% relref "/features/office" %}})** - Make Word, Excel, PowerPoint and PDF files from a chat.
+- **[Pages]({{% relref "/features/pages" %}})** - Small HTML pages in your workspace.
+- **[Home widgets and live pages]({{% relref "/features/home-widgets" %}})** - Tiles on Home, kept current by a schedule or a file.
+- **[Connectors and agents]({{% relref "/features/connectors-and-agents" %}})** - Talk to a saved agent from Telegram, Slack or Discord.
+
 ## Audio
 
 - **[Audio to text]({{% relref "/features/audio-to-text" %}})** - Transcribe audio to text.
