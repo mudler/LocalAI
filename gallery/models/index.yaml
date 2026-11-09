@@ -4989,8 +4989,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-Q3_K_XL.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
     variants:
@@ -5046,8 +5045,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-IQ1_M.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model
@@ -5101,8 +5099,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-IQ2_XXS.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model
@@ -5156,8 +5153,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-IQ2_M.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model
@@ -5211,8 +5207,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-IQ3_XXS.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model
@@ -5266,8 +5261,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-Q4_K_XL.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model
@@ -5321,8 +5315,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-Q5_K_XL.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model
@@ -5376,8 +5369,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-Q6_K_XL.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model
@@ -5431,8 +5423,7 @@
         - use_jinja:true
       parameters:
         model: llama-cpp/models/Nemotron-3.5-Bolt-E4B-Artemis-GGUF/Nemotron-3.5-Bolt-E4B-Artemis-Q8_K_XL.gguf
-      reasoning:
-        disable: true
+      reasoning_effort: none
       template:
         use_tokenizer_template: true
 - kind: model

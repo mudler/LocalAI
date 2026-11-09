@@ -73,14 +73,14 @@ var _ = Describe("gallery/index.yaml Nemotron 3.5 Bolt E4B Artemis entries", fun
 		}
 	})
 
-	// An explicit reasoning.disable survives the backend's thinking probe; the
-	// enable_reasoning budget option does not stop enable_thinking being sent.
-	It("keeps thinking off and configures no drafter", func() {
+	// reasoning_effort none keeps thinking off unless a request asks for it.
+	It("keeps thinking off by default and configures no drafter", func() {
 		entries := byName()
 		for _, b := range builds {
 			e := entries[b.name]
 			Expect(e.Overrides["options"]).To(ConsistOf("use_jinja:true"), b.name)
-			Expect(e.Overrides["reasoning"]).To(HaveKeyWithValue("disable", true), b.name)
+			Expect(e.Overrides).To(HaveKeyWithValue("reasoning_effort", "none"), b.name)
+			Expect(e.Overrides).ToNot(HaveKey("reasoning"), b.name)
 			Expect(e.Tags).ToNot(ContainElement(BeElementOf("dflash", "mtp")), b.name)
 		}
 	})
