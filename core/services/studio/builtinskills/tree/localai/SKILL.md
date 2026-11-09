@@ -19,13 +19,13 @@ A file argument is a reference: a path in the user's files, or the `ref` that an
 - `transcribe_audio`: a recording to text. Use the arguments the tool shows.
 - `describe_image`: describe an image or answer a question about it, including text in it. Use the arguments the tool shows.
 - `generate_sound` (`text`, `duration_seconds`, `lyrics`, `instrumental`, `caption`, `bpm`, `keyscale`, `timesignature`, `language`, `vocal_language`, `think`, `do_sample`, `prompt_influence`, `expansion_model`, `model`): a sound effect or music from a description. There is no separate music tool. What you get depends on the installed model: a sound model may make effects only, a song model takes `lyrics`, `caption`, `bpm` and the rest. Say so if the result is not what was asked. It cannot start from an audio file.
-- `generate_video` (`prompt`, `size`, `seconds`, `fps`, `negative_prompt`, `start_image`, `end_image`, `audio`, `ref_images`, `ref_videos`, `ref_audios`, `seed`, `cfg_scale`, `steps`, `model`): a short video. It can take minutes. `seconds` uses `fps` (24 if unset). `start_image`/`end_image` fix the first or last frame; `audio` drives the video. References (`ref_images`, `ref_audios`, and `ref_videos`, each an object with frames (a list of image files), `fps` and `audio`) do not combine with `start_image` or `end_image`. What a model accepts depends on the model.
+- `generate_video` (`prompt`, `size`, `seconds`, `fps`, `negative_prompt`, `start_image`, `end_image`, `audio`, `ref_images`, `ref_videos`, `ref_audios`, `seed`, `cfg_scale`, `steps`, `model`): a short video. It can take minutes. `seconds` uses `fps` (24 if unset). `start_image`/`end_image` fix the first or last frame; `audio` drives the video. References (`ref_images`, `ref_audios`, and `ref_videos`, each an object with frames (a list of image files), `fps` and `audio`) do not combine with `start_image` or `end_image`.
 - `embed` (`input`): vectors for texts, saved as a JSON file. Show the count and size, not the numbers.
 - `detect` (`image`, `prompt`, `threshold`): objects with boxes, classes and confidence.
 - `rerank` (`query`, `documents`, `top_n`): documents ordered by how well they answer the query.
 - `voice` (`action`, `audio`, `audio2`, `top_k`, `threshold`): `verify` compares `audio` and `audio2`; `identify` finds who speaks in `audio`.
 - `face` (`action`, `image`, `image2`, `top_k`, `threshold`): `verify` compares `image` and `image2`; `identify` finds whose face is in `image`.
-- `voice_profile` (`action`, `name`, `audio`, `transcript`, `language`, `id`): voices that `speak` can clone. Actions: `create`, `list`, `delete`. Profiles created by an administrator are visible to all users.
+- `voice_profile` (`action`, `name`, `description`, `audio`, `transcript`, `extra_clips`, `language`, `id`): voices that `speak` can clone. `extra_clips` adds more clips of the same voice, each with its own transcript. Actions: `create`, `list`, `delete`. Profiles created by an administrator are visible to all users.
 
 ## Clone a voice
 

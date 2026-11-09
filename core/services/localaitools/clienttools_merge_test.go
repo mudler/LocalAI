@@ -41,7 +41,10 @@ import (
 //
 // 8,550 to 8,650: speak takes sample_rate, which the TTS route reads (about
 // 60 bytes).
-const clientBudgetBytes = 8650
+//
+// 8,650 to 8,900: voice_profile create takes description and extra_clips,
+// because the API takes up to ten clips and a description (about 210 bytes).
+const clientBudgetBytes = 8900
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {

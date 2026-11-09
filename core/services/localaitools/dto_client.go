@@ -324,7 +324,10 @@ type VoiceProfileToolInput struct {
 	Audio      string `json:"audio,omitempty"      jsonschema:"WAV file, 1 to 120 s."`
 	Transcript string `json:"transcript,omitempty" jsonschema:"Exact words in the clip."`
 	Language   string `json:"language,omitempty"`
-	ID         string `json:"id,omitempty"`
+	// Description and ExtraClips are for create.
+	Description string      `json:"description,omitempty"`
+	ExtraClips  []VoiceClip `json:"extra_clips,omitempty" jsonschema:"More WAV clips, each with its transcript. Up to 9."`
+	ID          string      `json:"id,omitempty"`
 }
 
 // VoiceProfileSummary is what list shows of a profile.

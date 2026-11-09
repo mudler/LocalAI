@@ -586,6 +586,37 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 			Expect(ps[0].OwnerID).To(Equal(bob))
 		})
 
+		It("clones a voice from several clips and a description: the card names every clip, and the profile keeps them in order", func() {
+			r.put(bob, "/Proj/two.wav", e2eWAV(3*time.Second))
+			id := chatInFolder()
+			args := `{"action":"create","name":"N","description":"A calm voice","audio":"in.wav","transcript":"Hello there.",` +
+				`"extra_clips":[{"audio":"two.wav","transcript":"Second clip."}]}`
+			r.sayIn(bob, id, msg("voice_profile", args))
+			Expect(r.result(id, "voice_profile").Err).NotTo(HaveOccurred())
+			list, err := r.svc.Changes().List(ctx, bob, "pending")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			Expect(list[0].Summary).To(And(ContainSubstring("in.wav"), ContainSubstring("two.wav")))
+			done, err := r.svc.Changes().Confirm(ctx, bob, list[0].ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(done.Status)).To(Equal("applied"))
+			ps, err := r.api.store.List(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ps).To(HaveLen(1))
+			Expect(ps[0].Description).To(Equal("A calm voice"))
+			Expect(ps[0].References).To(HaveLen(2))
+			Expect(ps[0].References[1].Transcript).To(Equal("Second clip."))
+		})
+
+		It("refuses an extra clip outside the folder, and proposes nothing", func() {
+			id := chatInFolder()
+			args := `{"action":"create","name":"N","audio":"in.wav","transcript":"Hello there.",` +
+				`"extra_clips":[{"audio":"/Outside/secret.wav","transcript":"x"}]}`
+			r.sayIn(bob, id, msg("voice_profile", args))
+			Expect(r.result(id, "voice_profile").Err).To(HaveOccurred())
+			Expect(pending(r, bob)).To(BeZero())
+		})
+
 		It("creates nothing at the confirmation when the chat that proposed the profile is gone", func() {
 			id := chatInFolder()
 			r.sayIn(bob, id, msg("voice_profile", clipArgs("in.wav")))
@@ -1007,8 +1038,11 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 		// These mirror the budgets that the localaitools specs enforce on the
 		// MCP server (compactBudgetBytes in prompts_test.go and
 		// clientBudgetBytes in clienttools_merge_test.go). They are
-		// unexported there; keep the values the same.
-		const compactBudget, clientBudget = 4700, 6600
+		// unexported there; keep the values in step: the client budget here is
+		// measured in the form the model gets (7,583 bytes when the MCP budget
+		// is 8,900), and grew from 6,600 with the media tool arguments (see
+		// the comment of clientBudgetBytes).
+		const compactBudget, clientBudget = 4700, 7700
 
 		It("keeps an administrator's turn under the admin budgets and the client group under its own", func() {
 			r := newE2ERig(scriptCall)
