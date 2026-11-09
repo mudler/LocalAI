@@ -90,7 +90,7 @@ def variant(name, t, dark):
         ("BOX-BG-color", c("dk-card"), "background color of colored boxes"),
         ("BOX-TEXT-color", c("dk-text"), "text color of colored box content"),
         ("BOX-NEUTRAL-color", c("dk-edge"), "background color of neutral boxes"),
-        ("BOX-BLUE-color", c("dk-accent"), "note and info boxes"),
+        ("BOX-BLUE-color", c("dk-accent"), "info boxes"),
         ("BOX-BLUE-TEXT-color", c("dk-accent-text"), "text color of blue boxes"),
         ("BOX-CYAN-color", c("brand-teal-bright") if dark else c("brand-logo-teal"), "cyan boxes"),
         ("BOX-CYAN-TEXT-color", c("brand-teal-bright") if dark else c("brand-logo-teal"), "text color of cyan boxes"),
@@ -98,11 +98,11 @@ def variant(name, t, dark):
         ("BOX-GREEN-TEXT-color", c("dk-ok-text"), "text color of green boxes"),
         ("BOX-GREY-color", c("dk-muted"), "grey boxes"),
         ("BOX-GREY-TEXT-color", c("dk-muted"), "text color of grey boxes"),
-        ("BOX-ORANGE-color", c("dk-warn"), "warning boxes"),
+        ("BOX-ORANGE-color", c("dk-warn"), "note boxes"),
         ("BOX-ORANGE-TEXT-color", c("dk-warn-text"), "text color of orange boxes"),
         ("BOX-YELLOW-color", c("dk-warn"), "yellow boxes"),
         ("BOX-YELLOW-TEXT-color", c("dk-warn-text"), "text color of yellow boxes"),
-        ("BOX-RED-color", c("dk-error"), "caution boxes"),
+        ("BOX-RED-color", c("dk-error"), "warning and caution boxes"),
         ("BOX-RED-TEXT-color", c("dk-error-text"), "text color of red boxes"),
     ]
     head = (
