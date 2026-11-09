@@ -965,6 +965,12 @@ func (i *Inference) GenerateSound(ctx context.Context, req GenerateSoundRequest)
 	if err := checkSoundLength(req.Duration); err != nil {
 		return nil, err
 	}
+	if req.BPM != nil && (*req.BPM < 30 || *req.BPM > 300) {
+		return nil, errors.New("bpm must be from 30 to 300")
+	}
+	if req.PromptInfluence != nil && (*req.PromptInfluence < 0 || *req.PromptInfluence > 2) {
+		return nil, errors.New("prompt_influence must be from 0 to 2")
+	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
@@ -983,6 +989,26 @@ func (i *Inference) GenerateSound(ctx context.Context, req GenerateSoundRequest)
 	}
 	if req.Instrumental != nil {
 		body["instrumental"] = *req.Instrumental
+	}
+	for k, v := range map[string]string{
+		"caption": req.Caption, "keyscale": req.Keyscale, "timesignature": req.Timesignature,
+		"language": req.Language, "vocal_language": req.VocalLanguage, "expansion_model": strings.TrimSpace(req.ExpansionModel),
+	} {
+		if v != "" {
+			body[k] = v
+		}
+	}
+	if req.BPM != nil {
+		body["bpm"] = *req.BPM
+	}
+	if req.Think != nil {
+		body["think"] = *req.Think
+	}
+	if req.DoSample != nil {
+		body["do_sample"] = *req.DoSample
+	}
+	if req.PromptInfluence != nil {
+		body["prompt_influence"] = *req.PromptInfluence
 	}
 	data, hdr, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {

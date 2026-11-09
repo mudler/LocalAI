@@ -33,7 +33,12 @@ import (
 // tool did not send: end_image, audio, ref_images, ref_videos, ref_audios,
 // seed, cfg_scale, steps (about 700 bytes). ref_videos is a list of frame
 // lists because that is how the route takes a video.
-const clientBudgetBytes = 8000
+//
+// 8,000 to 8,550: generate_sound takes the ten fields of the route that a
+// song model reads: caption, bpm, keyscale, timesignature, language,
+// vocal_language, think, do_sample, prompt_influence, expansion_model (about
+// 480 bytes).
+const clientBudgetBytes = 8550
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {

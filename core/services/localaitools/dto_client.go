@@ -190,13 +190,25 @@ type VideoResult struct {
 	Video OutputFile `json:"video"`
 }
 
-// GenerateSoundRequest is the input for generate_sound.
+// GenerateSoundRequest is the input for generate_sound. The fields are those
+// of the sound-generation route, except the source audio, which the API
+// leaves out on purpose.
 type GenerateSoundRequest struct {
-	Text         string   `json:"text"                       jsonschema:"Describes the sound or the music."`
-	Model        string   `json:"model,omitempty"            jsonschema:"From list_models. Default: first."`
-	Duration     *float32 `json:"duration_seconds,omitempty" jsonschema:"Length in seconds."`
-	Lyrics       string   `json:"lyrics,omitempty"           jsonschema:"Lyrics, for song models."`
-	Instrumental *bool    `json:"instrumental,omitempty"     jsonschema:"Music with no voice."`
+	Text            string   `json:"text"                       jsonschema:"Describes the sound or the music."`
+	Model           string   `json:"model,omitempty"            jsonschema:"From list_models. Default: first."`
+	Duration        *float32 `json:"duration_seconds,omitempty" jsonschema:"Length in seconds."`
+	Lyrics          string   `json:"lyrics,omitempty"           jsonschema:"Lyrics, for song models."`
+	Instrumental    *bool    `json:"instrumental,omitempty"     jsonschema:"Music with no voice."`
+	Caption         string   `json:"caption,omitempty"          jsonschema:"Style caption, for song models."`
+	BPM             *int     `json:"bpm,omitempty"`
+	Keyscale        string   `json:"keyscale,omitempty"         jsonschema:"For example C major."`
+	Timesignature   string   `json:"timesignature,omitempty"    jsonschema:"For example 4/4."`
+	Language        string   `json:"language,omitempty"`
+	VocalLanguage   string   `json:"vocal_language,omitempty"`
+	Think           *bool    `json:"think,omitempty"`
+	DoSample        *bool    `json:"do_sample,omitempty"`
+	PromptInfluence *float32 `json:"prompt_influence,omitempty" jsonschema:"Sampling temperature."`
+	ExpansionModel  string   `json:"expansion_model,omitempty"  jsonschema:"Model that expands text; from list_models."`
 }
 
 // VoiceVerifyRequest is the input for voice with action verify.

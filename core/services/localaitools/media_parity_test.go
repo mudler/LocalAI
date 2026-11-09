@@ -182,4 +182,49 @@ var _ = Describe("media tool arguments match the API", func() {
 			Expect(srv.seen).To(BeEmpty())
 		})
 	})
+
+	Describe("generate_sound", func() {
+		It("sends every field of the route, under its API name", func() {
+			dur, infl := float32(30), float32(0.7)
+			bpm, yes, no := 120, true, false
+			_, err := cl.GenerateSound(ctx, localaitools.GenerateSoundRequest{
+				Text: "rain", Model: "snd", Duration: &dur, Lyrics: "la la", Instrumental: &no,
+				Caption: "calm piano", BPM: &bpm, Keyscale: "C major", Timesignature: "4/4",
+				Language: "en", VocalLanguage: "it", Think: &yes, DoSample: &yes, PromptInfluence: &infl,
+				ExpansionModel: "expander",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			body := srv.body("/v1/sound-generation")
+			Expect(body).To(HaveKeyWithValue("model_id", "snd"))
+			Expect(body).To(HaveKeyWithValue("text", "rain"))
+			Expect(body).To(HaveKeyWithValue("duration_seconds", BeNumerically("==", 30)))
+			Expect(body).To(HaveKeyWithValue("lyrics", "la la"))
+			Expect(body).To(HaveKeyWithValue("instrumental", false))
+			Expect(body).To(HaveKeyWithValue("caption", "calm piano"))
+			Expect(body).To(HaveKeyWithValue("bpm", BeNumerically("==", 120)))
+			Expect(body).To(HaveKeyWithValue("keyscale", "C major"))
+			Expect(body).To(HaveKeyWithValue("timesignature", "4/4"))
+			Expect(body).To(HaveKeyWithValue("language", "en"))
+			Expect(body).To(HaveKeyWithValue("vocal_language", "it"))
+			Expect(body).To(HaveKeyWithValue("think", true))
+			Expect(body).To(HaveKeyWithValue("do_sample", true))
+			Expect(body).To(HaveKeyWithValue("prompt_influence", BeNumerically("~", 0.7, 0.001)))
+			Expect(body).To(HaveKeyWithValue("expansion_model", "expander"))
+			// The route has no source audio on purpose, and the tool has no way to send one.
+			for _, k := range []string{"src", "source", "audio", "params"} {
+				Expect(body).ToNot(HaveKey(k), k)
+			}
+		})
+
+		It("sends nothing for what is not set, and refuses a bad bpm or influence", func() {
+			_, err := cl.GenerateSound(ctx, localaitools.GenerateSoundRequest{Text: "rain", Model: "snd"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.body("/v1/sound-generation")).To(HaveLen(2))
+			bad, big := 5, float32(9)
+			_, err = cl.GenerateSound(ctx, localaitools.GenerateSoundRequest{Text: "x", Model: "snd", BPM: &bad})
+			Expect(err).To(MatchError(ContainSubstring("bpm")))
+			_, err = cl.GenerateSound(ctx, localaitools.GenerateSoundRequest{Text: "x", Model: "snd", PromptInfluence: &big})
+			Expect(err).To(MatchError(ContainSubstring("prompt_influence")))
+		})
+	})
 })
