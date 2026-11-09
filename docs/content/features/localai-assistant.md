@@ -79,12 +79,14 @@ Every tool the model is offered is sent to it again on every turn, and the two g
 The three together are under 400 tokens. The setting `chats_tool_search` decides when a chat uses them:
 
 - `auto` (default): when the schemas of the tools of both groups that the chat would send reach a tenth of the context window of the chat's model. The window is the chat's own context size setting, or else the context size of the model. If the window is not known, the groups are sent in full.
-- `on`: always, when the chat has at least one tool in the groups.
+- `on`: always, when the chat has at least one tool in the groups. The tools of the user's MCP connectors (the Connectors page) go behind the three tools too.
 - `off`: never. Every tool is sent in full.
+
+The tools of MCP connectors load on demand only with `on`. With `auto` and `off` they are sent in full, as before. With `on`, a chat with many connectors sends the three tools instead of every connector schema on every turn: `tool_call` runs the connector tool the chat would have offered, so the switches of the chat, the grants of a saved agent and the `act.spend` rule apply in the same way. The MCP servers of the model's own configuration are not affected.
 
 The decision uses only the tools the chat would send and the window, so a chat gets the same answer on every turn. It changes only when you change the switches of the chat or the model.
 
-Permissions do not change. `tool_call` runs the same tool a direct call would, with the same checks: the role, the switches of the chat, the ceiling of a saved agent, the `act.spend` rule of a run that starts by itself, and the account of the person who is chatting. `tool_search` and `tool_describe` list and describe only tools the chat could call. Any other name, whether the tool exists or not, gets the same answer: `no such tool`. The tools of other groups, like the file and web tools, are always sent in full. The tools panel (`GET /api/chats/{id}/tools`) marks a group that loads on demand with `deferred: true`, and the Tools menu shows it as "Loaded on demand".
+Permissions do not change. `tool_call` runs the same tool a direct call would, with the same checks: the role, the switches of the chat, the ceiling of a saved agent, the `act.spend` rule of a run that starts by itself, and the account of the person who is chatting. `tool_search` and `tool_describe` list and describe only tools the chat could call. Any other name, whether the tool exists or not, gets the same answer: `no such tool`. The tools of other groups, like the file and web tools, are always sent in full; so are the tools of MCP connectors unless the setting is `on`. The tools panel (`GET /api/chats/{id}/tools`) marks a group that loads on demand with `deferred: true`, and the Tools menu shows it as "Loaded on demand".
 
 The OpenAI-compatible API is not changed: `metadata.localai_assistant` still gives an administrator the admin tools there, and the client tools are not offered.
 

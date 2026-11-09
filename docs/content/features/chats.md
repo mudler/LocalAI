@@ -1555,7 +1555,8 @@ curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}
 The two LocalAI groups are large, so on a small context window a chat may not send
 them in full: it sends `tool_search`, `tool_describe` and `tool_call` instead, and the
 model finds and runs their tools through them, under the same permissions. The setting
-`chats_tool_search` (`auto`, `on` or `off`) decides; see
+`chats_tool_search` (`auto`, `on` or `off`) decides; with `on`, the tools of the user's MCP
+connectors load on demand in the same way. See
 [Tool search]({{% relref "features/localai-assistant#tool-search" %}}). The tools panel marks
 such a group with `"deferred":true`.
 
