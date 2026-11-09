@@ -376,6 +376,9 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 	if err != nil {
 		return "", err
 	}
+	if s.coordinatorPaused(ctx, root) {
+		return "", ErrCoordinatorPaused
+	}
 	if depth+1 > s.helperLimitsOf(ctx, root).Depth {
 		s.auditHelperDenied(ctx, root, coordinator.ReasonDepthLimit)
 		return "", ErrSubAgentDepth

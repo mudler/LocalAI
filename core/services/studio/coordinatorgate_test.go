@@ -52,6 +52,8 @@ func newGateRigOn(sh *shared, st coordinator.Store, block chan struct{}, lim fun
 		switch {
 		case strings.Contains(text, "BLOCK"):
 			return []studiotest.ToolStep{{Block: block}}
+		case strings.Contains(text, "LATE"):
+			return []studiotest.ToolStep{{Block: block}, {Tool: "spawn_agent", Args: `{"task":"SLOW","wait":false}`}, {Say: "done"}}
 		case strings.Contains(text, "HELPER"):
 			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"SLOW","wait":false}`}, {Block: block}}
 		case strings.Contains(text, "SLOW"):
@@ -249,6 +251,19 @@ var _ = Describe("coordinator gate", func() {
 		used, err = r.store.Used(bg, rec.AgentID, coordinator.DayBucket("runs", time.Now()))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(used).To(Equal(1))
+	})
+
+	It("a turn that still runs when the pause arrives cannot start a helper", func() {
+		r := newGateRig(0, 0)
+		id, chat := r.desk("Desk")
+		Expect(r.send(bg, chat, "LATE").Started).To(BeTrue())
+		until("the turn to run", func() bool { return turn(r.svc, alice, chat).Running })
+		r.pause(id) // the stop is lost or late: only the flag is set
+		r.release()
+		until("the turn to end", func() bool { return !turn(r.svc, alice, chat).Running })
+		Expect(childrenOf(r.svc, alice, chat)).To(BeEmpty(), "a paused coordinator starts nothing, helpers included")
+		Expect(r.h.ResultsFor("spawn_agent")).To(HaveLen(1))
+		Expect(r.h.ResultsFor("spawn_agent")[0].Err).To(HaveOccurred())
 	})
 
 	It("a paused coordinator's turn that still runs does not take the held messages", func() {

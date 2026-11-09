@@ -54,6 +54,11 @@ type Verdict struct {
 // waiting; nothing is lost.
 var ErrCoordinatorHeld = errors.New("studio: the coordinator is paused or over its budget, so the message is held")
 
+// ErrCoordinatorPaused is what spawn_agent answers when the coordinator at the
+// top of the tree is paused: a turn that still runs when the pause arrives
+// must not start work that the pause would not stop.
+var ErrCoordinatorPaused = errors.New("studio: the coordinator is paused, so it starts no helper")
+
 var allowed = Verdict{Allow: true}
 
 func isCoordinatorChat(rec session.ChatRecord) bool { return rec.Origin == session.OriginCoordinator }
