@@ -184,6 +184,8 @@ any user, within their own permissions, in the same package. They differ from th
 
 ### Keeping the client in step with the API
 
+For media tools and arguments (file references, `params` allow-lists, budget raises) and for skills that need a sandbox profile, see [.agents/sandbox-profiles-and-media.md](sandbox-profiles-and-media.md).
+
 The client must follow the API. `clientcoverage_test.go` reads `auth.RouteFeatureRegistry` and
 fails when a route of an inference feature (chat, images, audio, video, 3d, sound, embeddings,
 rerank, detection, face and voice recognition, stores and the others in `clientCoveredFeatures`)
