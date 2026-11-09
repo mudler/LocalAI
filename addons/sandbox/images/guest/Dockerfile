@@ -69,11 +69,11 @@ COPY go.mod go.sum ./
 COPY addons/sandbox/internal/sandbox/guestagent ./addons/sandbox/internal/sandbox/guestagent
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=-s -o /sandbox-agent ./addons/sandbox/internal/sandbox/guestagent/cmd/sandbox-agent
 
-FROM ${DEBIAN}
-ARG IMAGE_VERSION=dev
-LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
-      org.opencontainers.image.version="${IMAGE_VERSION}" \
-      org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on"
+# One userland stage per profile (base, media, video), each built on the one
+# before it, on the build machine's network. The proxy settings of the guest
+# are set only in the finish block of each target below, so no install runs
+# with the guest proxy. Every target repeats the finish block; it is short.
+FROM ${DEBIAN} AS base-tools
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends bash ca-certificates curl file git jq poppler-utils python3 python3-pip \
@@ -87,19 +87,24 @@ RUN set -eux; \
 # python-docx, openpyxl and python-pptx must not be installed next to them.
 # This runs on the build machine's network, before the guest proxy below. The
 # check fails the build when a library is missing or comes from the wrong
-# distribution, and check-tools.sh fails it when a command-line tool (Poppler,
-# jq, zip, unzip, file, sqlite3, ripgrep, tree) is missing or not usable. The pip
+# distribution, and check-tools.sh fails it when a command-line tool of the
+# profile is missing or not usable. The pip
 # wheels go to /usr/local and shadow the Debian copies of the same libraries,
 # so "pip check" fails the build when the two sets do not fit together. The
 # apt package python3-pil stays on purpose: the pinned Pillow wheel shadows
 # it, and the Debian copy is the fallback if the wheel is ever removed.
 COPY addons/sandbox/images/guest/python-requirements.txt addons/sandbox/images/guest/check-python.py addons/sandbox/images/guest/check-tools.sh /tmp/guest-python/
+# The tools of each profile and their checks come from the add-on manifest, the
+# one list. check-tools.sh fails the build when a tool of the profile is missing.
+COPY addons/sandbox/manifest.json /tmp/guest-python/manifest.json
 RUN set -eux; \
     PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \
       -r /tmp/guest-python/python-requirements.txt; \
     python3 -m pip check; \
     python3 /tmp/guest-python/check-python.py; \
-    sh /tmp/guest-python/check-tools.sh; \
+    sh /tmp/guest-python/check-tools.sh base /tmp/guest-python/manifest.json; \
+    mkdir -p /usr/local/lib/localai; \
+    cp /tmp/guest-python/check-tools.sh /tmp/guest-python/manifest.json /usr/local/lib/localai/; \
     rm -rf /tmp/guest-python
 # Charts: matplotlib draws without a display (the Agg backend, which writes PNG
 # and SVG) and keeps its font cache in /tmp, because the user's home may not be
@@ -109,6 +114,92 @@ ENV MPLBACKEND=Agg MPLCONFIGDIR=/tmp/matplotlib
 COPY addons/sandbox/images/guest/document-skills/ /usr/local/lib/localai/document-skills/
 COPY addons/sandbox/images/guest/check-document-skills.py /usr/local/lib/localai/document-skills/check-document-skills.py
 RUN python3 /usr/local/lib/localai/document-skills/check-document-skills.py
+
+# media: base plus ffmpeg, sox and ImageMagick.
+FROM base-tools AS media-tools
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ffmpeg sox libsox-fmt-all imagemagick; \
+    rm -rf /var/lib/apt/lists/*; \
+    sh /usr/local/lib/localai/check-tools.sh media /usr/local/lib/localai/manifest.json
+
+# video: media plus a Rust toolchain (1.88 or newer, from trixie-backports; the
+# release of trixie has an older rustc) and the fframes renderer. The build
+# prerequisites of the Skia and ffmpeg builds that fframes needs are installed
+# with it. At run time the guest reaches crates.io, github.com and
+# release-assets.githubusercontent.com through the proxy, so the network
+# preset of the chat must allow them.
+FROM media-tools AS video-tools
+# The version of the fframes CLI (crate cargo-fframes, the cargo fframes command)
+# and of the fframes-media crate that projects use. Both are pinned.
+ARG CARGO_FFRAMES_VERSION=1.4.0
+ARG FFRAMES_MEDIA_VERSION=1.4.0
+RUN set -eux; \
+    echo 'deb http://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/backports.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends -t trixie-backports rustc cargo; \
+    apt-get install -y --no-install-recommends build-essential pkg-config clang libclang-dev nasm libx264-dev python3-dev cmake ninja-build libfontconfig1-dev libfreetype-dev libgl1-mesa-dev libssl-dev; \
+    rm -rf /var/lib/apt/lists/*; \
+    rustc --version | awk '{split($2,v,"."); exit !(v[1]>1 || (v[1]==1 && v[2]>=88))}'
+# FFMPEG_FORCE_BUILD makes the fframes-media crate build ffmpeg from source,
+# also in the builds of the user. The CLI is installed with a temporary cargo
+# home, so the home of the guest user is not touched.
+ENV FFMPEG_FORCE_BUILD=1 FFRAMES_MEDIA_VERSION=${FFRAMES_MEDIA_VERSION}
+RUN set -eux; \
+    CARGO_HOME=/tmp/cargo-install cargo install --locked --root /usr/local cargo-fframes@${CARGO_FFRAMES_VERSION}; \
+    rm -rf /tmp/cargo-install; \
+    sh /usr/local/lib/localai/check-tools.sh video /usr/local/lib/localai/manifest.json
+
+# Target video. The video profile.
+FROM video-tools AS video
+ARG IMAGE_VERSION=dev
+LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on, profile video"
+# The guest has no network device. Every tool must use the proxy on the
+# loopback interface; the sandbox serves it with a host port handler.
+ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \
+    http_proxy=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 no_proxy=localhost,127.0.0.1
+# Go and npm fetch from their registries through the proxy, not from version
+# control hosts directly (GOPROXY without ",direct"). cargo and uv read
+# HTTPS_PROXY.
+ENV GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod \
+    npm_config_proxy=http://127.0.0.1:3128 npm_config_https_proxy=http://127.0.0.1:3128
+RUN set -eux; \
+    printf '[global]\nproxy = http://127.0.0.1:3128\nbreak-system-packages = true\n' > /etc/pip.conf; \
+    printf 'Acquire::http::Proxy "http://127.0.0.1:3128";\nAcquire::https::Proxy "http://127.0.0.1:3128";\n' > /etc/apt/apt.conf.d/80proxy; \
+    git config --system http.proxy http://127.0.0.1:3128
+COPY --from=kernel /vmlinux /boot/vmlinux
+COPY --from=agent /sandbox-agent /sbin/sandbox-agent
+
+# Target media. The media profile.
+FROM media-tools AS media
+ARG IMAGE_VERSION=dev
+LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on, profile media"
+# The guest has no network device. Every tool must use the proxy on the
+# loopback interface; the sandbox serves it with a host port handler.
+ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \
+    http_proxy=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 no_proxy=localhost,127.0.0.1
+# Go and npm fetch from their registries through the proxy, not from version
+# control hosts directly (GOPROXY without ",direct"). cargo and uv read
+# HTTPS_PROXY.
+ENV GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod \
+    npm_config_proxy=http://127.0.0.1:3128 npm_config_https_proxy=http://127.0.0.1:3128
+RUN set -eux; \
+    printf '[global]\nproxy = http://127.0.0.1:3128\nbreak-system-packages = true\n' > /etc/pip.conf; \
+    printf 'Acquire::http::Proxy "http://127.0.0.1:3128";\nAcquire::https::Proxy "http://127.0.0.1:3128";\n' > /etc/apt/apt.conf.d/80proxy; \
+    git config --system http.proxy http://127.0.0.1:3128
+COPY --from=kernel /vmlinux /boot/vmlinux
+COPY --from=agent /sandbox-agent /sbin/sandbox-agent
+
+# Target base. The base profile. It is the last stage, so a build without --target makes it.
+FROM base-tools AS base
+ARG IMAGE_VERSION=dev
+LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on, profile base"
 # The guest has no network device. Every tool must use the proxy on the
 # loopback interface; the sandbox serves it with a host port handler.
 ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \

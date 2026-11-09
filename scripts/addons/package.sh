@@ -22,7 +22,11 @@
 # The Sandbox add-on needs the reference of its guest image, built into the
 # executable with -X main.guestImage. Set SANDBOX_GUEST_IMAGE to
 # <repository>@sha256:<digest> (the output of the sandbox-images workflow).
-# Without it the script refuses to build or accept a Sandbox executable, unless
+# The other profiles have their own images: SANDBOX_GUEST_IMAGE_MEDIA and
+# SANDBOX_GUEST_IMAGE_VIDEO, each <repository>@sha256:<digest>, both optional.
+# They reach the executable as one flag, -X main.profileImages=media=<ref>,video=<ref>;
+# a profile without an image is not offered by that release.
+# Without SANDBOX_GUEST_IMAGE the script refuses to build or accept a Sandbox executable, unless
 # --local-check is given: the build then uses a stand-in reference that no
 # registry serves, and the receipt is not publishable anyway.
 set -eu
@@ -79,6 +83,17 @@ if [ "$addon" = sandbox ]; then
         exit 2
     }
     ldflags="-X main.guestImage=$guest"
+    extra=
+    for pair in media:${SANDBOX_GUEST_IMAGE_MEDIA-} video:${SANDBOX_GUEST_IMAGE_VIDEO-}; do
+        ref=${pair#*:}
+        [ -n "$ref" ] || continue
+        printf '%s\n' "$ref" | grep -E '^[A-Za-z0-9._/:-]+@sha256:[0-9a-f]{64}$' >/dev/null || {
+            echo "package.sh: SANDBOX_GUEST_IMAGE_$(printf '%s' "${pair%%:*}" | tr a-z A-Z) must be <repository>@sha256:<64 hex digits>" >&2
+            exit 2
+        }
+        extra="${extra:+$extra,}${pair%%:*}=$ref"
+    done
+    [ -z "$extra" ] || ldflags="$ldflags -X main.profileImages=$extra"
 fi
 if [ -z "$executable" ]; then
     host="$(go env GOOS)/$(go env GOARCH)"
@@ -104,6 +119,12 @@ elif [ -n "$ldflags" ] && [ -z "$local_check" ]; then
         echo "package.sh: $executable was not built with -X main.guestImage" >&2
         exit 2
     }
+    for ref in $(printf '%s' "${extra-}" | tr ',' ' '); do
+        grep -aqF -- "${ref#*=}" "$executable" || {
+            echo "package.sh: $executable was not built with -X main.profileImages ($ref)" >&2
+            exit 2
+        }
+    done
 fi
 # The UI is a build output. Build it only when it is absent.
 if [ -n "$ui_dir" ] && [ ! -f "$ui_dir/ui/$addon.js" ]; then

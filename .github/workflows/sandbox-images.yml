@@ -1,16 +1,21 @@
 ---
 name: 'sandbox guest image'
 
-# Builds the guest image of the Sandbox add-on for linux/amd64 and linux/arm64
-# (addons/sandbox/images/guest/Dockerfile) and pushes it to the project
-# registry, the one the other image jobs use (quay.io/go-skynet). The release
-# of the add-on stamps the digest into the executable:
+# Builds the guest images of the Sandbox add-on for linux/amd64 and
+# linux/arm64 (addons/sandbox/images/guest/Dockerfile) and pushes them to the
+# project registry, the one the other image jobs use (quay.io/go-skynet). There
+# is one image for each sandbox profile: the targets base, media and video of
+# the Dockerfile. The release of the add-on stamps the digests into the
+# executable:
 #
-#   SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest> sh scripts/addons/package.sh ...
+#   SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest> \
+#   SANDBOX_GUEST_IMAGE_MEDIA=<repository>-media@sha256:<digest> \
+#   SANDBOX_GUEST_IMAGE_VIDEO=<repository>-video@sha256:<digest> \
+#     sh scripts/addons/package.sh ...
 #
-# This workflow outputs that value as "image" (and the bare "digest"), so a
-# caller workflow can run it with `uses:` and pass the output to the package
-# legs of the sandbox add-on.
+# This workflow outputs these values as "image" (the base image; also the bare
+# "digest"), "image_media" and "image_video", so a caller workflow can run it
+# with `uses:` and pass the outputs to the package legs of the sandbox add-on.
 #
 # Event policy:
 #   pull_request          build both architectures, push nothing, no secrets
@@ -20,9 +25,11 @@ name: 'sandbox guest image'
 #                         sha-<short sha>, except for a pull request and for a
 #                         push to a branch other than master, which push nothing
 #
-# The repository is quay.io/go-skynet/sandbox-guest unless the repository
-# variable SANDBOX_GUEST_REPOSITORY names another one. The repository must
-# allow anonymous pulls: the add-on pulls the image on the host that runs it.
+# The repository of the base image is quay.io/go-skynet/sandbox-guest unless
+# the repository variable SANDBOX_GUEST_REPOSITORY names another one. The media
+# and video images go to the same name with the suffix -media and -video. The
+# repositories must allow anonymous pulls: the add-on pulls an image on the
+# host that runs it.
 
 on:
   workflow_call:
@@ -33,6 +40,12 @@ on:
       digest:
         description: 'Digest of the guest image index'
         value: ${{ jobs.build.outputs.digest }}
+      image_media:
+        description: 'Reference of the media guest image by digest'
+        value: ${{ jobs.build.outputs.image_media }}
+      image_video:
+        description: 'Reference of the video guest image by digest'
+        value: ${{ jobs.build.outputs.image_video }}
   workflow_dispatch:
   push:
     branches: [master]
@@ -58,10 +71,12 @@ jobs:
   build:
     name: build and push the guest image
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 300
     outputs:
       image: ${{ steps.ref.outputs.image }}
       digest: ${{ steps.build.outputs.digest }}
+      image_media: ${{ steps.ref.outputs.image_media }}
+      image_video: ${{ steps.ref.outputs.image_video }}
     env:
       REPOSITORY: ${{ vars.SANDBOX_GUEST_REPOSITORY || 'quay.io/go-skynet/sandbox-guest' }}
       # A caller's push to a branch other than master publishes nothing
@@ -86,12 +101,15 @@ jobs:
           registry: quay.io
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-      - name: Build
+      # Each target is one build. The kernel and the agent stages are shared,
+      # so the layer cache makes the second and third build short for them.
+      - name: Build base
         id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./addons/sandbox/images/guest/Dockerfile
+          target: base
           platforms: linux/amd64,linux/arm64
           # No attestation manifests: the add-on reads the index and picks the
           # manifest of its own architecture.
@@ -101,20 +119,58 @@ jobs:
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
           tags: ${{ env.REPOSITORY }}:sha-${{ github.sha }}
           push: ${{ env.PUSH == 'true' }}
-      - name: Name the image by digest
+      - name: Build media
+        id: build_media
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./addons/sandbox/images/guest/Dockerfile
+          target: media
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
+          cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
+          tags: ${{ env.REPOSITORY }}-media:sha-${{ github.sha }}
+          push: ${{ env.PUSH == 'true' }}
+      - name: Build video
+        id: build_video
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./addons/sandbox/images/guest/Dockerfile
+          target: video
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
+          cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
+          tags: ${{ env.REPOSITORY }}-video:sha-${{ github.sha }}
+          push: ${{ env.PUSH == 'true' }}
+      - name: Name the images by digest
         id: ref
         if: env.PUSH == 'true'
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST_MEDIA: ${{ steps.build_media.outputs.digest }}
+          DIGEST_VIDEO: ${{ steps.build_video.outputs.digest }}
         run: |
           set -eu
-          case "$DIGEST" in
-          sha256:????????????????????????????????????????????????????????????????) ;;
-          *) echo "the build returned no image digest: '$DIGEST'" >&2; exit 1 ;;
-          esac
-          echo "image=${REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          for d in "$DIGEST" "$DIGEST_MEDIA" "$DIGEST_VIDEO"; do
+            case "$d" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "a build returned no image digest: '$d'" >&2; exit 1 ;;
+            esac
+          done
           {
-            echo '### Sandbox guest image'
+            echo "image=${REPOSITORY}@${DIGEST}"
+            echo "image_media=${REPOSITORY}-media@${DIGEST_MEDIA}"
+            echo "image_video=${REPOSITORY}-video@${DIGEST_VIDEO}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo '### Sandbox guest images'
             echo
             echo "SANDBOX_GUEST_IMAGE=${REPOSITORY}@${DIGEST}"
+            echo "SANDBOX_GUEST_IMAGE_MEDIA=${REPOSITORY}-media@${DIGEST_MEDIA}"
+            echo "SANDBOX_GUEST_IMAGE_VIDEO=${REPOSITORY}-video@${DIGEST_VIDEO}"
           } >> "$GITHUB_STEP_SUMMARY"

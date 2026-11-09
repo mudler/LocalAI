@@ -148,6 +148,16 @@ expect_fail 'package.sh refuses a guest image that is not by digest' 'must be <r
 env SANDBOX_GUEST_IMAGE="$good" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/withgi" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
 grep -F -- "-X main.guestImage=$good" "$work/ldflags.log" >/dev/null || { echo 'FAIL: SANDBOX_GUEST_IMAGE did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
 case_ok 'package.sh passes SANDBOX_GUEST_IMAGE to the linker'
+: >"$work/ldflags.log"
+mdig=sha256:$(printf 'abcdef0123456789%.0s' 1 2 3 4)
+env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA="registry.example/org/sandbox-guest-media@$mdig" SANDBOX_GUEST_IMAGE_VIDEO="registry.example/org/sandbox-guest-video@$mdig" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/withprof" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- "-X main.profileImages=media=registry.example/org/sandbox-guest-media@$mdig,video=registry.example/org/sandbox-guest-video@$mdig" "$work/ldflags.log" >/dev/null || { echo 'FAIL: the profile images did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
+case_ok 'package.sh passes the media and video images to the linker as one flag'
+: >"$work/ldflags.log"
+env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA="registry.example/org/sandbox-guest-media@$mdig" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/withmedia" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- "main.profileImages=media=registry.example/org/sandbox-guest-media@$mdig" "$work/ldflags.log" >/dev/null && ! grep -F -- 'video=' "$work/ldflags.log" >/dev/null || { echo 'FAIL: only the set profile image may reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
+case_ok 'package.sh passes only the profile images that are set'
+expect_fail 'package.sh refuses a media image that is not by digest' 'SANDBOX_GUEST_IMAGE_MEDIA must be' env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA=registry.example/org/media:latest PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/badmedia" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime"
 expect_fail 'matrix fails closed while no platform is enabled' 'no enabled platform' "$tool" matrix --config "$work/disabled.yaml"
 expect_fail 'matrix fails closed without a file' 'platform matrix' "$tool" matrix --config "$work/absent.yaml"
 
