@@ -18,6 +18,8 @@ import (
 	"net/textproto"
 	"net/url"
 	"path"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -66,7 +68,7 @@ func (e *StatusError) Error() string {
 	case http.StatusTooManyRequests:
 		return fmt.Sprintf("the server refused the %s request: the quota is used up or the server is busy (429)", e.Capability)
 	case http.StatusNotFound:
-		return fmt.Sprintf("the server does not know the model %q for %s (404). Check the name with list_installed_models.", e.Model, e.Capability)
+		return fmt.Sprintf("the server does not know the model %q for %s (404). Check the name with list_models.", e.Model, e.Capability)
 	}
 	msg := fmt.Sprintf("%s failed with status %d", e.Capability, e.Status)
 	if e.Detail != "" {
@@ -969,4 +971,86 @@ func (i *Inference) identify(ctx context.Context, spec ClientToolSpec, model str
 		out.Matches = []Match{}
 	}
 	return &out, nil
+}
+
+// maxListedModels bounds what list_models returns: the tool result costs
+// tokens on every call.
+const maxListedModels = 60
+
+// maxModelDescription bounds the description of a listed model, in bytes.
+const maxModelDescription = 120
+
+// capabilityAliases maps the words a caller may use to the capability names
+// of GET /v1/models/capabilities.
+var capabilityAliases = map[string]string{
+	"speech": "tts", "text-to-speech": "tts", "text_to_speech": "tts",
+	"transcription": "transcript", "stt": "transcript", "asr": "transcript",
+	"sound": "sound_generation", "music": "sound_generation", "sound-generation": "sound_generation",
+	"embedding": "embeddings", "embed": "embeddings",
+	"image_generation": "image", "images": "image",
+	"video_generation": "video",
+}
+
+// NormalizeCapability returns the capability name of the API for a word a
+// caller gave: lower case, with the common synonyms mapped.
+func NormalizeCapability(c string) string {
+	c = strings.ToLower(strings.TrimSpace(c))
+	if a, ok := capabilityAliases[c]; ok {
+		return a
+	}
+	return c
+}
+
+// ListModels lists the models the acting user may use (GET
+// /v1/models/capabilities). The route applies the user's model allow-list and
+// returns no paths or settings, so the same code serves every user; both
+// clients use it, as the other client tools.
+func (i *Inference) ListModels(ctx context.Context, req ListModelsRequest) (*ModelList, error) {
+	spec := clientSpec(ToolListModels)
+	if i == nil || i.Do == nil {
+		return nil, errors.New("inference is not available on this server")
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, PlaceholderHost+spec.Route, nil)
+	if err != nil {
+		return nil, err
+	}
+	data, _, err := i.roundTrip(httpReq, spec, "")
+	if err != nil {
+		return nil, err
+	}
+	var in struct {
+		Data []struct {
+			ID           string   `json:"id"`
+			Capabilities []string `json:"capabilities"`
+			Description  string   `json:"description"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(data, &in); err != nil {
+		return nil, errors.New("the server returned no model list")
+	}
+	want := NormalizeCapability(req.Capability)
+	out := &ModelList{Models: []ModelInfo{}}
+	for _, m := range in.Data {
+		if want != "" && !slices.Contains(m.Capabilities, want) {
+			continue
+		}
+		desc := strings.Join(strings.Fields(m.Description), " ")
+		if len(desc) > maxModelDescription {
+			desc = strings.ToValidUTF8(desc[:maxModelDescription], "") + "..."
+		}
+		out.Models = append(out.Models, ModelInfo{Name: m.ID, Capabilities: m.Capabilities, Description: desc})
+	}
+	sort.Slice(out.Models, func(a, b int) bool { return out.Models[a].Name < out.Models[b].Name })
+	if len(out.Models) > maxListedModels {
+		out.More = len(out.Models) - maxListedModels
+		out.Models = out.Models[:maxListedModels]
+	}
+	if len(out.Models) == 0 {
+		if want != "" {
+			out.Hint = fmt.Sprintf("no model with capability %q is available to this account. Call list_models without capability to see them all.", want)
+		} else {
+			out.Hint = "no model is available to this account. Tell the person; an administrator can install or allow one."
+		}
+	}
+	return out, nil
 }

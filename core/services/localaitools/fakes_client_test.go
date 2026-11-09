@@ -75,3 +75,8 @@ func (f *fakeClient) IdentifyFace(_ context.Context, req IdentifyFaceRequest) (*
 	f.record("IdentifyFace", req)
 	return &IdentifyResult{}, nil
 }
+
+func (f *fakeClient) ListModels(_ context.Context, req ListModelsRequest) (*ModelList, error) {
+	f.record("ListModels", req)
+	return &ModelList{Models: []ModelInfo{}}, nil
+}

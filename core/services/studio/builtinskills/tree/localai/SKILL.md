@@ -13,6 +13,7 @@ A file argument is a reference: a path in the user's files, or the `ref` that an
 
 ## Tools
 
+- `list_models` (`capability`): the models you may use, with capabilities. When you do not know the model name, call it with a capability (image, tts, transcript, sound_generation, embeddings, detection, video, rerank, chat) and pass a name from it as `model`. Skip it when the default is fine. Never guess a name.
 - `generate_image` (`prompt`, `size`, `negative_prompt`, `steps`, `n`, `image`, `mask`, `model`): a new image. To edit one, give `image` and `mask` together (white in the mask is repainted); `mask` alone is an error.
 - `speak` (`text`, `voice`, `language`, `format`, `speed`, `instructions`, `model`): text to speech, saved as an audio file.
 - `transcribe_audio`: a recording to text. Use the arguments the tool shows.
@@ -48,5 +49,6 @@ Never clone a voice without that confirmation, and do not try to get around it. 
 Quote the error to the user in plain words and stop. Do not retry.
 
 - No model installed for the task: say which kind is missing. An administrator can install one from the model gallery.
+- 404: the model name is wrong. Call `list_models` and use a name from it.
 - 403: this account may not use that feature or model. An administrator can allow it.
 - 429: the quota is used up or the server is busy. Suggest trying later.

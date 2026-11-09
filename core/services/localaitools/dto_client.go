@@ -18,7 +18,7 @@ type OutputFile struct {
 // GenerateImageRequest is the input for generate_image.
 type GenerateImageRequest struct {
 	Prompt         string `json:"prompt"                    jsonschema:"What the image shows."`
-	Model          string `json:"model,omitempty"           jsonschema:"Model; default first installed."`
+	Model          string `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
 	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT, for example 512x512."`
 	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
 	Steps          int    `json:"steps,omitempty"`
@@ -36,14 +36,14 @@ type EditImageRequest struct {
 	Prompt string `json:"prompt"          jsonschema:"What to paint."`
 	Image  string `json:"image"           jsonschema:"Image file."`
 	Mask   string `json:"mask"            jsonschema:"Mask file. White is repainted."`
-	Model  string `json:"model,omitempty" jsonschema:"Model; default first installed."`
+	Model  string `json:"model,omitempty" jsonschema:"From list_models. Default: first."`
 	Steps  int    `json:"steps,omitempty"`
 }
 
 // SpeakRequest is the input for speak.
 type SpeakRequest struct {
 	Text         string   `json:"text"`
-	Model        string   `json:"model,omitempty"        jsonschema:"Model; default first installed."`
+	Model        string   `json:"model,omitempty"        jsonschema:"From list_models. Default: first."`
 	Voice        string   `json:"voice,omitempty"        jsonschema:"Speaker id, or the voice of a voice_profile."`
 	Language     string   `json:"language,omitempty"`
 	Format       string   `json:"format,omitempty"       jsonschema:"wav, mp3, opus or flac."`
@@ -60,7 +60,7 @@ type AudioResult struct {
 // TranscribeAudioRequest is the input for transcribe_audio.
 type TranscribeAudioRequest struct {
 	Audio    string `json:"audio"              jsonschema:"Audio file."`
-	Model    string `json:"model,omitempty"    jsonschema:"Model; default first installed."`
+	Model    string `json:"model,omitempty"    jsonschema:"From list_models. Default: first."`
 	Language string `json:"language,omitempty"`
 	Prompt   string `json:"prompt,omitempty"   jsonschema:"Expected words."`
 }
@@ -89,7 +89,7 @@ type DescribeImageResult struct {
 // EmbedRequest is the input for embed.
 type EmbedRequest struct {
 	Input []string `json:"input"           jsonschema:"The texts to embed."`
-	Model string   `json:"model,omitempty" jsonschema:"Model; default first installed."`
+	Model string   `json:"model,omitempty" jsonschema:"From list_models. Default: first."`
 }
 
 // EmbedResult is the result of embed. The vectors go to a JSON file, because
@@ -105,7 +105,7 @@ type EmbedResult struct {
 // DetectRequest is the input for detect.
 type DetectRequest struct {
 	Image     string  `json:"image"               jsonschema:"Image file."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	Prompt    string  `json:"prompt,omitempty"    jsonschema:"What to find, if the model takes a prompt."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Minimum confidence, 0 to 1."`
 }
@@ -132,7 +132,7 @@ type RerankRequest struct {
 	Query     string   `json:"query"`
 	Documents []string `json:"documents"`
 	TopN      int      `json:"top_n,omitempty"  jsonschema:"Return only the best N."`
-	Model     string   `json:"model,omitempty"  jsonschema:"Model; default first installed."`
+	Model     string   `json:"model,omitempty"  jsonschema:"From list_models. Default: first."`
 }
 
 // RerankItem is one ranked document.
@@ -151,7 +151,7 @@ type RerankResult struct {
 // GenerateVideoRequest is the input for generate_video.
 type GenerateVideoRequest struct {
 	Prompt         string `json:"prompt"`
-	Model          string `json:"model,omitempty"           jsonschema:"Model; default first installed."`
+	Model          string `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
 	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT."`
 	Seconds        string `json:"seconds,omitempty"         jsonschema:"Length in seconds."`
 	FPS            int    `json:"fps,omitempty"`
@@ -168,7 +168,7 @@ type VideoResult struct {
 // GenerateSoundRequest is the input for generate_sound.
 type GenerateSoundRequest struct {
 	Text         string   `json:"text"                       jsonschema:"Describes the sound or the music."`
-	Model        string   `json:"model,omitempty"            jsonschema:"Model; default first installed."`
+	Model        string   `json:"model,omitempty"            jsonschema:"From list_models. Default: first."`
 	Duration     *float32 `json:"duration_seconds,omitempty" jsonschema:"Length in seconds."`
 	Lyrics       string   `json:"lyrics,omitempty"           jsonschema:"Lyrics, for song models."`
 	Instrumental *bool    `json:"instrumental,omitempty"     jsonschema:"Music with no voice."`
@@ -178,7 +178,7 @@ type GenerateSoundRequest struct {
 type VoiceVerifyRequest struct {
 	Audio1    string  `json:"audio1"              jsonschema:"First recording."`
 	Audio2    string  `json:"audio2"              jsonschema:"Second recording."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
 
@@ -194,7 +194,7 @@ type VerifyResult struct {
 // IdentifyVoiceRequest is the input for voice with action identify.
 type IdentifyVoiceRequest struct {
 	Audio     string  `json:"audio"               jsonschema:"Audio file."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	TopK      int     `json:"top_k,omitempty"     jsonschema:"How many matches."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
@@ -219,14 +219,14 @@ type IdentifyResult struct {
 type VerifyFaceRequest struct {
 	Image1    string  `json:"image1"              jsonschema:"First image."`
 	Image2    string  `json:"image2"              jsonschema:"Second image."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
 
 // IdentifyFaceRequest is the input for face with action identify.
 type IdentifyFaceRequest struct {
 	Image     string  `json:"image"               jsonschema:"Image file."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	TopK      int     `json:"top_k,omitempty"     jsonschema:"How many matches."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
@@ -237,7 +237,7 @@ type IdentifyFaceRequest struct {
 // (GenerateImage and EditImage); only the tool merges them.
 type GenerateImageToolInput struct {
 	Prompt         string `json:"prompt"                    jsonschema:"What to show, or paint in the mask."`
-	Model          string `json:"model,omitempty"           jsonschema:"Model; default first installed."`
+	Model          string `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
 	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT, for example 512x512."`
 	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
 	Steps          int    `json:"steps,omitempty"`
@@ -261,7 +261,7 @@ type VoiceToolInput struct {
 	Action    string  `json:"action"              jsonschema:"verify needs audio and audio2; identify needs audio."`
 	Audio     string  `json:"audio"               jsonschema:"Audio file."`
 	Audio2    string  `json:"audio2,omitempty"    jsonschema:"Second recording; verify."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	TopK      int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
@@ -271,7 +271,7 @@ type FaceToolInput struct {
 	Action    string  `json:"action"              jsonschema:"verify needs image and image2; identify needs image."`
 	Image     string  `json:"image"               jsonschema:"Image file."`
 	Image2    string  `json:"image2,omitempty"    jsonschema:"Second image; verify."`
-	Model     string  `json:"model,omitempty"     jsonschema:"Model; default first installed."`
+	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	TopK      int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
 }
@@ -314,4 +314,25 @@ const VoiceProfileVisibilityNote = "Profiles created by an administrator are vis
 type VoiceProfileList struct {
 	Profiles []VoiceProfileSummary `json:"profiles"`
 	Note     string                `json:"note,omitempty"`
+}
+
+// ListModelsRequest is the input for list_models.
+type ListModelsRequest struct {
+	Capability string `json:"capability,omitempty" jsonschema:"image, tts, transcript, sound_generation, embeddings, detection, video, rerank, chat. Empty: all."`
+}
+
+// ModelInfo is one model the acting user may use.
+type ModelInfo struct {
+	Name         string   `json:"name"`
+	Capabilities []string `json:"capabilities,omitempty"`
+	Description  string   `json:"description,omitempty"`
+}
+
+// ModelList is the result of list_models, by name.
+type ModelList struct {
+	Models []ModelInfo `json:"models"`
+	// More counts the models left out after the first maxListedModels.
+	More int `json:"more,omitempty"`
+	// Hint says what to do when the list is empty.
+	Hint string `json:"hint,omitempty"`
 }

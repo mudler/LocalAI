@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -83,6 +84,9 @@ type localAIStandIn struct {
 	headers   map[string]http.Header
 	imageOut  []byte
 	audioOut  []byte
+	// listed is what GET /v1/models/capabilities answers: the models the
+	// caller may use.
+	listed []map[string]any
 }
 
 func newStandIn() *localAIStandIn {
@@ -103,6 +107,16 @@ func newStandIn() *localAIStandIn {
 			data = append(data, map[string]any{"id": name, "capabilities": caps})
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+	})
+	mux.HandleFunc("/v1/models/capabilities", func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.headers[r.URL.Path] = r.Header.Clone()
+		if s.forbid[r.URL.Path] {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": s.listed})
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -363,7 +377,7 @@ var _ = Describe("client tools over the REST client", func() {
 
 	It("refuses a file path as the voice of a user who is not an administrator", func() {
 		srv.installed["tts"] = []string{"FLAG_TTS"}
-		user := &auth.User{ID: "u", Role: auth.RoleUser}
+		user := &auth.User{ID: "u", Role: auth.RoleUser, Status: auth.StatusActive}
 		for _, v := range []string{"/etc/passwd", "../clip.wav", `a\b.wav`} {
 			_, err := cl.Speak(localaitools.WithUser(ctx, user), localaitools.SpeakRequest{Text: "hi", Voice: v})
 			Expect(err).To(MatchError(ContainSubstring("not a file path")), v)
@@ -721,5 +735,141 @@ var _ = Describe("IsAudioName", func() {
 		for _, n := range []string{"a.png", "b.txt", "wav", ""} {
 			Expect(localaitools.IsAudioName(n)).To(BeFalse(), n)
 		}
+	})
+})
+
+// list_models runs through the API route as the acting user, so it works for
+// an account that has no admin tool, and shows only what the route shows it.
+var _ = Describe("list_models", func() {
+	ctx := context.Background()
+	entry := func(id, desc string, caps ...string) map[string]any {
+		return map[string]any{"id": id, "object": "model", "capabilities": caps, "description": desc}
+	}
+
+	Describe("over the REST client", func() {
+		var (
+			srv *localAIStandIn
+			cl  *httpapi.Client
+		)
+		BeforeEach(func() {
+			srv = newStandIn()
+			DeferCleanup(srv.Close)
+			cl = httpapi.New(srv.URL, "secret")
+			srv.listed = []map[string]any{
+				entry("zeta-voice", "", "tts"),
+				entry("flux", "Fast image model.", "image"),
+				entry("asr", "", "transcript"),
+				entry("qwen", "", "chat", "tools"),
+			}
+		})
+
+		It("lists every model by name with its capabilities and description", func() {
+			out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Hint).To(BeEmpty())
+			var names []string
+			for _, m := range out.Models {
+				names = append(names, m.Name)
+			}
+			Expect(names).To(Equal([]string{"asr", "flux", "qwen", "zeta-voice"}))
+			Expect(out.Models[1]).To(Equal(localaitools.ModelInfo{Name: "flux", Capabilities: []string{"image"}, Description: "Fast image model."}))
+		})
+
+		It("filters by capability, and understands the common synonyms", func() {
+			for _, c := range []string{"tts", "TTS", "speech", " text-to-speech "} {
+				out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Capability: c})
+				Expect(err).ToNot(HaveOccurred(), c)
+				Expect(out.Models).To(HaveLen(1), c)
+				Expect(out.Models[0].Name).To(Equal("zeta-voice"), c)
+			}
+			out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Capability: "transcription"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Models[0].Name).To(Equal("asr"))
+		})
+
+		It("says what to do when nothing matches", func() {
+			out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Capability: "video"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Models).To(BeEmpty())
+			Expect(out.Hint).To(ContainSubstring(`"video"`))
+			Expect(out.Hint).To(ContainSubstring("without capability"))
+			srv.listed = nil
+			out, err = cl.ListModels(ctx, localaitools.ListModelsRequest{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Hint).To(ContainSubstring("no model is available"))
+		})
+
+		It("keeps the answer small: a cap on the count and on a description", func() {
+			srv.listed = nil
+			for i := 0; i < 70; i++ {
+				srv.listed = append(srv.listed, entry(fmt.Sprintf("m%02d", i), strings.Repeat("long text ", 40), "chat"))
+			}
+			out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Models).To(HaveLen(60))
+			Expect(out.More).To(Equal(10))
+			Expect(out.Models[0].Name).To(Equal("m00"))
+			Expect(len(out.Models[0].Description)).To(BeNumerically("<=", 123))
+			Expect(out.Models[0].Description).To(HaveSuffix("..."))
+		})
+
+		It("sends the key, and reports a refusal of the server", func() {
+			_, err := cl.ListModels(ctx, localaitools.ListModelsRequest{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.headers["/v1/models/capabilities"].Get("Authorization")).To(Equal("Bearer secret"))
+			srv.forbid["/v1/models/capabilities"] = true
+			_, err = cl.ListModels(ctx, localaitools.ListModelsRequest{})
+			Expect(err).To(MatchError(ContainSubstring("403")))
+		})
+	})
+
+	It("lists as the acting user in process: a user without admin sees only the models the route lets them use", func() {
+		allowed := map[string]bool{"flux": true}
+		var seen []string
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u, ok := auth.InternalUser(r.Context())
+			if !ok || r.URL.Path != "/v1/models/capabilities" {
+				http.Error(w, "no user", http.StatusUnauthorized)
+				return
+			}
+			seen = append(seen, u.ID)
+			var data []map[string]any
+			for _, m := range []map[string]any{entry("flux", "", "image"), entry("secret-model", "", "image")} {
+				// What the route does: an admin sees all, another user the allow-list.
+				if u.Role == auth.RoleAdmin || allowed[m["id"].(string)] {
+					data = append(data, m)
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+		})
+		tr := provider.NewTransport()
+		tr.SetHandler(handler)
+		c := &inproc.Client{Transport: func() *provider.Transport { return tr }}
+
+		bob := &auth.User{ID: "bob", Role: auth.RoleUser, Status: auth.StatusActive}
+		out, err := c.ListModels(localaitools.WithUser(ctx, bob), localaitools.ListModelsRequest{Capability: "image"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Models).To(HaveLen(1))
+		Expect(out.Models[0].Name).To(Equal("flux"))
+
+		root := &auth.User{ID: "root", Role: auth.RoleAdmin, Status: auth.StatusActive}
+		out, err = c.ListModels(localaitools.WithUser(ctx, root), localaitools.ListModelsRequest{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Models).To(HaveLen(2))
+		Expect(seen).To(Equal([]string{"bob", "root"}))
+	})
+
+	It("refuses an in-process call that has no acting user, as the other client tools do", func() {
+		tr := provider.NewTransport()
+		tr.SetHandler(http.NotFoundHandler())
+		c := &inproc.Client{Transport: func() *provider.Transport { return tr }}
+		_, err := c.ListModels(ctx, localaitools.ListModelsRequest{})
+		Expect(err).To(MatchError(ContainSubstring("no acting user")))
+	})
+
+	It("points a 404 for a wrong model name at the tool a user can call", func() {
+		err := (&localaitools.StatusError{Capability: "image generation", Model: "nope", Status: http.StatusNotFound}).Error()
+		Expect(err).To(ContainSubstring("list_models"))
+		Expect(err).NotTo(ContainSubstring("list_installed_models"))
 	})
 })

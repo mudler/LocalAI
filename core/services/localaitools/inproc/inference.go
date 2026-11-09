@@ -195,6 +195,10 @@ func (w workspaceFiles) Write(ctx context.Context, name string, data []byte, _ s
 
 // ---- Client (inference) ----
 
+func (c *Client) ListModels(ctx context.Context, req localaitools.ListModelsRequest) (*localaitools.ModelList, error) {
+	return c.inference(ctx).ListModels(ctx, req)
+}
+
 func (c *Client) GenerateImage(ctx context.Context, req localaitools.GenerateImageRequest) (*localaitools.ImageResult, error) {
 	return c.inference(ctx).GenerateImage(ctx, req)
 }

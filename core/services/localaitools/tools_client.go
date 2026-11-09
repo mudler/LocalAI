@@ -26,6 +26,9 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		}
 		return !(opts.DisableClientFiles && clientToolFiles[tool])
 	}
+	addClientTool(s, ToolListModels,
+		"List models you can use, by capability. Pick the model name for the other tools here.",
+		client.ListModels)
 	if keep(ToolGenerateImage) {
 		addClientTool(s, ToolGenerateImage,
 			"Make images from a prompt, or with image and mask repaint the masked area. Saves files.",

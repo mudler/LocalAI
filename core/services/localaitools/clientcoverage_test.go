@@ -143,6 +143,11 @@ func clientCoverageProblems(
 	}
 	for _, t := range tools {
 		key := t.Method + " " + t.Route
+		if t.Feature == NoFeature && t.Tool == ToolListModels {
+			// list_models reads a listing route that checks no feature, so the
+			// route table of the features does not hold it.
+			continue
+		}
 		if !inRegistry[key] {
 			problems = append(problems, fmt.Sprintf(
 				"client tool %q wraps %s, which is not in auth.RouteFeatureRegistry. The route was removed or renamed: update the tool row.", t.Tool, key))

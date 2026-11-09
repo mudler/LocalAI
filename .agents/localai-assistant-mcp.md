@@ -157,6 +157,13 @@ any user, within their own permissions, in the same package. They differ from th
   does for the chat's file tools. The store travels to the MCP server with the acting-user token.
   Never run client tools in a chat without it. Never put file bytes in a tool argument or result.
 - Errors name the capability (`NoModelError`, `StatusError`), so the model can tell the person.
+- `list_models` is the model discovery of the group. It is not an admin tool and not an alias of
+  `list_installed_models`: that one reads the config for administrators (backend, pinned, disabled)
+  and ignores the allow-list. `list_models` goes through `GET /v1/models/capabilities` as the acting
+  user (`Inference.ListModels`, one implementation for both clients), so the model allow-list applies
+  and no path or setting leaks. It has a row in `ClientTools` with `NoFeature` and `FLAG_ANY`; the
+  chats offer it only together with another client tool. The `model` argument of every generation
+  tool and the 404 hint point to it. Keep both pointers when you add a tool that takes a model.
 - Client tools are not removed by `Options.DisableMutating`.
 - The group is sent on every turn, so it is small. Related operations that share state in one
   domain are one tool with an `action` parameter: `voice` and `face` (`verify`, `identify`),

@@ -10818,6 +10818,11 @@ definitions:
           the value is unknown (e.g. a loose file with no config). Clients can use
           this to size their context budget for auto-compaction and pruning.
         type: integer
+      description:
+        description: |-
+          Description is the short text the model's configuration carries, when it
+          has one. It never includes paths or settings.
+        type: string
       id:
         type: string
       input_modalities:

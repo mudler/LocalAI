@@ -102,7 +102,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListFailoverChains,
 	// The read-only flavour keeps the client tools that only analyse or list.
 	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
-	ToolVoice, ToolFace, ToolVoiceProfile,
+	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels,
 )
 
 // clientWriterTools are the client tools the read-only flavour leaves out: they
@@ -146,6 +146,7 @@ var _ = Describe("Tool dispatch", func() {
 	cases := []dispatchCase{
 		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
 		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
+		{ToolListModels, ListModelsRequest{Capability: "image"}, "ListModels"},
 		{ToolListGalleries, struct{}{}, "ListGalleries"},
 		{ToolListBackends, struct{}{}, "ListBackends"},
 		{ToolListKnownBackends, struct{}{}, "ListKnownBackends"},

@@ -24,6 +24,10 @@ func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQ
 	return []gallery.Metadata{{Name: "stub", Gallery: config.Gallery{Name: "stub-gallery"}}}, nil
 }
 
+func (stubClient) ListModels(_ context.Context, _ localaitools.ListModelsRequest) (*localaitools.ModelList, error) {
+	return &localaitools.ModelList{}, nil
+}
+
 func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capability) ([]localaitools.InstalledModel, error) {
 	return []localaitools.InstalledModel{{Name: "stub"}}, nil
 }
@@ -229,6 +233,8 @@ var _ = Describe("LocalAIAssistantHolder", func() {
 		Expect(manage).ToNot(ContainElement("generate_image"), "the OpenAI-compatible path gets the admin tools only")
 		Expect(client).To(ContainElements("generate_image", "speak"))
 		Expect(client).ToNot(ContainElement("list_installed_models"))
+		Expect(client).To(ContainElement("list_models"), "any user can discover the models the client tools take")
+		Expect(manage).ToNot(ContainElement("list_models"))
 		Expect(h.Executor().IsTool("generate_image")).To(BeFalse())
 		Expect(h.ClientExecutor().IsTool("generate_image")).To(BeTrue())
 		for _, n := range client {

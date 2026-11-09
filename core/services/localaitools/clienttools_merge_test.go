@@ -14,12 +14,17 @@ import (
 // Every tool of an always-sent group is paid on every turn of every chat, by
 // every user, whether or not the turn needs it. On a small context window
 // that cost decides whether the chat fits at all. The value is the measured
-// size after the merges and trims (6,523 bytes, about 1,650 tokens) plus
+// size after the merges and trims (6,948 bytes, about 1,750 tokens) plus
 // about 1%: the voice_profile tool took 613 bytes of the 5,910 before it. Raise
 // it only with a reason in the commit message: a new tool must justify its place first, and
 // an operation that shares state with an existing tool belongs in that tool
 // as an action (see .agents/localai-assistant-mcp.md).
-const clientBudgetBytes = 6600
+//
+// 6,600 to 7,000: list_models (345 bytes). Without it a user who is not an
+// administrator cannot learn the names of the models the other tools take,
+// and guesses them. It is the one listing tool for every user, so it is not
+// a candidate for a merge: it shares no state with a generation tool.
+const clientBudgetBytes = 7000
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {

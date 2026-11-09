@@ -90,6 +90,10 @@ func (c *Client) FirstModel(ctx context.Context, use config.ModelConfigUsecase) 
 
 // ---- Client (inference) ----
 
+func (c *Client) ListModels(ctx context.Context, req localaitools.ListModelsRequest) (*localaitools.ModelList, error) {
+	return c.inference().ListModels(ctx, req)
+}
+
 func (c *Client) GenerateImage(ctx context.Context, req localaitools.GenerateImageRequest) (*localaitools.ImageResult, error) {
 	return c.inference().GenerateImage(ctx, req)
 }
