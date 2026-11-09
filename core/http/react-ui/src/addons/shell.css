@@ -77,7 +77,7 @@
   border: 1px solid var(--dk-edge);
   border-radius: var(--r-lg);
   background: var(--dk-surface, var(--dk-inset));
-  box-shadow: var(--dk-shadow-pop, 0 8px 24px rgb(0 0 0 / 0.24));
+  box-shadow: var(--dk-shadow-pop, 0 8px 24px rgb(var(--dk-shadow-tint) / 0.24));
 }
 .ad-menu__item {
   display: flex;

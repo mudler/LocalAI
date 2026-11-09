@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useTranslation } from 'react-i18next'
 import Icon from './Icon'
 import { pagesApi } from '../utils/api'
-import { buildPageSrcdoc, createPageHost } from '../utils/pagesBridge'
+import { buildPageSrcdoc, createPageHost, noticeColours } from '../utils/pagesBridge'
 import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAssets'
 
 // One page of the workspace in its sandbox: an iframe with scripts and nothing
@@ -94,7 +94,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       : failed.length ? t('frame.filesFailed', { files: failed.slice(0, 5).join(', '), count: failed.length }) : ''
     return buildPageSrcdoc(ready.html, {
       name: page.name, title: page.title, theme, head: ready.head, modules: ready.modules,
-      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode, size,
+      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode, size, colors: noticeColours(),
     })
   }, [ready, page.name, page.title, theme, t, mode, size])
 

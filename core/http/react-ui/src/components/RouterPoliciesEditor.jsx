@@ -75,7 +75,7 @@ function PolicyRow({ row, duplicate, onChange, onRemove }) {
         gridTemplateColumns: '180px 1fr auto',
         gap: 'var(--spacing-sm)',
         alignItems: 'center',
-        border: '1px solid ' + (duplicate ? 'var(--color-warning, #d97706)' : 'var(--color-border)'),
+        border: '1px solid ' + (duplicate ? 'var(--color-warning)' : 'var(--color-border)'),
       }}
     >
       <input
