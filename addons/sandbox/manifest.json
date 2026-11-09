@@ -365,9 +365,9 @@
                 },
                 {
                   "name": "fframes",
-                  "detail": "renders video from code",
+                  "detail": "cargo fframes, renders video from code",
                   "check": [
-                    "fframes --version"
+                    "cargo-fframes --help"
                   ]
                 }
               ]

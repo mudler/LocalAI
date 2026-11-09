@@ -60,7 +60,7 @@ func mediaTools() []contract.ProfileTool {
 func videoTools() []contract.ProfileTool {
 	return append(mediaTools(),
 		tool("Rust", "rustc and cargo, 1.88 or newer", "rustc --version", "cargo --version"),
-		tool("fframes", "renders video from code", "fframes --version"),
+		tool("fframes", "cargo fframes, renders video from code", "cargo-fframes --help"),
 	)
 }
 
