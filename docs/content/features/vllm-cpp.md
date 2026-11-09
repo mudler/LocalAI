@@ -215,5 +215,8 @@ no `ner_labels` configuration is needed.
 
 ## Beyond text generation
 
-The `vllm-cpp` backend also serves MiniMax-H3, which generates video and audio
-jointly. See [Video generation]({{% relref "features/video-generation" %}}#minimax-h3-vllmcpp).
+MiniMax-H3, which generates video and audio jointly, is supported through the
+stable-diffusion.cpp backend (the `-ggml` gallery entries), not through
+`vllm-cpp`. The `vllm-cpp` video path has no gallery entries because it does not
+finish a clip in a practical time. See
+[Video generation]({{% relref "features/video-generation" %}}#minimax-h3).
