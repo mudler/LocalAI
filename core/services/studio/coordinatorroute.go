@@ -65,9 +65,13 @@ func (h *Coordinators) externalOn(ctx context.Context, b connectors.Binding) ([]
 	return out, nil
 }
 
-// find returns the coordinator and the contact that key names on b. When two
-// coordinators list the same contact, the older one gets the reply.
-func (h *Coordinators) find(ctx context.Context, b connectors.Binding, key string) (coordinator.Config, coordinator.Contact, bool) {
+// find returns the coordinator and the contact that the message m is a reply
+// of, on b. A contact is the sender in the chat the creator listed: the same
+// sender in another chat (a group the bot is in) is not it, or the answer of
+// the turn would go to a channel that nobody listed. When two coordinators list
+// the same contact, the older one gets the reply.
+func (h *Coordinators) find(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage) (coordinator.Config, coordinator.Contact, bool) {
+	key := messageKey(b, m)
 	cfgs, err := h.externalOn(ctx, b)
 	if err != nil {
 		h.log.Warn("studio: could not read the coordinators to route a reply", "binding", b.ID, "error", err)
@@ -75,7 +79,7 @@ func (h *Coordinators) find(ctx context.Context, b connectors.Binding, key strin
 	}
 	for _, c := range cfgs {
 		for _, ct := range c.Contacts {
-			if ct.Kind == coordinator.ContactExternal && ct.Binding == b.ID && contactKeyOf(b, ct.Chat, ct.Sender) == key {
+			if ct.Kind == coordinator.ContactExternal && ct.Binding == b.ID && contactKeyOf(b, ct.Chat, ct.Sender) == key && ct.Chat == m.Chat {
 				return c, ct, true
 			}
 		}
@@ -84,14 +88,14 @@ func (h *Coordinators) find(ctx context.Context, b connectors.Binding, key strin
 }
 
 // RouteOf returns the chat of the coordinator of the owner of b whose external
-// contact maps to key (see contactKeyOf). The chat is made again when it was
-// deleted. ok is false when no coordinator lists that contact: the message
-// then follows the normal path of the binding.
-func (h *Coordinators) RouteOf(ctx context.Context, b connectors.Binding, key string) (chatID string, ok bool) {
-	if h == nil || key == "" {
+// contact sent m (see find). The chat is made again when it was deleted. ok is
+// false when no coordinator lists that contact: the message then follows the
+// normal path of the binding.
+func (h *Coordinators) RouteOf(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage) (chatID string, ok bool) {
+	if h == nil || messageKey(b, m) == "" {
 		return "", false
 	}
-	cfg, _, found := h.find(ctx, b, key)
+	cfg, _, found := h.find(ctx, b, m)
 	if !found {
 		return "", false
 	}

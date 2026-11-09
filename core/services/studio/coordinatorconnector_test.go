@@ -134,6 +134,14 @@ var _ = Describe("coordinator connector", func() {
 		}
 	})
 
+	It("a listed contact who writes from another chat is not routed: the answer would go to a channel the creator did not list", func() {
+		d := newConnDesk(nil)
+		d.bot.mention(1, -500, 11, "Ada", "all good")
+		until("the message to be handled as an ordinary one", func() bool { return d.bot.pollCount() > 0 && len(d.bot.answers()) >= 1 })
+		Expect(d.h.Sent(d.chat)).To(BeEmpty())
+		Expect(pendingTexts(d.svc, alice, d.chat)).To(BeEmpty())
+	})
+
 	It("a reply while paused is queued with no message to the sender, and is delivered after resume", func() {
 		d := newConnDesk(nil)
 		_, err := d.host.Pause(ctx, studio.CoordinatorActor{User: alice}, d.agentID)

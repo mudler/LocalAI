@@ -867,7 +867,7 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	// held while it is paused; a sender that is no listed contact never gets
 	// here (it has no key that a coordinator lists).
 	if coord := c.svc.coordinators; coord != nil && !fresh {
-		if id, ok := coord.RouteOf(ctx, b, messageKey(b, m)); ok {
+		if id, ok := coord.RouteOf(ctx, b, m); ok {
 			chatID, key = id, "coordinator:"+messageKey(b, m)
 			m.Text = coord.Frame(ctx, b, m, id)
 			ctx = WithWake(ctx, WakeReply)
