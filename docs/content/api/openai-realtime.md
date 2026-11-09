@@ -5,7 +5,7 @@ aliases:
   - "/features/openai-realtime/"
 ---
 
-![The realtime voice loop: VAD to STT to LLM to TTS, over WebSocket or WebRTC](/images/diagrams/realtime-pipeline.png)
+![The realtime voice loop: VAD to STT to LLM to TTS, over WebSocket or WebRTC](/docs/images/diagrams/realtime-pipeline.png)
 
 LocalAI supports the [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) which enables low-latency, multi-modal conversations (voice and text) over WebSocket.
 

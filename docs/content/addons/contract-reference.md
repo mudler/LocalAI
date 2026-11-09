@@ -1497,7 +1497,7 @@ is pushed and attached to the release when it is published (see
 
 Studio, Talk, Voice, Face, Fine-tuning, Quantization, Simple Office and Web are not part of the LocalAI
 binary or image. A fresh install has none of them. The old links to the pages they replaced
-(see [Old links](#old-links)) open the add-on page, which says the add-on is not available
+open the add-on page, which says the add-on is not available
 until it is installed.
 
 To get them on a new install:

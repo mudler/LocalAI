@@ -4,7 +4,7 @@ title = "Face Recognition"
 weight = 42
 +++
 
-![Face recognition: 1:N match against a vector store, with an anti-spoofing liveness gate that can veto a verification](/images/diagrams/face-recognition-flow.png)
+![Face recognition: 1:N match against a vector store, with an anti-spoofing liveness gate that can veto a verification](/docs/images/diagrams/face-recognition-flow.png)
 
 LocalAI supports face recognition: face verification (1:1), face
 identification (1:N) against a built-in vector store, face embedding,
