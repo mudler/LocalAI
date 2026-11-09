@@ -1,6 +1,6 @@
 {
   "title": "Gmail",
-  "intro": "Izinkan agen Anda membaca email di akun Google Anda. Jika Anda mengizinkan, agen juga dapat menyimpan draf dan mengirimnya setelah Anda menyetujui masing-masing.",
+  "intro": "Biarkan agen Anda membaca email akun Google Anda. Jika Anda mengizinkan, agen juga dapat menyimpan draf dan mengirimnya, setelah Anda menyetujui masing-masing, kecuali Anda memilih Izinkan semua.",
   "limits": "Pilih Hubungkan dengan Google untuk menambahkan koneksi dan masuk ke akun Google Anda. Halaman ini mengatur label dan mode tulis setiap koneksi. Agen bekerja di kotak surat Anda hanya saat Anda memintanya dalam obrolan.",
   "edit": "Ubah koneksi Gmail",
   "name": "Nama",
@@ -46,21 +46,21 @@
     "hint": "Menyimpan draf, dan mengirim draf yang sudah ada. Agen tidak pernah menghapus, memindahkan ke sampah, memberi label, atau meneruskan email, dan tidak pernah mengubah pengaturan Anda.",
     "off": "Hanya baca",
     "propose": "Tanya Anda dulu",
-    "auto": "Bertindak tanpa bertanya",
+    "auto": "Izinkan semua",
     "line": {
       "off": "Agen tidak dapat menyimpan atau mengirim apa pun.",
       "propose": "Setiap draf dan setiap pengiriman menunggu persetujuan Anda.",
-      "auto": "Obrolan Anda langsung membuat perubahan."
+      "auto": "Chat Anda langsung menyimpan draf dan mengirim."
     },
     "note": {
       "off": "Akses tulis mati: koneksi ini hanya membaca.",
       "propose": "Setiap draf dan setiap pengiriman menunggu di persetujuan Anda sampai Anda mengonfirmasinya. Anda melihat penerima dan teksnya lebih dulu. Ini juga memerlukan akses tulis opsional yang Anda izinkan saat menghubungkan.",
-      "auto": "Setiap draf dan pengiriman tetap menunggu di persetujuan Anda: add-on ini tidak pernah menulis tanpa persetujuan seseorang. Ini juga memerlukan akses tulis opsional yang Anda izinkan saat menghubungkan."
+      "auto": "Chat Anda langsung menyimpan draf dan mengirim email, tanpa bertanya. Email yang terkirim tidak dapat ditarik kembali. Jalan tanpa kehadiran Anda tetap menunggu konfirmasi Anda."
     },
     "row": {
       "off": "Hanya baca",
       "propose": "Tanya Anda dulu",
-      "auto": "Tanya Anda dulu"
+      "auto": "Izinkan semua"
     }
   },
   "approval": {

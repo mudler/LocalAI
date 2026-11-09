@@ -66,21 +66,25 @@
   },
   "writeMode": {
     "label": "What the agent may do with this device",
-    "hint": "Reading the state is always allowed. You confirm every action, unless you choose Don't ask for a tool in the section below.",
+    "hint": "Reading the state is always allowed. You confirm every action, unless you choose Allow all or Don't ask for a tool in the section below.",
     "off": "Read only",
     "propose": "Asks you first",
     "line": {
       "off": "It can only read.",
-      "propose": "Each action waits for your OK, unless you turn that off for it."
+      "propose": "Each action waits for your OK, unless you turn that off for it.",
+      "auto": "Power actions and key presses run at once."
     },
     "note": {
       "off": "Write access is off: this connection only reads the state.",
-      "propose": "Each power action, text and key press waits in your approvals until you confirm it, unless you chose Don't ask for that tool. Typing and hard power actions also need the switch below."
+      "propose": "Each power action, text and key press waits in your approvals until you confirm it, unless you chose Don't ask for that tool. Typing and hard power actions also need the switch below.",
+      "auto": "A chat of yours presses the power button, presses keys and types text on the machine at once, without a card. Unsaved work is lost, typed text can run a command, and none of it can be taken back. Typing and hard power actions still need the switch below. Runs without you present still wait for your confirmation."
     },
     "row": {
       "off": "Read only",
-      "propose": "Asks you first"
-    }
+      "propose": "Asks you first",
+      "auto": "Allow all"
+    },
+    "auto": "Allow all"
   },
   "settings": {
     "title": "Typing and hard power actions",
@@ -94,12 +98,12 @@
     "broken": "The saved switches could not be read, so everything is treated as off. Save them again to repair them.",
     "none": "Add a PiKVM connection to set its switches.",
     "typing": "Allow typing and key presses",
-    "typingHint": "Lets a chat ask to type text and press keys. Typed text always waits for your confirmation. Key presses wait too, unless you chose Don't ask for them.",
+    "typingHint": "Lets a chat ask to type text and press keys. They wait for your confirmation, unless you chose Don't ask for key presses or Allow all.",
     "maxChars": "Longest text",
     "maxCharsHint": "Characters in one typed text. Default {{default}}, at most 1000.",
     "maxCharsShape": "Enter a whole number from 1 to 1000.",
     "hard": "Allow hard power actions",
-    "hardHint": "Lets a chat ask for a forced power off, a hardware reset or a long press of the power button. Each request waits for your confirmation, unless you chose Don't ask for power actions.",
+    "hardHint": "Lets a chat ask for a forced power off, a hardware reset or a long press of the power button. Each request waits for your confirmation, unless you chose Don't ask for power actions or Allow all.",
     "save": "Save switches",
     "saved": "Saved. The next call uses the new switches.",
     "neverTitle": "Never available",
@@ -146,9 +150,9 @@
       "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
       "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
     },
-    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "textAlways": "Typed text has no Don't ask, because it can enter a password or a command. It waits for your confirmation unless the connection is set to Allow all.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
-    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
     "loading": "Reading your choice...",
     "loadFailed": "Your choice could not be read. Reload the page to try again.",

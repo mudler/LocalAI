@@ -1,6 +1,6 @@
 {
   "title": "Gmail",
-  "intro": "Deixe seus agentes lerem os e-mails da sua conta do Google. Se você permitir, eles também podem salvar rascunhos e enviá-los depois que você aprovar cada um.",
+  "intro": "Deixe seus agentes lerem os e-mails da sua conta Google. Se você permitir, eles também podem salvar rascunhos e enviá-los, depois que você aprovar cada um, a menos que você escolha Permitir tudo.",
   "limits": "Selecione Conectar com o Google para adicionar uma conexão e entrar na sua conta do Google. Esta página define os marcadores e o modo de escrita de cada conexão. Um agente só trabalha na sua caixa de entrada quando você pede a ele em um chat.",
   "edit": "Editar conexão do Gmail",
   "name": "Nome",
@@ -46,21 +46,21 @@
     "hint": "Salvar um rascunho e enviar um rascunho que já existe. Ele nunca exclui, envia para a lixeira, marca nem encaminha e-mails, e nunca muda suas configurações.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
-    "auto": "Age sem perguntar",
+    "auto": "Permitir tudo",
     "line": {
       "off": "Ele não pode salvar nem enviar nada.",
       "propose": "Cada rascunho e cada envio esperam o seu OK.",
-      "auto": "Seus chats fazem a mudança na hora."
+      "auto": "Seus chats salvam rascunhos e enviam na hora."
     },
     "note": {
       "off": "O acesso de escrita está desligado: esta conexão só lê.",
       "propose": "Cada rascunho e cada envio esperam nas suas aprovações até você confirmar. Antes, você vê os destinatários e o texto. Também precisa do acesso de escrita opcional que você permite ao conectar.",
-      "auto": "Cada rascunho e cada envio ainda esperam nas suas aprovações: este complemento nunca escreve sem o OK de uma pessoa. Também precisa do acesso de escrita opcional que você permite ao conectar."
+      "auto": "Um chat seu salva rascunhos e envia e-mails na hora, sem perguntar. Um e-mail enviado não pode ser desfeito. Execuções sem você presente ainda esperam a sua confirmação."
     },
     "row": {
       "off": "Somente leitura",
       "propose": "Pergunta antes",
-      "auto": "Pergunta antes"
+      "auto": "Permitir tudo"
     }
   },
   "approval": {

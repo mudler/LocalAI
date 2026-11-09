@@ -66,21 +66,25 @@
   },
   "writeMode": {
     "label": "에이전트가 이 기기에서 할 수 있는 것",
-    "hint": "상태 읽기는 항상 허용됩니다. 아래 섹션에서 도구별로 달리 정하지 않는 한 모든 동작은 내가 확인합니다.",
+    "hint": "상태 읽기는 항상 허용됩니다. 모두 허용을 고르거나 아래 섹션에서 도구에 Don't ask를 고르지 않는 한 모든 동작은 내가 확인합니다.",
     "off": "읽기 전용",
     "propose": "먼저 묻기",
     "line": {
       "off": "읽기만 할 수 있습니다.",
-      "propose": "동작마다 내 승인을 기다립니다. 끄지 않는 한 그렇습니다."
+      "propose": "동작마다 내 승인을 기다립니다. 끄지 않는 한 그렇습니다.",
+      "auto": "전원 동작과 키 입력을 바로 실행합니다."
     },
     "note": {
       "off": "쓰기 접근이 꺼져 있습니다. 이 연결은 상태만 읽습니다.",
-      "propose": "전원 동작, 텍스트, 키 입력은 내가 확인할 때까지 승인 대기열에서 기다립니다. 해당 도구의 확인을 끄지 않은 경우입니다. 입력과 강제 전원 동작에는 아래 스위치도 필요합니다."
+      "propose": "전원 동작, 텍스트, 키 입력은 내가 확인할 때까지 승인 대기열에서 기다립니다. 해당 도구의 확인을 끄지 않은 경우입니다. 입력과 강제 전원 동작에는 아래 스위치도 필요합니다.",
+      "auto": "내 채팅은 카드 없이 기기의 전원 버튼을 누르고, 키를 누르고, 텍스트를 바로 입력합니다. 저장하지 않은 작업은 사라지고, 입력한 텍스트는 명령을 실행할 수 있으며, 어느 것도 되돌릴 수 없습니다. 입력과 강제 전원 동작에는 여전히 아래 스위치가 필요합니다. 내가 없는 상태에서 실행되는 작업은 계속 내 확인을 기다립니다."
     },
     "row": {
       "off": "읽기 전용",
-      "propose": "먼저 묻기"
-    }
+      "propose": "먼저 묻기",
+      "auto": "모두 허용"
+    },
+    "auto": "모두 허용"
   },
   "settings": {
     "title": "입력과 강제 전원 동작",
@@ -94,12 +98,12 @@
     "broken": "저장된 스위치를 읽을 수 없어서 모두 꺼진 것으로 처리합니다. 스위치를 다시 저장해 복구하세요.",
     "none": "스위치를 설정하려면 PiKVM 연결을 추가하세요.",
     "typing": "입력과 키 입력 허용",
-    "typingHint": "채팅이 텍스트 입력과 키 누르기를 요청할 수 있게 합니다. 입력하는 텍스트는 항상 내 확인을 기다립니다. 키 입력도 확인을 끄지 않은 한 기다립니다.",
+    "typingHint": "채팅이 텍스트 입력과 키 누르기를 요청할 수 있게 합니다. 키 입력에 Don't ask를 고르거나 모두 허용을 고르지 않는 한, 모두 내 확인을 기다립니다.",
     "maxChars": "최대 텍스트 길이",
     "maxCharsHint": "한 번에 입력하는 텍스트의 글자 수입니다. 기본값 {{default}}, 최대 1000.",
     "maxCharsShape": "1부터 1000까지의 정수를 입력하세요.",
     "hard": "강제 전원 동작 허용",
-    "hardHint": "채팅이 강제 전원 끄기, 하드웨어 리셋, 전원 버튼 길게 누르기를 요청할 수 있게 합니다. 전원 동작의 확인을 끄지 않은 한, 각 요청은 내 확인을 기다립니다.",
+    "hardHint": "채팅이 강제 전원 끄기, 하드웨어 리셋, 전원 버튼 길게 누르기를 요청할 수 있게 합니다. 전원 동작에 Don't ask나 모두 허용을 고르지 않은 한, 각 요청은 내 확인을 기다립니다.",
     "save": "스위치 저장",
     "saved": "저장했습니다. 다음 호출부터 새 스위치가 적용됩니다.",
     "neverTitle": "사용할 수 없는 항목",
@@ -146,9 +150,9 @@
       "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
       "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
     },
-    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "textAlways": "입력하는 텍스트에는 Don't ask가 없습니다. 비밀번호나 명령을 입력할 수 있기 때문입니다. 연결이 모두 허용으로 설정되지 않은 한 내 확인을 기다립니다.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
-    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
     "loading": "Reading your choice...",
     "loadFailed": "Your choice could not be read. Reload the page to try again.",

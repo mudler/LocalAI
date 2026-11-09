@@ -30,7 +30,7 @@ var _ = Describe("the manifest", func() {
 		for _, d := range m.Capabilities.ToolDefinitions {
 			if d.Kind == contract.ToolKindWrite {
 				Expect(tools.WriteTools()).To(ContainElement(d.Name))
-				Expect(d.Approval).To(Equal(contract.ApprovalAlways), d.Name)
+				Expect(d.Approval).To(BeEmpty(), d.Name+": a write waits in propose mode and runs in Allow all, so no approval ceiling")
 				continue
 			}
 			Expect(d.Kind).To(Equal(contract.ToolKindRead), d.Name)

@@ -7,7 +7,8 @@ import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
-import { Check, Field, Notice, RadioCards, Select, TextInput } from '../../../internal/connector-ui/src/controls'
+import { Check, Field, Notice, Select, TextInput } from '../../../internal/connector-ui/src/controls'
+import { WriteModeChip, WriteModeField } from '../../../internal/connector-ui/src/addonparts'
 import en from './i18n/mail.en.json'
 import it from './i18n/mail.it.json'
 import es from './i18n/mail.es.json'
@@ -104,28 +105,8 @@ function MailFields({ form, setForm, t }) {
           {problems.size && <Notice tone="warn" role="alert">{t('tooLong')}</Notice>}
         </>
       )}
-      <WriteMode form={form} setForm={setForm} t={t} />
+      <WriteModeField ns="mail" form={form} setForm={setForm} t={t} modes={WRITE_MODES} modeOf={writeModeOf} />
     </>
-  )
-}
-
-// The write mode: the host enforces it for both write tools. Every send and
-// every draft waits for a confirmation in either mode.
-function WriteMode({ form, setForm, t }) {
-  const mode = writeModeOf(form.write_mode)
-  return (
-    <div data-testid="mail-write-mode" className="ml-mode-block">
-      <Field label={t('writeMode.label')} hint={t('writeMode.hint')}>
-        {() => (
-          <RadioCards name="write-mode" legend={t('writeMode.label')} value={mode} onChange={(m) => setForm({ ...form, write_mode: m })}
-            options={WRITE_MODES.map((m) => ({
-              value: m,
-              label: (<span className="ml-modecard"><span className="ml-modecard__title">{t(`writeMode.${m}`)}</span><span className="ml-modecard__line">{t(`writeMode.line.${m}`)}</span></span>),
-            }))} />
-        )}
-      </Field>
-      <Notice tone={mode === 'off' ? 'info' : 'warn'} role="note" testId="mail-write-note">{t(`writeMode.note.${mode}`)}</Notice>
-    </div>
   )
 }
 
@@ -185,7 +166,7 @@ function RowInfo({ c, t }) {
   return (
     <>
       <span className="cn-muted" data-testid="mail-row-address">{address || t('noAddress')}</span>
-      <span><span className={`ml-chip ml-chip--${mode}`} data-testid="mail-row-write">{t(`writeMode.row.${mode}`)}</span></span>
+      <span><WriteModeChip ns="mail" mode={mode} t={t} /></span>
       <Checks c={c} t={t} />
     </>
   )

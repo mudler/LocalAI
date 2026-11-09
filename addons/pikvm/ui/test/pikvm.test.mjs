@@ -56,16 +56,19 @@ test('pikvm: the name follows the address until the person types one', () => {
 test('pikvm: the connection body carries one normalized address, with its pin, and the write mode', () => {
   assert.deepEqual(extraBody({ address_text: ` https://KVM.example/#sha256=${PIN} `, write_mode: 'propose' }), { resources: [`https://kvm.example#sha256=${PIN}`], write_mode: 'propose' })
   assert.deepEqual(extraBody({ address_text: '', write_mode: 'weird' }), { resources: [], write_mode: 'off' })
-  assert.deepEqual(extraForm({ resources: ['https://a.example'], write_mode: 'auto' }), { address_text: 'https://a.example', write_mode: 'off' }, 'auto is not offered: every action is confirmed')
+  assert.deepEqual(extraForm({ resources: ['https://a.example'], write_mode: 'auto' }), { address_text: 'https://a.example', write_mode: 'auto' }, 'a saved auto reads back as Allow all')
+  assert.equal(extraBody({ address_text: 'https://a.example', write_mode: 'auto' }).write_mode, 'auto')
   assert.equal(extraValid({ address_text: '' }), false)
   assert.equal(extraValid({ address_text: 'https://a.example' }), true)
   assert.equal(extraValid({ address_text: 'http://a.example' }), false)
 })
 
-test('pikvm: the write mode is off unless it is one of the two', () => {
-  assert.deepEqual(WRITE_MODES, ['off', 'propose'])
+test('pikvm: the write mode is off unless it is one of the three, and auto is offered', () => {
+  assert.deepEqual(WRITE_MODES, ['off', 'propose', 'auto'])
   assert.equal(writeModeOf(undefined), 'off')
   assert.equal(writeModeOf('propose'), 'propose')
+  assert.equal(writeModeOf('auto'), 'auto')
+  assert.equal(writeModeOf('weird'), 'off')
 })
 
 test('pikvm: the connection saves as credentials only, with the sealed pair and the address', () => {
@@ -91,7 +94,7 @@ test('pikvm: the Test line says what happened without the details of the failure
 test('pikvm: every word the page asks for exists, and says what is not supported', () => {
   const need = ['title', 'intro', 'new', 'edit', 'name', 'user', 'passwd', 'passwdHelp', 'credSaved', 'userMissing', 'passMissing', 'userColon', 'address', 'addressHelp', 'addressShape', 'addressHttp',
     'pinShape', 'pinHttp', 'pinHint', 'agent', 'test', 'save', 'cancel', 'editButton', 'delete', 'empty', 'inactive', 'limits', 'confirmDelete.title', 'confirmDelete.message', 'confirmDelete.confirm',
-    'writeMode.label', 'writeMode.off', 'writeMode.propose', 'writeMode.line.propose', 'writeMode.note.propose', 'writeMode.row.propose',
+    'writeMode.label', 'writeMode.off', 'writeMode.propose', 'writeMode.auto', 'writeMode.line.propose', 'writeMode.line.auto', 'writeMode.note.propose', 'writeMode.note.auto', 'writeMode.row.propose', 'writeMode.row.auto',
     'check.ok', 'check.refused', 'check.certificate', 'check.failed', 'setup.title', 'setup.tls', 'setup.twofa',
     'settings.title', 'settings.physical', 'settings.typing', 'settings.hard', 'settings.never', 'settings.maxCharsShape',
     'approval.titlePower', 'approval.titleText', 'approval.titleKeys', 'approval.physical', 'approval.hard', 'approval.power.on']
@@ -101,4 +104,24 @@ test('pikvm: every word the page asks for exists, and says what is not supported
   }
   assert.ok(/two-factor/.test(en.passwdHelp), 'the page says 2FA is not supported')
   assert.ok(!/—/.test(JSON.stringify(en)), 'no em dash in the words')
+})
+
+test('pikvm: Allow all has words in every language the add-on ships', async () => {
+  const { readFileSync } = await import('node:fs')
+  for (const loc of ['en','it','es','de','fr','zh-CN','id','ko','pt-BR']) {
+    const w = JSON.parse(readFileSync(new URL(`../src/i18n/pikvm.${loc}.json`, import.meta.url), 'utf8')).writeMode
+    for (const path of [['auto'], ['line', 'auto'], ['note', 'auto'], ['row', 'auto']]) {
+      const v = path.reduce((o, k) => o?.[k], w)
+      assert.equal(typeof v, 'string', `${loc}: writeMode.${path.join('.')}`)
+      assert.ok(v.length > 0)
+    }
+    assert.notEqual(w.row.auto, w.row.propose, `${loc}: Allow all must not read as Asks you first`)
+  }
+})
+
+test('pikvm: the Allow all note says typing and key presses run at once and the device switches still hold', () => {
+  assert.match(en.writeMode.note.auto, /types text on the machine at once/)
+  assert.doesNotMatch(en.writeMode.note.auto, /still waits/)
+  assert.match(en.writeMode.note.auto, /still need the switch/)
+  assert.match(en.writeMode.note.auto, /none of it can be taken back/)
 })

@@ -1,6 +1,6 @@
 {
   "title": "Gmail",
-  "intro": "Lascia che i tuoi agenti leggano la posta del tuo account Google. Se lo permetti, possono anche salvare bozze e inviarle dopo che hai approvato ciascuna.",
+  "intro": "Lascia che i tuoi agenti leggano la posta del tuo account Google. Se lo permetti, possono anche salvare bozze e inviarle, dopo che hai approvato ciascuna, a meno che tu scelga Consenti tutto.",
   "limits": "Scegli «Connetti con Google» per aggiungere una connessione e accedere al tuo account Google. Questa pagina imposta le etichette e la modalità di scrittura di ogni connessione. Un agente lavora nella tua casella solo quando glielo chiedi in una chat.",
   "edit": "Modifica la connessione a Gmail",
   "name": "Nome",
@@ -46,21 +46,21 @@
     "hint": "Salvare una bozza e inviare una bozza esistente. Non elimina, non sposta nel cestino, non etichetta e non inoltra mai la posta, e non cambia mai le tue impostazioni.",
     "off": "Sola lettura",
     "propose": "Chiede prima a te",
-    "auto": "Agisce senza chiedere",
+    "auto": "Consenti tutto",
     "line": {
       "off": "Non può salvare né inviare nulla.",
       "propose": "Ogni bozza e ogni invio aspettano il tuo OK.",
-      "auto": "Le tue chat fanno la modifica subito."
+      "auto": "Le tue chat salvano bozze e inviano subito."
     },
     "note": {
       "off": "L'accesso in scrittura è disattivato: questa connessione legge soltanto.",
       "propose": "Ogni bozza e ogni invio aspettano nelle tue approvazioni finché non li confermi. Prima vedi i destinatari e il testo. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione.",
-      "auto": "Ogni bozza e ogni invio aspettano comunque nelle tue approvazioni: questo add-on non scrive mai senza l'OK di una persona. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione."
+      "auto": "Una tua chat salva bozze e invia la posta subito, senza chiedere. Un'email inviata non si può ritirare. Le esecuzioni senza di te presente aspettano comunque la tua conferma. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione."
     },
     "row": {
       "off": "Sola lettura",
       "propose": "Chiede prima a te",
-      "auto": "Chiede prima a te"
+      "auto": "Consenti tutto"
     }
   },
   "approval": {

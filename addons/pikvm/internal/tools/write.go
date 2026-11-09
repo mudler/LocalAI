@@ -18,13 +18,16 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// The three write tools have physical effects on a real machine. The manifest
-// declares approval "always" for each: a person confirms every call, whatever
-// the write mode of the connection is. power-action and send-key are also
-// approvalOverridable: the owner can choose "Don't ask" for them, and only the
-// host honors that, for the owner's own chat and for paired senders. type-text
-// is never overridable. The kvmd API has no idempotency key, so
-// the add-on notes an operation before it sends it and never sends one twice.
+// The three write tools have physical effects on a real machine. Each waits for
+// a person in the propose mode of the connection. power-action and
+// send-key declare approval "always" and are approvalOverridable: the owner can
+// choose "Don't ask" for them. type-text has no per-tool choice. The write mode
+// Allow all runs all three at once. The per-device switches for typing and hard
+// power actions are administrator policy: they are checked here and hold in
+// every mode, Allow all included.
+//
+// The kvmd API has no idempotency key, so the add-on notes an operation before
+// it sends it and never sends one twice.
 
 const (
 	previewBudget = 8 << 10

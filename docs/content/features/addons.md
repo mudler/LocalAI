@@ -3974,6 +3974,13 @@ marked `approvalOverridable` is never relaxed, whatever the setting holds. In a 
 the decision for a messaging chat needs the grant of the turn, which lives on the
 frontend that runs it; a call without it asks.
 
+The write mode **auto**, which the add-on pages call **Allow all**, lifts the same ceiling
+for these tools: with a connection on **auto**, a tool marked `approvalOverridable` runs
+without a card whatever its `approval-<tool>` setting says, because the person chose to let
+the agent act without asking for the whole connection. A tool with `"approval": "always"`
+that is not `approvalOverridable` still waits for a person in every write mode. Use that
+for an action that must never run unasked. The mail, Gmail, Google Drive and PiKVM add-ons declare none.
+
 Every call that runs without a card is logged with the add-on, the tool, the connection,
 the user and the outcome (`applied`, `rejected`, `unknown` or `not_run`), and never the
 arguments. The same line is added to the connection's latest decisions. The connection's
@@ -3985,7 +3992,15 @@ with its setting and who it runs for without asking now.
 
 A `write` tool that declares no `approval` follows the write mode of its connection:
 **off** refuses it, **propose** holds it for a person to confirm in a card, and **auto**
-applies it at once. The mode belongs to the person, who sets it on the add-on page with
+applies it at once. The add-on pages name the three modes **Read only**, **Asks you first**
+and **Allow all** (some older pages say **Runs at once** or **Acts without asking**). The
+mail, Gmail, Google Drive and PiKVM add-ons offer all three. Declare `"approval": "always"`
+only for a tool that must wait for a person even in **Allow all**; it also keeps the tool
+waiting in **propose**, so an add-on that wants the connection to decide leaves it out.
+Before the mail, Gmail and Google Drive add-ons offered **Allow all**, their write tools
+declared `"approval": "always"`, so a connection that an API call had set to `auto` still
+waited for a person. Those tools no longer declare it, and such a connection now applies
+the change at once. The mode belongs to the person, who sets it on the add-on page with
 their own session; a model cannot change it, and a new connection made on the page starts
 on **propose**. The SSH add-on works this way: its `run` tool declares no `approval` and
 no `approvalOverridable`, so the connection is the one place where the person chooses

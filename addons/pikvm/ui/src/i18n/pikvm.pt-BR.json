@@ -66,21 +66,25 @@
   },
   "writeMode": {
     "label": "O que o agente pode fazer com este dispositivo",
-    "hint": "Ler o estado é sempre permitido. Cada ação é confirmada por você, a menos que você escolha o contrário para uma ferramenta na seção abaixo.",
+    "hint": "Ler o estado é sempre permitido. Cada ação é confirmada por você, a menos que você escolha Permitir tudo ou Don't ask para uma ferramenta na seção abaixo.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
     "line": {
       "off": "Ele só pode ler.",
-      "propose": "Cada ação espera o seu OK, a menos que você desligue isso."
+      "propose": "Cada ação espera o seu OK, a menos que você desligue isso.",
+      "auto": "Ações de energia e teclas rodam na hora."
     },
     "note": {
       "off": "O acesso de escrita está desligado: esta conexão só lê o estado.",
-      "propose": "Cada ação de energia, texto e tecla pressionada espera nas suas aprovações até você confirmar, a menos que você tenha desligado isso para essa ferramenta. A digitação e as ações de energia forçadas também precisam do interruptor abaixo."
+      "propose": "Cada ação de energia, texto e tecla pressionada espera nas suas aprovações até você confirmar, a menos que você tenha desligado isso para essa ferramenta. A digitação e as ações de energia forçadas também precisam do interruptor abaixo.",
+      "auto": "Um chat seu pressiona o botão de energia, pressiona teclas e digita texto na máquina na hora, sem cartão. O trabalho não salvo se perde, o texto digitado pode executar um comando e nada disso pode ser desfeito. Digitar e as ações de energia forçadas continuam precisando do interruptor abaixo. Execuções sem você presente ainda esperam a sua confirmação."
     },
     "row": {
       "off": "Somente leitura",
-      "propose": "Pergunta antes"
-    }
+      "propose": "Pergunta antes",
+      "auto": "Permitir tudo"
+    },
+    "auto": "Permitir tudo"
   },
   "settings": {
     "title": "Digitação e ações de energia forçadas",
@@ -94,12 +98,12 @@
     "broken": "Não foi possível ler os interruptores salvos, então tudo é tratado como desligado. Salve-os de novo para repará-los.",
     "none": "Adicione uma conexão do PiKVM para definir os interruptores dela.",
     "typing": "Permitir digitação e teclas pressionadas",
-    "typingHint": "Deixa um chat pedir para digitar texto e pressionar teclas. O texto digitado sempre espera a sua confirmação. As teclas também, a menos que você tenha desligado isso.",
+    "typingHint": "Deixa um chat pedir para digitar texto e pressionar teclas. Eles esperam a sua confirmação, a menos que você tenha escolhido Don't ask para as teclas ou Permitir tudo.",
     "maxChars": "Texto mais longo",
     "maxCharsHint": "Caracteres em um texto digitado. Padrão {{default}}, no máximo 1000.",
     "maxCharsShape": "Digite um número inteiro de 1 a 1000.",
     "hard": "Permitir ações de energia forçadas",
-    "hardHint": "Deixa um chat pedir um desligamento forçado, um reset de hardware ou um toque longo no botão de energia. Cada pedido espera a sua confirmação, a menos que você tenha desligado isso para as ações de energia.",
+    "hardHint": "Deixa um chat pedir um desligamento forçado, um reset de hardware ou um toque longo no botão de energia. Cada pedido espera a sua confirmação, a menos que você tenha escolhido Don't ask para as ações de energia ou Permitir tudo.",
     "save": "Salvar interruptores",
     "saved": "Salvo. A próxima chamada usa os novos interruptores.",
     "neverTitle": "Nunca disponível",
@@ -146,9 +150,9 @@
       "power-action": "A chat can then switch this machine off or reset it at once, with no card to confirm, and unsaved work on it is lost. If an administrator allowed hard power actions, those run without asking too.",
       "send-key": "A chat can then press keys such as Ctrl+Alt+Delete, Escape or Enter on this machine at once, with no card to confirm."
     },
-    "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
+    "textAlways": "O texto digitado não tem Don't ask, porque pode inserir uma senha ou um comando. Ele espera a sua confirmação, a menos que a conexão esteja em Permitir tudo.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
-    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
     "loading": "Reading your choice...",
     "loadFailed": "Your choice could not be read. Reload the page to try again.",

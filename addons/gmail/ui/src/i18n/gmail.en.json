@@ -1,6 +1,6 @@
 {
   "title": "Gmail",
-  "intro": "Let your agents read the mail of your Google account. If you allow it, they can also save drafts and send them after you approve each one.",
+  "intro": "Let your agents read the mail of your Google account. If you allow it, they can also save drafts and send them, after you approve each one unless you choose Allow all.",
   "limits": "Select Connect with Google to add a connection and sign in to your Google account. This page sets the labels and the write mode of each connection. An agent works in your mailbox only when you ask it in a chat.",
   "edit": "Edit Gmail connection",
   "name": "Name",
@@ -46,21 +46,21 @@
     "hint": "Save a draft, and send a draft that exists. It never deletes, trashes, labels or forwards mail, and it never changes your settings.",
     "off": "Read only",
     "propose": "Asks you first",
-    "auto": "Acts without asking",
+    "auto": "Allow all",
     "line": {
       "off": "It cannot save or send anything.",
       "propose": "Each draft and each send waits for your OK.",
-      "auto": "Your chats make the change at once."
+      "auto": "Your chats save drafts and send at once."
     },
     "note": {
       "off": "Write access is off: this connection only reads.",
       "propose": "Each draft and each send waits in your approvals until you confirm it. You see the recipients and the text first. It also needs the optional write access that you allow when you connect.",
-      "auto": "Every draft and send still waits in your approvals: this add-on never writes without a person's OK. It also needs the optional write access that you allow when you connect."
+      "auto": "A chat of yours saves drafts and sends mail at once, without asking. A sent mail cannot be taken back. Runs without you present still wait for your confirmation. It also needs the optional write access that you allow when you connect."
     },
     "row": {
       "off": "Read only",
       "propose": "Asks you first",
-      "auto": "Asks you first"
+      "auto": "Allow all"
     }
   },
   "approval": {

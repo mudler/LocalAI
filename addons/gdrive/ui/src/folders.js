@@ -41,13 +41,11 @@ export const foldersProblem = (text) => foldersIssue(text)?.key || ''
 
 // What the agent may change in Drive with this connection. The host keeps it on
 // the binding and enforces it: off runs no write tool, propose stores each
-// change for you to confirm, auto lets a chat of yours make it at once. Every
-// change in Drive also needs the optional access that was allowed at login.
+// change for you to confirm, auto (shown as Allow all) lets a chat of yours make
+// it at once. A new connection starts at off, and Allow all is never chosen for
+// the person. Every change in Drive also needs the optional access that was
+// allowed at login.
 export const WRITE_MODES = ['off', 'propose', 'auto']
-// The modes the page offers. Every write tool of this add-on waits for a
-// person (the tools set approval always), so auto would be the same as
-// propose; a connection that has it keeps it and reads as asking first.
-export const OFFERED_MODES = ['off', 'propose']
 export const writeModeOf = (m) => (WRITE_MODES.includes(m) ? m : 'off')
 
 // All folders is the list *: the host holds the connection to its list and

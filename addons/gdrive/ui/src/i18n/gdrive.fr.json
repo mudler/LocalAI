@@ -51,21 +51,21 @@
     "hint": "Créer un fichier texte, remplacer le texte d’un fichier, renommer ou déplacer un fichier, et mettre un fichier à la corbeille. Il ne partage jamais un fichier et n’en supprime aucun définitivement.",
     "off": "Lecture seule",
     "propose": "Vous demande d’abord",
-    "auto": "Agit sans demander",
+    "auto": "Tout autoriser",
     "line": {
       "off": "Il ne peut rien changer dans Drive.",
       "propose": "Chaque changement attend votre accord.",
-      "auto": "Vos chats font le changement aussitôt."
+      "auto": "Vos chats font la modification tout de suite."
     },
     "note": {
       "off": "L’accès en écriture est désactivé : cette connexion ne fait que lire.",
       "propose": "Chaque changement attend dans vos approbations jusqu’à ce que vous le confirmiez. Il demande aussi l’accès en écriture facultatif que vous autorisez à la connexion.",
-      "auto": "Chaque changement attend quand même dans vos approbations : ce module n’écrit jamais sans l’accord d’une personne. Il demande aussi l’accès en écriture facultatif que vous autorisez à la connexion."
+      "auto": "Un de vos chats fait chaque modification tout de suite, sans demander, et LocalAI ne peut pas l'annuler. Les exécutions sans vous attendent toujours votre confirmation."
     },
     "row": {
       "off": "Lecture seule",
       "propose": "Vous demande d’abord",
-      "auto": "Vous demande d’abord"
+      "auto": "Tout autoriser"
     }
   },
   "approval": {

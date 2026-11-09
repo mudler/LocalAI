@@ -217,7 +217,7 @@
       },
       {
         "name": "create-draft",
-        "description": "Save a draft e-mail in the person's Gmail. It does not send it. The person must approve the draft; do not say it was saved until the result says so. Needs the optional write permission of the connection. To reply, give replyToMessageId: the draft joins that thread. Plain text body up to 64 KiB; at most 20 recipients. Never put a secret in the text.",
+        "description": "Save a draft e-mail in the person's Gmail. It does not send it. The draft may wait for the person to approve it; do not say it was saved until the result says so. Needs the optional write permission of the connection. To reply, give replyToMessageId: the draft joins that thread. Plain text body up to 64 KiB; at most 20 recipients. Never put a secret in the text.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -267,12 +267,11 @@
             "body"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       },
       {
         "name": "send-draft",
-        "description": "Send a draft that exists in the person's Gmail, as it is now. The person must approve the sending and sees the recipients and the text first; do not say it was sent until the result says so. A sent e-mail cannot be taken back. Needs the optional write permission of the connection. Create the draft first with create-draft.",
+        "description": "Send a draft that exists in the person's Gmail, as it is now. The sending may wait for the person to approve it after they see the recipients and the text; do not say it was sent until the result says so. A sent e-mail cannot be taken back. Needs the optional write permission of the connection. Create the draft first with create-draft.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -293,8 +292,7 @@
             "draftId"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       }
     ],
     "credentials": [
