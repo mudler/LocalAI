@@ -88,7 +88,7 @@
     "step1": "Find the IMAP and SMTP server names of your provider in its help pages. Both use TLS or STARTTLS.",
     "step2": "If the provider supports it, create an app password for LocalAI and use it as the password. A normal password often does not work with IMAP.",
     "step3": "Enter the address, the username, the password and the two servers, then save. Saving logs in to both servers.",
-    "step4": "Choose whether the agent may also send and draft mail. Each send and each draft waits for your confirmation, in either mode.",
+    "step4": "Choose whether the agent may also send and draft mail, and whether it asks you first. With Allow all it acts without asking, and a sent mail cannot be taken back.",
     "private": "The mail servers must be on the public internet: addresses inside a private network are refused."
   },
   "writeMode": {
@@ -98,16 +98,20 @@
     "propose": "Asks you first",
     "line": {
       "off": "It can only read.",
-      "propose": "Each send and each draft waits for your OK."
+      "propose": "Each send and each draft waits for your OK.",
+      "auto": "Your chats send and save without asking."
     },
     "note": {
       "off": "Write access is off: this connection only reads.",
-      "propose": "Each send and each draft waits in your approvals until you confirm it. A sent mail cannot be taken back, and everyone in To and Cc will read it."
+      "propose": "Each send and each draft waits in your approvals until you confirm it. A sent mail cannot be taken back, and everyone in To and Cc will read it.",
+      "auto": "A chat of yours sends and saves mail at once, without asking. A sent mail cannot be taken back, and everyone in To and Cc will read it. Runs without you present still wait for your confirmation."
     },
     "row": {
       "off": "Read only",
-      "propose": "Asks you first"
-    }
+      "propose": "Asks you first",
+      "auto": "Allow all"
+    },
+    "auto": "Allow all"
   },
   "approval": {
     "action": {
