@@ -194,3 +194,20 @@ func entryMode(h *tar.Header) fs.FileMode {
 	}
 	return m
 }
+
+// ImageCached says whether ref is unpacked in the cache.
+func (b *Backend) ImageCached(ctx context.Context, ref string) bool {
+	return ociimage.Cached(ctx, b.opts.CacheDir, ref)
+}
+
+// PrepareImage pulls and unpacks ref, so that a sandbox made later starts
+// without waiting for it.
+func (b *Backend) PrepareImage(ctx context.Context, ref string) error {
+	_, err := b.image(ctx, ref)
+	return err
+}
+
+// ForgetImage deletes the unpacked image of ref.
+func (b *Backend) ForgetImage(ctx context.Context, ref string) error {
+	return ociimage.Forget(ctx, b.opts.CacheDir, ref)
+}

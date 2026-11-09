@@ -50,3 +50,22 @@ func ProfileNote(p contract.ExecutionProfile, all []contract.ExecutionProfile) s
 func ProfileToolsSentence(p contract.ExecutionProfile) string {
 	return fmt.Sprintf("Sandbox profile %s: %s.", p.ID, p.ToolList())
 }
+
+// CallArgKey is the key of the arguments of a sandbox tool call under which
+// the host puts the CallOptions. The model cannot set it: the schema of the
+// tool has no such property, and the host overwrites it.
+const CallArgKey = "sandbox"
+
+// CallOptions is what the host decides for one call of a sandbox tool: the
+// profile of the chat, the administrator's pin to the previous image and the
+// caps on memory and disk. The add-on trusts it as it trusts the user and the
+// chat the host names. A zero value asks for the add-on's defaults.
+type CallOptions struct {
+	// Profile is the ID of the profile the chat runs. Empty: the fallback.
+	Profile string `json:"profile,omitempty"`
+	// Pin asks for the previous image of the profile, when there is one.
+	Pin bool `json:"pin,omitempty"`
+	// MemoryMiB and DiskMiB cap the sandbox. Zero means no cap.
+	MemoryMiB int `json:"memoryMiB,omitempty"`
+	DiskMiB   int `json:"diskMiB,omitempty"`
+}

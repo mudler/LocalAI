@@ -216,6 +216,23 @@ func (s *Selector) Warm() {
 	_, _ = s.Backend()
 }
 
+// ErrNoImages says the backend in use keeps no images (the host backend), or
+// there is none.
+var ErrNoImages = errors.New("the backend in use keeps no images")
+
+// ImageCache returns the image cache of the backend in use, for the profile
+// delivery. The host backend has none.
+func (s *Selector) ImageCache() (sandbox.ImageCache, error) {
+	b, err := s.Backend()
+	if err != nil {
+		return nil, err
+	}
+	if c, ok := b.(sandbox.ImageCache); ok {
+		return c, nil
+	}
+	return nil, ErrNoImages
+}
+
 // Set saves the choice. The host needs its confirmation first; any other choice
 // forgets it.
 func (s *Selector) Set(b Setting) error {

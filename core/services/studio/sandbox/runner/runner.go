@@ -85,7 +85,14 @@ type Options struct {
 	// is called with the entry locked, before the tool runs, and end after
 	// the checkpoint; end may be called more than once. Nil: nothing is
 	// marked.
-	Begin             func(ctx context.Context, user, conv, operation string) (end func())
+	Begin func(ctx context.Context, user, conv, operation string) (end func())
+	// Profile, when set, chooses the environment of a call: the image and the
+	// limits of its sandbox. It is asked at every call, and may wait while an
+	// image is prepared. A sandbox whose profile differs from the answer is
+	// made again, so a switch restarts the guest (the files stay, processes
+	// and packages are lost). It must fall back by itself when a profile
+	// cannot be had; an error fails the call.
+	Profile           func(ctx context.Context, r Request) (Choice, error)
 	PerUser, Total    int
 	IdleAfter, MaxAge time.Duration
 	Now               func() time.Time
@@ -95,6 +102,18 @@ type Options struct {
 type Request struct {
 	User, Conversation, Operation, Tool string
 	Args                                json.RawMessage
+	// Call is what the host asked for this call (sandbox.CallOptions).
+	Call sandbox.CallOptions
+}
+
+// Choice is the environment a call runs in (see Options.Profile). Notice is a
+// line put before the output of the call, for example that another profile
+// ran in place of the one asked for.
+type Choice struct {
+	ID, Image    string
+	CPUs         int
+	Memory, Disk int64
+	Notice       string
 }
 
 // Manager runs the tool calls in their sandboxes.
@@ -128,6 +147,9 @@ type entry struct {
 	// actor is the actor the sandbox was made with. A call whose resolved
 	// actor or view differs makes the sandbox again.
 	actor workspace.Actor
+	// profile and image are what the sandbox was made with. notice is the
+	// line of the current call (guarded by the entry lock).
+	profile, image, notice string
 }
 
 // New returns a manager. It removes what an earlier run left in StateDir.
@@ -394,6 +416,22 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 		m.destroy(ctx, e)
 		e.trk = nil
 	}
+	var ch *Choice
+	if m.o.Profile != nil {
+		r, _ := RequestFrom(ctx)
+		c, err := m.o.Profile(ctx, r)
+		if err != nil {
+			return err
+		}
+		ch = &c
+		e.notice = c.Notice
+		if (e.sb != nil || e.snap != nil) && e.profile != c.ID {
+			// The chat switched profile, or the one it had fell back. The
+			// files are committed already; processes and packages are lost.
+			m.destroy(ctx, e)
+			e.trk = nil
+		}
+	}
 	if e.trk == nil {
 		e.trk = &tracker{Store: m.o.Store}
 	}
@@ -420,11 +458,20 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 		xlog.Warn("sandbox: resume failed, starting a fresh one", "error", err)
 		m.destroy(ctx, e)
 	}
-	sb, err := b.Create(ctx, sandbox.Spec{Env: env, View: v})
+	spec := sandbox.Spec{Env: env, View: v}
+	if ch != nil {
+		spec.Image, spec.CPUs, spec.Memory, spec.Disk = ch.Image, ch.CPUs, ch.Memory, ch.Disk
+	}
+	sb, err := b.Create(ctx, spec)
 	if err != nil {
 		return err
 	}
 	e.sb, e.hasBuilt, e.mounts, e.actor = sb, true, v.Mounts, a
+	if ch != nil {
+		m.mu.Lock() // the pages read these while a call holds the entry
+		e.profile, e.image = ch.ID, ch.Image
+		m.mu.Unlock()
+	}
 	return nil
 }
 
@@ -486,6 +533,9 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	}
 	e.suspendFails, e.suspendAfter = 0, time.Time{}
 	out, runErr := tool.Run(ctx, r.Args)
+	if e.notice != "" {
+		out = e.notice + "\n" + out
+	}
 	// The call's changes become one change set, whether or not the command
 	// succeeded: a failing script may still have written files.
 	_, conflicts, cerr := e.sb.Checkpoint(ctx, m.o.Title+r.Tool)
@@ -669,4 +719,30 @@ type requestKey struct{}
 func RequestFrom(ctx context.Context) (Request, bool) {
 	r, ok := ctx.Value(requestKey{}).(Request)
 	return r, ok
+}
+
+// Info says which profile and image the sandbox of a chat was made with, and
+// whether it exists. The image is what a page compares with the current one to
+// offer a restart onto a newer image.
+func (m *Manager) Info(user, conv string) (profile, image string, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e, found := m.entries[key(user, conv)]
+	if !found || e.image == "" {
+		return "", "", false
+	}
+	return e.profile, e.image, true
+}
+
+// ImagesInUse returns the images that the sandboxes use, running or asleep.
+func (m *Manager) ImagesInUse() map[string]bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := map[string]bool{}
+	for _, e := range m.entries {
+		if e.image != "" {
+			out[e.image] = true
+		}
+	}
+	return out
 }

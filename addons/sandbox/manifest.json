@@ -388,11 +388,16 @@
       },
       {
         "name": "status",
-        "description": "Say whether this host can run commands in a sandbox now, and which backend runs them.",
+        "description": "Say whether this host can run commands in a sandbox now, which backend runs them, and the state of the image of each sandbox profile.",
         "kind": "read",
         "inputSchema": {
           "type": "object",
-          "properties": {},
+          "properties": {
+            "conversation": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
           "additionalProperties": false
         }
       },
