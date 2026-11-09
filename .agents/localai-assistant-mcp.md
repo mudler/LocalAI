@@ -277,6 +277,11 @@ Rules for this code:
   from that same list. Never index a tool the chat could not call.
 - The bridge tools never defer, and the core tools (files, web, shell, memory,
   media, triggers, add-on tools) are not part of this.
+- The tools of the user's MCP connectors defer only when the setting is `on`
+  (`connectorsDeferred`); `auto` and `off` send them in full. `scopedHostTools`
+  returns them apart and already gated (`gateExternalAct`), and the turn hands
+  them to `toolSearchTools` next to the LocalAI groups. A deferred connector
+  tool still holds its name, so `localaiTurn` gets it in `have`.
 - The tools panel marks a group with `deferred: true`.
 
 ## The acting user

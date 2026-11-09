@@ -84,13 +84,22 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		tools = append(slices.Clone(tools), s.loopTools(ctx, a, rec)...)
 		return session.TurnTools{Tools: tools, Prompt: prompt, Note: workNote}, nil
 	}
-	tools, missing, heldAddons, err := s.scopedHostTools(ctx, a)
+	tools, conns, missing, heldAddons, err := s.scopedHostTools(ctx, a)
 	if err != nil {
 		var policyErr *providerPolicyError
 		if errors.As(err, &policyErr) {
 			return session.TurnTools{}, err
 		}
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
+	}
+	// The tools of the user's MCP connectors go behind the tool search with
+	// the LocalAI groups when the setting says on; otherwise they are sent in
+	// full, as before.
+	var connDeferred []session.Tool
+	if connectorsDeferred(s.toolSearchMode(), conns) {
+		connDeferred = conns
+	} else {
+		tools = append(tools, conns...)
 	}
 	sc := s.scopeOf(ctx, rec)
 	// The tools the chat's switches take away (a sub-agent follows its
@@ -221,11 +230,17 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// the setting, the chat's switches and the agent's ceiling apply. They are
 	// not part of hostTools, so the admin tools never reach a sub-agent,
 	// whatever its parent names (the group refuses a sub-agent as well).
-	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, tools)
+	// A deferred connector tool still holds its name, so no LocalAI tool takes it.
+	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, append(slices.Clone(tools), connDeferred...))
 	tools = append(tools, aTools...)
 	// The deferred tools are gated like the typed ones (the action policy of
-	// an unattended run), then hidden behind the three tool-search tools.
-	tools = append(tools, toolSearchTools(s.gateBuiltinActs(ctx, rec, aDeferred), aDeferredGroups)...)
+	// an unattended run), then hidden behind the three tool-search tools. The
+	// connector tools were gated in scopedHostTools.
+	deferred := slices.Concat(s.gateBuiltinActs(ctx, rec, aDeferred), connDeferred)
+	if len(connDeferred) > 0 {
+		aDeferredGroups = append(slices.Clone(aDeferredGroups), toolSearchConnectors)
+	}
+	tools = append(tools, toolSearchTools(deferred, aDeferredGroups)...)
 	// The tools of a self-paced loop, while the chat has one.
 	tools = append(tools, s.loopTools(ctx, a, rec)...)
 	if aPrompt != "" {
