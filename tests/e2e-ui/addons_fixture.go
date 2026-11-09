@@ -58,10 +58,11 @@ type addonsFixture struct {
 	localOwner bool
 	// mu guards what a spec moves through the control routes: the step of
 	// the moving channels and whether the library answers at all.
-	mu      sync.Mutex
-	step    int
-	offline bool
-	moving  []movingRelease
+	mu              sync.Mutex
+	step            int
+	offline         bool
+	moving          []movingRelease
+	artifactControl *fixtureArtifactControl
 }
 
 // movingRelease is a release of a package directory that carries
@@ -82,6 +83,9 @@ type fixtureCredentials struct {
 	// /step moves every moving channel on by one generation, POST /offline and
 	// /online make the library answer or not. Empty without moving channels.
 	Control string `json:"control,omitempty"`
+	// ArtifactControl waits for a completed file's ingestion worker to leave.
+	// It is a fixture-only barrier for serial quota setup, not a product route.
+	ArtifactControl string `json:"artifactControl,omitempty"`
 }
 
 type fixtureUser struct {
@@ -229,6 +233,7 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 		f.mu.Unlock()
 		_ = json.NewEncoder(w).Encode(map[string]int{"step": n})
 	})
+	mux.HandleFunc("/_fixture/artifacts/settle", f.settleArtifact)
 	for path, offline := range map[string]bool{"/_fixture/offline": true, "/_fixture/online": false} {
 		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			f.mu.Lock()
@@ -381,6 +386,7 @@ func (f *addonsFixture) seed(ctx context.Context, app *application.Application, 
 		return fmt.Errorf("authentication is not enabled")
 	}
 	creds := fixtureCredentials{Users: map[string]fixtureUser{}}
+	actors := map[string]contract.Actor{}
 	var admin contract.Actor
 	if f.localOwner {
 		admin = contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}
@@ -413,6 +419,7 @@ func (f *addonsFixture) seed(ctx context.Context, app *application.Application, 
 			return err
 		}
 		creds.Users[u.name] = fixtureUser{ID: user.ID, Role: u.role, Token: token, Session: session}
+		actors[u.name] = contract.Actor{UserID: user.ID, CredentialID: "key:" + key.ID, Mode: auth.AddonModeNamedUser}
 		if u.name == "admin" {
 			admin = contract.Actor{UserID: user.ID, CredentialID: "key:" + key.ID, Mode: auth.AddonModeNamedUser}
 		}
@@ -459,6 +466,12 @@ func (f *addonsFixture) seed(ctx context.Context, app *application.Application, 
 			}
 		}
 		time.Sleep(200 * time.Millisecond)
+	}
+	if len(actors) > 0 {
+		if err := f.configureArtifactControl(app, actors); err != nil {
+			return err
+		}
+		creds.ArtifactControl = "http://" + f.listener.Addr().String() + "/_fixture/artifacts/settle"
 	}
 	b, err := json.MarshalIndent(creds, "", "  ")
 	if err != nil {
