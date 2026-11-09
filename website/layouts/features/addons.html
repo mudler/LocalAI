@@ -1,0 +1,23 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="crumb"><a href="{{ "features/" | relURL }}">Features</a> / Add-ons</p>
+  <h1>Add-ons give LocalAI new <span class="hl">powers</span>.</h1>
+  <p class="lede">An add-on is software you install. It adds chat apps, tools and pages. An admin installs it from the add-on library.</p>
+  <div class="acts" style="margin-top:1.6rem"><a class="btn" href="{{ .Params.docs }}">Read the docs</a></div>
+</div></header>
+<section><div class="shell">
+  <div class="note"><b>Good to know</b><ul>
+    {{ range .Params.notes }}<li>{{ . | markdownify }}</li>{{ end }}
+  </ul></div>
+  {{ range .Site.Data.addons.groups }}
+  <h2 style="margin:3rem 0 1.2rem;font-size:1.9rem">{{ .title }}</h2>
+  <div class="grid">
+    {{ range .items }}
+    <div class="card rv"><h3>{{ .name }}</h3><p>{{ .what }}</p>{{ with .needs }}<p class="fine">{{ . }}</p>{{ end }}</div>
+    {{ end }}
+  </div>
+  {{ end }}
+</div></section>
+</main>
+{{ end }}

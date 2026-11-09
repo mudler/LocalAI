@@ -1,12 +1,23 @@
 <!doctype html>
+{{- /* Blog, engines and tag pages still use the previous design (site.css and the
+       legacy partials). They move to the new design in a later change. */ -}}
+{{- $legacy := or (eq .Section "blog") (eq .Section "engines") (eq .Section "tags") (eq .Kind "taxonomy") (eq .Kind "term") -}}
 <html lang="en">
-{{ partial "head.html" . }}
+{{ if $legacy }}{{ partial "legacy-head.html" . }}{{ else }}{{ partial "head.html" . }}{{ end }}
 <body>
+{{ if $legacy }}
   <div class="prog"><i id="pbar"></i></div>
   <canvas id="field" aria-hidden="true"></canvas>
+  {{ partial "legacy-nav.html" . }}
+  {{ block "main" . }}{{ end }}
+  {{ partial "legacy-footer.html" . }}
+  <script src="{{ "js/site.js" | relURL }}" defer></script>
+{{ else }}
+  <a class="skip" href="#main">Skip to content</a>
   {{ partial "nav.html" . }}
   {{ block "main" . }}{{ end }}
   {{ partial "footer.html" . }}
-  <script src="{{ "js/site.js" | relURL }}" defer></script>
+  <script src="{{ "js/main.js" | relURL }}" defer></script>
+{{ end }}
 </body>
 </html>
