@@ -33,10 +33,11 @@ ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
 ARG SKIP_DRIVERS=false
 # ROCm packages installed when BUILD_TYPE=hipblas. The default matches the
-# ROCm 7.x apt repository of the rocm/dev-ubuntu-24.04:7.x base images. ROCm
-# 10.x ships different package names (e.g. amdrocm-blas-dev10.1), so a build
-# on another ROCm release overrides this together with BASE_IMAGE.
-ARG ROCM_PACKAGES="hipblas-dev hipblaslt-dev rocblas-dev"
+# ROCm 10.1 repository (stable.repo.amd.com/rocm/core) configured in the
+# rocm/dev-ubuntu-24.04:10.1.0-full base image; amdrocm-blas-dev10.1 carries
+# the hipBLAS, rocBLAS and hipBLASLt headers. A build on ROCm 7.x overrides
+# this together with BASE_IMAGE: "hipblas-dev hipblaslt-dev rocblas-dev".
+ARG ROCM_PACKAGES="amdrocm-blas-dev10.1"
 ARG TARGETARCH
 ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
