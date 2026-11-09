@@ -142,7 +142,13 @@ var adminRoutesWithoutTool = map[string]string{
 	"POST /api/settings (chats_host_exec)":            "lets chats run commands on the server with no isolation: a person's act in Settings > Tools",
 	"POST /api/settings (chats_tool_providers)":       "chooses which add-on serves a tool or skill: set in Settings > Tools",
 	"POST /api/settings (chats_egress_allow_private)": "needs the typed phrase in chats_egress_private_confirm, a person's act",
-	"POST /api/settings (chats_web_*)":                "the web tools settings: set in Settings > Tools, with Test search",
+	// An owner host setting of the Sandbox add-on: the default profile, who may
+	// use each profile, the quota and the previous-image pins. It is written
+	// with the owner dispatch (host-settings-update), which needs the
+	// administrator's own session, and the assistant holds no per-call
+	// credential for it.
+	"POST /api/addons/dispatch (host-settings-update, sandbox_profiles)": "an owner setting changed on the add-on Settings tab through owner dispatch, like chats_tool_providers and the egress lists; the assistant has no per-call owner credential",
+	"POST /api/settings (chats_web_*)":                                   "the web tools settings: set in Settings > Tools, with Test search",
 	// Read by get_chat_egress. Opening a host or a registry to every chat
 	// is a decision made on the Settings > Tools list editor, like the
 	// private switch.
