@@ -8,7 +8,7 @@ weight = 110
 aliases = ["/features/cloud-proxy/"]
 +++
 
-![Cloud proxy: a local API call is proxied to a hosted model while PII is redacted out and back](/images/diagrams/cloud-proxy-sequence.png)
+![Cloud proxy: a local API call is proxied to a hosted model while PII is redacted out and back](/docs/images/diagrams/cloud-proxy-sequence.png)
 
 LocalAI can forward chat-completion and Anthropic Messages requests to an
 external provider instead of running them through the local gRPC backend

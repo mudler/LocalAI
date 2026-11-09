@@ -4,7 +4,7 @@ title = "Speaker Diarization"
 weight = 33
 +++
 
-![Diarization: segment, embed, and cluster (or a single ASR pass) into speaker-labelled segments](/images/diagrams/diarization-pipeline.png)
+![Diarization: segment, embed, and cluster (or a single ASR pass) into speaker-labelled segments](/docs/images/diagrams/diarization-pipeline.png)
 
 Speaker diarization answers the question **"who spoke when?"** - given an audio clip with multiple speakers, it returns time-stamped segments labelled with a stable speaker ID (`SPEAKER_00`, `SPEAKER_01`, …).
 

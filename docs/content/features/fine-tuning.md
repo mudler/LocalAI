@@ -5,7 +5,7 @@ weight = 84
 aliases = ['/advanced/fine-tuning/']
 +++
 
-![The fine-tune job lifecycle: create, train with SSE progress, then export to LoRA, merged, or GGUF](/images/diagrams/finetune-job-lifecycle.png)
+![The fine-tune job lifecycle: create, train with SSE progress, then export to LoRA, merged, or GGUF](/docs/images/diagrams/finetune-job-lifecycle.png)
 
 LocalAI supports fine-tuning LLMs directly through the API and Web UI. Fine-tuning is powered by pluggable backends that implement a generic gRPC interface, allowing support for different training frameworks and model types.
 

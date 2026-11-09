@@ -13,7 +13,7 @@ aliases = ["/overview/"]
 
 LocalAI is a composable AI stack for running models locally: a small core that speaks the OpenAI and Anthropic APIs, with each model backend added only when you need it. It runs on your own hardware, and the API follows the OpenAI and Anthropic formats, so many existing clients work against it.
 
-![How LocalAI works: clients speak one API to a small core, which routes each request over gRPC to separate backend processes pulled on demand](/images/diagrams/architecture-overview.png)
+![How LocalAI works: clients speak one API to a small core, which routes each request over gRPC to separate backend processes pulled on demand](/docs/images/diagrams/architecture-overview.png)
 
 ## Why LocalAI?
 
