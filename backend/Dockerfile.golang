@@ -183,6 +183,15 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         ldconfig \
     ; fi
 
+# The hipblas branch of the ggml backend Makefiles compiles with
+# /opt/rocm/llvm/bin/clang++, which ROCm 10.x no longer provides (its compiler
+# is under /opt/rocm/core-<ver>/lib/llvm). The script adds the link; it is a
+# no-op on ROCm 7.x and when ROCm is not installed.
+RUN --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
+    if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        sh /usr/local/sbin/rocm-compat-links \
+    ; fi
+
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin:/usr/local/bin

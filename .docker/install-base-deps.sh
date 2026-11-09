@@ -10,6 +10,7 @@
 # All four files invoke this script via
 #   RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
 #       --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+#       --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
 #       bash /usr/local/sbin/install-base-deps
 #
 # so the prebuilt CI base image and the from-source local-dev path are
@@ -254,6 +255,14 @@ if [ "${BUILD_TYPE:-}" = "hipblas" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; 
     echo "rocBLAS library data architectures:"
     (ls /opt/rocm*/lib/rocblas/library/Kernels* 2>/dev/null || ls /opt/rocm*/lib64/rocblas/library/Kernels* 2>/dev/null) | grep -oP 'gfx[0-9a-z+-]+' | sort -u || \
         echo "WARNING: No rocBLAS kernel data found"
+fi
+# ROCm 10.x has no /opt/rocm/llvm (its compiler is under
+# /opt/rocm/core-<ver>/lib/llvm), but the hipblas branch of the llama.cpp
+# Makefiles compiles with /opt/rocm/llvm/bin/clang++. The bind-mounted helper
+# adds the link and is a no-op on ROCm 7.x. Outside the SKIP_DRIVERS check on
+# purpose: a base image that already ships ROCm needs the link too.
+if [ "${BUILD_TYPE:-}" = "hipblas" ] && [ -f /usr/local/sbin/rocm-compat-links ]; then
+    sh /usr/local/sbin/rocm-compat-links
 fi
 
 echo "TARGETARCH: ${TARGETARCH:-}"

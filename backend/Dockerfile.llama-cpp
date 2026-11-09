@@ -76,6 +76,7 @@ WORKDIR /build
 # this from-source path are bit-equivalent.
 RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
     --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
     bash /usr/local/sbin/install-base-deps
 
 # Mirror builder-prebuilt: copy gRPC from /opt/grpc to /usr/local so
