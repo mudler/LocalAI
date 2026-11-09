@@ -29,9 +29,11 @@ installRequirements
 # pip to backtrack through Jinja2/MarkupSafe/omegaconf/ruamel.yaml into Python-2-era
 # sdists that no longer build. We install chatterbox-tts itself with --no-deps and
 # list its real runtime deps in requirements-*.txt instead.
+# Pin the fork so every backend build includes the same Turbo/Nano implementation.
+CHATTERBOX_REV=b38c317b03834ef35828ae96c72ac8929b002a05
 echo "Installing chatterbox-tts with --no-deps"
 if [ "x${USE_PIP}" == "xtrue" ]; then
-    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster"
+    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@${CHATTERBOX_REV}"
 else
-    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster"
+    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps "chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@${CHATTERBOX_REV}"
 fi
