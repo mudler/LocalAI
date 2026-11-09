@@ -80,7 +80,9 @@ func newJourney() *journey {
 	var err error
 	j.st, err = coordinator.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
-	lim := func() studio.CoordinatorLimits { return studio.CoordinatorLimits{RunsPerDay: int(j.runs.Load()), MaxRunning: 32} }
+	lim := func() studio.CoordinatorLimits {
+		return studio.CoordinatorLimits{RunsPerDay: int(j.runs.Load()), MaxRunning: 32}
+	}
 	host := func(r *trigRig) *coordRig {
 		h, err := studio.NewCoordinators(r.svc, studio.CoordinatorOptions{Store: j.st, Clock: j.sh.clock.Now, Limits: lim})
 		Expect(err).NotTo(HaveOccurred())
