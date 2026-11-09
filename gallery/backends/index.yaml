@@ -24,6 +24,7 @@
     nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp
     nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp
     vulkan: vulkan-llama-cpp
+    windows: windows-llama-cpp
   channel: latest
   description: |
     LLM inference in C/C++
@@ -8726,6 +8727,62 @@
     - CPU
   urls:
     - https://github.com/ikawrakow/ik_llama.cpp
+  version: 0.0.0-development
+- alias: llama-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-windows-llama-cpp
+  capabilities:
+    default: cpu-llama-cpp
+  channel: latest
+  description: |
+    LLM inference in C/C++ for Windows
+  id: windows-llama-cpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-windows-llama-cpp
+  # Unpinned until backend-jobs-windows pushes the image once; pin it with
+  # backendcatalog --repin afterwards.
+  mutable: true
+  name: windows-llama-cpp
+  os: windows
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - text-to-speech
+    - TTS
+    - LLM
+    - CPU
+    - GPU
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  version: 0.0.0-latest
+- alias: llama-cpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-windows-llama-cpp
+  capabilities:
+    default: cpu-llama-cpp
+  channel: development
+  description: |
+    LLM inference in C/C++ for Windows
+  id: windows-llama-cpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-windows-llama-cpp
+  mutable: true
+  name: windows-llama-cpp-development
+  os: windows
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - text-to-speech
+    - TTS
+    - LLM
+    - CPU
+    - GPU
+  urls:
+    - https://github.com/ggerganov/llama.cpp
   version: 0.0.0-development
 - alias: turboquant
   arch: amd64

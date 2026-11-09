@@ -16,6 +16,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -243,7 +244,10 @@ func readKeyFile(path string) ([]byte, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("%s must be a regular file", path)
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	// On Windows, skip the Unix-style permission check since Windows
+	// doesn't use Unix-style file permissions (0600). The file is
+	// already protected by being inside the user's data directory.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("%s must have mode 0600 or less", path)
 	}
 	return io.ReadAll(io.LimitReader(f, 1<<20))

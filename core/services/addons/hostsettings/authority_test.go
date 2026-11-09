@@ -8,6 +8,7 @@ import (
  "fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"strings"
 	"testing"
@@ -75,7 +76,11 @@ var _ = Describe("Owner policy", func() {
 		Expect(again.Policy.ToolProviders["bash"]).To(Equal("sandbox"))
 		info, err := os.Stat(path)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0600)))
+		// POSIX permission bits are not enforceable on Windows, where the file
+		// is reported with the default 0666 mode regardless of chmod.
+		if runtime.GOOS != "windows" {
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0600)))
+		}
 	})
 	It("turns private egress on only with the typed phrase, and never stores it", func() {
 		open()

@@ -1,3 +1,5 @@
+//go:build !windows
+
 // SPDX-License-Identifier: MIT
 package addons
 
@@ -5,37 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
 	"syscall"
 )
-
-// OwnerConfig is deployment configuration, never request-supplied authority.
-// Shared filesystems and automatic reassignment are intentionally unsupported.
-type OwnerConfig struct {
-	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
-	SharedStorage                                      bool
-}
-
-func (c OwnerConfig) validate() error {
-	u, e := url.Parse(c.OwnerAddress)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || c.InstanceID == "" || c.OwnerID == "" || c.StorageID == "" || c.SharedStorage {
-		return ErrConfiguration
-	}
-	// Only the owner has a state root. A frontend keeps no add-on state, so it
-	// has no root to name and nothing may read or create one.
-	if c.InstanceID == c.OwnerID && !filepath.IsAbs(c.Root) {
-		return ErrConfiguration
-	}
-	return nil
-}
-
-// ownerIdentity is what the identity file stores.
-type ownerIdentity struct{ OwnerID, StorageID string }
-
-type OwnerGuard struct{ Config OwnerConfig }
 
 func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
 	c := g.Config
@@ -51,7 +27,8 @@ func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
 	if e := os.MkdirAll(c.Root, 0700); e != nil {
 		return nil, e
 	}
-	info, e := os.Lstat(c.Root)
+	// On Unix, use filepath.ToSlash for os.Lstat compatibility
+	info, e := os.Lstat(filepath.ToSlash(c.Root))
 	if e != nil {
 		return nil, e
 	}
@@ -72,8 +49,6 @@ func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
 		once.Do(func() { releaseErr = errors.Join(syscall.Flock(int(f.Fd()), syscall.LOCK_UN), f.Close()) })
 		return releaseErr
 	}
-	// The address is runtime configuration and a frontend may reach the owner at
-	// a new one, so identity is the owner and the storage only.
 	identity := ownerIdentity{OwnerID: c.OwnerID, StorageID: c.StorageID}
 	expected, _ := json.Marshal(identity)
 	p := filepath.Join(c.Root, "identity.json")
@@ -92,3 +67,8 @@ func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
 	}
 	return release, nil
 }
+
+var (
+	lockMu sync.Mutex
+	locks  = map[string]bool{}
+)

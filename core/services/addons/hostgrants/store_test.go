@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -60,8 +61,13 @@ func TestUpdatePersistsAndReopens(t *testing.T) {
 		t.Fatalf("ops must be sorted and revision 1: %+v", snap)
 	}
 	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0600 {
-		t.Fatalf("document mode: %v %v", info, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// POSIX permission bits are not enforceable on Windows, where the file
+	// is reported with the default 0666 mode regardless of chmod.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
+		t.Fatalf("document mode: %v", info)
 	}
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
@@ -309,6 +315,11 @@ func TestOpenRejectsBadFiles(t *testing.T) {
 		"bad receipt":    {strings.Replace(good, `"receipts":{}`, `"receipts":{"x":{"body":"zz","revision":1}}`, 1), 0600},
 	}
 	for name, c := range bad {
+		// Windows cannot make a file group-readable (the mode is always
+		// 0666) and cannot create the group-readable variant of this case.
+		if name == "group-readable" && runtime.GOOS == "windows" {
+			continue
+		}
 		if s, err := Open(write(strings.ReplaceAll(name, " ", "-")+".json", c.body, c.mode)); err == nil {
 			_ = s.Close()
 			t.Errorf("%s: expected an error", name)
@@ -316,14 +327,17 @@ func TestOpenRejectsBadFiles(t *testing.T) {
 			t.Errorf("%s: want ErrUnavailable, got %v", name, err)
 		}
 	}
-	// A symlink to the document is refused.
-	link := filepath.Join(dir, "link.json")
-	if err := os.Symlink(filepath.Join(dir, "good.json"), link); err != nil {
-		t.Fatal(err)
-	}
-	if s, err := Open(link); err == nil {
-		_ = s.Close()
-		t.Error("symlink must be refused")
+	// A symlink to the document is refused. Creating symlinks on Windows
+	// needs privileges or Developer Mode, so the setup itself errors first.
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(dir, "link.json")
+		if err := os.Symlink(filepath.Join(dir, "good.json"), link); err != nil {
+			t.Fatal(err)
+		}
+		if s, err := Open(link); err == nil {
+			_ = s.Close()
+			t.Error("symlink must be refused")
+		}
 	}
 }
 
