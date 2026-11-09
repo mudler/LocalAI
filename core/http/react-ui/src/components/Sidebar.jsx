@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import ThemeToggle from './ThemeToggle'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
-import { useBranding } from '../contexts/BrandingContext'
+import { useBranding, DEFAULT_BRANDING } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { hubs, operateHub, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
@@ -246,10 +246,17 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
         {/* Logo */}
         <div className="sidebar-header">
           <a href="./" className="sidebar-logo-link">
-            <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />
+            {branding.logoHorizontalUrl === DEFAULT_BRANDING.logoHorizontalUrl ? (
+              <>
+                <img src={apiUrl(branding.logoUrl)} alt="" className="sidebar-logo-img sidebar-logo-img--tile" />
+                <span className="sidebar-wordmark">{branding.instanceName}</span>
+              </>
+            ) : (
+              <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />
+            )}
           </a>
           <a href="./" className="sidebar-logo-icon" title={branding.instanceName}>
-            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="sidebar-logo-icon-img" />
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="sidebar-logo-icon-img" data-brand-default={branding.logoUrl === DEFAULT_BRANDING.logoUrl ? '' : undefined} />
           </a>
           <button
             ref={closeBtnRef}
