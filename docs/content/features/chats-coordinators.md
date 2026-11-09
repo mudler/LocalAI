@@ -388,8 +388,8 @@ follows the normal path of the connection.
 
 **5. An administrator presses Pause.** Under **Administration > Chats of all
 users > Coordinators**, after the confirmation, the turn stops, the running
-helper stops, and every new message waits. A reply from Ops and the next wake
-are held; no message goes out and Ops gets no answer. The audit log shows one
+helper stops, and every new message waits. A reply from Ops is held and the
+next wake does not run; no message goes out and Ops gets no answer. The audit log shows one
 `pause` row with the name of the administrator.
 
 **6. Resume.** The held reply starts one turn, in the order it arrived. The
