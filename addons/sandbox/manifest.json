@@ -49,12 +49,330 @@
         "execution": {
           "class": "commands",
           "title": "Sandbox",
-          "note": "The sandbox has: python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl. It has no Node, ImageMagick, ffmpeg or OCR, and apt cannot install anything.",
           "skills": {
             "providesRuntimeFor": [
               "documents"
             ]
-          }
+          },
+          "profiles": [
+            {
+              "id": "base",
+              "title": "Base",
+              "description": "Python, documents, PDF and the usual command-line tools.",
+              "cpus": 2,
+              "memoryMiB": 2048,
+              "diskMiB": 10240,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "media",
+              "title": "Media",
+              "description": "Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images.",
+              "cpus": 2,
+              "memoryMiB": 4096,
+              "diskMiB": 20480,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                },
+                {
+                  "name": "ffmpeg",
+                  "detail": "with ffprobe",
+                  "check": [
+                    "ffmpeg -version",
+                    "ffprobe -version"
+                  ]
+                },
+                {
+                  "name": "sox",
+                  "check": [
+                    "sox --version"
+                  ]
+                },
+                {
+                  "name": "ImageMagick",
+                  "detail": "magick, convert",
+                  "check": [
+                    "magick -version",
+                    "convert -version"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "video",
+              "title": "Video",
+              "description": "Media plus a Rust toolchain and the fframes renderer to make videos from code.",
+              "cpus": 4,
+              "memoryMiB": 8192,
+              "diskMiB": 30720,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                },
+                {
+                  "name": "ffmpeg",
+                  "detail": "with ffprobe",
+                  "check": [
+                    "ffmpeg -version",
+                    "ffprobe -version"
+                  ]
+                },
+                {
+                  "name": "sox",
+                  "check": [
+                    "sox --version"
+                  ]
+                },
+                {
+                  "name": "ImageMagick",
+                  "detail": "magick, convert",
+                  "check": [
+                    "magick -version",
+                    "convert -version"
+                  ]
+                },
+                {
+                  "name": "Rust",
+                  "detail": "rustc and cargo, 1.88 or newer",
+                  "check": [
+                    "rustc --version",
+                    "cargo --version"
+                  ]
+                },
+                {
+                  "name": "fframes",
+                  "detail": "renders video from code",
+                  "check": [
+                    "fframes --version"
+                  ]
+                }
+              ]
+            }
+          ]
         }
       },
       {

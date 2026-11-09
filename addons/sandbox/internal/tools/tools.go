@@ -19,7 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
-	"github.com/mudler/LocalAI/core/services/studio/sandbox"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -123,8 +123,9 @@ func Execution() *contract.ExecutionDescriptor {
 	return &contract.ExecutionDescriptor{
 		Class:  contract.ExecutionClassCommands,
 		Title:  "Sandbox",
-		Note:   sandbox.GuestToolsNote,
 		Skills: &contract.ExecutionSkills{ProvidesRuntimeFor: []string{contract.SkillKindDocuments}},
+		// The note of the programs is built from the profile of the chat.
+		Profiles: profiles.Declared(),
 	}
 }
 
