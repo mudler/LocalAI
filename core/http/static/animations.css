@@ -77,10 +77,10 @@
 
 @keyframes glow {
   0%, 100% {
-    box-shadow: 0 0 8px rgba(56, 189, 248, 0.15);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--dk-accent) 25%, transparent);
   }
   50% {
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--dk-accent) 40%, transparent);
   }
 }
 
