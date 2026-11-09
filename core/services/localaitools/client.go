@@ -215,6 +215,7 @@ type LocalAIClient interface {
 	GenerateVideo(ctx context.Context, req GenerateVideoRequest) (*VideoResult, error)
 	GenerateSound(ctx context.Context, req GenerateSoundRequest) (*AudioResult, error)
 	UpscaleImage(ctx context.Context, req UpscaleImageRequest) (*ImageResult, error)
+	TransformAudio(ctx context.Context, req TransformAudioRequest) (*TransformAudioResult, error)
 	VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*VerifyResult, error)
 	IdentifyVoice(ctx context.Context, req IdentifyVoiceRequest) (*IdentifyResult, error)
 	VerifyFace(ctx context.Context, req VerifyFaceRequest) (*VerifyResult, error)

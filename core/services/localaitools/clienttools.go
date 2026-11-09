@@ -33,6 +33,7 @@ const (
 	ToolVoiceProfile    = "voice_profile"
 	ToolListModels      = "list_models"
 	ToolUpscaleImage    = "upscale_image"
+	ToolTransformAudio  = "transform_audio"
 )
 
 // ClientToolSpec is what a client tool needs from the API: the route it
@@ -83,6 +84,7 @@ var ClientTools = []ClientToolSpec{
 	{ToolVoiceProfile, ActionList, "GET", "/api/voice-profiles", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
 	{ToolVoiceProfile, ActionDelete, "DELETE", "/api/voice-profiles/:id", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
 	{ToolUpscaleImage, "", "POST", "/v1/images/upscale", auth.FeatureImages, config.FLAG_UPSCALE, "image upscaling"},
+	{ToolTransformAudio, "", "POST", "/audio/transformations", auth.FeatureAudioTransform, config.FLAG_AUDIO_TRANSFORM, "audio transformation"},
 	// list_models has no feature: any signed-in user may list the models the
 	// route shows them (their own allow-list applies).
 	{ToolListModels, "", "GET", "/v1/models/capabilities", NoFeature, config.FLAG_ANY, "models"},

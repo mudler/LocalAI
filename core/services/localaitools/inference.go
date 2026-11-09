@@ -1183,7 +1183,8 @@ var capabilityAliases = map[string]string{
 	"embedding": "embeddings", "embed": "embeddings",
 	"image_generation": "image", "images": "image",
 	"video_generation": "video",
-	"upscaling":        "upscale", "upscaler": "upscale", "image_upscale": "upscale", "image-upscale": "upscale", "super-resolution": "upscale",
+	"audio-transform":  "audio_transform", "audio_transformation": "audio_transform", "denoise": "audio_transform", "separation": "audio_transform",
+	"upscaling": "upscale", "upscaler": "upscale", "image_upscale": "upscale", "image-upscale": "upscale", "super-resolution": "upscale",
 }
 
 // NormalizeCapability returns the capability name of the API for a word a

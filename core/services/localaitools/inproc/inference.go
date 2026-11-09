@@ -243,6 +243,10 @@ func (c *Client) UpscaleImage(ctx context.Context, req localaitools.UpscaleImage
 	return c.inference(ctx).UpscaleImage(ctx, req)
 }
 
+func (c *Client) TransformAudio(ctx context.Context, req localaitools.TransformAudioRequest) (*localaitools.TransformAudioResult, error) {
+	return c.inference(ctx).TransformAudio(ctx, req)
+}
+
 func (c *Client) VerifyVoice(ctx context.Context, req localaitools.VoiceVerifyRequest) (*localaitools.VerifyResult, error) {
 	return c.inference(ctx).VerifyVoice(ctx, req)
 }

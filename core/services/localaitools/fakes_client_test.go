@@ -61,6 +61,11 @@ func (f *fakeClient) UpscaleImage(_ context.Context, req UpscaleImageRequest) (*
 	return &ImageResult{}, nil
 }
 
+func (f *fakeClient) TransformAudio(_ context.Context, req TransformAudioRequest) (*TransformAudioResult, error) {
+	f.record("TransformAudio", req)
+	return &TransformAudioResult{}, nil
+}
+
 func (f *fakeClient) VerifyVoice(_ context.Context, req VoiceVerifyRequest) (*VerifyResult, error) {
 	f.record("VerifyVoice", req)
 	return &VerifyResult{}, nil

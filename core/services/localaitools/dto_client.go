@@ -202,6 +202,33 @@ type UpscaleImageRequest struct {
 	Model string `json:"model,omitempty" jsonschema:"From list_models. Default: first."`
 }
 
+// TransformAudioRequest is the input for transform_audio. The fields are the
+// ones of POST /audio/transformations.
+type TransformAudioRequest struct {
+	Audio      string            `json:"audio"                     jsonschema:"Audio file."`
+	Reference  string            `json:"reference,omitempty"`
+	Model      string            `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
+	Format     string            `json:"response_format,omitempty" jsonschema:"wav, mp3, ogg, flac."`
+	SampleRate int               `json:"sample_rate,omitempty"     jsonschema:"Hz."`
+	Params     map[string]string `json:"params,omitempty"          jsonschema:"noise_gate, noise_gate_threshold_dbfs, stem, language, text, target_text."`
+}
+
+// AudioStem is one named output of a separation.
+type AudioStem struct {
+	Name  string     `json:"name"`
+	Audio OutputFile `json:"audio"`
+}
+
+// TransformAudioResult is the result of transform_audio.
+type TransformAudioResult struct {
+	Model string     `json:"model"`
+	Audio OutputFile `json:"audio"`
+	// Stems names every output of a separation; the one the body carried
+	// shares its file with Audio.
+	Stems []AudioStem `json:"stems,omitempty"`
+	Note  string      `json:"note,omitempty"`
+}
+
 // GenerateSoundRequest is the input for generate_sound. The fields are those
 // of the sound-generation route, except the source audio, which the API
 // leaves out on purpose.

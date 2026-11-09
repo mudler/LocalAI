@@ -54,7 +54,12 @@ import (
 // generate_image, and a single-purpose tool stays cheaper than an action
 // enum on an image tool that most turns do not need. The tool search can
 // defer the whole group on a small context window.
-const clientBudgetBytes = 9700
+//
+// transform_audio (690 bytes before the trim). It is one route with one flat
+// schema, and the params map stays a single allow-listed argument rather
+// than a field per backend key, which is what keeps it from being larger. It
+// shares no state with the other audio tools, so it is not a merge candidate.
+const clientBudgetBytes = 10900
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
