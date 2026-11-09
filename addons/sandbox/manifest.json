@@ -455,7 +455,8 @@
     "ui": {
       "controls": [
         "network-policy",
-        "tool-providers"
+        "tool-providers",
+        "sandbox-profiles"
       ],
       "css": [
         "ui/sandbox.css"

@@ -709,6 +709,7 @@ definitions:
           enum:
           - network-policy
           - tool-providers
+          - sandbox-profiles
           type: string
         type: array
       css:
@@ -1180,6 +1181,15 @@ definitions:
           Note is one plain sentence for the model when the provider reports
           isolated execution, such as the programs its environment has.
         type: string
+      profiles:
+        description: |-
+          Profiles are the environments the provider can run commands in. The
+          first one is the fallback and has the ID FallbackProfile. When there
+          are profiles, the host builds the note for the model from the profile
+          of the chat and Note is not used.
+        items:
+          $ref: '#/definitions/contract.ExecutionProfile'
+        type: array
       skills:
         allOf:
         - $ref: '#/definitions/contract.ExecutionSkills'
@@ -1189,6 +1199,32 @@ definitions:
           Title names the provider in the text the host shows the person and the
           model, for example "Sandbox". It falls back to the add-on's title.
         type: string
+    type: object
+  contract.ExecutionProfile:
+    properties:
+      cpus:
+        description: CPUs, MemoryMiB and DiskMiB are the limits of one sandbox.
+        type: integer
+      description:
+        description: Description says what the profile is for, in one sentence.
+        type: string
+      diskMiB:
+        type: integer
+      id:
+        description: ID is a short lower case name, such as base or media.
+        type: string
+      memoryMiB:
+        type: integer
+      title:
+        description: Title is the name the person sees.
+        type: string
+      tools:
+        description: |-
+          Tools are the programs the environment has. The provider's image build
+          fails when one of them is missing (see ProfileTool.Check).
+        items:
+          $ref: '#/definitions/contract.ProfileTool'
+        type: array
     type: object
   contract.ExecutionSkills:
     properties:
@@ -1227,6 +1263,23 @@ definitions:
         type: string
       size:
         type: integer
+    type: object
+  contract.ProfileTool:
+    properties:
+      check:
+        description: |-
+          Check are the commands the image build runs to prove the tool works,
+          each a program name with its version flags, for example "jq --version".
+        items:
+          type: string
+        type: array
+      detail:
+        description: Detail is an optional short remark, for example the libraries
+          of Python.
+        type: string
+      name:
+        description: Name is how the model and the person read it, for example ffmpeg.
+        type: string
     type: object
   contract.ProposalStatus:
     enum:
@@ -4489,6 +4542,13 @@ definitions:
           checks it on every tool call that takes a resource, on top of what you
           may use yourself, and the resource list and the selection of a chat show
           the agent nothing outside it.
+      sandbox_profile:
+        description: |-
+          SandboxProfile is the sandbox profile of the agent's unattended runs and
+          the starting profile of its chats (GET /api/chats/sandbox-profiles lists
+          them). Empty: the administrator's default. A profile the Sandbox does
+          not have, or that you may not use, runs the default or base.
+        type: string
       skills:
         items:
           type: string
@@ -4918,6 +4978,12 @@ definitions:
           stored list; an empty object clears it. Each mode is read or write (400
           otherwise). An export file never carries it and an import drops it, a
           resource ID belongs to one server.
+      sandbox_profile:
+        description: |-
+          SandboxProfile is the sandbox profile of the agent (see ChatsAgent).
+          A profile ID, or empty for the default; a value that is not a profile ID
+          is 400.
+        type: string
       skills:
         items:
           type: string
@@ -8340,6 +8406,130 @@ definitions:
     properties:
       endpoint:
         type: string
+    type: object
+  schema.ChatsSandboxProfile:
+    properties:
+      allowed:
+        description: Allowed says whether the administrator's policy lets you use
+          it.
+        type: boolean
+      cpus:
+        description: |-
+          CPUs, MemoryMiB and DiskMiB are the limits of one sandbox of the
+          profile, before the administrator's quota.
+        type: integer
+      description:
+        type: string
+      disk_mib:
+        example: 20480
+        type: integer
+      has_previous:
+        type: boolean
+      id:
+        example: media
+        type: string
+      memory_mib:
+        example: 4096
+        type: integer
+      state:
+        $ref: '#/definitions/schema.ChatsSandboxProfileState'
+      title:
+        example: Media
+        type: string
+      tools:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsSandboxProfileChoices:
+    properties:
+      addon:
+        type: string
+      default:
+        type: string
+      profiles:
+        items:
+          $ref: '#/definitions/schema.ChatsSandboxProfile'
+        type: array
+    type: object
+  schema.ChatsSandboxProfileSet:
+    properties:
+      profile:
+        description: Profile is a profile ID, or empty for the agent's or the default
+          one.
+        type: string
+    type: object
+  schema.ChatsSandboxProfileState:
+    properties:
+      error:
+        type: string
+      percent:
+        type: integer
+      phase:
+        description: |-
+          Phase is idle (not pulled yet; the first use pulls it), pulling, ready,
+          failed or absent (this release has no image for it).
+        enum:
+        - idle
+        - pulling
+        - ready
+        - failed
+        - absent
+        type: string
+    type: object
+  schema.ChatsSandboxProfileView:
+    properties:
+      addon:
+        type: string
+      applies:
+        description: |-
+          Applies is false when the commands of the chat run in no sandbox with
+          profiles (built-in bash, no add-on, or commands on this machine).
+        type: boolean
+      default:
+        type: string
+      fallback:
+        description: |-
+          Fallback is true when the next command cannot use Profile because its
+          image is not available, and runs base. FallbackReason says why.
+        type: boolean
+      fallback_reason:
+        type: string
+      newer_image:
+        description: |-
+          NewerImage is true when the running sandbox was made from an older image
+          than the current one. The newer image applies when the sandbox restarts.
+        type: boolean
+      profile:
+        description: |-
+          Profile is the one the next command runs. Selected is your own choice
+          for the chat ("" when none). Source says where Profile comes from.
+        type: string
+      profiles:
+        items:
+          $ref: '#/definitions/schema.ChatsSandboxProfile'
+        type: array
+      selected:
+        type: string
+      source:
+        enum:
+        - chat
+        - agent
+        - default
+        type: string
+    type: object
+  schema.ChatsSandboxProfilesAdmin:
+    properties:
+      addon:
+        type: string
+      profiles:
+        items:
+          $ref: '#/definitions/schema.ChatsSandboxProfile'
+        type: array
+      roles:
+        items:
+          type: string
+        type: array
     type: object
   schema.ChatsSearchHit:
     properties:
@@ -18108,6 +18298,74 @@ paths:
       summary: Go on with the turn that failed.
       tags:
       - chats
+  /api/chats/{id}/sandbox-profile:
+    get:
+      description: 'The profile the next command of the chat runs (the one you picked,
+        else the saved agent''s, else the administrator''s default, else base), where
+        it comes from, the profiles the Sandbox add-on offers with their tools and
+        limits, whether the administrator''s policy lets you use each one (allowed),
+        and where the image of each is on the host (state: pulling shows percent).
+        fallback is true when the next command cannot use the profile because its
+        image failed or is missing, and runs base. newer_image is true when the running
+        sandbox is older than the current image. applies is false when the commands
+        of the chat run in no sandbox with profiles. Another user''s chat is 404.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The profile of the chat
+          schema:
+            $ref: '#/definitions/schema.ChatsSandboxProfileView'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read the sandbox profile of a chat.
+      tags:
+      - chats
+    put:
+      description: 'Switches the environment the commands of the chat run in. The
+        sandbox restarts at the next command: your files stay, running processes and
+        installed packages are lost. An empty profile goes back to the saved agent''s
+        or the default profile. A profile the Sandbox does not have is 400 sandbox_profile_unknown;
+        one the administrator did not give you is 403 sandbox_profile_not_allowed.
+        A sub-agent follows its parent: 409.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the profile
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsSandboxProfileSet'
+      responses:
+        "200":
+          description: The profile of the chat
+          schema:
+            $ref: '#/definitions/schema.ChatsSandboxProfileView'
+        "400":
+          description: No such profile
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: The administrator did not give you this profile
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Set the sandbox profile of a chat.
+      tags:
+      - chats
   /api/chats/{id}/send-now:
     post:
       description: After a stop or a failed turn the waiting messages stay put. This
@@ -18439,6 +18697,22 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsOAuthClientConflict'
       summary: Save the OAuth client of an add-on and approve its login (administrator).
+      tags:
+      - chats
+  /api/chats/admin/sandbox-profiles:
+    get:
+      description: The profiles of the Sandbox add-on with their limits, tools and
+        the state of their images (has_previous says an older image is kept, so a
+        profile can be pinned to it), and the roles a policy can name. The policy
+        is the owner host setting sandbox_profiles (default, access by role and user,
+        memory_mib and disk_mib quota, pin_previous); change it with the add-on host
+        settings.
+      responses:
+        "200":
+          description: The profiles
+          schema:
+            $ref: '#/definitions/schema.ChatsSandboxProfilesAdmin'
+      summary: Read the sandbox profiles (administrators).
       tags:
       - chats
   /api/chats/admin/shared-folders:
@@ -21344,6 +21618,19 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Subscribe a browser to push.
+      tags:
+      - chats
+  /api/chats/sandbox-profiles:
+    get:
+      description: The profiles of the Sandbox add-on that runs your commands, whether
+        you may use each one, and the administrator's default. Empty when no add-on
+        with profiles runs commands. Use it for the sandbox_profile of a saved agent.
+      responses:
+        "200":
+          description: The profiles
+          schema:
+            $ref: '#/definitions/schema.ChatsSandboxProfileChoices'
+      summary: List the sandbox profiles you may pick.
       tags:
       - chats
   /api/chats/search:

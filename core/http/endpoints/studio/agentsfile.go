@@ -58,7 +58,7 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 		return failFor(c, err)
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network, Memory: a.Memory, MemorySave: a.MemorySave,
+		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network, SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave,
 		BuiltinsOff: a.BuiltinsOff, BuiltinsOn: a.BuiltinsOn, Builtins: a.Builtins}
 	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID]
 	for i, f := range a.FolderList() {
@@ -147,7 +147,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
-		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network, Memory: def.Memory, MemorySave: def.MemorySave,
+		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network, SandboxProfile: def.SandboxProfile, Memory: def.Memory, MemorySave: def.MemorySave,
 		BuiltinsOff: def.BuiltinsOff, BuiltinsOn: def.BuiltinsOn, Builtins: def.Builtins}
 	var rowsIn []studiosvc.AgentFolderWrite
 	switch {

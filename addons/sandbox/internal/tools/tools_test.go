@@ -284,7 +284,7 @@ var _ = Describe("Sandbox tools", func() {
 		Expect(m.Capabilities.Actions).To(BeTrue())
 		// The host draws the network of the commands and the bash row on the
 		// add-on's own page, with the default grant of egress.check.
-		Expect(m.Capabilities.UI.Controls).To(Equal([]string{contract.ControlNetworkPolicy, contract.ControlToolProviders}))
+		Expect(m.Capabilities.UI.Controls).To(Equal([]string{contract.ControlNetworkPolicy, contract.ControlToolProviders, contract.ControlSandboxProfiles}))
 		Expect(contract.EntitledControls(m, []string{"workspace.", "egress."})).To(Equal(m.Capabilities.UI.Controls))
 		want := tools.Definitions()
 		Expect(m.Capabilities.ToolDefinitions).To(HaveLen(len(want)))

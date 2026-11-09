@@ -60,6 +60,11 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
+	// SandboxProfile is the sandbox profile of the agent's unattended runs and
+	// the starting profile of its chats (GET /api/chats/sandbox-profiles lists
+	// them). Empty: the administrator's default. A profile the Sandbox does
+	// not have, or that you may not use, runs the default or base.
+	SandboxProfile string `json:"sandbox_profile"`
 	// Memory is the choice of notes for this agent: own (its own notes only),
 	// mine_and_own (reads your notes and its own, saves to its own; the
 	// default of a new agent in the interface), mine (your notes only) or
@@ -248,6 +253,10 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// SandboxProfile is the sandbox profile of the agent (see ChatsAgent).
+	// A profile ID, or empty for the default; a value that is not a profile ID
+	// is 400.
+	SandboxProfile string `json:"sandbox_profile,omitempty"`
 	// Memory is the choice of notes (see ChatsAgent). A write without it keeps
 	// the stored choice, so a client that does not know it cannot widen the
 	// agent; the value must be own, mine_and_own, mine or none (400 otherwise).
@@ -3124,4 +3133,76 @@ type ChatsBuiltinGrant struct {
 // ChatsBuiltinGrantList is the list of builtin grants, in display order.
 type ChatsBuiltinGrantList struct {
 	Grants []ChatsBuiltinGrant `json:"grants"`
+}
+
+// ChatsSandboxProfileState is where the image of a sandbox profile is on the
+// host.
+type ChatsSandboxProfileState struct {
+	// Phase is idle (not pulled yet; the first use pulls it), pulling, ready,
+	// failed or absent (this release has no image for it).
+	Phase   string `json:"phase" enums:"idle,pulling,ready,failed,absent"`
+	Percent int    `json:"percent,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// ChatsSandboxProfile is one sandbox profile: an environment the commands of
+// a chat can run in.
+type ChatsSandboxProfile struct {
+	ID          string   `json:"id" example:"media"`
+	Title       string   `json:"title" example:"Media"`
+	Description string   `json:"description"`
+	Tools       []string `json:"tools"`
+	// CPUs, MemoryMiB and DiskMiB are the limits of one sandbox of the
+	// profile, before the administrator's quota.
+	CPUs      int `json:"cpus,omitempty"`
+	MemoryMiB int `json:"memory_mib,omitempty" example:"4096"`
+	DiskMiB   int `json:"disk_mib,omitempty" example:"20480"`
+	// Allowed says whether the administrator's policy lets you use it.
+	Allowed     bool                     `json:"allowed"`
+	State       ChatsSandboxProfileState `json:"state"`
+	HasPrevious bool                     `json:"has_previous,omitempty"`
+}
+
+// ChatsSandboxProfileView is the sandbox profile of a chat.
+type ChatsSandboxProfileView struct {
+	// Applies is false when the commands of the chat run in no sandbox with
+	// profiles (built-in bash, no add-on, or commands on this machine).
+	Applies bool   `json:"applies"`
+	Addon   string `json:"addon,omitempty"`
+	// Profile is the one the next command runs. Selected is your own choice
+	// for the chat ("" when none). Source says where Profile comes from.
+	Profile  string `json:"profile"`
+	Selected string `json:"selected"`
+	Source   string `json:"source" enums:"chat,agent,default"`
+	Default  string `json:"default"`
+	// Fallback is true when the next command cannot use Profile because its
+	// image is not available, and runs base. FallbackReason says why.
+	Fallback       bool   `json:"fallback"`
+	FallbackReason string `json:"fallback_reason,omitempty"`
+	// NewerImage is true when the running sandbox was made from an older image
+	// than the current one. The newer image applies when the sandbox restarts.
+	NewerImage bool                  `json:"newer_image"`
+	Profiles   []ChatsSandboxProfile `json:"profiles"`
+}
+
+// ChatsSandboxProfileSet sets the profile of a chat.
+type ChatsSandboxProfileSet struct {
+	// Profile is a profile ID, or empty for the agent's or the default one.
+	Profile string `json:"profile"`
+}
+
+// ChatsSandboxProfileChoices lists the profiles you may pick for an agent.
+type ChatsSandboxProfileChoices struct {
+	Addon    string                `json:"addon,omitempty"`
+	Default  string                `json:"default"`
+	Profiles []ChatsSandboxProfile `json:"profiles"`
+}
+
+// ChatsSandboxProfilesAdmin is the administrator's view of the sandbox
+// profiles. The policy itself (default, access, quota, pins) is the owner
+// setting sandbox_profiles of the add-on host settings.
+type ChatsSandboxProfilesAdmin struct {
+	Addon    string                `json:"addon,omitempty"`
+	Roles    []string              `json:"roles"`
+	Profiles []ChatsSandboxProfile `json:"profiles"`
 }
