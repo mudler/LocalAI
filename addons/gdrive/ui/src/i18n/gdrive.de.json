@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "Lass deine Agenten die Dateien in den Drive-Ordnern lesen, die du angibst. Wenn du es erlaubst, können sie dort auch Textdateien anlegen und ändern.",
+  "limits": "Wähle „Mit Google verbinden“, um eine Verbindung hinzuzufügen und dich bei deinem Google-Konto anzumelden. Diese Seite legt die Ordner und den Schreibmodus jeder Verbindung fest. Ein Agent arbeitet in Drive nur, wenn du ihn in einem Chat darum bittest.",
+  "edit": "Google-Drive-Verbindung bearbeiten",
+  "name": "Name",
+  "folders": "Ordner, die der Agent nutzen darf",
+  "foldersHelp": "Eine Ordner-ID oder Ordneradresse pro Zeile. {{count}} aufgeführt. Ein Ordner umfasst alles darin. Jede andere Datei wird abgelehnt.",
+  "foldersShape": "„{{entry}}“ ist keine Ordner-ID. Kopiere sie aus der Adresse des Ordners in deinem Browser, nach /folders/.",
+  "foldersMany": "Höchstens 50 Ordner.",
+  "allFolders": {
+    "label": "Alle Ordner (Meine Ablage und geteilte Ablagen)",
+    "hint": "Der Agent kann jede Datei lesen, die dein Google-Login sehen kann, in Meine Ablage und in geteilten Ablagen. Ist die Option aus, nutzt er nur die Ordner der Liste.",
+    "warning": "Damit kann der Agent jede Datei lesen, die dein Google-Login erreicht, nicht nur die Dateien in einem Ordner. Der Schreibmodus unten gilt weiter, und jede Änderung wartet weiter auf dein OK.",
+    "confirm": "Verstanden: alle Ordner erlauben",
+    "row": "Alle Ordner (Meine Ablage und geteilte Ablagen)"
+  },
+  "agent": "Agent",
+  "agentNone": "Agent wählen",
+  "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
+  "agentOptionalHint": "Optional. Ohne Agent hält diese Verbindung nur die Anmeldung, die Ordnerliste und den Schreibmodus für deine Chats. Sie beantwortet keine Nachrichten und hört auf nichts.",
+  "credentialsOnly": "Nur Zugangsdaten",
+  "agentNoModel": "{{name}} (braucht ein Modell)",
+  "test": "Test",
+  "testOk": "Verbunden als {{bot}}.",
+  "checkFailed": "Gespeichert. Die Prüfung ist fehlgeschlagen: {{reason}}",
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "editButton": "Bearbeiten",
+  "delete": "Löschen",
+  "empty": "Noch keine Google-Drive-Verbindungen. Wähle „Mit Google verbinden“, um eine hinzuzufügen.",
+  "connect": "Mit Google verbinden",
+  "defaultName": "Google Drive",
+  "noFolders": "Keine Ordner aufgeführt: Der Agent kann nichts lesen.",
+  "foldersOf": "{{count}} Ordner: {{list}}",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Läuft nicht: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} löschen?",
+    "message": "Der Agent erreicht diese Ordner nicht mehr. LocalAI bittet Google, die Anmeldung zu widerrufen, und vergisst sie dann.",
+    "confirm": "Löschen"
+  },
+  "setup": {
+    "title": "So wählst du Ordner aus",
+    "step1": "Öffne den Ordner in Google Drive in deinem Browser. Die Adresse endet auf /folders/ und der ID des Ordners.",
+    "step2": "Kopiere die ganze Adresse oder nur die ID und füge sie in die Liste ein. Mit root meinst du die oberste Ebene von Meine Ablage.",
+    "step3": "Der Schreibmodus unten braucht außerdem den optionalen Zugriff, den du beim Verbinden erlaubst. Ohne ihn kann der Agent nur lesen."
+  },
+  "writeMode": {
+    "label": "Was der Agent in Drive ändern darf",
+    "hint": "Eine Textdatei anlegen, den Text einer Datei ersetzen, eine Datei umbenennen oder verschieben und eine Datei in den Papierkorb legen. Er gibt nie eine Datei frei und löscht keine endgültig.",
+    "off": "Nur lesen",
+    "propose": "Fragt dich zuerst",
+    "auto": "Handelt ohne Rückfrage",
+    "line": {
+      "off": "Er kann nichts in Drive ändern.",
+      "propose": "Jede Änderung wartet auf dein OK.",
+      "auto": "Deine Chats führen die Änderung sofort aus."
+    },
+    "note": {
+      "off": "Der Schreibzugriff ist aus: Diese Verbindung liest nur.",
+      "propose": "Jede Änderung wartet in deinen Freigaben, bis du sie bestätigst. Dafür braucht es außerdem den optionalen Schreibzugriff, den du beim Verbinden erlaubst.",
+      "auto": "Jede Änderung wartet trotzdem in deinen Freigaben: Dieses Add-on schreibt nie ohne das OK einer Person. Dafür braucht es außerdem den optionalen Schreibzugriff, den du beim Verbinden erlaubst."
+    },
+    "row": {
+      "off": "Nur lesen",
+      "propose": "Fragt dich zuerst",
+      "auto": "Fragt dich zuerst"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "Datei anlegen",
+      "update-file": "Datei ändern",
+      "move-file": "Datei verschieben",
+      "trash-file": "Datei in den Papierkorb legen"
+    },
+    "file": "Datei",
+    "name": "Name",
+    "newName": "Neuer Name",
+    "in": "Im Ordner",
+    "allowedFolder": "Der Ordner, den du erlaubt hast",
+    "moveTo": "Verschieben nach",
+    "type": "Typ",
+    "text": "Text, der gespeichert wird ({{bytes}} Bytes)",
+    "cut": "Der hier gezeigte Text ist gekürzt. Der ganze Text mit {{bytes}} Bytes wird gespeichert.",
+    "trashNote": "Die Datei kommt in den Papierkorb. Dort kannst du sie wiederherstellen.",
+    "replaceNote": "Der neue Text ersetzt den ganzen Text der Datei."
+  }
+}

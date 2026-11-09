@@ -7,6 +7,9 @@ import { filterNodes, paginateNodes, runBounded, sortNodes, summarizeFleet } fro
 import { DISTRIBUTED_COMMAND, attentionOf, memoryOf, updateTargets } from '../utils/swarm'
 import { useNodeList, usePhone, useReplicas } from '../hooks/useSwarm'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
+import { useUpdates } from '../contexts/UpdatesContext'
+import { entriesFromPairs } from '../utils/nodeUpdates'
+import NodeUpdateDialog from '../components/updates/NodeUpdateDialog'
 import { Button, Callout, SkeletonRows } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SideSheet from '../components/SideSheet'
@@ -53,7 +56,6 @@ export default function Nodes() {
   const [bulkRunning, setBulkRunning] = useState(false)
   const bulkRef = useRef(false)
   const [busyId, setBusyId] = useState(null)
-  const [updating, setUpdating] = useState(false)
   const [activeId, setActiveId] = useState(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [confirmNode, setConfirmNode] = useState(null)
@@ -172,24 +174,20 @@ export default function Nodes() {
     () => updateTargets({ upgrades: summary?.upgrades, nodes, selectedIds }),
     [summary?.upgrades, nodes, selectedIds],
   )
-  const updateBackends = async () => {
-    if (updating || targets.pairs.length === 0) return
-    setUpdating(true)
-    try {
-      const results = await runBounded(targets.pairs, 6, pair => nodesApi.upgradeBackend(pair.nodeId, pair.backend))
-      const failed = results.filter(r => r.status === 'rejected').length
-      addToast(
-        failed
-          ? t('update.partial', { failed, total: results.length })
-          : t('update.started', { count: targets.nodeIds.length }),
-        failed ? 'warning' : 'info',
-      )
-      await summary?.refresh?.()
-    } finally {
-      setUpdating(false)
-    }
+  // Every update asks first: a worker stops the running models of a backend
+  // before it installs the new one. The dialog names them, then runs the
+  // nodes one after another and shows each result.
+  const updates = useUpdates()
+  const [updatePlan, setUpdatePlan] = useState(null)
+  const updateBackends = () => {
+    if (targets.pairs.length === 0) return
+    setUpdatePlan(entriesFromPairs({
+      pairs: targets.pairs,
+      items: updates && updates.snapshot ? updates.snapshot.items : [],
+      nodes,
+      upgrades: summary?.upgrades,
+    }))
   }
-
   if (loadStatus === 'loading') return <div className="page page--wide sw-page"><SkeletonRows /></div>
   if (loadStatus === 'single') {
     return <LocalMachineView addToast={addToast} scaleOut={<ScaleOut addToast={addToast} />} />
@@ -241,7 +239,7 @@ export default function Nodes() {
         </div>
         <div className="sw-bar__acts">
           {targets.pairs.length > 0 && (
-            <Button icon="arrow-up" busy={updating} onClick={updateBackends} data-testid="bulk-update">{updateLabel}</Button>
+            <Button icon="arrow-up" onClick={updateBackends} data-testid="bulk-update">{updateLabel}</Button>
           )}
           <div className="sw-chips" role="group" aria-label={t('nodes.filter')}>
             <button type="button" className="dk-chip" aria-pressed={!needsOnly} onClick={() => { setNeedsOnly(false); setReason(null) }}>
@@ -376,6 +374,13 @@ export default function Nodes() {
         onConfirm={() => runOne(confirmNode.node, confirmNode.action, confirmNode.action === 'drain' ? 'toast.draining' : 'toast.removed')}
         onCancel={() => setConfirmNode(null)}
       />
+      {updatePlan && (
+        <NodeUpdateDialog
+          entries={updatePlan}
+          onClose={() => setUpdatePlan(null)}
+          onSettled={() => { refetch(); summary?.refresh?.() }}
+        />
+      )}
     </div>
   )
 }

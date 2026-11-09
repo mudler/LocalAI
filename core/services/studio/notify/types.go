@@ -63,10 +63,29 @@ type Notification struct {
 	Link    string    `json:"link"`
 	Read    bool      `json:"read"`
 	Created time.Time `json:"created"`
+	// Code names a kind of item that the UI words itself from Params, in the
+	// language of the person. Title and Body stay in English: they are the
+	// fallback, and the text of browser push and Telegram. Empty on the items
+	// of triggers, connectors and the conversion.
+	Code   string         `json:"code,omitempty"`
+	Params map[string]any `json:"params,omitempty"`
+	// Key makes the item keyed: a principal has at most one row for a key, and
+	// Upsert edits it in place. Keyed rows are not sent to clients.
+	Key string `json:"-"`
+	// Ids is the set a keyed row shows (see Upsert). A row with ids is a
+	// set row: it is never trimmed by count or age, because it is edited in
+	// place and removed when its set is empty.
+	Ids []string `json:"-"`
+	// Hidden is set when the person deleted a keyed row. The row stays so the
+	// key and its ids are not forgotten; lists and counts skip it.
+	Hidden bool `json:"-"`
 	// Op is set only on a live signal that the inbox changed (OpChanged), not
 	// on a stored row. Clients that hear it read the list again.
 	Op string `json:"op,omitempty"`
 }
+
+// Sticky reports whether the row is a set row, which no trim removes.
+func (n Notification) Sticky() bool { return n.Key != "" && len(n.Ids) > 0 }
 
 // OpChanged is the live signal that notifications were read or removed.
 const OpChanged = "changed"
@@ -92,6 +111,11 @@ type Store interface {
 	// DeleteAll removes every notification of the principal, or with readOnly
 	// only the read ones. It returns how many it removed.
 	DeleteAll(ctx context.Context, principal string, readOnly bool) (int, error)
+	// Upsert stores a keyed notification (n.Key is required) by the rules of
+	// Decide, in one step. It returns the row as stored and what happened. The
+	// delete methods hide a keyed row instead of removing it, and lists and
+	// counts skip hidden rows.
+	Upsert(ctx context.Context, n Notification, mode UpsertMode) (Notification, UpsertResult, error)
 }
 
 func cutRunes(s string, n int) string {

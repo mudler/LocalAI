@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Permite que tus agentes lean el correo de tu cuenta de Google. Si lo autorizas, también pueden guardar borradores y enviarlos después de que apruebes cada uno.",
+  "limits": "Elige «Conectar con Google» para añadir una conexión e iniciar sesión en tu cuenta de Google. Esta página define las etiquetas y el modo de escritura de cada conexión. Un agente trabaja en tu buzón solo cuando se lo pides en un chat.",
+  "edit": "Editar la conexión de Gmail",
+  "name": "Nombre",
+  "labels": "Etiquetas que el agente puede usar",
+  "labelsHelp": "Un nombre o ID de etiqueta por línea. Escribe con guiones el nombre que tenga espacios. {{count}} indicadas. El agente solo llega al correo que tenga una de estas etiquetas. Escribe ALL para dar todo el buzón.",
+  "labelsShape": "«{{entry}}» no es una etiqueta. Usa el nombre o el ID de una etiqueta, o ALL.",
+  "labelsMany": "Como máximo 50 etiquetas.",
+  "allNote": "ALL da al agente todo el correo que esta cuenta puede leer, en todas las etiquetas, incluido el correo que nunca quisiste que viera un modelo. Usa una etiqueta si puedes.",
+  "agent": "Agente",
+  "agentNone": "Elige un agente",
+  "agentCredentialsOnly": "Sin agente (solo credenciales)",
+  "agentOptionalHint": "Opcional. Sin un agente, esta conexión solo guarda el inicio de sesión, la lista de etiquetas y el modo de escritura para tus chats. No responde a mensajes ni escucha nada.",
+  "credentialsOnly": "Solo credenciales",
+  "agentNoModel": "{{name}} (necesita un modelo)",
+  "test": "Probar",
+  "testOk": "Conectado como {{bot}}.",
+  "checkFailed": "Guardado. Falló la comprobación: {{reason}}",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "editButton": "Editar",
+  "delete": "Eliminar",
+  "empty": "Aún no hay conexiones de Gmail. Elige «Conectar con Google» para añadir una.",
+  "connect": "Conectar con Google",
+  "defaultName": "Gmail",
+  "noLabels": "No hay etiquetas indicadas: el agente no puede leer nada.",
+  "labelsOf": "{{count}} etiquetas: {{list}}",
+  "allMailbox": "Todo el buzón",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "No se está ejecutando: {{reason}}.",
+  "confirmDelete": {
+    "title": "¿Eliminar {{name}}?",
+    "message": "El agente ya no puede acceder a este buzón. LocalAI pide a Google que revoque el inicio de sesión y luego lo olvida.",
+    "confirm": "Eliminar"
+  },
+  "setup": {
+    "title": "Cómo elegir etiquetas",
+    "step1": "Escribe el nombre de una etiqueta de Gmail, por ejemplo Trabajo, o de una etiqueta del sistema como INBOX o STARRED. Un nombre con espacios se escribe con guiones.",
+    "step2": "El agente solo llega al correo que tenga la etiqueta. Nunca se busca en spam ni en la papelera. Escribe ALL solo si el agente puede leer todo el buzón.",
+    "step3": "El modo de escritura de abajo también necesita el acceso opcional que permites al conectar. Sin él, el agente solo puede leer."
+  },
+  "writeMode": {
+    "label": "Qué puede hacer el agente con tu correo",
+    "hint": "Guardar un borrador y enviar un borrador que ya existe. Nunca elimina, envía a la papelera, etiqueta ni reenvía correo, y nunca cambia tus ajustes.",
+    "off": "Solo lectura",
+    "propose": "Te pregunta antes",
+    "auto": "Actúa sin preguntar",
+    "line": {
+      "off": "No puede guardar ni enviar nada.",
+      "propose": "Cada borrador y cada envío esperan tu confirmación.",
+      "auto": "Tus chats hacen el cambio al instante."
+    },
+    "note": {
+      "off": "El acceso de escritura está desactivado: esta conexión solo lee.",
+      "propose": "Cada borrador y cada envío esperan en tus aprobaciones hasta que los confirmes. Antes ves los destinatarios y el texto. También necesita el acceso de escritura opcional que permites al conectar.",
+      "auto": "Cada borrador y cada envío siguen esperando en tus aprobaciones: este complemento nunca escribe sin la confirmación de una persona. También necesita el acceso de escritura opcional que permites al conectar."
+    },
+    "row": {
+      "off": "Solo lectura",
+      "propose": "Te pregunta antes",
+      "auto": "Te pregunta antes"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Guardar un borrador",
+      "send-draft": "Enviar un correo"
+    },
+    "to": "Para",
+    "cc": "Cc",
+    "bcc": "Cco",
+    "subject": "Asunto",
+    "none": "(ninguno)",
+    "replyTo": "Respuesta a",
+    "attachments": "Adjuntos",
+    "text": "Texto ({{bytes}} bytes)",
+    "cut": "El texto que se muestra aquí está recortado. Se guarda el texto completo, de {{bytes}} bytes.",
+    "draftNote": "Esto guarda un borrador en tu Gmail. No lo envía.",
+    "sendNote": "Esto envía un correo desde tu Gmail a las personas de arriba. Un correo enviado no se puede recuperar."
+  }
+}

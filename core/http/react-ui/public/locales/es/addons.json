@@ -606,7 +606,6 @@
     },
     "progress": "Actualizando {{name}}. Primero se respaldan sus datos.",
     "done": "Actualizado a la versión {{version}}.",
-    "browseUpdate": "La actualización {{version}} está disponible. Adminístrala en Instalados.",
     "errors": {
       "stale_installed": "La versión instalada cambió desde la comprobación. Busca actualizaciones de nuevo.",
       "candidate_changed": "La biblioteca ya no ofrece la versión comprobada. Busca actualizaciones de nuevo.",
@@ -636,15 +635,14 @@
     "checkAll": "Buscar actualizaciones",
     "notCheckedYet": "Aún no se han buscado actualizaciones.",
     "checkingAll": "Comprobando...",
-    "checkAllDone": "{{count}} complementos comprobados.",
-    "checkAllFailed": "No se pudieron comprobar {{count}}.",
     "checkResult": {
       "done": "Comprobado.",
       "failed": "La comprobación no se completó.",
       "justNow": "Comprobado ahora mismo."
     },
     "waitingService": "El servicio de complementos se está iniciando. LocalAI vuelve a preguntar por la actualización en {{seconds}} s.",
-    "checkAgain": "Comprobar ahora"
+    "checkAgain": "Comprobar ahora",
+    "open": "Abrir Actualizaciones"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -890,7 +888,7 @@
     "lockedNoAuth": "El inicio de sesión está desactivado, así que cualquiera que llegue a este servidor podría cambiar esto; el administrador lo define en el archivo de políticas.",
     "newOptional": "La nueva versión también pide {{ops}}. Son opcionales y no están permitidos.",
     "noLongerRequested": "Esta versión ya no lo pide. Puedes desactivarlo.",
-    "notOfficial": "Este complemento viene de {{library}}, no de la biblioteca oficial.",
+    "notOfficialWarning": "Este complemento viene de {{library}}, no de la biblioteca oficial. Se ejecuta como código de confianza en este servidor y puede usar las credenciales que se le entregan. Instálalo solo si confías en su autor.",
     "op": {
       "alreadyAllowed": "Ya permitido",
       "blocked": "Bloqueado por la política del administrador",
@@ -926,6 +924,56 @@
       "reviewNamed": "Revisar y aprobar el acceso al host de {{name}}",
       "title": "{{name}} {{version}} espera tu aprobación"
     }
+  },
+  "oauthClient": {
+    "title": "Inicio de sesión de cuenta",
+    "intro": "Las personas conectan este complemento a su propia cuenta en un servicio. Registra en el servicio la dirección de retorno de abajo, introduce el cliente que te da y aprueba el inicio de sesión. Antes de eso nadie puede conectarse.",
+    "status": {
+      "unconfigured": "Aún no aprobado. Nadie puede conectarse.",
+      "changed": "El inicio de sesión de este complemento cambió desde que se aprobó. Nadie puede conectarse ni renovar un inicio de sesión hasta que lo apruebes de nuevo.",
+      "approved": "Aprobado el {{when}}.",
+      "approvedBy": "Aprobado por {{who}} el {{when}}."
+    },
+    "sentTo": "Las personas inician sesión en",
+    "hosts": "Hosts permitidos",
+    "required": "Se piden siempre",
+    "optional": "Las personas pueden añadir",
+    "none": "Ninguno",
+    "tokens": "Los tokens vienen de",
+    "revoke": "Desconectar revoca en",
+    "noRevoke": "Sin dirección: desconectar solo olvida el inicio de sesión aquí",
+    "clientAuth": "Autenticación del cliente",
+    "auth": {
+      "basic": "ID y secreto del cliente, enviados en la cabecera de la solicitud",
+      "post": "ID y secreto del cliente, enviados en el cuerpo de la solicitud",
+      "none": "Sin secreto (cliente público)",
+      "other": "Otro"
+    },
+    "params": "Parámetros de inicio de sesión adicionales",
+    "callback": "Dirección de retorno",
+    "callbackHint": "Registra esta dirección en el servicio como dirección de redirección del cliente.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "baseUrlRequired": "Este servidor no conoce su dirección pública, así que no hay dirección de retorno y nadie puede conectarse. Configura la URL base externa del servidor y recarga esta página.",
+    "clientId": "ID de cliente",
+    "clientSecret": "Secreto del cliente",
+    "secretHint": "Solo escritura: se guarda sellado y no se vuelve a mostrar.",
+    "secretSaved": "Hay un secreto guardado. Deja el campo vacío para conservarlo.",
+    "secretKeepPlaceholder": "Guardado (oculto)",
+    "noSecret": "Este inicio de sesión no usa secreto de cliente.",
+    "approve": "Aprobar y guardar",
+    "saved": "Guardado. El inicio de sesión está aprobado.",
+    "stale": "El inicio de sesión de este complemento cambió mientras lo revisabas. No se guardó nada.",
+    "refresh": "Mostrar el nuevo inicio de sesión",
+    "loadFailed": "No se pudo leer el inicio de sesión de este complemento",
+    "errors": {
+      "unavailable": "No se pudo contactar con el complemento. Inténtalo más tarde.",
+      "needsApproval": "El complemento no está aprobado.",
+      "baseUrlRequired": "Este servidor no conoce su dirección pública. Configura la URL base externa del servidor.",
+      "approvalStale": "El inicio de sesión de este complemento cambió. Muestra el nuevo inicio de sesión.",
+      "save": "No se pudo guardar el cliente."
+    },
+    "unknownLibrary": "una biblioteca desconocida"
   },
   "file": {
     "button": "Instalar desde un archivo",

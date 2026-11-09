@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Lascia che i tuoi agenti leggano la posta del tuo account Google. Se lo permetti, possono anche salvare bozze e inviarle dopo che hai approvato ciascuna.",
+  "limits": "Scegli «Connetti con Google» per aggiungere una connessione e accedere al tuo account Google. Questa pagina imposta le etichette e la modalità di scrittura di ogni connessione. Un agente lavora nella tua casella solo quando glielo chiedi in una chat.",
+  "edit": "Modifica la connessione a Gmail",
+  "name": "Nome",
+  "labels": "Etichette che l'agente può usare",
+  "labelsHelp": "Un nome o un ID di etichetta per riga. Scrivi con i trattini un nome che contiene spazi. {{count}} indicate. L'agente raggiunge solo la posta con una di queste etichette. Scrivi ALL per dare tutta la casella.",
+  "labelsShape": "\"{{entry}}\" non è un'etichetta. Usa il nome o l'ID di un'etichetta, oppure ALL.",
+  "labelsMany": "Al massimo 50 etichette.",
+  "allNote": "ALL dà all'agente tutta la posta che questo account può leggere, in ogni etichetta, anche quella che non volevi mai far vedere a un modello. Se puoi, usa un'etichetta.",
+  "agent": "Agente",
+  "agentNone": "Scegli un agente",
+  "agentCredentialsOnly": "Nessun agente (solo credenziali)",
+  "agentOptionalHint": "Facoltativo. Senza un agente questa connessione conserva solo l'accesso, l'elenco delle etichette e la modalità di scrittura per le tue chat. Non risponde ai messaggi e non resta in ascolto.",
+  "credentialsOnly": "Solo credenziali",
+  "agentNoModel": "{{name}} (serve un modello)",
+  "test": "Prova",
+  "testOk": "Connesso come {{bot}}.",
+  "checkFailed": "Salvato. La verifica non è riuscita: {{reason}}",
+  "save": "Salva",
+  "cancel": "Annulla",
+  "editButton": "Modifica",
+  "delete": "Elimina",
+  "empty": "Ancora nessuna connessione a Gmail. Scegli «Connetti con Google» per aggiungerne una.",
+  "connect": "Connetti con Google",
+  "defaultName": "Gmail",
+  "noLabels": "Nessuna etichetta indicata: l'agente non può leggere nulla.",
+  "labelsOf": "{{count}} etichette: {{list}}",
+  "allMailbox": "Tutta la casella",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Non in esecuzione: {{reason}}.",
+  "confirmDelete": {
+    "title": "Eliminare {{name}}?",
+    "message": "L'agente non può più raggiungere questa casella. LocalAI chiede a Google di revocare l'accesso, poi lo dimentica.",
+    "confirm": "Elimina"
+  },
+  "setup": {
+    "title": "Come scegliere le etichette",
+    "step1": "Scrivi il nome di un'etichetta di Gmail, per esempio Lavoro, o di un'etichetta di sistema come INBOX o STARRED. Un nome con spazi si scrive con i trattini.",
+    "step2": "L'agente raggiunge solo la posta con l'etichetta. Spam e cestino non vengono mai cercati. Scrivi ALL solo se l'agente può leggere tutta la casella.",
+    "step3": "La modalità di scrittura qui sotto richiede anche l'accesso facoltativo che consenti al momento della connessione. Senza, l'agente può solo leggere."
+  },
+  "writeMode": {
+    "label": "Cosa può fare l'agente con la tua posta",
+    "hint": "Salvare una bozza e inviare una bozza esistente. Non elimina, non sposta nel cestino, non etichetta e non inoltra mai la posta, e non cambia mai le tue impostazioni.",
+    "off": "Sola lettura",
+    "propose": "Chiede prima a te",
+    "auto": "Agisce senza chiedere",
+    "line": {
+      "off": "Non può salvare né inviare nulla.",
+      "propose": "Ogni bozza e ogni invio aspettano il tuo OK.",
+      "auto": "Le tue chat fanno la modifica subito."
+    },
+    "note": {
+      "off": "L'accesso in scrittura è disattivato: questa connessione legge soltanto.",
+      "propose": "Ogni bozza e ogni invio aspettano nelle tue approvazioni finché non li confermi. Prima vedi i destinatari e il testo. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione.",
+      "auto": "Ogni bozza e ogni invio aspettano comunque nelle tue approvazioni: questo add-on non scrive mai senza l'OK di una persona. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione."
+    },
+    "row": {
+      "off": "Sola lettura",
+      "propose": "Chiede prima a te",
+      "auto": "Chiede prima a te"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Salva una bozza",
+      "send-draft": "Invia un'e-mail"
+    },
+    "to": "A",
+    "cc": "Cc",
+    "bcc": "Ccn",
+    "subject": "Oggetto",
+    "none": "(nessuno)",
+    "replyTo": "Risposta a",
+    "attachments": "Allegati",
+    "text": "Testo ({{bytes}} byte)",
+    "cut": "Il testo mostrato qui è tagliato. Il testo completo, di {{bytes}} byte, viene salvato.",
+    "draftNote": "Questo salva una bozza nel tuo Gmail. Non la invia.",
+    "sendNote": "Questo invia un'e-mail dal tuo Gmail alle persone indicate sopra. Un'e-mail inviata non si può richiamare."
+  }
+}

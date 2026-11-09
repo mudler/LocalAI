@@ -62,16 +62,17 @@
       "remoteNote": "{{model}} ist ein entfernter Dienst: Was ein Lauf liest, verlässt diesen Server.",
       "stopWidget": "Pausiere ihn im Widget oder lösche ihn unter Trigger",
       "stop": "Schalte ihn aus oder lösche ihn unter Trigger",
-      "actsLabel": "Berechtigungen"
+      "actsLabel": "Berechtigungen",
+      "limitLabel": "Zeitlimit",
+      "limitClamped": "{{limit}}, vom Administrator auf {{ceiling}} gekürzt"
     }
   },
   "mcpPage": {
     "title": "MCP-Konnektoren",
     "supporting": "Verbinden Sie MCP-Server, um Ihren Chats und Agenten mehr Werkzeuge zu geben, etwa Suche oder Ihre eigenen APIs.",
-    "family": "Bots für Telegram oder Slack sind <go>Messaging-Konnektoren</go>.",
     "related": "Verwandt",
     "chats": "Chats",
-    "add": "Konnektor hinzufügen",
+    "add": "Neuer Konnektor",
     "learn": "So funktioniert MCP",
     "loading": "Ihre Konnektoren werden geladen",
     "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
@@ -169,7 +170,7 @@
       "encrypted": "Verschlüsselt auf dem Server gespeichert. Wird nie wieder angezeigt."
     },
     "sheet": {
-      "addTitle": "Konnektor hinzufügen",
+      "addTitle": "Neuer Konnektor",
       "editTitle": "{{name}} bearbeiten",
       "addDesc": "Verbinden Sie einen MCP-Server. Sie testen ihn, bevor Chats ihn verwenden.",
       "editDesc": "Gespeicherte Geheimnisse bleiben, außer Sie ersetzen oder entfernen sie.",
@@ -272,6 +273,77 @@
     "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
     "waitingTitle": "Warten auf ihr Add-on",
     "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist.",
+    "oauth": {
+      "connected": "Verbunden",
+      "connectedAs": "Verbunden als {{account}}",
+      "access": "Zugriff: {{scopes}}",
+      "expires": "Läuft ab {{time}}",
+      "disconnect": "Trennen",
+      "disconnecting": "Wird getrennt…",
+      "disconnectTitle": "{{name}} trennen?",
+      "disconnectText": "LocalAI bittet den Dienst, diese Anmeldung zu widerrufen, und vergisst sie dann. Werkzeuge, die diese Verbindung nutzen, funktionieren erst wieder, wenn du dich erneut verbindest.",
+      "disconnected": "{{name}} ist getrennt. Der Dienst hat die Anmeldung widerrufen.",
+      "disconnectedNotTold": "{{name}} ist hier getrennt, aber der Dienst hat den Widerruf der Anmeldung nicht bestätigt. Entferne den Zugriff auch in deinem Konto beim Dienst.",
+      "notConnected": "Noch nicht verbunden.",
+      "connect": "Verbinden",
+      "alsoAllow": "Außerdem erlauben:",
+      "reconnectTitle": "Erneut verbinden.",
+      "reconnect": "Neu verbinden",
+      "reason": {
+        "revoked": "Der Dienst hat die Anmeldung beendet, oder der Zugriff wurde widerrufen.",
+        "client_rejected": "Der Dienst akzeptiert den Client dieses Servers nicht mehr. Ein Administrator muss ihn eventuell aktualisieren.",
+        "refused": "Der Dienst hat die Erneuerung der Anmeldung abgelehnt.",
+        "needs_approval": "Die Anmeldung dieses Add-ons hat sich geändert und muss erneut genehmigt werden.",
+        "credential_rejected": "Der Dienst hat den Zugriff abgelehnt, auch nach einer Erneuerung.",
+        "expired": "Die Anmeldung ist abgelaufen und kann nicht erneuert werden.",
+        "write_failed": "Die erneuerte Anmeldung konnte nicht gespeichert werden.",
+        "unreadable": "Die gespeicherte Anmeldung konnte nicht gelesen werden.",
+        "unknown": "Die Anmeldung funktioniert nicht mehr.",
+        "scopes_missing": "Der Dienst gewährt nicht mehr den ganzen Zugriff, den dieses Add-on braucht. Verbinde dich erneut und erlaube ihn.",
+        "endpoint_changed": "Das Add-on sendet Anmeldungen jetzt an eine andere Adresse des Dienstes, daher kann diese Anmeldung nicht mitgenommen werden. Verbinde dich erneut.",
+        "token_too_large": "Der Dienst hat die Anmeldung mit einem Zugriffstoken erneuert, das größer ist, als LocalAI verwenden kann (4096 Bytes)."
+      },
+      "approvalUser": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
+      "approvalUserChanged": "Die Anmeldung dieses Add-ons hat sich geändert. Ein Administrator muss sie erneut genehmigen.",
+      "approvalAdmin": "Niemand kann sich verbinden, bis du die Anmeldung dieses Add-ons genehmigst.",
+      "approvalAdminChanged": "Die Anmeldung dieses Add-ons hat sich seit der Genehmigung geändert. Prüfe sie und genehmige sie erneut.",
+      "review": "Prüfen und genehmigen",
+      "returned": {
+        "ok": "Verbunden. Die Verbindung funktioniert jetzt.",
+        "denied": "Du hast beim Dienst abgelehnt. Nichts hat sich geändert.",
+        "error": {
+          "invalid_state": "Die Anmeldung konnte nicht abgeschlossen werden: Sie ist abgelaufen, oder in diesem Browser wurde eine andere Anmeldung gestartet. Verbinde dich erneut.",
+          "provider_error": "Der Dienst hat einen Fehler gemeldet. Versuche es später erneut.",
+          "exchange_failed": "Der Dienst hat die Anmeldung nicht abgeschlossen. Verbinde dich erneut.",
+          "scopes_missing": "Der Dienst hat nicht den ganzen Zugriff gewährt, den dieses Add-on braucht. Verbinde dich erneut und erlaube ihn.",
+          "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
+          "unknown": "Die Anmeldung konnte nicht abgeschlossen werden. Verbinde dich erneut.",
+          "token_too_large": "Der Dienst hat ein Zugriffstoken ausgestellt, das größer ist, als LocalAI verwenden kann (4096 Bytes), daher wurde die Anmeldung nicht gespeichert. Eine Administratorin oder ein Administrator muss eventuell ändern, wie der Dienst Tokens für diesen Client ausstellt."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Dieser Server kennt seine öffentliche Adresse nicht und kann dich daher nicht zum Dienst schicken. Bitte einen Administrator, die externe Basis-URL des Servers festzulegen.",
+        "needsApproval": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
+        "approvalStale": "Die Anmeldung dieses Add-ons hat sich geändert. Lade die Seite neu.",
+        "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
+        "tooManyLogins": "Es wurden zu viele Anmeldungen gestartet. Schließe die im anderen Tab ab oder warte ein paar Minuten und versuche es erneut."
+      },
+      "add": {
+        "open": "Neue Verbindung",
+        "title": "Neue Verbindung zu {{name}}",
+        "name": "Name",
+        "hint": "Ein Name, den du wiedererkennst, etwa Arbeit oder Privat. Wähle nach dem Hinzufügen Verbinden, um dich bei deinem Konto anzumelden.",
+        "cancel": "Abbrechen",
+        "submit": "Hinzufügen",
+        "failed": "Die Verbindung konnte nicht hinzugefügt werden. Versuche es erneut.",
+        "added": "{{name}} wurde hinzugefügt. Wähle Verbinden, um dich bei deinem Konto anzumelden.",
+        "empty": "Noch keine Verbindungen. Füge eine hinzu und verbinde dann dein Konto.",
+        "manage": "Verbindungen bearbeiten"
+      },
+      "login": {
+        "hint": "Ein Name, den du wiedererkennst, etwa Arbeit oder Privat. Danach gehst du zum Dienst, um dich anzumelden."
+      }
+    },
     "duplicate": {
       "text": "Dieser Bot ist auch als {{name}} verbunden. Beide Verbindungen beantworten dieselbe Nachricht.",
       "turnOff": "Diese ausschalten",
@@ -296,7 +368,13 @@
       "text": "Andere Personen lassen dich diese Verbindungen in deinen Chats und Agenten nutzen. Nur die Eigentümer können sie ändern.",
       "on": "Hört zu",
       "off": "Aus"
-    }
+    },
+    "title": "Verbindungen",
+    "introAccounts": "Konten, die du einmal verbindest, damit deine Chats und Agenten sie als Werkzeuge nutzen können. Jedes Konto kommt von einem Add-on.",
+    "noAddonAccounts": "Es ist kein Konto-Add-on installiert.",
+    "noAddonAccountsHint": "Ein Konto-Add-on verbindet einen Dienst mit deinen Chats und Agenten. Installiere eines aus der Add-on-Galerie, um eine Verbindung hinzuzufügen.",
+    "noAddonMessaging": "Es ist kein Messaging-Add-on installiert.",
+    "noAddonMessagingHint": "Ein Messaging-Add-on transportiert die Nachrichten einer Chat-Plattform. Installiere eines aus der Add-on-Galerie, um eine Bindung hinzuzufügen."
   },
   "tools": {
     "commands": {
@@ -420,11 +498,14 @@
       "sole": "Das ist deine einzige Verbindung, daher wird sie verwendet.",
       "choose": "Wähle mindestens eine Verbindung, um diese Werkzeuge zu nutzen",
       "none": "Noch keine Verbindung",
-      "create": "Verbindung hinzufügen",
+      "create": "Neue Verbindung",
       "byAgent": "Der Agent dieses Chats legt die Verbindungen fest. Ändere sie beim Agenten.",
       "agentLabel": "Verbindungen für Chats dieses Agenten",
       "agentHelp": "Chats dieses Agenten dürfen nur diese Verbindungen nutzen und können sie nicht ändern.",
-      "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst."
+      "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst.",
+      "reconnectNeeded": "Erneut verbinden: {{names}}",
+      "ownerReconnectNeeded": "Der Eigentümer muss erneut verbinden: {{names}}",
+      "reconnect": "Neu verbinden"
     },
     "optionNeeds": "Schalte „{{name}}“ ein, um dies zu nutzen.",
     "connectionMissing": "{{name}} erlaubt das noch nicht.",
@@ -627,7 +708,41 @@
     "arrivedMany_other": "{{count}} neue Benachrichtigungen",
     "proposalsWaiting_one": "{{count}} Änderung wartet auf dich",
     "proposalsWaiting_other": "{{count}} Änderungen warten auf dich",
-    "proposalsBody": "Ein Modell hat eine Änderung vorgeschlagen. Nichts wird gespeichert, bevor du antwortest."
+    "proposalsBody": "Ein Modell hat eine Änderung vorgeschlagen. Nichts wird gespeichert, bevor du antwortest.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} Backend-Update verfügbar",
+        "title_other": "{{count}} Backend-Updates verfügbar",
+        "more": "{{items}} und {{count}} weitere"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Add-ons"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} automatisch aktualisiert",
+        "updated_other": "{{count}} automatisch aktualisiert",
+        "failed_one": "{{count}} fehlgeschlagen",
+        "failed_other": "{{count}} fehlgeschlagen",
+        "held_one": "{{count}} wartet auf Freigabe",
+        "held_other": "{{count}} warten auf Freigabe",
+        "bodyUpdated": "Aktualisiert: {{items}}.",
+        "bodyFailed": "Fehlgeschlagen: {{items}}.",
+        "bodyHeld": "Wartet auf Ihre Freigabe: {{items}}.",
+        "more": "{{items}} und {{count}} weitere"
+      },
+      "checkFailed": {
+        "title": "Die Update-Prüfung ist fehlgeschlagen",
+        "body": "Nicht prüfbar: {{sources}}. Die letzten beiden automatischen Prüfungen sind fehlgeschlagen, daher fehlen in der Liste möglicherweise Updates.",
+        "source": {
+          "gallery": "Backend-Galerie",
+          "library": "Backend-Bibliothek",
+          "addons": "Add-ons"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",
@@ -669,7 +784,8 @@
       "acts": "Was ein Lauf tun darf",
       "delivery": "Wohin Antworten gehen",
       "agent": "Agent",
-      "model": "Modell"
+      "model": "Modell",
+      "run_limit": "Zeitlimit"
     },
     "receipt": {
       "update": "Geändert:",
@@ -1223,5 +1339,14 @@
   "subAgents": {
     "waiting": "Wartet auf: {{what}}",
     "looping": "In Schleife"
+  },
+  "connectionsTabs": {
+    "label": "Bereiche von Verbindungen",
+    "accounts": "Konten",
+    "messaging": "Messaging",
+    "mcp": "MCP-Server"
+  },
+  "triggersPage": {
+    "runLimit": "Zeitlimit eines Laufs"
   }
 }

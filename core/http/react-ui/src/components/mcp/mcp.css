@@ -10,6 +10,7 @@
 .mcp-page { display: flex; flex-direction: column; min-width: 0; }
 .mcp-body { display: flex; flex-direction: column; gap: var(--sp-6); min-width: 0; }
 .mcp-body > .page-header { margin-bottom: 0; }
+.mcp-body > .cn-tabs { margin-bottom: 0; }
 .mcp-body > .ui-callout { margin: 0; }
 .mcp-list-col { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .mcp-mono { font-family: var(--font-mono); font-size: var(--fs-meta); }

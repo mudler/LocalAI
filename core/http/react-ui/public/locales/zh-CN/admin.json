@@ -173,6 +173,16 @@
     "network": {
       "title": "命令的网络",
       "where": "{{name}} 在自己的页面上保存其所运行命令的网络设置。"
+    },
+    "autoUpgradeAddons": "自动更新插件",
+    "addonUpdates": {
+      "label": "插件更新",
+      "note": "插件所有者应用此设置。新一代插件可以运行可执行代码。",
+      "unavailable": "所有者设置不可用或已更改:{{message}}",
+      "reload": "重新加载并重新应用编辑",
+      "retry": "重试同一操作",
+      "policy": "所有者策略 · 修订 {{revision}}",
+      "apply": "应用更新设置"
     }
   },
   "backends": {

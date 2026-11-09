@@ -4,12 +4,16 @@ import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
+import { reportUnauthorized } from './sessionEvents'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
 
 async function handleResponse(response) {
   if (!response.ok) {
+    // One place hears every expired session. The session provider decides
+    // whether this 401 ends it; the call still fails as before.
+    if (response.status === 401) reportUnauthorized(response.url)
     let errorMessage = `HTTP ${response.status}`
     let errorBody = null
     try {
@@ -129,9 +133,11 @@ export const backendsApi = {
   installExternal: (body) => postJSON(API_CONFIG.endpoints.installExternalBackend, body),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.backendJob(uid)),
   deleteInstalled: (name) => postJSON(API_CONFIG.endpoints.deleteInstalledBackend(name), {}),
-  checkUpgrades: () => fetchJSON(API_CONFIG.endpoints.backendsUpgrades),
-  forceCheckUpgrades: () => postJSON(API_CONFIG.endpoints.backendsUpgradesCheck, {}),
   upgrade: (name) => postJSON(API_CONFIG.endpoints.upgradeBackend(name), {}),
+  // The read model of the Updates page. checkUpdates answers from the cache;
+  // checkUpdatesNow runs a real check and waits for it (at most 45 s).
+  updates: () => fetchJSON(API_CONFIG.endpoints.backendUpdates),
+  checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.backendUpdatesCheck, {}),
 }
 
 // Chats API: conversations the server keeps. A message sent while a turn runs
@@ -551,6 +557,7 @@ export const agentJobsApi = {
 export const chatConnectorsApi = {
   list: () => fetchJSON('/api/chats/connectors'),
   kinds: () => fetchJSON('/api/chats/connectors/kinds'),
+  create: (body) => postJSON('/api/chats/connectors', body),
   enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
   // What each kind of sender may do on a connection, for the state in the body
@@ -559,6 +566,19 @@ export const chatConnectorsApi = {
   // Makes a binding of the caller shareable: { resource_id, shared_with }, the
   // ID of the binding in /api/shares/connection (sharesApi).
   share: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/share`, {}),
+  // The login of a binding that uses OAuth: start gives { authorize_url,
+  // expires } to send the browser to; disconnect gives { revoked }, false when
+  // the service did not confirm the revocation.
+  oauthStart: (id, body) => postJSON(`/api/chats/connectors/${enc2(id)}/oauth/start`, body || {}),
+  oauthDisconnect: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/oauth/disconnect`, {}),
+}
+
+// The OAuth client of an add-on (administrators). Saving approves the login
+// the add-on declares, for the digest the form showed; the secret is
+// write-only and no answer carries it.
+export const chatOAuthClientsApi = {
+  get: (addonId) => fetchJSON(`/api/chats/admin/oauth-clients/${enc2(addonId)}`),
+  save: (addonId, body) => fetchJSON(`/api/chats/admin/oauth-clients/${enc2(addonId)}`, { method: 'PUT', body: JSON.stringify(body) }),
 }
 
 // Triggers: work that starts by itself, as the user, in a new chat.
@@ -802,11 +822,12 @@ async function parseAudioBlobResponse(response) {
   return { blob, serverUrl, inputUrl, referenceUrl }
 }
 
-async function postAudioBlob(endpoint, body) {
+async function postAudioBlob(endpoint, body, signal) {
   const response = await fetch(apiUrl(endpoint), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   })
   return parseAudioBlobResponse(response)
 }
@@ -820,6 +841,15 @@ async function postMultipartAudioBlob(endpoint, formData) {
 export const ttsApi = {
   generate: (body) => postAudioBlob(API_CONFIG.endpoints.tts, body),
   generateV1: (body) => postAudioBlob(API_CONFIG.endpoints.audioSpeech, body),
+}
+
+// Live voice mode: one reply chunk as a WAV blob.
+export const liveApi = {
+  speak: (model, text, signal) => postAudioBlob(
+    API_CONFIG.endpoints.audioSpeech,
+    { model, input: text, response_format: 'wav', stream: false },
+    signal,
+  ).then(({ blob }) => blob),
 }
 
 // Reusable voice-cloning profiles. The browser uploads multipart PCM-WAV;
@@ -864,10 +894,11 @@ export const audioTransformApi = {
 
 // Audio transcription
 export const audioApi = {
-  transcribe: async (formData) => {
+  transcribe: async (formData, signal) => {
     const response = await fetch(apiUrl(API_CONFIG.endpoints.audioTranscriptions), {
       method: 'POST',
       body: formData,
+      signal,
     })
     return handleResponse(response)
   },

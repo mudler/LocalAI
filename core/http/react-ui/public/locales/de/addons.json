@@ -489,7 +489,7 @@
     },
     "state": {
       "ready": "Bereit",
-      "upgrading": "Upgrade läuft",
+      "upgrading": "Update läuft",
       "restoring": "Wiederherstellung läuft",
       "needs-recovery": "Wiederherstellung nötig",
       "purging": "Bereinigung läuft"
@@ -606,7 +606,6 @@
     },
     "progress": "{{name}} wird aktualisiert. Zuerst werden die Daten gesichert.",
     "done": "Auf Version {{version}} aktualisiert.",
-    "browseUpdate": "Update {{version}} ist verfügbar. Verwaltung unter Installiert.",
     "errors": {
       "stale_installed": "Die installierte Version hat sich seit der Prüfung geändert. Bitte erneut nach Updates suchen.",
       "candidate_changed": "Die Bibliothek bietet die geprüfte Version nicht mehr an. Bitte erneut nach Updates suchen.",
@@ -636,15 +635,14 @@
     "checkAll": "Nach Updates suchen",
     "notCheckedYet": "Updates wurden noch nicht geprüft.",
     "checkingAll": "Prüfe...",
-    "checkAllDone": "{{count}} Add-ons geprüft.",
-    "checkAllFailed": "{{count}} konnten nicht geprüft werden.",
     "checkResult": {
       "done": "Geprüft.",
       "failed": "Die Prüfung wurde nicht abgeschlossen.",
       "justNow": "Gerade eben geprüft."
     },
-    "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach dem Upgrade.",
-    "checkAgain": "Jetzt prüfen"
+    "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach der Aktualisierung.",
+    "checkAgain": "Jetzt prüfen",
+    "open": "Aktualisierungen öffnen"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -890,7 +888,7 @@
     "lockedNoAuth": "Die Anmeldung ist ausgeschaltet, daher könnte jeder, der diesen Server erreicht, dies ändern; der Administrator legt es in der Richtliniendatei fest.",
     "newOptional": "Die neue Version fordert auch {{ops}} an. Diese sind optional und nicht erlaubt.",
     "noLongerRequested": "Diese Version fordert es nicht mehr an. Du kannst es ausschalten.",
-    "notOfficial": "Dieses Add-on stammt aus {{library}}, nicht aus der offiziellen Bibliothek.",
+    "notOfficialWarning": "Dieses Add-on stammt aus {{library}}, nicht aus der offiziellen Bibliothek. Es läuft als vertrauenswürdiger Code auf diesem Server und kann die Zugangsdaten nutzen, die es erhält. Installiere es nur, wenn du seinem Autor vertraust.",
     "op": {
       "alreadyAllowed": "Bereits erlaubt",
       "blocked": "Von der Administratorrichtlinie blockiert",
@@ -926,6 +924,56 @@
       "reviewNamed": "Den Host-Zugriff von {{name}} prüfen und freigeben",
       "title": "{{name}} {{version}} wartet auf deine Freigabe"
     }
+  },
+  "oauthClient": {
+    "title": "Konto-Anmeldung",
+    "intro": "Personen verbinden dieses Add-on mit ihrem eigenen Konto bei einem Dienst. Registriere die Rückrufadresse unten beim Dienst, gib den Client ein, den er dir gibt, und genehmige die Anmeldung. Vorher kann sich niemand verbinden.",
+    "status": {
+      "unconfigured": "Noch nicht genehmigt. Niemand kann sich verbinden.",
+      "changed": "Die Anmeldung dieses Add-ons hat sich seit der Genehmigung geändert. Niemand kann sich verbinden oder eine Anmeldung erneuern, bis du sie erneut genehmigst.",
+      "approved": "Genehmigt am {{when}}.",
+      "approvedBy": "Genehmigt von {{who}} am {{when}}."
+    },
+    "sentTo": "Personen melden sich an bei",
+    "hosts": "Erlaubte Hosts",
+    "required": "Immer angefordert",
+    "optional": "Personen können hinzufügen",
+    "none": "Keine",
+    "tokens": "Tokens kommen von",
+    "revoke": "Trennen widerruft bei",
+    "noRevoke": "Keine Adresse: Trennen vergisst die Anmeldung nur hier",
+    "clientAuth": "Client-Authentifizierung",
+    "auth": {
+      "basic": "Client-ID und Geheimnis, im Header der Anfrage gesendet",
+      "post": "Client-ID und Geheimnis, im Inhalt der Anfrage gesendet",
+      "none": "Kein Geheimnis (öffentlicher Client)",
+      "other": "Andere"
+    },
+    "params": "Zusätzliche Anmeldeparameter",
+    "callback": "Rückrufadresse",
+    "callbackHint": "Registriere diese Adresse beim Dienst als Weiterleitungsadresse des Clients.",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "baseUrlRequired": "Dieser Server kennt seine öffentliche Adresse nicht. Daher gibt es keine Rückrufadresse, und niemand kann sich verbinden. Lege die externe Basis-URL des Servers fest und lade diese Seite neu.",
+    "clientId": "Client-ID",
+    "clientSecret": "Client-Geheimnis",
+    "secretHint": "Nur schreiben: Es wird versiegelt gespeichert und nie wieder angezeigt.",
+    "secretSaved": "Ein Geheimnis ist gespeichert. Lass das Feld leer, um es zu behalten.",
+    "secretKeepPlaceholder": "Gespeichert (verborgen)",
+    "noSecret": "Diese Anmeldung nutzt kein Client-Geheimnis.",
+    "approve": "Genehmigen und speichern",
+    "saved": "Gespeichert. Die Anmeldung ist genehmigt.",
+    "stale": "Die Anmeldung dieses Add-ons hat sich während deiner Prüfung geändert. Nichts wurde gespeichert.",
+    "refresh": "Neue Anmeldung anzeigen",
+    "loadFailed": "Die Anmeldung dieses Add-ons konnte nicht gelesen werden",
+    "errors": {
+      "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
+      "needsApproval": "Das Add-on ist nicht genehmigt.",
+      "baseUrlRequired": "Dieser Server kennt seine öffentliche Adresse nicht. Lege die externe Basis-URL des Servers fest.",
+      "approvalStale": "Die Anmeldung dieses Add-ons hat sich geändert. Zeige die neue Anmeldung an.",
+      "save": "Der Client konnte nicht gespeichert werden."
+    },
+    "unknownLibrary": "einer unbekannten Bibliothek"
   },
   "file": {
     "button": "Aus Datei installieren",

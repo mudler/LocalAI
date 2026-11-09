@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -38,7 +39,7 @@ const costRuns = 10
 
 func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigger, withLast bool) schema.ChatsTrigger {
 	out := schema.ChatsTrigger{ID: t.ID, Name: t.Name, Prompt: t.Prompt, Kind: string(t.Kind), Schedule: t.Schedule, TimeZone: t.TZ,
-		Folder: host.RelFolder(t), QuietSeconds: int(t.Quiet / time.Second), DailyCap: t.CapOrDefault(), Enabled: t.Enabled,
+		Folder: host.RelFolder(t), QuietSeconds: int(t.Quiet / time.Second), DailyCap: t.CapOrDefault(), RunLimit: runLimitOut(t.RunLimit), EffectiveRunLimit: host.RunLimitText(t), Enabled: t.Enabled,
 		AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Summary: host.Summary(t),
 		Plan: schema.ChatsTriggerPlan{Reads: t.Reads, Writes: t.Writes, Widget: t.Widget},
 		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)},
@@ -78,9 +79,13 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 	return out
 }
 
-func triggerIn(req schema.ChatsTriggerWrite) studiosvc.TriggerInput {
+func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
+	runLimit, err := studiosvc.ParseRunLimit(req.RunLimit)
+	if err != nil {
+		return studiosvc.TriggerInput{}, fmt.Errorf("%w: %v", studiosvc.ErrBadTrigger, err)
+	}
 	in := studiosvc.TriggerInput{Name: req.Name, Prompt: req.Prompt, Kind: triggers.Kind(req.Kind), Schedule: req.Schedule, TZ: req.TimeZone,
-		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap,
+		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap, RunLimit: runLimit,
 		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled}
 	in.MinGap, in.EstTokens = time.Duration(req.MinGapSeconds)*time.Second, req.EstimatedTokens
 	if req.Acts != nil {
@@ -89,7 +94,7 @@ func triggerIn(req schema.ChatsTriggerWrite) studiosvc.TriggerInput {
 	if req.Plan != nil {
 		in.Reads, in.Writes, in.Widget = req.Plan.Reads, req.Plan.Writes, req.Plan.Widget
 	}
-	return in
+	return in, nil
 }
 
 var triggerRules = []errRule{
@@ -145,7 +150,11 @@ func (h *Handlers) CreateTrigger(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
 	}
-	t, err := host.CreateTrigger(c.Request().Context(), userID(c), triggerIn(req))
+	in, err := triggerIn(req)
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	t, err := host.CreateTrigger(c.Request().Context(), userID(c), in)
 	if err != nil {
 		return failTrigger(c, err)
 	}
@@ -188,7 +197,11 @@ func (h *Handlers) UpdateTrigger(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
 	}
-	t, err := host.UpdateTrigger(c.Request().Context(), userID(c), c.Param("id"), triggerIn(req))
+	in, err := triggerIn(req)
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	t, err := host.UpdateTrigger(c.Request().Context(), userID(c), c.Param("id"), in)
 	if err != nil {
 		return failTrigger(c, err)
 	}
@@ -375,7 +388,11 @@ func (h *Handlers) EditTriggerProposal(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
 	}
-	t, err := host.EditProposal(c.Request().Context(), userID(c), c.Param("id"), triggerIn(req))
+	in, err := triggerIn(req)
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	t, err := host.EditProposal(c.Request().Context(), userID(c), c.Param("id"), in)
 	if err != nil {
 		return failTrigger(c, err)
 	}
@@ -550,4 +567,12 @@ func (h *Handlers) UndoTriggerChange(c echo.Context) error {
 		return failTrigger(c, err)
 	}
 	return h.GetTriggerChange(c)
+}
+
+// runLimitOut is a run limit as the text of the API: empty for the default.
+func runLimitOut(d time.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return triggers.ShortDuration(d)
 }

@@ -7,7 +7,6 @@
   "chat:steps.verb.websearch": "the web (the internet) as a noun: the verb of a search step",
   "chats:connectorsPage.noAddonHint": "Telegram is named as an example of a platform a connector carries; content, not a provider",
   "chats:egress.presetHint.registries": "GitHub releases as a package source the registries preset allows; the service host, not the GitHub add-on",
-  "chats:mcpPage.family": "Telegram and Slack are examples of messaging platforms; content, not a provider",
   "chats:tools.builtin.web": "the name of the built-in Web tool group of the Tools menu",
   "collections:sources.title": "web sources of a collection: pages fetched from the internet",
   "nav:footer.github": "the footer link to the project's GitHub repository; the service, not the GitHub add-on",

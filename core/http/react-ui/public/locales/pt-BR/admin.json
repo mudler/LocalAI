@@ -173,6 +173,16 @@
     "network": {
       "title": "Rede dos comandos",
       "where": "{{name}} mantém na própria página as configurações de rede dos comandos que executa."
+    },
+    "autoUpgradeAddons": "Atualizar add-ons automaticamente",
+    "addonUpdates": {
+      "label": "Atualizações de add-ons",
+      "note": "O proprietário dos add-ons aplica esta configuração. Novas gerações podem executar código.",
+      "unavailable": "Configurações do proprietário indisponíveis ou alteradas: {{message}}",
+      "reload": "Recarregar e refazer as edições",
+      "retry": "Tentar a mesma operação de novo",
+      "policy": "Política do proprietário · revisão {{revision}}",
+      "apply": "Aplicar a configuração de atualização"
     }
   },
   "backends": {

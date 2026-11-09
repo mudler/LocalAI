@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // outsideMark is in every file outside the agent's folder: no tool output and
@@ -286,6 +287,8 @@ var _ = Describe("a chat of a scoped agent, end to end", func() {
 		turnPrompt := r.h.TurnPrompt(rec.ID)
 		Expect(turnPrompt).To(ContainSubstring("/workspace/chat/work/"))
 		Expect(turnPrompt).NotTo(ContainSubstring("/workspace/home/" + session.ChatsDir))
+		Expect(turnPrompt).To(ContainSubstring(workfiles.ScopedPrompt(true)))
+		Expect(strings.Join(r.h.SentRaw(rec.ID), "\n")).NotTo(ContainSubstring("work folder is"), "a scoped chat's prompt names its folder")
 
 		// The next turn's note points at the rules of the agent's folder,
 		// never at the home's, and its file list names the new files by

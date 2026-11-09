@@ -62,16 +62,17 @@
       "remoteNote": "{{model}} è un servizio remoto: quello che un'esecuzione legge esce da questo server.",
       "stopWidget": "Mettilo in pausa dal widget, o eliminalo in Trigger",
       "stop": "Spegnilo o eliminalo in Trigger",
-      "actsLabel": "Permessi"
+      "actsLabel": "Permessi",
+      "limitLabel": "Limite di tempo",
+      "limitClamped": "{{limit}}, ridotto a {{ceiling}} dall'amministratore"
     }
   },
   "mcpPage": {
     "title": "Connettori MCP",
     "supporting": "Collega server MCP per dare alle tue chat e ai tuoi agenti più strumenti, come la ricerca o le tue API.",
-    "family": "I bot per Telegram o Slack sono <go>connettori di messaggistica</go>.",
     "related": "Correlati",
     "chats": "Chat",
-    "add": "Aggiungi connettore",
+    "add": "Nuovo connettore",
     "learn": "Come funziona MCP",
     "loading": "Caricamento dei tuoi connettori",
     "loadFailed": "Impossibile caricare i tuoi connettori.",
@@ -169,7 +170,7 @@
       "encrypted": "Salvato cifrato sul server. Non viene più mostrato."
     },
     "sheet": {
-      "addTitle": "Aggiungi connettore",
+      "addTitle": "Nuovo connettore",
       "editTitle": "Modifica {{name}}",
       "addDesc": "Collega un server MCP. Lo provi prima che le chat lo usino.",
       "editDesc": "I segreti salvati restano, a meno che tu non li sostituisca o li rimuova.",
@@ -272,6 +273,77 @@
     "loadFailed": "Impossibile caricare i tuoi connettori.",
     "waitingTitle": "In attesa del loro add-on",
     "waitingText": "Questi collegamenti restano salvati, ma non funzionano finché il loro add-on non è installato e attivo.",
+    "oauth": {
+      "connected": "Connesso",
+      "connectedAs": "Connesso come {{account}}",
+      "access": "Accesso: {{scopes}}",
+      "expires": "Scade {{time}}",
+      "disconnect": "Disconnetti",
+      "disconnecting": "Disconnessione…",
+      "disconnectTitle": "Disconnettere {{name}}?",
+      "disconnectText": "LocalAI chiede al servizio di revocare questo accesso e poi lo dimentica. Gli strumenti che usano questa connessione smettono di funzionare finché non ti connetti di nuovo.",
+      "disconnected": "{{name}} è disconnesso. Il servizio ha revocato l'accesso.",
+      "disconnectedNotTold": "{{name}} è disconnesso qui, ma il servizio non ha confermato la revoca dell'accesso. Rimuovi l'accesso anche dal tuo account sul servizio.",
+      "notConnected": "Non ancora connesso.",
+      "connect": "Connetti",
+      "alsoAllow": "Consenti anche:",
+      "reconnectTitle": "Connettiti di nuovo.",
+      "reconnect": "Riconnetti",
+      "reason": {
+        "revoked": "Il servizio ha chiuso l'accesso, oppure l'accesso è stato revocato.",
+        "client_rejected": "Il servizio non accetta più il client di questo server. Potrebbe servire un amministratore per aggiornarlo.",
+        "refused": "Il servizio ha rifiutato di rinnovare l'accesso.",
+        "needs_approval": "L'accesso di questo add-on è cambiato e va approvato di nuovo.",
+        "credential_rejected": "Il servizio ha rifiutato l'accesso, anche dopo un rinnovo.",
+        "expired": "L'accesso è scaduto e non si può rinnovare.",
+        "write_failed": "Non è stato possibile salvare l'accesso rinnovato.",
+        "unreadable": "Non è stato possibile leggere l'accesso salvato.",
+        "unknown": "L'accesso non funziona più.",
+        "scopes_missing": "Il servizio non concede più tutto l'accesso che serve a questo add-on. Connettiti di nuovo e consentilo.",
+        "endpoint_changed": "L'add-on ora invia gli accessi a un altro indirizzo del servizio, quindi questo accesso non può seguirlo. Connettiti di nuovo.",
+        "token_too_large": "Il servizio ha rinnovato l'accesso con un token di accesso più grande di quanto LocalAI possa usare (4096 byte)."
+      },
+      "approvalUser": "Prima un amministratore deve approvare questo add-on.",
+      "approvalUserChanged": "L'accesso di questo add-on è cambiato. Un amministratore deve approvarlo di nuovo.",
+      "approvalAdmin": "Nessuno può connettersi finché non approvi l'accesso di questo add-on.",
+      "approvalAdminChanged": "L'accesso di questo add-on è cambiato dopo l'approvazione. Controllalo e approvalo di nuovo.",
+      "review": "Controlla e approva",
+      "returned": {
+        "ok": "Connesso. La connessione ora funziona.",
+        "denied": "Hai rifiutato sul servizio. Non è cambiato nulla.",
+        "error": {
+          "invalid_state": "Non è stato possibile completare l'accesso: è scaduto, oppure è iniziato un altro accesso in questo browser. Connettiti di nuovo.",
+          "provider_error": "Il servizio ha segnalato un errore. Riprova più tardi.",
+          "exchange_failed": "Il servizio non ha completato l'accesso. Connettiti di nuovo.",
+          "scopes_missing": "Il servizio non ha concesso tutto l'accesso che serve a questo add-on. Connettiti di nuovo e consentilo.",
+          "unavailable": "Non è stato possibile raggiungere l'add-on. Riprova più tardi.",
+          "unknown": "Non è stato possibile completare l'accesso. Connettiti di nuovo.",
+          "token_too_large": "Il servizio ha emesso un token di accesso più grande di quanto LocalAI possa usare (4096 byte), quindi l'accesso non è stato salvato. Potrebbe servire che un amministratore cambi il modo in cui il servizio emette i token per questo client."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Questo server non conosce il proprio indirizzo pubblico, quindi non può mandarti al servizio. Chiedi a un amministratore di impostare l'URL di base esterno del server.",
+        "needsApproval": "Prima un amministratore deve approvare questo add-on.",
+        "approvalStale": "L'accesso di questo add-on è cambiato. Ricarica la pagina.",
+        "unavailable": "Non è stato possibile raggiungere l'add-on. Riprova più tardi.",
+        "tooManyLogins": "Sono stati avviati troppi accessi. Completa quello nell'altra scheda, oppure attendi qualche minuto e riprova."
+      },
+      "add": {
+        "open": "Nuova connessione",
+        "title": "Nuova connessione a {{name}}",
+        "name": "Nome",
+        "hint": "Un nome che riconosci, ad esempio Lavoro o Personale. Dopo averla aggiunta, seleziona Connetti per accedere al tuo account.",
+        "cancel": "Annulla",
+        "submit": "Aggiungi",
+        "failed": "Non è stato possibile aggiungere la connessione. Riprova.",
+        "added": "{{name}} è stata aggiunta. Seleziona Connetti per accedere al tuo account.",
+        "empty": "Nessuna connessione per ora. Aggiungine una, poi connetti il tuo account.",
+        "manage": "Modifica connessioni"
+      },
+      "login": {
+        "hint": "Un nome che riconosci, come Lavoro o Personale. Poi andrai sul servizio per accedere."
+      }
+    },
     "duplicate": {
       "text": "Questo bot è collegato anche come {{name}}. Entrambe le connessioni risponderanno allo stesso messaggio.",
       "turnOff": "Disattiva questa",
@@ -296,7 +368,13 @@
       "text": "Altre persone ti permettono di usare queste connessioni nelle tue chat e nei tuoi agenti. Solo chi le possiede può modificarle.",
       "on": "In ascolto",
       "off": "Spenta"
-    }
+    },
+    "title": "Connessioni",
+    "introAccounts": "Account che colleghi una volta sola perché le tue chat e i tuoi agenti li usino come strumenti. Ogni account arriva da un add-on.",
+    "noAddonAccounts": "Non è installato nessun add-on di account.",
+    "noAddonAccountsHint": "Un add-on di account collega un servizio alle tue chat e ai tuoi agenti. Installane uno dalla galleria degli add-on per aggiungere una connessione.",
+    "noAddonMessaging": "Non è installato nessun add-on di messaggistica.",
+    "noAddonMessagingHint": "Un add-on di messaggistica porta i messaggi di una piattaforma di chat. Installane uno dalla galleria degli add-on per aggiungere un collegamento."
   },
   "tools": {
     "commands": {
@@ -420,11 +498,14 @@
       "sole": "È la tua unica connessione, quindi viene usata.",
       "choose": "Scegli almeno una connessione per usare questi strumenti",
       "none": "Nessuna connessione per ora",
-      "create": "Aggiungi una connessione",
+      "create": "Nuova connessione",
       "byAgent": "L'agente di questa chat imposta le connessioni. Cambiale sull'agente.",
       "agentLabel": "Connessioni per le chat di questo agente",
       "agentHelp": "Le chat di questo agente possono usare solo queste connessioni e non possono cambiarle.",
-      "perChatHelp": "Nessuna scelta: ogni chat sceglie la sua."
+      "perChatHelp": "Nessuna scelta: ogni chat sceglie la sua.",
+      "reconnectNeeded": "Connetti di nuovo: {{names}}",
+      "ownerReconnectNeeded": "Il proprietario deve connettere di nuovo: {{names}}",
+      "reconnect": "Riconnetti"
     },
     "optionNeeds": "Attiva «{{name}}» per usarlo.",
     "connectionMissing": "{{name}} non lo consente ancora.",
@@ -627,7 +708,41 @@
     "arrivedMany_other": "{{count}} nuove notifiche",
     "proposalsWaiting_one": "{{count}} modifica attende te",
     "proposalsWaiting_other": "{{count}} modifiche attendono te",
-    "proposalsBody": "Un modello ha proposto una modifica. Non viene salvato nulla finché non rispondi."
+    "proposalsBody": "Un modello ha proposto una modifica. Non viene salvato nulla finché non rispondi.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} aggiornamento di backend disponibile",
+        "title_other": "{{count}} aggiornamenti di backend disponibili",
+        "more": "{{items}} e altri {{count}}"
+      },
+      "result": {
+        "family": {
+          "backends": "Backend",
+          "addons": "Componenti aggiuntivi"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} aggiornato automaticamente",
+        "updated_other": "{{count}} aggiornati automaticamente",
+        "failed_one": "{{count}} non riuscito",
+        "failed_other": "{{count}} non riusciti",
+        "held_one": "{{count}} attende l'approvazione",
+        "held_other": "{{count}} attendono l'approvazione",
+        "bodyUpdated": "Aggiornati: {{items}}.",
+        "bodyFailed": "Non riusciti: {{items}}.",
+        "bodyHeld": "In attesa della tua approvazione: {{items}}.",
+        "more": "{{items}} e altri {{count}}"
+      },
+      "checkFailed": {
+        "title": "Il controllo degli aggiornamenti non è riuscito",
+        "body": "Controllo impossibile: {{sources}}. Gli ultimi due controlli automatici non sono riusciti, quindi nell'elenco potrebbero mancare aggiornamenti.",
+        "source": {
+          "gallery": "galleria dei backend",
+          "library": "libreria dei backend",
+          "addons": "componenti aggiuntivi"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",
@@ -669,7 +784,8 @@
       "acts": "Cosa può fare un'esecuzione",
       "delivery": "Dove vanno le risposte",
       "agent": "Agente",
-      "model": "Modello"
+      "model": "Modello",
+      "run_limit": "Limite di tempo"
     },
     "receipt": {
       "update": "Modificato:",
@@ -1223,5 +1339,14 @@
   "subAgents": {
     "waiting": "In attesa di: {{what}}",
     "looping": "In ciclo"
+  },
+  "connectionsTabs": {
+    "label": "Sezioni delle connessioni",
+    "accounts": "Account",
+    "messaging": "Messaggistica",
+    "mcp": "Server MCP"
+  },
+  "triggersPage": {
+    "runLimit": "Limite di tempo di un'esecuzione"
   }
 }

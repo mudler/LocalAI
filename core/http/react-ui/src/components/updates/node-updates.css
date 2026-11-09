@@ -1,0 +1,33 @@
+/* Node update dialog and the per-node page. Prefix nu-. Tokens only. */
+
+.nu-body { display: flex; flex-direction: column; gap: var(--sp-3); }
+.nu-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--r-md); max-height: min(50vh, 24rem); overflow-y: auto; }
+.nu-item { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-1) var(--sp-4); padding: var(--sp-3) var(--sp-4); }
+.nu-item + .nu-item { border-top: 1px solid var(--dk-edge); }
+.nu-item__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 140px; }
+.nu-item__name { font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.nu-item__backend, .nu-item__versions { font-size: var(--text-xs); color: var(--dk-muted); overflow-wrap: anywhere; }
+.nu-item__versions { font-family: var(--dk-mono, monospace); }
+.nu-item__side { flex: 0 1 auto; max-width: 100%; text-align: end; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.nu-item__stops[data-known="false"] { color: var(--dk-muted); }
+.nu-item__state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--dk-muted); white-space: nowrap; }
+.nu-item__state[data-phase="done"] { color: var(--dk-ok-text); }
+.nu-item__state[data-phase="failed"] { color: var(--dk-error-text); }
+.nu-item__state[data-phase="upgrading"] { color: var(--dk-accent-text); }
+.nu-item__fail { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); font-size: var(--text-xs); color: var(--dk-error-text); overflow-wrap: anywhere; }
+.nu-total { margin: 0; font-size: var(--text-sm); color: var(--dk-text); }
+.nu-total[data-tone="error"] { color: var(--dk-error-text); }
+.nu-total[data-tone="ok"] { color: var(--dk-ok-text); }
+
+/* The per-node page */
+.nu-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); font-size: var(--text-sm); color: var(--dk-muted); }
+.nu-crumbs a { color: var(--dk-accent-text); }
+.nu-mono { font-family: var(--dk-mono, monospace); }
+.nu-models { color: var(--dk-text); overflow-wrap: anywhere; }
+.nu-models[data-known="false"] { color: var(--dk-muted); }
+.nu-why { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--dk-error-text); overflow-wrap: anywhere; }
+.nu-page .ui-callout { margin-bottom: var(--sp-4); }
+.nu-cell-acts { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+
+/* A card with no action has no "Action" label with nothing under it. */
+@media (max-width: 640px) { .nu-page .nu-act--none { display: none; } }

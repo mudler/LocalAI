@@ -75,6 +75,9 @@ cp -r parallel_params.h llama.cpp/tools/grpc-server/
 cp -r parallel_params_test.cpp llama.cpp/tools/grpc-server/
 # moe_cache_mib option parsing and its standalone regression test.
 cp -r moe_cache_option.h llama.cpp/tools/grpc-server/
+# Value parsers for the reasoning, n_cpu_ffn and speculative draft options, and their test.
+cp -r option_parse.h llama.cpp/tools/grpc-server/
+cp -r option_parse_test.cpp llama.cpp/tools/grpc-server/
 cp -r moe_cache_option_test.cpp llama.cpp/tools/grpc-server/
 # Parent-death watcher (included by grpc-server.cpp) and its standalone unit
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
@@ -126,11 +129,46 @@ if grep -q "llm_add_n_cpu_ffn_overrides" llama.cpp/common/common.h; then
 else
     HAS_N_CPU_FFN_HELPER=0
 fi
+# Dense FFN spill (--n-cpu-ffn, LLM_FFN_DENSE_REGEX). Forks that branched earlier lack the regex.
+if grep -q "LLM_FFN_DENSE_REGEX" llama.cpp/common/common.h; then
+    HAS_N_CPU_FFN_DENSE=1
+else
+    HAS_N_CPU_FFN_DENSE=0
+fi
+# Per-slot context limit (--kv-unified-per-slot).
+if grep -q "kv_unified_per_slot" llama.cpp/common/common.h; then
+    HAS_KV_UNIFIED_PER_SLOT=1
+else
+    HAS_KV_UNIFIED_PER_SLOT=0
+fi
+# Draft context micro-batch (--spec-draft-n-ubatch), draft sampling mode
+# (--spec-draft-sampling) and draft devices (--spec-draft-device).
+if grep -q "speculative.draft.n_ubatch" llama.cpp/common/arg.cpp; then
+    HAS_SPEC_DRAFT_N_UBATCH=1
+else
+    HAS_SPEC_DRAFT_N_UBATCH=0
+fi
+if grep -q "speculative.draft.probabilistic" llama.cpp/common/arg.cpp; then
+    HAS_SPEC_DRAFT_SAMPLING=1
+else
+    HAS_SPEC_DRAFT_SAMPLING=0
+fi
+if grep -q '"--spec-draft-device"' llama.cpp/common/arg.cpp; then
+    HAS_SPEC_DRAFT_DEVICE=1
+else
+    HAS_SPEC_DRAFT_DEVICE=0
+fi
 # MoE expert GPU cache (--moe-cache-mib). Forks that branched earlier lack the field.
 if grep -q "moe_cache_size" llama.cpp/common/common.h; then
     HAS_MOE_CACHE=1
 else
     HAS_MOE_CACHE=0
+fi
+# Share of MoE cache misses computed on the CPU (--moe-cache-cpu-share). Older forks lack the field.
+if grep -q "moe_cache_cpu_share" llama.cpp/common/common.h; then
+    HAS_MOE_CACHE_CPU_SHARE=1
+else
+    HAS_MOE_CACHE_CPU_SHARE=0
 fi
 # On-demand tensor reading (--lazy-mode). Forks that branched earlier lack the field.
 if grep -q "llama_lazy_mode lazy_mode" llama.cpp/common/common.h; then
@@ -180,7 +218,13 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_SERVER_METRICS ${HAS_SERVER_METRICS}
 #define LOCALAI_HAS_MTMD_INIT_OPT ${HAS_MTMD_INIT_OPT}
 #define LOCALAI_HAS_N_CPU_FFN_HELPER ${HAS_N_CPU_FFN_HELPER}
+#define LOCALAI_HAS_N_CPU_FFN_DENSE ${HAS_N_CPU_FFN_DENSE}
+#define LOCALAI_HAS_KV_UNIFIED_PER_SLOT ${HAS_KV_UNIFIED_PER_SLOT}
+#define LOCALAI_HAS_SPEC_DRAFT_N_UBATCH ${HAS_SPEC_DRAFT_N_UBATCH}
+#define LOCALAI_HAS_SPEC_DRAFT_SAMPLING ${HAS_SPEC_DRAFT_SAMPLING}
+#define LOCALAI_HAS_SPEC_DRAFT_DEVICE ${HAS_SPEC_DRAFT_DEVICE}
 #define LOCALAI_HAS_MOE_CACHE ${HAS_MOE_CACHE}
+#define LOCALAI_HAS_MOE_CACHE_CPU_SHARE ${HAS_MOE_CACHE_CPU_SHARE}
 #define LOCALAI_HAS_LAZY_MODE ${HAS_LAZY_MODE}
 #define LOCALAI_HAS_RERANK_FILES ${HAS_RERANK_FILES}
 #define LOCALAI_HAS_REALTIME ${HAS_REALTIME}

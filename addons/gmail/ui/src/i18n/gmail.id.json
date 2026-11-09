@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Izinkan agen Anda membaca email di akun Google Anda. Jika Anda mengizinkan, agen juga dapat menyimpan draf dan mengirimnya setelah Anda menyetujui masing-masing.",
+  "limits": "Pilih Hubungkan dengan Google untuk menambahkan koneksi dan masuk ke akun Google Anda. Halaman ini mengatur label dan mode tulis setiap koneksi. Agen bekerja di kotak surat Anda hanya saat Anda memintanya dalam obrolan.",
+  "edit": "Ubah koneksi Gmail",
+  "name": "Nama",
+  "labels": "Label yang boleh dipakai agen",
+  "labelsHelp": "Satu nama atau ID label per baris. Tulis nama yang memakai spasi dengan tanda hubung. {{count}} terdaftar. Agen hanya menjangkau email yang memiliki salah satu label ini. Tulis ALL untuk memberikan seluruh kotak surat.",
+  "labelsShape": "\"{{entry}}\" bukan label. Pakai nama atau ID label, atau ALL.",
+  "labelsMany": "Paling banyak 50 label.",
+  "allNote": "ALL memberi agen setiap email yang dapat dibaca akun ini, di semua label, termasuk email yang tidak pernah Anda maksudkan untuk dilihat model. Pakai label jika bisa.",
+  "agent": "Agen",
+  "agentNone": "Pilih agen",
+  "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
+  "agentOptionalHint": "Opsional. Tanpa agen, koneksi ini hanya menyimpan login, daftar label, dan mode tulis untuk obrolan Anda. Koneksi ini tidak menjawab pesan dan tidak mendengarkan apa pun.",
+  "credentialsOnly": "Hanya kredensial",
+  "agentNoModel": "{{name}} (perlu model)",
+  "test": "Uji",
+  "testOk": "Terhubung sebagai {{bot}}.",
+  "checkFailed": "Tersimpan. Pemeriksaan gagal: {{reason}}",
+  "save": "Simpan",
+  "cancel": "Batal",
+  "editButton": "Ubah",
+  "delete": "Hapus",
+  "empty": "Belum ada koneksi Gmail. Pilih Hubungkan dengan Google untuk menambahkan satu.",
+  "connect": "Hubungkan dengan Google",
+  "defaultName": "Gmail",
+  "noLabels": "Tidak ada label terdaftar: agen tidak dapat membaca apa pun.",
+  "labelsOf": "{{count}} label: {{list}}",
+  "allMailbox": "Seluruh kotak surat",
+  "agentOf": "Agen: {{name}}",
+  "inactive": "Tidak berjalan: {{reason}}.",
+  "confirmDelete": {
+    "title": "Hapus {{name}}?",
+    "message": "Agen tidak dapat lagi menjangkau kotak surat ini. LocalAI meminta Google mencabut login, lalu melupakannya.",
+    "confirm": "Hapus"
+  },
+  "setup": {
+    "title": "Cara memilih label",
+    "step1": "Tulis nama label Gmail, misalnya Kerja, atau label sistem seperti INBOX atau STARRED. Nama yang memakai spasi ditulis dengan tanda hubung.",
+    "step2": "Agen hanya menjangkau email yang memiliki label tersebut. Spam dan sampah tidak pernah dicari. Tulis ALL hanya jika agen boleh membaca seluruh kotak surat.",
+    "step3": "Mode tulis di bawah juga memerlukan akses opsional yang Anda izinkan saat menghubungkan. Tanpa itu, agen hanya dapat membaca."
+  },
+  "writeMode": {
+    "label": "Yang boleh dilakukan agen dengan email Anda",
+    "hint": "Menyimpan draf, dan mengirim draf yang sudah ada. Agen tidak pernah menghapus, memindahkan ke sampah, memberi label, atau meneruskan email, dan tidak pernah mengubah pengaturan Anda.",
+    "off": "Hanya baca",
+    "propose": "Tanya Anda dulu",
+    "auto": "Bertindak tanpa bertanya",
+    "line": {
+      "off": "Agen tidak dapat menyimpan atau mengirim apa pun.",
+      "propose": "Setiap draf dan setiap pengiriman menunggu persetujuan Anda.",
+      "auto": "Obrolan Anda langsung membuat perubahan."
+    },
+    "note": {
+      "off": "Akses tulis mati: koneksi ini hanya membaca.",
+      "propose": "Setiap draf dan setiap pengiriman menunggu di persetujuan Anda sampai Anda mengonfirmasinya. Anda melihat penerima dan teksnya lebih dulu. Ini juga memerlukan akses tulis opsional yang Anda izinkan saat menghubungkan.",
+      "auto": "Setiap draf dan pengiriman tetap menunggu di persetujuan Anda: add-on ini tidak pernah menulis tanpa persetujuan seseorang. Ini juga memerlukan akses tulis opsional yang Anda izinkan saat menghubungkan."
+    },
+    "row": {
+      "off": "Hanya baca",
+      "propose": "Tanya Anda dulu",
+      "auto": "Tanya Anda dulu"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Simpan draf",
+      "send-draft": "Kirim email"
+    },
+    "to": "Kepada",
+    "cc": "Cc",
+    "bcc": "Bcc",
+    "subject": "Subjek",
+    "none": "(tidak ada)",
+    "replyTo": "Balasan untuk",
+    "attachments": "Lampiran",
+    "text": "Teks ({{bytes}} byte)",
+    "cut": "Teks yang ditampilkan di sini dipotong. Teks lengkap sebesar {{bytes}} byte disimpan.",
+    "draftNote": "Ini menyimpan draf di Gmail Anda. Draf tidak dikirim.",
+    "sendNote": "Ini mengirim email dari Gmail Anda kepada orang-orang di atas. Email yang sudah terkirim tidak dapat ditarik kembali."
+  }
+}

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"unicode"
@@ -57,9 +56,6 @@ func ResourceKeys(entries []ResourceEntry) []string {
 }
 
 func validateResources(entries []ResourceEntry) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if len(entries) > MaxResources {
 		return bad("a binding lists at most %d resources", MaxResources)
 	}
@@ -87,7 +83,7 @@ func validateResources(entries []ResourceEntry) error {
 }
 
 // ErrNoCredential means the selected binding is not the person's, is not of
-// the add-on, or holds no token.
+// the add-on, or holds no usable credential of its kind.
 var ErrNoCredential = errors.New("connectors: no binding of this add-on")
 
 // NotAllowedError means the selected binding does not list the resource.
@@ -163,9 +159,6 @@ func ValidateWildcards(entries []ResourceEntry, wildcards bool) error {
 	if !wildcards {
 		return nil
 	}
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	for _, e := range entries {
 		if strings.Contains(e.Key, "*") && !IsWildcard(e.Key) {
 			return bad("%q: a star may only stand alone (*) or after an owner (owner/*)", e.Key)
@@ -177,21 +170,14 @@ func ValidateWildcards(entries []ResourceEntry, wildcards bool) error {
 	return nil
 }
 
-// Entry returns the entry of the binding that the call names. It is the only
-// resource check: the host uses the one binding the person selected and holds
-// the call to its list. A call that names no resource (key is empty) gets no
-// entry. A key on the list is matched without regard to case. Any other key
-// gets a *NotAllowedError that lists the keys of this binding, sorted. A
-// binding without a token is no credential: ErrNoCredential.
-func Entry(b Binding, key string) (ResourceEntry, error) { return EntryFor(b, key, false) }
-
-// OnlyEntry returns the entry of a binding that lists exactly one resource. It
-// is the target of a call that names none: the connection is then the only
-// source of it. A binding without a token is ErrNoCredential. One that lists
-// none or several gets a *NotAllowedError that lists them, so the caller can
-// name one.
-func OnlyEntry(b Binding) (ResourceEntry, error) {
-	if len(b.Token) == 0 {
+// OnlyEntryUsable returns the entry of a binding that lists exactly one
+// resource. It is the target of a call that names none: the connection is
+// then the only source of it. usable is the caller's answer to whether the
+// binding holds a usable credential of its kind; without one the result is
+// ErrNoCredential. A binding that lists none or several gets a
+// *NotAllowedError that lists them, so the caller can name one.
+func OnlyEntryUsable(b Binding, usable bool) (ResourceEntry, error) {
+	if !usable {
 		return ResourceEntry{}, ErrNoCredential
 	}
 	if len(b.Resources) == 1 && !IsWildcard(b.Resources[0].Key) {
@@ -202,15 +188,24 @@ func OnlyEntry(b Binding) (ResourceEntry, error) {
 	return ResourceEntry{}, &NotAllowedError{Allowed: allowed}
 }
 
-// EntryFor is Entry for a kind that may declare wildcardResources. With
-// wildcards the list may hold owner/* and *, and a key they cover gets an
-// entry made for that key: the key as sent and its own host ID, so the
-// add-on and the audit line see the real resource and never the wildcard.
-// The key * alone names no resource but the whole reach of the credential;
-// only the entry * covers it, for the tools that enumerate (see
+// EntryUsable returns the entry of the binding that the call names. It is the
+// only resource check: the host uses the one binding the person selected and
+// holds the call to its list. A call that names no resource (key is empty)
+// gets no entry. A key on the list is matched without regard to case. Any
+// other key gets a *NotAllowedError that lists the keys of this binding,
+// sorted. usable is the caller's answer to whether the binding holds a usable
+// credential of its kind (a token binding holds its token, see
+// HasTokenCredential; an OAuth binding is usable when its grant is); without
+// one the result is ErrNoCredential.
+//
+// With wildcards the list may hold owner/* and *, and a key they cover gets an
+// entry made for that key: the key as sent and its own host ID, so the add-on
+// and the audit line see the real resource and never the wildcard. The key *
+// alone names no resource but the whole reach of the credential; only the
+// entry * covers it, for the tools that enumerate (see
 // contract.ToolDefinition.Enumerates).
-func EntryFor(b Binding, key string, wildcards bool) (ResourceEntry, error) {
-	if len(b.Token) == 0 {
+func EntryUsable(b Binding, usable bool, key string, wildcards bool) (ResourceEntry, error) {
+	if !usable {
 		return ResourceEntry{}, ErrNoCredential
 	}
 	if key == "" {

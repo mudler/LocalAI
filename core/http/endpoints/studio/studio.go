@@ -53,6 +53,8 @@ type Handlers struct {
 	trust  *pages.Trust
 	// previews keeps the recent file previews of this frontend.
 	previews *previewCache
+	// oauth wires the OAuth routes of the connections to the add-on owner.
+	oauth OAuthConfig
 }
 
 // New returns the handlers. A nil models skips the model check.

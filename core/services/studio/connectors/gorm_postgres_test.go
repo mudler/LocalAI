@@ -29,7 +29,7 @@ var _ = Describe("GORM on PostgreSQL", func() {
 		DeferCleanup(func() { _ = sqlDB.Close() })
 		s, err := connectors.NewGORM(db)
 		Expect(err).NotTo(HaveOccurred())
-		for _, tbl := range []string{"studio_connector_chats", "studio_connector_senders", "studio_connector_state", "studio_connector_keys", "studio_connector_pairings", "studio_connector_migrations", "studio_connectors"} {
+		for _, tbl := range []string{"studio_connector_grants", "studio_oauth_clients", "studio_oauth_states", "studio_connector_chats", "studio_connector_senders", "studio_connector_state", "studio_connector_keys", "studio_connector_pairings", "studio_connector_migrations", "studio_connectors"} {
 			Expect(db.Exec("DELETE FROM " + tbl).Error).To(Succeed())
 		}
 		return s

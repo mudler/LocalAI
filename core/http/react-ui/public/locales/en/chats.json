@@ -252,7 +252,8 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
-    }
+    },
+    "runLimit": "Time limit of a run"
   },
   "inbox": {
     "unread": "{{count}} unread",
@@ -308,10 +309,44 @@
     "arrivedMany_other": "{{count}} new notifications",
     "proposalsWaiting_one": "{{count}} change waits for you",
     "proposalsWaiting_other": "{{count}} changes wait for you",
-    "proposalsBody": "A model proposed a change. Nothing is saved until you answer."
+    "proposalsBody": "A model proposed a change. Nothing is saved until you answer.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} backend update available",
+        "title_other": "{{count}} backend updates available",
+        "more": "{{items}} and {{count}} more"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Add-ons"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} updated automatically",
+        "updated_other": "{{count}} updated automatically",
+        "failed_one": "{{count}} failed",
+        "failed_other": "{{count}} failed",
+        "held_one": "{{count}} waiting for approval",
+        "held_other": "{{count}} waiting for approval",
+        "bodyUpdated": "Updated: {{items}}.",
+        "bodyFailed": "Failed: {{items}}.",
+        "bodyHeld": "Waiting for your approval: {{items}}.",
+        "more": "{{items}} and {{count}} more"
+      },
+      "checkFailed": {
+        "title": "The update check failed",
+        "body": "Could not check: {{sources}}. The last two automatic checks failed, so updates may be missing from the list.",
+        "source": {
+          "gallery": "backend gallery",
+          "library": "backend library",
+          "addons": "add-ons"
+        }
+      }
+    }
   },
   "connectorsPage": {
-    "title": "Connectors",
+    "title": "Connections",
     "empty": "No connectors yet.",
     "agentOf": "Agent: {{name}}",
     "accepts": "Accepts: {{who}}",
@@ -333,6 +368,77 @@
     "loadFailed": "Could not load your connectors.",
     "waitingTitle": "Waiting for their add-on",
     "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on.",
+    "oauth": {
+      "connected": "Connected",
+      "connectedAs": "Connected as {{account}}",
+      "access": "Access: {{scopes}}",
+      "expires": "Expires {{time}}",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting…",
+      "disconnectTitle": "Disconnect {{name}}?",
+      "disconnectText": "LocalAI asks the service to revoke this login and then forgets it. Tools that use this connection stop working until you connect again.",
+      "disconnected": "{{name}} is disconnected. The service revoked the login.",
+      "disconnectedNotTold": "{{name}} is disconnected here, but the service did not confirm that it revoked the login. Remove the access in your account at the service too.",
+      "notConnected": "Not connected yet.",
+      "connect": "Connect",
+      "alsoAllow": "Also allow:",
+      "reconnectTitle": "Connect again.",
+      "reconnect": "Reconnect",
+      "reason": {
+        "revoked": "The service ended the login, or the access was revoked.",
+        "client_rejected": "The service no longer accepts the client of this server. An administrator may need to update it.",
+        "refused": "The service refused to renew the login.",
+        "needs_approval": "The login of this add-on changed and must be approved again.",
+        "credential_rejected": "The service refused the access, even after a renewal.",
+        "expired": "The login expired and cannot be renewed.",
+        "write_failed": "The renewed login could not be saved.",
+        "unreadable": "The saved login could not be read.",
+        "unknown": "The login no longer works.",
+        "scopes_missing": "The service no longer grants all the access this add-on needs. Connect again and allow it.",
+        "endpoint_changed": "The add-on now sends logins to another address of the service, so this login cannot move with it. Connect again.",
+        "token_too_large": "The service renewed the login with an access token larger than LocalAI can use (4096 bytes)."
+      },
+      "approvalUser": "An administrator must approve this add-on first.",
+      "approvalUserChanged": "The login of this add-on changed. An administrator must approve it again.",
+      "approvalAdmin": "Nobody can connect until you approve the login of this add-on.",
+      "approvalAdminChanged": "The login of this add-on changed since it was approved. Review it and approve it again.",
+      "review": "Review and approve",
+      "returned": {
+        "ok": "Connected. The connection works now.",
+        "denied": "You declined at the service. Nothing changed.",
+        "error": {
+          "invalid_state": "The login could not be finished: it expired, or another login started in this browser. Connect again.",
+          "provider_error": "The service reported an error. Try again later.",
+          "exchange_failed": "The service did not complete the login. Connect again.",
+          "scopes_missing": "The service did not grant all the access this add-on needs. Connect again and allow it.",
+          "unavailable": "The add-on could not be reached. Try again later.",
+          "unknown": "The login could not be finished. Connect again.",
+          "token_too_large": "The service issued an access token larger than LocalAI can use (4096 bytes), so the login was not saved. An administrator may need to change how the service issues tokens for this client."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "This server does not know its public address, so it cannot send you to the service. Ask an administrator to set the external base URL of the server.",
+        "needsApproval": "An administrator must approve this add-on first.",
+        "approvalStale": "The login of this add-on changed. Reload the page.",
+        "unavailable": "The add-on could not be reached. Try again later.",
+        "tooManyLogins": "Too many logins were started. Finish the one in the other tab, or wait a few minutes and try again."
+      },
+      "add": {
+        "open": "New connection",
+        "title": "New {{name}} connection",
+        "name": "Name",
+        "hint": "A name you recognize, such as Work or Personal. After you add the connection, select Connect to log in to your account.",
+        "cancel": "Cancel",
+        "submit": "Add",
+        "failed": "The connection could not be added. Try again.",
+        "added": "{{name}} is added. Select Connect to log in to your account.",
+        "empty": "No connections yet. Add one, then connect your account.",
+        "manage": "Edit connections"
+      },
+      "login": {
+        "hint": "A name you recognize, such as Work or Personal. You go to the service to log in next."
+      }
+    },
     "duplicate": {
       "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
       "turnOff": "Turn this one off",
@@ -357,7 +463,12 @@
       "text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
       "on": "Listening",
       "off": "Off"
-    }
+    },
+    "introAccounts": "Accounts you connect once so your chats and agents can use them as tools. Each account comes from an add-on.",
+    "noAddonAccounts": "No account add-on is installed.",
+    "noAddonAccountsHint": "An account add-on connects a service to your chats and agents. Install one from the add-on gallery to add a connection.",
+    "noAddonMessaging": "No messaging add-on is installed.",
+    "noAddonMessagingHint": "A messaging add-on carries the messages of a chat platform. Install one from the add-on gallery to add a binding."
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -515,11 +626,14 @@
       "sole": "This is your only connection, so it is used.",
       "choose": "Choose at least one connection to use these tools",
       "none": "No connection yet",
-      "create": "Add a connection",
+      "create": "New connection",
       "byAgent": "The agent of this chat sets the connections. Change them on the agent.",
       "agentLabel": "Connections for chats of this agent",
       "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
-      "perChatHelp": "None chosen: each chat chooses its own."
+      "perChatHelp": "None chosen: each chat chooses its own.",
+      "reconnectNeeded": "Connect again: {{names}}",
+      "ownerReconnectNeeded": "The owner must connect again: {{names}}",
+      "reconnect": "Reconnect"
     },
     "optionNeeds": "Turn on “{{name}}” to use this.",
     "connectionMissing": "{{name}} does not allow this yet.",
@@ -604,10 +718,9 @@
   "mcpPage": {
     "title": "MCP connectors",
     "supporting": "Connect MCP servers to give your chats and agents more tools, such as search or your own APIs.",
-    "family": "Bots for Telegram or Slack are <go>messaging connectors</go>.",
     "related": "Related",
     "chats": "Chats",
-    "add": "Add connector",
+    "add": "New connector",
     "learn": "How MCP works",
     "loading": "Loading your connectors",
     "loadFailed": "Could not load your connectors.",
@@ -705,7 +818,7 @@
       "encrypted": "Stored encrypted on the server. Never shown again."
     },
     "sheet": {
-      "addTitle": "Add connector",
+      "addTitle": "New connector",
       "editTitle": "Edit {{name}}",
       "addDesc": "Connect an MCP server. You test it before chats use it.",
       "editDesc": "Saved secrets stay unless you replace or remove them.",
@@ -867,7 +980,9 @@
       "remoteNote": "{{model}} is a remote service: what a run reads leaves this server.",
       "stopWidget": "Pause it from the widget, or delete it in Triggers",
       "stop": "Switch it off or delete it in Triggers",
-      "actsLabel": "Permissions"
+      "actsLabel": "Permissions",
+      "limitLabel": "Time limit",
+      "limitClamped": "{{limit}}, cut to {{ceiling}} by the administrator"
     }
   },
   "subAgents": {
@@ -993,7 +1108,8 @@
       "acts": "What a run may do",
       "delivery": "Where answers go",
       "agent": "Agent",
-      "model": "Model"
+      "model": "Model",
+      "run_limit": "Time limit"
     },
     "receipt": {
       "update": "Changed:",
@@ -1543,5 +1659,11 @@
       "waiting": "The change waits for your confirmation on the Add-ons page",
       "failed": "The provider could not forget: {{message}}"
     }
+  },
+  "connectionsTabs": {
+    "label": "Connections sections",
+    "accounts": "Accounts",
+    "messaging": "Messaging",
+    "mcp": "MCP servers"
   }
 }

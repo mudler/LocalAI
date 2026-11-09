@@ -308,7 +308,8 @@ test.describe('Chat MCP apps', () => {
       // The connection breaks. The transcript now holds the call (the turn is still running).
       seen.ended = true
       const reads = seen.transcripts
-      await page.evaluate(() => { const s = window.__sources.filter((x) => !x.closed).pop(); s.onerror() })
+      // The chat's own stream: the shell's inbox keeps a stream of its own, which may open later.
+      await page.evaluate(() => { const s = window.__sources.filter((x) => x.url.includes('/api/chats/c1/events') && !x.closed).pop(); s.onerror() })
       await expect.poll(() => seen.transcripts).toBeGreaterThan(reads)
       await expect.poll(() => page.evaluate(() => window.__sources.length)).toBeGreaterThan(1)
       await expect(page.getByTestId('chat-app')).toHaveCount(1)

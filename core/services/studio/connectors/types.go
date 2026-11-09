@@ -115,6 +115,24 @@ const (
 	PairingCodeTTL = 10 * time.Minute
 )
 
+// InvalidError is ErrInvalid with a reason written for the person. errors.Is
+// finds ErrInvalid in it, and a caller that shows the reason reads it with
+// errors.As, not from the text of the error.
+type InvalidError struct{ Reason string }
+
+func (e *InvalidError) Error() string { return ErrInvalid.Error() + ": " + e.Reason }
+
+// Unwrap makes errors.Is(err, ErrInvalid) true.
+func (e *InvalidError) Unwrap() error { return ErrInvalid }
+
+// Invalidf is an *InvalidError with a formatted reason.
+func Invalidf(format string, a ...any) error {
+	return &InvalidError{Reason: fmt.Sprintf(format, a...)}
+}
+
+// bad is how this package refuses an invalid binding.
+var bad = Invalidf
+
 // Errors.
 var (
 	ErrNotFound = errors.New("connectors: not found")
@@ -217,6 +235,10 @@ type Binding struct {
 	// from a chat of the binding, and the limits of the modes that create one
 	// without asking. The zero value asks.
 	Approval Approval
+	// AuthKind is how the credential of the binding is obtained: AuthToken
+	// (or empty) for a token in Token, AuthOAuth2 for an OAuth login whose
+	// tokens are in the grant of the binding (see Grant).
+	AuthKind string
 	// AccountID is the stable name of the upstream account that the token of
 	// the binding belongs to, as its add-on told it (see
 	// contract.ConnectorResponse.AccountID). Empty until the host has learned
@@ -224,7 +246,7 @@ type Binding struct {
 	// owner and kind with the same AccountID are the same bot.
 	AccountID string
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
-	// what it was given.
+	// what it was given. It is empty for an AuthOAuth2 binding.
 	Token   []byte
 	Created time.Time
 	Updated time.Time
@@ -318,8 +340,8 @@ type Store interface {
 	// AllBindings returns every binding of every owner, sorted by name and ID.
 	// It is for the administrator's view and for migrations.
 	AllBindings(ctx context.Context) ([]Binding, error)
-	// DeleteBinding removes the binding with its offset, senders and chats. It is
-	// not an error when it does not exist.
+	// DeleteBinding removes the binding with its offset, senders, chats, grant
+	// and pending logins. It is not an error when it does not exist.
 	DeleteBinding(ctx context.Context, id string) error
 
 	// Offset is the next update to ask the transport for; false when none was saved.
@@ -380,6 +402,8 @@ type Store interface {
 	// ReleaseMigration drops an unfinished claim so that the next start can
 	// claim it again. It does nothing for a finished migration.
 	ReleaseMigration(ctx context.Context, name string) error
+
+	OAuthStore
 }
 
 // An entry of the allowlist is a numeric ID (Telegram), an @username, or an
@@ -414,7 +438,7 @@ func needsAgent(b Binding) string {
 		return "permissions"
 	case len(b.Paired) > 0:
 		return "pairing"
-	case !b.Approval.IsZero():
+	case !b.Approval.IsDefault():
 		return "trigger approval"
 	}
 	return ""
@@ -443,9 +467,6 @@ func Validate(b Binding) error { return ValidateKind(b, false) }
 // binding that listens, accepts senders, notifies, talks back or carries
 // permissions must name an agent.
 func ValidateKind(b Binding, agentOptional bool) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if n := utf8.RuneCountInString(strings.TrimSpace(b.Name)); n == 0 || n > MaxNameRunes {
 		return bad("the name must have 1 to %d characters", MaxNameRunes)
 	}
@@ -503,6 +524,12 @@ func ValidateKind(b Binding, agentOptional bool) error {
 	}
 	if err := validateCaps(b); err != nil {
 		return bad("%v", err)
+	}
+	if err := validAuthKind(b); err != nil {
+		return bad("%v", err)
+	}
+	if b.UsesOAuth() && b.Enabled {
+		return bad("a connection that uses a login does not listen to messages")
 	}
 	if err := validateResources(b.Resources); err != nil {
 		return err
@@ -651,9 +678,6 @@ func (b Binding) clone() Binding {
 }
 
 func validateChannels(list []Channel) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if len(list) > MaxChannels {
 		return bad("a binding lists at most %d channels", MaxChannels)
 	}

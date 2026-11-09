@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "让你的智能体读取你的 Google 账号中的邮件。如果你允许，它们还可以保存草稿，并在你逐封批准后发送。",
+  "limits": "选择“使用 Google 连接”即可添加连接并登录你的 Google 账号。本页设置每个连接的标签和写入模式。只有你在聊天中提出要求时，智能体才会在你的邮箱中工作。",
+  "edit": "编辑 Gmail 连接",
+  "name": "名称",
+  "labels": "智能体可以使用的标签",
+  "labelsHelp": "每行一个标签名称或 ID。带空格的名称用短横线书写。已列出 {{count}} 个。智能体只能访问带有这些标签之一的邮件。写 ALL 可开放整个邮箱。",
+  "labelsShape": "“{{entry}}”不是标签。请使用标签的名称或 ID，或使用 ALL。",
+  "labelsMany": "最多 50 个标签。",
+  "allNote": "ALL 会把此账号能读取的所有邮件交给智能体，包括所有标签中的邮件，以及你从未打算让模型看到的邮件。如果可以，请改用标签。",
+  "agent": "智能体",
+  "agentNone": "选择智能体",
+  "agentCredentialsOnly": "没有智能体（仅凭据）",
+  "agentOptionalHint": "可选。没有智能体时，此连接只保存登录信息、标签列表和供你的聊天使用的写入模式。它不回复消息，也不监听任何内容。",
+  "credentialsOnly": "仅凭据",
+  "agentNoModel": "{{name}}（需要模型）",
+  "test": "测试",
+  "testOk": "已作为 {{bot}} 连接。",
+  "checkFailed": "已保存。检查失败：{{reason}}",
+  "save": "保存",
+  "cancel": "取消",
+  "editButton": "编辑",
+  "delete": "删除",
+  "empty": "还没有 Gmail 连接。选择“使用 Google 连接”即可添加。",
+  "connect": "使用 Google 连接",
+  "defaultName": "Gmail",
+  "noLabels": "没有列出标签：智能体什么也读不到。",
+  "labelsOf": "{{count}} 个标签：{{list}}",
+  "allMailbox": "整个邮箱",
+  "agentOf": "智能体：{{name}}",
+  "inactive": "未运行：{{reason}}。",
+  "confirmDelete": {
+    "title": "删除 {{name}}？",
+    "message": "智能体将无法再访问此邮箱。LocalAI 会请求 Google 撤销登录，然后忘记它。",
+    "confirm": "删除"
+  },
+  "setup": {
+    "title": "如何选择标签",
+    "step1": "写下 Gmail 标签的名称，例如 Work，或 INBOX、STARRED 这样的系统标签。带空格的名称用短横线书写。",
+    "step2": "智能体只能访问带有该标签的邮件。垃圾邮件和回收站永远不会被搜索。只有在智能体可以读取整个邮箱时才写 ALL。",
+    "step3": "下面的写入模式还需要你在连接时允许的可选权限。没有它，智能体只能读取。"
+  },
+  "writeMode": {
+    "label": "智能体可以对你的邮件做什么",
+    "hint": "保存草稿，以及发送已有的草稿。它从不删除、移到回收站、加标签或转发邮件，也从不更改你的设置。",
+    "off": "只读",
+    "propose": "先问你",
+    "auto": "不经询问直接执行",
+    "line": {
+      "off": "它不能保存或发送任何内容。",
+      "propose": "每份草稿和每次发送都要等你确认。",
+      "auto": "你的聊天会立即做出更改。"
+    },
+    "note": {
+      "off": "写入权限已关闭：此连接只读取。",
+      "propose": "每份草稿和每次发送都会在你的审批中等待，直到你确认。你会先看到收件人和正文。它还需要你在连接时允许的可选写入权限。",
+      "auto": "每份草稿和每次发送仍会在你的审批中等待：此附加组件从不在没有人确认的情况下写入。它还需要你在连接时允许的可选写入权限。"
+    },
+    "row": {
+      "off": "只读",
+      "propose": "先问你",
+      "auto": "先问你"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "保存草稿",
+      "send-draft": "发送电子邮件"
+    },
+    "to": "收件人",
+    "cc": "抄送",
+    "bcc": "密送",
+    "subject": "主题",
+    "none": "（无）",
+    "replyTo": "回复对象",
+    "attachments": "附件",
+    "text": "正文（{{bytes}} 字节）",
+    "cut": "这里显示的文本已被截断。完整文本共 {{bytes}} 字节，会被保存。",
+    "draftNote": "这会在你的 Gmail 中保存一份草稿，不会发送。",
+    "sendNote": "这会从你的 Gmail 向上面的人发送一封电子邮件。已发送的邮件无法撤回。"
+  }
+}

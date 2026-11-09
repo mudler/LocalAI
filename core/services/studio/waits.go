@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/web/webtools"
 )
 
 // A wait is a loop whose check is code. The model arms it with wait_for and
@@ -62,6 +63,11 @@ const waitForSchema = `{"type":"object","properties":{` +
 
 // waitProbeTimeout bounds one check of a wait.
 const waitProbeTimeout = watch.DefaultTimeout
+
+// maxWaitRead bounds the output of one check that is read at all. A check is
+// judged on the whole output up to this size; only what is stored and shown
+// is cut to loops.MaxWatchOutput.
+const maxWaitRead = 4 << 20
 
 // maxWaitErrors bounds max_errors.
 const maxWaitErrors = 10
@@ -157,8 +163,16 @@ func (s *Service) pollTool(ctx context.Context, p, chat, name string) (session.T
 }
 
 // pollURL reads a URL as web_fetch does: through the same guarded client, so
-// the same egress checks apply.
-func (s *Service) pollURL(ctx context.Context, p, chat, raw string) (string, error) {
+// the same egress checks apply. It asks for the most text web_fetch gives and
+// takes off the label that web_fetch wraps around the page, so that the wait
+// judges the page itself: a JSON endpoint parses, and the hash does not depend
+// on the wrapper. Only what is stored or shown is cut later (see judge).
+//
+// A page that was cut (by the size limit of the download or by the character
+// limit) is judged as far as it goes for match and change, but a JSON field
+// cannot be read from half a document: with strictJSON that is an error that
+// says so.
+func (s *Service) pollURL(ctx context.Context, p, chat, raw string, strictJSON bool) (string, error) {
 	w := s.d.Web
 	if w == nil || !w.Enabled(webFetchName) {
 		return "", errors.New("web_fetch is switched off on this server")
@@ -170,11 +184,27 @@ func (s *Service) pollURL(ctx context.Context, p, chat, raw string) (string, err
 	if s.hiddenFor(ctx, rec)[webFetchName] {
 		return "", errors.New("web_fetch is switched off in this chat")
 	}
-	args, err := json.Marshal(map[string]any{"url": raw, "format": "text", "max_chars": loops.MaxWatchOutput})
+	args, err := json.Marshal(map[string]any{"url": raw, "format": "text", "max_chars": webtools.HardMaxChars})
 	if err != nil {
 		return "", err
 	}
-	return w.Fetch(ctx, args)
+	out, err := w.Fetch(ctx, args)
+	if err != nil {
+		return "", err
+	}
+	page, ok := webtools.Unwrap(out)
+	if !ok {
+		return out, nil
+	}
+	if page.Cut {
+		if strictJSON {
+			return "", fmt.Errorf("the page is longer than a wait reads (it was cut at %d characters or at the download limit), so its JSON cannot be judged", webtools.HardMaxChars)
+		}
+		if page.Note != "" {
+			return page.Body + "\n\n" + page.Note, nil
+		}
+	}
+	return page.Body, nil
 }
 
 // probe makes one check of a wait.
@@ -187,7 +217,7 @@ func (h *Loops) probe(ctx context.Context, l loops.Loop) watch.Result {
 		err error
 	)
 	if w.URL != "" {
-		out, err = h.svc.pollURL(ctx, l.Owner, l.ChatID, w.URL)
+		out, err = h.svc.pollURL(ctx, l.Owner, l.ChatID, w.URL, w.Mode == loops.UntilJSONEquals)
 	} else {
 		var t session.Tool
 		if t, err = h.svc.pollTool(ctx, l.Owner, l.ChatID, w.Tool); err == nil {
@@ -201,8 +231,23 @@ func (h *Loops) probe(ctx context.Context, l loops.Loop) watch.Result {
 	if err != nil {
 		return watch.Result{Err: err}
 	}
-	out = watch.Cap(out, loops.MaxWatchOutput)
+	if len(out) > maxWaitRead {
+		return watch.Result{Err: fmt.Errorf("the output is larger than %d MiB, more than a wait reads, so it cannot be judged", maxWaitRead>>20)}
+	}
+	// The check is judged on the whole output and the hash comes from it. The
+	// caller cuts the text that it stores or shows (see judge).
 	return watch.Result{Output: out, Hash: watch.Hash(out)}
+}
+
+// fieldAbsentError says that the output is JSON but has no such field or list
+// item. It is not a parse error: a field that does not exist yet may appear
+// later, so judge treats the two differently.
+type fieldAbsentError struct{ msg string }
+
+func (e *fieldAbsentError) Error() string { return e.msg }
+
+func absentf(format string, a ...any) error {
+	return &fieldAbsentError{msg: fmt.Sprintf(format, a...)}
 }
 
 // jsonField reads the field at path (dots for depth, numbers for list items)
@@ -219,17 +264,17 @@ func jsonField(text, path string) (string, error) {
 		case map[string]any:
 			next, ok := c[part]
 			if !ok {
-				return "", fmt.Errorf("the output has no field %q", path)
+				return "", absentf("the output has no field %q", path)
 			}
 			v = next
 		case []any:
 			i, err := strconv.Atoi(part)
 			if err != nil || i < 0 || i >= len(c) {
-				return "", fmt.Errorf("the output has no item %q in %q", part, path)
+				return "", absentf("the output has no item %q in %q", part, path)
 			}
 			v = c[i]
 		default:
-			return "", fmt.Errorf("the output has no field %q", path)
+			return "", absentf("the output has no field %q", path)
 		}
 	}
 	switch c := v.(type) {
@@ -273,8 +318,30 @@ func step(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, strin
 }
 
 // judge counts one check and says whether it ends the wait.
+//
+// res.Output is the whole output of the check. judge cuts what it keeps to
+// loops.MaxWatchOutput; the condition is judged on the whole text.
 func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, string) {
 	w.Checks++
+	var got string
+	// notYet is a field that is absent and has never been seen: not a failure
+	// and not a match, the wait keeps polling.
+	notYet := false
+	if res.Err == nil && w.Mode == loops.UntilJSONEquals {
+		// Output that is not JSON is a failed check. So is a field that was
+		// read before and is now gone (the source changed shape). A field that
+		// has never been there may still appear, so it is not a failure.
+		var err error
+		var absent *fieldAbsentError
+		switch got, err = jsonField(res.Output, w.Field); {
+		case err == nil:
+			w.FieldSeen = true
+		case errors.As(err, &absent) && !w.FieldSeen:
+			notYet = true
+		default:
+			res.Err = err
+		}
+	}
 	if res.Err != nil {
 		w.Errors++
 		w.LastErr = loops.Cut(res.Err.Error())
@@ -294,18 +361,15 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 				}
 			}
 		case loops.UntilJSONEquals:
-			got, err := jsonField(res.Output, w.Field)
-			switch {
-			case err != nil:
-				// The output has not the field now. That is not a change and
-				// not a failure of the source; the last output is kept.
-				w.LastErr = loops.Cut(err.Error())
-			case got == w.Equals:
+			if !notYet && got == w.Equals {
 				return watch.Verdict{Done: true, Reason: watch.ReasonChanged,
 					Detail: fmt.Sprintf("the field %s equals %q", w.Field, got)}, "the field has the value"
 			}
 		default:
-			out := watch.Compare(watch.Snapshot{Hash: w.BaseHash, Output: w.BaseOut}, res, 2000)
+			// The hash is that of the whole output; the text kept is cut.
+			kept := res
+			kept.Output = watch.Cap(res.Output, loops.MaxWatchOutput)
+			out := watch.Compare(watch.Snapshot{Hash: w.BaseHash, Output: w.BaseOut}, kept, 2000)
 			// The new baseline is stored before the model is woken.
 			w.BaseHash, w.BaseOut = out.Snapshot.Hash, out.Snapshot.Output
 			if out.Kind == watch.Changed {
@@ -323,6 +387,9 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 			d += "; last error: " + w.LastErr
 		} else if res.Output != "" {
 			d += "; last output: " + watch.Cap(strings.Join(strings.Fields(res.Output), " "), 200)
+		}
+		if w.Mode == loops.UntilJSONEquals && !w.FieldSeen {
+			d += fmt.Sprintf("; the field %s was never present", w.Field)
 		}
 		return watch.Verdict{Done: true, Reason: watch.ReasonTimedOut, Detail: d}, "timed out"
 	}

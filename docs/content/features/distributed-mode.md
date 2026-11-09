@@ -332,6 +332,26 @@ during installation as well as the committed snapshot.
 The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
 {{% /notice %}}
 
+### Automatic backend updates
+
+With **Update backends automatically** on (`auto_upgrade_backends`), one
+frontend installs the newer backends on the workers. Every six hours the
+frontends compete for a database lock and the one that holds it checks and
+installs. A frontend that does not hold the lock never installs, so two
+frontends never start the same update at once.
+
+Every frontend still checks for updates on its own, once after start and again
+after each backend operation, to fill its own list of available updates. That
+list is kept in the memory of the frontend, so two frontends can show a
+different list for a short time. A check you start from the UI, or with
+`POST /backends/updates/check`, refreshes only the frontend that answers it,
+on any frontend whether or not it holds the lock, and it installs nothing.
+`GET /backends/updates` answers from that frontend's own list and shows when it
+was checked (see [Checking for backend updates]({{% relref "features/backends#checking-for-backend-updates" %}})). A standalone server has
+no lock and installs after any check.
+
+The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "features/addons#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
+
 ### Watching Backend Installs
 
 While a worker downloads a backend, the admin operations strip at the top
@@ -600,13 +620,17 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 With distributed mode on, **Operate → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
 
-**Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page sends the upgrade to the nodes that differ from the rest of the cluster, or to the nodes you selected.
+**Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page asks first, then sends the update to the nodes that differ from the rest of the cluster, or to the nodes you selected.
+
+A worker stops the running processes of a backend before it installs the new version, so every update that touches a node shows a confirmation. It lists each node, the versions, and the models that stop on it. The model list comes from the backend each model was loaded with, as the registry recorded it. It can be empty or name another backend, so an empty list for a node reads "No loaded model recorded", not "none stop". A model starts again when a request needs it. The nodes update one after another, and the dialog shows each result when it ends. A node is updated only when its operation ended without an error and a new check shows the node on the new version. A node that fails does not stop the others, and **Retry** runs only the failed ones. **Stop after this node** keeps the nodes that have not started from starting.
+
+The same confirmation opens from the **Nodes** action of a backend on the **Updates** tab (`/app/updates/backend/<name>`). That page lists every node that has the backend, with its version, the models that use it and its state. A node that differs from the rest of the cluster is shown as "Differs from the cluster", not as behind, because it can be newer. The page is for administrators and is only offered when more than one node has the backend.
 
 The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement. When a model has several, it opens the row so you can choose the logs of one replica.
 
 **Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker, a peer instance, or a memory shard. It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
 
-Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (upgrade, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. A node that stopped answering says so and shows the last figures it reported.
+Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (update, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. **Update** in the **Backends** tab is offered only for a backend that has a newer version on this node, and asks first like the bulk button. A node that stopped answering says so and shows the last figures it reported.
 
 The "what happens if I drain this node" list is a preview worked out in the browser from the node list, the loaded replicas and the placement rules. The server does not compute it, and the scheduler also weighs free memory and disk when it loads a model, so the preview never claims a model will fit.
 
@@ -640,7 +664,7 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
-| `POST` | `/api/nodes/:id/backends/upgrade` | Upgrade (force-reinstall) a backend on a worker |
+| `POST` | `/api/nodes/:id/backends/upgrade` | Update (force-reinstall) a backend on a worker. Answers 202 with a job ID; the worker stops the running processes of the backend first |
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
 | `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker. Cancels a load of that model on the worker first. |
 | `POST` | `/api/models/:id/load-cancel` | Cancel one load attempt (`{"job_id": "..."}`) |

@@ -535,7 +535,8 @@
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
       "prompt": "What to do",
-      "acts": "Permissions"
+      "acts": "Permissions",
+      "runLimit": "Time limit"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -562,7 +563,8 @@
         "cap": "Up to {{count}} runs a day",
         "capDefault": "Default limit",
         "acts_one": "Peut utiliser {{count}} type d'action",
-        "acts_other": "Peut utiliser {{count}} types d'action"
+        "acts_other": "Peut utiliser {{count}} types d'action",
+        "runLimit": "{{limit}} a run at most"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -581,7 +583,9 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes",
-      "watchNoFiles": "Cet agent a « Aucun fichier » : une exécution de ce déclencheur apprend qu’un fichier est arrivé, mais ne peut pas l’ouvrir. Donnez-lui l’accès aux fichiers dans son éditeur, ou choisissez un autre agent."
+      "watchNoFiles": "Cet agent a « Aucun fichier » : une exécution de ce déclencheur apprend qu’un fichier est arrivé, mais ne peut pas l’ouvrir. Donnez-lui l’accès aux fichiers dans son éditeur, ou choisissez un autre agent.",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default"
     },
     "subtitle": "Lancez un agent selon un horaire ou à l'arrivée d'un fichier. Chaque exécution est un chat que vous pouvez ouvrir."
   },

@@ -259,6 +259,56 @@ curl -X POST .../api/chats/3f1c.../stop       # end the running turn
 curl -X POST .../api/chats/3f1c.../send-now   # start a turn from the waiting messages
 ```
 
+## Talk to a chat (Live)
+
+Live lets you talk to an open chat with your voice. You speak, the chat
+answers, and a voice reads the answer aloud. Then Live listens again. You do
+not press a key.
+
+What you need:
+
+- A microphone, and a page opened over HTTPS or from `localhost`. A browser
+  gives microphone access only to those pages. On any other address the
+  **Live** button is off and says why.
+- One model for speech to text (for example `whisper-base`) and one model for
+  the voice (for example `kokoro-multi-lang-v1.0-sherpa`).
+
+Start Live with the **Live** button next to the message box of a chat. If a
+model is missing, the button opens a sheet that shows the missing parts. An
+administrator can install a small model for each part with one click. A user
+who is not an administrator sees the names of the models and must ask an
+administrator to install them. When both models are installed, press **Start
+Live**.
+
+You can also press **Live** on the message box of Home. LocalAI creates a chat
+with the model, agent and settings you picked on Home, opens it, and starts
+Live there. If a model is missing, the chat opens with the setup sheet. The text
+you typed on Home stays on Home. If you end Live before you say anything, the
+empty chat stays in your chat list.
+
+Your audio is sent to your LocalAI server. The server turns your speech into
+text and makes the voice. Your audio stays on the LocalAI instance, and the
+browser does not use a cloud speech service. The text of the chat goes to the
+chat model as in a typed chat, so it goes where that model runs.
+
+The dock shows a **Standard** chip. In this mode Live does not listen while the
+voice speaks. You cannot interrupt the voice, and the voice cannot hear itself.
+To cut the voice short, press **Stop**. Live then listens again. Live is
+half-duplex per browser tab, so use Live in one tab per chat.
+
+Live uses the same chat, not a separate one. Your words appear in the thread as
+normal messages. Tools, history, files and the settings of the chat work as in
+a typed chat. A turn that fails is not read aloud, and Live listens again.
+**Esc** and the **Stop** button of the message bar stop a running turn and keep
+Live on. When the turn is one you started by voice, the part of the reply that
+was already written is not read aloud, and Live listens again.
+
+Other controls: **Mute** and **Unmute** the microphone, **Type instead**
+(ends Live and puts the cursor in the message box) and **End Live**. Live
+pauses while the browser tab is hidden. If the browser blocks the audio (some
+browsers allow sound only after a click), the dock shows a **Play** button.
+Press it to hear the answer.
+
 ## Loops: repeat a prompt in a chat
 
 A loop sends a prompt to its chat again and again, as a new message, until you
@@ -379,8 +429,8 @@ stop it. Type `/loop` in the message box, or use the API.
   count). A loop ends after 100 runs (`chats_loop_max_runs`). One user starts
   at most 200 loop runs a day, over all loops (`chats_loop_daily_runs`, UTC
   days); after that the loops wait for the next day. A loop pauses itself
-  after 3 failed runs in a row; **Resume** starts it again. A run has the same
-  time limit as a trigger run (15 minutes).
+  after 3 failed runs in a row; **Resume** starts it again. A run has a time
+  limit of 15 minutes.
 - **Stop** removes a loop. It does not stop a run that goes on; the chat's
   stop button does that. Deleting a chat removes its loops.
 
@@ -821,8 +871,8 @@ every chat has a work folder: `/Chats/<date> <title>/work/` in your files
 (`/workspace/home/Chats/<date> <title>/work/` for the model), next to the
 chat's attachments. It is a normal, visible folder.
 
-- **What the model is told.** At every turn the prompt names the chat's work
-  folder and says: scripts, helper code, intermediate data, logs, drafts and
+- **What the model is told.** At every turn the note in front of your message
+  names the chat's work folder, and the prompt says: scripts, helper code, intermediate data, logs, drafts and
   anything else you did not ask for go there; the file you asked for (the
   document, the spreadsheet, the image) goes where you said, or at the top of
   your home, and nowhere else; no new top-level folders for scripts; a command
@@ -830,6 +880,10 @@ chat's attachments. It is a normal, visible folder.
   `bash` and `write_file` and the Sandbox document skills say the same. The built-in
   `localai-apps` and `localai-workspace` skills also give this guidance. Pages
   (`pages/<name>/`) and the `LocalAI/` settings folder are not working files.
+  The folder is named in the note and not in the prompt because its name
+  carries the chat's title: the prompt stays the same for every chat, so a
+  backend with a prompt cache (llama.cpp) reuses it, with the tool
+  definitions after it, instead of reading it again for each new chat.
 - **When the folder is made.** The chat takes the name of its folder at its
   first turn, but makes the folder only when it is used: before a `bash`
   command runs, or when a file is saved there. A chat that saves nothing

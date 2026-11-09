@@ -123,6 +123,16 @@
     "network": {
       "title": "Réseau des commandes",
       "where": "{{name}} garde sur sa propre page les paramètres réseau des commandes qu’il exécute."
+    },
+    "autoUpgradeAddons": "Mettre à jour les add-ons automatiquement",
+    "addonUpdates": {
+      "label": "Mises à jour des add-ons",
+      "note": "Le propriétaire des add-ons applique ce réglage. Les nouvelles générations peuvent exécuter du code.",
+      "unavailable": "Réglages du propriétaire indisponibles ou modifiés : {{message}}",
+      "reload": "Recharger et rebaser les modifications",
+      "retry": "Réessayer la même opération",
+      "policy": "Politique du propriétaire · révision {{revision}}",
+      "apply": "Appliquer le réglage de mise à jour"
     }
   },
   "traces": {

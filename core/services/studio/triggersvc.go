@@ -34,8 +34,10 @@ var (
 const (
 	DefaultTriggerTick = 5 * time.Second
 	DefaultRunLimit    = 15 * time.Minute
-	maxTriggersPerUser = 50
-	stopWait           = 20 * time.Second
+	// DefaultMaxTriggersPerUser is how many triggers a user may have when the
+	// operator sets no limit.
+	DefaultMaxTriggersPerUser = 50
+	stopWait                  = 20 * time.Second
 
 	reasonUserStop = "stopped by the user"
 
@@ -53,8 +55,12 @@ type TriggerOptions struct {
 	Clock func() time.Time
 	// Tick is the time between two passes; zero means DefaultTriggerTick.
 	Tick time.Duration
-	// RunLimit is how long a run may take; zero means DefaultRunLimit.
+	// RunLimit is how long a run may take; zero means DefaultRunLimit. Limits,
+	// when set, wins over it.
 	RunLimit time.Duration
+	// Limits gives the operator's limits, read at each use so that a change
+	// applies without a restart. Nil means RunLimit and the defaults.
+	Limits func() TriggerLimits
 	// Retention bounds the finished runs kept for each trigger; the zero value
 	// uses the defaults of the Runner.
 	Retention triggers.RunRetention
@@ -101,6 +107,58 @@ type Triggers struct {
 	wg   sync.WaitGroup
 }
 
+// TriggerLimits are the operator's limits of the triggers. A zero field takes
+// the default.
+type TriggerLimits struct {
+	// RunLimit is how long one run may take.
+	RunLimit time.Duration
+	// MaxPerUser is how many triggers a user may have.
+	MaxPerUser int
+	// MaxDailyCap is the highest daily limit a trigger may have.
+	MaxDailyCap int
+}
+
+// Limits returns the limits that apply now.
+func (h *Triggers) Limits() TriggerLimits {
+	var l TriggerLimits
+	if h.o.Limits != nil {
+		l = h.o.Limits()
+	}
+	if l.RunLimit <= 0 {
+		l.RunLimit = h.o.RunLimit
+	}
+	if l.RunLimit <= 0 {
+		l.RunLimit = DefaultRunLimit
+	}
+	if l.MaxPerUser <= 0 {
+		l.MaxPerUser = DefaultMaxTriggersPerUser
+	}
+	if l.MaxDailyCap <= 0 || l.MaxDailyCap > triggers.MaxDailyCap {
+		l.MaxDailyCap = triggers.MaxDailyCap
+	}
+	return l
+}
+
+// RunLimit is how long a run may take now.
+func (h *Triggers) RunLimit() time.Duration { return h.Limits().RunLimit }
+
+// RunLimitOf is how long a run of t may take now: the run limit of the trigger,
+// but never more than the administrator's, which is read at each call.
+func (h *Triggers) RunLimitOf(t triggers.Trigger) time.Duration {
+	return t.EffectiveRunLimit(h.RunLimit())
+}
+
+// tooManyError is ErrTooManyTriggers with the limit that applied.
+type tooManyError struct{ max int }
+
+func (e tooManyError) Error() string {
+	return fmt.Sprintf("studio: a user can have at most %d triggers", e.max)
+}
+func (e tooManyError) Is(target error) bool { return target == ErrTooManyTriggers }
+
+// errTooMany is the refusal of a user who has the most triggers now.
+func (h *Triggers) errTooMany() error { return tooManyError{max: h.Limits().MaxPerUser} }
+
 // ErrTriggersClosed means the host has stopped.
 var ErrTriggersClosed = errors.New("studio: the trigger host has stopped")
 
@@ -115,9 +173,6 @@ func NewTriggers(svc *Service, o TriggerOptions) (*Triggers, error) {
 	}
 	if o.Tick <= 0 {
 		o.Tick = DefaultTriggerTick
-	}
-	if o.RunLimit <= 0 {
-		o.RunLimit = DefaultRunLimit
 	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()
@@ -209,8 +264,8 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 	opts := triggers.Options{
 		Store: h.o.Store, Admin: h.svc.admin,
 		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted,
-		Retention: h.o.Retention,
-		Logf:      func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
+		Retention: h.o.Retention, MaxDailyCap: func() int { return h.Limits().MaxDailyCap },
+		Logf: func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
 	}
 	if h.svc.d.Files.Available() {
 		opts.Workspace = h.svc.d.Files.Store()
@@ -598,13 +653,14 @@ func (h *Triggers) supervise(run triggers.Run, t triggers.Trigger, chatID string
 		delete(h.sup, chatID)
 		h.mu.Unlock()
 	}()
-	end := h.svc.awaitTurn(t.Owner, chatID, events, h.o.RunLimit, h.done)
+	runLimit := h.RunLimitOf(t) // read as the run starts: a change applies to the next run
+	end := h.svc.awaitTurn(t.Owner, chatID, events, runLimit, h.done)
 	switch end.How {
 	case TurnAbandoned:
 		return
 	case TurnTimedOut:
 		h.stopRun(chatID)
-		h.finishRun(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit), end.Tokens)
+		h.finishRun(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(runLimit), end.Tokens)
 	default:
 		status, reason := outcome(end.Info.Last, end.ErrText)
 		if missing, ok := h.svc.refusedActs.LoadAndDelete(chatID); ok && status == triggers.StatusDone && reason == "" {
@@ -720,6 +776,7 @@ func (h *Triggers) reconcile(ctx context.Context) {
 		if err != nil {
 			continue
 		}
+		limit := h.RunLimitOf(t) // the trigger as it is now: a lowered limit applies at once
 		info, err := h.svc.Turn(ctx, t.Owner, run.ChatID)
 		switch {
 		case err != nil && errors.Is(err, session.ErrNotFound):
@@ -731,9 +788,9 @@ func (h *Triggers) reconcile(ctx context.Context) {
 		case !info.Running:
 			status, reason := outcome(info.Last, "")
 			h.finish(run, t, run.ChatID, status, reason)
-		case !run.Started.IsZero() && h.o.Clock().Sub(run.Started) > h.o.RunLimit:
+		case !run.Started.IsZero() && h.o.Clock().Sub(run.Started) > limit:
 			h.stopRun(run.ChatID)
-			h.finish(run, t, run.ChatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit))
+			h.finish(run, t, run.ChatID, triggers.StatusFailed, "took longer than "+limitText(limit))
 		}
 	}
 }
@@ -753,13 +810,7 @@ func (h *Triggers) tell(ctx context.Context, t triggers.Trigger, chatID, kind, s
 }
 
 // limitText writes a duration the short way: 15m, not 15m0s.
-func limitText(d time.Duration) string {
-	s := d.String()
-	if strings.HasSuffix(s, "m0s") {
-		s = strings.TrimSuffix(s, "0s")
-	}
-	if strings.HasSuffix(s, "h0m") {
-		s = strings.TrimSuffix(s, "0m")
-	}
-	return s
-}
+func limitText(d time.Duration) string { return triggers.ShortDuration(d) }
+
+// RunLimitText is the run limit of t that applies now, written the short way.
+func (h *Triggers) RunLimitText(t triggers.Trigger) string { return limitText(h.RunLimitOf(t)) }

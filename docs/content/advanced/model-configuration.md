@@ -277,7 +277,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `mmap` | bool | `true` | Use memory mapping for model loading (faster, less RAM) |
-| `mmlock` | bool | `false` | Lock model in memory (prevents swapping) |
+| `mmlock` | bool | `false` | Lock model in memory (prevents swapping). With `llama-cpp`, `mmlock` together with `mmap` (the default) maps the file and locks it (`mmap+mlock`); with `mmap: false` the model is read into locked memory instead. |
 | `low_vram` | bool | `false` | Use minimal VRAM mode |
 | `no_kv_offloading` | bool | `false` | Disable KV cache offloading |
 
@@ -392,6 +392,28 @@ A cache that is too small can thrash, because every token evicts its own experts
 A rough starting point is about 10% of the total expert size.
 LocalAI sets no value on its own.
 
+Once the cache is full, every miss is uploaded to the GPU by default.
+You can let the CPU compute a share of the misses from the host experts instead, with `moe_cache_cpu_share`:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+  - moe_cache_mib:4096
+  - moe_cache_cpu_share:0.5
+```
+
+The value is a number from 0 to 1.
+It is `0` by default, which uploads every miss.
+It applies only when the cache is on (`moe_cache_mib` greater than 0).
+Other values are ignored with a warning.
+The best value depends on your hardware.
+In the upstream tests, a small cache did best with a high share and a large cache with a low one.
+To find the cache size and the share for your machine, use `scripts/moe-cache-tune.py` from the llama.cpp repository.
+It wraps a plain `llama-server` command and prints the recommended `--moe-cache-mib` and `--moe-cache-cpu-share`.
+
 CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
 RAM and VRAM do not form one interchangeable allocation pool.
 Leave memory for the KV cache, compute buffers, the operating system, and other processes.
@@ -463,6 +485,8 @@ YARN (Yet Another RoPE extensioN) settings for context extension:
 | `yarn_beta_fast` | float32 | YARN beta fast parameter |
 | `yarn_beta_slow` | float32 | YARN beta slow parameter |
 
+The original context size that YaRN scales from is an `options:` entry, `yarn_orig_ctx:N` (upstream `--yarn-orig-ctx`; `0`, the default, uses the model's training context size).
+
 ### Speculative Decoding
 
 Speculative decoding speeds up text generation by predicting multiple tokens ahead and verifying them in a single forward pass. The output is identical to normal decoding - only faster. This feature is only available with the `llama-cpp` backend.
@@ -520,12 +544,17 @@ These are set via the `options:` array in the model configuration (format: `key:
 | `draft_gpu_layers` | int | -1 | GPU layers for the draft model (-1 = use default) |
 | `draft_threads` / `spec_draft_threads` | int | same as main | Threads used by the draft model (`<= 0` = hardware concurrency) |
 | `draft_threads_batch` / `spec_draft_threads_batch` | int | same as `draft_threads` | Threads used by the draft model during batch / prompt processing |
-| `draft_cache_type_k` / `spec_draft_cache_type_k` | string | `f16` | KV cache K data type for the draft model (same values as `cache_type_k`) |
-| `draft_cache_type_v` / `spec_draft_cache_type_v` | string | `f16` | KV cache V data type for the draft model |
+| `draft_cache_type_k` / `spec_draft_cache_type_k` / `spec_draft_type_k` | string | `f16` | KV cache K data type for the draft model (same values as `cache_type_k`). `spec_draft_type_k` is the current upstream name (`--spec-draft-type-k`). |
+| `draft_cache_type_v` / `spec_draft_cache_type_v` / `spec_draft_type_v` | string | `f16` | KV cache V data type for the draft model (upstream `--spec-draft-type-v`) |
+| `spec_draft_n_ubatch` | int | `0` (same as `n_ubatch`) | Physical batch size of the draft context. Use a smaller value to spare VRAM (upstream `--spec-draft-n-ubatch`). |
+| `spec_draft_sampling` | string | `greedy` | How the draft is sampled: `greedy` takes the argmax, `probabilistic` samples it and the target verifies by rejection sampling (upstream `--spec-draft-sampling`). |
+| `spec_draft_device` / `draft_device` | string | follows `device` | Comma-separated devices for the draft model; `none` keeps it off the GPU (upstream `--spec-draft-device`). |
 | `draft_cpu_moe` / `spec_draft_cpu_moe` | bool | false | Keep all MoE expert weights of the draft model on CPU |
 | `draft_n_cpu_moe` / `spec_draft_n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N draft-model layers on CPU |
 | `draft_override_tensor` / `spec_draft_override_tensor` | string | "" | Comma-separated `<tensor regex>=<buffer type>` overrides for the draft model |
-| `draft_ctx_size` | int | (ignored) | Deprecated upstream: the draft now shares the target context size. Accepted for backward compatibility but has no effect. |
+| `draft_ctx_size` | int | (ignored) | Deprecated upstream: the draft now shares the target context size. Accepted for backward compatibility but **has no effect**; the backend logs a warning. |
+
+The names `spec_n_max`, `spec_n_min` and `spec_p_min` map to upstream's `--spec-draft-n-max`, `--spec-draft-n-min` and `--spec-draft-p-min`. The older `--draft-max` style flags were removed upstream: passed as raw flags they are rejected.
 
 **`ngram_simple` options** (used when `spec_type` includes `ngram_simple`)
 
@@ -576,6 +605,8 @@ The canonical names match upstream llama.cpp (dash-separated). For backward comp
 | `draft-simple` | `draft`, `draft_simple` | Draft model-based speculation (auto-set when `draft_model` is configured) |
 | `draft-eagle3` | `eagle3`, `draft_eagle3` | EAGLE3 draft model architecture |
 | `draft-mtp` | `draft_mtp` | Multi-Token Prediction. Reuses the target model's embedded MTP head; no separate draft GGUF required (`draft_model` can be omitted). |
+| `draft-dflash` | `draft_dflash` | DFlash speculation with a draft model set in `draft_model`. |
+| `draft-dspark` | `draft_dspark` | DSpark speculation (the draft model carries a Markov head), draft set in `draft_model`. |
 | `ngram-simple` | `ngram_simple` | Simple self-speculative using token history |
 | `ngram-map-k` | `ngram_map_k` | N-gram with key-only map |
 | `ngram-map-k4v` | `ngram_map_k4v` | N-gram with keys and 4 m-gram values |
@@ -679,10 +710,13 @@ These load-time options control how the backend parses `<think>` reasoning block
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `reasoning_format` | string | `deepseek` | Parser for reasoning/thinking blocks. One of `none`, `auto`, `deepseek`, `deepseek-legacy` (alias `deepseek_legacy`). |
-| `enable_reasoning` / `reasoning_budget` | int | `-1` | Reasoning budget in tokens: `-1` unlimited, `0` disabled, `>0` token cap for the thinking section. |
+| `enable_reasoning` | `-1`, `0`, `1`, `auto`, `off`, `on` | `-1` (auto) | On/off switch of thinking for the chat template (upstream `--reasoning`). `auto` follows the template, `0` or `off` turns thinking off, `1` or `on` turns it on. A number above `1` is still read as `on`, as in older versions, and logs a warning: it is not a token cap, use `reasoning_budget` for that. |
+| `reasoning_budget` | int | `-1` | Token cap for the thinking section (upstream `--reasoning-budget`): `-1` unlimited, `0` end thinking at once, `N` > 0 allows at most `N` thinking tokens, then the end-of-thinking tag is forced. Values below `-1` are ignored with a warning. For compatibility, `reasoning_budget:0` also turns thinking off (`enable_reasoning:0`) unless `enable_reasoning` is set too. |
 | `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
 
 {{% notice note %}}
+Before this change both names wrote the on/off switch, so `reasoning_budget:N` with `N` > 1 only turned thinking on and never capped it. It now sets the real token cap. `reasoning_budget:0` and `enable_reasoning:0` keep switching thinking off; `reasoning_budget:1` is now a one-token cap, not "on".
+
 This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
 
 - `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
@@ -793,6 +827,9 @@ These llama.cpp options are passed through the `options:` array.
 | `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
 | `cpu_moe` | bool | false | Keep all MoE expert weights of the main model on CPU (upstream `--cpu-moe`). Frees VRAM on large MoE models (DeepSeek, Qwen3 `*-A3B`). |
 | `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
+| `n_cpu_ffn` | int | 0 | Keep the dense FFN weights of the first N main-model layers on CPU (upstream `--n-cpu-ffn`). The counterpart of `n_cpu_moe` for dense models. A negative or non-numeric value is ignored with a warning. |
+| `kv_unified_per_slot` | int | 0 (unset) | Context limit per parallel slot (upstream `--kv-unified-per-slot`). Without `context_size`, the shared KV cache is sized to `parallel` times this value. |
+| `yarn_orig_ctx` | int | 0 (model value) | Original context size of the model for YaRN scaling (upstream `--yarn-orig-ctx`). |
 
 #### Generic option passthrough
 
@@ -820,8 +857,20 @@ Notes:
   overrides the LocalAI option it maps to (e.g. `--ctx-size:8192` overrides
   `context_size`).
 - **Power-user territory:** an invalid flag or value is rejected by the upstream
-  parser exactly as it would be by `llama-server`, which can fail model loading.
-  Prefer the named options above when one exists.
+  parser exactly as it would be by `llama-server`. When the list is refused, the
+  flags that are valid are still applied and each rejected one is named in the
+  log; only a failure of the valid set drops all of them. Prefer the named
+  options above when one exists.
+- **Environment and config files are ignored:** while the flags are parsed, the
+  `LLAMA_ARG_*` environment variables and the user-level llama.cpp config file
+  are hidden, so they cannot change values LocalAI has resolved. Put settings in
+  `options:`. A system-wide `/etc/llama.cpp/config.ini` is still read.
+- **Per-request values win:** LocalAI sends `cache_prompt` and the sampling
+  parameters (`temperature`, `top_k`, `top_p`, `min_p`, `typical_p`, `seed`,
+  repeat/frequency/presence penalties, `mirostat*`, `n_keep`) with every request.
+  Raw flags such as `--cache-prompt`, `--temp`, `--top-k` or `--seed` only change
+  the server defaults, so they have no effect. Use `prompt_cache_all` and the
+  `parameters:` section of the model file instead.
 - Flags that would terminate the process (such as `--help`, `--usage`,
   `--version`, `--license`, `--list-devices`, `--cache-list`, and
   `--completion*`) are ignored.
@@ -830,12 +879,12 @@ Notes:
 
 The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "features/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
 
-The fields below come from upstream llama.cpp's **CLI completion tool** and are passed through to the gRPC backend for compatibility, but the gRPC server itself does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
+Of the fields below, only `prompt_cache_all` is used by the `llama-cpp` gRPC server. The others come from upstream llama.cpp's **CLI completion tool** and are passed through for compatibility, but the server does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `prompt_cache_path` | string | (legacy / unused by llama-cpp gRPC server) Path to a file-backed prompt cache for upstream's CLI completion tool. |
-| `prompt_cache_all` | bool | (legacy / unused by llama-cpp gRPC server) |
+| `prompt_cache_all` | bool | **Used by `llama-cpp`**: sent with every request as llama.cpp's `cache_prompt`, which lets a slot reuse the KV cache of a matching prompt prefix. Default `true`; set `prompt_cache_all: false` in the model file to turn it off. A raw `--cache-prompt` flag in `options:` does not change it. |
 | `prompt_cache_ro` | bool | (legacy / unused by llama-cpp gRPC server) |
 
 ### Text Processing

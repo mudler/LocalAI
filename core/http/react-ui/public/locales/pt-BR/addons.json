@@ -606,7 +606,6 @@
     },
     "progress": "Atualizando {{name}}. Seus dados são copiados primeiro.",
     "done": "Atualizado para a versão {{version}}.",
-    "browseUpdate": "A atualização {{version}} está disponível. Gerencie em Instalados.",
     "errors": {
       "stale_installed": "A versão instalada mudou desde a verificação. Verifique as atualizações novamente.",
       "candidate_changed": "A biblioteca não oferece mais a versão verificada. Verifique as atualizações novamente.",
@@ -636,15 +635,14 @@
     "checkAll": "Verificar atualizações",
     "notCheckedYet": "As atualizações ainda não foram verificadas.",
     "checkingAll": "Verificando...",
-    "checkAllDone": "{{count}} complementos verificados.",
-    "checkAllFailed": "{{count}} não puderam ser verificados.",
     "checkResult": {
       "done": "Verificado.",
       "failed": "A verificação não foi concluída.",
       "justNow": "Verificado agora mesmo."
     },
     "waitingService": "O serviço de complementos está iniciando. O LocalAI pergunta de novo sobre a atualização em {{seconds}} s.",
-    "checkAgain": "Verificar agora"
+    "checkAgain": "Verificar agora",
+    "open": "Abrir Atualizações"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -890,7 +888,7 @@
     "lockedNoAuth": "O login está desativado, então qualquer pessoa que alcance este servidor poderia alterar isto; o administrador define no arquivo de política.",
     "newOptional": "A nova versão também pede {{ops}}. São opcionais e não permitidas.",
     "noLongerRequested": "Esta versão não pede mais. Você pode desligar.",
-    "notOfficial": "Este add-on vem de {{library}}, não da biblioteca oficial.",
+    "notOfficialWarning": "Este add-on vem de {{library}}, não da biblioteca oficial. Ele roda como código confiável neste servidor e pode usar as credenciais que recebe. Instale-o só se você confiar no autor.",
     "op": {
       "alreadyAllowed": "Já permitido",
       "blocked": "Bloqueado pela política do administrador",
@@ -926,6 +924,56 @@
       "reviewNamed": "Revisar e aprovar o acesso ao host de {{name}}",
       "title": "{{name}} {{version}} aguarda sua aprovação"
     }
+  },
+  "oauthClient": {
+    "title": "Login da conta",
+    "intro": "As pessoas conectam este add-on à própria conta em um serviço. Registre no serviço o endereço de retorno abaixo, informe o cliente que ele fornecer e aprove o login. Antes disso ninguém pode conectar.",
+    "status": {
+      "unconfigured": "Ainda não aprovado. Ninguém pode conectar.",
+      "changed": "O login deste add-on mudou desde a aprovação. Ninguém pode conectar nem renovar um login até você aprová-lo de novo.",
+      "approved": "Aprovado em {{when}}.",
+      "approvedBy": "Aprovado por {{who}} em {{when}}."
+    },
+    "sentTo": "As pessoas fazem login em",
+    "hosts": "Hosts permitidos",
+    "required": "Sempre solicitados",
+    "optional": "As pessoas podem adicionar",
+    "none": "Nenhum",
+    "tokens": "Os tokens vêm de",
+    "revoke": "Desconectar revoga em",
+    "noRevoke": "Sem endereço: desconectar só esquece o login aqui",
+    "clientAuth": "Autenticação do cliente",
+    "auth": {
+      "basic": "ID e segredo do cliente, enviados no cabeçalho da requisição",
+      "post": "ID e segredo do cliente, enviados no corpo da requisição",
+      "none": "Sem segredo (cliente público)",
+      "other": "Outro"
+    },
+    "params": "Parâmetros extras de login",
+    "callback": "Endereço de retorno",
+    "callbackHint": "Registre este endereço no serviço como endereço de redirecionamento do cliente.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "baseUrlRequired": "Este servidor não conhece o próprio endereço público, então não há endereço de retorno e ninguém pode conectar. Defina a URL base externa do servidor e recarregue esta página.",
+    "clientId": "ID do cliente",
+    "clientSecret": "Segredo do cliente",
+    "secretHint": "Somente gravação: é guardado selado e nunca mais é mostrado.",
+    "secretSaved": "Há um segredo salvo. Deixe o campo vazio para mantê-lo.",
+    "secretKeepPlaceholder": "Salvo (oculto)",
+    "noSecret": "Este login não usa segredo de cliente.",
+    "approve": "Aprovar e salvar",
+    "saved": "Salvo. O login está aprovado.",
+    "stale": "O login deste add-on mudou enquanto você revisava. Nada foi salvo.",
+    "refresh": "Mostrar o novo login",
+    "loadFailed": "Não foi possível ler o login deste add-on",
+    "errors": {
+      "unavailable": "Não foi possível acessar o add-on. Tente mais tarde.",
+      "needsApproval": "O add-on não está aprovado.",
+      "baseUrlRequired": "Este servidor não conhece o próprio endereço público. Defina a URL base externa do servidor.",
+      "approvalStale": "O login deste add-on mudou. Mostre o novo login.",
+      "save": "Não foi possível salvar o cliente."
+    },
+    "unknownLibrary": "uma biblioteca desconhecida"
   },
   "file": {
     "button": "Instalar de um arquivo",

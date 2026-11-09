@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "Deixe seus agentes lerem os arquivos das pastas do Drive que você listar. Se você permitir, eles também podem criar e alterar arquivos de texto nelas.",
+  "limits": "Selecione Conectar com o Google para adicionar uma conexão e entrar na sua conta do Google. Esta página define as pastas e o modo de escrita de cada conexão. Um agente só trabalha no Drive quando você pede a ele em um chat.",
+  "edit": "Editar conexão do Google Drive",
+  "name": "Nome",
+  "folders": "Pastas que o agente pode usar",
+  "foldersHelp": "Um ID ou endereço de pasta por linha. {{count}} listadas. Uma pasta inclui tudo que há dentro dela. Qualquer outro arquivo é recusado.",
+  "foldersShape": "\"{{entry}}\" não é um ID de pasta. Copie do endereço da pasta no navegador, depois de /folders/.",
+  "foldersMany": "No máximo 50 pastas.",
+  "allFolders": {
+    "label": "Todas as pastas (Meu Drive e drives compartilhados)",
+    "hint": "O agente pode ler todos os arquivos que o seu login do Google enxerga, no Meu Drive e nos drives compartilhados. Desligado, ele usa só as pastas da lista.",
+    "warning": "Isso deixa o agente ler todos os arquivos que o seu login do Google alcança, não só os de uma pasta. O modo de escrita abaixo continua valendo e cada alteração continua esperando o seu OK.",
+    "confirm": "Entendi: permitir todas as pastas",
+    "row": "Todas as pastas (Meu Drive e drives compartilhados)"
+  },
+  "agent": "Agente",
+  "agentNone": "Escolha um agente",
+  "agentCredentialsOnly": "Sem agente (só credenciais)",
+  "agentOptionalHint": "Opcional. Sem um agente, esta conexão guarda só o login, a lista de pastas e o modo de escrita para seus chats. Ela não responde a mensagens nem escuta nada.",
+  "credentialsOnly": "Só credenciais",
+  "agentNoModel": "{{name}} (precisa de um modelo)",
+  "test": "Testar",
+  "testOk": "Conectado como {{bot}}.",
+  "checkFailed": "Salvo. A verificação falhou: {{reason}}",
+  "save": "Salvar",
+  "cancel": "Cancelar",
+  "editButton": "Editar",
+  "delete": "Excluir",
+  "empty": "Ainda não há conexões do Google Drive. Selecione Conectar com o Google para adicionar uma.",
+  "connect": "Conectar com o Google",
+  "defaultName": "Google Drive",
+  "noFolders": "Nenhuma pasta listada: o agente não pode ler nada.",
+  "foldersOf": "{{count}} pastas: {{list}}",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Não está rodando: {{reason}}.",
+  "confirmDelete": {
+    "title": "Excluir {{name}}?",
+    "message": "O agente não alcança mais estas pastas. O LocalAI pede ao Google que revogue o login e depois o esquece.",
+    "confirm": "Excluir"
+  },
+  "setup": {
+    "title": "Como escolher pastas",
+    "step1": "Abra a pasta no Google Drive, no navegador. O endereço termina com /folders/ e o ID da pasta.",
+    "step2": "Copie o endereço inteiro, ou só o ID, e cole na lista. Use root para o topo de Meu Drive.",
+    "step3": "O modo de escrita abaixo também precisa do acesso opcional que você permite ao conectar. Sem ele, o agente só pode ler."
+  },
+  "writeMode": {
+    "label": "O que o agente pode alterar no Drive",
+    "hint": "Criar um arquivo de texto, substituir o texto de um arquivo, renomear ou mover um arquivo e enviar um arquivo para a lixeira. Ele nunca compartilha um arquivo nem exclui um de vez.",
+    "off": "Somente leitura",
+    "propose": "Pergunta antes",
+    "auto": "Age sem perguntar",
+    "line": {
+      "off": "Ele não pode alterar nada no Drive.",
+      "propose": "Cada alteração espera o seu OK.",
+      "auto": "Seus chats fazem a mudança na hora."
+    },
+    "note": {
+      "off": "O acesso de escrita está desligado: esta conexão só lê.",
+      "propose": "Cada alteração espera nas suas aprovações até você confirmar. Também precisa do acesso de escrita opcional que você permite ao conectar.",
+      "auto": "Cada alteração ainda espera nas suas aprovações: este complemento nunca escreve sem o OK de uma pessoa. Também precisa do acesso de escrita opcional que você permite ao conectar."
+    },
+    "row": {
+      "off": "Somente leitura",
+      "propose": "Pergunta antes",
+      "auto": "Pergunta antes"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "Criar um arquivo",
+      "update-file": "Alterar um arquivo",
+      "move-file": "Mover um arquivo",
+      "trash-file": "Enviar um arquivo para a lixeira"
+    },
+    "file": "Arquivo",
+    "name": "Nome",
+    "newName": "Novo nome",
+    "in": "Na pasta",
+    "allowedFolder": "A pasta que você permitiu",
+    "moveTo": "Mover para",
+    "type": "Tipo",
+    "text": "Texto que será salvo ({{bytes}} bytes)",
+    "cut": "O texto mostrado aqui está cortado. O texto completo, de {{bytes}} bytes, é salvo.",
+    "trashNote": "O arquivo vai para a lixeira. Você pode restaurá-lo de lá.",
+    "replaceNote": "O novo texto substitui todo o texto do arquivo."
+  }
+}

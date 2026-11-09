@@ -7,6 +7,8 @@ import { mockSettings } from './settings-fixtures.js'
 import { mockLibrary } from './library-fixtures.js'
 import { mockAddons, app, installedAddon, release, sessionFor, ADMIN } from './addons-fixtures.js'
 import { mockLedger, GALLERY } from './ledger-fixtures.js'
+import { mockOperate, installedBackend } from './operate-fixtures.js'
+import { addonRecord, failedOp, galleryItem, heldGrant, libraryItem, minutesAgo, mockUpdates, okSource, runningOp, snapshotOf, updateAvailable } from './updates-fixtures.js'
 
 // No page may scroll sideways. Every page below is drawn with content that
 // does not break by itself (an id, a path, a URL, a name joined by
@@ -154,6 +156,23 @@ const PAGES = [
   {
     name: 'models', url: '/app/models', ready: 'body',
     setup: (page) => mockLedger(page, { gallery: GALLERY.map((e, i) => (i % 2 ? { ...e, name: `${e.name}_${WORD}`, description: `${URL} ${e.description}` } : e)) }),
+  },
+  {
+    // Long names, a long failure and a failed source: the rows wrap, the page does not widen.
+    name: 'updates', url: '/app/updates', ready: '[data-testid=updates-page]',
+    setup: async (page) => {
+      await mockOperate(page)
+      await mockUpdates(page, {
+        snapshot: snapshotOf(
+          [galleryItem(`gallery_${WORD}`, '1.0.0', '1.1.0'), galleryItem(`failed_${WORD}`, '1', '2'), libraryItem(`library_${WORD}`, '0.1', '0.2')],
+          { sources: { gallery: okSource(), library: { state: 'failed', error: URL, stale: true, checkedAt: minutesAgo(3), lastSuccessAt: minutesAgo(600) } } },
+        ),
+        operations: [failedOp(`failed_${WORD}`, URL), runningOp(`library_${WORD}`)],
+        installed: [installedBackend(`current_${WORD}`, '1.0')],
+        addons: [addonRecord('long', `Addon_${WORD}`, updateAvailable('2.0.0')), addonRecord('held', `Held_${WORD}`, updateAvailable('2.0.0'))],
+        grants: { revision: 1, addons: [heldGrant('held', `Held_${WORD}`, '2.0.0')] },
+      })
+    },
   },
 ]
 

@@ -70,19 +70,19 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			return session.TurnTools{}, err
 		}
 		tools := s.childAllowed(ctx, rec, &px)
-		var prompt, work string
+		var prompt, work, workNote string
 		cmds := s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools)
 		if cmds.State != CommandsAvailable {
 			prompt = subAgentCommandsBlock
 		}
 		if canWriteFiles(tools, cmds) {
-			work = s.subWorkBlock(ctx, rec, x)
+			work, workNote = s.subWorkBlock(ctx, rec, x)
 		}
 		prompt = joinBlocks(prompt, webBlock(tools), work, droppedToolsNote(rec.AllowedTools, tools))
 		// The loop tools come last: a sub-agent may arm a loop of its own and
 		// wait, whatever tools its parent gave it.
 		tools = append(slices.Clone(tools), s.loopTools(ctx, a, rec)...)
-		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
+		return session.TurnTools{Tools: tools, Prompt: prompt, Note: workNote}, nil
 	}
 	tools, missing, heldAddons, err := s.scopedHostTools(ctx, a)
 	if err != nil {
@@ -303,7 +303,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// A chat that cannot save a file has no use for one.
 	work := !sub && s.workFolderOn() && s.d.Files.Available() && canWrite
 	if sub && canWrite {
-		prompt = joinBlocks(prompt, s.subWorkBlock(ctx, rec, x))
+		block, workNote := s.subWorkBlock(ctx, rec, x)
+		prompt = joinBlocks(prompt, block)
+		// First, so that the cut of a long note keeps it.
+		note = strings.TrimSpace(workNote + " " + note)
 	}
 	// load_skill learns from the final list whether the chat can read a
 	// skill's files and run what a skill needs.

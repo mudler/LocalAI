@@ -1273,6 +1273,9 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 // ConnectorKind is a kind of connector binding that a running add-on serves.
 type ConnectorKind struct {
 	AddonID string
+	// AuthKind is contract.CredentialKindOAuth2 when the add-on's credential
+	// slot is an OAuth login, and empty otherwise.
+	AuthKind string
 	contract.ConnectorKind
 	// Translations is the manifest's i18n text of this kind, by language tag.
 	// It is display text only and is never part of the kind that the add-on
@@ -1307,8 +1310,14 @@ func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
 				manifest = receipt.Manifest
 			}
 		}
+		auth := ""
+		for _, slot := range r.Capabilities.Credentials {
+			if slot.Kind == contract.CredentialKindOAuth2 {
+				auth = contract.CredentialKindOAuth2
+			}
+		}
 		for _, k := range r.Capabilities.Connector.Kinds {
-			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k, Translations: manifest.KindTranslations(k.ID)})
+			out = append(out, ConnectorKind{AddonID: r.AddonID, AuthKind: auth, ConnectorKind: k, Translations: manifest.KindTranslations(k.ID)})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].AddonID+"/"+out[i].ID < out[j].AddonID+"/"+out[j].ID })

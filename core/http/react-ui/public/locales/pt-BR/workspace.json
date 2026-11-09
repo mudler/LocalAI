@@ -546,7 +546,8 @@
     "moveMany_other": "Mover {{count}} itens para…",
     "deleteMany_one": "Mover {{count}} item para a Lixeira",
     "deleteMany_other": "Mover {{count}} itens para a Lixeira",
-    "share": "Compartilhar…"
+    "share": "Compartilhar…",
+    "extract": "Extrair aqui"
   },
   "keys": {
     "delete": "Del"
@@ -570,7 +571,14 @@
     "movedOne": "{{name}} foi movido para {{folder}}.",
     "moved_one": "{{count}} item foi movido para {{folder}}.",
     "moved_other": "{{count}} itens foram movidos para {{folder}}.",
-    "moveUndone": "Devolvido ao lugar."
+    "moveUndone": "Devolvido ao lugar.",
+    "extractSkipped_one": "{{count}} entrada foi ignorada (links, dispositivos ou nomes inválidos).",
+    "extractSkipped_other": "{{count}} entradas foram ignoradas (links, dispositivos ou nomes inválidos).",
+    "extractConflicts_one": "{{count}} nome já estava em uso: o novo arquivo é salvo como cópia.",
+    "extractConflicts_other": "{{count}} nomes já estavam em uso: os novos arquivos são salvos como cópias.",
+    "extractUndone": "Extração desfeita.",
+    "extracted_one": "{{count}} arquivo extraído em {{folder}}.",
+    "extracted_other": "{{count}} arquivos extraídos em {{folder}}."
   },
   "search": {
     "placeholder": "Filtrar esta pasta",

@@ -14,6 +14,10 @@ import Icon from './components/Icon'
 // eslint-disable-next-line no-unused-vars
 import AppearanceSync from './components/wellknown/AppearanceSync'
 import { displayVersion } from './utils/version'
+import { apiUrl } from './utils/basePath'
+import { InboxProvider } from './contexts/InboxContext'
+import { UpdatesProvider } from './contexts/UpdatesContext'
+import { MobileInboxButton } from './components/inbox/InboxTriggers'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 
@@ -47,6 +51,9 @@ export default function App() {
   })
   const { toasts, addToast, removeToast, dropToast } = useToast()
   const [version, setVersion] = useState('')
+  // The server's feature switches, read once for the sidebar and the inbox.
+  // {} when the answer failed, so a failed read does not hold the inbox off for ever.
+  const [features, setFeatures] = useState(null)
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
@@ -60,6 +67,10 @@ export default function App() {
     systemApi.version()
       .then(data => setVersion(displayVersion(typeof data === 'string' ? data : (data?.version || ''))))
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch(apiUrl('/api/features')).then(r => r.json()).then(f => setFeatures(f || {})).catch(() => setFeatures({}))
   }, [])
 
   useEffect(() => {
@@ -110,95 +121,100 @@ export default function App() {
   const themeToggleLabel = theme === 'dark' ? t('switchToLightMode') : t('switchToDarkMode')
 
   return (
-    <div className={layoutClasses}>
-      <AppearanceSync />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="main-content" {...(sidebarOpen ? { 'aria-hidden': 'true', inert: '' } : {})}>
-        <OperationsBar />
-        {/* Mobile header — primary actions reachable without opening the
-            drawer. Hamburger is the only way to expand the nav on phones;
-            theme toggle and account avatar are mirrored from the sidebar
-            footer so they remain one tap away. */}
-        <header className="mobile-header">
-          <button
-            ref={hamburgerRef}
-            className="hamburger-btn"
-            onClick={() => setSidebarOpen(true)}
-            aria-label={t('openMenu')}
-            aria-expanded={sidebarOpen}
-            aria-controls="app-sidebar"
-          >
-            <Icon name="menu" />
-          </button>
-          <span className="mobile-title">{branding.instanceName}</span>
-          <div className="mobile-header-actions">
+    <InboxProvider features={features}>
+    <UpdatesProvider features={features}>
+      <div className={layoutClasses}>
+        <AppearanceSync />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} features={features} />
+        <main className="main-content" {...(sidebarOpen ? { 'aria-hidden': 'true', inert: '' } : {})}>
+          <OperationsBar />
+          {/* Mobile header — primary actions reachable without opening the
+              drawer. Hamburger is the only way to expand the nav on phones;
+              theme toggle and account avatar are mirrored from the sidebar
+              footer so they remain one tap away. */}
+          <header className="mobile-header">
             <button
-              type="button"
-              className="mobile-header-btn"
-              onClick={toggleTheme}
-              aria-label={themeToggleLabel}
-              title={themeToggleLabel}
+              ref={hamburgerRef}
+              className="hamburger-btn"
+              onClick={() => setSidebarOpen(true)}
+              aria-label={t('openMenu')}
+              aria-expanded={sidebarOpen}
+              aria-controls="app-sidebar"
             >
-              <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+              <Icon name="menu" />
             </button>
-            {showAvatar && (
+            <span className="mobile-title">{branding.instanceName}</span>
+            <div className="mobile-header-actions">
+              <MobileInboxButton />
               <button
                 type="button"
-                className="mobile-header-btn mobile-header-avatar"
-                onClick={() => navigate('/app/account')}
-                aria-label={t('accountFor', { name: accountLabel })}
-                title={accountLabel}
+                className="mobile-header-btn"
+                onClick={toggleTheme}
+                aria-label={themeToggleLabel}
+                title={themeToggleLabel}
               >
-                {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="" />
-                ) : (
-                  <Icon name="user" />
-                )}
+                <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
               </button>
-            )}
-          </div>
-        </header>
-        <div className="main-content-inner">
-          <div className="page-transition" key={pageTransitionKey(location.pathname)}>
-            {/* Per-route Suspense catches React.lazy chunk loads (router.jsx)
-                here, inside the App layout. Without it, suspension would bubble
-                up to main.jsx's outer boundary and unmount the sidebar/header
-                on every navigation. RouteFallback shows a delayed loader so the
-                content area isn't blank while a chunk arrives (hub pages get
-                their own boundary in HubLayout so the tab bar stays put). */}
-            <Suspense fallback={<RouteFallback />}>
-              <Outlet context={{ addToast }} />
-            </Suspense>
-          </div>
-        </div>
-        {!isChatRoute && (
-          <footer className="app-footer">
-            <div className="app-footer-inner">
-              {version && (
-                <span className="app-footer-version">
-                  {branding.instanceName} <span style={{ fontWeight: 500 }}>{version}</span>
-                </span>
+              {showAvatar && (
+                <button
+                  type="button"
+                  className="mobile-header-btn mobile-header-avatar"
+                  onClick={() => navigate('/app/account')}
+                  aria-label={t('accountFor', { name: accountLabel })}
+                  title={accountLabel}
+                >
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="" />
+                  ) : (
+                    <Icon name="user" />
+                  )}
+                </button>
               )}
-              <div className="app-footer-links">
-                <a href="https://github.com/mudler/LocalAI" target="_blank" rel="noopener noreferrer">
-                  <Icon name="github" /> {t('footer.github')}
-                </a>
-                <a href="https://localai.io" target="_blank" rel="noopener noreferrer">
-                  <Icon name="book" /> {t('footer.documentation')}
-                </a>
-                <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">
-                  <Icon name="user" /> {t('footer.author')}
-                </a>
-              </div>
-              <span className="app-footer-copyright">
-                &copy; 2023-2026 <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">Ettore Di Giacinto</a>
-              </span>
             </div>
-          </footer>
-        )}
-      </main>
-      {/* On a chat page the stack rises above the composer. */}
-      <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
-    </div>
+          </header>
+          <div className="main-content-inner">
+            <div className="page-transition" key={pageTransitionKey(location.pathname)}>
+              {/* Per-route Suspense catches React.lazy chunk loads (router.jsx)
+                  here, inside the App layout. Without it, suspension would bubble
+                  up to main.jsx's outer boundary and unmount the sidebar/header
+                  on every navigation. RouteFallback shows a delayed loader so the
+                  content area isn't blank while a chunk arrives (hub pages get
+                  their own boundary in HubLayout so the tab bar stays put). */}
+              <Suspense fallback={<RouteFallback />}>
+                <Outlet context={{ addToast }} />
+              </Suspense>
+            </div>
+          </div>
+          {!isChatRoute && (
+            <footer className="app-footer">
+              <div className="app-footer-inner">
+                {version && (
+                  <span className="app-footer-version">
+                    {branding.instanceName} <span style={{ fontWeight: 500 }}>{version}</span>
+                  </span>
+                )}
+                <div className="app-footer-links">
+                  <a href="https://github.com/mudler/LocalAI" target="_blank" rel="noopener noreferrer">
+                    <Icon name="github" /> {t('footer.github')}
+                  </a>
+                  <a href="https://localai.io" target="_blank" rel="noopener noreferrer">
+                    <Icon name="book" /> {t('footer.documentation')}
+                  </a>
+                  <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">
+                    <Icon name="user" /> {t('footer.author')}
+                  </a>
+                </div>
+                <span className="app-footer-copyright">
+                  &copy; 2023-2026 <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">Ettore Di Giacinto</a>
+                </span>
+              </div>
+            </footer>
+          )}
+        </main>
+        {/* On a chat page the stack rises above the composer. */}
+        <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
+      </div>
+    </UpdatesProvider>
+    </InboxProvider>
   )
 }

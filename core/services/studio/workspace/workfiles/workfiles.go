@@ -149,19 +149,28 @@ func Stray(p string) bool {
 }
 
 // ToolHint ends the descriptions of bash and write_file. Tool descriptions
-// are the same for every chat, so it points at the prompt, which names the
-// folder; with the steering off the prompt names none and the hint is moot.
-// The Sandbox add-on has 400 characters for its bash: keep this short.
-const ToolHint = "Put helper scripts and temp files in the chat's work folder if the prompt names one."
+// are the same for every chat, so it points at the prompt and the note of the
+// turn, which name the folder; with the steering off neither names one and the
+// hint is moot. The Sandbox add-on has 400 characters for its bash: keep this
+// short.
+const ToolHint = "Put helper scripts and temp files in the chat's work folder if the prompt or the note names one."
 
-// Prompt is the block of the system prompt that names the work folder of a
-// chat (guest path, ending in "/") and says what goes in it.
-func Prompt(guestFolder string) string {
-	return "Working files: put scripts, helper code, intermediate data, logs, drafts and anything else the user did not ask for in this chat's work folder, " +
-		guestFolder + " (create it with mkdir -p when it is missing). " +
-		"Save the deliverable the user asked for (the document, the spreadsheet, the image) where the user said, else in " + guestHome + "/, and nowhere else. " +
-		"Never create new top-level folders in the home for scripts. A command you run once needs no file: use python3 -c or a heredoc. " +
-		"Pages (" + guestHome + "/" + PagesDir + "/<name>/) and " + guestHome + "/" + SettingsDir + "/ are deliverables: keep them where they are."
+// Prompt is the block of the system prompt that says what goes in the work
+// folder of a chat. It names no folder: the folder is named after the chat's
+// title, and a path in the system prompt would make it differ between chats,
+// so a backend could not reuse its cached prompt (the tools come after the
+// system prompt) and would read the tool definitions again for each new chat.
+// Note names the folder in the note of every turn instead.
+const Prompt = "Working files: put scripts, helper code, intermediate data, logs, drafts and anything else the user did not ask for in this chat's work folder, " +
+	"which the note at the start of the user's message names (create it with mkdir -p when it is missing). " +
+	"Save the deliverable the user asked for (the document, the spreadsheet, the image) where the user said, else in " + guestHome + "/, and nowhere else. " +
+	"Never create new top-level folders in the home for scripts. A command you run once needs no file: use python3 -c or a heredoc. " +
+	"Pages (" + guestHome + "/" + PagesDir + "/<name>/) and " + guestHome + "/" + SettingsDir + "/ are deliverables: keep them where they are."
+
+// Note is the line of a turn's note that names the work folder of a chat
+// (guest path, ending in "/"), for the chats whose prompt is Prompt.
+func Note(guestFolder string) string {
+	return "This chat's work folder is \"" + guestFolder + "\"."
 }
 
 // ScopedPrompt is Prompt for a chat whose agent has a folder: the work

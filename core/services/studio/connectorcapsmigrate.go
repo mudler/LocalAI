@@ -52,7 +52,7 @@ func MigrateBindingCaps(ctx context.Context, st connectors.Store, kinds []Connec
 		return rep, errors.New("studio: the caps migration needs a store")
 	}
 	if log == nil {
-		log = slog.Default()
+		log = serverLogger()
 	}
 	if len(kinds) == 0 {
 		return rep, errors.New("studio: the caps migration needs the connector kinds")
@@ -137,7 +137,7 @@ func MigrateLoopsWait(ctx context.Context, st connectors.Store, now time.Time, l
 		return rep, errors.New("studio: the loops.wait migration needs a store")
 	}
 	if log == nil {
-		log = slog.Default()
+		log = serverLogger()
 	}
 	won, err := st.ClaimMigration(ctx, LoopsWaitMigration, now, bindingCapsLease)
 	if err != nil || !won {

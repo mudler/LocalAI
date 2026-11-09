@@ -185,6 +185,8 @@ function TaskView({ id }) {
           <dd data-testid="task-acts"><ActsSummary trigger={task} /></dd>
           <dt>{t('jobs.task.cap')}</dt>
           <dd className="ag-facts__model">{task.daily_cap || '-'}</dd>
+          <dt>{t('jobs.task.runLimit')}</dt>
+          <dd className="ag-facts__model" data-testid="task-run-limit">{task.effective_run_limit || '-'}</dd>
           <dt>{t('jobs.task.enabledSwitch')}</dt>
           <dd>
             <Switch checked={!off} onChange={toggle} label={t('jobs.tasks.toggleLabel', { name: task.name })} />
@@ -249,7 +251,7 @@ const SECTIONS = [
   { id: 'prompt', keys: ['prompt'] },
   { id: 'schedule', keys: ['kind', 'schedule', 'time_zone', 'folder', 'quiet_seconds'] },
   { id: 'acts', keys: ['acts'] },
-  { id: 'limits', keys: ['daily_cap'] },
+  { id: 'limits', keys: ['daily_cap', 'run_limit'] },
 ]
 
 // The fields of the schedule: the preset chosen, then what that preset needs.
@@ -466,7 +468,9 @@ function TaskForm({ id, isNew }) {
       if (status.readOnly) return { state: 'ready', text: t('chats:triggerActs.readOnly') }
       return { state: 'ready', text: t('jobs.edit.summary.acts', { count: status.held.length }) }
     }
-    return { state: 'ready', text: task.dailyCap ? t('jobs.edit.summary.cap', { count: Number(task.dailyCap) }) : t('jobs.edit.summary.capDefault') }
+    const cap = task.dailyCap ? t('jobs.edit.summary.cap', { count: Number(task.dailyCap) }) : t('jobs.edit.summary.capDefault')
+    const limit = task.runLimit.trim()
+    return { state: 'ready', text: limit ? `${cap}, ${t('jobs.edit.summary.runLimit', { limit })}` : cap }
   }
 
   const save = async (e) => {
@@ -592,6 +596,12 @@ function TaskForm({ id, isNew }) {
           <input id="aj-cap" className="dk-input" type="number" min={0} max={1000} value={task.dailyCap} placeholder="24"
             onChange={(e) => set('dailyCap', e.target.value)} />
           <p className="dk-hint">{t('jobs.edit.capHint')}</p>
+        </div>
+        <div className="dk-field aj-time">
+          <label className="dk-label" htmlFor="aj-run-limit">{t('chats:triggersPage.runLimit')}</label>
+          <input id="aj-run-limit" className="dk-input" type="text" value={task.runLimit} placeholder={t('jobs.edit.runLimitPlaceholder')}
+            autoComplete="off" spellCheck={false} onChange={(e) => set('runLimit', e.target.value)} />
+          <p className="dk-hint">{t('jobs.edit.runLimitHint')}</p>
         </div>
       </div>
     )

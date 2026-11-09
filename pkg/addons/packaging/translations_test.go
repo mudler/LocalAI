@@ -124,11 +124,6 @@ var _ = Describe("first-party add-on translations", func() {
 		var ids []string
 		for _, d := range dirs {
 			id := filepath.Base(filepath.Dir(d))
-			// The retired Memory add-on is no longer packaged or offered. Its
-			// sources stay as the fixture of the copies that are still installed.
-			if id == retiredAddon {
-				continue
-			}
 			ids = append(ids, id)
 		}
 		slices.Sort(ids)
@@ -137,9 +132,6 @@ var _ = Describe("first-party add-on translations", func() {
 		Expect(ids).To(Equal(want), "a new add-on joins firstPartyAddons and gets its translations")
 	})
 })
-
-// retiredAddon is the add-on whose package was retired. See addons/memory.
-const retiredAddon = "memory"
 
 var _ = Describe("translations in the package and the library", func() {
 	It("changes the package digest when a translation changes, and the package still verifies", func() {

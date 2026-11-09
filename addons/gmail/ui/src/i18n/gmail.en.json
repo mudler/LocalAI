@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Let your agents read the mail of your Google account. If you allow it, they can also save drafts and send them after you approve each one.",
+  "limits": "Select Connect with Google to add a connection and sign in to your Google account. This page sets the labels and the write mode of each connection. An agent works in your mailbox only when you ask it in a chat.",
+  "edit": "Edit Gmail connection",
+  "name": "Name",
+  "labels": "Labels the agent may use",
+  "labelsHelp": "One label name or ID per line. Write a name with spaces with dashes. {{count}} listed. The agent reaches only mail that has one of these labels. Write ALL to give the whole mailbox.",
+  "labelsShape": "\"{{entry}}\" is not a label. Use the name or the ID of a label, or ALL.",
+  "labelsMany": "At most 50 labels.",
+  "allNote": "ALL gives the agent every mail this account can read, in every label, including mail that you never meant a model to see. Use a label instead if you can.",
+  "agent": "Agent",
+  "agentNone": "Choose an agent",
+  "agentCredentialsOnly": "No agent (credentials only)",
+  "agentOptionalHint": "Optional. Without an agent this connection only holds the login, the label list and the write mode for your chats. It answers no messages and listens for nothing.",
+  "credentialsOnly": "Credentials only",
+  "agentNoModel": "{{name}} (needs a model)",
+  "test": "Test",
+  "testOk": "Connected as {{bot}}.",
+  "checkFailed": "Saved. The check failed: {{reason}}",
+  "save": "Save",
+  "cancel": "Cancel",
+  "editButton": "Edit",
+  "delete": "Delete",
+  "empty": "No Gmail connections yet. Select Connect with Google to add one.",
+  "connect": "Connect with Google",
+  "defaultName": "Gmail",
+  "noLabels": "No labels listed: the agent can read nothing.",
+  "labelsOf": "{{count}} labels: {{list}}",
+  "allMailbox": "The whole mailbox",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Not running: {{reason}}.",
+  "confirmDelete": {
+    "title": "Delete {{name}}?",
+    "message": "The agent can no longer reach this mailbox. LocalAI asks Google to revoke the login, then forgets it.",
+    "confirm": "Delete"
+  },
+  "setup": {
+    "title": "How to choose labels",
+    "step1": "Write the name of a Gmail label, for example Work, or a system label such as INBOX or STARRED. A name with spaces is written with dashes.",
+    "step2": "The agent reaches only mail that has the label. Spam and trash are never searched. Write ALL only if the agent may read the whole mailbox.",
+    "step3": "The write mode below also needs the optional access to be allowed when you connect. Without it the agent can only read."
+  },
+  "writeMode": {
+    "label": "What the agent may do with your mail",
+    "hint": "Save a draft, and send a draft that exists. It never deletes, trashes, labels or forwards mail, and it never changes your settings.",
+    "off": "Read only",
+    "propose": "Asks you first",
+    "auto": "Acts without asking",
+    "line": {
+      "off": "It cannot save or send anything.",
+      "propose": "Each draft and each send waits for your OK.",
+      "auto": "Your chats make the change at once."
+    },
+    "note": {
+      "off": "Write access is off: this connection only reads.",
+      "propose": "Each draft and each send waits in your approvals until you confirm it. You see the recipients and the text first. It also needs the optional write access that you allow when you connect.",
+      "auto": "Every draft and send still waits in your approvals: this add-on never writes without a person's OK. It also needs the optional write access that you allow when you connect."
+    },
+    "row": {
+      "off": "Read only",
+      "propose": "Asks you first",
+      "auto": "Asks you first"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Save a draft",
+      "send-draft": "Send an e-mail"
+    },
+    "to": "To",
+    "cc": "Cc",
+    "bcc": "Bcc",
+    "subject": "Subject",
+    "none": "(none)",
+    "replyTo": "Reply to",
+    "attachments": "Attachments",
+    "text": "Text ({{bytes}} bytes)",
+    "cut": "The text shown here is cut. The full text, {{bytes}} bytes, is saved.",
+    "draftNote": "This saves a draft in your Gmail. It does not send it.",
+    "sendNote": "This sends an e-mail from your Gmail to the people above. A sent e-mail cannot be taken back."
+  }
+}

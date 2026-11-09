@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 func searchTool() session.Tool {
@@ -181,6 +182,34 @@ var _ = Describe("subagent", func() {
 			lists = append(lists, h.ToolNames(k.ID))
 		}
 		Expect(lists).To(ContainElement(ConsistOf("read_file", "edit_file")), "tool lists: %v", lists)
+	})
+
+	It("a sub-agent is told the parent's work folder in its note, not in its prompt", func() {
+		f := newFiles()
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"a","wait":true}`}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files = f })
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		kids := childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(1))
+		recs, err := svc.List(context.Background(), alice, 100)
+		Expect(err).NotTo(HaveOccurred())
+		var folder string
+		for _, r := range recs {
+			if r.ID == id {
+				folder = r.Folder
+			}
+		}
+		Expect(folder).NotTo(BeEmpty())
+		guest := workfiles.GuestFolder(folder)
+		Expect(h.TurnPrompt(kids[0].ID)).To(ContainSubstring(workfiles.Prompt))
+		Expect(h.TurnPrompt(kids[0].ID)).NotTo(ContainSubstring(guest), "the parent's title would make the prompt of every sub-agent differ")
+		Expect(strings.Join(h.SentRaw(kids[0].ID), "\n")).To(ContainSubstring(workfiles.Note(guest)))
 	})
 
 	It("a sub agent cannot spawn and gets the parents tools unless narrowed", func() {

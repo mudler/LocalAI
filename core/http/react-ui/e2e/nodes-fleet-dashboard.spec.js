@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { mockReadModel } from './operate-fixtures.js'
 
 // The Swarm Nodes page: a sortable table of the cluster, a map of the same
 // nodes, and the models running across them. Every call is stubbed, so the
@@ -345,7 +346,8 @@ test.describe('Swarm nodes: bulk actions', () => {
     await expect(page.getByText(/1 succeeded, 0 failed, 0 skipped/)).toBeVisible()
   })
 
-  test('updates a backend on the nodes that drifted, or on the selected ones', async ({ page }) => {
+  test('updates a backend on the nodes that drifted, or on the selected ones, after a confirmation', async ({ page }) => {
+    test.setTimeout(90_000)
     const nodes = [
       { ...baseNodes[0], id: 'a', name: 'alpha' },
       { ...baseNodes[0], id: 'b', name: 'beta' },
@@ -353,11 +355,8 @@ test.describe('Swarm nodes: bulk actions', () => {
       { ...baseNodes[2], id: 'd', name: 'agent' },
     ]
     await mockNodes(page, nodes)
-    await page.route('**/api/backends/upgrades', route => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '0.9.4', available_version: '0.9.7', node_drift: [{ node_id: 'a' }, { node_id: 'b' }, { node_id: 'c' }] } }),
-    }))
+    const upgrades = { 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '0.9.4', available_version: '0.9.7', node_drift: [{ node_id: 'a' }, { node_id: 'b' }, { node_id: 'c' }] } }
+    await mockReadModel(page, upgrades)
     const posts = []
     await page.route('**/api/nodes/*/backends/upgrade', route => {
       posts.push({ id: route.request().url().split('/').at(-3), body: route.request().postDataJSON() })
@@ -372,11 +371,19 @@ test.describe('Swarm nodes: bulk actions', () => {
     await expect(page.getByRole('button', { name: 'Update llama-cpp on 1 node' })).toBeVisible()
     await page.getByRole('button', { name: 'Clear selection' }).click()
 
+    // The button asks first: nothing is sent until the dialog is confirmed.
     await button.click()
-    await expect.poll(() => posts.length).toBe(2)
+    const dialog = page.getByTestId('node-update-dialog')
+    await expect(dialog.getByRole('heading', { name: 'Update llama-cpp on 2 nodes?' })).toBeVisible()
+    await expect(dialog.getByTestId('node-update-item')).toHaveCount(2)
+    expect(posts).toEqual([])
+    await dialog.getByTestId('node-update-confirm').click()
+    // The nodes update one after another: the second is asked after the first ended.
+    await expect.poll(() => posts.length, { timeout: 30_000 }).toBe(2)
     expect(posts.map(post => post.id).sort()).toEqual(['a', 'b'])
     expect(posts.every(post => post.body.backend === 'llama-cpp')).toBe(true)
-    await expect(page.getByText('Updating backends on 2 nodes')).toBeVisible()
+    // The stub never moves a node to the new version, so no result is "updated".
+    await expect(dialog.getByTestId('node-update-summary')).toContainText('0 updated, 2 failed', { timeout: 30_000 })
   })
 })
 

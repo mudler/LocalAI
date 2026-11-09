@@ -186,6 +186,9 @@ type Watch struct {
 	Checks  int    `json:"checks"`
 	Errors  int    `json:"errors"`
 	LastErr string `json:"last_err,omitempty"`
+	// FieldSeen is set once a json_equals check has read Field, whatever its
+	// value. An older stored wait without it reads as "not seen".
+	FieldSeen bool `json:"field_seen,omitempty"`
 	// LastCheck is when the last check ended; Outcome is what it found (one of
 	// the Outcome constants). Both are empty before the first check.
 	LastCheck time.Time `json:"last_check,omitzero"`

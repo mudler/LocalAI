@@ -546,7 +546,8 @@
     "moveMany_other": "Pindahkan {{count}} item ke…",
     "deleteMany_one": "Pindahkan {{count}} item ke Sampah",
     "deleteMany_other": "Pindahkan {{count}} item ke Sampah",
-    "share": "Bagikan…"
+    "share": "Bagikan…",
+    "extract": "Ekstrak di sini"
   },
   "keys": {
     "delete": "Del"
@@ -570,7 +571,14 @@
     "movedOne": "{{name}} dipindahkan ke {{folder}}.",
     "moved_one": "{{count}} item dipindahkan ke {{folder}}.",
     "moved_other": "{{count}} item dipindahkan ke {{folder}}.",
-    "moveUndone": "Dikembalikan."
+    "moveUndone": "Dikembalikan.",
+    "extractSkipped_one": "{{count}} entri dilewati (tautan, perangkat, atau nama tidak valid).",
+    "extractSkipped_other": "{{count}} entri dilewati (tautan, perangkat, atau nama tidak valid).",
+    "extractConflicts_one": "{{count}} nama sudah dipakai: berkas baru disimpan sebagai salinan.",
+    "extractConflicts_other": "{{count}} nama sudah dipakai: berkas baru disimpan sebagai salinan.",
+    "extractUndone": "Ekstraksi dibatalkan.",
+    "extracted_one": "{{count}} berkas diekstrak ke {{folder}}.",
+    "extracted_other": "{{count}} berkas diekstrak ke {{folder}}."
   },
   "search": {
     "placeholder": "Saring folder ini",

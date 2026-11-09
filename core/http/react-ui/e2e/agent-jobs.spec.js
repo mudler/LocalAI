@@ -120,6 +120,7 @@ test.describe('A trigger', () => {
     const facts = page.getByTestId('task-facts')
     await expect(facts).toContainText('research-assistant')
     await expect(facts).toContainText('Every weekday at 09:00')
+    await expect(page.getByTestId('task-run-limit')).toHaveText('15m')
     await expect(page.getByTestId('task-prompt')).toContainText('Summarise yesterday.')
     const runs = page.getByTestId('task-runs')
     await expect(runs.locator('[data-job]')).toHaveCount(3)
@@ -214,6 +215,22 @@ test.describe('Trigger form', () => {
     await page.getByTestId('task-preview').getByRole('button', { name: 'Save trigger' }).click()
     await expect(page).toHaveURL(/\/app\/triggers$/)
     expect(s.calls.find(c => c.method === 'PUT')).toMatchObject({ url: '/api/chats/triggers/t1', body: { name: 'Morning digest 2', schedule: 'weekdays 09:00', agent_id: 'a1' } })
+  })
+
+  test('sets the time limit of a run, shows it as a default when empty, and keeps it on save', async ({ page }) => {
+    const s = await installAgents(page)
+    await page.goto('/app/triggers/t1/edit')
+    await page.locator('[data-section="limits"] .ag-fold__button').click()
+    const limit = page.getByLabel('Time limit of a run', { exact: true })
+    await expect(limit).toHaveValue('30m')
+    await page.locator('[data-section="limits"]').screenshot({ path: 'test-results/trigger-form-run-limit.png' })
+    await limit.fill('')
+    await expect(limit).toHaveAttribute('placeholder', 'default')
+    await limit.fill('45m')
+    await page.getByTestId('task-preview-open').click()
+    await page.getByTestId('task-preview').getByRole('button', { name: 'Save trigger' }).click()
+    await expect(page).toHaveURL(/\/app\/triggers$/)
+    expect(s.calls.find(c => c.method === 'PUT').body.run_limit).toBe('45m')
   })
 
   test('needs a name and something to do', async ({ page }) => {

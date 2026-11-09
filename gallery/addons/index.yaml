@@ -878,6 +878,190 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Google Drive"
+      "es": "Google Drive"
+      "fr": "Google Drive"
+      "id": "Google Drive"
+      "it": "Google Drive"
+      "ko": "Google Drive"
+      "pt-BR": "Google Drive"
+      "zh-CN": "Google Drive"
+    descriptions:
+      "de": "Lass deine Agenten die Dateien in den von dir gewählten Drive-Ordnern lesen und, wenn du es erlaubst, Textdateien anlegen oder ändern."
+      "es": "Permite que tus agentes lean los archivos de las carpetas de Drive que elijas y, si lo autorizas, creen o modifiquen archivos de texto."
+      "fr": "Laissez vos agents lire les fichiers des dossiers Drive que vous choisissez et, si vous l’autorisez, créer ou modifier des fichiers texte."
+      "id": "Izinkan agen Anda membaca file di folder Drive yang Anda pilih, dan membuat atau mengubah file teks jika Anda mengizinkan."
+      "it": "Lascia che i tuoi agenti leggano i file nelle cartelle di Drive che scegli e, se lo permetti, creino o modifichino file di testo."
+      "ko": "에이전트가 선택한 Drive 폴더의 파일을 읽고, 허용하면 텍스트 파일을 만들거나 바꿀 수 있게 합니다."
+      "pt-BR": "Deixe seus agentes lerem os arquivos das pastas do Drive que você escolher e, se você permitir, criarem ou alterarem arquivos de texto."
+      "zh-CN": "让你的智能体读取你所选 Drive 文件夹中的文件，并在你允许时创建或修改文本文件。"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Google Drive"
+      "es": "Google Drive"
+      "fr": "Google Drive"
+      "id": "Google Drive"
+      "it": "Google Drive"
+      "ko": "Google Drive"
+      "pt-BR": "Google Drive"
+      "zh-CN": "Google Drive"
+    descriptions:
+      "de": "Lass deine Agenten die Dateien in den von dir gewählten Drive-Ordnern lesen und, wenn du es erlaubst, Textdateien anlegen oder ändern."
+      "es": "Permite que tus agentes lean los archivos de las carpetas de Drive que elijas y, si lo autorizas, creen o modifiquen archivos de texto."
+      "fr": "Laissez vos agents lire les fichiers des dossiers Drive que vous choisissez et, si vous l’autorisez, créer ou modifier des fichiers texte."
+      "id": "Izinkan agen Anda membaca file di folder Drive yang Anda pilih, dan membuat atau mengubah file teks jika Anda mengizinkan."
+      "it": "Lascia che i tuoi agenti leggano i file nelle cartelle di Drive che scegli e, se lo permetti, creino o modifichino file di testo."
+      "ko": "에이전트가 선택한 Drive 폴더의 파일을 읽고, 허용하면 텍스트 파일을 만들거나 바꿀 수 있게 합니다."
+      "pt-BR": "Deixe seus agentes lerem os arquivos das pastas do Drive que você escolher e, se você permitir, criarem ou alterarem arquivos de texto."
+      "zh-CN": "让你的智能体读取你所选 Drive 文件夹中的文件，并在你允许时创建或修改文本文件。"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Google Drive"
+      "es": "Google Drive"
+      "fr": "Google Drive"
+      "id": "Google Drive"
+      "it": "Google Drive"
+      "ko": "Google Drive"
+      "pt-BR": "Google Drive"
+      "zh-CN": "Google Drive"
+    descriptions:
+      "de": "Lass deine Agenten die Dateien in den von dir gewählten Drive-Ordnern lesen und, wenn du es erlaubst, Textdateien anlegen oder ändern."
+      "es": "Permite que tus agentes lean los archivos de las carpetas de Drive que elijas y, si lo autorizas, creen o modifiquen archivos de texto."
+      "fr": "Laissez vos agents lire les fichiers des dossiers Drive que vous choisissez et, si vous l’autorisez, créer ou modifier des fichiers texte."
+      "id": "Izinkan agen Anda membaca file di folder Drive yang Anda pilih, dan membuat atau mengubah file teks jika Anda mengizinkan."
+      "it": "Lascia che i tuoi agenti leggano i file nelle cartelle di Drive che scegli e, se lo permetti, creino o modifichino file di testo."
+      "ko": "에이전트가 선택한 Drive 폴더의 파일을 읽고, 허용하면 텍스트 파일을 만들거나 바꿀 수 있게 합니다."
+      "pt-BR": "Deixe seus agentes lerem os arquivos das pastas do Drive que você escolher e, se você permitir, criarem ou alterarem arquivos de texto."
+      "zh-CN": "让你的智能体读取你所选 Drive 文件夹中的文件，并在你允许时创建或修改文本文件。"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Google Drive"
+      "es": "Google Drive"
+      "fr": "Google Drive"
+      "id": "Google Drive"
+      "it": "Google Drive"
+      "ko": "Google Drive"
+      "pt-BR": "Google Drive"
+      "zh-CN": "Google Drive"
+    descriptions:
+      "de": "Lass deine Agenten die Dateien in den von dir gewählten Drive-Ordnern lesen und, wenn du es erlaubst, Textdateien anlegen oder ändern."
+      "es": "Permite que tus agentes lean los archivos de las carpetas de Drive que elijas y, si lo autorizas, creen o modifiquen archivos de texto."
+      "fr": "Laissez vos agents lire les fichiers des dossiers Drive que vous choisissez et, si vous l’autorisez, créer ou modifier des fichiers texte."
+      "id": "Izinkan agen Anda membaca file di folder Drive yang Anda pilih, dan membuat atau mengubah file teks jika Anda mengizinkan."
+      "it": "Lascia che i tuoi agenti leggano i file nelle cartelle di Drive che scegli e, se lo permetti, creino o modifichino file di testo."
+      "ko": "에이전트가 선택한 Drive 폴더의 파일을 읽고, 허용하면 텍스트 파일을 만들거나 바꿀 수 있게 합니다."
+      "pt-BR": "Deixe seus agentes lerem os arquivos das pastas do Drive que você escolher e, se você permitir, criarem ou alterarem arquivos de texto."
+      "zh-CN": "让你的智能体读取你所选 Drive 文件夹中的文件，并在你允许时创建或修改文本文件。"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
@@ -1090,6 +1274,186 @@
     - "edit-issue"
     - "add-labels"
     - "review-comment-pr"
+- id: "gmail"
+  name: Gmail
+  description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gmail-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Gmail"
+    description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Gmail"
+      "es": "Gmail"
+      "fr": "Gmail"
+      "id": "Gmail"
+      "it": "Gmail"
+      "ko": "Gmail"
+      "pt-BR": "Gmail"
+      "zh-CN": "Gmail"
+    descriptions:
+      "de": "Lass deine Agenten deine Mails lesen und, wenn du es erlaubst, Entwürfe speichern und mit deiner Freigabe senden. Du wählst die Labels, die sie erreichen dürfen."
+      "es": "Permite que tus agentes lean tu correo y, si lo autorizas, guarden borradores y los envíen con tu aprobación. Tú eliges las etiquetas a las que pueden llegar."
+      "fr": "Laissez vos agents lire vos e-mails et, si vous l’autorisez, enregistrer des brouillons et les envoyer avec votre approbation. Vous choisissez les libellés qu’ils peuvent atteindre."
+      "id": "Izinkan agen Anda membaca email Anda, dan menyimpan draf serta mengirimnya dengan persetujuan Anda jika Anda mengizinkan. Anda memilih label yang dapat dijangkau."
+      "it": "Lascia che i tuoi agenti leggano la tua posta e, se lo permetti, salvino bozze e le inviino con la tua approvazione. Scegli tu le etichette che possono raggiungere."
+      "ko": "에이전트가 내 메일을 읽고, 허용하면 임시 보관 메일을 저장하고 내 승인으로 보낼 수 있게 합니다. 접근할 수 있는 라벨은 직접 고릅니다."
+      "pt-BR": "Deixe seus agentes lerem seus e-mails e, se você permitir, salvarem rascunhos e enviá-los com a sua aprovação. Você escolhe os marcadores que eles podem alcançar."
+      "zh-CN": "让你的智能体读取你的邮件，并在你允许时保存草稿、经你批准后发送。你来选择它们可以访问的标签。"
+  toolCount: 7
+  tools:
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "list-labels"
+    - "read-attachment"
+    - "create-draft"
+    - "send-draft"
+- id: "gmail"
+  name: Gmail
+  description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gmail-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Gmail"
+    description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Gmail"
+      "es": "Gmail"
+      "fr": "Gmail"
+      "id": "Gmail"
+      "it": "Gmail"
+      "ko": "Gmail"
+      "pt-BR": "Gmail"
+      "zh-CN": "Gmail"
+    descriptions:
+      "de": "Lass deine Agenten deine Mails lesen und, wenn du es erlaubst, Entwürfe speichern und mit deiner Freigabe senden. Du wählst die Labels, die sie erreichen dürfen."
+      "es": "Permite que tus agentes lean tu correo y, si lo autorizas, guarden borradores y los envíen con tu aprobación. Tú eliges las etiquetas a las que pueden llegar."
+      "fr": "Laissez vos agents lire vos e-mails et, si vous l’autorisez, enregistrer des brouillons et les envoyer avec votre approbation. Vous choisissez les libellés qu’ils peuvent atteindre."
+      "id": "Izinkan agen Anda membaca email Anda, dan menyimpan draf serta mengirimnya dengan persetujuan Anda jika Anda mengizinkan. Anda memilih label yang dapat dijangkau."
+      "it": "Lascia che i tuoi agenti leggano la tua posta e, se lo permetti, salvino bozze e le inviino con la tua approvazione. Scegli tu le etichette che possono raggiungere."
+      "ko": "에이전트가 내 메일을 읽고, 허용하면 임시 보관 메일을 저장하고 내 승인으로 보낼 수 있게 합니다. 접근할 수 있는 라벨은 직접 고릅니다."
+      "pt-BR": "Deixe seus agentes lerem seus e-mails e, se você permitir, salvarem rascunhos e enviá-los com a sua aprovação. Você escolhe os marcadores que eles podem alcançar."
+      "zh-CN": "让你的智能体读取你的邮件，并在你允许时保存草稿、经你批准后发送。你来选择它们可以访问的标签。"
+  toolCount: 7
+  tools:
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "list-labels"
+    - "read-attachment"
+    - "create-draft"
+    - "send-draft"
+- id: "gmail"
+  name: Gmail
+  description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gmail-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Gmail"
+    description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Gmail"
+      "es": "Gmail"
+      "fr": "Gmail"
+      "id": "Gmail"
+      "it": "Gmail"
+      "ko": "Gmail"
+      "pt-BR": "Gmail"
+      "zh-CN": "Gmail"
+    descriptions:
+      "de": "Lass deine Agenten deine Mails lesen und, wenn du es erlaubst, Entwürfe speichern und mit deiner Freigabe senden. Du wählst die Labels, die sie erreichen dürfen."
+      "es": "Permite que tus agentes lean tu correo y, si lo autorizas, guarden borradores y los envíen con tu aprobación. Tú eliges las etiquetas a las que pueden llegar."
+      "fr": "Laissez vos agents lire vos e-mails et, si vous l’autorisez, enregistrer des brouillons et les envoyer avec votre approbation. Vous choisissez les libellés qu’ils peuvent atteindre."
+      "id": "Izinkan agen Anda membaca email Anda, dan menyimpan draf serta mengirimnya dengan persetujuan Anda jika Anda mengizinkan. Anda memilih label yang dapat dijangkau."
+      "it": "Lascia che i tuoi agenti leggano la tua posta e, se lo permetti, salvino bozze e le inviino con la tua approvazione. Scegli tu le etichette che possono raggiungere."
+      "ko": "에이전트가 내 메일을 읽고, 허용하면 임시 보관 메일을 저장하고 내 승인으로 보낼 수 있게 합니다. 접근할 수 있는 라벨은 직접 고릅니다."
+      "pt-BR": "Deixe seus agentes lerem seus e-mails e, se você permitir, salvarem rascunhos e enviá-los com a sua aprovação. Você escolhe os marcadores que eles podem alcançar."
+      "zh-CN": "让你的智能体读取你的邮件，并在你允许时保存草稿、经你批准后发送。你来选择它们可以访问的标签。"
+  toolCount: 7
+  tools:
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "list-labels"
+    - "read-attachment"
+    - "create-draft"
+    - "send-draft"
+- id: "gmail"
+  name: Gmail
+  description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gmail-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Gmail"
+    description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+    titles:
+      "de": "Gmail"
+      "es": "Gmail"
+      "fr": "Gmail"
+      "id": "Gmail"
+      "it": "Gmail"
+      "ko": "Gmail"
+      "pt-BR": "Gmail"
+      "zh-CN": "Gmail"
+    descriptions:
+      "de": "Lass deine Agenten deine Mails lesen und, wenn du es erlaubst, Entwürfe speichern und mit deiner Freigabe senden. Du wählst die Labels, die sie erreichen dürfen."
+      "es": "Permite que tus agentes lean tu correo y, si lo autorizas, guarden borradores y los envíen con tu aprobación. Tú eliges las etiquetas a las que pueden llegar."
+      "fr": "Laissez vos agents lire vos e-mails et, si vous l’autorisez, enregistrer des brouillons et les envoyer avec votre approbation. Vous choisissez les libellés qu’ils peuvent atteindre."
+      "id": "Izinkan agen Anda membaca email Anda, dan menyimpan draf serta mengirimnya dengan persetujuan Anda jika Anda mengizinkan. Anda memilih label yang dapat dijangkau."
+      "it": "Lascia che i tuoi agenti leggano la tua posta e, se lo permetti, salvino bozze e le inviino con la tua approvazione. Scegli tu le etichette che possono raggiungere."
+      "ko": "에이전트가 내 메일을 읽고, 허용하면 임시 보관 메일을 저장하고 내 승인으로 보낼 수 있게 합니다. 접근할 수 있는 라벨은 직접 고릅니다."
+      "pt-BR": "Deixe seus agentes lerem seus e-mails e, se você permitir, salvarem rascunhos e enviá-los com a sua aprovação. Você escolhe os marcadores que eles podem alcançar."
+      "zh-CN": "让你的智能体读取你的邮件，并在你允许时保存草稿、经你批准后发送。你来选择它们可以访问的标签。"
+  toolCount: 7
+  tools:
+    - "search-messages"
+    - "get-message"
+    - "get-thread"
+    - "list-labels"
+    - "read-attachment"
+    - "create-draft"
+    - "send-draft"
 - id: "home-assistant"
   name: Home Assistant
   description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
@@ -2506,6 +2870,170 @@
       "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack."
       "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
+- id: "ssh"
+  name: SSH
+  description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:ssh-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "SSH"
+    description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
+    mainPage: "ssh"
+    icon: "ui/icon.png"
+    titles:
+      "de": "SSH"
+      "es": "SSH"
+      "fr": "SSH"
+      "id": "SSH"
+      "it": "SSH"
+      "ko": "SSH"
+      "pt-BR": "SSH"
+      "zh-CN": "SSH"
+    descriptions:
+      "de": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen, mit einer Bestätigung für jeden, sofern Sie nichts anderes festlegen."
+      "es": "Permite que tus chats y agentes ejecuten comandos en una máquina remota por SSH, pidiendo confirmación para cada uno, salvo que decidas otra cosa."
+      "fr": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH, en demandant une confirmation pour chacune, sauf si vous en décidez autrement."
+      "id": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH, dengan meminta konfirmasi untuk setiap perintah kecuali Anda menentukan lain."
+      "it": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH, chiedendo conferma per ciascuno, salvo che tu decida diversamente."
+      "ko": "채팅과 에이전트가 SSH로 원격 컴퓨터에서 명령을 실행하게 합니다. 별도로 설정하지 않으면 매번 확인을 거칩니다."
+      "pt-BR": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH, pedindo confirmação para cada um, a menos que você decida o contrário."
+      "zh-CN": "让你的聊天和智能体通过 SSH 在远程机器上运行命令，每条都需要你确认，除非你另行设置。"
+  toolCount: 3
+  tools:
+    - "get-info"
+    - "run"
+    - "scan-host-key"
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."

@@ -136,6 +136,13 @@ type RuntimeSettings struct {
 	ChatsLoopMaxPerChat  *int    `json:"chats_loop_max_per_chat,omitempty"`
 	ChatsLoopMaxPerUser  *int    `json:"chats_loop_max_per_user,omitempty"`
 	ChatsLoopDailyRuns   *int    `json:"chats_loop_daily_runs,omitempty"`
+	// The triggers of the chats: the longest one run may take (a duration,
+	// 1m to 24h, default 15m), the triggers one user may have (1 to 1000,
+	// default 50) and the highest daily limit one trigger may have (1 to 1000,
+	// default 1000). Read at each use.
+	ChatsTriggerRunLimit    *string `json:"chats_trigger_run_limit,omitempty"`
+	ChatsTriggerMaxPerUser  *int    `json:"chats_trigger_max_per_user,omitempty"`
+	ChatsTriggerMaxDailyCap *int    `json:"chats_trigger_max_daily_cap,omitempty"`
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`

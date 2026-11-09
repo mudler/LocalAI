@@ -155,7 +155,7 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 			// The service behind the add-on asks the caller to wait. The call
 			// had no effect and the same call may succeed later.
 			n, _ := strconv.Atoi(wait)
-			return nil, &contract.ErrRateLimited{RetryAfter: min(max(n, 1), contract.MaxRetryAfter)}
+			return nil, contract.RateLimitedAfter(n)
 		}
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict
@@ -164,6 +164,11 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 			// The answer of an add-on runtime to a permission it checked. A 403
 			// with another body is the envelope check, a host fault.
 			return nil, ErrDenied
+		}
+		if resp.StatusCode == http.StatusUnauthorized && reason == "credential_rejected" {
+			// The service refused the access token and the call changed
+			// nothing. Any other 401 is not this answer and stays an outage.
+			return nil, ErrCredentialRejected
 		}
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
 			r := &Refusal{Status: resp.StatusCode, Reason: reason}

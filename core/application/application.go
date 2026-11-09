@@ -899,6 +899,12 @@ func (a *Application) start() (startErr error) {
 	if a.backendLibrary != nil {
 		assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
 	}
+	assistantClient.UpdatesChecker = func() localaiInproc.BackendUpdatesSource {
+		if a.upgradeChecker == nil {
+			return nil
+		}
+		return a.upgradeChecker
+	}
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}

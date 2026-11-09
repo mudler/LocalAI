@@ -977,15 +977,27 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		if instance.Generation != request.Generation {
 			return ErrProposalStale
 		}
-		wire := request
-		if credentialed {
-			wire.Credential, wire.ResourceKey = grant.Credential, grant.ResourceKey
+		var preview contract.Preview
+		run := func(cg gateway.CredentialGrant) error {
+			wire := request
+			if credentialed {
+				cg.SetOn(&wire)
+			}
+			env := contract.Envelope{Request: wire, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: b.opts.Now().Add(b.opts.Limits.PreviewTimeout)}}
+			var err error
+			preview, err = instance.Client.Preview(rctx, env)
+			return err
 		}
-		env := contract.Envelope{Request: wire, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: b.opts.Now().Add(b.opts.Limits.PreviewTimeout)}}
-		preview, e := instance.Client.Preview(rctx, env)
+		// A preview changes nothing, so a rejected OAuth token is renewed and
+		// the preview tried once more. Without a credential the grant is the
+		// zero value, whose version zero WithRenewal never renews.
+		e = gateway.WithRenewal(rctx, b.opts.Credentials, actor, request.AddonID, grant, run)
 		if e != nil {
 			if rctx.Err() != nil {
 				return rctx.Err()
+			}
+			if refusal := credentialRefusal(e); refusal != nil {
+				return refusal
 			}
 			if refusal := previewRefusal(e); refusal != nil {
 				// The add-on judged the request invalid. A preview changes
@@ -1030,6 +1042,16 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		return e
 	})
 	return out, err
+}
+
+// credentialRefusal is the credential source's refusal after a rejected
+// token, such as reconnect_needed, or nil for any other error.
+func credentialRefusal(err error) error {
+	var refusal *gateway.CredentialRefusal
+	if errors.As(err, &refusal) {
+		return refusal
+	}
+	return nil
 }
 
 // relaxed says whether the person's setting lets this call run without a
@@ -1667,20 +1689,33 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		return contract.Receipt{}, ErrForbidden
 	}
 	wire := contract.Request{AddonID: r.AddonID, ResourceID: r.ResourceID, OperationID: r.wireOperation(), Generation: r.Generation, Action: r.wireAction(), Arguments: r.Arguments}
-	if r.Credentialed {
-		wire.Credential, wire.ResourceKey = grant.Credential, grant.ResourceKey
-	}
-	env := contract.Envelope{
-		Request:   wire,
-		Authority: contract.Authority{Actor: actor, Scope: "apply", ExpiresAt: b.opts.Now().Add(b.opts.Limits.ApplyTimeout)},
+	var receipt contract.Receipt
+	// applyCtx is the context of the hold of the grant while the apply runs.
+	applyCtx := ctx
+	apply := func(cg gateway.CredentialGrant) error {
+		w := wire
+		if r.Credentialed {
+			cg.SetOn(&w)
+		}
+		env := contract.Envelope{
+			Request:   w,
+			Authority: contract.Authority{Actor: actor, Scope: "apply", ExpiresAt: b.opts.Now().Add(b.opts.Limits.ApplyTimeout)},
+		}
+		var err error
+		receipt, err = instance.Client.Apply(applyCtx, env, r.Revision)
+		return err
 	}
 	// The apply of a binding shared with the actor runs inside the hold of
-	// its share. A hold that refuses never called the add-on.
-	var receipt contract.Receipt
+	// its share. A hold that refuses never called the add-on. The add-on
+	// answers credential_rejected only when the service refused the token and
+	// nothing changed, so the apply may run again with a renewed one. Without
+	// a credential the grant is the zero value, which WithRenewal never
+	// renews.
 	sent, lowered := false, false
 	held := grant.Use(ctx, func(hctx context.Context) error {
 		sent = true
-		receipt, err = instance.Client.Apply(hctx, env, r.Revision)
+		applyCtx = hctx
+		err = gateway.WithRenewal(hctx, b.opts.Credentials, actor, r.AddonID, grant, apply)
 		lowered = hctx.Err() != nil && ctx.Err() == nil
 		return nil
 	})
@@ -1710,6 +1745,19 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		// R38: a conflict is the add-on's definite answer. Nothing was applied.
 		b.settle(id, gateway.ProposalRejected, nil, "refused by the addon as a conflict")
 		return contract.Receipt{}, ErrProposalConflict
+	}
+	if typed := credentialRefusal(err); r.Credentialed && (typed != nil || errors.Is(err, contract.ErrCredentialRejected)) {
+		// The service refused the token and nothing was applied: the proposal
+		// waits again, for the person to reconnect or to retry later.
+		if typed == nil {
+			typed = ErrUnavailable
+		}
+		_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting}, func(x *proposalRecord) {
+			x.State = gateway.ProposalPending
+			x.Reason = ""
+			x.UnknownSince = time.Time{}
+		})
+		return contract.Receipt{}, typed
 	}
 	if errors.Is(err, addonruntime.ErrNotSent) {
 		// The request never reached the wire, so the add-on cannot have seen it

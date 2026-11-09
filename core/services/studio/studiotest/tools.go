@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -87,14 +88,16 @@ func (h *ToolHarness) ResultsFor(tool string) []ToolResult {
 }
 
 // Sent returns the messages a chat's turns were given, without the sentence
-// about the tools held back from the sender (see SentRaw).
+// about the tools held back from the sender and the one that names the chat's
+// work folder (see SentRaw).
 func (h *ToolHarness) Sent(chat string) []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return append([]string(nil), h.sent[chat]...)
 }
 
-// SentRaw is Sent with the sentence about the tools held back from the sender.
+// SentRaw is Sent with the sentences about the tools held back from the
+// sender and about the work folder.
 func (h *ToolHarness) SentRaw(chat string) []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -208,13 +211,13 @@ func (s *toolSession) Send(ctx context.Context, text string) error {
 	defer cancel()
 	chat := s.env.Actor.ChatID
 	s.h.mu.Lock()
-	s.h.sent[chat] = append(s.h.sent[chat], withoutDeniedNote(text))
+	s.h.sent[chat] = append(s.h.sent[chat], withoutHostNotes(text))
 	if s.h.raw == nil {
 		s.h.raw = map[string][]string{}
 	}
 	s.h.raw[chat] = append(s.h.raw[chat], text)
 	s.h.mu.Unlock()
-	for _, step := range s.h.Script(s.env.Actor, withoutDeniedNote(text)) {
+	for _, step := range s.h.Script(s.env.Actor, withoutHostNotes(text)) {
 		switch {
 		case step.Say != "":
 			s.env.Emit(session.Event{Kind: session.KindText, Text: step.Say})
@@ -279,6 +282,30 @@ const (
 	DeniedNoteStart = "Held back from this sender: "
 	DeniedNoteEnd   = "never say it does not exist."
 )
+
+// workFolderNote matches the sentence of a turn's note that names the chat's
+// work folder (workfiles.Note). Sent and the script leave it out, so a spec
+// keys on the words of the person whether the chat can save files or not.
+// The folder's name comes from the chat's title and may hold a quote, so the
+// match ends at the work folder's own name.
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"\. ?`)
+
+// withoutHostNotes removes the sentences of the note that the host adds on
+// its own (withoutDeniedNote, withoutWorkFolderNote).
+func withoutHostNotes(text string) string {
+	return withoutWorkFolderNote(withoutDeniedNote(text))
+}
+
+// withoutWorkFolderNote removes the sentence that names the work folder, and
+// the empty note around it.
+func withoutWorkFolderNote(text string) string {
+	if !workFolderNote.MatchString(text) {
+		return text
+	}
+	text = workFolderNote.ReplaceAllString(text, "")
+	text = strings.Replace(text, "(System note: )\n\n", "", 1)
+	return strings.Replace(text, " )\n\n", ")\n\n", 1)
+}
 
 // withoutDeniedNote removes that sentence, and the empty note around it.
 func withoutDeniedNote(text string) string {

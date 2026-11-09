@@ -57,6 +57,9 @@ type bindingRow struct {
 	Caps   string
 	Grants string
 	Paired string
+	// AuthKind is added by AutoMigrate; a row stored before it is a token
+	// binding.
+	AuthKind string `gorm:"size:16"`
 	// WriteTickRemoved is added by AutoMigrate; a row stored before it reads as false.
 	WriteTickRemoved bool
 	// AccountID is added by AutoMigrate; a row stored before it has none.
@@ -132,7 +135,8 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("connectors: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{}); err != nil {
+	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{},
+		&grantRow{}, &oauthClientRow{}, &loginStateRow{}); err != nil {
 		return nil, fmt.Errorf("connectors: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -141,7 +145,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
 		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ReplyLanguage: r.ReplyLanguage, UILanguage: r.UILanguage, WriteMode: r.WriteMode, AccountID: r.AccountID, WriteTickRemoved: r.WriteTickRemoved,
-		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
+		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax, AuthKind: r.AuthKind,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
@@ -178,17 +182,10 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(b.Options)
 		options = string(raw)
 	}
-	enc := func(v any, empty bool) string {
-		if empty {
-			return ""
-		}
-		raw, _ := json.Marshal(v)
-		return string(raw)
-	}
-	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: enc(b.AllowTrust, len(b.AllowTrust) == 0), Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), WriteTickRemoved: b.WriteTickRemoved, Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: encJSON(b.AllowTrust, len(b.AllowTrust) == 0), Approval: encJSON(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: encList(b.Resources), Channels: encList(b.Channels), Caps: encList(b.Caps), WriteTickRemoved: b.WriteTickRemoved, Grants: encList(b.Grants), Paired: encList(b.Paired), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
 		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, UILanguage: b.UILanguage, AccountID: b.AccountID, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
-		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		AuthKind: b.AuthKind, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {
@@ -233,12 +230,17 @@ func (s *gormStore) EnabledBindings(ctx context.Context) ([]Binding, error) {
 
 func (s *gormStore) DeleteBinding(ctx context.Context, id string) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}} {
+		// The binding goes first, so a PutGrant that waits on its lock finds
+		// it gone, and one that wrote before is removed below.
+		if err := tx.Where("id = ?", id).Delete(&bindingRow{}).Error; err != nil {
+			return err
+		}
+		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}, &grantRow{}, &loginStateRow{}} {
 			if err := tx.Where("binding = ?", id).Delete(m).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Where("id = ?", id).Delete(&bindingRow{}).Error
+		return nil
 	})
 }
 
@@ -436,4 +438,16 @@ func (s *gormStore) FinishMigration(ctx context.Context, name string, now time.T
 
 func (s *gormStore) ReleaseMigration(ctx context.Context, name string) error {
 	return s.db.WithContext(ctx).Where("name = ? AND done = ?", name, false).Delete(&migrationRow{}).Error
+}
+
+// encList encodes a list for a JSON text column; an empty list is stored as "".
+func encList[S ~[]E, E any](v S) string { return encJSON(v, len(v) == 0) }
+
+// encJSON encodes v for a JSON text column; an empty value is stored as "".
+func encJSON(v any, empty bool) string {
+	if empty {
+		return ""
+	}
+	raw, _ := json.Marshal(v)
+	return string(raw)
 }

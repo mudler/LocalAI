@@ -1,0 +1,256 @@
+{
+  "title": "Aktualisierungen",
+  "supporting": "Backends, Bibliotheks-Backends und Add-ons, für die es eine neuere Version gibt.",
+  "loading": "Aktualisierungen werden geladen",
+  "adminOnly": {
+    "title": "Aktualisierungen sind für Administratoren",
+    "body": "Bitten Sie einen Administrator, nachzusehen, was auf diesem Server veraltet ist."
+  },
+  "loadError": {
+    "title": "Die Liste der Aktualisierungen konnte nicht geladen werden."
+  },
+  "strip": {
+    "label": "Übersicht der Aktualisierungen",
+    "checking": "Es wird nach Aktualisierungen gesucht ...",
+    "checkNow": "Jetzt prüfen",
+    "checkedJustNow": "Gerade geprüft",
+    "ready": "{{count}} bereit",
+    "updating": "{{count}} in Arbeit",
+    "needs_one": "{{count}} braucht Sie",
+    "needs_other": "{{count}} brauchen Sie",
+    "lastCheck": "Letzte Prüfung {{when}}",
+    "headline": {
+      "loading": "Aktualisierungen werden geladen",
+      "loadError": "Die Liste der Aktualisierungen konnte nicht geladen werden",
+      "updates_one": "{{count}} Aktualisierung verfügbar",
+      "updates_other": "{{count}} Aktualisierungen verfügbar",
+      "current": "Alles ist aktuell",
+      "never": "Es wurde noch nicht geprüft",
+      "couldNot": "Die Prüfung auf Aktualisierungen ist fehlgeschlagen",
+      "noneButFailed": "Keine Aktualisierungen gefunden, aber die Prüfung ist fehlgeschlagen für: {{sources}}",
+      "noneButNever": "Keine Aktualisierungen gefunden, aber noch nicht geprüft: {{sources}}",
+      "unavailable": "Auf diesem Server kann nicht nach Aktualisierungen gesucht werden"
+    }
+  },
+  "when": {
+    "justNow": "gerade eben"
+  },
+  "source": {
+    "label": "Woher Aktualisierungen kommen",
+    "name": {
+      "gallery": "Backend-Galerie",
+      "library": "Backend-Bibliothek",
+      "addons": "Add-ons"
+    },
+    "checked": "geprüft {{when}}",
+    "ok": "geprüft",
+    "never": "noch nicht geprüft",
+    "loading": "wird gelesen",
+    "unavailable": "auf diesem Server nicht verfügbar",
+    "unavailableWhy": "nicht verfügbar: {{reason}}",
+    "failed": "Prüfung fehlgeschlagen: {{error}}",
+    "addonsUnreadable": "die Add-ons konnten nicht gelesen werden"
+  },
+  "auto": {
+    "backends": "Backends automatisch aktualisieren:",
+    "addons": "Add-ons automatisch aktualisieren:",
+    "on": "an",
+    "off": "aus",
+    "settings": "Einstellungen"
+  },
+  "disabled": {
+    "title": "Backend-Aktualisierungen sind auf diesem Server abgeschaltet.",
+    "body": "Die Backends unten werden angezeigt, aber hier kann sie nichts aktualisieren. Die Serverkonfiguration hat das Installieren von Backends abgeschaltet."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "Die Prüfung der Backend-Galerie ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Backends.",
+      "library": "Die Prüfung der Bibliothek ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Bibliotheks-Backends.",
+      "addons": "Die Prüfung der Add-ons ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Add-ons."
+    },
+    "lastGood": "Die Liste unten stammt von der letzten erfolgreichen Prüfung, {{when}}. Grund: {{error}}.",
+    "noGood": "Bisher war keine Prüfung erfolgreich. Grund: {{error}}.",
+    "again": "Erneut prüfen"
+  },
+  "filter": {
+    "label": "Aktualisierungen filtern",
+    "all": "Alle",
+    "ready": "Bereit",
+    "needs-you": "Braucht Sie",
+    "updating": "In Arbeit",
+    "current": "Aktuell",
+    "none": "Nichts passt zu diesem Filter."
+  },
+  "group": {
+    "needs": "Braucht Sie",
+    "updating": "In Arbeit",
+    "ready": "Bereit zur Aktualisierung",
+    "current_one": "{{count}} aktuell",
+    "current_other": "{{count}} aktuell",
+    "selectAll": "Alle Bereiten wählen",
+    "selectNone": "Keine wählen",
+    "show": "Anzeigen",
+    "hide": "Ausblenden"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Bibliotheks-Backend",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Backend-Galerie",
+      "library": "Bibliothek: {{id}}",
+      "libraryUnnamed": "Bibliothek"
+    },
+    "signed": "signiert",
+    "versions": "{{from}} auf {{to}}",
+    "nodes_one": "{{count}} Knoten",
+    "nodes_other": "{{count}} Knoten",
+    "drift_one": "{{count}} weicht ab",
+    "drift_other": "{{count}} weichen ab",
+    "old": "von einer früheren Prüfung",
+    "select": "{{name}} auswählen",
+    "update": "Aktualisieren",
+    "updateNamed": "{{name}} aktualisieren",
+    "check": "Prüfen",
+    "checkNamed": "{{name}} auf eine Aktualisierung prüfen",
+    "retry": "Wiederholen",
+    "retryNamed": "{{name}} wiederholen",
+    "review": "Prüfen",
+    "reviewNamed": "Die Aktualisierung von {{name}} prüfen",
+    "cancel": "Abbrechen",
+    "cancelNamed": "Die Aktualisierung von {{name}} abbrechen",
+    "progress": "Fortschritt der Aktualisierung von {{name}}",
+    "failed": "Die Aktualisierung ist fehlgeschlagen: {{message}}",
+    "failedWhy": "Aktualisierung fehlgeschlagen: {{message}}",
+    "noReason": "kein Grund angegeben",
+    "startFailed": "Die Aktualisierung konnte nicht starten: {{message}}",
+    "unchanged": "Die Aktualisierung ist beendet, aber die Version hat sich nicht geändert.",
+    "unconfirmed": "Die Aktualisierung ist beendet, aber keine Prüfung konnte sie bestätigen.",
+    "held": "Wartet auf Freigabe. {{version}} verlangt Zugriff, den Sie nicht freigegeben haben ({{count}} neu).",
+    "blocked": {
+      "installsDisabled": "Backend-Aktualisierungen sind auf diesem Server abgeschaltet.",
+      "incompatible": "Version {{version}} läuft auf diesem Host nicht.",
+      "integrity": "Die Bibliothek führt die installierte Version mit anderem Inhalt. Es wurde nichts geändert."
+    },
+    "updatingPhase": "Wird aktualisiert: {{phase}}",
+    "updatingPlain": "Wird aktualisiert",
+    "addonConfirm": "Braucht Ihre Bestätigung in diesem Browser",
+    "nodesAction": "Knoten",
+    "nodesNamed": "Knoten von {{name}} anzeigen",
+    "needsConfirm": "{{name}} läuft auf Knoten und braucht zuerst Ihre Bestätigung. Nutzen Sie Aktualisieren in der Zeile."
+  },
+  "bulk": {
+    "start": "Bereite aktualisieren ({{count}})",
+    "running": "{{current}} von {{total}} wird aktualisiert",
+    "summary": "{{done}} aktualisiert, {{failed}} fehlgeschlagen, {{skipped}} übersprungen",
+    "details": "Details",
+    "retryFailed": "Fehlgeschlagene wiederholen ({{count}})",
+    "dismiss": "Schließen"
+  },
+  "check": {
+    "result_one": "Prüfung beendet: {{count}} Aktualisierung.",
+    "result_other": "Prüfung beendet: {{count}} Aktualisierungen.",
+    "failedSources_one": "{{count}} Quelle ist fehlgeschlagen.",
+    "failedSources_other": "{{count}} Quellen sind fehlgeschlagen.",
+    "throttled": "Vor einem Moment lief eine Prüfung. Das ist ihr Ergebnis."
+  },
+  "live": {
+    "updated": "{{name}} wurde aktualisiert.",
+    "failed": "{{name}} wurde nicht aktualisiert."
+  },
+  "empty": {
+    "title": "Noch nichts zu aktualisieren",
+    "body": "Installieren Sie ein Backend oder ein Add-on, dann erscheinen die Aktualisierungen hier.",
+    "backends": "Backends öffnen",
+    "addons": "Apps öffnen"
+  },
+  "dialog": {
+    "title": "Bereite aktualisieren",
+    "intro": "Wählen Sie, was aktualisiert wird. Jedes wird einzeln nacheinander aktualisiert und gilt erst als fertig, wenn eine neue Prüfung es nicht mehr auflistet. Ein Fehler stoppt die anderen nicht.",
+    "selection": "Wählen, was aktualisiert wird",
+    "selectAll": "Alle wählen",
+    "selectNone": "Keine wählen",
+    "item": "{{name}} aktualisieren",
+    "versions": "{{from}} auf {{to}}",
+    "blocked": "Kann nicht starten",
+    "start": "Auswahl aktualisieren",
+    "starting": "Wird aktualisiert ...",
+    "retry": "Fehlgeschlagene wiederholen ({{count}})",
+    "again": "Neue Auswahl",
+    "close": "Schließen",
+    "closeRunning": "Schließen (läuft weiter)",
+    "runningNote": "Das Schließen dieses Fensters stoppt die Aktualisierungen nicht.",
+    "progress": "{{current}} von {{total}} wird aktualisiert",
+    "summary": "{{done}} aktualisiert, {{failed}} fehlgeschlagen, {{skipped}} übersprungen",
+    "empty": "Nichts zu aktualisieren.",
+    "selectedCount_one": "{{count}} ausgewählt",
+    "selectedCount_other": "{{count}} ausgewählt"
+  },
+  "item": {
+    "queued": "In der Warteschlange",
+    "upgrading": "Wird aktualisiert",
+    "done": "Aktualisiert",
+    "failed": "Fehlgeschlagen",
+    "skipped": "Übersprungen"
+  },
+  "node": {
+    "breadcrumb": "Brotkrumennavigation",
+    "reload": "Erneut versuchen",
+    "noneTitle": "{{name}} hat keinen Knoten zum Aktualisieren",
+    "noneBody": "Für dieses Backend ist auf keinem Knoten ein Update gelistet. Es ist vielleicht überall aktuell oder wurde gerade aktualisiert.",
+    "back": "Zurück zu Updates",
+    "supporting_one": "Version {{version}} ist verfügbar. Auf {{nodes}} ist es installiert, und {{count}} davon braucht das Update.",
+    "supporting_other": "Version {{version}} ist verfügbar. Auf {{nodes}} ist es installiert, und {{count}} davon brauchen das Update.",
+    "supportingDrift_one": "Die Knoten haben nicht alle denselben Build. {{count}} von {{nodes}} weicht vom Cluster ab.",
+    "supportingDrift_other": "Die Knoten haben nicht alle denselben Build. {{count}} von {{nodes}} weichen vom Cluster ab.",
+    "warning": "Ein Update stoppt auf jedem Knoten die Modelle, die dieses Backend nutzen. Ein Modell startet wieder, wenn eine Anfrage es braucht.",
+    "driftNote": "Ein Knoten, der vom Cluster abweicht, ist nicht immer im Rückstand: Er kann neuer sein. Das Update bringt ihn auf die Version der Galerie.",
+    "tableLabel": "Knoten mit {{name}}",
+    "col": {
+      "node": "Knoten",
+      "installed": "Installiert",
+      "models": "Laufende Modelle damit",
+      "state": "Status",
+      "action": "Aktion"
+    },
+    "noneRecorded": "Keine erfasst",
+    "state": {
+      "current": "Aktuell",
+      "unreachable": "Nicht erreichbar"
+    },
+    "updateN_one": "{{count}} Knoten aktualisieren",
+    "updateN_other": "{{count}} Knoten aktualisieren",
+    "updateNamed": "{{name}} aktualisieren",
+    "models_one": "{{count}} Modell",
+    "models_other": "{{count}} Modelle",
+    "nodes_one": "{{count}} Knoten",
+    "nodes_other": "{{count}} Knoten",
+    "stops": "Stoppt {{models}}",
+    "title_one": "{{backend}} auf {{count}} Knoten aktualisieren?",
+    "title_other": "{{backend}} auf {{count}} Knoten aktualisieren?",
+    "titleMany_one": "{{count}} Backend auf {{nodes}} aktualisieren?",
+    "titleMany_other": "{{count}} Backends auf {{nodes}} aktualisieren?",
+    "runningTitle": "Knoten werden aktualisiert",
+    "doneTitle": "Update beendet",
+    "intro": "Jeder Knoten stoppt die Modelle, die {{backend}} nutzen, installiert die neue Version und startet ein Modell wieder, wenn eine Anfrage es braucht. Das lässt sich von hier aus nicht rückgängig machen.",
+    "introMany": "Jeder Knoten stoppt die Modelle, die diese Backends nutzen, installiert die neuen Versionen und startet ein Modell wieder, wenn eine Anfrage es braucht. Das lässt sich von hier aus nicht rückgängig machen.",
+    "stopKnown_one": "{{count}} Modell wird gestoppt.",
+    "stopKnown_other": "{{count}} Modelle werden gestoppt.",
+    "stopPartial_one": "{{count}} Modell wird laut Erfassung gestoppt. Auf anderen Knoten ist kein Modell erfasst, und die Erfassung kann eines übersehen, es können also mehr Modelle stoppen.",
+    "stopPartial_other": "{{count}} Modelle werden laut Erfassung gestoppt. Auf anderen Knoten ist kein Modell erfasst, und die Erfassung kann eines übersehen, es können also mehr Modelle stoppen.",
+    "stopNone": "Auf diesen Knoten ist kein geladenes Modell erfasst. Die Erfassung ist nicht vollständig, ein Modell, das dieses Backend nutzt, kann also trotzdem stoppen.",
+    "sequence": "Die Knoten werden nacheinander aktualisiert. Dieses Fenster zeigt jedes Ergebnis, sobald es feststeht.",
+    "confirmStop_one": "{{count}} Knoten aktualisieren und {{models}} stoppen",
+    "confirmStop_other": "{{count}} Knoten aktualisieren und {{models}} stoppen",
+    "confirmStopAtLeast_one": "{{count}} Knoten aktualisieren und mindestens {{models}} stoppen",
+    "confirmStopAtLeast_other": "{{count}} Knoten aktualisieren und mindestens {{models}} stoppen",
+    "confirmPlain_one": "{{count}} Knoten aktualisieren",
+    "confirmPlain_other": "{{count}} Knoten aktualisieren",
+    "cancel": "Abbrechen",
+    "stop": "Nach diesem Knoten anhalten",
+    "listLabel": "Zu aktualisierende Knoten",
+    "runningNote": "Anhalten verhindert, dass die noch nicht gestarteten Knoten starten."
+  }
+}

@@ -34,6 +34,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListBackends:              "GET /backends",
 	ToolListKnownBackends:         "GET /backends/known",
 	ToolListBackendLibraryUpdates: "GET /backends/library/updates",
+	ToolBackendUpdates:            "GET /backends/updates (action list), POST /backends/updates/check (action check)",
 	ToolSystemInfo:                "GET /version + GET /system (composed)",
 	ToolListNodes:                 "GET /api/nodes",
 	ToolListScheduling:            "GET /api/nodes/scheduling",
@@ -127,6 +128,12 @@ var adminRoutesWithoutTool = map[string]string{
 	"GET /api/chats/admin/connectors":              "oversight of other users' connectors: a person's act on the admin page",
 	"POST /api/chats/admin/connectors/:id/disable": "stops another user's connector: a person's act on the admin page",
 	"DELETE /api/chats/admin/connectors/:id":       "deletes another user's connector: a person's act on the admin page",
+	// The OAuth client of an add-on: its client ID and secret, and the
+	// approval of the login the add-on declares. A secret must not pass
+	// through a chat, and saving is the approval, a person's act on the
+	// add-on's settings form. See connector_oauth_unmapped_test.go.
+	"GET /api/chats/admin/oauth-clients/:addonId": "shows the client and the approval of an add-on's login: read on the add-on's settings form",
+	"PUT /api/chats/admin/oauth-clients/:addonId": "takes a client secret and approves an add-on's login: a secret must not pass through a chat",
 	// A diagnostic button of Settings > Tools, not a setting to manage.
 	"POST /api/chats/admin/web/test": "a diagnostic button: it runs one search and changes nothing",
 	// Settings of the chats that change what commands may do on this machine

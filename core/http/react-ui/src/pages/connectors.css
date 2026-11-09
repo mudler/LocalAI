@@ -79,6 +79,34 @@
 .cn-result--error { color: var(--dk-error-text); }
 .cn-result--warn { color: var(--dk-warn-text); }
 
+/* ---- The login of a binding that uses OAuth ---------------------------------- */
+/* Under the name and the switch, across both columns: one state, with its
+   action on the right (under the text on a phone). */
+.cn-oauth {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  min-width: 0;
+}
+.cn-oauth--callout { flex-direction: column; align-items: stretch; }
+.cn-oauth__text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1 1 28ch; }
+.cn-oauth__status { margin-top: 0; }
+.cn-oauth__muted { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+.cn-oauth__scopes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.cn-oauth__legend { float: left; margin-right: var(--sp-1); padding: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+
 /* ---- Groups of the messaging connectors -------------------------------------- */
 .cn-group { display: flex; flex-direction: column; gap: var(--sp-3); }
 .cn-group + .cn-group { margin-top: var(--sp-10); }
@@ -92,6 +120,25 @@
   overflow-wrap: anywhere;
 }
 .cn-group__desc { overflow-wrap: anywhere; margin: var(--sp-1) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); max-width: 64ch; }
+
+.cn-group__actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Adding a connection that logs in: a button, then a small form in a card. */
+.cn-group > .dk-btn { align-self: flex-start; }
+.cn-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+  max-width: 56ch;
+}
+@starting-style { .cn-add { opacity: 0; transform: translateY(-2px); } }
+.cn-add { transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.cn-add__title { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
+.cn-add__actions { display: flex; justify-content: flex-end; gap: var(--sp-2); flex-wrap: wrap; }
 
 /* ---- Related links ------------------------------------------------------------ */
 .cn-related {
@@ -107,4 +154,19 @@
 
 @media (max-width: 639px) {
   .cn-row { padding: var(--sp-3); }
+  .cn-oauth { grid-column: 1 / -1; }
 }
+
+/* The tab strip of the Connections pages: links in the kit tab style. */
+.cn-tabs { margin-bottom: var(--sp-6); }
+.cn-tabs .dk-tab { text-decoration: none; }
+.cn-tabs .dk-tab[aria-current="page"] { color: var(--dk-text); }
+.cn-tabs .dk-tab[aria-current="page"]::after { transform: scaleX(1); }
+
+/* The login of an OAuth add-on on its own page (ConnectionLogin). */
+.cn-login { display: flex; flex-direction: column; gap: var(--dk-space-3); margin-bottom: var(--dk-space-4); }
+.cn-login__list { display: flex; flex-direction: column; gap: var(--dk-space-3); list-style: none; margin: 0; padding: 0; }
+.cn-login__item { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-login__name { font: var(--dk-weight-semibold) var(--dk-text-13) / 1.3 var(--dk-font-body); color: var(--dk-text); }
+/* The Connect button keeps its own width; the notices stretch. */
+.cn-login > :is(button, a) { align-self: flex-start; }

@@ -1,0 +1,38 @@
+/* The two triggers of the notification inbox, which are always on screen: the
+   entry in the sidebar and the bell in the phone header. The panel they open
+   is in inbox.css and loads on the first opening. The badge is the sidebar's
+   .nav-badge (and .nav-badge--error when an unread item failed). */
+
+/* The entry is a button that wears the .nav-item look. A button does not
+   stretch to its container the way the router links do, so the block that
+   holds it is a column and the button stretches inside the margins. */
+.nav-inbox-block { display: flex; flex-direction: column; }
+.nav-inbox {
+  align-self: stretch;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-inbox .nav-label { text-align: left; }
+/* The panel is open: the entry takes the same lifted look as the current page. */
+.sidebar-nav .nav-inbox[aria-expanded="true"] {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+.sidebar-nav .nav-inbox[aria-expanded="true"] .nav-icon { color: var(--dk-accent-text); }
+
+/* The bell of the phone header: a header button with the badge on its corner. */
+.inbox-bell { position: relative; }
+.inbox-bell__badge {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  box-shadow: 0 0 0 2px var(--color-bg-primary);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .inbox-bell__badge { animation: dk-pop-in var(--dur-base) var(--ease-out) both; }
+}

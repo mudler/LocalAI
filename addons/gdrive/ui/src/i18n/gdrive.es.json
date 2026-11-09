@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "Permite que tus agentes lean los archivos de las carpetas de Drive que indiques. Si lo autorizas, también pueden crear y modificar archivos de texto en ellas.",
+  "limits": "Elige «Conectar con Google» para añadir una conexión e iniciar sesión en tu cuenta de Google. Esta página define las carpetas y el modo de escritura de cada conexión. Un agente trabaja en Drive solo cuando se lo pides en un chat.",
+  "edit": "Editar la conexión de Google Drive",
+  "name": "Nombre",
+  "folders": "Carpetas que el agente puede usar",
+  "foldersHelp": "Un ID o una dirección de carpeta por línea. {{count}} indicadas. Una carpeta incluye todo lo que contiene. Cualquier otro archivo se rechaza.",
+  "foldersShape": "«{{entry}}» no es un ID de carpeta. Cópialo de la dirección de la carpeta en tu navegador, después de /folders/.",
+  "foldersMany": "Como máximo 50 carpetas.",
+  "allFolders": {
+    "label": "Todas las carpetas (Mi unidad y unidades compartidas)",
+    "hint": "El agente puede leer todos los archivos que tu acceso de Google puede ver, en Mi unidad y en las unidades compartidas. Si lo desactivas, solo usa las carpetas de la lista.",
+    "warning": "Esto permite al agente leer todos los archivos a los que llega tu acceso de Google, no solo los de una carpeta. El modo de escritura de abajo sigue vigente y cada cambio sigue esperando tu confirmación.",
+    "confirm": "Lo entiendo: permitir todas las carpetas",
+    "row": "Todas las carpetas (Mi unidad y unidades compartidas)"
+  },
+  "agent": "Agente",
+  "agentNone": "Elige un agente",
+  "agentCredentialsOnly": "Sin agente (solo credenciales)",
+  "agentOptionalHint": "Opcional. Sin un agente, esta conexión solo guarda el inicio de sesión, la lista de carpetas y el modo de escritura para tus chats. No responde a mensajes ni escucha nada.",
+  "credentialsOnly": "Solo credenciales",
+  "agentNoModel": "{{name}} (necesita un modelo)",
+  "test": "Probar",
+  "testOk": "Conectado como {{bot}}.",
+  "checkFailed": "Guardado. Falló la comprobación: {{reason}}",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "editButton": "Editar",
+  "delete": "Eliminar",
+  "empty": "Aún no hay conexiones de Google Drive. Elige «Conectar con Google» para añadir una.",
+  "connect": "Conectar con Google",
+  "defaultName": "Google Drive",
+  "noFolders": "No hay carpetas indicadas: el agente no puede leer nada.",
+  "foldersOf": "{{count}} carpetas: {{list}}",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "No se está ejecutando: {{reason}}.",
+  "confirmDelete": {
+    "title": "¿Eliminar {{name}}?",
+    "message": "El agente ya no puede acceder a estas carpetas. LocalAI pide a Google que revoque el inicio de sesión y luego lo olvida.",
+    "confirm": "Eliminar"
+  },
+  "setup": {
+    "title": "Cómo elegir carpetas",
+    "step1": "Abre la carpeta en Google Drive en tu navegador. La dirección termina en /folders/ y el ID de la carpeta.",
+    "step2": "Copia la dirección completa, o solo el ID, y pégala en la lista. Usa root para la raíz de Mi unidad.",
+    "step3": "El modo de escritura de abajo también necesita el acceso opcional que permites al conectar. Sin él, el agente solo puede leer."
+  },
+  "writeMode": {
+    "label": "Qué puede cambiar el agente en Drive",
+    "hint": "Crear un archivo de texto, reemplazar el texto de un archivo, renombrar o mover un archivo y enviar un archivo a la papelera. Nunca comparte un archivo ni lo elimina de forma definitiva.",
+    "off": "Solo lectura",
+    "propose": "Te pregunta antes",
+    "auto": "Actúa sin preguntar",
+    "line": {
+      "off": "No puede cambiar nada en Drive.",
+      "propose": "Cada cambio espera tu confirmación.",
+      "auto": "Tus chats hacen el cambio al instante."
+    },
+    "note": {
+      "off": "El acceso de escritura está desactivado: esta conexión solo lee.",
+      "propose": "Cada cambio espera en tus aprobaciones hasta que lo confirmes. También necesita el acceso de escritura opcional que permites al conectar.",
+      "auto": "Cada cambio sigue esperando en tus aprobaciones: este complemento nunca escribe sin la confirmación de una persona. También necesita el acceso de escritura opcional que permites al conectar."
+    },
+    "row": {
+      "off": "Solo lectura",
+      "propose": "Te pregunta antes",
+      "auto": "Te pregunta antes"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "Crear un archivo",
+      "update-file": "Cambiar un archivo",
+      "move-file": "Mover un archivo",
+      "trash-file": "Enviar un archivo a la papelera"
+    },
+    "file": "Archivo",
+    "name": "Nombre",
+    "newName": "Nombre nuevo",
+    "in": "En la carpeta",
+    "allowedFolder": "La carpeta que permitiste",
+    "moveTo": "Mover a",
+    "type": "Tipo",
+    "text": "Texto que se guardará ({{bytes}} bytes)",
+    "cut": "El texto que se muestra aquí está recortado. Se guarda el texto completo, de {{bytes}} bytes.",
+    "trashNote": "El archivo va a la papelera. Puedes restaurarlo desde allí.",
+    "replaceNote": "El texto nuevo reemplaza todo el texto del archivo."
+  }
+}

@@ -566,7 +566,14 @@ test.describe('Chat tools menu: add-ons', () => {
       execution_status: { readiness: 'unavailable', isolation: 'unknown', explanation: 'Provider is starting' },
     } }))
     const reads = []
-    await page.route('**/api/addons/dispatch', route => { reads.push(route.request().url()); return route.abort() })
+    // The shell's update provider reads the installed add-ons and the owner's
+    // settings on every page; the chat itself must not discover anything.
+    await page.route('**/api/addons/dispatch', route => {
+      const action = (route.request().postDataJSON() || {}).action
+      if (action === 'addons-installed' || action === 'host-settings-read') return route.abort()
+      reads.push(route.request().url())
+      return route.abort()
+    })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     await expect(page.getByTestId('chat-commands-notice')).toContainText('Provider is starting')

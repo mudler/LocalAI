@@ -42,6 +42,11 @@ function Plan({ p, t }) {
     ? t(cost.remote ? 'proposal.plan.costRemote' : 'proposal.plan.costLocal', { tokens: fmt(tokens), model: p.model, count: runs })
     : t('proposal.plan.costUnknown', { count: runs })
   if (cost.remote && tokens === 0) costText = `${costText} ${t('proposal.plan.remoteNote', { model: p.model })}`
+  // The time limit the person set; when the administrator's limit is lower,
+  // the row says what applies.
+  const limitText = p.effective_run_limit && p.effective_run_limit !== p.run_limit
+    ? t('proposal.plan.limitClamped', { limit: p.run_limit, ceiling: p.effective_run_limit })
+    : p.run_limit
   const d = p.delivery || { target: 'inbox' }
   let delivery = t('proposal.plan.deliveryInbox')
   if (d.target === 'origin') delivery = t(d.in_thread ? 'proposal.plan.deliveryThread' : 'proposal.plan.deliveryChat')
@@ -55,6 +60,7 @@ function Plan({ p, t }) {
       : <code>{p.plan.writes}</code>],
     ['delivery', delivery],
     ['cost', costText],
+    p.run_limit && ['limit', limitText],
     ['acts', <ActsSummary key="acts" trigger={p} compact />],
     ['stop', t(widget ? 'proposal.plan.stopWidget' : 'proposal.plan.stop')],
   ].filter(Boolean)

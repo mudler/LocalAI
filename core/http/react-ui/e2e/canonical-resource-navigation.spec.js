@@ -4,7 +4,6 @@ async function backendInventory(page, installed) {
   await page.route('**/api/backends?*', route => route.fulfill({ json: {
     backends: [{ id: 'llama-cpp', name: 'llama-cpp', installed: true }],
   } }))
-  await page.route('**/api/backends/upgrades', route => route.fulfill({ json: {} }))
   await page.route('**/backends', route => route.fulfill({ json: installed }))
 }
 

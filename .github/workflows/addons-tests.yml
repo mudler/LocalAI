@@ -135,7 +135,7 @@ jobs:
         include:
           # Go suites over the owner, the carrier, the gateway and the policy.
           - group: contracts and gateway
-            suites: prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps
+            suites: prerequisites contracts catalog packages lifecycle runtime gateway oauth policy proposals artifacts apps
           # Browser suites over the host pages of the add-ons.
           - group: host pages
             suites: gallery-ui esm-ui host-slots library-sources updates recovery

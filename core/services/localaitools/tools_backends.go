@@ -3,6 +3,8 @@ package localaitools
 import (
 	"context"
 
+	"github.com/mudler/LocalAI/core/services/backendupdates"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -38,6 +40,32 @@ func registerBackendTools(s *mcp.Server, client LocalAIClient, opts Options) {
 			return errorResult(err), nil, nil
 		}
 		return jsonResult(map[string]any{"updates": updates}), nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: ToolBackendUpdates,
+		Description: "Backend updates: the gallery and library backends that have a newer build, the state of each source (checkedAt, lastSuccessAt, error, stale) and whether automatic update is on. " +
+			"action=list answers from the cache and contacts no registry. action=check contacts the registries, waits for the check and returns fresh data; it installs nothing. " +
+			"Never say there are no updates while a source is failed or never checked. To take an update, confirm, then call upgrade_backend (gallery) or install_library_backend (library).",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
+		Action string `json:"action,omitempty" jsonschema:"list (default) or check."`
+	}) (*mcp.CallToolResult, any, error) {
+		var (
+			snap *backendupdates.Snapshot
+			err  error
+		)
+		switch args.Action {
+		case "", "list":
+			snap, err = client.BackendUpdates(ctx)
+		case "check":
+			snap, err = client.CheckBackendUpdates(ctx)
+		default:
+			return errorResultf("action must be list or check"), nil, nil
+		}
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(snap), nil, nil
 	})
 
 	if opts.DisableMutating {

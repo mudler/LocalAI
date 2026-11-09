@@ -62,16 +62,17 @@
       "remoteNote": "{{model}}은(는) 원격 서비스입니다. 실행이 읽는 내용이 이 서버 밖으로 나갑니다.",
       "stopWidget": "위젯에서 일시 중지하거나 트리거에서 삭제하세요",
       "stop": "트리거에서 끄거나 삭제하세요",
-      "actsLabel": "권한"
+      "actsLabel": "권한",
+      "limitLabel": "시간 제한",
+      "limitClamped": "{{limit}}, 관리자가 {{ceiling}}(으)로 제한"
     }
   },
   "mcpPage": {
     "title": "MCP 커넥터",
     "supporting": "MCP 서버를 연결해 채팅과 에이전트에 검색이나 직접 만든 API 같은 도구를 더하세요.",
-    "family": "Telegram이나 Slack 봇은 <go>메시징 커넥터</go>입니다.",
     "related": "관련 항목",
     "chats": "채팅",
-    "add": "커넥터 추가",
+    "add": "새 커넥터",
     "learn": "MCP 작동 방식",
     "loading": "커넥터를 불러오는 중",
     "loadFailed": "커넥터를 불러올 수 없습니다.",
@@ -169,7 +170,7 @@
       "encrypted": "서버에 암호화해 저장되며 다시 표시되지 않습니다."
     },
     "sheet": {
-      "addTitle": "커넥터 추가",
+      "addTitle": "새 커넥터",
       "editTitle": "{{name}} 편집",
       "addDesc": "MCP 서버를 연결합니다. 채팅에서 쓰기 전에 테스트합니다.",
       "editDesc": "저장된 비밀 값은 교체하거나 제거하지 않는 한 유지됩니다.",
@@ -272,6 +273,77 @@
     "loadFailed": "커넥터를 불러올 수 없습니다.",
     "waitingTitle": "애드온 대기 중",
     "waitingText": "이 연결은 유지되지만, 해당 애드온을 설치하고 켜야 실행됩니다.",
+    "oauth": {
+      "connected": "연결됨",
+      "connectedAs": "{{account}}(으)로 연결됨",
+      "access": "접근 권한: {{scopes}}",
+      "expires": "만료: {{time}}",
+      "disconnect": "연결 해제",
+      "disconnecting": "연결 해제 중…",
+      "disconnectTitle": "{{name}} 연결을 해제할까요?",
+      "disconnectText": "LocalAI가 서비스에 이 로그인을 취소하도록 요청한 다음 로그인을 잊습니다. 이 연결을 쓰는 도구는 다시 연결할 때까지 작동하지 않습니다.",
+      "disconnected": "{{name}} 연결이 해제되었습니다. 서비스가 로그인을 취소했습니다.",
+      "disconnectedNotTold": "{{name}} 연결이 여기서 해제되었지만 서비스가 로그인 취소를 확인하지 않았습니다. 서비스의 계정에서도 접근 권한을 제거하세요.",
+      "notConnected": "아직 연결되지 않았습니다.",
+      "connect": "연결",
+      "alsoAllow": "추가로 허용:",
+      "reconnectTitle": "다시 연결하세요.",
+      "reconnect": "다시 연결",
+      "reason": {
+        "revoked": "서비스가 로그인을 끝냈거나 접근 권한이 취소되었습니다.",
+        "client_rejected": "서비스가 이 서버의 클라이언트를 더 이상 받지 않습니다. 관리자가 업데이트해야 할 수 있습니다.",
+        "refused": "서비스가 로그인 갱신을 거부했습니다.",
+        "needs_approval": "이 애드온의 로그인이 바뀌어 다시 승인해야 합니다.",
+        "credential_rejected": "갱신한 뒤에도 서비스가 접근을 거부했습니다.",
+        "expired": "로그인이 만료되었고 갱신할 수 없습니다.",
+        "write_failed": "갱신된 로그인을 저장하지 못했습니다.",
+        "unreadable": "저장된 로그인을 읽지 못했습니다.",
+        "unknown": "로그인이 더 이상 작동하지 않습니다.",
+        "scopes_missing": "서비스가 이 애드온에 필요한 접근 권한을 더 이상 모두 주지 않습니다. 다시 연결하고 허용하세요.",
+        "endpoint_changed": "애드온이 이제 서비스의 다른 주소로 로그인을 보내므로 이 로그인을 옮길 수 없습니다. 다시 연결하세요.",
+        "token_too_large": "서비스가 LocalAI가 사용할 수 있는 크기(4096바이트)보다 큰 액세스 토큰으로 로그인을 갱신했습니다."
+      },
+      "approvalUser": "먼저 관리자가 이 애드온을 승인해야 합니다.",
+      "approvalUserChanged": "이 애드온의 로그인이 바뀌었습니다. 관리자가 다시 승인해야 합니다.",
+      "approvalAdmin": "이 애드온의 로그인을 승인하기 전에는 아무도 연결할 수 없습니다.",
+      "approvalAdminChanged": "승인 후 이 애드온의 로그인이 바뀌었습니다. 검토하고 다시 승인하세요.",
+      "review": "검토하고 승인",
+      "returned": {
+        "ok": "연결되었습니다. 이제 연결이 작동합니다.",
+        "denied": "서비스에서 거절했습니다. 바뀐 것은 없습니다.",
+        "error": {
+          "invalid_state": "로그인을 마치지 못했습니다. 만료되었거나 이 브라우저에서 다른 로그인이 시작되었습니다. 다시 연결하세요.",
+          "provider_error": "서비스가 오류를 알렸습니다. 나중에 다시 시도하세요.",
+          "exchange_failed": "서비스가 로그인을 완료하지 않았습니다. 다시 연결하세요.",
+          "scopes_missing": "서비스가 이 애드온에 필요한 접근 권한을 모두 주지 않았습니다. 다시 연결하고 허용하세요.",
+          "unavailable": "애드온에 연결하지 못했습니다. 나중에 다시 시도하세요.",
+          "unknown": "로그인을 마치지 못했습니다. 다시 연결하세요.",
+          "token_too_large": "서비스가 LocalAI가 사용할 수 있는 크기(4096바이트)보다 큰 액세스 토큰을 발급해 로그인을 저장하지 않았습니다. 관리자가 서비스에서 이 클라이언트의 토큰 발급 방식을 바꿔야 할 수 있습니다."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "이 서버는 공개 주소를 모르기 때문에 서비스로 보낼 수 없습니다. 관리자에게 서버의 외부 기본 URL을 설정해 달라고 요청하세요.",
+        "needsApproval": "먼저 관리자가 이 애드온을 승인해야 합니다.",
+        "approvalStale": "이 애드온의 로그인이 바뀌었습니다. 페이지를 새로 고치세요.",
+        "unavailable": "애드온에 연결하지 못했습니다. 나중에 다시 시도하세요.",
+        "tooManyLogins": "로그인을 너무 많이 시작했습니다. 다른 탭의 로그인을 마치거나 몇 분 기다린 뒤 다시 시도하세요."
+      },
+      "add": {
+        "open": "새 연결",
+        "title": "새 {{name}} 연결",
+        "name": "이름",
+        "hint": "업무, 개인처럼 알아보기 쉬운 이름입니다. 연결을 추가한 뒤 연결을 선택해 계정에 로그인하세요.",
+        "cancel": "취소",
+        "submit": "추가",
+        "failed": "연결을 추가하지 못했습니다. 다시 시도하세요.",
+        "added": "{{name}}을(를) 추가했습니다. 연결을 선택해 계정에 로그인하세요.",
+        "empty": "아직 연결이 없습니다. 연결을 추가한 뒤 계정을 연결하세요.",
+        "manage": "연결 편집"
+      },
+      "login": {
+        "hint": "업무, 개인처럼 알아보기 쉬운 이름을 입력하세요. 다음에 서비스로 이동해 로그인합니다."
+      }
+    },
     "duplicate": {
       "text": "이 봇은 {{name}}(으)로도 연결되어 있습니다. 두 연결이 같은 메시지에 모두 답합니다.",
       "turnOff": "이 연결 끄기",
@@ -296,7 +368,13 @@
       "text": "다른 사람이 내 채팅과 에이전트에서 이 연결을 사용하도록 허용했습니다. 소유자만 변경할 수 있습니다.",
       "on": "수신 중",
       "off": "꺼짐"
-    }
+    },
+    "title": "연결",
+    "introAccounts": "채팅과 에이전트가 도구로 쓸 수 있도록 한 번만 연결하는 계정입니다. 각 계정은 애드온에서 제공됩니다.",
+    "noAddonAccounts": "설치된 계정 애드온이 없습니다.",
+    "noAddonAccountsHint": "계정 애드온은 서비스를 채팅과 에이전트에 연결합니다. 애드온 갤러리에서 설치하면 연결을 추가할 수 있습니다.",
+    "noAddonMessaging": "설치된 메시징 애드온이 없습니다.",
+    "noAddonMessagingHint": "메시징 애드온은 채팅 플랫폼의 메시지를 전달합니다. 애드온 갤러리에서 설치하면 바인딩을 추가할 수 있습니다."
   },
   "tools": {
     "commands": {
@@ -420,11 +498,14 @@
       "sole": "하나뿐인 연결이므로 이 연결을 씁니다.",
       "choose": "이 도구를 쓰려면 연결을 하나 이상 선택하세요",
       "none": "아직 연결이 없습니다",
-      "create": "연결 추가",
+      "create": "새 연결",
       "byAgent": "이 채팅의 에이전트가 연결을 정합니다. 에이전트에서 바꾸세요.",
       "agentLabel": "이 에이전트 채팅의 연결",
       "agentHelp": "이 에이전트의 채팅은 이 연결만 쓸 수 있으며 바꿀 수 없습니다.",
-      "perChatHelp": "선택 안 함: 채팅마다 직접 고릅니다."
+      "perChatHelp": "선택 안 함: 채팅마다 직접 고릅니다.",
+      "reconnectNeeded": "다시 연결 필요: {{names}}",
+      "ownerReconnectNeeded": "소유자가 다시 연결해야 합니다: {{names}}",
+      "reconnect": "다시 연결"
     },
     "optionNeeds": "이를 사용하려면 “{{name}}”을(를) 켜세요.",
     "connectionMissing": "{{name}}에서는 아직 허용하지 않습니다.",
@@ -627,7 +708,41 @@
     "arrivedMany_other": "새 알림 {{count}}개",
     "proposalsWaiting_one": "변경 {{count}}개가 기다리고 있습니다",
     "proposalsWaiting_other": "변경 {{count}}개가 기다리고 있습니다",
-    "proposalsBody": "모델이 변경을 제안했습니다. 답하기 전에는 아무것도 저장되지 않습니다."
+    "proposalsBody": "모델이 변경을 제안했습니다. 답하기 전에는 아무것도 저장되지 않습니다.",
+    "codes": {
+      "digest": {
+        "title_one": "백엔드 업데이트 {{count}}개 사용 가능",
+        "title_other": "백엔드 업데이트 {{count}}개 사용 가능",
+        "more": "{{items}} 외 {{count}}개"
+      },
+      "result": {
+        "family": {
+          "backends": "백엔드",
+          "addons": "애드온"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}}개 자동 업데이트됨",
+        "updated_other": "{{count}}개 자동 업데이트됨",
+        "failed_one": "{{count}}개 실패",
+        "failed_other": "{{count}}개 실패",
+        "held_one": "{{count}}개 승인 대기 중",
+        "held_other": "{{count}}개 승인 대기 중",
+        "bodyUpdated": "업데이트됨: {{items}}.",
+        "bodyFailed": "실패: {{items}}.",
+        "bodyHeld": "승인 대기 중: {{items}}.",
+        "more": "{{items}} 외 {{count}}개"
+      },
+      "checkFailed": {
+        "title": "업데이트 확인에 실패했습니다",
+        "body": "확인할 수 없음: {{sources}}. 최근 자동 확인 두 번이 실패해서 목록에 일부 업데이트가 없을 수 있습니다.",
+        "source": {
+          "gallery": "백엔드 갤러리",
+          "library": "백엔드 라이브러리",
+          "addons": "애드온"
+        }
+      }
+    }
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",
@@ -669,7 +784,8 @@
       "acts": "실행이 할 수 있는 일",
       "delivery": "답변이 가는 곳",
       "agent": "에이전트",
-      "model": "모델"
+      "model": "모델",
+      "run_limit": "시간 제한"
     },
     "receipt": {
       "update": "변경됨:",
@@ -1223,5 +1339,14 @@
   "subAgents": {
     "waiting": "기다리는 중: {{what}}",
     "looping": "반복 중"
+  },
+  "connectionsTabs": {
+    "label": "연결 섹션",
+    "accounts": "계정",
+    "messaging": "메시징",
+    "mcp": "MCP 서버"
+  },
+  "triggersPage": {
+    "runLimit": "실행 시간 제한"
   }
 }

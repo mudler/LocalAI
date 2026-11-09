@@ -63,30 +63,11 @@ const (
 )
 
 var allowed = []entry{
-	{ui + "hooks/useToolGroups.js", "memory", "the switch group of the built-in memory"},
 	{ui + "utils/agentPresets.js", "'memory'", "the switch group of the built-in memory in the agent presets"},
-	{ui + "utils/agentEffective.js", "memory", "the effective view lines of the built-in memory in the agent editor"},
-	{ui + "utils/agentTryIt.js", "memory", "the list of what a test chat does not use, which includes the built-in memory"},
-	{locales + "en/agents.json", "create.try.skip.memory", "the name of the built-in memory in the list of what a test chat skips"},
-	{ui + "utils/memoryState.js", "memory", "the switch group of the built-in memory"},
-	// The memory choice of an agent and the notes list belong to the built-in.
-	{ui + "utils/memoryFiles.js", "memory", "the source of the built-in notes in the list of context files"},
-	{ui + "components/MemorySettings.jsx", "memory", "the provider slot of the built-in memory, drawn by the generic provider chooser"},
-	{ui + "pages/AgentCreate.jsx", "memory", "the memory choice of the agent form and the icon of its section: the built-in memory"},
-	{"core/http/endpoints/studio/agents.go", "memory", "the memory query of the agent delete: what to do with the notes of the built-in memory"},
 	// The word mail in plain text: an example of what a run reads and the
 	// envelope glyph of an empty list. Neither names the Mail add-on.
 	{"core/services/studio/triggertools.go", "Mail from the last 24 hours", "an example of what a scheduled run reads"},
 	{ui + "components/users/InvitesPanel.jsx", `name="mail"`, "the envelope glyph of the empty invitations list"},
-
-	// Memory is built into the host. The add-on of that name is the alias of
-	// the built-in: its index files and skills are the host's now, and the
-	// host ignores its copies.
-	{"core/services/studio/memory.go", `memory`, "the id the retired Memory add-on had; the host serves its index files and skills itself"},
-	{"core/services/studio/files/paths.go", `memory`, "the name of the managed Memory/ folder, which the host serves itself"},
-	{"core/services/studio/builtins/builtins.go", `memory`, "the switch group of the built-in memory"},
-	{"pkg/addons/providerconformance/conformance.go", `memory`, "the id of the notes slot, which the suite tests; it equals the id of the retired add-on"},
-	{"pkg/addons/contract/skills.go", `memory`, "the two memory skills are built in; the retired add-on may still declare them"},
 
 	// Third-party services: the login, the release source, the token issuer.
 	{"core/cli/run.go", "GitHub OAuth App", "help of the GitHub OAuth login: GitHub the service, not the add-on"},
@@ -120,7 +101,6 @@ var allowed = []entry{
 	{"core/http/auth/features.go", "Telegram bots", "the name of a feature permission; the platform is the content"},
 	{ui + "components/users/UsersPanel.jsx", "Telegram bots", "the name of a feature permission; the platform is the content"},
 	{"core/services/addons/tools/consumers.go", "such as Telegram", "an example of a chat platform in a note for add-on authors"},
-	{locales, "mcpPage.family", "chat platforms as examples of messaging connectors"},
 	{locales, "connectorsPage.noAddonHint", "a chat platform as an example of what a connector add-on carries"},
 	{"docs/content/reference/cli-reference.md", "(Telegram, Slack)", "help text that gives chat platforms as examples"},
 	{"docs/content/getting-started/_index.en.md", "Telegram", "a chat platform as an example of where an agent can answer"},
@@ -131,9 +111,6 @@ var allowed = []entry{
 	// Ordinary words that equal an id or a title.
 	{"core/schema/chats.go", `example:"Sandbox"`, "a sample value in the API documentation"},
 	{locales + "de/pages.json", "Sie öffnen sich hier in einer Sandbox", "German for the isolated frame of a page: the ordinary noun"},
-	{"core/application/studio_service.go", `memory`, "the in-memory kind of the store"},
-	{"core/application/studio_store.go", `memory`, "the in-memory kind of the store"},
-	{"pkg/xsysinfo/gpu.go", `memory`, "a GPU memory counter"},
 	{"core/http/auth/usage.go", `web`, "usage source of a request from the web UI session"},
 	{"core/services/studio/builtins/builtins.go", `web`, "the id of the built-in Web tool group of chats"},
 	{ui + "pages/Home.jsx", `data-testid="home-assistant"`, "test id of the LocalAI assistant button on the Home page: the built-in assistant, not the add-on"},
@@ -151,44 +128,18 @@ var allowed = []entry{
 	{ui + "utils/toolLabels.js", "'web'", "reads the word web in the name of a tool"},
 	{ui + "utils/traffic.js", "'web'", "usage source of a request from the web UI session"},
 	{ui + "utils/chatApps.js", "'web'", "the platform of a chat made in the web UI"},
-	{ui + "utils/settingsSchema.js", "'memory'", "the settings group of model memory (eviction, watchdog)"},
 	{ui + "utils/settingsSchema.js", "Web ", "the labels of the built-in web tool settings"},
-	{ui + "utils/operateStatus.js", "'memory'", "the key of the host memory pressure check"},
-	{ui + "pages/OperateOverview.jsx", "'memory'", "the key of the host memory pressure check"},
-	{ui + "utils/tools.js", "'memory'", "the id of the memory check of the model tools"},
-	{ui + "pages/Settings.jsx", "'memory'", "the settings group of model memory (eviction, watchdog)"},
-	{ui + "", `name="memory"`, "the memory glyph"},
-	{ui + "", `icon="memory"`, "the memory glyph"},
-	{ui + "components/StarterModels.jsx", "'memory'", "the memory glyph"},
-	{ui + "addons/sdk.js", "'memory'", "the memory glyph in the list of glyphs that an add-on may use"},
-	{ui + "components/home/homeActions.js", "'memory'", "the /memory command opens the collections that agents use as memory"},
-	{ui + "pages/Home.jsx", "case 'memory'", "the /memory command opens the collections that agents use as memory"},
-	{ui + "components/agents/AgentBits.jsx", "'memory'", "the collections that an agent uses as memory"},
-	{ui + "pages/AgentPage.jsx", `"memory"`, "the collections that an agent uses as memory"},
 	{"docs/content/advanced/reverse-proxy-tls.md", "Web UI", "the web UI of LocalAI"},
 	{"docs/content/getting-started/quickstart.md", "Web Interface", "the web UI of LocalAI"},
 	{"docs/content/getting-started/troubleshooting.md", "Web UI", "the web UI of LocalAI"},
 	{"docs/content/getting-started/troubleshooting.md", "Web ", "the web UI of LocalAI"},
 }
 
-var knownDebt = []debt{
-	// propose_change kinds and the Memory/ root: core still knows the Memory
-	// add-on through the kind "memory" and the capability that guards it.
-	{entry{"core/services/studio/changetools.go", `memory`, "the kind \"memory\" of propose_change names the Memory add-on"},
-		"kinds of change declared by the add-ons that handle them (contract change-kind registry)"},
-	{entry{"pkg/addons/contract/changeproposal.go", `memory`, "the contract lists the fixed kinds of change, memory first"},
-		"kinds of change declared by the add-ons that handle them (contract change-kind registry)"},
-	{entry{"pkg/addons/contract/contributions.go", `memory`, "the contract names the Memory root"},
-		"context files declared by the add-on with their own root (no fixed Memory/ root in core)"},
-	{entry{ui + "utils/changeProposal.js", "'memory'", "the card has wording for the fixed kinds of change"},
-		"kinds of change declared by the add-ons that handle them (contract change-kind registry)"},
-	{entry{ui + "pages/Account.jsx", "'memory'", "the Account page has a fixed Memory tab"},
-		"the Memory add-on gives the memory page through its own page declaration"},
-}
+var knownDebt = []debt{}
 
 // maxKnownDebt is the size of knownDebt now. Lower it when an entry goes; a
 // higher number is a new special case that is excused instead of fixed.
-const maxKnownDebt = 5
+const maxKnownDebt = 0
 
 var _ = Describe("the names of the shipped add-ons in core", func() {
 	It("reads every add-on from its manifest and marks the ones with a role", func() {
@@ -199,7 +150,7 @@ var _ = Describe("the names of the shipped add-ons in core", func() {
 			role[a.ID] = a.Role
 		}
 		Expect(len(addons)).To(BeNumerically(">=", 10))
-		for _, id := range []string{"sandbox", "office", "web", "slack", "telegram", "github", "jellyfin", "tables", "memory"} {
+		for _, id := range []string{"sandbox", "office", "web", "slack", "telegram", "github", "jellyfin", "tables"} {
 			Expect(role).To(HaveKeyWithValue(id, true), "%s gives the host something to act on", id)
 		}
 		for _, id := range []string{"face", "voice", "talk", "studio", "fine-tuning", "quantization"} {

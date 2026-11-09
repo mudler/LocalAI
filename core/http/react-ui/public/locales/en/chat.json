@@ -967,5 +967,78 @@
     "removeConfirm": "Delete “{{name}}”?",
     "removeYes": "Delete",
     "noModel": "No model"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Talk to this chat hands-free",
+    "mode": "Standard",
+    "waiting": "Waiting for the reply",
+    "reason": {
+      "insecure": {
+        "short": "Needs HTTPS or localhost",
+        "detail": "Your browser only gives microphone access over HTTPS, localhost or 127.0.0.1. Open this page from one of those addresses to use Live."
+      },
+      "no-mic": {
+        "short": "No microphone available",
+        "detail": "This browser does not offer a microphone to this page. Try another browser to use Live."
+      }
+    },
+    "state": {
+      "off": "Off",
+      "starting": "Waiting for browser permission",
+      "listening": "Listening",
+      "hearing": "Hearing you",
+      "transcribing": "Transcribing",
+      "thinking": "Thinking",
+      "speaking": "Speaking",
+      "blocked": "Voice is waiting for you",
+      "paused": "Paused",
+      "error": "Live needs attention"
+    },
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "stop": "Stop",
+    "typeInstead": "Type instead",
+    "end": "End Live",
+    "retry": "Retry",
+    "play": "Play",
+    "blocked": "Your browser blocked the voice. Press Play to hear the reply.",
+    "hidden": "Live is paused while this tab is in the background. It continues when you come back.",
+    "error": {
+      "denied": "Microphone access was blocked. Allow the microphone for this site in your browser, then press Retry. You can also type instead.",
+      "unavailable": "The microphone could not be opened. Check that it is connected and not in use by another app, then press Retry.",
+      "transcribe": "Your speech could not be turned into text. Check the transcription model, then press Retry.",
+      "send": "Your message could not be sent to the chat. Press Retry to listen again.",
+      "turn": "The chat's reply could not be read, so it was not spoken. Press Retry to listen again.",
+      "speech": "The reply voice could not be played. Check the speech model, then press Retry.",
+      "generic": "Live could not continue."
+    },
+    "setup": {
+      "title": "Set up Live",
+      "description": "Live needs one model to turn your speech into text and one model to speak. Both run on this LocalAI instance.",
+      "part": {
+        "stt": "Speech to text",
+        "tts": "Voice"
+      },
+      "hint": {
+        "stt": "Turns what you say into text.",
+        "tts": "Reads the reply aloud."
+      },
+      "install": "Install",
+      "installing": "Installing",
+      "installLabel": "Install {{model}}",
+      "retryLabel": "Retry the install of {{model}}",
+      "installed": "Installed",
+      "progress": "Install progress of {{model}}",
+      "failed": "The install of {{model}} failed.",
+      "failedGeneric": "The install could not start.",
+      "adminTitle": "An administrator must install these models.",
+      "adminNote": "Ask an administrator of this instance to install the models above. Live works when both are installed.",
+      "working": "Installing {{models}}",
+      "ready": "Both models are installed. Live is ready.",
+      "start": "Start Live",
+      "close": "Close",
+      "notShown": "Installed, but the model did not show up. Retry or reload."
+    }
   }
 }

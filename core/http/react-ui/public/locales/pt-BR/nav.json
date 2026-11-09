@@ -71,10 +71,11 @@
     "chats": "Chats",
     "files": "Arquivos",
     "triggers": "Gatilhos",
-    "mcpConnectors": "Conectores MCP",
+    "connections": "Conexões",
     "chatsAdmin": "Chats de todos os usuários",
     "pages": "Páginas",
-    "allChats": "Todos os chats"
+    "allChats": "Todos os chats",
+    "inbox": "Notificações"
   },
   "footer": {
     "github": "GitHub",
@@ -110,7 +111,8 @@
       "addons": "Instale complementos e abra os apps que eles oferecem.",
       "triggers": "Inicie um chat sozinho, em um horário agendado ou quando um arquivo chegar."
     },
-    "operateSupporting": "O que roda neste servidor, como ele é usado e como está configurado."
+    "operateSupporting": "O que roda neste servidor, como ele é usado e como está configurado.",
+    "updates": "Atualizações"
   },
   "pinnedPages": "Páginas fixadas",
   "new": "Novo",
@@ -119,5 +121,12 @@
   "untitledChat": "Chat sem título",
   "chatRunning": "Em andamento",
   "automatedWaiting": "Chats automáticos aguardando você: {{count}}",
-  "automatedRunning": "Chats automáticos em execução: {{count}}"
+  "automatedRunning": "Chats automáticos em execução: {{count}}",
+  "inboxUnread_one": "Notificações, {{count}} não lida",
+  "inboxUnread_other": "Notificações, {{count}} não lidas",
+  "inboxArrived": "Nova notificação: {{title}}",
+  "inboxArrivedMany_one": "{{count}} nova notificação",
+  "inboxArrivedMany_other": "{{count}} novas notificações",
+  "updatesBadge_one": "{{count}} atualização precisa de você",
+  "updatesBadge_other": "{{count}} atualizações precisam de você"
 }

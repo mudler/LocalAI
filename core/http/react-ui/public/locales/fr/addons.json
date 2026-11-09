@@ -493,7 +493,7 @@
     },
     "state": {
       "ready": "Prêt",
-      "upgrading": "Mise à niveau",
+      "upgrading": "Mise à jour",
       "restoring": "Restauration",
       "needs-recovery": "Récupération nécessaire",
       "purging": "Purge"
@@ -597,30 +597,29 @@
     "installed": "Installée",
     "candidate": "Disponible",
     "reasons": "Pourquoi elle ne convient pas",
-    "upgrade": "Mettre à niveau",
+    "upgrade": "Mettre à jour",
     "confirm": {
-      "title": "Mettre {{name}} à niveau vers {{version}} ?",
+      "title": "Mettre {{name}} à jour vers {{version}} ?",
       "body": "Le module s'arrête pendant la sauvegarde et la migration de ses données, puis la nouvelle version démarre. Si la nouvelle version ne démarre pas, la version actuelle continue de fonctionner.",
       "data": "Ses données sont sauvegardées avant tout changement.",
-      "action": "Mettre à niveau",
+      "action": "Mettre à jour",
       "library": "Bibliothèque",
       "channel": "Canal",
       "from": "De",
       "to": "Vers"
     },
-    "progress": "Mise à niveau de {{name}}. Ses données sont d'abord sauvegardées.",
-    "done": "Mis à niveau vers la version {{version}}.",
-    "browseUpdate": "La mise à jour {{version}} est disponible. Gérez-la dans Installés.",
+    "progress": "Mise à jour de {{name}}. Ses données sont d'abord sauvegardées.",
+    "done": "Mis à jour vers la version {{version}}.",
     "errors": {
       "stale_installed": "La version installée a changé depuis la vérification. Recherchez à nouveau des mises à jour.",
       "candidate_changed": "La bibliothèque ne propose plus la version que vous avez vérifiée. Recherchez à nouveau des mises à jour.",
-      "upgrade_conflict": "Cette mise à niveau est déjà enregistrée sous une autre opération. Elle n'a pas été appliquée deux fois.",
+      "upgrade_conflict": "Cette mise à jour est déjà enregistrée sous une autre opération. Elle n'a pas été appliquée deux fois.",
       "incompatible": "La nouvelle version n'est pas compatible avec cet hôte. Rien n'a été modifié.",
       "integrity_error": "La bibliothèque liste la version installée avec un contenu différent. Rien n'a été modifié.",
-      "upgrade_failed": "La mise à niveau ne s'est pas terminée et la version installée est conservée. Vous pouvez réessayer.",
+      "upgrade_failed": "La mise à jour ne s'est pas terminée et la version installée est conservée. Vous pouvez réessayer.",
       "operation_conflict": "L'opération ne correspond pas à l'état actuel. Rien n'a été appliqué.",
-      "check_failed": "La bibliothèque n'a pas pu être lue, la mise à niveau n'a donc pas démarré. Rien n'a été modifié.",
-      "unknownOutcome": "Le résultat de la mise à niveau n'est pas connu. Relisez son état ; n'en lancez pas une autre.",
+      "check_failed": "La bibliothèque n'a pas pu être lue, la mise à jour n'a donc pas démarré. Rien n'a été modifié.",
+      "unknownOutcome": "Le résultat de la mise à jour n'est pas connu. Relisez son état ; n'en lancez pas une autre.",
       "auth": "Reconnectez-vous pour continuer.",
       "denied": "Seul un administrateur peut le faire depuis sa propre session de navigateur.",
       "network": "Le réseau est injoignable.",
@@ -640,15 +639,14 @@
     "checkAll": "Rechercher des mises à jour",
     "notCheckedYet": "Les mises à jour n'ont pas encore été vérifiées.",
     "checkingAll": "Vérification...",
-    "checkAllDone": "{{count}} modules vérifiés.",
-    "checkAllFailed": "{{count}} n’ont pas pu être vérifiés.",
     "checkResult": {
       "done": "Vérifié.",
       "failed": "La vérification n'a pas abouti.",
       "justNow": "Vérifié à l'instant."
     },
-    "waitingService": "Le service des modules démarre. LocalAI redemande l'état de la mise à niveau dans {{seconds}} s.",
-    "checkAgain": "Vérifier maintenant"
+    "waitingService": "Le service des modules démarre. LocalAI redemande l'état de la mise à jour dans {{seconds}} s.",
+    "checkAgain": "Vérifier maintenant",
+    "open": "Ouvrir les mises à jour"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -894,7 +892,7 @@
     "lockedNoAuth": "La connexion est désactivée, donc toute personne qui atteint ce serveur pourrait modifier ceci ; l'administrateur le définit dans le fichier de politique.",
     "newOptional": "La nouvelle version demande aussi {{ops}}. Elles sont facultatives et non autorisées.",
     "noLongerRequested": "Cette version ne le demande plus. Vous pouvez le désactiver.",
-    "notOfficial": "Ce module vient de {{library}}, pas de la bibliothèque officielle.",
+    "notOfficialWarning": "Ce module vient de {{library}}, pas de la bibliothèque officielle. Il s'exécute comme du code de confiance sur ce serveur et peut utiliser les identifiants qui lui sont confiés. Ne l'installez que si vous faites confiance à son auteur.",
     "op": {
       "alreadyAllowed": "Déjà autorisé",
       "blocked": "Bloqué par la politique de l'administrateur",
@@ -930,6 +928,56 @@
       "reviewNamed": "Examiner et approuver l'accès à l'hôte de {{name}}",
       "title": "{{name}} {{version}} attend votre approbation"
     }
+  },
+  "oauthClient": {
+    "title": "Connexion au compte",
+    "intro": "Les personnes relient ce module à leur propre compte sur un service. Enregistrez l'adresse de retour ci-dessous auprès du service, saisissez le client qu'il vous donne et approuvez la connexion. Personne ne peut se connecter avant.",
+    "status": {
+      "unconfigured": "Pas encore approuvé. Personne ne peut se connecter.",
+      "changed": "La connexion de ce module a changé depuis son approbation. Personne ne peut se connecter ni renouveler une connexion tant que vous ne l'avez pas approuvée à nouveau.",
+      "approved": "Approuvé le {{when}}.",
+      "approvedBy": "Approuvé par {{who}} le {{when}}."
+    },
+    "sentTo": "Les personnes se connectent sur",
+    "hosts": "Hôtes autorisés",
+    "required": "Toujours demandés",
+    "optional": "Les personnes peuvent ajouter",
+    "none": "Aucun",
+    "tokens": "Les jetons viennent de",
+    "revoke": "La déconnexion révoque sur",
+    "noRevoke": "Pas d'adresse : la déconnexion oublie seulement la connexion ici",
+    "clientAuth": "Authentification du client",
+    "auth": {
+      "basic": "ID et secret du client, envoyés dans l'en-tête de la requête",
+      "post": "ID et secret du client, envoyés dans le corps de la requête",
+      "none": "Pas de secret (client public)",
+      "other": "Autre"
+    },
+    "params": "Paramètres de connexion supplémentaires",
+    "callback": "Adresse de retour",
+    "callbackHint": "Enregistrez cette adresse auprès du service comme adresse de redirection du client.",
+    "copy": "Copier",
+    "copied": "Copié",
+    "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique : il n'y a donc pas d'adresse de retour et personne ne peut se connecter. Définissez l'URL de base externe du serveur, puis rechargez cette page.",
+    "clientId": "ID client",
+    "clientSecret": "Secret du client",
+    "secretHint": "Écriture seule : il est stocké scellé et n'est plus jamais affiché.",
+    "secretSaved": "Un secret est enregistré. Laissez le champ vide pour le garder.",
+    "secretKeepPlaceholder": "Enregistré (masqué)",
+    "noSecret": "Cette connexion n'utilise pas de secret client.",
+    "approve": "Approuver et enregistrer",
+    "saved": "Enregistré. La connexion est approuvée.",
+    "stale": "La connexion de ce module a changé pendant votre vérification. Rien n'a été enregistré.",
+    "refresh": "Afficher la nouvelle connexion",
+    "loadFailed": "La connexion de ce module n'a pas pu être lue",
+    "errors": {
+      "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
+      "needsApproval": "Le module n'est pas approuvé.",
+      "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique. Définissez l'URL de base externe du serveur.",
+      "approvalStale": "La connexion de ce module a changé. Affichez la nouvelle connexion.",
+      "save": "Le client n'a pas pu être enregistré."
+    },
+    "unknownLibrary": "source inconnue"
   },
   "file": {
     "button": "Installer depuis un fichier",

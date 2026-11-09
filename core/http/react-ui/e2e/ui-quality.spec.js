@@ -23,7 +23,7 @@ const EXPECTED = [
 const ROUTES = [
   '/app', '/app/chats/all', '/app/chats/skills', '/app/chats/agents', '/app/chats/triggers', '/app/chats/connectors',
   '/app/chats/conversion', '/app/files', '/app/collections', '/app/build', '/app/operate', '/app/models',
-  '/app/settings', '/app/usage', '/app/account', '/app/activity', '/app/traces', '/app/backends',
+  '/app/settings', '/app/usage', '/app/account', '/app/activity', '/app/traces', '/app/backends', '/app/updates',
 ]
 
 const PHONE = { width: 390, height: 844 }

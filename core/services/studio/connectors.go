@@ -13,11 +13,14 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/oauthtoken"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -56,6 +59,10 @@ type ConnectorOptions struct {
 	// Transport reaches the connector add-ons. Required.
 	Transport ConnectorTransport
 	Clock     func() time.Time
+	// LeaseWait pauses a caller that lost the refresh lease of an OAuth grant
+	// before it looks for the token the winner writes. Nil sleeps for real;
+	// a test passes a hook that does not.
+	LeaseWait func(ctx context.Context, d time.Duration) error
 	// Tick is how often the manager looks for bindings to start or stop; zero
 	// means 2 seconds.
 	Tick time.Duration
@@ -97,6 +104,15 @@ type ConnectorOptions struct {
 	// OutboxPoll is how often a queued message looks again for room under
 	// the limit of its binding; zero means one second.
 	OutboxPoll time.Duration
+	// OAuthDescriptor returns the OAuth descriptor that the credential slot of
+	// an installed add-on declares now. Nil: this process cannot run OAuth
+	// logins or refreshes, and an OAuth binding is unavailable here.
+	OAuthDescriptor func(ctx context.Context, addonID string) (contract.OAuthDescriptor, error)
+	// TokenClient calls the token endpoints. Nil: oauthtoken.New.
+	TokenClient *oauthtoken.Client
+	// InstanceID names this process in the lease of a grant. Empty: a
+	// random name.
+	InstanceID string
 	// Shares is the sharing policy of the bindings (see ConnectionShares).
 	// Nil: no binding is shared.
 	Shares ConnectionShares
@@ -135,7 +151,17 @@ type Connectors struct {
 
 	sealMu sync.Mutex
 	sealer *connectors.Sealer
-	wmu    sync.Mutex // serialises writes of bindings
+
+	// refreshes runs one refresh per grant and version in this process; the
+	// lease in the grant row does the same across processes.
+	refreshes    singleflight.Group
+	instance     string
+	defaultToken *oauthtoken.Client
+	wmu          sync.Mutex // serialises writes of bindings
+	// logins counts the login starts of each person in this process (see
+	// allowLoginStart).
+	loginMu sync.Mutex
+	logins  map[string]loginWindow
 
 	mu    sync.Mutex // guards loops and shut, and orders wg.Add before Close's Wait
 	loops map[string]context.CancelFunc
@@ -192,6 +218,9 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	if o.Clock == nil {
 		o.Clock = time.Now
 	}
+	if o.LeaseWait == nil {
+		o.LeaseWait = sleep
+	}
 	if o.Tick <= 0 {
 		o.Tick = 2 * time.Second
 	}
@@ -213,7 +242,10 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Connectors{svc: svc, o: o, log: o.Logger, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
+	if o.InstanceID == "" {
+		o.InstanceID = newID()
+	}
+	return &Connectors{svc: svc, o: o, log: o.Logger, instance: o.InstanceID, defaultToken: oauthtoken.New(), logins: map[string]loginWindow{}, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
 		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc), knowledgeSwitch(svc), resourcesSwitch(svc)}}, nil
 }
 
@@ -1372,5 +1404,17 @@ func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 		if !c.spawn(func() { c.say(b, token, b.NotifyChat, "", text) }) {
 			return // closed meanwhile
 		}
+	}
+}
+
+// sleep waits for d or until ctx ends.
+func sleep(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

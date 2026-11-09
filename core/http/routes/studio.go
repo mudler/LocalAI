@@ -32,6 +32,18 @@ func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChe
 	})
 }
 
+// NewStudioOAuth wires the OAuth routes of the connections to the add-on
+// gateway of app: the owner serves them, in this process or through the
+// carrier. Without a gateway they answer 503.
+func NewStudioOAuth(app *application.Application) studioendpoint.HandlerOption {
+	return studioendpoint.WithOAuth(studioendpoint.OAuthConfig{Mode: app.AddonOwnershipMode(), Dispatcher: func() studioendpoint.OAuthDispatcher {
+		if g := app.AddonGateway(); g != nil {
+			return g
+		}
+		return nil
+	}})
+}
+
 // checkStudioModelResolves rejects a model with no config and an alias that
 // points nowhere, so a broken alias is refused when it is saved and not when
 // the first message fails.
@@ -51,7 +63,7 @@ func checkStudioModelResolves(cl *config.ModelConfigLoader, model string) error 
 // /api/agent path answers 404 with the reason, so a client sees "off" and not a missing route. Authentication and
 // the feature gates come from the global middleware and the route-feature
 // registry, so no route carries its own; the administrator routes take adminMw.
-func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc) {
+func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc, opts ...studioendpoint.HandlerOption) {
 	if svc == nil {
 		off := func(c echo.Context) error {
 			return c.JSON(http.StatusNotFound, schema.ErrorResponse{Error: &schema.APIError{
@@ -64,7 +76,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 		e.Any("/api/agent/*", off)
 		return
 	}
-	h := studioendpoint.New(svc, models)
+	h := studioendpoint.New(svc, models).Apply(opts...)
 	const base = "/api/chats"
 	// The files routes come before the "/:id" ones; "files" is not a chat id.
 	// The administrator's view of every user's agents, triggers and connectors.
@@ -79,6 +91,9 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/admin/web/test", h.AdminTestWebSearch, adminMw)
 	e.POST(base+"/admin/connectors/:id/disable", h.AdminDisableConnector, adminMw)
 	e.DELETE(base+"/admin/connectors/:id", h.AdminDeleteConnector, adminMw)
+	// The OAuth client of an add-on; saving it approves the add-on's login.
+	e.GET(base+"/admin/oauth-clients/:addonId", h.GetOAuthClient, adminMw)
+	e.PUT(base+"/admin/oauth-clients/:addonId", h.PutOAuthClient, adminMw)
 	// The shared folders and who may use them. "restore" and "events" are not
 	// folder ids; the static segments win over "/:id".
 	e.GET(base+"/admin/shared-folders", h.AdminListSharedFolders, adminMw)
@@ -244,6 +259,12 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/connectors/:id/access/preview", h.ConnectorAccessPreview)
 	e.POST(base+"/connectors/:id/pairing", h.StartConnectorPairing)
 	e.DELETE(base+"/connectors/:id/paired/:sender", h.RemoveConnectorPaired)
+	// The OAuth logins of the connections. "oauth" is not a binding id: the
+	// static segment wins over "/:id", so the one callback of every add-on
+	// never reaches a binding route.
+	e.POST(base+"/connectors/:id/oauth/start", h.StartConnectorOAuth)
+	e.POST(base+"/connectors/:id/oauth/disconnect", h.DisconnectConnectorOAuth)
+	e.GET(base+"/connectors/oauth/callback", h.ConnectorOAuthCallback)
 	e.GET(base+"/mcp-connectors", h.ListMCPConnectors)
 	e.POST(base+"/mcp-connectors", h.CreateMCPConnector)
 	e.GET(base+"/mcp-connectors/:id", h.GetMCPConnector)

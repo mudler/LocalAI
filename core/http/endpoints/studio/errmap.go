@@ -24,6 +24,10 @@ const (
 	typeNotifyOff    = "notifications_off"
 	typeTriggersOff  = "triggers_off"
 	typeConnectorOff = "connectors_off"
+	// typeNotConnected and typeReconnectNeeded: an OAuth connection has no
+	// login yet, or its login ended.
+	typeNotConnected    = "not_connected"
+	typeReconnectNeeded = "reconnect_needed"
 	// typeDuplicateConnection: the connection to save is the same bot as
 	// another enabled one; send confirm_duplicate to save it anyway.
 	typeDuplicateConnection = "duplicate_connection"

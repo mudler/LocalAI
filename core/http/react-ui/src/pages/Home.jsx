@@ -30,6 +30,9 @@ import SetupStatusLine, { SetupReason } from '../components/chat/SetupStatusLine
 // eslint-disable-next-line no-unused-vars
 import ManageSetups from '../components/chat/ManageSetups'
 import { useChatComposer } from '../hooks/useChatComposer'
+import { liveBlockedReason } from '../hooks/useLive'
+// eslint-disable-next-line no-unused-vars
+import LiveButton from '../components/chat/LiveButton'
 import { useComposerDeparture } from '../hooks/useComposerTransition'
 // eslint-disable-next-line no-unused-vars
 import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
@@ -400,6 +403,21 @@ export default function Home() {
       run()
     }
   }, [])
+  // The new chat of Send and of Live: the chosen model, agent and drafted
+  // switches, then the reasoning effort in its settings.
+  const createChat = useCallback(async () => {
+    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+    if (draftEffort) {
+      const settings = settingsWithEffort(null, draftEffort)
+      try {
+        await chatsApi.update(chat.id, { settings })
+        chat.settings = settings
+      } catch (e) {
+        addToast(e.message || tch('settings.saveFailed'), 'error')
+      }
+    }
+    return chat
+  }, [draftModel, agentId, draftEffort, switches, addToast, tch])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -427,17 +445,8 @@ export default function Home() {
     setSending(true)
     let id = ''
     try {
-      const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+      const chat = await createChat()
       id = chat.id
-      if (draftEffort) {
-        const settings = settingsWithEffort(null, draftEffort)
-        try {
-          await chatsApi.update(id, { settings })
-          chat.settings = settings
-        } catch (e) {
-          addToast(e.message || tch('settings.saveFailed'), 'error')
-        }
-      }
       const res = await chatsApi.send(id, text, attached, command)
       rememberRef.current?.().catch(() => {})
       // The chat page draws the message from what is known here, so it opens
@@ -454,7 +463,38 @@ export default function Home() {
       addToast(err.message || tc('errors.send'), 'error')
       setSending(false)
     }
-  }, [message, files, sending, selectedModel, draftModel, agentId, draftEffort, switches, composer.agents, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff])
+  }, [message, files, sending, selectedModel, composer.agents, switches, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff, createChat])
+
+  // Live: the chat is created as Send creates it, without a message, and opens
+  // with state.live; the chat page starts Live there (Chat.jsx). The text
+  // and files typed on Home stay in their draft on purpose (nothing was sent,
+  // so nothing is lost); only the drafted switches reset, as they went with
+  // the new chat. The click is the gesture the browser
+  // needs for the microphone and the voice; the in-app navigation keeps it.
+  const goLive = useCallback(async () => {
+    if (sending) return
+    if (!selectedModel) {
+      addToast(t('input.selectModelToast'), 'warning')
+      return
+    }
+    if (!beginSend()) return
+    setSending(true)
+    try {
+      const chat = await createChat()
+      rememberRef.current?.().catch(() => {})
+      sentRef.current = () => switches.resetDraft()
+      navigate(`/app/chats/${encodeURIComponent(chat.id)}`, { state: { live: true } })
+    } catch (err) {
+      failSend()
+      addToast(err.message || tc('errors.send'), 'error')
+      setSending(false)
+    }
+  }, [sending, selectedModel, switches, addToast, navigate, t, tc, beginSend, failSend, createChat])
+  const liveReason = liveBlockedReason()
+  const liveHome = useMemo(
+    () => ({ available: liveReason === '', unavailableReason: liveReason, start: goLive }),
+    [liveReason, goLive],
+  )
 
   // An empty new chat on the chosen model. The state marks it as a hand-off:
   // /app/chats opened as a bare address comes back here.
@@ -719,6 +759,7 @@ export default function Home() {
             pickerDisabled={firstRun}
             pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
             onDictateError={(m) => addToast(m, 'error')}
+            live={<LiveButton live={liveHome} />}
             onSubmit={doSubmit}
             canSend={canSend}
             sending={sending}

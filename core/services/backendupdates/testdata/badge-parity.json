@@ -1,0 +1,62 @@
+{
+  "note": "One snapshot, the rows the Updates page builds from it, and the count of the badge. The Go test checks Pending, the node test checks badgeOf. Both must give the same number.",
+  "cases": [
+    {
+      "name": "two items, automatic update off",
+      "auto": false,
+      "snapshot": {
+        "sources": {"gallery": {"state": "ok"}, "library": {"state": "ok"}},
+        "autoUpdate": {"backends": false},
+        "items": [
+          {"id": "gallery:llama-cpp", "kind": "gallery", "name": "llama-cpp", "state": "update", "installedVersion": "0.9.4", "availableVersion": "0.9.7"},
+          {"id": "library:acme/piper", "kind": "library", "name": "piper", "state": "update", "installedDigest": "sha256:aaa", "availableDigest": "sha256:bbb"}
+        ]
+      },
+      "count": 2
+    },
+    {
+      "name": "automatic update on covers every backend",
+      "auto": true,
+      "snapshot": {
+        "sources": {"gallery": {"state": "ok"}, "library": {"state": "ok"}},
+        "autoUpdate": {"backends": true},
+        "items": [
+          {"id": "gallery:llama-cpp", "kind": "gallery", "name": "llama-cpp", "state": "update", "availableVersion": "0.9.7"}
+        ]
+      },
+      "count": 0
+    },
+    {
+      "name": "installs disabled: nobody can act on it",
+      "auto": false,
+      "snapshot": {
+        "sources": {"gallery": {"state": "ok"}, "library": {"state": "disabled"}},
+        "autoUpdate": {"backends": false},
+        "installsDisabled": true,
+        "items": [
+          {"id": "gallery:llama-cpp", "kind": "gallery", "name": "llama-cpp", "state": "update", "availableVersion": "0.9.7"}
+        ]
+      },
+      "count": 0
+    },
+    {
+      "name": "stale and drift items count like updates",
+      "auto": false,
+      "snapshot": {
+        "sources": {"gallery": {"state": "ok"}, "library": {"state": "disabled"}},
+        "autoUpdate": {"backends": false},
+        "items": [
+          {"id": "gallery:a", "kind": "gallery", "name": "a", "state": "stale", "reason": "older than the server"},
+          {"id": "gallery:b", "kind": "gallery", "name": "b", "state": "drift", "installedVersion": "1"}
+        ]
+      },
+      "count": 2
+    },
+    {
+      "name": "no items",
+      "auto": false,
+      "snapshot": {"sources": {"gallery": {"state": "ok"}, "library": {"state": "ok"}}, "autoUpdate": {"backends": false}, "items": []},
+      "count": 0
+    }
+  ]
+}

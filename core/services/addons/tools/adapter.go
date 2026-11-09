@@ -271,6 +271,22 @@ func heldForPerson(ctx context.Context) bool {
 // NoCredentialNote is what the model is told when the person has no credential for the add-on.
 const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
 
+// CodeReconnectNeeded is the Code of a ResultError for a call of an add-on
+// whose connection to the service expired or was revoked, and the host could
+// not renew it.
+const CodeReconnectNeeded = gateway.CodeReconnectNeeded
+
+// ReconnectNeededNote is what the model is told when the person must connect again.
+const ReconnectNeededNote = "The person's connection to this service has expired or was revoked, so nothing was sent. Tell them to reconnect on the Connectors page. Do not repeat the call and do not report an outage."
+
+// CodeOwnerReconnectNeeded is the Code of a ResultError for a call through a
+// connection that another person shared, when the login of its owner ended.
+const CodeOwnerReconnectNeeded = gateway.CodeOwnerReconnectNeeded
+
+// OwnerReconnectNeededNote is what the model is told when the owner of a shared
+// connection must connect it again. The person can do nothing about it.
+const OwnerReconnectNeededNote = "This connection was shared with the person, and its owner's login to the service has ended, so nothing was sent. Tell them that the owner of the connection must connect it again; they cannot do it. Do not repeat the call and do not report an outage."
+
 // CodeWriteNotAllowed is the Code of a ResultError for a write tool of an add-on
 // whose binding has its write mode off. The add-on was not called.
 const CodeWriteNotAllowed = gateway.CodeWriteNotAllowed
@@ -352,8 +368,10 @@ type ArtifactRef struct {
 // ToolResult discriminates a read result, a host proposal reference and
 // private artifact references.
 type ToolResult struct {
-	Kind      ResultKind      `json:"kind"`
-	Tool      string          `json:"tool"`
+	Kind ResultKind `json:"kind"`
+	Tool string     `json:"tool"`
+	// Result is the read payload. For ResultArtifact it is an optional excerpt
+	// of the content that Artifacts refer to, under the same size limit.
 	Result    json.RawMessage `json:"result,omitempty"`
 	Proposal  *ProposalRef    `json:"proposal,omitempty"`
 	Applied   *AppliedRef     `json:"applied,omitempty"`
@@ -1122,6 +1140,17 @@ func receiptPayload(p gateway.Proposal) json.RawMessage {
 	return p.Receipt.Result.Payload
 }
 
+// refusalNotes is what the model is told for each refusal code of the host
+// that needs no more than a note. The code of the result is the code of the
+// refusal.
+var refusalNotes = map[string]string{
+	gateway.CodeWriteNotAllowed:      WriteNotAllowedNote,
+	gateway.CodeSelectConnection:     SelectConnectionNote,
+	gateway.CodeReconnectNeeded:      ReconnectNeededNote,
+	gateway.CodeOwnerReconnectNeeded: OwnerReconnectNeededNote,
+	gateway.CodeNoCredential:         NoCredentialNote,
+}
+
 // refusedResult turns the add-on's own refusal, a missing permission and an
 // unreachable resource into a result the model can act
 // on. Every other error, an outage and an unknown outcome included, passes
@@ -1137,12 +1166,9 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotListedNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeWriteNotAllowed:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeWriteNotAllowed, Note: WriteNotAllowedNote}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeSelectConnection:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectConnection, Note: SelectConnectionNote}, nil
-	case errors.As(err, &refusal) && refusal.Code == gateway.CodeNoCredential:
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNoCredential, Note: NoCredentialNote}, nil
+	case errors.As(err, &refusal) && refusalNotes[refusal.Code] != "":
+		// The result carries the code of the refusal and the note for it.
+		return ToolResult{Kind: ResultError, Tool: name, Code: refusal.Code, Note: refusalNotes[refusal.Code]}, nil
 	case errors.Is(err, gateway.ErrNotPermitted):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotPermitted, Note: NotPermittedNote}, nil
 	case errors.Is(err, gateway.ErrNotSent):
@@ -1198,15 +1224,17 @@ func requiresResource(def ToolDefinition) bool {
 func ValidConversationID(id string) bool { return toolargs.ValidConversationID(id) }
 
 func readResult(name string, out contract.Result) (ToolResult, error) {
+	if len(out.Payload) > MaxResultBytes {
+		return ToolResult{}, ErrResultTooLarge
+	}
 	if len(out.Outputs) > 0 {
 		refs := make([]ArtifactRef, 0, len(out.Outputs))
 		for _, o := range out.Outputs {
 			refs = append(refs, ArtifactRef{ID: o.Handle, Name: o.Name, MediaType: o.MediaType, Size: o.Size})
 		}
-		return ToolResult{Kind: ResultArtifact, Tool: name, Artifacts: refs}, nil
-	}
-	if len(out.Payload) > MaxResultBytes {
-		return ToolResult{}, ErrResultTooLarge
+		// A payload next to the handles is a small excerpt of the content the
+		// handles stand for. It travels in Result so the model reads it.
+		return ToolResult{Kind: ResultArtifact, Tool: name, Artifacts: refs, Result: out.Payload}, nil
 	}
 	return ToolResult{Kind: ResultData, Tool: name, Result: out.Payload}, nil
 }

@@ -460,5 +460,6 @@
   "shared.text": "Otras personas te dejan usar estas conexiones en tus chats y agentes. Solo su propietario puede cambiarlas.",
   "shared.on": "Escuchando",
   "shared.off": "Apagada",
-  "shared.by": "Compartida por {{name}}"
+  "shared.by": "Compartida por {{name}}",
+  "loginNeedsHost": "Esta versión de LocalAI no puede iniciar sesión desde esta página. Actualiza LocalAI para conectar aquí."
 }

@@ -71,10 +71,11 @@
     "chats": "Chats",
     "files": "Files",
     "triggers": "Triggers",
-    "mcpConnectors": "MCP connectors",
+    "connections": "Connections",
     "chatsAdmin": "Chats of all users",
     "pages": "Pages",
-    "allChats": "All chats"
+    "allChats": "All chats",
+    "inbox": "Notifications"
   },
   "footer": {
     "github": "GitHub",
@@ -109,7 +110,8 @@
       "addons": "Install, turn on and open add-ons.",
       "triggers": "Start a chat by itself, on a schedule or when a file arrives."
     },
-    "operateSupporting": "What runs on this server, how it is used, and how it is set up."
+    "operateSupporting": "What runs on this server, how it is used, and how it is set up.",
+    "updates": "Updates"
   },
   "pinnedPages": "Pinned pages",
   "new": "New",
@@ -118,5 +120,12 @@
   "untitledChat": "Untitled chat",
   "chatRunning": "Working",
   "automatedWaiting": "Automated chats waiting for you: {{count}}",
-  "automatedRunning": "Automated chats running: {{count}}"
+  "automatedRunning": "Automated chats running: {{count}}",
+  "inboxUnread_one": "Notifications, {{count}} unread",
+  "inboxUnread_other": "Notifications, {{count}} unread",
+  "inboxArrived": "New notification: {{title}}",
+  "inboxArrivedMany_one": "{{count}} new notification",
+  "inboxArrivedMany_other": "{{count}} new notifications",
+  "updatesBadge_one": "{{count}} update needs you",
+  "updatesBadge_other": "{{count}} updates need you"
 }

@@ -173,6 +173,16 @@
     "network": {
       "title": "Rete dei comandi",
       "where": "{{name}} tiene nella sua pagina le impostazioni di rete dei comandi che esegue."
+    },
+    "autoUpgradeAddons": "Aggiorna gli add-on automaticamente",
+    "addonUpdates": {
+      "label": "Aggiornamenti degli add-on",
+      "note": "Il proprietario degli add-on applica questa impostazione. Le nuove generazioni possono eseguire codice.",
+      "unavailable": "Impostazioni del proprietario non disponibili o cambiate: {{message}}",
+      "reload": "Ricarica e ribasa le modifiche",
+      "retry": "Riprova la stessa operazione",
+      "policy": "Criterio del proprietario · revisione {{revision}}",
+      "apply": "Applica l'impostazione di aggiornamento"
     }
   },
   "backends": {

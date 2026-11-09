@@ -84,23 +84,26 @@ page while you scroll a long list.
   The button shows how many filters are on.
 - The line under the controls shows how many backends are listed, each active
   filter as a chip that you can remove, and, when updates exist, **N updates
-  available · Review**.
-- **More** holds the actions you need less often: **Check for updates** asks
-  the server to check now instead of waiting for its next scheduled check,
+  available · Review**. **Review** opens the [Updates page](#the-updates-page)
+  on the ready updates.
+- **More** holds the actions you need less often: **Updates** opens the
+  Updates page, where **Check now** runs a real check,
   **Install from URL…** installs a backend from an OCI image, a URL or a path,
   and **Manage libraries…** opens the library sources panel.
 
 Each row shows the backend, its version and its state: **Current**, **Update
 1.2.0**, **Not installed**, **Queued**, **Removing**, or a progress bar while it
 installs, with **Cancel** in the row. A failed install says why, with **Retry**.
-The one action that matters sits in the row (**Install**, **Update**). The row
-menu (⋮) holds **Reinstall backend** and **Delete backend** in both views, and
-the chevron opens the row for the rest. **Review** opens a dialog where you
-pick which pending updates to run; **Update** on a row opens the same dialog
-with only that backend checked, so nothing starts until you confirm. They run
-one after another, a failure does not stop the others, you can close the
-dialog while they run, and **Retry failed** runs the failed ones again. The
-upgrades run as operations in Activity.
+The one action that matters sits in the row (**Install**, or **Review** when
+an update exists). The row menu (⋮) holds **Reinstall backend** and **Delete
+backend** in both views, and the chevron opens the row for the rest. This page
+starts no update of a gallery backend. **Review** on a row only opens the
+Updates page: the page of that backend when nodes report it (it asks before
+it updates a node), otherwise the list of ready updates. The update runs there,
+as an operation in Activity. A backend that came from a library keeps its
+**Update** button in the row, which installs the newer build that library
+lists and shows the progress in the row. The same update is also listed on
+the Updates page.
 
 The current view, search, filter, open row, and target node are stored in the
 URL. Browser Back and shared links therefore restore the same state.
@@ -130,6 +133,158 @@ Each open row displays:
 - Version, source, digest, placement, and catalog information
 - The models that use the backend, a link to its logs, and, in a cluster, the
   per-node controls
+
+## The Updates page
+
+**Operate → Updates** (`/app/updates`) is the one place that answers "what is
+out of date, and what is changing". It is for administrators. It lists three
+kinds of things: backends of the gallery, backends of a library, and add-ons.
+
+At the top, one sentence says how many updates there are and how many are ready,
+updating or need you. Under it a line for each source (the backend gallery, the
+backend library and the add-ons) says when it was last checked or why the check
+failed, and the two settings **Update backends automatically** and **Update
+add-ons automatically** are shown as facts, with a link to Settings. The page
+never says "Everything is up to date" while a source failed or was never
+checked. A failed source gets a red notice that says what may be missing, and
+the list keeps the last good result and marks its rows as from an earlier check.
+
+The rows are in four groups, in this order:
+
+| Group | What is in it |
+|---|---|
+| **Needs you** | An update that failed (**Retry**), an add-on upgrade that is held until you approve the access it asks for (**Review**), and an update that cannot start, with the reason (an add-on that cannot run on this host, or backend installs turned off on this server). |
+| **Updating** | An update in progress, with its phase and progress. **Cancel** shows where the operation can be cancelled. |
+| **Ready to update** | An update that you can start. An add-on asks for your confirmation first, in this browser. |
+| **Up to date** | One collapsed line. A backend is listed here only when its source answered. |
+
+**Check now** runs a real check of every source and waits for the answer. It
+asks the registries (at most 45 seconds), reads each add-on library with your own
+browser session, and shows the result under the sentence. The button waits 15
+seconds before the next check, as the server answers a check within that time
+from the last one.
+
+An update is **done** only when two things hold: the operation ended without an
+error, and a new check no longer lists the item. If the operation ended and the
+item is still listed, the row says "The update ended but the version did not
+change". A throttled check answer, which is seconds old, is asked again before
+the page decides.
+
+**Update N ready** runs the checked rows one after another. Rows that are held
+or blocked never take part, a failure does not stop the others, and **Retry
+failed** runs only the failed ones. The summary ("2 updated, 1 failed") counts a
+row as updated only when it is done by the rule above. Closing the page does not
+stop the run: the operations are the server's, and the page reads them again when
+you return.
+
+In a cluster, a backend that more than one node has shows a **Nodes** action.
+It opens `/app/updates/backend/<name>`, which lists each node with its version,
+the models that use the backend there, and its state, and updates one node or
+every node that needs it. **Update** and **Retry** on such a row, and **Update N ready** when the selection holds one, open the same confirmation. It lists every affected node and the models that stop, and nothing starts until you confirm. The other selected rows start when you confirm.
+Every update that touches a node asks first, because a worker stops the models
+that use the backend: see [the Nodes page]({{% relref "features/distributed-mode" %}}).
+On a single machine there is no **Nodes** action and **Update** starts at once.
+
+### Shortcuts from other pages
+
+Other pages show that an update exists and send you here; none of them runs a bulk
+update of its own. The Backends page has **Review** in its rows and in the line above
+its list. The Operate **Status** page lists the backends with an update as one row,
+"N updates available", with **Review**. The Apps page has **Open Updates**. The
+**Nodes** page keeps its **Update** button for the nodes you selected, which opens the same
+confirmation as this page, and a node's **Backends** tab has **Update** for a backend that
+is behind on that node.
+
+### The count on the Updates tab and on Operate
+
+A number on the **Updates** tab and on the **Operate** item of the sidebar (on
+every page, for administrators) counts what needs a person: ready updates that
+no automatic setting covers, plus updates that failed, are held for approval, or
+are blocked by something other than the server setting for backend installs. An
+update that an automatic setting will apply is listed on the page but not
+counted. The number is red when an update failed. One poll reads the numbers
+once a minute while the browser tab is visible, and again when an operation ends.
+
+The badge on the **Operate** item has one number at a time, so it follows an
+order: failed operations first (red, counting the failed operations), then the
+count above, then the number of operations that are running. The tab always
+shows the count above, so the two numbers differ while an operation has failed.
+
+## Updates in the inbox
+
+Administrators get updates in the [inbox]({{% relref "features/chats-agents#inbox" %}}) (the **Notifications** entry in the sidebar), so they see them on any page and, through browser push and a Telegram chat, away from the browser. Three kinds of item exist. Every one has a `code` and `params`, so the app words it in your language. Every one is for administrators only (when authentication is off, for the one local user). With the chats off there are none.
+
+- **The digest**, "N backend updates available". It counts the backend updates (gallery and library) that need a person: the same updates the badge of the Updates tab counts for backends. It does not count a backend that **Update backends automatically** covers, so with that setting on there is no digest, and a stored digest is removed. With the setting off, every update that the last check found is counted, and a server that refuses backend installs counts none. There is one digest for each administrator, kept up to date in place:
+  - the first update creates it;
+  - a **new update** brings it back as a new, unread item at the top, and pushes it once. A new update is an id that the digest did not show before: a backend and the version or digest it would move to. A newer release of a backend that the digest already listed is a new update;
+  - when updates are done, the count goes down quietly: the item keeps its place and its read state, and nothing is pushed;
+  - when you delete it, it is hidden, not forgotten. It stays hidden while the updates are the same or fewer, and it comes back, unread, for the next new update;
+  - when none is left it is removed. A later update is then new again.
+  The digest changes only when every source that can be checked answered in that pass. A failed check does not turn "unknown" into "all done".
+- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Add-ons write their own item in their own pass (see [Add-ons]({{% relref "features/addons#automatic-upgrade" %}})).
+- **The failed check**, "The update check failed". When the automatic check of the backend gallery or the backend library fails in two passes in a row (more than half a day), one item names the sources. It is removed when the check works again, and written again only if a source fails again for two passes. The Updates page shows the same failure on its source line at once.
+
+Each item opens the Updates page on the list it is about: the digest opens **Ready**, a result with a failure or a held update opens **Needs you**.
+
+**What is not in the digest.** Add-on updates are not counted in the digest. The state of an add-on update is read by the add-on owner with the session of an administrator, and the frontend that writes the digest may not be the owner; the digest would then change with whichever frontend holds the lock. The Updates page and its badge show add-ons. With **Update add-ons automatically** on, the add-on result is in the inbox. With it off, an add-on update shows on the page and in the badge only.
+
+**Who writes them.** The digest, the failed-check item and the backend result are written at the end of the automatic pass, by the process that runs it. In [distributed mode]({{% relref "features/distributed-mode#automatic-backend-updates" %}}) that is the frontend that holds the update lock (`KeyBackendUpgradeCheck`), so there is one writer for the cluster, and its push and Telegram forward happen once. A standalone server writes after each pass that may install. A check you start with **Check now**, a trigger after an operation, and the first check of a frontend write nothing.
+
+## Checking for backend updates
+
+`GET /backends/updates` (the UI uses the alias `GET /api/backends/updates`)
+lists the gallery and library backends that have a newer build. Both routes
+need an administrator. The answer comes from the cache of the instance that
+serves the request and contacts no registry. It has:
+
+- `items`: one entry per backend with an update. `kind` is `gallery` or
+  `library`. Each has `installedVersion`, `availableVersion`, the digests when
+  there are any, and a `state`: `update` (a newer version or digest), `stale`
+  (a request showed that the backend is older than the server; `reason` says
+  how) or `drift` (the nodes of a cluster do not agree on the build). A library
+  item also has `sourceId` and `signed`. In a cluster an item has `nodes`, with
+  the version of every node that has the backend and `drift` on the ones that
+  differ from the majority.
+- `sources.gallery` and `sources.library`: the freshness of each source. `state`
+  is `ok`, `failed`, `never` (not checked since the server started) or
+  `disabled` (with a `reason`). A source also has `checkedAt`, `lastSuccessAt`
+  and `error`. When the last check failed, `stale` is true and `items` still
+  lists what the last good check found. A client must not say "no updates"
+  while a source is `failed` or `never`.
+- `autoUpdate.backends`: the value of **Update backends automatically**
+  (`auto_upgrade_backends`). It covers gallery and library backends.
+- `checkedAt`: the latest check of any source.
+
+`POST /backends/updates/check` (alias `POST /api/backends/updates/check`) checks
+now. It refreshes the library index, asks the registries, waits for the check
+(at most 45 seconds) and answers with the same body, with fresh times. A check
+that fails or times out is an `error` in the state of its source, and the
+previous list stays. Callers that arrive during a check share it. A call within
+15 seconds of the last check is answered from it, with `throttled` set. A check
+installs nothing. The older `POST /backends/upgrades/check` still only starts a
+check and returns the cache at once.
+
+Limits:
+
+- **Library backends are those of the host.** The library comparison reads the
+  backends installed on the host that answers. On a cluster frontend that holds
+  no backends, library backends installed on workers are not listed, and the
+  `library` source says so in its `note`.
+- **Models that would stop.** A node entry lists the loaded models whose
+  recorded backend has the name of the item. The node registry records the
+  backend a model was loaded with; it can be empty, or name a meta backend
+  instead of the installed build. An empty `models` list does not prove that no
+  model would stop.
+- **Without a checker** (backend installs are disabled, or no backend gallery is
+  configured) both sources are `disabled` and `items` is empty.
+
+In [distributed mode]({{% relref "features/distributed-mode#automatic-backend-updates" %}})
+the cache is per frontend. The frontend that gets a check request updates its
+own cache only, whether or not it holds the lock that runs automatic updates.
+`checkedAt` says how old each answer is.
+
+The LocalAI Assistant reads the same data with the `backend_updates` tool
+(`action` `list` or `check`).
 
 ## Backend Galleries
 

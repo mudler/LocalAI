@@ -83,7 +83,7 @@ type ChangeView struct {
 	// HasAfter is false for a delete.
 	HasAfter bool
 	// Fields are the fields the change sets: name, prompt, when, time_zone,
-	// daily_cap, enabled, reads, writes, widget, estimated_tokens.
+	// daily_cap, run_limit, enabled, reads, writes, widget, estimated_tokens.
 	Fields []string
 	// At is when the change was answered; zero while it waits.
 	At time.Time
@@ -156,6 +156,9 @@ func stamp(t triggers.Trigger) string {
 	if acts := slices.Sorted(slices.Values(t.Acts)); len(acts) > 0 {
 		_, _ = fmt.Fprintf(h, "|acts:%q", acts)
 	}
+	if t.RunLimit > 0 {
+		_, _ = fmt.Fprintf(h, "|run_limit:%d", t.RunLimit)
+	}
 	if d := deliveryKey(t); d != defaultDeliveryKey {
 		_, _ = fmt.Fprintf(h, "|delivery:%q", d)
 	}
@@ -177,6 +180,7 @@ func deliveryKey(t triggers.Trigger) string {
 func withDefinition(dst, src triggers.Trigger) triggers.Trigger {
 	dst.Name, dst.Prompt, dst.Kind, dst.Schedule, dst.TZ = src.Name, src.Prompt, src.Kind, src.Schedule, src.TZ
 	dst.Folder, dst.Quiet, dst.DailyCap, dst.AgentID, dst.Model = src.Folder, src.Quiet, src.DailyCap, src.AgentID, src.Model
+	dst.RunLimit = src.RunLimit
 	dst.MinGap, dst.Reads, dst.Writes, dst.Widget, dst.EstTokens = src.MinGap, src.Reads, src.Writes, src.Widget, src.EstTokens
 	dst.Acts = src.Acts
 	if src.Route.FromConnector() {
@@ -199,6 +203,7 @@ func changedFields(a, b triggers.Trigger) []string {
 	add("when", a.Kind != b.Kind || a.Schedule != b.Schedule || a.Folder != b.Folder)
 	add("time_zone", a.TZ != b.TZ)
 	add("daily_cap", a.DailyCap != b.DailyCap)
+	add("run_limit", a.RunLimit != b.RunLimit)
 	add("enabled", a.Enabled != b.Enabled)
 	add("reads", a.Reads != b.Reads)
 	add("writes", a.Writes != b.Writes)
@@ -215,7 +220,7 @@ func changedFields(a, b triggers.Trigger) []string {
 // owner's home.
 func (h *Triggers) inputOf(t triggers.Trigger) TriggerInput {
 	return TriggerInput{Name: t.Name, Prompt: t.Prompt, Kind: t.Kind, Schedule: t.Schedule, TZ: t.TZ, Folder: h.RelFolder(t),
-		Quiet: t.Quiet, DailyCap: t.DailyCap, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
+		Quiet: t.Quiet, DailyCap: t.DailyCap, RunLimit: t.RunLimit, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
 		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts, Route: t.Route}
 }
 
@@ -229,10 +234,12 @@ type TriggerPatch struct {
 	Schedule, Folder string
 	TZ               *string
 	DailyCap         *int
-	Enabled          *bool
-	Reads, Writes    *string
-	Widget           *string
-	EstTokens        *int
+	// RunLimit is the new time limit of a run; zero sets the default.
+	RunLimit      *time.Duration
+	Enabled       *bool
+	Reads, Writes *string
+	Widget        *string
+	EstTokens     *int
 	// Acts replaces the acts of the trigger; an empty list takes them all
 	// away, nil leaves them. The caller has checked them as a proposal's.
 	Acts *[]string
@@ -271,6 +278,9 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 	}
 	if p.DailyCap != nil {
 		in.DailyCap = *p.DailyCap
+	}
+	if p.RunLimit != nil {
+		in.RunLimit = *p.RunLimit
 	}
 	if p.EstTokens != nil {
 		in.EstTokens = *p.EstTokens
@@ -525,7 +535,7 @@ func (h *Triggers) changeUndoBlock(ctx context.Context, rec, live triggers.Trigg
 		if has {
 			return UndoEdited // a trigger with its ID is back
 		}
-		if mine, err := h.o.Store.ListTriggers(ctx, rec.Owner); err != nil || countLive(mine) >= maxTriggersPerUser {
+		if mine, err := h.o.Store.ListTriggers(ctx, rec.Owner); err != nil || countLive(mine) >= h.Limits().MaxPerUser {
 			return UndoFull
 		}
 		return ""
@@ -706,7 +716,7 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	if block := h.changeUndoBlock(ctx, rec, live, lerr == nil); block != "" {
 		if block == UndoFull {
-			return triggers.Trigger{}, ErrTooManyTriggers
+			return triggers.Trigger{}, h.errTooMany()
 		}
 		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, changeUndoText[block])
 	}

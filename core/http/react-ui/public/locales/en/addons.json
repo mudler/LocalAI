@@ -68,7 +68,7 @@
       "paused": "Add-on pages and tools are paused until it is back."
     },
     "busy": {
-      "upgrading": "The add-on server is busy (upgrading {{names}})",
+      "upgrading": "The add-on server is busy (updating {{names}})",
       "generic": "The add-on server is busy",
       "unreachable": "The add-on server cannot be reached",
       "reason": "Showing the last known state. This page asks again by itself.",
@@ -489,7 +489,7 @@
     },
     "state": {
       "ready": "Ready",
-      "upgrading": "Upgrading",
+      "upgrading": "Updating",
       "restoring": "Restoring",
       "needs-recovery": "Needs recovery",
       "purging": "Purging"
@@ -593,58 +593,56 @@
     "installed": "Installed",
     "candidate": "Available",
     "reasons": "Why it does not fit",
-    "upgrade": "Upgrade",
+    "upgrade": "Update",
     "confirm": {
-      "title": "Upgrade {{name}} to {{version}}?",
+      "title": "Update {{name}} to {{version}}?",
       "body": "The add-on stops while its data is backed up and migrated, then the new version starts. If the new version does not start, the current version keeps running.",
       "data": "Its data is backed up before anything changes.",
-      "action": "Upgrade",
+      "action": "Update",
       "library": "Library",
       "channel": "Channel",
       "from": "From",
       "to": "To"
     },
-    "progress": "Upgrading {{name}}. Its data is backed up first.",
-    "done": "Upgraded to version {{version}}.",
-    "browseUpdate": "Update {{version}} is available. Manage it in Installed.",
+    "progress": "Updating {{name}}. Its data is backed up first.",
+    "done": "Updated to version {{version}}.",
     "errors": {
       "stale_installed": "The installed version changed since it was checked. Check for updates again.",
       "candidate_changed": "The library no longer offers the version you checked. Check for updates again.",
-      "upgrade_conflict": "This upgrade is already recorded under another operation. It was not applied twice.",
+      "upgrade_conflict": "This update is already recorded under another operation. It was not applied twice.",
       "incompatible": "The new version is not compatible with this host. Nothing was changed.",
       "integrity_error": "The library lists the installed version with different contents. Nothing was changed.",
-      "upgrade_failed": "The upgrade did not complete and the installed version is kept. You can try again.",
+      "upgrade_failed": "The update did not complete and the installed version is kept. You can try again.",
       "operation_conflict": "The operation does not fit the current state. Nothing was applied.",
-      "check_failed": "The library could not be read, so the upgrade was not started. Nothing was changed.",
-      "unknownOutcome": "The result of the upgrade is not known. Read its status again; do not start another.",
+      "check_failed": "The library could not be read, so the update was not started. Nothing was changed.",
+      "unknownOutcome": "The result of the update is not known. Read its status again; do not start another.",
       "auth": "Sign in again to continue.",
       "denied": "Only an administrator can do this from their own browser session.",
       "network": "The network is not reachable.",
       "unavailable": "The add-on service is not available. Try again."
     },
-    "upgradeNamed": "Upgrade {{name}}",
+    "upgradeNamed": "Update {{name}}",
     "why": {
-      "role": "An update is available. Only an administrator can upgrade it.",
+      "role": "An update is available. Only an administrator can update it.",
       "needs-check": "An update is reported, but its details are not confirmed yet. Check again to confirm it.",
       "check-failed": "The last check failed, so the update cannot be confirmed. Check again.",
       "incompatible": "An update exists but cannot run here:",
       "integrity": "The library lists this version with different contents. It is not offered as an update.",
-      "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then upgrade.",
+      "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then update.",
       "current": "The latest check found no update. The notice may be out of date. Check again.",
-      "unpinned": "The library reports an update but names no build to install, so it cannot be upgraded from here. Check again later."
+      "unpinned": "The library reports an update but names no build to install, so it cannot be updated from here. Check again later."
     },
     "checkAll": "Check for updates",
     "notCheckedYet": "Updates have not been checked yet.",
     "checkingAll": "Checking...",
-    "checkAllDone": "Checked {{count}} add-ons.",
-    "checkAllFailed": "{{count}} could not be checked.",
     "checkResult": {
       "done": "Checked.",
       "failed": "The check did not complete.",
       "justNow": "Checked just now."
     },
-    "waitingService": "The add-on service is starting. LocalAI asks about the upgrade again in {{seconds}} s.",
-    "checkAgain": "Check now"
+    "waitingService": "The add-on service is starting. LocalAI asks about the update again in {{seconds}} s.",
+    "checkAgain": "Check now",
+    "open": "Open Updates"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -784,9 +782,9 @@
   "hostAccess": {
     "addonsTitle": "Add-ons",
     "approve": {
-      "action": "Approve and upgrade",
+      "action": "Approve and update",
       "body": "Version {{current}} of {{name}} keeps running. If you approve, the new version can run these actions. New ones are marked.",
-      "done": "{{name}} was upgraded.",
+      "done": "{{name}} was updated.",
       "title": "Approve host access for {{name}} {{version}}"
     },
     "asksNothing": "This add-on asks for no host access.",
@@ -890,7 +888,7 @@
     "lockedNoAuth": "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file.",
     "newOptional": "The new version also asks for {{ops}}. These are optional and not allowed.",
     "noLongerRequested": "This version no longer asks for it. You can turn it off.",
-    "notOfficial": "This add-on comes from {{library}}, not the official library.",
+    "notOfficialWarning": "This add-on comes from {{library}}, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.",
     "op": {
       "alreadyAllowed": "Already allowed",
       "blocked": "Blocked by the administrator policy",
@@ -926,6 +924,56 @@
       "reviewNamed": "Review and approve the host access of {{name}}",
       "title": "{{name}} {{version}} waits for your approval"
     }
+  },
+  "oauthClient": {
+    "title": "Account login",
+    "intro": "People connect this add-on to their own account at a service. Register the callback address below with the service, enter the client it gives you, and approve the login. Nobody can connect before that.",
+    "status": {
+      "unconfigured": "Not approved yet. Nobody can connect.",
+      "changed": "The login of this add-on changed since it was approved. Nobody can connect or renew a login until you approve it again.",
+      "approved": "Approved on {{when}}.",
+      "approvedBy": "Approved by {{who}} on {{when}}."
+    },
+    "sentTo": "People sign in at",
+    "hosts": "Allowed hosts",
+    "required": "Always requested",
+    "optional": "People may add",
+    "none": "None",
+    "tokens": "Tokens come from",
+    "revoke": "Disconnect revokes at",
+    "noRevoke": "No address: a disconnect only forgets the login here",
+    "clientAuth": "Client authentication",
+    "auth": {
+      "basic": "Client ID and secret, sent in the request header",
+      "post": "Client ID and secret, sent in the request body",
+      "none": "No secret (a public client)",
+      "other": "Other"
+    },
+    "params": "Extra sign-in parameters",
+    "callback": "Callback address",
+    "callbackHint": "Register this address with the service as the redirect address of the client.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "baseUrlRequired": "This server does not know its public address, so there is no callback address and nobody can connect. Set the external base URL of the server, then reload this page.",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "secretHint": "Write-only: it is stored sealed and never shown again.",
+    "secretSaved": "A secret is saved. Leave the field empty to keep it.",
+    "secretKeepPlaceholder": "Saved (hidden)",
+    "noSecret": "This login uses no client secret.",
+    "approve": "Approve and save",
+    "saved": "Saved. The login is approved.",
+    "stale": "The login of this add-on changed while you reviewed it. Nothing was saved.",
+    "refresh": "Show the new login",
+    "loadFailed": "The login of this add-on could not be read",
+    "errors": {
+      "unavailable": "The add-on could not be reached. Try again later.",
+      "needsApproval": "The add-on is not approved.",
+      "baseUrlRequired": "This server does not know its public address. Set the external base URL of the server.",
+      "approvalStale": "The login of this add-on changed. Show the new login.",
+      "save": "The client could not be saved."
+    },
+    "unknownLibrary": "an unknown library"
   },
   "file": {
     "button": "Install from file",
@@ -968,7 +1016,7 @@
   "operation": {
     "kind": {
       "install": "Installing…",
-      "upgrade": "Upgrading…",
+      "upgrade": "Updating…",
       "uninstall": "Removing…",
       "enable": "Starting…",
       "disable": "Stopping…",

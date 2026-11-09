@@ -546,7 +546,8 @@
     "moveMany_other": "将 {{count}} 项移动到…",
     "deleteMany_one": "将 {{count}} 项移到回收站",
     "deleteMany_other": "将 {{count}} 项移到回收站",
-    "share": "共享…"
+    "share": "共享…",
+    "extract": "在此处解压"
   },
   "keys": {
     "delete": "Del"
@@ -570,7 +571,14 @@
     "movedOne": "已将 {{name}} 移动到 {{folder}}。",
     "moved_one": "已将 {{count}} 项移动到 {{folder}}。",
     "moved_other": "已将 {{count}} 项移动到 {{folder}}。",
-    "moveUndone": "已移回原位置。"
+    "moveUndone": "已移回原位置。",
+    "extractSkipped_one": "已跳过 {{count}} 个条目（链接、设备或无效名称）。",
+    "extractSkipped_other": "已跳过 {{count}} 个条目（链接、设备或无效名称）。",
+    "extractConflicts_one": "有 {{count}} 个名称已被占用：新文件将保存为副本。",
+    "extractConflicts_other": "有 {{count}} 个名称已被占用：新文件将保存为副本。",
+    "extractUndone": "已撤销解压。",
+    "extracted_one": "已将 {{count}} 个文件解压到 {{folder}}。",
+    "extracted_other": "已将 {{count}} 个文件解压到 {{folder}}。"
   },
   "search": {
     "placeholder": "筛选此文件夹",

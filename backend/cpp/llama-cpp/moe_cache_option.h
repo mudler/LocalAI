@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -27,6 +29,26 @@ inline std::optional<size_t> parse_moe_cache_bytes(const std::string & value) {
             return std::nullopt;
         }
         return static_cast<size_t>(mib) * static_cast<size_t>(MIB);
+    } catch (const std::exception &) {
+        return std::nullopt;
+    }
+}
+
+// parse_moe_cache_cpu_share converts the value of the moe_cache_cpu_share model
+// option to the float that common_params::moe_cache_cpu_share expects. Only a
+// finite number from 0 to 1 inclusive is accepted. It returns std::nullopt for
+// anything else, so the caller can log and keep the default (0).
+inline std::optional<float> parse_moe_cache_cpu_share(const std::string & value) {
+    if (value.empty() || std::isspace(static_cast<unsigned char>(value[0]))) {
+        return std::nullopt;
+    }
+    try {
+        size_t used = 0;
+        const float share = std::stof(value, &used);
+        if (used != value.size() || !std::isfinite(share) || share < 0.0f || share > 1.0f) {
+            return std::nullopt;
+        }
+        return share;
     } catch (const std::exception &) {
         return std::nullopt;
     }

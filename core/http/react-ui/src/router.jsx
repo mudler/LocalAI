@@ -109,6 +109,8 @@ const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 // eslint-disable-next-line no-unused-vars
 const OperateOverview = page('operate', () => import('./pages/OperateOverview'))
 const Backends = page('backends', () => import('./pages/Backends'))
+const Updates = page('updates', () => import('./pages/Updates'))
+const UpdateBackend = page('update-backend', () => import('./pages/UpdateBackend'))
 // Only referenced from JSX below, which eslint cannot see without
 // eslint-plugin-react. Suppressed here rather than left to widen the file's
 // warning count; the surrounding page consts predate the lint baseline.
@@ -243,6 +245,15 @@ function ServerSwitch({ name, to, children }) {
   return children
 }
 
+// The Connections item opens the connectors page. A person who holds chats but
+// not connectors has the MCP servers tab only, so the address leads there.
+function ConnectionsEntry() {
+  const { hasFeature, loading } = useAuth()
+  if (loading) return null
+  if (!hasFeature('connectors') && hasFeature('chats')) return <Navigate to="/app/mcp-connectors" replace />
+  return <Feature feature="connectors"><ChatConnectors /></Feature>
+}
+
 function Feature({ feature, disabled, children }) {
   return <RequireFeature feature={feature} disabled={disabled}>{children}</RequireFeature>
 }
@@ -254,7 +265,7 @@ const appChildren = [
   { path: 'chats/agents', element: <ChatsRedirect /> },
   { path: 'chats/skills', element: <ChatsRedirect /> },
   { path: 'chats/triggers', element: <ChatsRedirect /> },
-  { path: 'chats/connectors', element: <Feature feature="connectors"><ChatConnectors /></Feature> },
+  { path: 'chats/connectors', element: <ConnectionsEntry /> },
   { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
   { path: 'chats/proposals', element: <Feature feature="chats"><Proposals /></Feature> },
   // One route for a new chat and an open one, so the page stays mounted when a
@@ -314,6 +325,8 @@ const appChildren = [
       { path: 'operate', element: <Admin><OperateOverview /></Admin> },
       { path: 'backends', element: <Admin><Backends /></Admin> },
       { path: 'activity', element: <Admin><Activity /></Admin> },
+      { path: 'updates', element: <Admin><Updates /></Admin> },
+      { path: 'updates/backend/:name', element: <Admin><UpdateBackend /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traffic', element: <Admin><TrafficOverview /></Admin> },
       { path: 'traffic/models', element: <Admin><TrafficModels /></Admin> },

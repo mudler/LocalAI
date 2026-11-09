@@ -546,7 +546,8 @@
     "moveMany_other": "항목 {{count}}개 이동…",
     "deleteMany_one": "항목 {{count}}개를 휴지통으로 이동",
     "deleteMany_other": "항목 {{count}}개를 휴지통으로 이동",
-    "share": "공유…"
+    "share": "공유…",
+    "extract": "여기에 압축 풀기"
   },
   "keys": {
     "delete": "Del"
@@ -570,7 +571,14 @@
     "movedOne": "{{name}}을(를) {{folder}}(으)로 이동했습니다.",
     "moved_one": "항목 {{count}}개를 {{folder}}(으)로 이동했습니다.",
     "moved_other": "항목 {{count}}개를 {{folder}}(으)로 이동했습니다.",
-    "moveUndone": "원래 위치로 되돌렸습니다."
+    "moveUndone": "원래 위치로 되돌렸습니다.",
+    "extractSkipped_one": "항목 {{count}}개를 건너뛰었습니다(링크, 장치 또는 잘못된 이름).",
+    "extractSkipped_other": "항목 {{count}}개를 건너뛰었습니다(링크, 장치 또는 잘못된 이름).",
+    "extractConflicts_one": "이름 {{count}}개가 이미 사용 중이어서 새 파일을 사본으로 저장했습니다.",
+    "extractConflicts_other": "이름 {{count}}개가 이미 사용 중이어서 새 파일을 사본으로 저장했습니다.",
+    "extractUndone": "압축 풀기를 취소했습니다.",
+    "extracted_one": "파일 {{count}}개를 {{folder}}에 압축 해제했습니다.",
+    "extracted_other": "파일 {{count}}개를 {{folder}}에 압축 해제했습니다."
   },
   "search": {
     "placeholder": "이 폴더에서 필터링",

@@ -48,8 +48,12 @@ const (
 	MaxQuiet        = 24 * time.Hour
 	DefaultDailyCap = 24
 	MaxDailyCap     = 1000
-	MaxNameLen      = 80
-	MaxPromptBytes  = 8000
+	// MinRunLimit and MaxRunLimit bound a trigger's RunLimit. They are the
+	// bounds of the administrator's run limit too.
+	MinRunLimit    = time.Minute
+	MaxRunLimit    = 24 * time.Hour
+	MaxNameLen     = 80
+	MaxPromptBytes = 8000
 	// MaxRefLen is the longest AgentID, Model or SourceChatID, in characters.
 	MaxRefLen = 200
 	// ReasonLen is the longest Reason, in characters.
@@ -95,6 +99,9 @@ type Trigger struct {
 	// DefaultDailyCap). A day is a day of TZ; a file trigger
 	// without TZ uses the location of the Runner's clock.
 	DailyCap int
+	// RunLimit is the longest one run may take. Zero means the administrator's
+	// run limit, which is also the ceiling: see EffectiveRunLimit.
+	RunLimit time.Duration
 	// AgentID is the saved agent whose tools and instructions the runs get. Empty:
 	// the runs use the tool set of SourceChatID's chat as it was when the trigger
 	// was made (see Model), or the default one.
@@ -366,6 +373,16 @@ func (t Trigger) CapOrDefault() int {
 	return t.DailyCap
 }
 
+// EffectiveRunLimit is the time one run of the trigger may take: RunLimit, but
+// never more than ceiling, the administrator's limit that applies now. A zero
+// RunLimit gives ceiling.
+func (t Trigger) EffectiveRunLimit(ceiling time.Duration) time.Duration {
+	if t.RunLimit <= 0 || (ceiling > 0 && t.RunLimit > ceiling) {
+		return ceiling
+	}
+	return t.RunLimit
+}
+
 // Location loads the time zone of a schedule trigger. An empty TZ is UTC.
 func (t Trigger) Location() (*time.Location, error) {
 	if t.TZ == "" {
@@ -407,6 +424,8 @@ func (t Trigger) Validate() error {
 		return fmt.Errorf("source chat can have at most %d characters", MaxRefLen)
 	case t.DailyCap < 0 || t.DailyCap > MaxDailyCap:
 		return fmt.Errorf("daily limit must be 0 to %d", MaxDailyCap)
+	case t.RunLimit != 0 && (t.RunLimit < MinRunLimit || t.RunLimit > MaxRunLimit):
+		return fmt.Errorf("time limit must be empty or %s to %s", ShortDuration(MinRunLimit), ShortDuration(MaxRunLimit))
 	case t.MinGap < 0 || t.MinGap > MaxFileGap:
 		return fmt.Errorf("the time between runs must be 0 to %s", MaxFileGap)
 	case hasControl(t.Reads, false) || utf8.RuneCountInString(t.Reads) > MaxPlanText:
@@ -533,3 +552,15 @@ func CutReason(s string) string {
 type SkipError struct{ Reason string }
 
 func (e *SkipError) Error() string { return e.Reason }
+
+// ShortDuration writes a duration the short way: 15m, not 15m0s.
+func ShortDuration(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = strings.TrimSuffix(s, "0s")
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = strings.TrimSuffix(s, "0m")
+	}
+	return s
+}

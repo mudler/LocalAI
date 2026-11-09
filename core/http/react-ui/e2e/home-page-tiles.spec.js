@@ -75,6 +75,16 @@ const tiles = [
 const tile = (page, id) => page.getByTestId(`home-widget-${id}`)
 const tileFrame = (page, id) => tile(page, id).frameLocator('[data-testid="page-frame"]')
 
+// A tile builds its frame only once it is in view, and how much of Home fits
+// above the fold depends on the fonts and the window: the clock tile starts a
+// few pixels inside the screen on one machine and outside it on another. A test
+// that reads the frame of a tile brings the tile into view first, as a person
+// would.
+async function clockFrame(page) {
+  await tile(page, 'clock').scrollIntoViewIfNeeded()
+  return tileFrame(page, 'clock')
+}
+
 async function home(page, theme = 'light') {
   await page.route('**/api/chats/triggers*', (r) => r.fulfill({ json: { triggers: [] } }))
   await page.addInitScript((t) => { try { localStorage.setItem('localai-theme', t) } catch { /* private mode */ } }, theme)
@@ -108,7 +118,7 @@ test('a page tile runs the page in its compact mode, at its size', async ({ page
   await expect(tile(page, 'news')).toHaveAttribute('data-size', 'large')
   await expect(tile(page, 'clock').locator('.wk-ptile__title')).toHaveText('Now')
   await expect(tile(page, 'news').locator('.wk-ptile__title')).toHaveText('News ticker')
-  const clock = tileFrame(page, 'clock')
+  const clock = await clockFrame(page)
   await expect(clock.locator('#mode')).toHaveText('widget small')
   await expect(clock.locator('html')).toHaveAttribute('data-mode', 'widget')
   await expect(clock.locator('.compact')).toBeVisible()
@@ -140,7 +150,7 @@ test('a page tile runs the page in its compact mode, at its size', async ({ page
 
 test('the refresh button builds the frame again and the tile stays in place', async ({ page }) => {
   await home(page)
-  const clock = tileFrame(page, 'clock')
+  const clock = await clockFrame(page)
   await expect(clock.locator('#mode')).toHaveText('widget small')
   const before = await tile(page, 'clock').boundingBox()
   await tile(page, 'clock').getByTestId('page-tile-refresh').click()
@@ -152,7 +162,7 @@ test('the refresh button builds the frame again and the tile stays in place', as
 test('a link inside a tile asks first, in the tile', async ({ page, context }) => {
   await context.route('https://news.example.com/**', (r) => r.fulfill({ contentType: 'text/html', body: '<title>t</title><p>ok</p>' }))
   await home(page)
-  await tileFrame(page, 'clock').locator('#ext').click()
+  await (await clockFrame(page)).locator('#ext').click()
   const ask = tile(page, 'clock').getByTestId('page-link-ask')
   await expect(ask).toBeVisible()
   await expect(ask.getByTestId('page-link-host')).toHaveText('news.example.com')

@@ -62,16 +62,17 @@
       "remoteNote": "{{model}} é um serviço remoto: o que uma execução lê sai deste servidor.",
       "stopWidget": "Pause pelo widget ou exclua em Gatilhos",
       "stop": "Desligue ou exclua em Gatilhos",
-      "actsLabel": "Permissões"
+      "actsLabel": "Permissões",
+      "limitLabel": "Limite de tempo",
+      "limitClamped": "{{limit}}, reduzido a {{ceiling}} pelo administrador"
     }
   },
   "mcpPage": {
     "title": "Conectores MCP",
     "supporting": "Conecte servidores MCP para dar aos seus chats e agentes mais ferramentas, como busca ou suas próprias APIs.",
-    "family": "Bots para Telegram ou Slack são <go>conectores de mensagens</go>.",
     "related": "Relacionados",
     "chats": "Chats",
-    "add": "Adicionar conector",
+    "add": "Novo conector",
     "learn": "Como o MCP funciona",
     "loading": "Carregando seus conectores",
     "loadFailed": "Não foi possível carregar seus conectores.",
@@ -169,7 +170,7 @@
       "encrypted": "Salvo com criptografia no servidor. Nunca mais é exibido."
     },
     "sheet": {
-      "addTitle": "Adicionar conector",
+      "addTitle": "Novo conector",
       "editTitle": "Editar {{name}}",
       "addDesc": "Conecte um servidor MCP. Você o testa antes que os chats o usem.",
       "editDesc": "Os segredos salvos continuam, a menos que você os substitua ou remova.",
@@ -272,6 +273,77 @@
     "loadFailed": "Não foi possível carregar seus conectores.",
     "waitingTitle": "Aguardando o complemento",
     "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado.",
+    "oauth": {
+      "connected": "Conectado",
+      "connectedAs": "Conectado como {{account}}",
+      "access": "Acesso: {{scopes}}",
+      "expires": "Expira {{time}}",
+      "disconnect": "Desconectar",
+      "disconnecting": "Desconectando…",
+      "disconnectTitle": "Desconectar {{name}}?",
+      "disconnectText": "O LocalAI pede ao serviço que revogue este login e depois o esquece. As ferramentas que usam esta conexão param de funcionar até você conectar de novo.",
+      "disconnected": "{{name}} está desconectado. O serviço revogou o login.",
+      "disconnectedNotTold": "{{name}} está desconectado aqui, mas o serviço não confirmou que revogou o login. Remova o acesso também na sua conta do serviço.",
+      "notConnected": "Ainda não conectado.",
+      "connect": "Conectar",
+      "alsoAllow": "Permitir também:",
+      "reconnectTitle": "Conecte de novo.",
+      "reconnect": "Reconectar",
+      "reason": {
+        "revoked": "O serviço encerrou o login, ou o acesso foi revogado.",
+        "client_rejected": "O serviço não aceita mais o cliente deste servidor. Talvez um administrador precise atualizá-lo.",
+        "refused": "O serviço recusou renovar o login.",
+        "needs_approval": "O login deste add-on mudou e precisa ser aprovado de novo.",
+        "credential_rejected": "O serviço recusou o acesso, mesmo depois de uma renovação.",
+        "expired": "O login expirou e não pode ser renovado.",
+        "write_failed": "Não foi possível salvar o login renovado.",
+        "unreadable": "Não foi possível ler o login salvo.",
+        "unknown": "O login não funciona mais.",
+        "scopes_missing": "O serviço não concede mais todo o acesso de que este add-on precisa. Conecte de novo e permita.",
+        "endpoint_changed": "O add-on agora envia os logins para outro endereço do serviço, então este login não pode ser levado junto. Conecte de novo.",
+        "token_too_large": "O serviço renovou o login com um token de acesso maior do que o LocalAI consegue usar (4096 bytes)."
+      },
+      "approvalUser": "Um administrador precisa aprovar este add-on primeiro.",
+      "approvalUserChanged": "O login deste add-on mudou. Um administrador precisa aprová-lo de novo.",
+      "approvalAdmin": "Ninguém pode conectar até você aprovar o login deste add-on.",
+      "approvalAdminChanged": "O login deste add-on mudou desde a aprovação. Revise-o e aprove-o de novo.",
+      "review": "Revisar e aprovar",
+      "returned": {
+        "ok": "Conectado. A conexão já funciona.",
+        "denied": "Você recusou no serviço. Nada mudou.",
+        "error": {
+          "invalid_state": "Não foi possível concluir o login: ele expirou, ou outro login começou neste navegador. Conecte de novo.",
+          "provider_error": "O serviço informou um erro. Tente mais tarde.",
+          "exchange_failed": "O serviço não concluiu o login. Conecte de novo.",
+          "scopes_missing": "O serviço não concedeu todo o acesso de que este add-on precisa. Conecte de novo e permita.",
+          "unavailable": "Não foi possível acessar o add-on. Tente mais tarde.",
+          "unknown": "Não foi possível concluir o login. Conecte de novo.",
+          "token_too_large": "O serviço emitiu um token de acesso maior do que o LocalAI consegue usar (4096 bytes), então o login não foi salvo. Talvez um administrador precise mudar como o serviço emite tokens para este cliente."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Este servidor não conhece o próprio endereço público, então não pode enviar você ao serviço. Peça a um administrador que defina a URL base externa do servidor.",
+        "needsApproval": "Um administrador precisa aprovar este add-on primeiro.",
+        "approvalStale": "O login deste add-on mudou. Recarregue a página.",
+        "unavailable": "Não foi possível acessar o add-on. Tente mais tarde.",
+        "tooManyLogins": "Foram iniciados logins demais. Termine o da outra aba ou aguarde alguns minutos e tente de novo."
+      },
+      "add": {
+        "open": "Nova conexão",
+        "title": "Nova conexão com {{name}}",
+        "name": "Nome",
+        "hint": "Um nome que você reconheça, como Trabalho ou Pessoal. Depois de adicionar a conexão, selecione Conectar para entrar na sua conta.",
+        "cancel": "Cancelar",
+        "submit": "Adicionar",
+        "failed": "Não foi possível adicionar a conexão. Tente de novo.",
+        "added": "{{name}} foi adicionada. Selecione Conectar para entrar na sua conta.",
+        "empty": "Nenhuma conexão ainda. Adicione uma e depois conecte sua conta.",
+        "manage": "Editar conexões"
+      },
+      "login": {
+        "hint": "Um nome que você reconheça, como Trabalho ou Pessoal. Depois você vai ao serviço para entrar."
+      }
+    },
     "duplicate": {
       "text": "Este bot também está conectado como {{name}}. As duas conexões vão responder à mesma mensagem.",
       "turnOff": "Desativar esta",
@@ -296,7 +368,13 @@
       "text": "Outras pessoas deixam você usar estas conexões nos seus chats e agentes. Só o dono pode alterá-las.",
       "on": "Ouvindo",
       "off": "Desligada"
-    }
+    },
+    "title": "Conexões",
+    "introAccounts": "Contas que você conecta uma vez para que seus chats e agentes as usem como ferramentas. Cada conta vem de um complemento.",
+    "noAddonAccounts": "Nenhum complemento de contas está instalado.",
+    "noAddonAccountsHint": "Um complemento de contas conecta um serviço aos seus chats e agentes. Instale um pela galeria de complementos para adicionar uma conexão.",
+    "noAddonMessaging": "Nenhum complemento de mensagens está instalado.",
+    "noAddonMessagingHint": "Um complemento de mensagens leva as mensagens de uma plataforma de chat. Instale um pela galeria de complementos para adicionar um vínculo."
   },
   "tools": {
     "commands": {
@@ -420,11 +498,14 @@
       "sole": "É a sua única conexão, por isso ela é usada.",
       "choose": "Escolha pelo menos uma conexão para usar estas ferramentas",
       "none": "Ainda não há conexão",
-      "create": "Adicionar uma conexão",
+      "create": "Nova conexão",
       "byAgent": "O agente deste chat define as conexões. Altere no agente.",
       "agentLabel": "Conexões para os chats deste agente",
       "agentHelp": "Os chats deste agente só podem usar estas conexões e não podem alterá-las.",
-      "perChatHelp": "Nenhuma escolhida: cada chat escolhe a sua."
+      "perChatHelp": "Nenhuma escolhida: cada chat escolhe a sua.",
+      "reconnectNeeded": "Conecte de novo: {{names}}",
+      "ownerReconnectNeeded": "O proprietário precisa conectar de novo: {{names}}",
+      "reconnect": "Reconectar"
     },
     "optionNeeds": "Ative “{{name}}” para usar isto.",
     "connectionMissing": "{{name}} ainda não permite isto.",
@@ -627,7 +708,41 @@
     "arrivedMany_other": "{{count}} novas notificações",
     "proposalsWaiting_one": "{{count}} alteração aguarda você",
     "proposalsWaiting_other": "{{count}} alterações aguardam você",
-    "proposalsBody": "Um modelo propôs uma alteração. Nada é salvo até você responder."
+    "proposalsBody": "Um modelo propôs uma alteração. Nada é salvo até você responder.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} atualização de backend disponível",
+        "title_other": "{{count}} atualizações de backend disponíveis",
+        "more": "{{items}} e mais {{count}}"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Complementos"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} atualizado automaticamente",
+        "updated_other": "{{count}} atualizados automaticamente",
+        "failed_one": "{{count}} falhou",
+        "failed_other": "{{count}} falharam",
+        "held_one": "{{count}} aguarda aprovação",
+        "held_other": "{{count}} aguardam aprovação",
+        "bodyUpdated": "Atualizados: {{items}}.",
+        "bodyFailed": "Falharam: {{items}}.",
+        "bodyHeld": "Aguardando sua aprovação: {{items}}.",
+        "more": "{{items}} e mais {{count}}"
+      },
+      "checkFailed": {
+        "title": "A verificação de atualizações falhou",
+        "body": "Não foi possível verificar: {{sources}}. As duas últimas verificações automáticas falharam, então a lista pode estar sem atualizações.",
+        "source": {
+          "gallery": "galeria de backends",
+          "library": "biblioteca de backends",
+          "addons": "complementos"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Lendo a alteração do gatilho...",
@@ -669,7 +784,8 @@
       "acts": "O que uma execução pode fazer",
       "delivery": "Para onde vão as respostas",
       "agent": "Agente",
-      "model": "Modelo"
+      "model": "Modelo",
+      "run_limit": "Limite de tempo"
     },
     "receipt": {
       "update": "Alterado:",
@@ -1223,5 +1339,14 @@
   "subAgents": {
     "waiting": "Aguardando: {{what}}",
     "looping": "Em loop"
+  },
+  "connectionsTabs": {
+    "label": "Seções de conexões",
+    "accounts": "Contas",
+    "messaging": "Mensagens",
+    "mcp": "Servidores MCP"
+  },
+  "triggersPage": {
+    "runLimit": "Limite de tempo de uma execução"
   }
 }

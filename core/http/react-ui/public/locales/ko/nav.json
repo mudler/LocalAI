@@ -71,10 +71,11 @@
     "chats": "채팅 세션",
     "files": "파일",
     "triggers": "트리거",
-    "mcpConnectors": "MCP 커넥터",
+    "connections": "연결",
     "chatsAdmin": "모든 사용자의 채팅",
     "pages": "페이지",
-    "allChats": "모든 채팅"
+    "allChats": "모든 채팅",
+    "inbox": "알림"
   },
   "footer": {
     "github": "GitHub",
@@ -110,7 +111,8 @@
       "addons": "애드온을 설치하고 그것이 제공하는 앱을 엽니다.",
       "triggers": "일정에 따라 또는 파일이 도착하면 채팅을 자동으로 시작합니다."
     },
-    "operateSupporting": "이 서버에서 실행 중인 것, 사용 현황, 설정을 확인합니다."
+    "operateSupporting": "이 서버에서 실행 중인 것, 사용 현황, 설정을 확인합니다.",
+    "updates": "업데이트"
   },
   "pinnedPages": "고정된 페이지",
   "new": "새 기능",
@@ -119,5 +121,12 @@
   "untitledChat": "제목 없는 채팅",
   "chatRunning": "진행 중",
   "automatedWaiting": "확인을 기다리는 자동 채팅: {{count}}",
-  "automatedRunning": "실행 중인 자동 채팅: {{count}}"
+  "automatedRunning": "실행 중인 자동 채팅: {{count}}",
+  "inboxUnread_one": "알림, 읽지 않음 {{count}}개",
+  "inboxUnread_other": "알림, 읽지 않음 {{count}}개",
+  "inboxArrived": "새 알림: {{title}}",
+  "inboxArrivedMany_one": "새 알림 {{count}}개",
+  "inboxArrivedMany_other": "새 알림 {{count}}개",
+  "updatesBadge_one": "업데이트 {{count}}개 확인 필요",
+  "updatesBadge_other": "업데이트 {{count}}개 확인 필요"
 }

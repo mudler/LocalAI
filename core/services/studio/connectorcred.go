@@ -12,8 +12,14 @@ import (
 // CredentialGrant is the secret and the allowed resource a tool call of an
 // add-on gets from the binding that its caller selected.
 type CredentialGrant struct {
-	// Secret is the unsealed token of the binding.
+	// Secret is the unsealed token of the binding, or the access token of its
+	// OAuth login.
 	Secret string
+	// Scopes are the scopes of the OAuth login; empty for a token binding.
+	Scopes []string
+	// Version is the version of the OAuth grant the secret comes from, for
+	// RenewCredential; zero for a token binding, which cannot be renewed.
+	Version int64
 	// Resource is the list entry the call named, or the zero value for a call
 	// that named none.
 	Resource connectors.ResourceEntry
@@ -29,14 +35,17 @@ type CredentialGrant struct {
 
 // Connection is a binding that a chat can enable for the tools of an add-on.
 // Handle is the name the model uses for it (see ConnectionHandle); it is unique
-// among the connections of one list.
+// among the connections of one list. State is the state of the login of an
+// OAuth binding (OAuthConnected or OAuthReconnectNeeded) and empty for a token
+// binding.
 //
 // Shared marks a binding of another person shared with the user, and Owner is
-// the display name of that person.
+// the display name of that person. The State of a shared OAuth binding is the
+// state of the login of its owner, who alone can renew it.
 type Connection struct {
-	ID, Name, Handle string
-	Shared           bool
-	Owner            string
+	ID, Name, Handle, State string
+	Shared                  bool
+	Owner                   string
 }
 
 // How a chat came to use its connections (see ConnectionsOf).
@@ -72,27 +81,42 @@ func (cs ConnectionSet) IDs() []string {
 }
 
 // Connections lists the connections of the user for an add-on: the bindings of
-// that add-on that hold a token, oldest first, then the bindings of other
-// people shared with the user. The user's own keep their handles; a shared one
-// takes the next free handle.
+// that add-on that hold a credential, oldest first, then the bindings of other
+// people shared with the user. An OAuth binding counts once it has a login,
+// also one that needs a reconnect, so its calls get the reconnect_needed
+// refusal. The user's own keep their handles; a shared one takes the next free
+// handle.
 func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]Connection, error) {
 	mine, err := c.ownConnections(ctx, user, addonID)
 	if err != nil {
 		return nil, err
 	}
 	var theirs []connectors.Binding
+	states := map[string]string{}
 	shared := c.sharedWith(ctx, user)
 	for id := range shared {
 		b, err := c.o.Store.GetBinding(ctx, id)
-		if err != nil || b.Owner == principal(user) || b.AddonID != addonID || len(b.Token) == 0 {
+		if err != nil || b.Owner == principal(user) || b.AddonID != addonID {
 			continue
 		}
-		theirs = append(theirs, b)
+		st, ok, err := c.loginState(ctx, b)
+		if err != nil {
+			return nil, err
+		}
+		if b.UsesOAuth() && !ok {
+			// The owner has no login now. The connection stays listed, so a
+			// call through it is told that the owner must connect it again.
+			st, ok = OAuthReconnectNeeded, true
+		}
+		if ok {
+			theirs = append(theirs, b)
+			states[b.ID] = st
+		}
 	}
 	sortBindings(theirs)
 	out := slices.Clone(mine)
 	for _, b := range theirs {
-		out = append(out, Connection{ID: b.ID, Name: b.Name, Shared: true, Owner: shared[b.ID].OwnerName})
+		out = append(out, Connection{ID: b.ID, Name: b.Name, State: states[b.ID], Shared: true, Owner: shared[b.ID].OwnerName})
 	}
 	return assignHandles(out), nil
 }
@@ -104,17 +128,71 @@ func (c *Connectors) ownConnections(ctx context.Context, user, addonID string) (
 		return nil, err
 	}
 	var mine []connectors.Binding
+	states := map[string]string{}
 	for _, b := range all {
-		if b.AddonID == addonID && len(b.Token) > 0 {
+		if b.AddonID != addonID {
+			continue
+		}
+		st, ok, err := c.loginState(ctx, b)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
 			mine = append(mine, b)
+			states[b.ID] = st
 		}
 	}
 	sortBindings(mine)
 	out := make([]Connection, len(mine))
 	for i, b := range mine {
-		out[i] = Connection{ID: b.ID, Name: b.Name}
+		out[i] = Connection{ID: b.ID, Name: b.Name, State: states[b.ID]}
 	}
 	return assignHandles(out), nil
+}
+
+// loginState says whether the binding holds a credential that a connection may
+// stand for, and the state of its OAuth login ("" for a token binding). An
+// OAuth binding counts once it has a login that belongs to it, also one that
+// needs a reconnect or an approval.
+func (c *Connectors) loginState(ctx context.Context, b connectors.Binding) (string, bool, error) {
+	if !b.UsesOAuth() {
+		return "", b.HasTokenCredential(), nil
+	}
+	g, err := c.o.Store.GetGrant(ctx, b.ID)
+	if errors.Is(err, connectors.ErrNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	if !g.BelongsTo(b) {
+		return "", false, nil
+	}
+	switch g.State {
+	case connectors.GrantConnected:
+		return OAuthConnected, true, nil
+	case connectors.GrantNeedsApproval:
+		return OAuthNeedsApproval, true, nil
+	}
+	return OAuthReconnectNeeded, true, nil
+}
+
+// wildcardsOf says whether the kind of the binding allows owner/* and * in its
+// resource list.
+func (c *Connectors) wildcardsOf(ctx context.Context, b connectors.Binding) bool {
+	kind := c.kindOf(ctx, b)
+	return kind != nil && kind.WildcardResources
+}
+
+// forGrantee turns the end of an OAuth login into the answer for the person
+// who made the call. The owner of the binding is told to connect again, as
+// before. A person the binding is shared with cannot log in to the owner's
+// account: they are told that the owner must, and are offered no login.
+func (c *Connectors) forGrantee(user string, b connectors.Binding, err error) error {
+	if errors.Is(err, ErrReconnectNeeded) && b.Owner != principal(user) {
+		return ErrOwnerReconnectNeeded
+	}
+	return err
 }
 
 // sortBindings orders bindings oldest first.
@@ -225,11 +303,7 @@ func ownOnly(list []Connection) []Connection {
 // ConnectionName returns the display name of a binding of the user, or of a
 // binding shared with the user, or "".
 func (c *Connectors) ConnectionName(ctx context.Context, user, bindingID string) string {
-	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err == nil && b.Owner == principal(user) {
-		return b.Name
-	}
-	if b, _, ok := c.sharedBinding(ctx, user, bindingID); ok {
+	if b, err := c.bindingFor(ctx, user, bindingID); err == nil {
 		return b.Name
 	}
 	return ""
@@ -248,17 +322,21 @@ func (c *Connectors) SoleConnection(ctx context.Context, user, addonID string) (
 }
 
 // CredentialFor opens the token of the binding bindingID for a tool call of an
-// add-on. It uses only that binding, which must be the user's own for that
-// add-on and hold a token, and it holds the call to the resource list of that
-// binding. An empty bindingID is connectors.ErrNoConnection: the caller has
+// add-on, or, for an OAuth binding, the access token of its login, refreshed
+// when it ends soon. It uses only that binding, which must be the user's own
+// (or shared with the user) for that add-on and hold a credential, and it holds the call to the
+// resource list of that binding. An empty bindingID is connectors.ErrNoConnection: the caller has
 // no selected connection and the host does not pick one. The error is
 // connectors.ErrNoCredential when the binding is not usable and a
 // *connectors.NotAllowedError, listing this binding's resources, when the list
-// does not hold the key.
+// does not hold the key. An OAuth login that cannot be renewed is
+// ErrReconnectNeeded, or ErrOwnerReconnectNeeded for a user the binding is
+// shared with: the grantee never makes the login and never sees a token; one
+// that cannot be renewed now is
+// ErrCredentialUnavailable or a *contract.ErrRateLimited.
 func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID, key string) (CredentialGrant, error) {
-	return c.credentialFor(ctx, user, addonID, bindingID, func(b connectors.Binding) (connectors.ResourceEntry, error) {
-		kind := c.kindOf(ctx, b)
-		return connectors.EntryFor(b, key, kind != nil && kind.WildcardResources)
+	return c.credentialFor(ctx, user, addonID, bindingID, func(b connectors.Binding, usable bool) (connectors.ResourceEntry, error) {
+		return connectors.EntryUsable(b, usable, key, c.wildcardsOf(ctx, b))
 	})
 }
 
@@ -268,25 +346,31 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 // several is a *connectors.NotAllowedError that lists them, and the model
 // picks one.
 func (c *Connectors) DefaultCredentialFor(ctx context.Context, user, addonID, bindingID string) (CredentialGrant, error) {
-	return c.credentialFor(ctx, user, addonID, bindingID, connectors.OnlyEntry)
+	return c.credentialFor(ctx, user, addonID, bindingID, connectors.OnlyEntryUsable)
 }
 
-func (c *Connectors) credentialFor(ctx context.Context, user, addonID, bindingID string, pick func(connectors.Binding) (connectors.ResourceEntry, error)) (CredentialGrant, error) {
+func (c *Connectors) credentialFor(ctx context.Context, user, addonID, bindingID string, pick func(connectors.Binding, bool) (connectors.ResourceEntry, error)) (CredentialGrant, error) {
 	if bindingID == "" {
 		return CredentialGrant{}, connectors.ErrNoConnection
 	}
-	b, err := c.o.Store.GetBinding(ctx, bindingID)
-	if err == nil && b.Owner != principal(user) {
-		// Another person's binding is usable only while it is shared with the
-		// user; else it is the answer of a binding that does not exist.
-		if _, _, ok := c.sharedBinding(ctx, user, bindingID); !ok {
-			err = connectors.ErrNoCredential
-		}
-	}
+	// Another person's binding is usable only while it is shared with the
+	// user; else it is the answer of a binding that does not exist.
+	b, err := c.bindingFor(ctx, user, bindingID)
 	if err != nil || b.AddonID != addonID {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}
-	entry, err := pick(b)
+	usable := b.HasTokenCredential()
+	if b.UsesOAuth() {
+		if usable, err = c.hasGrant(ctx, b); err != nil {
+			return CredentialGrant{}, c.unavailable(b, causeStore)
+		}
+	}
+	if !usable && b.UsesOAuth() && b.Owner != principal(user) {
+		// The owner has no login now (never made, or disconnected): only the
+		// owner can make it.
+		return CredentialGrant{}, ErrOwnerReconnectNeeded
+	}
+	entry, err := pick(b, usable)
 	var notAllowed *connectors.NotAllowedError
 	if errors.As(err, &notAllowed) && b.Owner != principal(user) {
 		// The list of a binding is a setting of its owner. A grantee learns
@@ -296,18 +380,18 @@ func (c *Connectors) credentialFor(ctx context.Context, user, addonID, bindingID
 	if err != nil {
 		return CredentialGrant{}, err
 	}
-	secret, err := c.openToken(ctx, b)
+	acc, err := c.accessTokenFor(ctx, b)
 	if err != nil {
-		return CredentialGrant{}, err
+		return CredentialGrant{}, c.forGrantee(user, b, err)
 	}
 	// The option may have been switched off after the token was saved.
-	if c.guardedToken(ctx, b, secret) {
+	if c.guardedToken(ctx, b, acc.secret) {
 		return CredentialGrant{}, ErrTokenGuarded
 	}
 	// Which connection acted: the binding, the add-on and the resource key (a
 	// name from the person's own list, never the token).
 	c.log.Info("studio: connector credential audit", "binding", b.ID, "kind", b.Kind, "addon", b.AddonID, "resource", entry.Key, "shared", b.Owner != principal(user))
-	return CredentialGrant{Secret: secret, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name, Hold: c.holdFor(user, b)}, nil
+	return CredentialGrant{Secret: acc.secret, Scopes: acc.scopes, Version: acc.version, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name, Hold: c.holdFor(user, b)}, nil
 }
 
 // agentConnections describes the connections of a set that the agent selected,

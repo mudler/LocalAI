@@ -62,16 +62,17 @@
       "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
       "stopWidget": "在小组件中暂停，或在触发器中删除",
       "stop": "在触发器中关闭或删除",
-      "actsLabel": "权限"
+      "actsLabel": "权限",
+      "limitLabel": "时间限制",
+      "limitClamped": "{{limit}}，管理员限制为 {{ceiling}}"
     }
   },
   "mcpPage": {
     "title": "MCP 连接器",
     "supporting": "连接 MCP 服务器，为你的对话和智能体提供更多工具，例如搜索或你自己的 API。",
-    "family": "Telegram 或 Slack 机器人属于<go>消息连接器</go>。",
     "related": "相关",
     "chats": "对话",
-    "add": "添加连接器",
+    "add": "新建连接器",
     "learn": "MCP 如何工作",
     "loading": "正在加载你的连接器",
     "loadFailed": "无法加载你的连接器。",
@@ -169,7 +170,7 @@
       "encrypted": "在服务器上加密保存，不会再次显示。"
     },
     "sheet": {
-      "addTitle": "添加连接器",
+      "addTitle": "新建连接器",
       "editTitle": "编辑 {{name}}",
       "addDesc": "连接一个 MCP 服务器。在对话使用前先测试它。",
       "editDesc": "已保存的密钥会保留，除非你更换或移除它们。",
@@ -272,6 +273,77 @@
     "loadFailed": "无法加载你的连接器。",
     "waitingTitle": "等待对应的插件",
     "waitingText": "这些绑定会被保留，但要等对应插件安装并开启后才会运行。",
+    "oauth": {
+      "connected": "已连接",
+      "connectedAs": "已以 {{account}} 连接",
+      "access": "权限：{{scopes}}",
+      "expires": "到期：{{time}}",
+      "disconnect": "断开连接",
+      "disconnecting": "正在断开…",
+      "disconnectTitle": "断开 {{name}}？",
+      "disconnectText": "LocalAI 会请求服务撤销此登录，然后忘记它。在你重新连接之前，使用此连接的工具将停止工作。",
+      "disconnected": "{{name}} 已断开。服务已撤销登录。",
+      "disconnectedNotTold": "{{name}} 已在此处断开，但服务没有确认已撤销登录。请也在你的服务账户中移除此访问权限。",
+      "notConnected": "尚未连接。",
+      "connect": "连接",
+      "alsoAllow": "同时允许：",
+      "reconnectTitle": "请重新连接。",
+      "reconnect": "重新连接",
+      "reason": {
+        "revoked": "服务结束了登录，或访问权限已被撤销。",
+        "client_rejected": "服务不再接受此服务器的客户端。可能需要管理员更新它。",
+        "refused": "服务拒绝续期登录。",
+        "needs_approval": "此插件的登录已更改，需要重新批准。",
+        "credential_rejected": "即使续期之后，服务仍拒绝了访问。",
+        "expired": "登录已过期，无法续期。",
+        "write_failed": "无法保存续期后的登录。",
+        "unreadable": "无法读取已保存的登录。",
+        "unknown": "登录已不再有效。",
+        "scopes_missing": "服务不再授予此插件所需的全部权限。请重新连接并允许。",
+        "endpoint_changed": "该插件现在将登录发送到服务的另一个地址，因此此登录无法随之迁移。请重新连接。",
+        "token_too_large": "服务续期登录时签发的访问令牌超过了 LocalAI 可使用的大小（4096 字节）。"
+      },
+      "approvalUser": "必须先由管理员批准此插件。",
+      "approvalUserChanged": "此插件的登录已更改。必须由管理员重新批准。",
+      "approvalAdmin": "在你批准此插件的登录之前，任何人都无法连接。",
+      "approvalAdminChanged": "此插件的登录在批准后已更改。请检查并重新批准。",
+      "review": "检查并批准",
+      "returned": {
+        "ok": "已连接。此连接现在可以使用。",
+        "denied": "你在服务上拒绝了。没有任何更改。",
+        "error": {
+          "invalid_state": "无法完成登录：登录已过期，或此浏览器中开始了另一次登录。请重新连接。",
+          "provider_error": "服务报告了错误。请稍后再试。",
+          "exchange_failed": "服务没有完成登录。请重新连接。",
+          "scopes_missing": "服务没有授予此插件所需的全部权限。请重新连接并允许。",
+          "unavailable": "无法访问该插件。请稍后再试。",
+          "unknown": "无法完成登录。请重新连接。",
+          "token_too_large": "服务签发的访问令牌超过了 LocalAI 可使用的大小（4096 字节），因此未保存此登录。管理员可能需要更改服务为此客户端签发令牌的方式。"
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "此服务器不知道自己的公开地址，因此无法将你转到服务。请让管理员设置服务器的外部基础 URL。",
+        "needsApproval": "必须先由管理员批准此插件。",
+        "approvalStale": "此插件的登录已更改。请重新加载页面。",
+        "unavailable": "无法访问该插件。请稍后再试。",
+        "tooManyLogins": "启动的登录过多。请完成另一个标签页中的登录，或等待几分钟后重试。"
+      },
+      "add": {
+        "open": "新建连接",
+        "title": "新的 {{name}} 连接",
+        "name": "名称",
+        "hint": "一个便于识别的名称，例如“工作”或“个人”。添加连接后，选择“连接”登录你的账户。",
+        "cancel": "取消",
+        "submit": "添加",
+        "failed": "无法添加连接。请重试。",
+        "added": "已添加 {{name}}。选择“连接”登录你的账户。",
+        "empty": "还没有连接。请添加一个，然后连接你的账户。",
+        "manage": "编辑连接"
+      },
+      "login": {
+        "hint": "取一个你认得出的名字，例如“工作”或“个人”。接下来你会前往该服务登录。"
+      }
+    },
     "duplicate": {
       "text": "这个机器人也以 {{name}} 的名称连接。两个连接都会回复同一条消息。",
       "turnOff": "关闭这个连接",
@@ -296,7 +368,13 @@
       "text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
       "on": "监听中",
       "off": "已关闭"
-    }
+    },
+    "title": "连接",
+    "introAccounts": "只需连接一次，聊天和智能体就能把这些账号当作工具使用。每个账号都来自一个插件。",
+    "noAddonAccounts": "尚未安装账号插件。",
+    "noAddonAccountsHint": "账号插件把一个服务连接到你的聊天和智能体。从插件库安装一个，即可添加连接。",
+    "noAddonMessaging": "尚未安装消息插件。",
+    "noAddonMessagingHint": "消息插件负责传递聊天平台的消息。从插件库安装一个，即可添加绑定。"
   },
   "tools": {
     "commands": {
@@ -420,11 +498,14 @@
       "sole": "这是你唯一的连接，因此会使用它。",
       "choose": "至少选择一个连接以使用这些工具",
       "none": "还没有连接",
-      "create": "添加连接",
+      "create": "新建连接",
       "byAgent": "此聊天的智能体决定连接。请在智能体上更改。",
       "agentLabel": "此智能体的聊天可用的连接",
       "agentHelp": "此智能体的聊天只能使用这些连接，且不能更改。",
-      "perChatHelp": "未选择：每个聊天自行选择。"
+      "perChatHelp": "未选择：每个聊天自行选择。",
+      "reconnectNeeded": "需要重新连接：{{names}}",
+      "ownerReconnectNeeded": "需要所有者重新连接：{{names}}",
+      "reconnect": "重新连接"
     },
     "optionNeeds": "打开“{{name}}”才能使用此项。",
     "connectionMissing": "{{name}} 尚未允许此项。",
@@ -627,7 +708,41 @@
     "arrivedMany_other": "{{count}} 条新通知",
     "proposalsWaiting_one": "{{count}} 项更改等待你处理",
     "proposalsWaiting_other": "{{count}} 项更改等待你处理",
-    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。"
+    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。",
+    "codes": {
+      "digest": {
+        "title_one": "有 {{count}} 个后端更新可用",
+        "title_other": "有 {{count}} 个后端更新可用",
+        "more": "{{items}} 等另外 {{count}} 个"
+      },
+      "result": {
+        "family": {
+          "backends": "后端",
+          "addons": "附加组件"
+        },
+        "title": "{{family}}：{{parts}}",
+        "join": "，",
+        "updated_one": "{{count}} 个已自动更新",
+        "updated_other": "{{count}} 个已自动更新",
+        "failed_one": "{{count}} 个失败",
+        "failed_other": "{{count}} 个失败",
+        "held_one": "{{count}} 个等待批准",
+        "held_other": "{{count}} 个等待批准",
+        "bodyUpdated": "已更新：{{items}}。",
+        "bodyFailed": "失败：{{items}}。",
+        "bodyHeld": "等待你批准：{{items}}。",
+        "more": "{{items}} 等另外 {{count}} 个"
+      },
+      "checkFailed": {
+        "title": "更新检查失败",
+        "body": "无法检查：{{sources}}。最近两次自动检查都失败了，列表中可能缺少一些更新。",
+        "source": {
+          "gallery": "后端库",
+          "library": "后端资源库",
+          "addons": "附加组件"
+        }
+      }
+    }
   },
   "change": {
     "loading": "正在读取触发器更改...",
@@ -669,7 +784,8 @@
       "acts": "运行可以做的事",
       "delivery": "回复发送到哪里",
       "agent": "智能体",
-      "model": "模型"
+      "model": "模型",
+      "run_limit": "时间限制"
     },
     "receipt": {
       "update": "已更改：",
@@ -1223,5 +1339,14 @@
   "subAgents": {
     "waiting": "正在等待：{{what}}",
     "looping": "循环中"
+  },
+  "connectionsTabs": {
+    "label": "连接的分区",
+    "accounts": "账号",
+    "messaging": "消息",
+    "mcp": "MCP 服务器"
+  },
+  "triggersPage": {
+    "runLimit": "单次运行的时间限制"
   }
 }

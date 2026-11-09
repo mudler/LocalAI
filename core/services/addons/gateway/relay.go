@@ -118,8 +118,22 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		if instance.Generation != r.Generation {
 			return ErrForbidden
 		}
-		out, e = instance.Client.Read(ctx, contract.Envelope{Request: r, Authority: contract.Authority{Actor: a, Scope: "read", ExpiresAt: time.Now().Add(30 * time.Second)}})
-		return e
+		read := func(r contract.Request) error {
+			out, e = instance.Client.Read(ctx, contract.Envelope{Request: r, Authority: contract.Authority{Actor: a, Scope: "read", ExpiresAt: time.Now().Add(30 * time.Second)}})
+			return e
+		}
+		if grant.Version == 0 {
+			// A credential that cannot be renewed, such as a token the person
+			// gave, or none.
+			return read(r)
+		}
+		// The add-on may reject the token of an OAuth login; the host renews
+		// it here, on the owner, and only the final answer travels.
+		return WithRenewal(ctx, g.Credentials, a, r.AddonID, grant, func(cg CredentialGrant) error {
+			next := r
+			next.Credential, next.GrantedScopes = cg.Credential, cg.GrantedScopes
+			return read(next)
+		})
 	})
 	if err != nil || len(out.Outputs) == 0 {
 		return

@@ -62,16 +62,17 @@
       "remoteNote": "{{model}} adalah layanan jarak jauh: apa yang dibaca sebuah jalan meninggalkan server ini.",
       "stopWidget": "Jeda dari widget, atau hapus di Pemicu",
       "stop": "Matikan atau hapus di Pemicu",
-      "actsLabel": "Izin"
+      "actsLabel": "Izin",
+      "limitLabel": "Batas waktu",
+      "limitClamped": "{{limit}}, dibatasi menjadi {{ceiling}} oleh administrator"
     }
   },
   "mcpPage": {
     "title": "Konektor MCP",
     "supporting": "Hubungkan server MCP untuk memberi chat dan agen Anda lebih banyak alat, seperti pencarian atau API Anda sendiri.",
-    "family": "Bot untuk Telegram atau Slack adalah <go>konektor pesan</go>.",
     "related": "Terkait",
     "chats": "Chat",
-    "add": "Tambah konektor",
+    "add": "Konektor baru",
     "learn": "Cara kerja MCP",
     "loading": "Memuat konektor Anda",
     "loadFailed": "Tidak dapat memuat konektor Anda.",
@@ -169,7 +170,7 @@
       "encrypted": "Disimpan terenkripsi di server. Tidak pernah ditampilkan lagi."
     },
     "sheet": {
-      "addTitle": "Tambah konektor",
+      "addTitle": "Konektor baru",
       "editTitle": "Ubah {{name}}",
       "addDesc": "Hubungkan server MCP. Anda mengujinya sebelum chat memakainya.",
       "editDesc": "Rahasia yang tersimpan tetap ada kecuali Anda mengganti atau menghapusnya.",
@@ -272,6 +273,77 @@
     "loadFailed": "Konektor Anda tidak dapat dimuat.",
     "waitingTitle": "Menunggu add-on-nya",
     "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan.",
+    "oauth": {
+      "connected": "Terhubung",
+      "connectedAs": "Terhubung sebagai {{account}}",
+      "access": "Akses: {{scopes}}",
+      "expires": "Kedaluwarsa {{time}}",
+      "disconnect": "Putuskan",
+      "disconnecting": "Memutuskan…",
+      "disconnectTitle": "Putuskan {{name}}?",
+      "disconnectText": "LocalAI meminta layanan mencabut login ini, lalu melupakannya. Alat yang memakai koneksi ini berhenti bekerja sampai Anda terhubung lagi.",
+      "disconnected": "{{name}} sudah diputus. Layanan mencabut login.",
+      "disconnectedNotTold": "{{name}} sudah diputus di sini, tetapi layanan tidak mengonfirmasi bahwa login dicabut. Hapus juga akses di akun Anda pada layanan.",
+      "notConnected": "Belum terhubung.",
+      "connect": "Hubungkan",
+      "alsoAllow": "Izinkan juga:",
+      "reconnectTitle": "Hubungkan lagi.",
+      "reconnect": "Hubungkan ulang",
+      "reason": {
+        "revoked": "Layanan mengakhiri login, atau akses dicabut.",
+        "client_rejected": "Layanan tidak lagi menerima klien server ini. Administrator mungkin perlu memperbaruinya.",
+        "refused": "Layanan menolak memperbarui login.",
+        "needs_approval": "Login add-on ini berubah dan harus disetujui lagi.",
+        "credential_rejected": "Layanan menolak akses, bahkan setelah pembaruan.",
+        "expired": "Login kedaluwarsa dan tidak dapat diperbarui.",
+        "write_failed": "Login yang diperbarui tidak dapat disimpan.",
+        "unreadable": "Login yang tersimpan tidak dapat dibaca.",
+        "unknown": "Login tidak berfungsi lagi.",
+        "scopes_missing": "Layanan tidak lagi memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
+        "endpoint_changed": "Add-on ini sekarang mengirim login ke alamat lain dari layanan, jadi login ini tidak bisa ikut pindah. Hubungkan lagi.",
+        "token_too_large": "Layanan memperbarui login dengan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte)."
+      },
+      "approvalUser": "Administrator harus menyetujui add-on ini terlebih dahulu.",
+      "approvalUserChanged": "Login add-on ini berubah. Administrator harus menyetujuinya lagi.",
+      "approvalAdmin": "Tidak ada yang dapat terhubung sampai Anda menyetujui login add-on ini.",
+      "approvalAdminChanged": "Login add-on ini berubah sejak disetujui. Tinjau dan setujui lagi.",
+      "review": "Tinjau dan setujui",
+      "returned": {
+        "ok": "Terhubung. Koneksi sekarang berfungsi.",
+        "denied": "Anda menolak di layanan. Tidak ada yang berubah.",
+        "error": {
+          "invalid_state": "Login tidak dapat diselesaikan: login kedaluwarsa, atau login lain dimulai di peramban ini. Hubungkan lagi.",
+          "provider_error": "Layanan melaporkan kesalahan. Coba lagi nanti.",
+          "exchange_failed": "Layanan tidak menyelesaikan login. Hubungkan lagi.",
+          "scopes_missing": "Layanan tidak memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
+          "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+          "unknown": "Login tidak dapat diselesaikan. Hubungkan lagi.",
+          "token_too_large": "Layanan menerbitkan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte), jadi login tidak disimpan. Administrator mungkin perlu mengubah cara layanan menerbitkan token untuk klien ini."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Server ini tidak tahu alamat publiknya, jadi tidak dapat mengarahkan Anda ke layanan. Minta administrator mengatur URL dasar eksternal server.",
+        "needsApproval": "Administrator harus menyetujui add-on ini terlebih dahulu.",
+        "approvalStale": "Login add-on ini berubah. Muat ulang halaman.",
+        "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+        "tooManyLogins": "Terlalu banyak login yang dimulai. Selesaikan login di tab lain, atau tunggu beberapa menit lalu coba lagi."
+      },
+      "add": {
+        "open": "Koneksi baru",
+        "title": "Koneksi {{name}} baru",
+        "name": "Nama",
+        "hint": "Nama yang mudah Anda kenali, misalnya Kerja atau Pribadi. Setelah koneksi ditambahkan, pilih Hubungkan untuk masuk ke akun Anda.",
+        "cancel": "Batal",
+        "submit": "Tambah",
+        "failed": "Koneksi tidak dapat ditambahkan. Coba lagi.",
+        "added": "{{name}} ditambahkan. Pilih Hubungkan untuk masuk ke akun Anda.",
+        "empty": "Belum ada koneksi. Tambahkan satu, lalu hubungkan akun Anda.",
+        "manage": "Ubah koneksi"
+      },
+      "login": {
+        "hint": "Nama yang Anda kenali, seperti Kerja atau Pribadi. Setelah itu Anda menuju layanan untuk masuk."
+      }
+    },
     "duplicate": {
       "text": "Bot ini juga terhubung sebagai {{name}}. Kedua koneksi akan menjawab pesan yang sama.",
       "turnOff": "Matikan yang ini",
@@ -296,7 +368,13 @@
       "text": "Orang lain mengizinkan Anda memakai koneksi ini di obrolan dan agen Anda. Hanya pemiliknya yang dapat mengubahnya.",
       "on": "Mendengarkan",
       "off": "Mati"
-    }
+    },
+    "title": "Koneksi",
+    "introAccounts": "Akun yang Anda hubungkan sekali agar obrolan dan agen Anda dapat memakainya sebagai alat. Setiap akun berasal dari add-on.",
+    "noAddonAccounts": "Belum ada add-on akun yang terpasang.",
+    "noAddonAccountsHint": "Add-on akun menghubungkan sebuah layanan ke obrolan dan agen Anda. Pasang satu dari galeri add-on untuk menambahkan koneksi.",
+    "noAddonMessaging": "Belum ada add-on pesan yang terpasang.",
+    "noAddonMessagingHint": "Add-on pesan membawa pesan dari platform obrolan. Pasang satu dari galeri add-on untuk menambahkan tautan."
   },
   "tools": {
     "commands": {
@@ -420,11 +498,14 @@
       "sole": "Ini satu-satunya koneksi Anda, jadi dipakai.",
       "choose": "Pilih setidaknya satu koneksi untuk memakai alat ini",
       "none": "Belum ada koneksi",
-      "create": "Tambah koneksi",
+      "create": "Koneksi baru",
       "byAgent": "Agen chat ini menetapkan koneksi. Ubah di agen.",
       "agentLabel": "Koneksi untuk chat agen ini",
       "agentHelp": "Chat agen ini hanya boleh memakai koneksi ini dan tidak bisa mengubahnya.",
-      "perChatHelp": "Belum dipilih: setiap chat memilih sendiri."
+      "perChatHelp": "Belum dipilih: setiap chat memilih sendiri.",
+      "reconnectNeeded": "Hubungkan lagi: {{names}}",
+      "ownerReconnectNeeded": "Pemilik harus menghubungkan lagi: {{names}}",
+      "reconnect": "Hubungkan ulang"
     },
     "optionNeeds": "Aktifkan “{{name}}” untuk menggunakannya.",
     "connectionMissing": "{{name}} belum mengizinkan ini.",
@@ -627,7 +708,41 @@
     "arrivedMany_other": "{{count}} notifikasi baru",
     "proposalsWaiting_one": "{{count}} perubahan menunggu Anda",
     "proposalsWaiting_other": "{{count}} perubahan menunggu Anda",
-    "proposalsBody": "Model mengusulkan perubahan. Tidak ada yang disimpan sampai Anda menjawab."
+    "proposalsBody": "Model mengusulkan perubahan. Tidak ada yang disimpan sampai Anda menjawab.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} pembaruan backend tersedia",
+        "title_other": "{{count}} pembaruan backend tersedia",
+        "more": "{{items}} dan {{count}} lainnya"
+      },
+      "result": {
+        "family": {
+          "backends": "Backend",
+          "addons": "Add-on"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} diperbarui otomatis",
+        "updated_other": "{{count}} diperbarui otomatis",
+        "failed_one": "{{count}} gagal",
+        "failed_other": "{{count}} gagal",
+        "held_one": "{{count}} menunggu persetujuan",
+        "held_other": "{{count}} menunggu persetujuan",
+        "bodyUpdated": "Diperbarui: {{items}}.",
+        "bodyFailed": "Gagal: {{items}}.",
+        "bodyHeld": "Menunggu persetujuan Anda: {{items}}.",
+        "more": "{{items}} dan {{count}} lainnya"
+      },
+      "checkFailed": {
+        "title": "Pemeriksaan pembaruan gagal",
+        "body": "Tidak dapat memeriksa: {{sources}}. Dua pemeriksaan otomatis terakhir gagal, jadi daftar mungkin tidak memuat semua pembaruan.",
+        "source": {
+          "gallery": "galeri backend",
+          "library": "pustaka backend",
+          "addons": "add-on"
+        }
+      }
+    }
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",
@@ -669,7 +784,8 @@
       "acts": "Yang boleh dilakukan satu jalan",
       "delivery": "Ke mana jawaban dikirim",
       "agent": "Agen",
-      "model": "Model"
+      "model": "Model",
+      "run_limit": "Batas waktu"
     },
     "receipt": {
       "update": "Diubah:",
@@ -1223,5 +1339,14 @@
   "subAgents": {
     "waiting": "Menunggu: {{what}}",
     "looping": "Berulang"
+  },
+  "connectionsTabs": {
+    "label": "Bagian koneksi",
+    "accounts": "Akun",
+    "messaging": "Pesan",
+    "mcp": "Server MCP"
+  },
+  "triggersPage": {
+    "runLimit": "Batas waktu satu proses"
   }
 }

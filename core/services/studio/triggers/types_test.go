@@ -54,6 +54,9 @@ var _ = Describe("Trigger types", func() {
 			{"long prompt", func(t *Trigger) { t.Prompt = strings.Repeat("p", 8001) }, "prompt can have at most 8000 bytes"},
 			{"negative cap", func(t *Trigger) { t.DailyCap = -1 }, "daily limit must be 0 to 1000"},
 			{"big cap", func(t *Trigger) { t.DailyCap = 1001 }, "daily limit must be 0 to 1000"},
+			{"short time limit", func(t *Trigger) { t.RunLimit = 30 * time.Second }, "time limit must be empty or 1m to 24h"},
+			{"negative time limit", func(t *Trigger) { t.RunLimit = -time.Minute }, "time limit must be empty or"},
+			{"long time limit", func(t *Trigger) { t.RunLimit = 25 * time.Hour }, "time limit must be empty or"},
 			{"bad kind", func(t *Trigger) { t.Kind = "webhook" }, "kind must be"},
 			{"bad schedule", func(t *Trigger) { t.Schedule = "daily 25:00" }, "hour must be 0 to 23"},
 			{"bad zone", func(t *Trigger) { t.TZ = "Mars/Base" }, `time zone "Mars/Base" is not known`},
@@ -145,6 +148,18 @@ var _ = Describe("Trigger types", func() {
 		tr.Quiet, tr.DailyCap = time.Minute, 3
 		Expect(tr.QuietOrDefault()).To(Equal(time.Minute), "explicit values were replaced")
 		Expect(tr.CapOrDefault()).To(Equal(3), "explicit values were replaced")
+	})
+
+	It("gives the effective run limit as the least of the trigger and the ceiling", func() {
+		ceiling := 15 * time.Minute
+		var tr Trigger
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(ceiling), "zero takes the ceiling")
+		tr.RunLimit = 5 * time.Minute
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(5 * time.Minute))
+		tr.RunLimit = time.Hour
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(ceiling), "a lowered ceiling applies at once")
+		Expect(tr.EffectiveRunLimit(0)).To(Equal(time.Hour), "no ceiling leaves the value")
+		Expect(tr.EffectiveRunLimit(2 * time.Hour)).To(Equal(time.Hour))
 	})
 
 	It("arms a trigger", func() {

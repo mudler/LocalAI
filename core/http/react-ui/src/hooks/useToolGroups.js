@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { connectorRef } from '../utils/chatMCP'
 import { unknownTextKey } from '../utils/chatCommands'
 import { GRANT_SECTIONS, connectionsMissing, grantKey, placeGrants } from '../utils/toolOptions'
+import { reconnectConnections } from '../utils/connectorOAuth'
 
 // The groups of the Tools list, built from the lists of the switches
 // (useChatSwitches for a chat, useAgentTools for a saved agent). The Tools
@@ -154,8 +155,25 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     const sole = list.length === 1 && a.connection_by === 'only'
     // The agent form draws this choice in its Connections section.
     if (forAgent && switches.pickElsewhere) return {}
+    // A connection that logs in with OAuth and whose login ended: the row
+    // says which, and links to the Connectors page to connect it again.
+    const stale = reconnectConnections(a).filter((c) => forAgent || chosen.includes(c.id) || a.connection_state === 'reconnect_needed')
+    // The login of a connection that was shared with the person is its
+    // owner's: the row says that the owner must connect it again and offers
+    // no login to the person.
+    const mine = stale.filter((c) => !c.shared)
+    const theirs = stale.filter((c) => c.shared)
+    const staleNotes = [
+      mine.length ? tc('tools.connection.reconnectNeeded', { names: mine.map((c) => c.name).join(', ') }) : '',
+      theirs.length ? tc('tools.connection.ownerReconnectNeeded', { names: theirs.map((c) => c.name).join(', ') }) : '',
+    ].filter(Boolean)
+    const reconnect = stale.length ? { warn: true, note: staleNotes.join(' ') } : {}
+    const connectorsLink = (fallback) => (mine.length
+      ? { to: '/app/chats/connectors', label: tc('tools.connection.reconnect') }
+      : fallback)
     if (forAgent) {
       return {
+        ...reconnect,
         pick: {
           label: tc('tools.connection.agentLabel'),
           hint: none ? tc('tools.connection.none') : (chosen.length ? tc('tools.connection.agentHelp') : tc('tools.connection.perChatHelp')),
@@ -163,11 +181,12 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
           options,
           disabled: !switches.setConnections,
           onChange: (ids) => switches.setConnections?.(a.id, ids),
-          link: none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined,
+          link: connectorsLink(none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined),
         },
       }
     }
     return {
+      ...reconnect,
       usable: !a.needs_connection,
       reason: a.needs_connection ? (none ? tc('tools.connection.none') : tc('tools.connection.choose')) : undefined,
       pick: {
@@ -177,7 +196,7 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
         options,
         disabled: byAgent || sole || !switches.setConnections,
         onChange: (ids) => switches.setConnections?.(a.id, ids),
-        link: none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined,
+        link: connectorsLink(none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined),
       },
     }
   }
