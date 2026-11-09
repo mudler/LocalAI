@@ -1183,6 +1183,7 @@ var capabilityAliases = map[string]string{
 	"embedding": "embeddings", "embed": "embeddings",
 	"image_generation": "image", "images": "image",
 	"video_generation": "video",
+	"upscaling":        "upscale", "upscaler": "upscale", "image_upscale": "upscale", "image-upscale": "upscale", "super-resolution": "upscale",
 }
 
 // NormalizeCapability returns the capability name of the API for a word a
@@ -1247,4 +1248,60 @@ func (i *Inference) ListModels(ctx context.Context, req ListModelsRequest) (*Mod
 		}
 	}
 	return out, nil
+}
+
+// UpscaleImage enlarges an image with an upscaler model (POST
+// /v1/images/upscale). The route takes a multipart form and answers with the
+// URL of the new image, which is fetched and stored like any other result.
+func (i *Inference) UpscaleImage(ctx context.Context, req UpscaleImageRequest) (*ImageResult, error) {
+	spec := clientSpec(ToolUpscaleImage)
+	if req.Scale < 1 || req.Scale > maxUpscaleScale {
+		return nil, fmt.Errorf("scale must be an integer from 1 to %d", maxUpscaleScale)
+	}
+	img, err := i.readImage(ctx, req.Image, "image")
+	if err != nil {
+		return nil, err
+	}
+	model, err := i.pick(ctx, req.Model, spec)
+	if err != nil {
+		return nil, err
+	}
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	m := newMultipart()
+	m.field("model", model)
+	m.field("scale", strconv.Itoa(req.Scale))
+	if err := m.file("image", img, "image.png"); err != nil {
+		return nil, err
+	}
+	img.Data = nil
+	body, ct, err := m.finish()
+	if err != nil {
+		return nil, err
+	}
+	data, _, err := i.send(ctx, spec, model, spec.Route, ct, body)
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Data []struct {
+			URL     string `json:"url"`
+			B64JSON string `json:"b64_json"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil || len(out.Data) == 0 {
+		return nil, errors.New("the model returned no image")
+	}
+	raw, err := i.fetchResult(ctx, spec, model, out.Data[0].URL, out.Data[0].B64JSON)
+	if err != nil {
+		return nil, err
+	}
+	f, err := i.store(ctx, "upscaled", raw, "")
+	if err != nil {
+		return nil, err
+	}
+	return &ImageResult{Model: model, Images: []OutputFile{f}}, nil
 }

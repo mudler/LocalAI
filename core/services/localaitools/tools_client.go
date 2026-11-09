@@ -76,6 +76,11 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 			"Generate a sound effect or music from a description. Saves an audio file.",
 			client.GenerateSound)
 	}
+	if keep(ToolUpscaleImage) {
+		addClientTool(s, ToolUpscaleImage,
+			"Enlarge an image with an upscaler model. Saves a file.",
+			client.UpscaleImage)
+	}
 	if keep(ToolVoice) {
 		addActionTool(s, ToolVoice,
 			"Speaker recognition: verify two recordings, or identify a speaker.",
@@ -112,6 +117,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 // write a file or spend compute to make new content.
 var clientToolWrites = map[string]bool{
 	ToolGenerateImage: true, ToolSpeak: true, ToolEmbed: true, ToolGenerateVideo: true, ToolGenerateSound: true,
+	ToolUpscaleImage: true,
 }
 
 // clientToolFiles lists the client tools that read or write files, so they need
@@ -119,6 +125,7 @@ var clientToolWrites = map[string]bool{
 var clientToolFiles = map[string]bool{
 	ToolGenerateImage: true, ToolSpeak: true, ToolTranscribeAudio: true, ToolDescribeImage: true, ToolEmbed: true,
 	ToolDetect: true, ToolGenerateVideo: true, ToolGenerateSound: true, ToolVoice: true, ToolFace: true,
+	ToolUpscaleImage: true,
 }
 
 // generateImage serves generate_image: the inpainting route when the call

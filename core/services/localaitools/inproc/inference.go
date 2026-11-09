@@ -239,6 +239,10 @@ func (c *Client) GenerateSound(ctx context.Context, req localaitools.GenerateSou
 	return c.inference(ctx).GenerateSound(ctx, req)
 }
 
+func (c *Client) UpscaleImage(ctx context.Context, req localaitools.UpscaleImageRequest) (*localaitools.ImageResult, error) {
+	return c.inference(ctx).UpscaleImage(ctx, req)
+}
+
 func (c *Client) VerifyVoice(ctx context.Context, req localaitools.VoiceVerifyRequest) (*localaitools.VerifyResult, error) {
 	return c.inference(ctx).VerifyVoice(ctx, req)
 }

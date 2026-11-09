@@ -112,7 +112,9 @@ var _ = Describe("the localai skill", func() {
 	})
 
 	It("stays compact and in plain English", func() {
-		Expect(len(text)).To(BeNumerically("<=", 5900), "about 1,450 tokens; the skill loads on demand and lists the arguments the API takes")
+		// 5,900 to 6,100: the upscale_image line (about 200 bytes) and the
+		// capability names it adds to list_models.
+		Expect(len(text)).To(BeNumerically("<=", 6100), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
 		Expect(strings.Count(text, "—")).To(BeZero(), "no em dashes")
 	})
 })

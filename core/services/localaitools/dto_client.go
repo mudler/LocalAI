@@ -195,6 +195,13 @@ type VideoResult struct {
 	Video OutputFile `json:"video"`
 }
 
+// UpscaleImageRequest is the input for upscale_image.
+type UpscaleImageRequest struct {
+	Image string `json:"image"           jsonschema:"Image file."`
+	Scale int    `json:"scale"           jsonschema:"The model's factor, e.g. 4."`
+	Model string `json:"model,omitempty" jsonschema:"From list_models. Default: first."`
+}
+
 // GenerateSoundRequest is the input for generate_sound. The fields are those
 // of the sound-generation route, except the source audio, which the API
 // leaves out on purpose.

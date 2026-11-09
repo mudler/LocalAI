@@ -25,7 +25,7 @@ var _ = Describe("Client tool table", func() {
 	It("has an entry with a route, a feature and a model flag for every client tool", func() {
 		want := []string{
 			ToolGenerateImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
-			ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound,
+			ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound, ToolUpscaleImage,
 			ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels,
 		}
 		Expect(clientToolNames()).To(ConsistOf(want))
@@ -85,7 +85,7 @@ var _ = Describe("Client tool table", func() {
 		ctx, sess, done := connectInMemory(&fakeClient{}, Options{DisableMutating: true})
 		defer done()
 		names := listToolNames(ctx, sess)
-		for _, n := range []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound} {
+		for _, n := range []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound, ToolUpscaleImage} {
 			Expect(names).NotTo(ContainElement(n))
 		}
 		Expect(names).To(ContainElements(ToolTranscribeAudio, ToolDescribeImage, ToolRerank, ToolVoiceProfile, ToolListModels))

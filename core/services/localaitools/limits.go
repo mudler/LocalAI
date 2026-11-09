@@ -19,6 +19,7 @@ const (
 	maxSoundSeconds  = 600
 	maxFPS           = 60
 	maxTopK          = 50
+	maxUpscaleScale  = 16
 	maxRerankDocs    = 1000
 	maxVideoFrames   = 512 // frames of one reference video, as the video route
 	maxVideoRefs     = 16  // references of one kind, as the video route

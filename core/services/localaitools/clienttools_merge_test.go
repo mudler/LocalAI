@@ -48,7 +48,13 @@ import (
 // 8,900 to 9,250: detect takes points and boxes (segmentation prompts), and
 // voice and face take anti_spoofing for verify (about 340 bytes together).
 // All three are fields their routes read.
-const clientBudgetBytes = 9250
+//
+// 9,250 to 9,700: upscale_image (401 bytes). Upscaling is a separate route
+// and model use case with its own required scale; it shares no state with
+// generate_image, and a single-purpose tool stays cheaper than an action
+// enum on an image tool that most turns do not need. The tool search can
+// defer the whole group on a small context window.
+const clientBudgetBytes = 9700
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
