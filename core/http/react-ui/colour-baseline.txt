@@ -1,13 +1,1 @@
-colour src/App.css 2
-colour src/addons/shell.css 1
-colour src/components/RouterPoliciesEditor.jsx 1
-colour src/components/addons/addons.css 1
-colour src/components/audio/WaveformPlayer.jsx 1
-colour src/components/biometrics/EmbeddingInspector.jsx 2
-colour src/components/home/composer.css 2
-colour src/components/nodes/CapacityEditor.jsx 2
 colour src/components/wellknown/SchemaFields.jsx 2
-colour src/pages/agents.css 1
-colour src/pages/models-ledger.css 1
-colour src/theme.css 3
-colour src/utils/pagesBridge.js 10

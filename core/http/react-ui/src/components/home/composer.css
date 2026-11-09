@@ -214,7 +214,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--r-sm);
-  background: rgb(0 0 0 / .18);
+  background: rgb(var(--dk-shadow-tint) / .18);
 }
 .home-send-btn__glyph {
   width: 16px;
@@ -291,7 +291,7 @@
 .home-pick__remove:hover:not(:disabled) { background: var(--dk-hover); color: var(--dk-text); }
 .home-menu__tag { flex: none; padding: 0 6px; border-radius: var(--r-sm); background: var(--dk-hover); color: var(--dk-muted); font-size: var(--fs-meta); white-space: nowrap; }
 .home-menu__tag[data-kind="alias"] { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
-.home-menu__tag[data-kind="broken"] { color: var(--color-error, #c0392b); }
+.home-menu__tag[data-kind="broken"] { color: var(--color-error); }
 .home-menu__item[data-blocked="true"] { opacity: .55; cursor: not-allowed; }
 
 /* The drop state: files are dragged over the page. A dashed accent frame and a

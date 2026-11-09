@@ -72,8 +72,8 @@ export default function SchemaFields({ name, fields, values, onChange, notes = {
       case 'color':
         control = (
           <span className="wk-color">
-            <input type="color" className="wk-color__swatch" aria-label={label} value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#3f9a91'} disabled={disabled} onChange={e => onChange(f.key, e.target.value)} />
-            <input {...common} type="text" className="dk-input dk-mono" value={value} maxLength={7} placeholder="#3f9a91" onChange={e => onChange(f.key, e.target.value)} />
+            <input type="color" className="wk-color__swatch" aria-label={label} value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#4a5aa0'} disabled={disabled} onChange={e => onChange(f.key, e.target.value)} />
+            <input {...common} type="text" className="dk-input dk-mono" value={value} maxLength={7} placeholder="#4a5aa0" onChange={e => onChange(f.key, e.target.value)} />
           </span>
         )
         break
