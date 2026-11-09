@@ -173,8 +173,12 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         ldconfig \
     ; fi
 
-RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-    ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
+# ROCm 7.x and 10.x lay out /opt/rocm differently (10.x: /opt/rocm/core-<ver>/,
+# no /opt/rocm/llvm). The script links /usr/lib/libomp.so and /opt/rocm/llvm
+# for both layouts; see the comment at its top.
+RUN --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
+    if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        sh /usr/local/sbin/rocm-compat-links \
     ; fi
 
 # ROCm's bundled libdrm_amdgpu is built with a hardcoded fallback lookup path

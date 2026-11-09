@@ -421,6 +421,16 @@ export const SHARED_BUILD_INPUTS = [
     darwin: never,
   },
   {
+    // Bind-mounted into every hipblas build: the main, python, golang and
+    // audio-cpp Dockerfiles run it directly, and .docker/install-base-deps.sh
+    // runs it for the llama.cpp-family builders. It decides whether
+    // /opt/rocm/llvm/bin/clang++ exists on a ROCm 10.x base, so a change to it
+    // can break or fix the compile of every ROCm image, and of no other image.
+    matches: file => file === ".docker/rocm-compat-links.sh",
+    linux: item => item["build-type"] === "hipblas",
+    darwin: never,
+  },
+  {
     matches: file => file === "scripts/build/python-darwin.sh",
     linux: never,
     darwin: isDarwinPython,

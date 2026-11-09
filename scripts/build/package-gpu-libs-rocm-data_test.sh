@@ -53,5 +53,29 @@ if [ "$fail" = true ]; then
     exit 1
 fi
 
-echo "PASS: rocblas and hipblaslt tensile data were both bundled"
+# ROCm 10.x layout: the files live under /opt/rocm/core-<ver>/lib and
+# /opt/rocm/lib is a link to that directory, with per-arch subdirectories
+# under library/. The packager must follow the link and keep the subdirectory.
+FAKE_ROCM10="$WORK/opt10/rocm"
+mkdir -p "$FAKE_ROCM10/core-10.1/lib/rocblas/library/gfx1151"
+mkdir -p "$FAKE_ROCM10/core-10.1/lib/hipblaslt/library/gfx1151"
+echo "fake rocblas tensile" > "$FAKE_ROCM10/core-10.1/lib/rocblas/library/gfx1151/TensileLibrary_lazy_gfx1151.dat"
+echo "fake hipblaslt tensile" > "$FAKE_ROCM10/core-10.1/lib/hipblaslt/library/gfx1151/TensileLibrary_lazy_gfx1151.dat"
+ln -s core-10.1/lib "$FAKE_ROCM10/lib"
+
+TARGET10="$WORK/target10"
+mkdir -p "$TARGET10"
+TARGET_LIB_DIR="$TARGET10"
+export ROCM_BASE_DIRS="$FAKE_ROCM10"
+package_rocm_libs
+
+for lib in rocblas hipblaslt; do
+    if [ ! -f "$TARGET10/$lib/library/gfx1151/TensileLibrary_lazy_gfx1151.dat" ]; then
+        echo "FAIL: $lib tensile data was NOT bundled from a ROCm 10.x layout (/opt/rocm/lib -> core-10.1/lib)"
+        ls -R "$TARGET10" || true
+        exit 1
+    fi
+done
+
+echo "PASS: rocblas and hipblaslt tensile data were both bundled (ROCm 7.x and 10.x layouts)"
 exit 0
