@@ -115,6 +115,15 @@ func (s *Service) Resume(ctx context.Context, user, conv string) (SendResult, er
 	}
 	unlock := s.lock(key(p, conv))
 	defer unlock()
+	// A turn of this process that the store already counts as dead (its claim
+	// was reaped) may still be unwinding. Its end releases the chat by key, so a
+	// resume that started now would be ended by it: wait until it is gone.
+	s.mu.Lock()
+	_, local := s.runs[key(p, conv)]
+	s.mu.Unlock()
+	if local {
+		return SendResult{}, nil
+	}
 	info, err := s.d.Store.Turn(ctx, p, conv)
 	if err != nil {
 		return SendResult{}, err
