@@ -634,7 +634,7 @@ options:
   - spec_p_min:0.75
 ```
 
-Detection runs both at **import time** (the `/import-model` UI / `POST /models/import-uri` flow range-fetches the GGUF header and writes the options into the generated YAML before you save it) and at **load time** (every llama-cpp model start re-checks the local header and appends the options if `spec_type` isn't already set). To opt out, set an explicit `spec_type:` / `speculative_type:` in your YAML - auto-detection always preserves the user value, including `spec_type:none`.
+Detection runs both at **import time** (the import page (`/app/import-model`) / `POST /models/import-uri` flow range-fetches the GGUF header and writes the options into the generated YAML before you save it) and at **load time** (every llama-cpp model start re-checks the local header and appends the options if `spec_type` isn't already set). To opt out, set an explicit `spec_type:` / `speculative_type:` in your YAML - auto-detection always preserves the user value, including `spec_type:none`.
 
 **Two ways to load the MTP head:**
 
