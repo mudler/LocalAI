@@ -10,9 +10,12 @@ ARG CUDA_MAJOR_VERSION
 ARG CUDA_MINOR_VERSION
 ARG SKIP_DRIVERS=false
 # ROCm packages installed when BUILD_TYPE=hipblas. The default matches the
-# ROCm 7.x apt repository of the rocm/dev-ubuntu-24.04:7.x base images. ROCm
-# 10.x ships different package names (e.g. amdrocm-blas-dev10.1), so a build
-# on another ROCm release overrides this together with BASE_IMAGE.
+# ROCm 7.x apt repository of rocm/dev-ubuntu-24.04:7.2.1, which the Python
+# backends stay on while the rest of the hipblas builds use ROCm 10.1: their
+# GPU code comes from the ROCm PyTorch wheels in requirements-hipblas.txt
+# (download.pytorch.org/whl/rocm7.0), and PyTorch does not publish ROCm 10.1
+# wheels yet. A build on a ROCm 10.1 base sets BASE_IMAGE and
+# ROCM_PACKAGES="amdrocm-blas-dev10.1" together.
 ARG ROCM_PACKAGES="hipblas-dev hipblaslt-dev rocblas-dev"
 ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
 ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
