@@ -12,6 +12,7 @@ import (
 	_ "image/jpeg" //
 	_ "image/png"  //
 	"io"
+	"math"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -775,7 +776,49 @@ func (i *Inference) Rerank(ctx context.Context, req RerankRequest) (*RerankResul
 	return res, nil
 }
 
-// GenerateVideo makes a video from a prompt (POST /video).
+// videoMedia reads the media of one generate_video call and counts their
+// bytes, so the whole call stays under maxVideoInputs.
+type videoMedia struct {
+	i     *Inference
+	ctx   context.Context
+	total int64
+}
+
+// ref reads one file as a data URL, the form the video route stages.
+func (v *videoMedia) ref(ref, what string, audio bool) (string, error) {
+	var (
+		f   File
+		err error
+	)
+	if audio {
+		f, err = v.i.readAudio(v.ctx, ref, what)
+	} else {
+		f, err = v.i.readImage(v.ctx, ref, what)
+	}
+	if err != nil {
+		return "", err
+	}
+	if v.total += int64(len(f.Data)); v.total > maxVideoInputs {
+		return "", fmt.Errorf("%s: the media of this call weigh more than %d bytes together. Send fewer or smaller files", what, maxVideoInputs)
+	}
+	return dataURL(f), nil
+}
+
+func (v *videoMedia) list(refs []string, what string, audio bool) ([]string, error) {
+	out := make([]string, 0, len(refs))
+	for k, r := range refs {
+		u, err := v.ref(r, fmt.Sprintf("%s[%d]", what, k), audio)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, nil
+}
+
+// GenerateVideo makes a video from a prompt (POST /video). The route reads
+// width, height, num_frames, fps, seed, cfg_scale and step; it ignores the
+// size and seconds of the OpenAI video API, so they are converted here.
 func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest) (*VideoResult, error) {
 	spec := clientSpec(ToolGenerateVideo)
 	if strings.TrimSpace(req.Prompt) == "" {
@@ -784,35 +827,110 @@ func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest)
 	if err := checkVideoLength(req.Seconds, req.FPS); err != nil {
 		return nil, err
 	}
-	release, err := i.gate(ctx)
+	if err := checkSteps(req.Steps); err != nil {
+		return nil, err
+	}
+	width, height, err := videoGeometry(req.Size)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
-	body := map[string]any{"prompt": req.Prompt, "response_format": "b64_json"}
-	if req.StartImage != "" {
-		img, err := i.readImage(ctx, req.StartImage, "start_image")
-		if err != nil {
-			return nil, err
+	fps, frames := videoFrames(req.Seconds, req.FPS)
+	if req.Seed != nil && (*req.Seed < math.MinInt32 || *req.Seed > math.MaxInt32) {
+		return nil, errors.New("seed must fit in 32 bits")
+	}
+	if req.CFGScale != nil && (*req.CFGScale < 0 || *req.CFGScale > 100) {
+		return nil, errors.New("cfg_scale must be from 0 to 100")
+	}
+	if len(req.RefImages) > maxVideoRefs || len(req.RefVideos) > maxVideoRefs || len(req.RefAudios) > maxVideoRefs {
+		return nil, fmt.Errorf("at most %d ref_images, ref_videos and ref_audios each", maxVideoRefs)
+	}
+	if (len(req.RefImages)+len(req.RefVideos)+len(req.RefAudios) > 0) && (req.StartImage != "" || req.EndImage != "") {
+		// The schema of the route says so; the backends enforce it.
+		return nil, errors.New("ref_images, ref_videos and ref_audios cannot be used with start_image or end_image")
+	}
+	for k, rv := range req.RefVideos {
+		if len(rv.Frames) == 0 || len(rv.Frames) > maxVideoFrames {
+			return nil, fmt.Errorf("ref_videos[%d].frames: from 1 to %d images", k, maxVideoFrames)
 		}
-		body["start_image"] = dataURL(img)
+		if rv.FPS < 0 || rv.FPS > maxFPS {
+			return nil, fmt.Errorf("ref_videos[%d].fps must be from 1 to %d", k, maxFPS)
+		}
 	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
-	body["model"] = model
-	if req.Size != "" {
-		body["size"] = req.Size
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if req.Seconds != "" {
-		body["seconds"] = req.Seconds
+	defer release()
+	body := map[string]any{"model": model, "prompt": req.Prompt, "response_format": "b64_json"}
+	media := &videoMedia{i: i, ctx: ctx}
+	for _, one := range []struct {
+		field, ref string
+		audio      bool
+	}{{"start_image", req.StartImage, false}, {"end_image", req.EndImage, false}, {"audio", req.Audio, true}} {
+		if one.ref == "" {
+			continue
+		}
+		u, err := media.ref(one.ref, one.field, one.audio)
+		if err != nil {
+			return nil, err
+		}
+		body[one.field] = u
 	}
-	if req.FPS > 0 {
-		body["fps"] = req.FPS
+	if len(req.RefImages) > 0 {
+		if body["ref_images"], err = media.list(req.RefImages, "ref_images", false); err != nil {
+			return nil, err
+		}
+	}
+	if len(req.RefAudios) > 0 {
+		if body["ref_audios"], err = media.list(req.RefAudios, "ref_audios", true); err != nil {
+			return nil, err
+		}
+	}
+	if len(req.RefVideos) > 0 {
+		videos := make([]map[string]any, 0, len(req.RefVideos))
+		for k, rv := range req.RefVideos {
+			name := fmt.Sprintf("ref_videos[%d]", k)
+			fr, err := media.list(rv.Frames, name+".frames", false)
+			if err != nil {
+				return nil, err
+			}
+			entry := map[string]any{"frames": fr}
+			if rv.FPS > 0 {
+				entry["fps"] = rv.FPS
+			}
+			if rv.Audio != "" {
+				if entry["audio"], err = media.ref(rv.Audio, name+".audio", true); err != nil {
+					return nil, err
+				}
+			}
+			videos = append(videos, entry)
+		}
+		body["ref_videos"] = videos
+	}
+	if width > 0 {
+		body["width"], body["height"] = width, height
+	}
+	if frames > 0 {
+		body["num_frames"] = frames
+	}
+	if fps > 0 {
+		body["fps"] = fps
 	}
 	if req.NegativePrompt != "" {
 		body["negative_prompt"] = req.NegativePrompt
+	}
+	if req.Seed != nil {
+		body["seed"] = *req.Seed
+	}
+	if req.CFGScale != nil {
+		body["cfg_scale"] = *req.CFGScale
+	}
+	if req.Steps > 0 {
+		body["step"] = req.Steps
 	}
 	data, _, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {

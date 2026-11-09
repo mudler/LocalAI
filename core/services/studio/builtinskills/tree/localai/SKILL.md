@@ -19,7 +19,7 @@ A file argument is a reference: a path in the user's files, or the `ref` that an
 - `transcribe_audio`: a recording to text. Use the arguments the tool shows.
 - `describe_image`: describe an image or answer a question about it, including text in it. Use the arguments the tool shows.
 - `generate_sound` (`text`, `duration_seconds`, `lyrics`, `instrumental`, `model`): a sound effect or music from a description. There is no separate music tool. What you get depends on the installed model: a sound model may make effects only, a song model takes `lyrics`. Say so if the result is not what was asked.
-- `generate_video` (`prompt`, `size`, `seconds`, `fps`, `negative_prompt`, `start_image`, `model`): a short video, optionally from an image. It can take minutes.
+- `generate_video` (`prompt`, `size`, `seconds`, `fps`, `negative_prompt`, `start_image`, `end_image`, `audio`, `ref_images`, `ref_videos`, `ref_audios`, `seed`, `cfg_scale`, `steps`, `model`): a short video. It can take minutes. `seconds` uses `fps` (24 if unset). `start_image`/`end_image` fix the first or last frame; `audio` drives the video. References (`ref_images`, `ref_audios`, and `ref_videos`, each an object with frames (a list of image files), `fps` and `audio`) do not combine with `start_image` or `end_image`. What a model accepts depends on the model.
 - `embed` (`input`): vectors for texts, saved as a JSON file. Show the count and size, not the numbers.
 - `detect` (`image`, `prompt`, `threshold`): objects with boxes, classes and confidence.
 - `rerank` (`query`, `documents`, `top_n`): documents ordered by how well they answer the query.

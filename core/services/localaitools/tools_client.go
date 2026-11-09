@@ -68,7 +68,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 	if keep(ToolGenerateVideo) {
 		addClientTool(s, ToolGenerateVideo,
-			"Generate a video from a prompt, optionally from an image. Can take minutes. Saves a file.",
+			"Generate a video from a prompt, with optional start/end images, audio and references. Can take minutes. Saves a file.",
 			client.GenerateVideo)
 	}
 	if keep(ToolGenerateSound) {

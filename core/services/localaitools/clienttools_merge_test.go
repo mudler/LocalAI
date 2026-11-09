@@ -28,7 +28,12 @@ import (
 // 7,000 to 7,300: generate_image takes seed, an init image and reference
 // images (about 240 bytes). They are arguments of the one image route the API
 // already has, so they cost no new tool.
-const clientBudgetBytes = 7300
+//
+// 7,300 to 8,000: generate_video reads what the /video route reads and the
+// tool did not send: end_image, audio, ref_images, ref_videos, ref_audios,
+// seed, cfg_scale, steps (about 700 bytes). ref_videos is a list of frame
+// lists because that is how the route takes a video.
+const clientBudgetBytes = 8000
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {

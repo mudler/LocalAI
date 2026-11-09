@@ -155,15 +155,33 @@ type RerankResult struct {
 	Results []RerankItem `json:"results"`
 }
 
-// GenerateVideoRequest is the input for generate_video.
+// VideoRefInput is one reference video: ordered frame images, because the
+// API takes a reference video as a list of frames (ref_videos[].frames).
+type VideoRefInput struct {
+	Frames []string `json:"frames"`
+	FPS    int      `json:"fps,omitempty"`
+	Audio  string   `json:"audio,omitempty"`
+}
+
+// GenerateVideoRequest is the input for generate_video. The field names are
+// the tool's; the request carries the API's (size becomes width and height,
+// seconds times fps becomes num_frames, steps becomes step).
 type GenerateVideoRequest struct {
-	Prompt         string `json:"prompt"`
-	Model          string `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
-	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT."`
-	Seconds        string `json:"seconds,omitempty"         jsonschema:"Length in seconds."`
-	FPS            int    `json:"fps,omitempty"`
-	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
-	StartImage     string `json:"start_image,omitempty"     jsonschema:"Image file to start from."`
+	Prompt         string          `json:"prompt"`
+	Model          string          `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
+	Size           string          `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT."`
+	Seconds        string          `json:"seconds,omitempty"         jsonschema:"Length. fps defaults to 24."`
+	FPS            int             `json:"fps,omitempty"`
+	NegativePrompt string          `json:"negative_prompt,omitempty"`
+	StartImage     string          `json:"start_image,omitempty"     jsonschema:"Image file."`
+	EndImage       string          `json:"end_image,omitempty"       jsonschema:"Image file."`
+	Audio          string          `json:"audio,omitempty"           jsonschema:"Audio file."`
+	RefImages      []string        `json:"ref_images,omitempty"      jsonschema:"Image files."`
+	RefVideos      []VideoRefInput `json:"ref_videos,omitempty"      jsonschema:"Image files per video."`
+	RefAudios      []string        `json:"ref_audios,omitempty"      jsonschema:"Audio files."`
+	Seed           *int            `json:"seed,omitempty"`
+	CFGScale       *float32        `json:"cfg_scale,omitempty"`
+	Steps          int             `json:"steps,omitempty"`
 }
 
 // VideoResult is the result of generate_video.

@@ -92,4 +92,94 @@ var _ = Describe("media tool arguments match the API", func() {
 			Expect(call(localaitools.GenerateImageToolInput{Prompt: "p", Mask: "/files/b.png"})).To(MatchError(ContainSubstring("mask needs image")))
 		})
 	})
+
+	Describe("generate_video", func() {
+		It("sends the fields the handler reads: width, height, num_frames, fps, seed, cfg_scale, step", func() {
+			seed, cfg := 5, float32(3.5)
+			_, err := cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{
+				Prompt: "waves", Model: "vid", Size: "640x360", Seconds: "2", FPS: 12,
+				Seed: &seed, CFGScale: &cfg, Steps: 20,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			body := srv.body("/video")
+			Expect(body).To(HaveKeyWithValue("width", BeNumerically("==", 640)))
+			Expect(body).To(HaveKeyWithValue("height", BeNumerically("==", 360)))
+			Expect(body).To(HaveKeyWithValue("num_frames", BeNumerically("==", 24)))
+			Expect(body).To(HaveKeyWithValue("fps", BeNumerically("==", 12)))
+			Expect(body).To(HaveKeyWithValue("seed", BeNumerically("==", 5)))
+			Expect(body).To(HaveKeyWithValue("cfg_scale", BeNumerically("==", 3.5)))
+			Expect(body).To(HaveKeyWithValue("step", BeNumerically("==", 20)))
+			// The handler ignores these two, so they must not be the only carrier.
+			Expect(body).ToNot(HaveKey("size"))
+			Expect(body).ToNot(HaveKey("seconds"))
+		})
+
+		It("uses 24 fps when seconds come without a rate, and sends nothing for what is not set", func() {
+			_, err := cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{Prompt: "p", Model: "v", Seconds: "1.5"})
+			Expect(err).ToNot(HaveOccurred())
+			body := srv.body("/video")
+			Expect(body).To(HaveKeyWithValue("num_frames", BeNumerically("==", 36)))
+			Expect(body).To(HaveKeyWithValue("fps", BeNumerically("==", 24)))
+			_, err = cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{Prompt: "p", Model: "v"})
+			Expect(err).ToNot(HaveOccurred())
+			body = srv.body("/video")
+			for _, k := range []string{"num_frames", "fps", "width", "height", "seed", "cfg_scale", "step"} {
+				Expect(body).ToNot(HaveKey(k), k)
+			}
+		})
+
+		It("sends start and end images, audio and references as data URLs, and reference videos as frame lists", func() {
+			_, err := cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{
+				Prompt: "p", Model: "v",
+				RefImages: []string{"/files/a.png"}, RefAudios: []string{"/files/a.wav"},
+				RefVideos: []localaitools.VideoRefInput{{Frames: []string{"/files/a.png", "/files/b.png"}, FPS: 8, Audio: "/files/a.wav"}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			body := srv.body("/video")
+			Expect(body["ref_images"]).To(HaveLen(1))
+			Expect(body["ref_images"].([]any)[0]).To(HavePrefix("data:image/png;base64,"))
+			Expect(body["ref_audios"]).To(HaveLen(1))
+			vids := body["ref_videos"].([]any)
+			Expect(vids).To(HaveLen(1))
+			v := vids[0].(map[string]any)
+			Expect(v["frames"]).To(HaveLen(2))
+			Expect(v).To(HaveKeyWithValue("fps", BeNumerically("==", 8)))
+			Expect(v["audio"]).To(HavePrefix("data:"))
+
+			_, err = cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{Prompt: "p", Model: "v", StartImage: "/files/a.png", EndImage: "/files/b.png", Audio: "/files/a.wav"})
+			Expect(err).ToNot(HaveOccurred())
+			body = srv.body("/video")
+			Expect(body).To(HaveKey("start_image"))
+			Expect(body).To(HaveKey("end_image"))
+			Expect(body["audio"]).To(HavePrefix("data:"))
+			Expect(body).ToNot(HaveKey("ref_images"))
+		})
+
+		It("never forwards a file path, only the bytes of files from the store", func() {
+			_, err := cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{Prompt: "p", Model: "v", RefImages: []string{"/etc/passwd"}})
+			Expect(err).To(HaveOccurred())
+			Expect(srv.seen).To(BeEmpty())
+			_, err = cl.GenerateVideo(ctx, localaitools.GenerateVideoRequest{Prompt: "p", Model: "v", RefImages: []string{"/files/a.png"}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(srv.seen["/video"])).ToNot(ContainSubstring("/files/"))
+			Expect(srv.body("/video")).ToNot(HaveKey("params"))
+		})
+
+		It("refuses what the handler would refuse, before it sends anything", func() {
+			cases := map[string]localaitools.GenerateVideoRequest{
+				"size":           {Prompt: "p", Model: "v", Size: "big"},
+				"at most 16":     {Prompt: "p", Model: "v", RefImages: make([]string, 17)},
+				"cannot be used": {Prompt: "p", Model: "v", StartImage: "/files/a.png", RefImages: []string{"/files/b.png"}},
+				"frames":         {Prompt: "p", Model: "v", RefVideos: []localaitools.VideoRefInput{{}}},
+				"cfg_scale":      {Prompt: "p", Model: "v", CFGScale: func() *float32 { v := float32(-1); return &v }()},
+				"steps":          {Prompt: "p", Model: "v", Steps: 100000},
+				"audio":          {Prompt: "p", Model: "v", Audio: "/files/a.png"},
+			}
+			for want, req := range cases {
+				_, err := cl.GenerateVideo(ctx, req)
+				Expect(err).To(MatchError(ContainSubstring(want)), want)
+			}
+			Expect(srv.seen).To(BeEmpty())
+		})
+	})
 })
