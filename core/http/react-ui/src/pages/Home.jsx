@@ -97,7 +97,10 @@ export default function Home() {
   const [modelsFailed, setModelsFailed] = useState(false)
   const configuredModelsRef = useRef(configuredModels)
   configuredModelsRef.current = configuredModels
-  const [loadedModels, setLoadedModels] = useState([])
+  // The models in memory, or null while the server has not said: GET /system
+  // is for administrators, and nobody else may read it.
+  const [loadedModels, setLoadedModels] = useState(null)
+  const loadedList = useMemo(() => loadedModels || [], [loadedModels])
   // An old chat address names a model (/app/chats?model=…, /app/chat/<model>)
   // and lands here: the picker starts on it.
   const [searchParams] = useSearchParams()
@@ -361,7 +364,7 @@ export default function Home() {
   const fetchSystemInfo = useCallback(async () => {
     try {
       const [sysInfo, v1Models] = await Promise.all([
-        systemApi.info().catch(() => null),
+        isAdmin ? systemApi.info().catch(() => null) : null,
         modelsApi.listV1().catch(() => null),
       ])
       if (sysInfo?.loaded_models) {
@@ -379,7 +382,7 @@ export default function Home() {
     } catch {
       if (configuredModelsRef.current === null) setModelsFailed(true)
     }
-  }, [])
+  }, [isAdmin])
 
   usePolling(fetchSystemInfo, 5000)
 
@@ -539,13 +542,13 @@ export default function Home() {
   const handleStopAll = async () => {
     setConfirmDialog({
       title: t('stopDialog.stopAllTitle'),
-      message: t('stopDialog.stopAllMessage', { count: loadedModels.length }),
+      message: t('stopDialog.stopAllMessage', { count: loadedList.length }),
       confirmLabel: t('stopDialog.stopAllConfirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
-          await Promise.all(loadedModels.map(m => backendControlApi.shutdown({ model: m.id })))
+          await Promise.all(loadedList.map(m => backendControlApi.shutdown({ model: m.id })))
           addToast(t('stopDialog.allStoppedToast'), 'success')
           setTimeout(fetchSystemInfo, 1000)
         } catch (err) {
@@ -613,8 +616,8 @@ export default function Home() {
   const setupsShown = setupsOn && !firstRun && setups.available
   const examplesOn = chatsOn && configuredModels !== null && !firstRun
   const examplesGone = useExamplesGone(examplesOn)
-  const loadedCount = loadedModels.length
-  const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
+  const loadedCount = loadedList.length
+  const loadedIds = useMemo(() => new Set(loadedList.map(m => m.id)), [loadedList])
 
   // Staging a model onto a worker is the one load this page can see: the
   // operations list reports it. An OOM on a single host surfaces in the chat.
@@ -798,7 +801,13 @@ export default function Home() {
               onReset={() => activeSetup && applySetup(activeSetup)}
             />
           ) : (!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />)}
-          {setupsShown && agentPicked && <SetupReason id="setup-chip-reason" text={tch('setup.agentReason')} />}
+          {setupsShown && agentPicked && (
+            <SetupReason
+              id="setup-chip-reason"
+              text={tch('setup.agentReason')}
+              onManage={setups.list.length > 0 ? () => setManageOpen(true) : undefined}
+            />
+          )}
           {manageOpen && setupsShown && (
             <ManageSetups
               list={setups.list}

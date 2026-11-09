@@ -197,7 +197,8 @@ default; use Update to keep your edits. The first time you send a message with
 no setups, LocalAI saves the box as "My default" and offers a Rename action. If
 the model of a setup is not installed, the chat keeps the model it has and the line says so;
 the setup is not changed. A saved agent decides the model and tools of its
-chat, so the chip is off while you have one chosen.
+chat, so the chip is off while you have one chosen. The line under the box
+then says why and keeps "Manage setups" at hand.
 
 ## Home
 
