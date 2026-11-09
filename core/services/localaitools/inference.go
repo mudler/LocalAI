@@ -703,6 +703,12 @@ func (i *Inference) Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, 
 // Detect finds objects in an image (POST /v1/detection).
 func (i *Inference) Detect(ctx context.Context, req DetectRequest) (*DetectResult, error) {
 	spec := clientSpec(ToolDetect)
+	if err := checkPromptNumbers("points", req.Points, 3, true); err != nil {
+		return nil, err
+	}
+	if err := checkPromptNumbers("boxes", req.Boxes, 4, false); err != nil {
+		return nil, err
+	}
 	img, err := i.readImage(ctx, req.Image, "image")
 	if err != nil {
 		return nil, err
@@ -717,6 +723,12 @@ func (i *Inference) Detect(ctx context.Context, req DetectRequest) (*DetectResul
 	}
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
+	}
+	if len(req.Points) > 0 {
+		body["points"] = req.Points
+	}
+	if len(req.Boxes) > 0 {
+		body["boxes"] = req.Boxes
 	}
 	data, _, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {
@@ -1052,6 +1064,9 @@ func (i *Inference) VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*V
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
 	}
+	if req.AntiSpoofing {
+		body["anti_spoofing"] = true
+	}
 	return i.verify(ctx, spec, model, body)
 }
 
@@ -1077,6 +1092,9 @@ func (i *Inference) VerifyFace(ctx context.Context, req VerifyFaceRequest) (*Ver
 	body := map[string]any{"model": model, "img1": d1, "img2": d2}
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
+	}
+	if req.AntiSpoofing {
+		body["anti_spoofing"] = true
 	}
 	return i.verify(ctx, spec, model, body)
 }

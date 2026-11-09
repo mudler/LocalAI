@@ -44,7 +44,11 @@ import (
 //
 // 8,650 to 8,900: voice_profile create takes description and extra_clips,
 // because the API takes up to ten clips and a description (about 210 bytes).
-const clientBudgetBytes = 8900
+//
+// 8,900 to 9,250: detect takes points and boxes (segmentation prompts), and
+// voice and face take anti_spoofing for verify (about 340 bytes together).
+// All three are fields their routes read.
+const clientBudgetBytes = 9250
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {

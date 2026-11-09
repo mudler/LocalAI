@@ -162,7 +162,7 @@ func voiceAction(ctx context.Context, client LocalAIClient, in VoiceToolInput) (
 		if err := need(ToolVoice, in.Action, [2]string{"audio", in.Audio}, [2]string{"audio2", in.Audio2}); err != nil {
 			return nil, err
 		}
-		return client.VerifyVoice(ctx, VoiceVerifyRequest{Audio1: in.Audio, Audio2: in.Audio2, Model: in.Model, Threshold: in.Threshold})
+		return client.VerifyVoice(ctx, VoiceVerifyRequest{Audio1: in.Audio, Audio2: in.Audio2, Model: in.Model, Threshold: in.Threshold, AntiSpoofing: in.AntiSpoofing})
 	case ActionIdentify:
 		if err := need(ToolVoice, in.Action, [2]string{"audio", in.Audio}); err != nil {
 			return nil, err
@@ -178,7 +178,7 @@ func faceAction(ctx context.Context, client LocalAIClient, in FaceToolInput) (an
 		if err := need(ToolFace, in.Action, [2]string{"image", in.Image}, [2]string{"image2", in.Image2}); err != nil {
 			return nil, err
 		}
-		return client.VerifyFace(ctx, VerifyFaceRequest{Image1: in.Image, Image2: in.Image2, Model: in.Model, Threshold: in.Threshold})
+		return client.VerifyFace(ctx, VerifyFaceRequest{Image1: in.Image, Image2: in.Image2, Model: in.Model, Threshold: in.Threshold, AntiSpoofing: in.AntiSpoofing})
 	case ActionIdentify:
 		if err := need(ToolFace, in.Action, [2]string{"image", in.Image}); err != nil {
 			return nil, err

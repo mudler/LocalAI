@@ -1040,9 +1040,9 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 		// clientBudgetBytes in clienttools_merge_test.go). They are
 		// unexported there; keep the values in step: the client budget here is
 		// measured in the form the model gets (7,583 bytes when the MCP budget
-		// is 8,900), and grew from 6,600 with the media tool arguments (see
+		// was 8,900; the later arguments added about 340 more), and grew from 6,600 with the media tool arguments (see
 		// the comment of clientBudgetBytes).
-		const compactBudget, clientBudget = 4700, 7700
+		const compactBudget, clientBudget = 4700, 8050
 
 		It("keeps an administrator's turn under the admin budgets and the client group under its own", func() {
 			r := newE2ERig(scriptCall)

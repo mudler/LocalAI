@@ -116,6 +116,10 @@ type DetectRequest struct {
 	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	Prompt    string  `json:"prompt,omitempty"    jsonschema:"What to find, if the model takes a prompt."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Minimum confidence, 0 to 1."`
+	// Points and Boxes are prompts for segmentation models, as the API takes
+	// them: flat lists of numbers.
+	Points []float32 `json:"points,omitempty" jsonschema:"Flat x,y,label triples."`
+	Boxes  []float32 `json:"boxes,omitempty"  jsonschema:"Flat x1,y1,x2,y2 quads."`
 }
 
 // Detection is one object found by detect.
@@ -218,15 +222,23 @@ type VoiceVerifyRequest struct {
 	Audio2    string  `json:"audio2"              jsonschema:"Second recording."`
 	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
 	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+	// AntiSpoofing asks the model to check that the recording is live.
+	AntiSpoofing bool `json:"anti_spoofing,omitempty"`
 }
 
-// VerifyResult is the result of voice and face with action verify.
+// VerifyResult is the result of voice and face with action verify. The
+// liveness fields are there only when the call set anti_spoofing and the
+// route answered them (the face route does).
 type VerifyResult struct {
-	Model      string  `json:"model"`
-	Verified   bool    `json:"verified"`
-	Distance   float32 `json:"distance"`
-	Threshold  float32 `json:"threshold"`
-	Confidence float32 `json:"confidence"`
+	Model              string   `json:"model"`
+	Verified           bool     `json:"verified"`
+	Distance           float32  `json:"distance"`
+	Threshold          float32  `json:"threshold"`
+	Confidence         float32  `json:"confidence"`
+	Img1IsReal         *bool    `json:"img1_is_real,omitempty"`
+	Img1AntispoofScore *float32 `json:"img1_antispoof_score,omitempty"`
+	Img2IsReal         *bool    `json:"img2_is_real,omitempty"`
+	Img2AntispoofScore *float32 `json:"img2_antispoof_score,omitempty"`
 }
 
 // IdentifyVoiceRequest is the input for voice with action identify.
@@ -255,10 +267,11 @@ type IdentifyResult struct {
 
 // VerifyFaceRequest is the input for face with action verify.
 type VerifyFaceRequest struct {
-	Image1    string  `json:"image1"              jsonschema:"First image."`
-	Image2    string  `json:"image2"              jsonschema:"Second image."`
-	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+	Image1       string  `json:"image1"              jsonschema:"First image."`
+	Image2       string  `json:"image2"              jsonschema:"Second image."`
+	Model        string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
+	Threshold    float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+	AntiSpoofing bool    `json:"anti_spoofing,omitempty"`
 }
 
 // IdentifyFaceRequest is the input for face with action identify.
@@ -298,22 +311,24 @@ const (
 // VoiceToolInput is the input of the voice tool. One flat object: the action
 // says which fields count, and the handler checks them.
 type VoiceToolInput struct {
-	Action    string  `json:"action"              jsonschema:"verify needs audio and audio2; identify needs audio."`
-	Audio     string  `json:"audio"               jsonschema:"Audio file."`
-	Audio2    string  `json:"audio2,omitempty"    jsonschema:"Second recording; verify."`
-	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
-	TopK      int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+	Action       string  `json:"action"              jsonschema:"verify needs audio and audio2; identify needs audio."`
+	Audio        string  `json:"audio"               jsonschema:"Audio file."`
+	Audio2       string  `json:"audio2,omitempty"    jsonschema:"Second recording; verify."`
+	Model        string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
+	TopK         int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
+	Threshold    float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+	AntiSpoofing bool    `json:"anti_spoofing,omitempty" jsonschema:"Liveness; verify."`
 }
 
 // FaceToolInput is the input of the face tool, shaped like VoiceToolInput.
 type FaceToolInput struct {
-	Action    string  `json:"action"              jsonschema:"verify needs image and image2; identify needs image."`
-	Image     string  `json:"image"               jsonschema:"Image file."`
-	Image2    string  `json:"image2,omitempty"    jsonschema:"Second image; verify."`
-	Model     string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
-	TopK      int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
-	Threshold float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+	Action       string  `json:"action"              jsonschema:"verify needs image and image2; identify needs image."`
+	Image        string  `json:"image"               jsonschema:"Image file."`
+	Image2       string  `json:"image2,omitempty"    jsonschema:"Second image; verify."`
+	Model        string  `json:"model,omitempty"     jsonschema:"From list_models. Default: first."`
+	TopK         int     `json:"top_k,omitempty"     jsonschema:"Matches to return; identify."`
+	Threshold    float32 `json:"threshold,omitempty" jsonschema:"Match distance."`
+	AntiSpoofing bool    `json:"anti_spoofing,omitempty" jsonschema:"Liveness; verify."`
 }
 
 // VoiceProfileToolInput is the input of the voice_profile tool. One flat

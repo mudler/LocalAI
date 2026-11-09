@@ -3,6 +3,7 @@ package localaitools_test
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -240,6 +241,62 @@ var _ = Describe("media tool arguments match the API", func() {
 				_, err = cl.Speak(ctx, localaitools.SpeakRequest{Text: "hi", Model: "tts", SampleRate: bad})
 				Expect(err).To(MatchError(ContainSubstring("sample_rate")))
 			}
+		})
+	})
+
+	Describe("detect", func() {
+		It("sends points and boxes as the flat lists the route reads", func() {
+			_, err := cl.Detect(ctx, localaitools.DetectRequest{Image: "/files/a.png", Model: "sam", Points: []float32{10, 20, 1, 30, 40, 0}, Boxes: []float32{1, 2, 3, 4}})
+			Expect(err).ToNot(HaveOccurred())
+			body := srv.body("/v1/detection")
+			Expect(body["points"]).To(Equal([]any{10.0, 20.0, 1.0, 30.0, 40.0, 0.0}))
+			Expect(body["boxes"]).To(Equal([]any{1.0, 2.0, 3.0, 4.0}))
+			_, err = cl.Detect(ctx, localaitools.DetectRequest{Image: "/files/a.png", Model: "sam"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.body("/v1/detection")).ToNot(HaveKey("points"))
+		})
+
+		It("refuses lists that are not whole groups, labels other than 0 and 1, and too many groups", func() {
+			cases := map[string]localaitools.DetectRequest{
+				"points":  {Image: "/files/a.png", Model: "m", Points: []float32{1, 2}},
+				"label":   {Image: "/files/a.png", Model: "m", Points: []float32{1, 2, 5}},
+				"boxes":   {Image: "/files/a.png", Model: "m", Boxes: []float32{1, 2, 3}},
+				"finite":  {Image: "/files/a.png", Model: "m", Boxes: []float32{1, 2, 3, -4}},
+				"at most": {Image: "/files/a.png", Model: "m", Boxes: make([]float32, 4*65)},
+			}
+			for want, req := range cases {
+				_, err := cl.Detect(ctx, req)
+				Expect(err).To(MatchError(ContainSubstring(want)), want)
+			}
+			Expect(srv.seen).To(BeEmpty())
+		})
+	})
+
+	Describe("voice and face verify", func() {
+		It("send anti_spoofing only when asked", func() {
+			_, err := cl.VerifyFace(ctx, localaitools.VerifyFaceRequest{Image1: "/files/a.png", Image2: "/files/b.png", Model: "f", AntiSpoofing: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.body("/v1/face/verify")).To(HaveKeyWithValue("anti_spoofing", true))
+			_, err = cl.VerifyVoice(ctx, localaitools.VoiceVerifyRequest{Audio1: "/files/a.wav", Audio2: "/files/a.wav", Model: "v", AntiSpoofing: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.body("/v1/voice/verify")).To(HaveKeyWithValue("anti_spoofing", true))
+			_, err = cl.VerifyFace(ctx, localaitools.VerifyFaceRequest{Image1: "/files/a.png", Image2: "/files/b.png", Model: "f"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.body("/v1/face/verify")).ToNot(HaveKey("anti_spoofing"))
+		})
+
+		It("reports the liveness fields of the answer, and leaves them out when the route sent none", func() {
+			res, err := cl.VerifyFace(ctx, localaitools.VerifyFaceRequest{Image1: "/files/a.png", Image2: "/files/b.png", Model: "f"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Img1IsReal).To(BeNil())
+			raw, _ := json.Marshal(res)
+			Expect(string(raw)).ToNot(ContainSubstring("is_real"))
+			srv.verifyExtra = `,"img1_is_real":true,"img1_antispoof_score":0.97,"img2_is_real":false,"img2_antispoof_score":0.1`
+			res, err = cl.VerifyFace(ctx, localaitools.VerifyFaceRequest{Image1: "/files/a.png", Image2: "/files/b.png", Model: "f", AntiSpoofing: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*res.Img1IsReal).To(BeTrue())
+			Expect(*res.Img2IsReal).To(BeFalse())
+			Expect(*res.Img1AntispoofScore).To(BeNumerically("~", 0.97, 0.001))
 		})
 	})
 })

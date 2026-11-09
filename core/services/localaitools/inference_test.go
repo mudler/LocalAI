@@ -84,6 +84,8 @@ type localAIStandIn struct {
 	headers   map[string]http.Header
 	imageOut  []byte
 	audioOut  []byte
+	// verifyExtra is JSON members added to the verify answers.
+	verifyExtra string
 	// listed is what GET /v1/models/capabilities answers: the models the
 	// caller may use.
 	listed []map[string]any
@@ -156,7 +158,10 @@ func newStandIn() *localAIStandIn {
 			w.Header().Set("Content-Type", "audio/mpeg")
 			_, _ = w.Write([]byte("ID3...."))
 		case "/v1/voice/verify", "/v1/face/verify":
-			_, _ = w.Write([]byte(`{"verified":true,"distance":0.1,"threshold":0.4,"confidence":0.9}`))
+			s.mu.Lock()
+			extra := s.verifyExtra
+			s.mu.Unlock()
+			_, _ = w.Write([]byte(`{"verified":true,"distance":0.1,"threshold":0.4,"confidence":0.9` + extra + `}`))
 		case "/v1/voice/identify", "/v1/face/identify":
 			_, _ = w.Write([]byte(`{"matches":[{"id":"1","name":"Ada","distance":0.1,"confidence":0.9,"match":true}]}`))
 		default:

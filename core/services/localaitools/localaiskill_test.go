@@ -112,7 +112,7 @@ var _ = Describe("the localai skill", func() {
 	})
 
 	It("stays compact and in plain English", func() {
-		Expect(len(text)).To(BeNumerically("<=", 5600), "about 1,400 tokens")
+		Expect(len(text)).To(BeNumerically("<=", 5900), "about 1,450 tokens; the skill loads on demand and lists the arguments the API takes")
 		Expect(strings.Count(text, "—")).To(BeZero(), "no em dashes")
 	})
 })

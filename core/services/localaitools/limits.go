@@ -26,6 +26,7 @@ const (
 	maxVideoInputs   = 256 << 20 // all media of one video call together
 	minSampleRate    = 8000
 	maxSampleRate    = 192000
+	maxPromptShapes  = 64 // points or boxes of one detect call
 	maxRefImages     = 16 // the video route stops at 16 references of a kind; images use the same bound
 	maxEmbedInputs   = 256
 	maxTextBatchSize = 1 << 20 // total bytes of the texts of one embed or rerank call
@@ -90,6 +91,27 @@ func videoFrames(seconds string, fps int) (outFPS, frames int) {
 	}
 	v, _ := strconv.ParseFloat(s, 64) // checkVideoLength has validated it
 	return fps, max(1, int(math.Round(v*float64(fps))))
+}
+
+// checkPromptNumbers checks a flat list of numbers that the detection route
+// reads in groups: points as x,y,label triples, boxes as x1,y1,x2,y2 quads.
+func checkPromptNumbers(name string, v []float32, group int, labelLast bool) error {
+	if len(v) == 0 {
+		return nil
+	}
+	if len(v)%group != 0 || len(v)/group > maxPromptShapes {
+		return fmt.Errorf("%s: a flat list of groups of %d numbers, at most %d groups", name, group, maxPromptShapes)
+	}
+	for k, n := range v {
+		f := float64(n)
+		if math.IsNaN(f) || math.IsInf(f, 0) || n < 0 {
+			return fmt.Errorf("%s: numbers must be finite and not negative", name)
+		}
+		if labelLast && k%group == group-1 && n != 0 && n != 1 {
+			return fmt.Errorf("%s: the label of each point is 1 or 0", name)
+		}
+	}
+	return nil
 }
 
 func checkSoundLength(seconds *float32) error {
