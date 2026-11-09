@@ -31,7 +31,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		client.ListModels)
 	if keep(ToolGenerateImage) {
 		addClientTool(s, ToolGenerateImage,
-			"Make images from a prompt, or with image and mask repaint the masked area. Saves files.",
+			"Make images from a prompt. image starts from a picture (img2img); with mask, repaint the masked area. ref_images guide some models. Saves files.",
 			func(ctx context.Context, in GenerateImageToolInput) (*ImageResult, error) {
 				return generateImage(ctx, client, in)
 			})
@@ -124,20 +124,24 @@ var clientToolFiles = map[string]bool{
 // generateImage serves generate_image: the inpainting route when the call
 // names an image, the generations route otherwise.
 func generateImage(ctx context.Context, client LocalAIClient, in GenerateImageToolInput) (*ImageResult, error) {
-	if in.Image == "" {
-		if in.Mask != "" {
+	if in.Mask != "" {
+		if in.Image == "" {
 			return nil, errors.New("generate_image: mask needs image; give both to edit an image, or neither to make a new one")
 		}
-		return client.GenerateImage(ctx, GenerateImageRequest{
-			Prompt: in.Prompt, Model: in.Model, Size: in.Size,
-			NegativePrompt: in.NegativePrompt, Steps: in.Steps, N: in.N,
+		// The inpainting route takes only the image, the mask, the prompt and
+		// the steps. Refuse what it would drop, so the model is not told that
+		// a seed or a reference was used.
+		if in.Seed != nil || len(in.RefImages) > 0 {
+			return nil, errors.New("generate_image: seed and ref_images do not work with mask; drop them, or drop the mask")
+		}
+		return client.EditImage(ctx, EditImageRequest{
+			Prompt: in.Prompt, Image: in.Image, Mask: in.Mask, Model: in.Model, Steps: in.Steps,
 		})
 	}
-	if in.Mask == "" {
-		return nil, errors.New("generate_image: mask is required when image is set")
-	}
-	return client.EditImage(ctx, EditImageRequest{
-		Prompt: in.Prompt, Image: in.Image, Mask: in.Mask, Model: in.Model, Steps: in.Steps,
+	return client.GenerateImage(ctx, GenerateImageRequest{
+		Prompt: in.Prompt, Model: in.Model, Size: in.Size,
+		NegativePrompt: in.NegativePrompt, Steps: in.Steps, N: in.N,
+		Seed: in.Seed, Image: in.Image, RefImages: in.RefImages,
 	})
 }
 

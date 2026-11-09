@@ -23,6 +23,13 @@ type GenerateImageRequest struct {
 	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
 	Steps          int    `json:"steps,omitempty"`
 	N              int    `json:"n,omitempty"               jsonschema:"1 to 4. Default 1."`
+	Seed           *int   `json:"seed,omitempty"            jsonschema:"Same seed, same image."`
+	// Image is the starting image of an img2img call (the "file" field of the
+	// API). Mask repainting goes through EditImage.
+	Image string `json:"image,omitempty" jsonschema:"Start from this image file (img2img)."`
+	// RefImages are reference images for models that take them (the
+	// "ref_images" field of the API).
+	RefImages []string `json:"ref_images,omitempty" jsonschema:"Image files the model uses as references."`
 }
 
 // ImageResult is the result of generate_image.
@@ -232,18 +239,20 @@ type IdentifyFaceRequest struct {
 }
 
 // GenerateImageToolInput is the input of the generate_image tool. It covers
-// both image routes: with Image set the tool repaints the masked area of that
-// image, without it the tool makes new images. The client methods stay apart
+// both image routes: with Image and Mask the tool repaints the masked area,
+// otherwise it makes new images (from Image as a start, when given). The client methods stay apart
 // (GenerateImage and EditImage); only the tool merges them.
 type GenerateImageToolInput struct {
-	Prompt         string `json:"prompt"                    jsonschema:"What to show, or paint in the mask."`
-	Model          string `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
-	Size           string `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT, for example 512x512."`
-	NegativePrompt string `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
-	Steps          int    `json:"steps,omitempty"`
-	N              int    `json:"n,omitempty"               jsonschema:"1 to 4. Default 1."`
-	Image          string `json:"image,omitempty"           jsonschema:"Image to repaint; needs mask."`
-	Mask           string `json:"mask,omitempty"            jsonschema:"Mask; white is repainted."`
+	Prompt         string   `json:"prompt"                    jsonschema:"What to show, or paint in the mask."`
+	Model          string   `json:"model,omitempty"           jsonschema:"From list_models. Default: first."`
+	Size           string   `json:"size,omitempty"            jsonschema:"WIDTHxHEIGHT, for example 512x512."`
+	NegativePrompt string   `json:"negative_prompt,omitempty" jsonschema:"What to leave out."`
+	Steps          int      `json:"steps,omitempty"`
+	N              int      `json:"n,omitempty"               jsonschema:"1 to 4. Default 1."`
+	Seed           *int     `json:"seed,omitempty"            jsonschema:"Same seed, same image."`
+	Image          string   `json:"image,omitempty"           jsonschema:"Start image. With mask it is repainted; without, img2img."`
+	Mask           string   `json:"mask,omitempty"            jsonschema:"Mask; white is repainted. Needs image."`
+	RefImages      []string `json:"ref_images,omitempty"    jsonschema:"Reference image files. Not with mask."`
 }
 
 // Actions of the voice, face and voice_profile tools.

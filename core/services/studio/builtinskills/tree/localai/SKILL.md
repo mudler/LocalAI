@@ -14,7 +14,7 @@ A file argument is a reference: a path in the user's files, or the `ref` that an
 ## Tools
 
 - `list_models` (`capability`): the models you may use, with capabilities. When you do not know the model name, call it with a capability (image, tts, transcript, sound_generation, embeddings, detection, video, rerank, chat) and pass a name from it as `model`. Skip it when the default is fine. Never guess a name.
-- `generate_image` (`prompt`, `size`, `negative_prompt`, `steps`, `n`, `image`, `mask`, `model`): a new image. To edit one, give `image` and `mask` together (white in the mask is repainted); `mask` alone is an error.
+- `generate_image` (`prompt`, `size`, `negative_prompt`, `steps`, `n`, `seed`, `image`, `mask`, `ref_images`, `model`): a new image. `image` alone starts from that picture (img2img). `image` with `mask` repaints the white area of the mask; `seed` and `ref_images` do not work with a mask, and `mask` alone is an error. `ref_images` (several files) guide models that take references. Same `seed`, same image.
 - `speak` (`text`, `voice`, `language`, `format`, `speed`, `instructions`, `model`): text to speech, saved as an audio file.
 - `transcribe_audio`: a recording to text. Use the arguments the tool shows.
 - `describe_image`: describe an image or answer a question about it, including text in it. Use the arguments the tool shows.

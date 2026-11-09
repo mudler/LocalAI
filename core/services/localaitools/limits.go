@@ -19,6 +19,7 @@ const (
 	maxFPS           = 60
 	maxTopK          = 50
 	maxRerankDocs    = 1000
+	maxRefImages     = 16 // the video route stops at 16 references of a kind; images use the same bound
 	maxEmbedInputs   = 256
 	maxTextBatchSize = 1 << 20 // total bytes of the texts of one embed or rerank call
 

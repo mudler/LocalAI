@@ -335,6 +335,9 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	if err := checkSteps(req.Steps); err != nil {
 		return nil, err
 	}
+	if len(req.RefImages) > maxRefImages {
+		return nil, fmt.Errorf("ref_images: at most %d images", maxRefImages)
+	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
@@ -345,6 +348,29 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	}
 	defer release()
 	body := map[string]any{"model": model, "prompt": req.Prompt, "n": n, "response_format": "b64_json"}
+	// The handler decodes "file" and "ref_images" as plain base64, not as
+	// data URLs, so the bytes go in as they are.
+	if req.Image != "" {
+		img, err := i.readImage(ctx, req.Image, "image")
+		if err != nil {
+			return nil, err
+		}
+		body["file"] = base64.StdEncoding.EncodeToString(img.Data)
+	}
+	var refList []string
+	for k, ref := range req.RefImages {
+		img, err := i.readImage(ctx, ref, fmt.Sprintf("ref_images[%d]", k))
+		if err != nil {
+			return nil, err
+		}
+		refList = append(refList, base64.StdEncoding.EncodeToString(img.Data))
+	}
+	if len(refList) > 0 {
+		body["ref_images"] = refList
+	}
+	if req.Seed != nil {
+		body["seed"] = *req.Seed
+	}
 	if req.Size != "" {
 		body["size"] = req.Size
 	}

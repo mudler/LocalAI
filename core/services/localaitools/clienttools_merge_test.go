@@ -24,7 +24,11 @@ import (
 // administrator cannot learn the names of the models the other tools take,
 // and guesses them. It is the one listing tool for every user, so it is not
 // a candidate for a merge: it shares no state with a generation tool.
-const clientBudgetBytes = 7000
+//
+// 7,000 to 7,300: generate_image takes seed, an init image and reference
+// images (about 240 bytes). They are arguments of the one image route the API
+// already has, so they cost no new tool.
+const clientBudgetBytes = 7300
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
@@ -108,13 +112,26 @@ var _ = Describe("Client tool surface", func() {
 			Expect(calls[0].args).To(Equal(EditImageRequest{Prompt: "a hat", Image: "a.png", Mask: "m.png", Steps: 5}))
 		})
 
-		It("refuses an image without a mask and a mask without an image, and calls nothing", func() {
+		It("starts from an image without a mask (img2img) and passes seed and references", func() {
 			fc := &fakeClient{}
 			ctx, sess, done := connectInMemory(fc, Options{})
 			DeferCleanup(done)
-			res := callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "image": "a.png"})
+			res := callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "image": "a.png", "seed": 7, "ref_images": []string{"r1.png", "r2.png"}})
+			Expect(res.IsError).To(BeFalse(), resultText(res))
+			calls := fc.recorded()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].method).To(Equal("GenerateImage"))
+			seed := 7
+			Expect(calls[0].args).To(Equal(GenerateImageRequest{Prompt: "x", Image: "a.png", Seed: &seed, RefImages: []string{"r1.png", "r2.png"}}))
+		})
+
+		It("refuses a mask without an image, and a seed or references with a mask, and calls nothing", func() {
+			fc := &fakeClient{}
+			ctx, sess, done := connectInMemory(fc, Options{})
+			DeferCleanup(done)
+			res := callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "image": "a.png", "mask": "m.png", "seed": 1})
 			Expect(res.IsError).To(BeTrue())
-			Expect(resultText(res)).To(ContainSubstring("mask is required"))
+			Expect(resultText(res)).To(ContainSubstring("do not work with mask"))
 			res = callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "mask": "m.png"})
 			Expect(res.IsError).To(BeTrue())
 			Expect(resultText(res)).To(ContainSubstring("mask needs image"))
