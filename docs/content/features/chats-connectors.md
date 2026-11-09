@@ -1539,7 +1539,7 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   `time_zone`; a time that has passed today means the next day). It must be at least one
   minute and at most 365 days ahead. It reports to the chat where it was set, runs once,
   and is then removed, also when the run failed (a failed timer says so at once). A
-  recurring trigger from a chat runs at most once every 5 minutes. The proposal text states
+  schedule trigger runs at most once every 5 minutes, however it is made. The proposal text states
   the cost: every run is one model run.
 - **Where a run reports.** The proposal sets `delivery`: `inbox` (the default),
   `origin` (the chat and thread of the proposal) or `channel` (a channel of the binding that
