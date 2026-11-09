@@ -2,7 +2,6 @@
 disableToc = false
 title = "Strata backend (experimental)"
 weight = 40
-url = "/features/strata/"
 +++
 
 [Strata](https://github.com/Niko1221/Strata) is an MIT-licensed inference engine for large

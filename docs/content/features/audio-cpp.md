@@ -2,7 +2,6 @@
 disableToc = false
 title = "audio.cpp backend"
 weight = 38
-url = "/features/audio-cpp/"
 +++
 
 [audio.cpp](https://github.com/0xShug0/audio.cpp) is a GGML audio inference framework
@@ -97,7 +96,7 @@ These RPCs return `UNIMPLEMENTED` with an explanation rather than a degraded ans
   clip-to-clip processing against a target voice.
 - **`VoiceEmbed`**: no family advertises the `spk` (speaker recognition) task, so nothing in
   the engine can produce a speaker embedding. Use the
-  [voice recognition]({{%relref "features/voice-recognition" %}}) backends instead.
+  [voice recognition]({{%relref "/features/voice-recognition" %}}) backends instead.
 
 ## Model YAML
 
@@ -190,7 +189,7 @@ options:
 ```
 
 Then call it like any other VAD model, as described in
-[Voice Activity Detection]({{%relref "features/voice-activity-detection" %}}).
+[Voice Activity Detection]({{%relref "/features/voice-activity-detection" %}}).
 
 ## Source separation stems
 
@@ -209,7 +208,7 @@ Without `params[stem]` the body carries `vocals` when the model produces it, and
 output otherwise. An unknown stem name is refused with a message listing the stems the model
 really has, rather than quietly returning a different one. Every stem, including the one in
 the body, is listed in the `X-Audio-Stems` response header. See
-[Audio Transform]({{%relref "features/audio-transform" %}}) for the full endpoint contract.
+[Audio Transform]({{%relref "/features/audio-transform" %}}) for the full endpoint contract.
 
 `params[stem]` against a model that produces a single unnamed output is refused rather than
 ignored.

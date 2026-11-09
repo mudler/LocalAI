@@ -2,7 +2,6 @@
 disableToc = false
 title = "Chats: the change feed of your files"
 weight = 24
-url = "/features/workspace-feed/"
 +++
 
 The change feed tells a client which of your files changed, as it happens. A
@@ -11,7 +10,7 @@ with a tool, an upload, a trigger run, a connector, another API client, or
 another frontend of a cluster. The web UI uses it to refresh what it shows
 without a reload.
 
-The files are the workspace of the [chats](/features/chats/), so the feed
+The files are the workspace of the [chats]({{% relref "/features/chats" %}}), so the feed
 needs the `chats` feature, which is on by default. When the server has no
 files (no data path), the stream answers `409` with the type `files_off`.
 

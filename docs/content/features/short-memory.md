@@ -10,7 +10,7 @@ installed.
 
 It is for the facts that change what a good answer is: where you live, what you eat, the
 language and units you use, how you want answers. It is not a store for large documents.
-Use [Knowledge](/features/collections/) to search many files.
+Use [Knowledge]({{% relref "/features/collections" %}}) to search many files.
 
 ## How it works
 
@@ -71,7 +71,7 @@ settings" as a read-only line.
 
 Built-in memory is the default. At the top of the **Memory** tab, **Memory provider**
 lists the providers you can pick: **Built-in**, **Off**, and every installed add-on that
-says it can serve memory (see [Provider slots](/features/addons/#provider-slots)). One
+says it can serve memory (see [Provider slots]({{% relref "/addons/contract-reference" %}}#provider-slots)). One
 serves at a time. When you pick an add-on, its index files, skills and memory tools
 replace the built-in ones, and the built-in provider does not read or save notes. Your
 existing notes stay where they are.
@@ -165,7 +165,7 @@ These rules hold whatever you choose:
   the chat** answers there with `yes` or `no`, within 24 hours. `undo` takes a saved note
   back for 30 minutes. Another sender, or one without that permission, cannot answer: the
   note waits in Studio for you. See
-  [Confirming a change in the chat](/features/chats-connectors/#confirming-a-change-in-the-chat).
+  [Confirming a change in the chat]({{% relref "/features/chats-connectors" %}}#confirming-a-change-in-the-chat).
 - A saved agent cannot widen your choice. If you choose to be asked, it asks, even when
   you let it write to memory.
 - A reply saves at most 5 notes at once. A long note, or one that looks like it holds a
@@ -305,10 +305,10 @@ stop memory and never chose otherwise, memory stays off for you.
 
 The host serves memory itself. An add-on that wants to serve it in place of the built-in
 provider declares `capabilities.provides` with the slot `memory`; the person picks it in
-**Memory provider**. See [Provider slots](/features/addons/#provider-slots). A provider can also supply the notes of each turn, an export and a forget, and the host
+**Memory provider**. See [Provider slots]({{% relref "/addons/contract-reference" %}}#provider-slots). A provider can also supply the notes of each turn, an export and a forget, and the host
 checks its writes against your save level; see
-[What the host does itself with a provider](/features/addons/#what-the-host-does-itself-with-a-provider).
+[What the host does itself with a provider]({{% relref "/addons/contract-reference" %}}#what-the-host-does-itself-with-a-provider).
 The add-on `memory` is an alias of the built-in provider: it stays valid and harmless. An add-on
 can still declare `capabilities.contextFiles` for its own index files;
-see [Context files](/features/addons/#context-files). A skill named `memory` or
+see [Context files]({{% relref "/addons/contract-reference" %}}#context-files). A skill named `memory` or
 `memory-check-own-files` is reserved for the built-in ones.

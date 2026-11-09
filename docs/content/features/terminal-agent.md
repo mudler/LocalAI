@@ -2,7 +2,6 @@
 disableToc = false
 title = "Terminal agent"
 weight = 24
-url = '/features/terminal-agent'
 +++
 
 {{< agentic-routing current="terminal-agent" >}}
@@ -149,4 +148,4 @@ are not at a terminal.
 ## Flags
 
 Every flag, with its environment variable, is in
-[Chat flags]({{% relref "reference/cli-reference" %}}#chat-flags).
+[Chat flags]({{% relref "/reference/cli-reference" %}}#chat-flags).

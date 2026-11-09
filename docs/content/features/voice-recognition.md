@@ -2,7 +2,6 @@
 disableToc = false
 title = "Voice Recognition"
 weight = 36
-url = "/features/voice-recognition/"
 +++
 
 ![Voice recognition: register, identify, and forget voiceprints in a vector store, for 1:1 verify or 1:N identify](/images/diagrams/voice-recognition-flow.png)
@@ -12,7 +11,7 @@ LocalAI supports voice (speaker) recognition: speaker verification
 speaker embedding, and demographic analysis (age / gender / emotion
 from voice).
 
-The audio analog to [Face Recognition](/features/face-recognition/),
+The audio analog to [Face Recognition]({{% relref "/features/face-recognition" %}}),
 served over the same `/v1/voice/*` HTTP API by two backends:
 
 - **`voice-detect` (recommended, default).** A standalone C++/ggml
@@ -211,7 +210,7 @@ embedding size, so registering a voice of a new size no longer fails.
 A parakeet-cpp model that has a speaker encoder can serve `/v1/voice/embed`,
 `/v1/voice/verify`, `/v1/voice/register` and `/v1/voice/identify`, and the
 `voice_recognition` stage of a realtime pipeline. That is every
-[bundle]({{% relref "audio-to-text#bundle-gguf-files-several-models-in-one-file" %}}) with a `voice` component
+[bundle]({{% relref "/features/audio-to-text#bundle-gguf-files-several-models-in-one-file" %}}) with a `voice` component
 (`parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard`), and any
 parakeet-cpp config with a `speaker_model:` or `speaker_component:` option, such as
 `parakeet-cpp-realtime-scene-speakers`. Declare `speaker_recognition` in the
@@ -265,7 +264,7 @@ this, speakers only carry labels such as `SPEAKER_00`.
 3. Call `/v1/audio/diarization` with that model. Matched segments gain a
    `name` and a `name_score`, and the matching entry in `speakers` gains a
    `name`. `speaker` stays `SPEAKER_NN`, and RTTM output is unchanged. See
-   [Speaker Diarization]({{% relref "audio-diarization" %}}) for the
+   [Speaker Diarization]({{% relref "/features/audio-diarization" %}}) for the
    response.
 
 ### Naming speakers from a bundle
@@ -324,7 +323,7 @@ voices, or to no names.
 Two encoders can give embeddings of the same size (ECAPA and CAM++ both give
 192 values), so a size match does not prove the voices and the `speaker_model:`
 file share an embedding space. A voice enrolled from `speaker_profiles` (see
-[Speaker Diarization]({{% relref "audio-diarization" %}})) is stored with the
+[Speaker Diarization]({{% relref "/features/audio-diarization" %}})) is stored with the
 encoder that made it: its **weights** (`sha256:` of the encoder file, kept in
 the voice's `model` field as before) and its **family**
 (`voicedetect:<arch>:<name>:<dim>`, read from the encoder GGUF metadata and
@@ -391,7 +390,7 @@ without a fingerprint still need the default name to match the
 ### Options
 
 These go in the `options:` list of the parakeet-cpp model config (see
-[Audio to Text]({{% relref "audio-to-text" %}}) for the other parakeet-cpp
+[Audio to Text]({{% relref "/features/audio-to-text" %}}) for the other parakeet-cpp
 options).
 
 | Option | Default | Meaning |
@@ -559,7 +558,7 @@ default only applies when omitted.
 
 ## The WebUI page
 
-The page is the **Recognition** tab of the Voice add-on (**Add-ons → Voice**, `/app/addons/voice/voice/recognition`). Install the add-on from **Browse add-ons** and start it. Canonical links show the add-on shell when the installation is unavailable. The page calls the `/v1/voice/*` routes described on this page with your own session. The Voice page has four tabs. **Recognition** is this feature. **Library** is the [Voice Library](/features/text-to-audio/#voice-library) for text-to-speech, a different store with its own recordings and transcripts. **Text to speech** speaks text with a voice model. **From a recording** links to the diarization workspace, where a speaker can be named and remembered.
+The page is the **Recognition** tab of the Voice add-on (**Add-ons → Voice**, `/app/addons/voice/voice/recognition`). Install the add-on from **Browse add-ons** and start it. Canonical links show the add-on shell when the installation is unavailable. The page calls the `/v1/voice/*` routes described on this page with your own session. The Voice page has four tabs. **Recognition** is this feature. **Library** is the [Voice Library]({{% relref "/features/text-to-audio" %}}#voice-library) for text-to-speech, a different store with its own recordings and transcripts. **Text to speech** speaks text with a voice model. **From a recording** links to the diarization workspace, where a speaker can be named and remembered.
 
 On the Recognition tab:
 
@@ -574,14 +573,14 @@ The clip you test with is sent to the model on the server and is not kept. Analy
 
 ## Related features
 
-- [Face Recognition](/features/face-recognition/) - the image analog;
+- [Face Recognition]({{% relref "/features/face-recognition" %}}) - the image analog;
   the two share a registry design.
-- [Audio to Text](/features/audio-to-text/) - transcription (Whisper,
+- [Audio to Text]({{% relref "/features/audio-to-text" %}}) - transcription (Whisper,
   Voxtral, faster-whisper). Runs in addition to, not instead of,
   voice recognition.
-- [Stores](/stores/) - the generic vector store powering
+- [Stores]({{% relref "/api/stores" %}}) - the generic vector store powering
   both the face and voice 1:N recognition pipelines.
-- [Embeddings](/features/embeddings/) - text-only OpenAI-compatible
+- [Embeddings]({{% relref "/features/embeddings" %}}) - text-only OpenAI-compatible
   embedding endpoint; for audio embeddings use `/v1/voice/embed`.
 
 ## Portable profile registration

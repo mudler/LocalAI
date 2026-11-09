@@ -2,7 +2,6 @@
 disableToc = false
 title = "Face Recognition"
 weight = 42
-url = "/features/face-recognition/"
 +++
 
 ![Face recognition: 1:N match against a vector store, with an anti-spoofing liveness gate that can veto a verification](/images/diagrams/face-recognition-flow.png)
@@ -404,9 +403,9 @@ The people list is kept in the browser because the server has no list call. Afte
 
 ## Related features
 
-- [Object Detection](/features/object-detection/) - generic bounding-box
+- [Object Detection]({{% relref "/features/object-detection" %}}) - generic bounding-box
   detection; `/v1/detection` works with the insightface backend too.
-- [Embeddings](/features/embeddings/) - raw vector extraction; face
+- [Embeddings]({{% relref "/features/embeddings" %}}) - raw vector extraction; face
   embeddings live in the same endpoint under the hood.
-- [Stores](/stores/) - the generic vector store powering the
+- [Stores]({{% relref "/api/stores" %}}) - the generic vector store powering the
   1:N recognition pipeline.

@@ -2,7 +2,6 @@
 disableToc = false
 title = "Model Quantization"
 weight = 83
-url = '/features/quantization/'
 +++
 
 ![From an HF model to a quantized GGUF: convert to f16, then quantize, tracked as a job](/images/diagrams/quantization-flow.png)
@@ -89,7 +88,7 @@ curl -X POST http://localhost:8080/api/quantization/jobs/{job_id}/import \
 | `hf_token` | HuggingFace token for gated models |
 
 {{% notice note %}}
-In a split deployment (`--addons-role=owner` and `--addons-role=frontend`), the export writes into the models path. That path must be the shared models storage. See [The models path](../addons/#the-models-path).
+In a split deployment (`--addons-role=owner` and `--addons-role=frontend`), the export writes into the models path. That path must be the shared models storage. See [The models path]({{% relref "/addons/contract-reference" %}}#the-models-path).
 {{% /notice %}}
 
 ### Import Request Fields
@@ -168,9 +167,9 @@ Open the canonical add-on page from My add-ons. Historical standalone links are 
 
 The API does not change. The page calls `/api/quantization/*` with the signed-in user's own session, and the server checks the quantization permission on every call.
 
-With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/addons/quantization/jobs` leads back to `/app`, and every path under `/api/quantization` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
+With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/addons/quantization/jobs` leads back to `/app`, and every path under `/api/quantization` answers `503`. See [The addons feature gate]({{% relref "/addons/contract-reference" %}}#the-addons-feature-gate).
 
-The add-on also offers tools to the chat: list jobs, propose a job, read the status of a job, stop a job and import the result as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or import it. In the chats, an agent and a trigger, a tool call that starts a job runs at once, because you turned the add-on on for that chat; the result says what an undo does (see below). On the OpenAI-compatible API and other surfaces, a tool only proposes the action and a person confirms it in an approval card. A model given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `quantize.` prefix, and they run with the permissions of the person in the chat.
+The add-on also offers tools to the chat: list jobs, propose a job, read the status of a job, stop a job and import the result as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or import it. In the chats, an agent and a trigger, a tool call that starts a job runs at once, because you turned the add-on on for that chat; the result says what an undo does (see below). On the OpenAI-compatible API and other surfaces, a tool only proposes the action and a person confirms it in an approval card. A model given as a local path is refused. The tools call the engine through the host operations (see [Host operations]({{% relref "/addons/contract-reference" %}}#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `quantize.` prefix, and they run with the permissions of the person in the chat.
 
 Undo is the safety net for a job a chat started. Starting a job keeps a change set in the add-on, and the chat shows an Undo button on it. An undo stops the job while it still runs. If the job already finished, was stopped, or was imported, the answer is `cannot_undo`: a finished job cannot be un-run, and the engine offers no operation that removes its files, so nothing is deleted. A change set can be undone for 7 days and only once. Stopping a job and importing the result cannot be undone, and their results say so with the reason. The undo is the person's own action from a browser tab; no model, agent or API key can call it. The change set lives in the add-on's own data, with the rest of its journal, so it travels with the add-on's backups and goes with its data when that is purged. In a cluster the undo goes through the add-on's owner like every other call.
 

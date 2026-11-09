@@ -6,8 +6,8 @@ from pathlib import Path
 
 home = Path("website/layouts/index.html").read_text()
 css = Path("website/static/css/site.css").read_text()
-install = Path("docs/content/getting-started/install.md").read_text()
-containers = Path("docs/content/getting-started/containers.md").read_text()
+install = Path("docs/content/start/install/_index.md").read_text()
+containers = Path("docs/content/start/install/containers.md").read_text()
 
 def require(condition, message):
     if not condition:

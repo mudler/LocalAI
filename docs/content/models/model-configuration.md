@@ -1,0 +1,1436 @@
++++
+disableToc = false
+title = "Model Configuration"
+weight = 40
+aliases = ["/advanced/model-configuration/"]
++++
+
+LocalAI uses YAML configuration files to define model parameters, templates, and behavior. This page provides a complete reference for all available configuration options.
+
+## Configuration scopes and precedence
+
+[CLI flags and environment variables]({{% relref "/reference/cli-reference" %}})
+configure the LocalAI server process. Model YAML files configure one model,
+while supported fields in an API request can override that model's defaults
+for that request. For example, a request containing `temperature` overrides
+the model YAML `parameters.temperature` only for that request.
+
+Precedence is setting-specific rather than one universal ordering. For the
+overlapping `threads` setting, an explicit nonzero server `--threads` value is
+applied after model YAML and therefore wins over the YAML `threads` value.
+Most server flags have no model YAML equivalent, so consult the relevant
+reference for the scope of each setting.
+
+## Overview
+
+Model configuration files allow you to:
+- Define default parameters (temperature, top_p, etc.)
+- Configure prompt templates
+- Specify backend settings
+- Set up function calling
+- Configure GPU and memory options
+- And much more
+
+## Configuration File Locations
+
+You can create model configuration files in several ways:
+
+1. **Individual YAML files** in the models directory (e.g., `models/gpt-3.5-turbo.yaml`)
+2. **Single config file** with multiple models using `--models-config-file` or `LOCALAI_MODELS_CONFIG_FILE`
+3. **Remote URLs** - specify a URL to a YAML configuration file at startup
+
+### Example: Basic Configuration
+
+```yaml
+name: gpt-3.5-turbo
+parameters:
+  model: luna-ai-llama2-uncensored.ggmlv3.q5_K_M.bin
+  temperature: 0.3
+
+context_size: 512
+threads: 10
+backend: llama-cpp
+
+template:
+  completion: completion
+  chat: chat
+```
+
+### Example: Multiple Models in One File
+
+When using `--models-config-file`, you can define multiple models as a list:
+
+```yaml
+- name: model1
+  parameters:
+    model: model1.bin
+  context_size: 512
+  backend: llama-cpp
+
+- name: model2
+  parameters:
+    model: model2.bin
+  context_size: 1024
+  backend: llama-cpp
+```
+
+LocalAI changes only config files that are inside the models directory. If the file from `--models-config-file` is outside the models directory, you cannot view, edit, pin, enable or disable its models from the web UI or the model admin API. Edit the file directly, then restart LocalAI.
+
+## Core Configuration Fields
+
+### Basic Model Settings
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `name` | string | Model name, used to identify the model in API calls | `gpt-3.5-turbo` |
+| `backend` | string | Backend to use (e.g. `llama-cpp`, `vllm`, `diffusers`, `whisper`) | `llama-cpp` |
+| `description` | string | Human-readable description of the model | `A conversational AI model` |
+| `usage` | string | Usage instructions or notes | `Best for general conversation` |
+
+### Model File and Downloads
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `parameters.model` | string | Path to the model file (relative to models directory) or URL |
+| `download_files` | array | List of files to download. Each entry has `filename`, `uri`, and optional `sha256` |
+
+**Example:**
+```yaml
+parameters:
+  model: my-model.gguf
+
+download_files:
+  - filename: my-model.gguf
+    uri: https://example.com/model.gguf
+    sha256: abc123...
+```
+
+## Model artifacts
+
+The `artifacts` section makes installation of a Hugging Face model eager and
+repeatable. LocalAI resolves the requested revision to an immutable commit,
+downloads the selected repository files, and commits the complete snapshot
+before the model installation succeeds.
+
+```yaml
+artifacts:
+  - name: model
+    target: model
+    source:
+      type: huggingface
+      repo: Qwen/Qwen3-ASR-1.7B
+      revision: main
+      token_env: HF_TOKEN
+    resolved:
+      endpoint: https://huggingface.co
+      revision: 0123456789abcdef0123456789abcdef01234567
+      cache_key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+parameters:
+  model: Qwen/Qwen3-ASR-1.7B
+```
+
+Declare `source` when authoring a configuration. LocalAI owns the `resolved`
+block and writes it after installation; do not choose its values manually.
+For a public repository, omit `token_env`. For a private or gated repository,
+set it to `HF_TOKEN` and provide that environment variable to the LocalAI
+controller.
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Logical artifact name; `model` for the initial primary artifact |
+| `target` | Binding target; only `model` is supported initially |
+| `source.type` | `huggingface` |
+| `source.repo` | `owner/repository` or `hf://owner/repository` |
+| `source.revision` | Branch, tag, or commit; defaults to `main` and resolves to a commit |
+| `source.token_env` | Empty or `HF_TOKEN`; the secret value is never persisted |
+| `source.allow_patterns` | Optional slash-separated glob allow-list |
+| `source.ignore_patterns` | Optional slash-separated glob deny-list |
+| `resolved` | Installer-owned immutable endpoint, revision, and cache key |
+
+Managed installation finishes only after every selected file is committed
+locally. `parameters.model` remains the logical repository ID. Once
+`resolved.cache_key` is present, LocalAI derives
+`.artifacts/huggingface/<cache-key>/snapshot` as the runtime `ModelFile`.
+Configurations without `artifacts` keep the existing lazy repository-ID
+behavior.
+
+The initially migrated backend families are `transformers` and its aliases,
+`diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
+`vllm`, `vllm-omni`, and `sglang`. Automatic imports add
+artifact declarations only for this set. Compatible external backends may opt
+in by declaring the artifact explicitly.
+
+## GGUF header cache
+
+When a model config does not set a value itself, LocalAI reads the header of its GGUF file to choose defaults. The header gives the layer count, the trained context length, the chat template, the token IDs, and whether the file has an embedded multi-token-prediction head. Reading a large header takes seconds, so LocalAI keeps the result in a cache.
+
+**Mode: shared by file.** Every frontend that uses the same data path reads and writes one cache file, `header-cache.json`. A frontend can therefore use the headers another frontend has already read. This mode is valid only while all frontends mount the same data volume.
+
+Set an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`) to give a frontend its own file, `header-cache-<id>.json`, instead of the shared one. It then keeps its own entries across restarts and does not share them with other frontends. An instance ID that is not a plain token (letters, digits, `-` and `_`, up to 64 characters) is hashed into the file name. In distributed mode, an ID that LocalAI generates at startup does not select a file of its own, because it changes on every start; such a frontend uses the shared file.
+
+{{% notice warning %}}
+All frontends that share this cache must mount the same data volume. With a ReadWriteOnce volume, the volume attaches to one node at a time, so all frontends that share the cache must run on that one node. A frontend on another node cannot mount the volume and will not start. Sharing this cache across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
+{{% /notice %}}
+
+### What is stored
+
+Each entry is keyed by the absolute path of the file, its size and its modification time. If any of the three changes, the entry is not used and the header is read again.
+
+The file keeps the values that come from the file: the architecture and name, the trained context length, the chat template, the token IDs, the multi-token-prediction head, and the estimates that depend only on the file and on LocalAI's fixed defaults. The file also records the gguf-parser version and those defaults, so a LocalAI upgrade that changes them ignores the old file.
+
+The file does not store anything about the machine: GPU and memory sizes, and your settings. Those are read again when a model loads, so the same file gives the same defaults on a different host.
+
+The cache holds at most 256 entries. The least recently used entry is dropped first. Changes are written in the background after a short pause, never while a request waits.
+
+### How frontends share the file
+
+- **Merge on save.** Before writing, a frontend reads the file and merges its entries into its own. When both hold an entry for the same model file, the one that matches the model file on disk is kept. Entries that match no current file are dropped. The 256-entry bound applies to the merged set.
+- **Atomic write.** The new file is written to a temporary file in the same directory and renamed into place. A reader sees either the old file or the new one, never a partial file.
+- **Reload on miss.** A frontend reads the file when it starts. Later, it checks the file only when a header lookup misses, and only when the file's modification time differs from the one it last read. It reads the file at most once per miss. A lookup that hits the cache never reads the file.
+- **Concurrent saves.** Two frontends can save at the same moment. The later rename wins, so an entry that the other frontend saved in that moment can be lost. A lost entry costs one header parse the next time that model file is used. It never gives a wrong value, because every entry is checked against its model file before it is used.
+
+### Where the file lives
+
+The file is in the data path (`--data-path`, default `data/` under the LocalAI base path):
+
+- `header-cache.json`, in standalone mode and for every frontend that does not set an instance ID. Frontends that mount the same data path share it.
+- `header-cache-<id>.json`, for a frontend that sets an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`).
+- No data path: the cache is kept in memory only. Each start parses the headers again.
+
+Files named `gguf-header-cache*.json` come from earlier versions. LocalAI does not read them, so you can delete them.
+
+### Clearing the cache
+
+Stop the frontends that share the file and delete `header-cache.json`. It is rebuilt as models are used, one parse per model file. Deleting the file while a frontend runs is not reliable: that frontend writes its in-memory entries back after the next change.
+
+## Parameters Section
+
+The `parameters` section contains all OpenAI-compatible request parameters and model-specific options.
+
+### OpenAI-Compatible Parameters
+
+These settings will be used as defaults for all the API calls to the model.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `temperature` | float | `0.9` | Sampling temperature (0.0-2.0). Higher values make output more random |
+| `top_p` | float | `0.95` | Nucleus sampling: consider tokens with top_p probability mass |
+| `top_k` | int | `40` | Consider only the top K most likely tokens |
+| `max_tokens` | int | `0` | Maximum number of tokens to generate (0 = unlimited) |
+| `frequency_penalty` | float | `0.0` | Penalty for token frequency (-2.0 to 2.0) |
+| `presence_penalty` | float | `0.0` | Penalty for token presence (-2.0 to 2.0) |
+| `repeat_penalty` | float | `1.1` | Penalty for repeating tokens |
+| `repeat_last_n` | int | `64` | Number of previous tokens to consider for repeat penalty |
+| `seed` | int | `-1` | Random seed (omit for random) |
+| `echo` | bool | `false` | Echo back the prompt in the response |
+| `n` | int | `1` | Number of completions to generate |
+| `logprobs` | bool/int | `false` | Return log probabilities of tokens |
+| `top_logprobs` | int | `0` | Number of top logprobs to return per token (0-20) |
+| `logit_bias` | map | `{}` | Map of token IDs to bias values (-100 to 100) |
+| `typical_p` | float | `1.0` | Typical sampling parameter |
+| `tfz` | float | `1.0` | Tail free z parameter |
+| `keep` | int | `0` | Number of tokens to keep from the prompt |
+
+{{% notice note %}}
+The DS4 backend preserves its legacy behavior for omitted or non-positive
+`max_tokens` values by generating at most 256 tokens. Set `max_tokens` to a
+positive value when you need a specific DS4 output limit. After processing the
+prompt, DS4 clamps that limit to the available context space and reserves one
+context slot for safe generation.
+{{% /notice %}}
+
+### Language and Translation
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `language` | string | Language code for transcription/translation |
+| `translate` | bool | Whether to translate audio transcription |
+
+### Custom Parameters
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `batch` | int | Batch size for processing |
+| `ignore_eos` | bool | Ignore end-of-sequence tokens |
+| `negative_prompt` | string | Negative prompt for image generation |
+| `rope_freq_base` | float32 | RoPE frequency base |
+| `rope_freq_scale` | float32 | RoPE frequency scale |
+| `negative_prompt_scale` | float32 | Scale for negative prompt |
+| `tokenizer` | string | Tokenizer to use (RWKV) |
+
+## LLM Configuration
+
+These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
+
+### Performance Settings
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `threads` | int | `processor count` | Number of threads for parallel computation. A per-model value overrides the server-wide `--threads`/`LOCALAI_THREADS` setting |
+| `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
+| `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
+| `gpu_layers` | int | `99999999` | Number of layers to offload to GPU. The default requests all layers; `0` keeps model layers on CPU. See [mixed CPU/GPU inference](#mixed-cpugpu-inference). |
+
+### Memory Management
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mmap` | bool | `true` | Use memory mapping for model loading (faster, less RAM) |
+| `mmlock` | bool | `false` | Lock model in memory (prevents swapping). With `llama-cpp`, `mmlock` together with `mmap` (the default) maps the file and locks it (`mmap+mlock`); with `mmap: false` the model is read into locked memory instead. |
+| `low_vram` | bool | `false` | Use minimal VRAM mode |
+| `no_kv_offloading` | bool | `false` | Disable KV cache offloading |
+
+### GPU Configuration
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tensor_split` | string | Comma-separated GPU memory allocation (e.g., `"0.8,0.2"` for 80%/20%) |
+| `main_gpu` | string | Main GPU identifier for multi-GPU setups |
+| `cuda` | bool | Explicitly enable/disable CUDA |
+
+### Placement
+
+The model page's **Configuration** tab and the model editor have a **Placement**
+section for the keys above. It edits `gpu_layers`, `tensor_split`, `main_gpu`
+and `context_size` and nothing else.
+
+- **CPU only** writes `gpu_layers: 0`.
+- **Auto** leaves `gpu_layers` unset. LocalAI then asks the backend for every
+  layer (`99999999`), and the `llama-cpp` backend lowers that to what fits in the
+  free device memory unless the model turns off `fit_params` (see [GPU auto-fit settings](#gpu-auto-fit-mode)). Other backends read
+  an unset value as their own default.
+- **Custom** writes the number you enter. **All layers** writes `99999999`, the
+  value LocalAI uses when the key is unset. A slider appears when the memory
+  estimate reports the model's layer count (`block_count`); today it does not, so
+  you enter a number.
+- With two or more GPUs, **Split across GPUs** writes `tensor_split` as
+  percentages (for example `65,35`; llama.cpp reads them as proportions) and
+  **Main GPU** writes `main_gpu`. **Split by free memory** sets the shares from
+  the memory each card has free now.
+
+The bars show, for each GPU and for system memory, what other programs use, what
+this model needs (weights and working memory, and the KV cache that grows with
+`context_size`) and what is left. They come from the device list in
+`/api/resources` and from `POST /api/models/vram-estimate`, which returns one
+total for the chosen context size and layer count. The per-device split of that
+total follows `tensor_split`, so it is an approximation. The page says what the
+choice means in words ("Fits in GPU", "Spills to CPU", "Too many layers for the
+GPU") and does not state a speed. A usable limit is 95 percent of the free
+memory.
+
+**Fit it for me** searches for the largest `gpu_layers` whose estimate fits the
+free GPU memory, by asking the estimate endpoint, and **Undo** puts the previous
+value back. It is hidden when the estimate is unavailable (the model file is
+missing, still downloading or in a format the estimate does not cover) and when
+the host has no GPU. A server that schedules models onto other machines shows no
+per-device bars, because the devices listed belong to the controller.
+
+Saving from the model page sends only the keys that changed. A key set back to
+Auto is sent as `null`. The patch endpoint merges values into the file and cannot
+delete a key, so the file then reads `gpu_layers: null`, which LocalAI treats as
+unset. To remove the line itself, edit the YAML.
+
+### Mixed CPU/GPU inference
+
+The `llama-cpp` backend can run one GGUF model across CPU and GPU, using both system RAM and GPU VRAM.
+Use a GPU-capable build of the backend for your hardware.
+A CPU-only build cannot offload layers to the GPU.
+
+#### Offload some model layers
+
+Set `gpu_layers` to a positive number smaller than the model's layer count.
+The remaining layers run on CPU.
+Merge these settings into your existing model YAML, keeping its model path, template, and other options:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 12
+context_size: 4096
+```
+
+The value `12` is an example, not a memory estimate.
+Reload the model after changing its configuration.
+Check the backend startup log for the number of layers offloaded and the CPU/GPU buffer sizes.
+Increase `gpu_layers` if VRAM has room; reduce it if loading runs out of GPU memory.
+Set `gpu_layers: 0` to keep all model layers on CPU.
+
+#### Keep MoE experts on CPU
+
+For a mixture-of-experts (MoE) model, you can keep expert weights in system RAM while offloading other tensors to the GPU:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+```
+
+Append `cpu_moe:true` to any existing `options` list instead of replacing that list.
+This option applies to the main model's expert weights.
+To keep experts from only the first 12 layers on CPU, replace `cpu_moe:true` with `n_cpu_moe:12`.
+Use one of these options at a time.
+
+To speed up decoding when experts stay in host memory, you can add a GPU cache for them with `moe_cache_mib`:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+  - moe_cache_mib:4096
+```
+
+The value is a size in MiB.
+It is off by default (`0`).
+It helps only when expert weights are in host memory, that is with `cpu_moe`, `n_cpu_moe` or a spill from [GPU auto-fit](#gpu-auto-fit-mode).
+The cache uses GPU memory, so lower `gpu_layers` or the auto-fit result may change when you turn it on.
+The feature is experimental upstream.
+A cache that is too small can thrash, because every token evicts its own experts.
+A rough starting point is about 10% of the total expert size.
+LocalAI sets no value on its own.
+
+Once the cache is full, every miss is uploaded to the GPU by default.
+You can let the CPU compute a share of the misses from the host experts instead, with `moe_cache_cpu_share`:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+  - moe_cache_mib:4096
+  - moe_cache_cpu_share:0.5
+```
+
+The value is a number from 0 to 1.
+It is `0` by default, which uploads every miss.
+It applies only when the cache is on (`moe_cache_mib` greater than 0).
+Other values are ignored with a warning.
+The best value depends on your hardware.
+In the upstream tests, a small cache did best with a high share and a large cache with a low one.
+To find the cache size and the share for your machine, use `scripts/moe-cache-tune.py` from the llama.cpp repository.
+It wraps a plain `llama-server` command and prints the recommended `--moe-cache-mib` and `--moe-cache-cpu-share`.
+
+CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
+RAM and VRAM do not form one interchangeable allocation pool.
+Leave memory for the KV cache, compute buffers, the operating system, and other processes.
+Reduce `context_size` if the KV cache consumes too much memory.
+The [GPU auto-fit settings](#gpu-auto-fit-mode) provide a separate way to let llama.cpp choose the allocation.
+
+#### Lazy tensor loading
+
+Some models have very large tensors that are used sparsely, such as per-layer embeddings.
+The `lazy_mode` option (also `lazy-mode`) sets upstream `--lazy-mode`: it controls whether llama.cpp reads those tensors on demand instead of loading them all at startup.
+
+```yaml
+backend: llama-cpp
+options:
+  - lazy_mode:on
+```
+
+| Value | Behavior |
+|---|---|
+| `auto` | Default. Read on demand only the marked tensors larger than 4 GiB. |
+| `on` | Read on demand every marked tensor. Requires `mmap` (enabled by default). |
+| `off` | Load everything at startup. |
+
+An invalid value logs a warning and keeps the default.
+The option needs a llama.cpp build that has `--lazy-mode`.
+
+### Sampling and Generation
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mirostat` | int | `0` | Mirostat sampling mode (0=disabled, 1=Mirostat, 2=Mirostat 2.0) |
+| `mirostat_tau` | float | `5.0` | Mirostat target entropy |
+| `mirostat_eta` | float | `0.1` | Mirostat learning rate |
+
+### LoRA Configuration
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `lora_adapter` | string | Path to LoRA adapter file |
+| `lora_base` | string | Base model for LoRA |
+| `lora_scale` | float32 | LoRA scale factor |
+| `lora_adapters` | array | Multiple LoRA adapters |
+| `lora_scales` | array | Scales for multiple LoRA adapters |
+
+### Advanced Options
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `no_mulmatq` | bool | Disable matrix multiplication queuing |
+| `draft_model` | string | Draft model GGUF file for speculative decoding (see [Speculative Decoding](#speculative-decoding)) |
+| `n_draft` | int32 | Maximum number of draft tokens per speculative step (default: 16) |
+| `quantization` | string | Quantization format |
+| `load_format` | string | Model load format |
+| `numa` | bool | Enable NUMA (Non-Uniform Memory Access) |
+| `rms_norm_eps` | float32 | RMS normalization epsilon |
+| `ngqa` | int32 | Natural question generation parameter |
+| `rope_scaling` | string | RoPE scaling configuration |
+| `type` | string | Model type/architecture |
+| `grammar` | string | Grammar file path for constrained generation |
+
+### YARN Configuration
+
+YARN (Yet Another RoPE extensioN) settings for context extension:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `yarn_ext_factor` | float32 | YARN extension factor |
+| `yarn_attn_factor` | float32 | YARN attention factor |
+| `yarn_beta_fast` | float32 | YARN beta fast parameter |
+| `yarn_beta_slow` | float32 | YARN beta slow parameter |
+
+The original context size that YaRN scales from is an `options:` entry, `yarn_orig_ctx:N` (upstream `--yarn-orig-ctx`; `0`, the default, uses the model's training context size).
+
+### Speculative Decoding
+
+Speculative decoding speeds up text generation by predicting multiple tokens ahead and verifying them in a single forward pass. The output is identical to normal decoding - only faster. This feature is only available with the `llama-cpp` backend.
+
+There are two approaches:
+
+#### Draft Model Speculative Decoding
+
+Uses a smaller, faster model from the same model family to draft candidate tokens, which the main model then verifies. Requires a separate GGUF file for the draft model.
+
+```yaml
+name: my-model
+backend: llama-cpp
+parameters:
+  model: large-model.gguf
+draft_model: small-draft-model.gguf
+n_draft: 8
+options:
+  - spec_p_min:0.8
+  - draft_gpu_layers:99
+```
+
+#### N-gram Self-Speculative Decoding
+
+Uses patterns from the token history to predict future tokens - no extra model required. Works well for repetitive or structured output (code, JSON, lists).
+
+```yaml
+name: my-model
+backend: llama-cpp
+parameters:
+  model: my-model.gguf
+options:
+  - spec_type:ngram_simple
+  - spec_n_max:16
+```
+
+#### Speculative Decoding Options
+
+These are set via the `options:` array in the model configuration (format: `key:value`):
+
+**Common options**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_type` / `speculative_type` | string | `none` | Speculative decoding type, or comma-separated list to chain multiple (see table below) |
+| `spec_n_max` / `draft_max` | int | 16 | Maximum number of tokens to draft per step |
+| `spec_n_min` / `draft_min` | int | 0 | Minimum draft tokens required to use speculation |
+| `spec_p_min` / `draft_p_min` | float | 0.75 | Minimum probability threshold for greedy acceptance |
+| `spec_p_split` | float | 0.1 | Split probability for tree-based branching |
+
+**Draft-model options** (apply when `spec_type=draft`, i.e. a `draft_model` is configured)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `draft_gpu_layers` | int | -1 | GPU layers for the draft model (-1 = use default) |
+| `draft_threads` / `spec_draft_threads` | int | same as main | Threads used by the draft model (`<= 0` = hardware concurrency) |
+| `draft_threads_batch` / `spec_draft_threads_batch` | int | same as `draft_threads` | Threads used by the draft model during batch / prompt processing |
+| `draft_cache_type_k` / `spec_draft_cache_type_k` / `spec_draft_type_k` | string | `f16` | KV cache K data type for the draft model (same values as `cache_type_k`). `spec_draft_type_k` is the current upstream name (`--spec-draft-type-k`). |
+| `draft_cache_type_v` / `spec_draft_cache_type_v` / `spec_draft_type_v` | string | `f16` | KV cache V data type for the draft model (upstream `--spec-draft-type-v`) |
+| `spec_draft_n_ubatch` | int | `0` (same as `n_ubatch`) | Physical batch size of the draft context. Use a smaller value to spare VRAM (upstream `--spec-draft-n-ubatch`). |
+| `spec_draft_sampling` | string | `greedy` | How the draft is sampled: `greedy` takes the argmax, `probabilistic` samples it and the target verifies by rejection sampling (upstream `--spec-draft-sampling`). |
+| `spec_draft_device` / `draft_device` | string | follows `device` | Comma-separated devices for the draft model; `none` keeps it off the GPU (upstream `--spec-draft-device`). |
+| `draft_cpu_moe` / `spec_draft_cpu_moe` | bool | false | Keep all MoE expert weights of the draft model on CPU |
+| `draft_n_cpu_moe` / `spec_draft_n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N draft-model layers on CPU |
+| `draft_override_tensor` / `spec_draft_override_tensor` | string | "" | Comma-separated `<tensor regex>=<buffer type>` overrides for the draft model |
+| `draft_ctx_size` | int | (ignored) | Deprecated upstream: the draft now shares the target context size. Accepted for backward compatibility but **has no effect**; the backend logs a warning. |
+
+The names `spec_n_max`, `spec_n_min` and `spec_p_min` map to upstream's `--spec-draft-n-max`, `--spec-draft-n-min` and `--spec-draft-p-min`. The older `--draft-max` style flags were removed upstream: passed as raw flags they are rejected.
+
+**`ngram_simple` options** (used when `spec_type` includes `ngram_simple`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_ngram_size_n` / `ngram_size_n` | int | 12 | N-gram lookup size |
+| `spec_ngram_size_m` / `ngram_size_m` | int | 48 | M-gram proposal size |
+| `spec_ngram_min_hits` / `ngram_min_hits` | int | 1 | Minimum hits for accepting n-gram proposals |
+
+**`ngram_mod` options** (used when `spec_type` includes `ngram_mod`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_ngram_mod_n_min` | int | 48 | Minimum number of ngram tokens to use |
+| `spec_ngram_mod_n_max` | int | 64 | Maximum number of ngram tokens to use |
+| `spec_ngram_mod_n_match` | int | 24 | Ngram lookup length |
+
+**`ngram_map_k` options** (used when `spec_type` includes `ngram_map_k`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_ngram_map_k_size_n` | int | 12 | N-gram lookup size |
+| `spec_ngram_map_k_size_m` | int | 48 | M-gram proposal size |
+| `spec_ngram_map_k_min_hits` | int | 1 | Minimum hits for accepting proposals |
+
+**`ngram_map_k4v` options** (used when `spec_type` includes `ngram_map_k4v`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_ngram_map_k4v_size_n` | int | 12 | N-gram lookup size |
+| `spec_ngram_map_k4v_size_m` | int | 48 | M-gram proposal size |
+| `spec_ngram_map_k4v_min_hits` | int | 1 | Minimum hits for accepting proposals |
+
+**`ngram_cache` lookup files**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `spec_lookup_cache_static` / `lookup_cache_static` | string | "" | Path to a static ngram lookup cache file |
+| `spec_lookup_cache_dynamic` / `lookup_cache_dynamic` | string | "" | Path to a dynamic ngram lookup cache file (updated by generation) |
+
+#### Speculative Type Values
+
+The canonical names match upstream llama.cpp (dash-separated). For backward compatibility LocalAI also accepts the underscore-separated forms and the bare `draft` / `eagle3` aliases.
+
+| Type | Aliases accepted | Description |
+|------|------------------|-------------|
+| `none` | | No speculative decoding (default) |
+| `draft-simple` | `draft`, `draft_simple` | Draft model-based speculation (auto-set when `draft_model` is configured) |
+| `draft-eagle3` | `eagle3`, `draft_eagle3` | EAGLE3 draft model architecture |
+| `draft-mtp` | `draft_mtp` | Multi-Token Prediction. Reuses the target model's embedded MTP head; no separate draft GGUF required (`draft_model` can be omitted). |
+| `draft-dflash` | `draft_dflash` | DFlash speculation with a draft model set in `draft_model`. |
+| `draft-dspark` | `draft_dspark` | DSpark speculation (the draft model carries a Markov head), draft set in `draft_model`. |
+| `ngram-simple` | `ngram_simple` | Simple self-speculative using token history |
+| `ngram-map-k` | `ngram_map_k` | N-gram with key-only map |
+| `ngram-map-k4v` | `ngram_map_k4v` | N-gram with keys and 4 m-gram values |
+| `ngram-mod` | `ngram_mod` | Modified n-gram speculation |
+| `ngram-cache` | `ngram_cache` | 3-level n-gram cache |
+
+Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram-simple,ngram-mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
+
+{{% notice note %}}
+The current LocalAI llama.cpp backend supports speculative decoding with multimodal models that load an `mmproj`, including MTP. LocalAI passes both configurations to llama.cpp and does not disable speculation merely because an `mmproj` is present. Upstream llama.cpp removed the former general multimodal/speculative restriction in [ggml-org/llama.cpp#19493](https://github.com/ggml-org/llama.cpp/pull/19493); [ggml-org/llama.cpp#22673](https://github.com/ggml-org/llama.cpp/pull/22673) later added MTP support and explicitly documented its compatibility with vision input.
+
+Compatibility still depends on the installed backend version and the target/draft model architecture. Check the backend logs for successful projector loading and speculative-context initialization, then look for the `draft acceptance` statistics line and its `accepted / generated` counts. A representative run with zero accepted draft tokens receives no speculative speedup and can indicate that the model or settings need tuning.
+{{% /notice %}}
+
+##### Multi-Token Prediction (MTP)
+
+`draft-mtp` enables [Multi-Token Prediction](https://github.com/ggml-org/llama.cpp/pull/22673) (ggml-org/llama.cpp#22673). MTP uses a small prediction head trained into the target model: the head runs alongside the main forward pass and proposes the next few tokens, which the target then verifies in a single batched step. Upstream reports ~1.85x-2.1x token throughput at ~72-82% draft acceptance on Qwen3.6 27B / 35B A3B.
+
+**Auto-detection (default).** When a GGUF declares an MTP head (the upstream `<arch>.nextn_predict_layers` metadata key, set by `convert_hf_to_gguf.py` for Qwen3.5/3.6 family models and similar), LocalAI auto-enables MTP with the following defaults:
+
+```yaml
+options:
+  - spec_type:draft-mtp
+  - spec_n_max:6
+  - spec_p_min:0.75
+```
+
+Detection runs both at **import time** (the `/import-model` UI / `POST /models/import-uri` flow range-fetches the GGUF header and writes the options into the generated YAML before you save it) and at **load time** (every llama-cpp model start re-checks the local header and appends the options if `spec_type` isn't already set). To opt out, set an explicit `spec_type:` / `speculative_type:` in your YAML - auto-detection always preserves the user value, including `spec_type:none`.
+
+**Two ways to load the MTP head:**
+
+1. **Embedded in the target GGUF** (the recommended path for LocalAI, and what auto-detection assumes). When `spec_type` includes `draft-mtp` and `draft_model` is empty, the backend builds the MTP draft context directly from the target model's weights. The GGUF must have been converted with the MTP tensors included.
+2. **Separate `mtp-*.gguf` sibling file.** If you point `draft_model` at the separate MTP-head GGUF that ships next to the main weights on HuggingFace, the backend will load it as a draft model. Note: upstream's `-hf` auto-discovery of `mtp-*.gguf` siblings is **not** wired into LocalAI's gRPC layer - you need to download the sibling file and configure `draft_model` explicitly.
+
+**Manual override knobs** (overlap with the auto-detect defaults above):
+
+| Option | Recommended | Notes |
+|--------|------------|-------|
+| `spec_type` | `draft-mtp` | Activates MTP. Can be chained with other types (see below). |
+| `spec_n_max` / `draft_max` | `2`-`6` | Number of draft tokens per step. Upstream's PR suggests 2-3 for the tightest acceptance window; LocalAI's auto-default is 6 to favour throughput on models with high acceptance. |
+| `spec_p_min` | `0.75` | Pinned because upstream marks the current default with a "change to 0.0f" TODO; locking it here keeps acceptance thresholds stable across future llama.cpp bumps. |
+| `mmproj_use_gpu` | `true` for vision | MTP does not require disabling the projector. Keep `mmproj` configured for image input; set this option to `false` to keep the projector on CPU when VRAM is tight. Remove `mmproj` only for text-only use when vision is not needed. |
+
+**Minimal config** (override-only, since auto-detection already covers this for MTP-capable GGUFs):
+
+```yaml
+name: qwen3-mtp
+backend: llama-cpp
+parameters:
+  model: qwen3-27b-with-mtp.gguf
+options:
+  - spec_type:draft-mtp
+  - spec_n_max:3
+```
+
+**With vision enabled:**
+
+```yaml
+name: qwen3-vision-mtp
+backend: llama-cpp
+known_usecases:
+  - chat
+  - vision
+parameters:
+  model: qwen3-with-mtp.gguf
+mmproj: mmproj-qwen3.gguf
+options:
+  - spec_type:draft-mtp
+  - spec_n_max:3
+  - spec_p_min:0.75
+```
+
+**With a separate MTP head file:**
+
+```yaml
+name: qwen3-mtp
+backend: llama-cpp
+parameters:
+  model: qwen3-27b.gguf
+  draft_model: qwen3-27b-mtp-head.gguf
+options:
+  - spec_type:draft-mtp
+  - spec_n_max:3
+```
+
+**Chaining MTP with n-gram fallback** (experimental, from the PR's usage notes - useful when MTP acceptance drops on highly repetitive output):
+
+```yaml
+options:
+  - spec_type:draft-mtp,ngram-mod
+  - spec_n_max:3
+  - spec_ngram_mod_n_match:24
+```
+
+Pre-converted GGUFs with MTP heads are published on the [ggml-org HuggingFace org](https://huggingface.co/ggml-org) (initially Qwen3.6 27B and Qwen3.6 35B A3B).
+
+### Reasoning Models (DeepSeek-R1, Qwen3, etc.)
+
+These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array. For how reasoning is returned alongside tool calls and survives the tool-result round trip, see [Interleaved Thinking with Tool Calls]({{%relref "/features/interleaved-thinking" %}}).
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `reasoning_format` | string | `deepseek` | Parser for reasoning/thinking blocks. One of `none`, `auto`, `deepseek`, `deepseek-legacy` (alias `deepseek_legacy`). |
+| `enable_reasoning` | `-1`, `0`, `1`, `auto`, `off`, `on` | `-1` (auto) | On/off switch of thinking for the chat template (upstream `--reasoning`). `auto` follows the template, `0` or `off` turns thinking off, `1` or `on` turns it on. A number above `1` is still read as `on`, as in older versions, and logs a warning: it is not a token cap, use `reasoning_budget` for that. |
+| `reasoning_budget` | int | `-1` | Token cap for the thinking section (upstream `--reasoning-budget`): `-1` unlimited, `0` end thinking at once, `N` > 0 allows at most `N` thinking tokens, then the end-of-thinking tag is forced. Values below `-1` are ignored with a warning. For compatibility, `reasoning_budget:0` also turns thinking off (`enable_reasoning:0`) unless `enable_reasoning` is set too. |
+| `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
+
+{{% notice note %}}
+Before this change both names wrote the on/off switch, so `reasoning_budget:N` with `N` > 1 only turned thinking on and never capped it. It now sets the real token cap. `reasoning_budget:0` and `enable_reasoning:0` keep switching thinking off; `reasoning_budget:1` is now a one-token cap, not "on".
+
+This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
+
+- `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
+- `reasoning_effort: "minimal" | "low" | "medium" | "high" | "xhigh" | "max"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
+{{% /notice %}}
+
+The `/v1/responses` endpoint accepts the same effort levels through `reasoning.effort`.
+It also forwards request `metadata` to the backend, including `enable_thinking` overrides.
+
+```json
+{
+  "model": "qwen3",
+  "input": "Say hello",
+  "reasoning": { "effort": "none" },
+  "metadata": { "enable_thinking": "false" }
+}
+```
+
+#### `reasoning_effort` as a chat-template kwarg
+
+`reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it - e.g. gpt-oss (Harmony) or LFM2.5 - honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
+
+Set a per-model default in the config so every request inherits it (a per-request `reasoning_effort` still overrides):
+
+```yaml
+name: my-model
+reasoning_effort: none   # none | minimal | low | medium | high | xhigh | max
+```
+
+For [realtime pipelines]({{%relref "/api/openai-realtime" %}}), set it on the pipeline so it applies to the pipeline's LLM without editing that model's own config:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  llm: lfm2.5
+  reasoning_effort: none   # overrides the LLM model's own reasoning_effort
+```
+
+#### Custom `chat_template_kwargs`
+
+Some jinja chat templates expose extra variables beyond `enable_thinking` /
+`reasoning_effort` (for example Qwen3's `preserve_thinking`). Set arbitrary key/values in
+the model config and they are forwarded to the backend's `chat_template_kwargs` as-is, so
+you don't need a dedicated server option per template variable:
+
+```yaml
+name: qwen3
+chat_template_kwargs:
+  preserve_thinking: true
+```
+
+You can also override (or add) any of these per request through the OpenAI `metadata`
+field on `/v1/chat/completions`. Values are strings; `"true"` / `"false"` are coerced to
+booleans, anything else is passed through as a string:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "metadata": { "preserve_thinking": "true", "enable_thinking": "false" }
+}
+```
+
+Per-request `metadata` overrides the model config defaults and the reasoning-config levers,
+and (for `enable_thinking` / `reasoning_effort`) takes effect across every backend that
+reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
+model YAML `chat_template_kwargs`, where YAML preserves the type.
+
+Clients written for llama.cpp's `llama-server`, vLLM or SGLang send the same switches as a
+top-level `chat_template_kwargs` object. LocalAI accepts that too and folds its scalar values
+into `metadata` (booleans become `"true"` / `"false"`, numbers become strings; nested objects
+and arrays are ignored). If a key appears in both, `metadata` wins:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "chat_template_kwargs": { "enable_thinking": false }
+}
+```
+
+### Multimodal Backend Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `mmproj_use_gpu` / `mmproj_offload` | bool | `true` | Set `false` to keep the multimodal projector on CPU (saves VRAM at cost of speed). |
+| `image_min_tokens` | int | `-1` | Minimum vision tokens per image. `-1` keeps the model default. |
+| `image_max_tokens` | int | `-1` | Maximum vision tokens per image. `-1` keeps the model default. |
+
+### Embedding & Reranking Backend Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pooling_type` / `pooling` | string | auto | Pooling strategy for embeddings: `none`, `mean`, `cls`, `last`, `rank`. Reranking automatically uses `rank`. |
+| `embd_normalize` / `embedding_normalize` | int | `2` | Normalization: `-1` none, `0` max-abs, `1` taxicab, `2` Euclidean (L2), `>2` p-norm. |
+
+### Other Backend Tuning Options
+
+These llama.cpp options are passed through the `options:` array.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `n_ubatch` / `ubatch` | int | same as `batch` | Physical batch size. Decouple from `n_batch` when an embedding/rerank workload needs a different value. |
+| `threads_batch` / `n_threads_batch` | int | same as `threads` | Threads used during prompt processing. `<= 0` means `hardware_concurrency()`. |
+| `direct_io` / `use_direct_io` | bool | `false` | Open the model with `O_DIRECT` (faster cold loads on NVMe; ignored if not supported). |
+| `verbosity` | int | `3` | llama.cpp internal log verbosity threshold. Higher = more verbose. |
+| `device` / `devices` | string | all devices | Select the llama.cpp backend devices to use. Repeat the option or pass a comma-separated list; unlisted devices are excluded. Use the names reported by `llama-server --list-devices` / `--list-devices`. |
+| `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
+| `cpu_moe` | bool | false | Keep all MoE expert weights of the main model on CPU (upstream `--cpu-moe`). Frees VRAM on large MoE models (DeepSeek, Qwen3 `*-A3B`). |
+| `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
+| `n_cpu_ffn` | int | 0 | Keep the dense FFN weights of the first N main-model layers on CPU (upstream `--n-cpu-ffn`). The counterpart of `n_cpu_moe` for dense models. A negative or non-numeric value is ignored with a warning. |
+| `kv_unified_per_slot` | int | 0 (unset) | Context limit per parallel slot (upstream `--kv-unified-per-slot`). Without `context_size`, the shared KV cache is sized to `parallel` times this value. |
+| `yarn_orig_ctx` | int | 0 (model value) | Original context size of the model for YaRN scaling (upstream `--yarn-orig-ctx`). |
+
+#### Generic option passthrough
+
+Any `options:` entry whose name starts with `-` is forwarded **verbatim** to
+upstream llama.cpp's own `llama-server` argument parser. This means any flag the
+bundled llama.cpp supports works without LocalAI needing a dedicated option,
+even ones added after your LocalAI version was built. See the upstream
+[server flags reference](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+
+Format mirrors the rest of the array - `--flag` for a boolean, or `--flag:value`
+for a flag that takes a value. Everything after the first `:` is the value, so
+embedded colons (e.g. `host:port`) are preserved:
+
+```yaml
+options:
+  - "--cpu-moe"                 # boolean flag
+  - "--n-cpu-moe:4"             # flag with a value
+  - "--override-tensor:exps=CPU"
+  - "devices:CUDA1,CUDA2,CUDA3" # skip CUDA0, e.g. a display GPU
+```
+
+Notes:
+
+- **Precedence:** passthrough flags are applied last, so an explicit flag
+  overrides the LocalAI option it maps to (e.g. `--ctx-size:8192` overrides
+  `context_size`).
+- **Power-user territory:** an invalid flag or value is rejected by the upstream
+  parser exactly as it would be by `llama-server`. When the list is refused, the
+  flags that are valid are still applied and each rejected one is named in the
+  log; only a failure of the valid set drops all of them. Prefer the named
+  options above when one exists.
+- **Environment and config files are ignored:** while the flags are parsed, the
+  `LLAMA_ARG_*` environment variables and the user-level llama.cpp config file
+  are hidden, so they cannot change values LocalAI has resolved. Put settings in
+  `options:`. A system-wide `/etc/llama.cpp/config.ini` is still read.
+- **Per-request values win:** LocalAI sends `cache_prompt` and the sampling
+  parameters (`temperature`, `top_k`, `top_p`, `min_p`, `typical_p`, `seed`,
+  repeat/frequency/presence penalties, `mirostat*`, `n_keep`) with every request.
+  Raw flags such as `--cache-prompt`, `--temp`, `--top-k` or `--seed` only change
+  the server defaults, so they have no effect. Use `prompt_cache_all` and the
+  `parameters:` section of the model file instead.
+- Flags that would terminate the process (such as `--help`, `--usage`,
+  `--version`, `--license`, `--list-devices`, `--cache-list`, and
+  `--completion*`) are ignored.
+
+### Prompt Caching
+
+The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "/features/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
+
+Of the fields below, only `prompt_cache_all` is used by the `llama-cpp` gRPC server. The others come from upstream llama.cpp's **CLI completion tool** and are passed through for compatibility, but the server does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `prompt_cache_path` | string | (legacy / unused by llama-cpp gRPC server) Path to a file-backed prompt cache for upstream's CLI completion tool. |
+| `prompt_cache_all` | bool | **Used by `llama-cpp`**: sent with every request as llama.cpp's `cache_prompt`, which lets a slot reuse the KV cache of a matching prompt prefix. Default `true`; set `prompt_cache_all: false` in the model file to turn it off. A raw `--cache-prompt` flag in `options:` does not change it. |
+| `prompt_cache_ro` | bool | (legacy / unused by llama-cpp gRPC server) |
+
+### Text Processing
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `stopwords` | array | Words or phrases that stop generation |
+| `cutstrings` | array | Strings to cut from responses |
+| `trimspace` | array | Strings to trim whitespace from |
+| `trimsuffix` | array | Suffixes to trim from responses |
+| `extract_regex` | array | Regular expressions to extract content |
+
+### System Prompt
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `system_prompt` | string | Default system prompt for the model |
+
+## vLLM-Specific Configuration
+
+These options apply when using the `vllm` backend:
+
+The `vllm` backend validates sampling parameters before generation. Stop strings
+work with streaming and non-streaming requests; an empty stop string is invalid.
+Presence and frequency penalties must be between -2 and 2. A temperature of `0`
+selects greedy decoding, which ignores `top_p` and `top_k`. A seed of `-1` uses
+vLLM's default random seed behavior.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `gpu_memory_utilization` | float32 | GPU memory utilization (0.0-1.0, default 0.9) |
+| `trust_remote_code` | bool | Trust and execute remote code |
+| `enforce_eager` | bool | Force eager execution mode |
+| `swap_space` | int | Swap space in GB |
+| `max_model_len` | int | Maximum model length |
+| `tensor_parallel_size` | int | Tensor parallelism size |
+| `disable_log_stats` | bool | Disable logging statistics |
+| `dtype` | string | Data type (e.g., `float16`, `bfloat16`) |
+| `flash_attention` | string | Flash attention configuration |
+| `cache_type_k` | string | Key cache quantization type. Maps to llama.cpp's `-ctk`. Accepted values for llama.cpp-family backends (`llama-cpp`, `ik-llama-cpp`, `turboquant`): `f16`, `f32`, `q8_0`, `q4_0`, `q4_1`, `q5_0`, `q5_1`. The `turboquant` backend additionally accepts `turbo2`, `turbo3`, `turbo4` - the fork's TurboQuant KV-cache schemes. `turbo3`/`turbo4` auto-enable flash_attention. |
+| `cache_type_v` | string | Value cache quantization type. Maps to llama.cpp's `-ctv`. Same accepted values as `cache_type_k`. Note: any quantized V cache requires flash_attention to be enabled. |
+| `limit_mm_per_prompt` | object | Limit multimodal content per prompt: `{image: int, video: int, audio: int}` |
+
+## Template Configuration
+
+Templates use Go templates with [Sprig functions](http://masterminds.github.io/sprig/).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `template.chat` | string | Template for chat completion endpoint |
+| `template.chat_message` | string | Template for individual chat messages |
+| `template.completion` | string | Template for text completion |
+| `template.edit` | string | Template for edit operations |
+| `template.function` | string | Template for function/tool calls |
+| `template.multimodal` | string | Template for multimodal interactions |
+| `template.reply_prefix` | string | Prefix to add to model replies |
+| `template.use_tokenizer_template` | bool | Use tokenizer's built-in template (vLLM/transformers) |
+| `template.system_messages_after_first` | string | What to do with `system`-role messages that appear after the leading system block: `merge` folds them into the first system message, `user` forwards them as user-role turns at their position. Unset keeps them as-is. Needed for tokenizer templates that reject late system turns (e.g. Qwen3.8) while agent frameworks append instructions mid-conversation. |
+| `template.join_chat_messages_by_character` | string | Character to join chat messages (default: `\n`) |
+
+### Template Variables
+
+Templating supports [sprig](https://masterminds.github.io/sprig/) functions.
+
+Following are common variables available in templates:
+- `{{.Input}}` - User input
+- `{{.Instruction}}` - Instruction for edit operations
+- `{{.System}}` - System message
+- `{{.Prompt}}` - Full prompt
+- `{{.Functions}}` - Function definitions (for function calling)
+- `{{.FunctionCall}}` - Function call result
+
+### Example Template
+
+```yaml
+template:
+  chat: |
+    {{.System}}
+    {{range .Messages}}
+    {{if eq .Role "user"}}User: {{.Content}}{{end}}
+    {{if eq .Role "assistant"}}Assistant: {{.Content}}{{end}}
+    {{end}}
+    Assistant:
+```
+
+## Function Calling Configuration
+
+Configure how the model handles function/tool calls:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `function.disable_no_action` | bool | `false` | Disable the no-action behavior |
+| `function.no_action_function_name` | string | `answer` | Name of the no-action function |
+| `function.no_action_description_name` | string | | Description for no-action function |
+| `function.function_name_key` | string | `name` | JSON key for function name |
+| `function.function_arguments_key` | string | `arguments` | JSON key for function arguments |
+| `function.response_regex` | array | | Named regex patterns to extract function calls |
+| `function.argument_regex` | array | | Named regex to extract function arguments |
+| `function.argument_regex_key_name` | string | `key` | Named regex capture for argument key |
+| `function.argument_regex_value_name` | string | `value` | Named regex capture for argument value |
+| `function.json_regex_match` | array | | Regex patterns to match JSON in tool mode |
+| `function.replace_function_results` | array | | Replace function call results with patterns |
+| `function.replace_llm_results` | array | | Replace LLM results with patterns |
+| `function.capture_llm_results` | array | | Capture LLM results as text (e.g., for "thinking" blocks) |
+| `function.xml_format_preset` | string | | Force an XML tool-call format: `qwen3-coder`, `qwen3.5`, `lfm3`, `glm-4.5`, `minimax-m2`, `kimi-k2` and others. Empty tries all of them |
+
+### Grammar Configuration
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `function.grammar.disable` | bool | `false` | Completely disable grammar enforcement |
+| `function.grammar.parallel_calls` | bool | `false` | Allow parallel function calls |
+| `function.grammar.mixed_mode` | bool | `false` | Allow mixed-mode grammar enforcing |
+| `function.grammar.no_mixed_free_string` | bool | `false` | Disallow free strings in mixed mode |
+| `function.grammar.disable_parallel_new_lines` | bool | `false` | Disable parallel processing for new lines |
+| `function.grammar.prefix` | string | | Prefix to add before grammar rules |
+| `function.grammar.expect_strings_after_json` | bool | `false` | Expect strings after JSON data |
+
+## Diffusers Configuration
+
+For image generation models using the `diffusers` backend:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `diffusers.cuda` | bool | Force CUDA. By default the backend auto-detects and uses CUDA when a compatible GPU is present (ROCm builds included). Pin the CPU with `options: ["device:cpu"]` |
+| `diffusers.pipeline_type` | string | Pipeline type (e.g., `stable-diffusion`, `stable-diffusion-xl`) |
+| `diffusers.scheduler_type` | string | Scheduler type (e.g., `euler`, `ddpm`) |
+| `diffusers.original_config_file` | string | Local path or URL to the original configuration for loading a single-file checkpoint |
+| `diffusers.enable_parameters` | string | Comma-separated parameters to enable |
+| `diffusers.cfg_scale` | float32 | Classifier-free guidance scale |
+| `diffusers.img2img` | bool | Enable image-to-image transformation |
+| `diffusers.clip_skip` | int | Number of CLIP layers to skip |
+| `diffusers.clip_model` | string | CLIP model to use |
+| `diffusers.clip_subfolder` | string | CLIP model subfolder |
+| `diffusers.control_net` | string | ControlNet model to use |
+| `step` | int | Number of diffusion steps |
+
+## TTS Configuration
+
+For text-to-speech models:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tts.voice` | string | Default backend voice ID, speaker name, or reference path. A request `voice` takes precedence. |
+| `tts.audio_path` | string | Default reference-audio path for cloning backends. A request voice or saved Voice Library profile takes precedence. |
+| `tts.voice_cloning` | bool | Optional Voice Library capability override. Omit for automatic backend/variant detection; `true` opts in a verified custom-named variant and `false` rejects saved profile references. |
+
+For example, a custom-named model on a known cloning backend can declare support explicitly while retaining a model-wide reference fallback:
+
+```yaml
+name: private-voice-model
+backend: qwen3-tts-cpp
+parameters:
+  model: private/qwen-talker-base.gguf
+known_usecases:
+  - tts
+tts:
+  voice_cloning: true
+  audio_path: voices/default-reference.wav
+```
+
+`tts.voice_cloning: true` only overrides model-variant detection. It cannot enable cloning on a backend that does not implement LocalAI's reference-audio contract.
+
+## Roles Configuration
+
+Map conversation roles to specific strings:
+
+```yaml
+roles:
+  user: "### Instruction:"
+  assistant: "### Response:"
+  system: "### System Instruction:"
+```
+
+## Feature Flags
+
+Enable or disable experimental features:
+
+```yaml
+feature_flags:
+  feature_name: true
+  another_feature: false
+```
+
+## MCP Configuration
+
+Model Context Protocol (MCP) configuration:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mcp.remote` | string | YAML string defining remote MCP servers |
+| `mcp.stdio` | string | YAML string defining STDIO MCP servers |
+
+## Agent Configuration
+
+Options of the tool loop. They apply to the [chats]({{% relref "/features/chats" %}}) (including saved agents, triggers and connector turns) and, for `max_iterations`, to `/v1/chat/completions`, `/v1/messages` and `/v1/responses`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent.max_iterations` | int | Maximum number of tool rounds in one turn. In the chats it replaces the runtime setting `chats_max_iterations` (default 40) for this model |
+| `agent.max_attempts` | int | How often a failed tool call is retried |
+| `agent.force_reasoning_tool` | bool | Make the model reason before it picks a tool |
+| `agent.max_generation_tokens` | int | Accepted and ignored. It capped the completions of the agent jobs, which were removed |
+
+The old agent loop also had `enable_reasoning`, `enable_planning`, `enable_mcp_prompts`, `enable_plan_re_evaluator`, `disable_sink_state`, `loop_detection` and `max_adjustment_attempts`. The chats loop has no counterpart for them. A model file that still sets one keeps loading; the option is ignored and a warning names it when the file is read.
+
+## Reasoning Configuration
+
+Configure how reasoning tags are extracted and processed from model output. Reasoning tags are used by models like DeepSeek, Command-R, and others to include internal reasoning steps in their responses.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `reasoning.disable` | bool | `false` | When `true`, disables reasoning extraction entirely. The original content is returned without any processing. |
+| `reasoning.disable_reasoning_tag_prefill` | bool | `false` | When `true`, disables automatic prepending of thinking start tokens. Use this when your model already includes reasoning tags in its output format. |
+| `reasoning.strip_reasoning_only` | bool | `false` | When `true`, extracts and removes reasoning tags from content but discards the reasoning text. Useful when you want to clean reasoning tags from output without storing the reasoning content. |
+| `reasoning.thinking_start_tokens` | array | `[]` | List of custom thinking start tokens to detect in prompts. Custom tokens are checked before default tokens. |
+| `reasoning.tag_pairs` | array | `[]` | List of custom tag pairs for reasoning extraction. Each entry has `start` and `end` fields. Custom pairs are checked before default pairs. |
+
+### Reasoning Tag Formats
+
+The reasoning extraction supports multiple tag formats used by different models:
+
+- `<thinking>...</thinking>` - General thinking tag
+- `<think>...</think>` - DeepSeek, Granite, ExaOne, GLM models
+- `<|START_THINKING|>...<|END_THINKING|>` - Command-R models
+- `<|inner_prefix|>...<|inner_suffix|>` - Apertus models
+- `<seed:think>...</seed:think>` - Seed models
+- `<|think|>...<|end|><|begin|>assistant<|content|>` - Solar Open models
+- `[THINK]...[/THINK]` - Magistral models
+
+### Examples
+
+**Disable reasoning extraction:**
+```yaml
+reasoning:
+  disable: true
+```
+
+**Extract reasoning but don't prepend tags:**
+```yaml
+reasoning:
+  disable_reasoning_tag_prefill: true
+```
+
+**Strip reasoning tags without storing reasoning content:**
+```yaml
+reasoning:
+  strip_reasoning_only: true
+```
+
+**Complete example with reasoning configuration:**
+```yaml
+name: deepseek-model
+backend: llama-cpp
+parameters:
+  model: deepseek.gguf
+
+reasoning:
+  disable: false
+  disable_reasoning_tag_prefill: false
+  strip_reasoning_only: false
+```
+
+**Example with custom tokens and tag pairs:**
+```yaml
+name: custom-reasoning-model
+backend: llama-cpp
+parameters:
+  model: custom.gguf
+
+reasoning:
+  thinking_start_tokens:
+    - "<custom:think>"
+    - "<my:reasoning>"
+  tag_pairs:
+    - start: "<custom:think>"
+      end: "</custom:think>"
+    - start: "<my:reasoning>"
+      end: "</my:reasoning>"
+```
+
+**Note:** Custom tokens and tag pairs are checked before the default ones, giving them priority. This allows you to override default behavior or add support for new reasoning tag formats.
+
+### Per-Request Override via Metadata
+
+The `reasoning.disable` setting from model configuration can be overridden on a per-request basis using the `metadata` field in the OpenAI chat completion request. This allows you to enable or disable thinking for individual requests without changing the model configuration.
+
+The `metadata` field accepts a `map[string]string` that is forwarded to the backend. The `enable_thinking` key controls thinking behavior:
+
+```bash
+# Enable thinking for a single request (overrides model config)
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3",
+    "messages": [{"role": "user", "content": "Explain quantum computing"}],
+    "metadata": {"enable_thinking": "true"}
+  }'
+
+# Disable thinking for a single request (overrides model config)
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "metadata": {"enable_thinking": "false"}
+  }'
+```
+
+**Priority order:**
+1. Request-level `metadata.enable_thinking` (highest priority)
+2. Request-level `chat_template_kwargs.enable_thinking` (the llama-server / vLLM form)
+3. Model config `reasoning.disable` (fallback)
+4. Auto-detected from model template (default)
+
+## Pipeline Configuration
+
+Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref "/api/openai-realtime" %}}):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pipeline.tts` | string | TTS model name |
+| `pipeline.llm` | string | LLM model name |
+| `pipeline.transcription` | string | Transcription model name |
+| `pipeline.vad` | string | Voice activity detection model name |
+| `pipeline.any_to_any` | bool | When `true`, a `realtime_audio` model runs as one speech-to-speech model (audio in, audio or text out) instead of the chained VAD, transcription, LLM and TTS path. Experimental. See [Speech-to-speech models]({{%relref "/api/openai-realtime#speech-to-speech-models-experimental" %}}) |
+| `pipeline.turn_detection` | object | Realtime turn-detection defaults. Keys: `type` (`server_vad`/`semantic_vad`), `eagerness` (`low`/`medium`/`high`/`auto`), `retranscribe`, `vad_window_sec` (widen the per-tick VAD scan window; values below the automatic floor are ignored). See [Realtime turn detection]({{%relref "/api/openai-realtime" %}}) |
+| `pipeline.classifier` | object | Realtime classifier mode: prefill-scored option selection instead of generation. Keys: `enabled`, `threshold`, `normalization` (`raw`/`mean`), `history_items`, `fallback` (`mode`: `none`/`reply`/`generate`, `reply`), `options` (list of `id`, `description`, `reply`, `tool` `{name, arguments}`), `address` (wake-word gate: `names`, `mode`: `ignore`/`reply`, `reply`), `model` (optional separate scoring config). See [Realtime classifier mode]({{%relref "/api/openai-realtime#classifier-mode-localai-extension" %}}) |
+
+## gRPC Configuration
+
+Backend gRPC communication settings. These control the readiness handshake
+between LocalAI and a freshly spawned backend process - LocalAI polls the
+backend's `Health` gRPC method up to `grpc.attempts` times, sleeping
+`grpc.attempts_sleep_time` seconds between polls, before giving up and
+terminating the backend as unresponsive.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `grpc.attempts` | int | 20 | Number of health-check attempts before the backend is killed as unresponsive |
+| `grpc.attempts_sleep_time` | int | 2 | Sleep time between health-check attempts (seconds) |
+
+**Total load window ≈ `grpc.attempts × (grpc.attempts_sleep_time + per-call gRPC dial timeout)`.**
+The default of `20 × 2 s ≈ 40 s` is fine for typical backends but is too
+short for large models that need substantial time to become gRPC-ready
+after the process starts - for example NVFP4 / FP8 models whose shard
+loading and CUDA-graph capture can take several minutes, or slow storage
+backends. If the backend keeps getting killed while still legitimately
+loading (visible as `exitCode=120` + `rpc error: code = Canceled desc =
+context canceled` in the LocalAI log, while the backend's own stderr
+shows continued forward progress), raise these values.
+
+Example configuration for a model that needs up to ~10 minutes to become
+gRPC-ready (large NVFP4 model, cold shard load + CUDA-graph capture):
+
+```yaml
+grpc:
+  attempts: 140
+  attempts_sleep_time: 5
+```
+
+This gives a ~700 s window while keeping health-check polling frequent
+enough to detect real backend crashes quickly. The values only affect
+the initial readiness handshake - inference-request timeouts and the
+watchdog are unchanged.
+
+## Overrides
+
+Override model configuration values at runtime (llama.cpp):
+
+```yaml
+overrides:
+  - "qwen3moe.expert_used_count=int:10"
+  - "some_key=string:value"
+```
+
+Format: `KEY=TYPE:VALUE` where TYPE is `int`, `float`, `string`, or `bool`.
+
+## Known Use Cases
+
+Specify which endpoints this model supports:
+
+```yaml
+known_usecases:
+  - chat
+  - completion
+  - embeddings
+```
+
+Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `score`, `token_classify`, `decisions`, `llm` (combination of CHAT, COMPLETION, EDIT).
+
+`decisions` marks a model as a decision model for the [Decisions API]({{% relref "/api/decisions" %}}) (`POST /v1/systemone`). It is never guessed, and a model that declares it is not listed as a chat, completion or embeddings model.
+
+`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family - separate from `llama-cpp`, which no longer carries the token-classification path.
+
+### Known input and output modalities
+
+Use `known_input_modalities` and `known_output_modalities` when a use case does not fully describe a model's I/O. For example, both text-to-video and audio-driven avatar models use the `video` use case, but only the avatar model accepts audio:
+
+```yaml
+known_usecases:
+  - video
+known_input_modalities:
+  - text
+  - image
+  - audio
+known_output_modalities:
+  - video
+```
+
+Valid modality values are `text`, `image`, `audio`, and `video`. Explicit values are combined with modalities LocalAI can infer from the model use cases and configuration. The resulting canonical, de-duplicated lists are exposed by `GET /v1/models/capabilities`.
+
+## PII filtering
+
+PII redaction is NER-based and runs on the **request** (input) side. It has two halves:
+
+- **Detector models** are `token_classify` models that carry the detection *policy* in a top-level `pii_detection:` block. The policy is defined once, on the model itself:
+
+  ```yaml
+  name: privacy-filter-multilingual
+  backend: llama-cpp
+  embeddings: true
+  known_usecases:
+    - token_classify
+  pii_detection:
+    min_score: 0.5            # drop detections below this confidence
+    default_action: mask      # mask | block | allow - applied to any detected
+                              # group with no explicit entry (empty = mask)
+    entity_actions:           # which PII to block vs mask vs allow-log
+      PASSWORD: block
+      CREDITCARD: block
+      EMAIL: mask
+    extend_to_next_word:      # optional: also mask the word right after these
+      - ZIPCODE               # groups on the same line (e.g. the town after a postal code)
+    extend_to_previous_word:  # optional: also mask the letters-only word right before these
+      - LASTNAME              # groups on the same line (e.g. the first name before a surname)
+    protected_terms:          # optional: values that must pass unchanged even if tagged
+      - Hotel Seeblick        # (plus protected_terms_files: one term per line, in the models path)
+  ```
+
+- **Consuming models** opt in and reference one or more detectors by name - no per-consumer policy:
+
+  ```yaml
+  name: my-assistant
+  pii:
+    enabled: true             # default: off for local backends, on for cloud-proxy
+    detectors:
+      - privacy-filter-multilingual
+  ```
+
+Multiple detectors union their detections; overlapping spans resolve to the strongest action (`block` > `mask` > `allow`). A configured detector that can't be loaded fails the request closed (HTTP 503) rather than silently skipping the check. Detections are audited at `/api/pii/events` (hash-prefix only, never the raw value).
+
+> The earlier regex pattern tier (`pii.patterns`, the global pattern catalogue, `--pii-config`, and the `/api/pii/patterns` admin endpoints) has been removed, along with response/streaming-side redaction. Those keys now no-op with a startup warning; migrate to `pii.detectors` + a detector's `pii_detection` block.
+
+## Environment Variables Configuration
+
+Model configurations can specify environment variables passed to the backend process:
+
+```yaml
+name: vllm-model
+backend: vllm
+parameters:
+  model: my-vllm-model
+
+env:
+  VLLM_WORKER_MULTIPROC_METHOD: "spawn"
+  VLLM_CACHE_DIR: "/tmp/vllm_cache"
+  CUDA_VISIBLE_DEVICES: "0,1"
+```
+
+Environment variables are appended to the system environment variables and will override any conflicting system variables with the same name.
+
+## Complete Example
+
+Here's a comprehensive example combining many options:
+
+```yaml
+name: my-llm-model
+description: A high-performance LLM model
+backend: llama-cpp
+
+parameters:
+  model: my-model.gguf
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 40
+  max_tokens: 2048
+
+context_size: 4096
+threads: 8
+f16: true
+gpu_layers: 35
+
+system_prompt: "You are a helpful AI assistant."
+
+template:
+  chat: |
+    {{.System}}
+    {{range .Messages}}
+    {{if eq .Role "user"}}User: {{.Content}}
+    {{else if eq .Role "assistant"}}Assistant: {{.Content}}
+    {{end}}
+    {{end}}
+    Assistant:
+
+roles:
+  user: "User:"
+  assistant: "Assistant:"
+  system: "System:"
+
+stopwords:
+  - "\n\nUser:"
+  - "\n\nHuman:"
+
+prompt_cache_path: "cache/my-model"
+prompt_cache_all: true
+
+function:
+  grammar:
+    parallel_calls: true
+    mixed_mode: false
+
+feature_flags:
+  experimental_feature: true
+```
+
+## Related Documentation
+
+- See [Advanced Usage]({{%relref "/models/advanced-usage" %}}) for other configuration options
+- See [Prompt Templates]({{%relref "/models/advanced-usage#prompt-templates" %}}) for template examples
+- See [CLI Reference]({{%relref "/reference/cli-reference" %}}) for command-line options
+
+
+### GPU Auto-Fit Mode
+
+**Note**: By default, LocalAI sets `gpu_layers` to a very large value (99999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
+
+To enable llama-cpp's auto-fit mode, set `gpu_layers: -1` in your model configuration. However, be aware of the following:
+
+1. **Trade-off**: Enabling auto-fit conflicts with LocalAI's built-in VRAM threshold-based unloading. Auto-fit attempts to fit all tensors into GPU memory automatically, while LocalAI's unloading mechanism removes models when VRAM usage exceeds thresholds.
+
+2. **Known Issues**: Setting `gpu_layers: -1` may trigger `tensor_buft_override` buffer errors in some configurations, particularly when the model exceeds available GPU memory.
+
+3. **Recommendation**: 
+   - Use the default settings for most use cases (LocalAI manages VRAM automatically)
+   - Only enable `gpu_layers: -1` if you understand the implications and have tested on your specific hardware
+   - Monitor VRAM usage carefully when using auto-fit mode
+
+This is a known limitation being tracked in issue [#8562](https://github.com/mudler/LocalAI/issues/8562). A future implementation may provide a runtime toggle or custom logic to reconcile auto-fit with threshold-based unloading.

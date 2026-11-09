@@ -1,12 +1,10 @@
-
 +++
 disableToc = false
 title = "Text Generation (GPT)"
 weight = 10
-url = "/features/text-generation/"
 +++
 
-LocalAI supports generating text with GPT with `llama.cpp` and other backends (such as `rwkv.cpp` as ) see also the [Model compatibility]({{%relref "reference/compatibility-table" %}}) for an up-to-date list of the supported model families.
+LocalAI supports generating text with GPT with `llama.cpp` and other backends (such as `rwkv.cpp` as ) see also the [Model compatibility]({{%relref "/models/compatibility-table" %}}) for an up-to-date list of the supported model families.
 
 Note:
 
@@ -33,7 +31,7 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
 When a request omits `max_tokens`, the vLLM and SGLang backends do not cap generation at 200 tokens. Generation is bounded only by the context window of the model.
 
-Reasoning models return their thinking in the `reasoning` field. When a model reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
+Reasoning models return their thinking in the `reasoning` field. When a model reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "/features/interleaved-thinking" %}}).
 
 When `stream: true` is set and the llama.cpp backend fails before the first chunk, for example because the prompt exceeds the context size, the request fails with an HTTP error. The error message is not streamed as assistant content. An error after streaming has started is reported inside the stream.
 
@@ -619,10 +617,10 @@ The `ggml` file format has been deprecated. If you are using `ggml` models and y
 #### Features
 
 The `llama.cpp` model supports the following features:
-- [📖 Text generation (GPT)]({{%relref "features/text-generation" %}})
-- [🧠 Embeddings]({{%relref "features/embeddings" %}})
-- [🔥 OpenAI functions]({{%relref "features/openai-functions" %}})
-- [✍️ Constrained grammars]({{%relref "features/constrained_grammars" %}})
+- [📖 Text generation (GPT)]({{%relref "/features/text-generation" %}})
+- [🧠 Embeddings]({{%relref "/features/embeddings" %}})
+- [🔥 OpenAI functions]({{%relref "/api/openai-functions" %}})
+- [✍️ Constrained grammars]({{%relref "/features/constrained_grammars" %}})
 
 #### Setup
 
@@ -632,7 +630,7 @@ LocalAI supports `llama.cpp` models out of the box. You can use the `llama.cpp` 
 
 It is sufficient to copy the `ggml` or `gguf` model files in the `models` folder. You can refer to the model in the `model` parameter in the API calls.
 
-[You can optionally create an associated YAML]({{%relref "advanced" %}}) model config file to tune the model's parameters or apply a template to the prompt.
+[You can optionally create an associated YAML]({{%relref "/models/advanced-usage" %}}) model config file to tune the model's parameters or apply a template to the prompt.
 
 Prompt templates are useful for models that are fine-tuned towards a specific prompt.
 
@@ -655,7 +653,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 LocalAI will automatically download and configure the model in the `model` directory.
 
-Models can be also preloaded or downloaded on demand. To learn about model galleries, check out the [model gallery documentation]({{%relref "features/model-gallery" %}}).
+Models can be also preloaded or downloaded on demand. To learn about model galleries, check out the [model gallery documentation]({{%relref "/models" %}}).
 
 #### YAML configuration
 
@@ -820,8 +818,8 @@ The `ik-llama-cpp` backend requires a CPU with **AVX2** support. The IQK kernels
 #### Features
 
 The `ik-llama-cpp` backend supports the following features:
-- [📖 Text generation (GPT)]({{%relref "features/text-generation" %}})
-- [🧠 Embeddings]({{%relref "features/embeddings" %}})
+- [📖 Text generation (GPT)]({{%relref "/features/text-generation" %}})
+- [🧠 Embeddings]({{%relref "/features/embeddings" %}})
 - IQK quantization types for better CPU inference performance
 - Multimodal models (via clip/llava)
 
@@ -1014,7 +1012,7 @@ configs, maps); `options:` is a convenience for flat flags.
 `engine_args.data_parallel_size > 1` combined with the
 `local-ai p2p-worker vllm` follower lets a single model span multiple
 GPU nodes. See [vLLM Multi-Node (Data-Parallel)]({{% relref
-"features/distributed-mode#vllm-multi-node-data-parallel" %}})
+"/administration/distributed-mode#vllm-multi-node-data-parallel" %}})
 for the head/follower configuration and a worked Kimi-K2.6 example.
 
 ### SGLang
@@ -1190,7 +1188,7 @@ tool-call parsing and reasoning split engine-side.
 
 This section is the configuration reference. For installing the backend and the
 ready-made models the gallery ships for it, see the
-[vllm.cpp backend page]({{% relref "features/vllm-cpp" %}}).
+[vllm.cpp backend page]({{% relref "/features/vllm-cpp" %}}).
 
 #### Setup
 
@@ -1249,7 +1247,7 @@ engine_args:
 | `tokenizer_config` | Override the `tokenizer_config.json` the chat template is read from | `<model_dir>/tokenizer_config.json` |
 | `speculative_config` | Speculative decoding (see below) | disabled |
 | `kv_transfer_config` | External KV connector / LMCache (see below) | none |
-| `hf_overrides` | JSON object of `config.json` keys merged over the model directory's own, as vLLM's `--hf-overrides` (see the [vllm.cpp backend page]({{% relref "features/vllm-cpp" %}}#overriding-configjson-keys-hf_overrides)) | none |
+| `hf_overrides` | JSON object of `config.json` keys merged over the model directory's own, as vLLM's `--hf-overrides` (see the [vllm.cpp backend page]({{% relref "/features/vllm-cpp" %}}#overriding-configjson-keys-hf_overrides)) | none |
 
 Raising `max_num_batched_tokens` lets more prefill land in a single step, at the
 cost of decode latency for requests queued behind it. The default deliberately

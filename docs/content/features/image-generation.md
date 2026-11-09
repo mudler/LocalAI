@@ -1,9 +1,7 @@
-
 +++
 disableToc = false
 title = "Image Generation"
 weight = 50
-url = "/features/image-generation/"
 +++
 
 ![anime_girl](https://github.com/go-skynet/LocalAI/assets/2420543/8aaca62a-e864-4011-98ae-dcc708103928)
@@ -229,7 +227,7 @@ Start a worker on each remote machine the same way you would for llama.cpp:
 local-ai worker llama-cpp-rpc --llama-cpp-args="--host 0.0.0.0 --port 50052"
 ```
 
-**Automatic (peer-to-peer):** when LocalAI runs in [p2p worker mode]({{%relref "features/distributed_inferencing" %}}), discovered workers are published in the `LLAMACPP_GRPC_SERVERS` environment variable. The image-generation backend reads that variable automatically (when `rpc_servers` is not set), so the same `local-ai worker p2p-llama-cpp-rpc` workers used for text generation also accelerate image generation - no per-model configuration needed.
+**Automatic (peer-to-peer):** when LocalAI runs in [p2p worker mode]({{%relref "/administration/p2p-federated-inference" %}}), discovered workers are published in the `LLAMACPP_GRPC_SERVERS` environment variable. The image-generation backend reads that variable automatically (when `rpc_servers` is not set), so the same `local-ai worker p2p-llama-cpp-rpc` workers used for text generation also accelerate image generation - no per-model configuration needed.
 
 By default the RPC devices join the pool and participate in placement; combine with the `backend` / `params_backend` options above to pin specific components to them (e.g. `backend:diffusion=rpc0`).
 
@@ -292,7 +290,7 @@ diffusers:
 
 #### Dependencies
 
-This is an extra backend - in the container is already available and there is nothing to do for the setup. Do not use *core* images (ending with `-core`). If you are building manually, see the [build instructions]({{%relref "getting-started/build" %}}).
+This is an extra backend - in the container is already available and there is nothing to do for the setup. Do not use *core* images (ending with `-core`). If you are building manually, see the [build instructions]({{%relref "/contributing/build-from-source" %}}).
 
 #### Model setup
 

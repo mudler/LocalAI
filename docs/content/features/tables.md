@@ -27,7 +27,7 @@ go build ./addons/tables/...
 - **One owner.** A database is a SQLite file on the disk of the one LocalAI instance
   that owns the add-on. Other frontends forward to it; while the owner is down every
   Tables call fails with `503` on every frontend, and nothing is applied later. See
-  [Singleton owner and its limits](../addons/#singleton-owner-and-its-limits).
+  [Singleton owner and its limits]({{% relref "/addons/contract-reference" %}}#singleton-owner-and-its-limits).
 - **Trust.** The Tables executable is trusted code that runs as the owner's operating
   system user. Tables itself never learns who a caller is: the host gives it the
   database ID and the action, and the host decides the role and the approval.
@@ -38,13 +38,13 @@ go build ./addons/tables/...
 - **Ownership mode.** Named-user mode keeps databases private to their owners and
   shareable. Local-owner mode has one owner and no sharing, so the database page shows no Share button. The mode is stored with the
   data and is changed only while the host is stopped, with an explicit mapping (see
-  [Moving between the modes](../addons/#moving-between-the-modes)).
+  [Moving between the modes]({{% relref "/addons/contract-reference" %}}#moving-between-the-modes)).
 - **CSV.** An export is a private, temporary file with the formula policy described in
   [Spreadsheet formulas](#spreadsheet-formulas): it protects a spreadsheet, not a
   program that trusts CSV.
 - **Updates.** The host never upgrades Tables by itself. An administrator checks for an
   update and applies one named candidate (see
-  [Update detection and upgrade](../addons/#update-detection-and-upgrade)); the data is
+  [Update detection and upgrade]({{% relref "/addons/contract-reference" %}}#update-detection-and-upgrade)); the data is
   backed up first.
 - **Optional contributions.** The package declares its UI pages and its tools. A host
   that has no UI still runs the tools, and a UI never gains a tool the manifest does not
@@ -74,7 +74,7 @@ data directory or as a database file.
 Databases are private by default. A new database belongs to the person who
 created it and nobody else can list or open it until the owner shares it with
 a grant. Administrators who install the addon get no access to databases.
-[Sharing resources]({{%relref "features/sharing" %}}) describes the role model
+[Sharing resources]({{%relref "/features/sharing" %}}) describes the role model
 and the sharing API that other kinds of resources use with the same rules.
 
 ## Tools
@@ -111,8 +111,8 @@ Tables opts in to per-agent resources. A saved agent that names Tables lists the
 databases it may use, each as **Read** or **Read and change**; with none listed it
 uses none, and the list tool shows it only those databases. Creating a database is
 not limited, but a new database is on no list until you add it to the agent. See
-[Resources of an agent](/features/chats-agents/#resources-of-an-agent). This needs
-LocalAI with feature level 2 (see [Feature level](/features/addons/#feature-level)); an
+[Resources of an agent]({{% relref "/features/chats-agents" %}}#resources-of-an-agent). This needs
+LocalAI with feature level 2 (see [Feature level]({{% relref "/addons/contract-reference" %}}#feature-level)); an
 older LocalAI refuses this version of Tables when it installs it.
 
 ### Database discovery
@@ -120,7 +120,7 @@ older LocalAI refuses this version of Tables when it installs it.
 `addon__tables__databases-list` takes exactly `{}` and reads the host's resource
 registry, not the Tables executable. It is available only through existing
 authorized actor-bound consumers when Tables is visible, enabled and running,
-and the backend supports host resource listing. The tool exists because the Tables manifest declares it under `capabilities.resources.list` (see [Resource listing](../addons/#resource-listing)); a copy of Tables with an older manifest keeps it until the add-on updates. Existing chat opt-ins, hidden
+and the backend supports host resource listing. The tool exists because the Tables manifest declares it under `capabilities.resources.list` (see [Resource listing]({{% relref "/addons/contract-reference" %}}#resource-listing)); a copy of Tables with an older manifest keeps it until the add-on updates. Existing chat opt-ins, hidden
 add-ons and agent allowlists still apply. Shared MCP sessions and consumers
 without a principal do not gain access.
 
@@ -357,7 +357,7 @@ The rules:
 - **Roles.** The role of an undo is the role of the change: owners and editors undo a
   data change, only the owner undoes a schema change or the creation of a database.
 - **Not a tool.** The undo is the person's own action from a browser tab (see
-  [Undoing a change a chat made](../addons/#undoing-a-change-a-chat-made)). An API key, an
+  [Undoing a change a chat made]({{% relref "/addons/contract-reference" %}}#undoing-a-change-a-chat-made)). An API key, an
   MCP session, an agent or a model cannot call it, and no tool name for it exists. This is
   a decision: the model is told the change ID and that the person can undo it, so it
   cannot silently undo its own work or anyone else's.
@@ -432,7 +432,7 @@ you can still confirm.
 
 Creating, renaming, sharing and deleting a database are the person's own
 actions in the Tables pages, through the routes described in
-[UI-only resource management](../addons/#ui-only-resource-management). They
+[UI-only resource management]({{% relref "/addons/contract-reference" %}}#ui-only-resource-management). They
 are not tools: a model never sees them and sharing and deletion are never
 proposals.
 
@@ -521,7 +521,7 @@ Row and schema changes made in these pages are the person's own action. They
 need no confirmation card and are not proposals, and they still go through the
 host's `POST /api/addons/resources/{resourceId}/apply`: the role of the action,
 the declared tool definition, the admission of the resource, the revision and
-the receipt (see [Changing data and schema from the UI](../addons/#changing-data-and-schema-from-the-ui)).
+the receipt (see [Changing data and schema from the UI]({{% relref "/addons/contract-reference" %}}#changing-data-and-schema-from-the-ui)).
 
 ### The database of a chat
 
@@ -873,7 +873,7 @@ the artifact identifier; after expiry the card says the file expired.
 The addon is not published in a catalog yet. Acceptance builds the package locally and
 installs it from a catalog on loopback; it never pushes, tags or signs. Build the executable, put it in a
 package with `manifest.json` from `addons/tables`, and install the package from
-a local source as described in [Addon contracts](../addons/). The suite
+a local source as described in [Addon contracts]({{% relref "/addons/contract-reference" %}}). The suite
 `sh scripts/addons/verify.sh tables-databases` runs the store and the real
 executable under the real supervisor. The suite
 `sh scripts/addons/verify.sh tables-schema` covers the schema operations,
@@ -894,7 +894,7 @@ destructive deletion, a stale tab after an upgrade or a disable, the database of
 a chat for two conversations and two people, keyboard, 400 pixels, both themes,
 clearing on sign-out and local-owner mode.
 The suite `sh scripts/addons/verify.sh tables-acceptance` is the end-to-end
-acceptance (see [Acceptance](../../development/addon-testing/#tables-acceptance)).
+acceptance (see [Acceptance]({{% relref "/addons/testing" %}}#tables-acceptance)).
 The suite `sh scripts/addons/verify.sh tables-admin` covers the UI-only
 management of databases with the real owner, real accounts and the real
 executable: private defaults, the owner, editor and viewer matrix, sharing and

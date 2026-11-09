@@ -2,7 +2,6 @@
 disableToc = false
 title = "Moderation"
 weight = 65
-url = "/features/moderation/"
 +++
 
 LocalAI exposes an OpenAI-compatible text moderation endpoint at

@@ -2,7 +2,6 @@
 disableToc = false
 title = "Audio Transform"
 weight = 34
-url = "/features/audio-transform/"
 +++
 
 ![Audio transform: two inputs (mic plus reference) become one cleaned output; interleaved-stereo on the wire](/images/diagrams/audio-transform-io.png)
@@ -19,7 +18,7 @@ a 1.3 M-parameter GGML-based model that performs joint AEC + noise suppression
 is a derivative of the Microsoft DeepVQE paper.
 
 Source separation and voice conversion are served by the
-[audio.cpp backend]({{%relref "features/audio-cpp" %}}): its `htdemucs` and
+[audio.cpp backend]({{%relref "/features/audio-cpp" %}}): its `htdemucs` and
 `mel_band_roformer` families produce the named stems described below, and
 `seed_vc`, `vevo2` and `miocodec` do voice conversion against a reference
 speaker.
@@ -174,7 +173,7 @@ PCM frames; server emits binary PCM frames at the same cadence.
 
 This endpoint accepts models with the `audio_transform` use case. It does not
 accept any-to-any models with the `realtime_audio` use case. For example,
-a realtime any-to-any model uses the [OpenAI Realtime API]({{% relref "features/openai-realtime" %}})
+a realtime any-to-any model uses the [OpenAI Realtime API]({{% relref "/api/openai-realtime" %}})
 instead.
 
 ### Wire format
@@ -256,7 +255,7 @@ options:
 
 ## See also
 
-- [Text to Audio (TTS)]({{< relref "text-to-audio.md" >}})
-- [Audio to Text]({{< relref "audio-to-text.md" >}})
+- [Text to Audio (TTS)]({{< relref "/features/text-to-audio" >}})
+- [Audio to Text]({{< relref "/features/audio-to-text" >}})
 - [LocalVQE upstream](https://github.com/localai-org/LocalVQE)
 - [DeepVQE paper (Indenbom et al., Interspeech 2023)](https://arxiv.org/abs/2306.03177)

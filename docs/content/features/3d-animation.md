@@ -1,7 +1,6 @@
 +++
 title = "3D Animation"
 weight = 20
-url = "/features/3d-animation/"
 +++
 
 LocalAI supports text-to-motion with **kimodo.cpp** on CPU and Vulkan. In
@@ -127,7 +126,7 @@ mesh retargeting are not currently exposed by this adapter.
 
 ## Request traces
 
-With [tracing](/features/tracing) enabled, `POST /3d/animate` appears on the
+With [tracing]({{% relref "/administration/tracing" %}}) enabled, `POST /3d/animate` appears on the
 **Traces** page in both API and backend history. API traces include the JSON
 request, response, HTTP status, duration, and any returned error. Sensitive
 headers are redacted and body capture follows the configured size limit.

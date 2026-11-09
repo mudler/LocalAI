@@ -2,14 +2,13 @@
 disableToc = false
 title = "3D Generation"
 weight = 19
-url = "/features/3d-generation/"
 +++
 
 LocalAI can generate textured 3D meshes from a single conditioning image via the `/3d/generations` endpoint, powered by the `trellis2cpp` backend — a C++/GGML port of [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2) ([trellis2.cpp](https://github.com/localai-org/trellis2cpp)). The output is a binary glTF (`.glb`) asset with PBR materials.
 
 Generation is image-conditioned only — there is no text-prompt path. Provide a photo or rendering of a single object (ideally on a plain background) and TRELLIS.2 reconstructs a full 3D mesh from it.
 
-For text-conditioned animated skeletons, see [3D Animation](/features/3d-animation/). Both workflows appear under **3D** in Studio; selecting a model changes the inputs and generation options.
+For text-conditioned animated skeletons, see [3D Animation]({{% relref "/features/3d-animation" %}}). Both workflows appear under **3D** in Studio; selecting a model changes the inputs and generation options.
 
 ## Setup
 

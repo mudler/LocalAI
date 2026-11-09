@@ -2,13 +2,12 @@
 disableToc = false
 title = "Embeddings"
 weight = 60
-url = "/features/embeddings/"
 +++
 
 LocalAI supports generating embeddings for text or list of tokens.
 
 For face embeddings specifically, see the
-[Face Recognition](/features/face-recognition/) feature - it produces
+[Face Recognition]({{% relref "/features/face-recognition" %}}) feature - it produces
 512-d L2-normalized vectors tuned for face similarity.
 
 For the API documentation you can refer to the OpenAI docs: https://platform.openai.com/docs/api-reference/embeddings
@@ -25,7 +24,7 @@ Send the model name in the request body. If the body has no `model`, LocalAI use
 
 LocalAI provides a model gallery with pre-configured embedding models. To use a gallery model:
 
-1. Ensure the model is available in the gallery (check [Model Gallery]({{%relref "features/model-gallery" %}}))
+1. Ensure the model is available in the gallery (check [Model Gallery]({{%relref "/models" %}}))
 2. Use the model name directly in your API calls
 
 Example gallery models:
@@ -187,7 +186,7 @@ you to rebuild or update it.
 
 1. **Incorrect model filename**: Ensure you're using the correct filename from the gallery or your model file location.
    - Gallery models use specific filenames (e.g., `Qwen3-Embedding-4B-Q4_K_M.gguf`)
-   - Check the [Model Gallery]({{%relref "features/model-gallery" %}}) for correct filenames
+   - Check the [Model Gallery]({{%relref "/models" %}}) for correct filenames
 
 2. **Context size mismatch**: Ensure your `context_size` setting doesn't exceed the model's maximum context length.
    - Qwen3-Embedding-4B: max 32k (32768) context

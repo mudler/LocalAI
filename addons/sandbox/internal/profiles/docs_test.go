@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 )
 
-const docsPath = "../../../../docs/content/features/addons.md"
+const docsPath = "../../../../docs/content/addons/contract-reference.md"
 
 // The add-on documentation lists the programs of each profile. The list is
 // generated from the table the manifest and the note for the model come from,

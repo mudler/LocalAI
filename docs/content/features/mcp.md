@@ -184,7 +184,7 @@ ask for MCP.
 MCP tools. Use it when a front end attaches tools of its own that should not
 reach this model. Empty (the default) keeps client tools.
 
-On a [model alias]({{%relref "features/model-aliases" %}}#profile-aliases) these
+On a [model alias]({{%relref "/models/model-aliases" %}}#profile-aliases) these
 keys go inside the alias's `profile` block, which lets several assistants with
 different tools share one loaded model.
 
@@ -195,11 +195,11 @@ different tools share one loaded model.
 - **`force_reasoning_tool`**: Make the model reason before it picks a tool (chats and saved agents).
 - **`max_generation_tokens`**: Accepted and ignored. It capped the completions of the old agent jobs.
 
-The planning, plan re-evaluation, loop detection and reasoning switches of the old agent loop (`enable_planning`, `enable_plan_re_evaluator`, `enable_reasoning`, `enable_mcp_prompts`, `disable_sink_state`, `loop_detection`, `max_adjustment_attempts`) are ignored; a model file that sets one still loads and the server logs a warning. See [Model configuration]({{% relref "advanced/model-configuration" %}}).
+The planning, plan re-evaluation, loop detection and reasoning switches of the old agent loop (`enable_planning`, `enable_plan_re_evaluator`, `enable_reasoning`, `enable_mcp_prompts`, `disable_sink_state`, `loop_detection`, `max_adjustment_attempts`) are ignored; a model file that sets one still loads and the server logs a warning. See [Model configuration]({{% relref "/models/model-configuration" %}}).
 
 ## Agent-scoped MCP servers
 
-The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. A [saved agent]({{% relref "features/chats-agents" %}}) of the chats can limit a chat to some of them: its `mcp_servers` list names the servers of the model's `mcp:` block that the chat may use. The agent cannot add a server of its own.
+The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. A [saved agent]({{% relref "/features/chats-agents" %}}) of the chats can limit a chat to some of them: its `mcp_servers` list names the servers of the model's `mcp:` block that the chat may use. The agent cannot add a server of its own.
 
 ## Usage
 
@@ -652,7 +652,7 @@ mcp:
 > The chats no longer connect to MCP servers from the browser. This section
 > describes the browser-side connection that the add-on host still offers to
 > add-ons. For the chats, define the server as a connector (it is stored per user
-> and connects from the server): see [Chats connectors](/features/chats-connectors/#mcp-servers).
+> and connects from the server): see [Chats connectors]({{% relref "/features/chats-connectors" %}}#mcp-servers).
 > A server on your own computer or a private network is refused unless an
 > administrator allows private addresses.
 
@@ -662,7 +662,7 @@ The browser keeps one MCP client, for the pages that add-ons add to the interfac
 
 Because browsers enforce CORS, LocalAI provides a proxy at `/api/cors-proxy`. It forwards the method, headers and body of a request to the target URL and streams the response back with CORS headers. It can forward requests to any HTTP or HTTPS URL, and it is only available while MCP is on (`LOCALAI_DISABLE_MCP` is not set).
 
-For interactive tool pages (MCP Apps) in the chats, see [Interactive tool pages]({{% relref "features/chats" %}}).
+For interactive tool pages (MCP Apps) in the chats, see [Interactive tool pages]({{% relref "/features/chats" %}}).
 
 ## Disabling MCP Support
 

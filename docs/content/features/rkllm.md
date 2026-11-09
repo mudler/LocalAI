@@ -2,7 +2,6 @@
 title = "RKLLM on Rockchip NPUs"
 weight = 37
 toc = true
-url = "/features/rkllm/"
 description = "Serve RKLLM models from Rockchip NPUs through LocalAI"
 tags = ["LLM", "Rockchip", "NPU", "RKLLM"]
 categories = ["Features"]
@@ -109,5 +108,5 @@ the wire format. Sampling fields supported by the upstream server, including
   `message.tool_calls`. Clients that use tools must parse the model-specific
   format or put an adapter in front of the RKLLM server.
 
-See [Cloud passthrough proxy]({{% relref "operations/cloud-proxy" %}}) for the
+See [Cloud passthrough proxy]({{% relref "/administration/cloud-proxy" %}}) for the
 full proxy configuration, authentication, routing, and PII options.

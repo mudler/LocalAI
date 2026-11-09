@@ -20,7 +20,7 @@ import (
 // generation, each user turn is prefill-scored against a registered option
 // list via the Score primitive and the winning option's canned reply /
 // tool call is emitted. Designed for hardware that can afford prefill but
-// not decode. See docs/content/features/openai-realtime.md.
+// not decode. See docs/content/api/openai-realtime.md.
 
 // By default only the latest user message is scored. Earlier turns in the
 // probe — the assistant's canned replies especially — echo option names

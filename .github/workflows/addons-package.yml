@@ -74,7 +74,7 @@ on:
       - 'scripts/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
-      - 'docs/content/features/addons.md'
+      - 'docs/content/addons/contract-reference.md'
       - '.github/actions/**'
   push:
     branches: [master]
@@ -95,7 +95,7 @@ on:
       - 'scripts/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
-      - 'docs/content/features/addons.md'
+      - 'docs/content/addons/contract-reference.md'
       - '.github/actions/**'
   release:
     types: [published]

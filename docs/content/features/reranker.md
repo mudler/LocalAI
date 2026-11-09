@@ -1,9 +1,7 @@
-
 +++
 disableToc = false
 title = "Reranker"
 weight = 61
-url = "/features/reranker/"
 +++
 
 ![Two-stage retrieval: a fast retriever finds candidates, a cross-encoder reorders them by relevance](/images/diagrams/reranker-pipeline.png)

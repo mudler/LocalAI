@@ -2,7 +2,6 @@
 disableToc = false
 title = "Audio to Text"
 weight = 30
-url = "/features/audio-to-text/"
 +++
 
 Audio to text models are models that can generate text from an audio file.
@@ -15,12 +14,12 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events). The same backend also loads Nemotron-3-Diarization (`/v1/audio/diarization`) and CED sound models (`/v1/audio/classification`), and can attach either as a companion to a transcription model.
 - **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder - the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
 - **voxtral**: Voxtral-family models served by a dedicated backend
-- **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)**: NVIDIA's C++/ggml runtime for the Nemotron Speech models. Serves offline, streaming and live transcription, with VAD, punctuation, inverse text normalization and Sortformer speaker tags attached through model options, and covers diarization, speech synthesis and translation from the same backend. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}}) page for the model options.
-- **[audio.cpp](https://github.com/0xShug0/audio.cpp)**: Multi-family GGML audio engine. Serves transcription and forced alignment from families such as `nemotron_asr`, `qwen3_asr`, `citrinet_asr`, `higgs_audio_stt` and `voxtral_realtime`, and covers diarization, VAD, TTS and source separation from the same backend. See the [audio.cpp backend]({{%relref "features/audio-cpp" %}}) page for the model options.
+- **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)**: NVIDIA's C++/ggml runtime for the Nemotron Speech models. Serves offline, streaming and live transcription, with VAD, punctuation, inverse text normalization and Sortformer speaker tags attached through model options, and covers diarization, speech synthesis and translation from the same backend. See the [NeMo-Speech.cpp backend]({{%relref "/features/nemo-speech-cpp" %}}) page for the model options.
+- **[audio.cpp](https://github.com/0xShug0/audio.cpp)**: Multi-family GGML audio engine. Serves transcription and forced alignment from families such as `nemotron_asr`, `qwen3_asr`, `citrinet_asr`, `higgs_audio_stt` and `voxtral_realtime`, and covers diarization, VAD, TTS and source separation from the same backend. See the [audio.cpp backend]({{%relref "/features/audio-cpp" %}}) page for the model options.
 
 The endpoint input supports all the audio formats supported by `ffmpeg`.
 
-> Looking for **"who spoke when"** instead of a flat transcript? See [Speaker Diarization](/features/audio-diarization/) - `/v1/audio/diarization` returns time-stamped speaker segments and supports the `rttm` format used by `pyannote.metrics`.
+> Looking for **"who spoke when"** instead of a flat transcript? See [Speaker Diarization]({{% relref "/features/audio-diarization" %}}) - `/v1/audio/diarization` returns time-stamped speaker segments and supports the `rttm` format used by `pyannote.metrics`.
 
 ## Usage
 
@@ -178,7 +177,7 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 ### LFM3-Audio (experimental)
 
-The gallery entries `lfm3-audio-2b` and `lfm3-audio-2b-q8` also transcribe through the `llama-cpp` backend, using the same model as speech-to-speech and TTS. When a `language` is given, the request asks for transcription in that language with the system prompt `Perform ASR in <Language>.`. Without one, the model is asked to infer the language. Transcription uses the second slot (`parallel:2`), so it can run next to a realtime session. A realtime session does not use it for the input transcript by default; see [Realtime]({{% relref "openai-realtime" %}}). This needs a llama.cpp build with LFM3-Audio support.
+The gallery entries `lfm3-audio-2b` and `lfm3-audio-2b-q8` also transcribe through the `llama-cpp` backend, using the same model as speech-to-speech and TTS. When a `language` is given, the request asks for transcription in that language with the system prompt `Perform ASR in <Language>.`. Without one, the model is asked to infer the language. Transcription uses the second slot (`parallel:2`), so it can run next to a realtime session. A realtime session does not use it for the input transcript by default; see [Realtime]({{% relref "/api/openai-realtime" %}}). This needs a llama.cpp build with LFM3-Audio support.
 
 ## Using the parakeet-cpp backend
 
@@ -219,17 +218,17 @@ The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classifi
 | `diarization_model:<path>` | an ASR model | a `speaker` on transcript segments (and words), and speaker segments during realtime live transcription |
 | `sound_model:<path>` | an ASR or diarization model | sound events during realtime live transcription, `sounds` on `/v1/audio/diarization` with `include_sounds=true`, and `/v1/audio/classification` on the loaded model |
 | `diarization_latency:<model\|low\|very_low\|ultra_low>` | a model with a diarization companion | latency mode for the live speaker stream; default `low` |
-| `speaker_model:<path>` | a model with a diarization model | names registered speakers; a bundle can use `speaker_component:<name>` instead (see [Bundle GGUF files](#bundle-gguf-files-several-models-in-one-file)) (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
-| `speaker_tag:<tag>` | a model with `speaker_component` | extra encoder tag for registered voices that carry only a file-name tag (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle)) |
+| `speaker_model:<path>` | a model with a diarization model | names registered speakers; a bundle can use `speaker_component:<name>` instead (see [Bundle GGUF files](#bundle-gguf-files-several-models-in-one-file)) (see [Voice Recognition]({{% relref "/features/voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
+| `speaker_tag:<tag>` | a model with `speaker_component` | extra encoder tag for registered voices that carry only a file-name tag (see [Voice Recognition]({{% relref "/features/voice-recognition" %}}#naming-speakers-from-a-bundle)) |
 | `speaker_threshold:<float>` | a model with `speaker_model` | distance (1 minus cosine similarity) under which a speaker is named, in (0, 2); default `0.5` |
 | `speaker_margin:<float>` | a model with `speaker_model` | how much the best match must beat the runner-up, in [0, 1); default `0.05` |
-| `speaker_strict:<bool>` | a model with `speaker_model` | do not use registered voices that have no encoder fingerprint (see [Voice Recognition]({{% relref "voice-recognition" %}}#encoder-fingerprint)); default `false` |
+| `speaker_strict:<bool>` | a model with `speaker_model` | do not use registered voices that have no encoder fingerprint (see [Voice Recognition]({{% relref "/features/voice-recognition" %}}#encoder-fingerprint)); default `false` |
 
 With a `diarization_model` companion, `/v1/audio/transcriptions` labels each segment with its `speaker` (`"0"`, `"1"`, ... in order of first appearance) and splits segments where the speaker changes; with `timestamp_granularities[]=word` each word carries its speaker too. With `stream=true` the closing `transcript.text.done` event lists the segments with their speakers. Pass `-F diarize=false` to skip diarization for one request. The diarization GGUF can also be imported directly: `local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-f16.gguf`.
 
 `speaker_model:` needs libparakeet with C-API v10. A wrong setup fails at load time with one of these errors: `parakeet-cpp: speaker_model needs libparakeet.so ABI 10 (parakeet_capi_speaker_registry_add_embedding); the loaded library is older`, `parakeet-cpp: speaker_model needs a diarization model (the primary or diarization_model:)`, `parakeet-cpp: a speaker model cannot be the primary model; use it as speaker_model: next to a diarization model`, `parakeet-cpp: speaker_model "<path>" is a <kind> model, expected a speaker model` (the file is not a speaker encoder GGUF), or `parakeet-cpp: speaker_threshold "<value>" must be a distance in (0, 2) (1 minus cosine similarity)` / `parakeet-cpp: speaker_margin "<value>" must be a number in [0, 1)` for a bad number.
 
-The loader rejects a companion whose role duplicates the primary's own (for example `asr_model:` on an already-ASR primary, or `sound_model:` on a CED primary), and rejects a companion GGUF that does not match the role its option names (for example `sound_model:` pointing at an ASR GGUF fails to load, naming the kind it expected). See [Speaker Diarization]({{% relref "audio-diarization" %}}) for the `Diarize` RPC and [Sound Classification]({{% relref "audio-classification" %}}) for `SoundDetection`, and [Realtime API]({{% relref "openai-realtime" %}}) for the live speaker/sound events emitted during a realtime session.
+The loader rejects a companion whose role duplicates the primary's own (for example `asr_model:` on an already-ASR primary, or `sound_model:` on a CED primary), and rejects a companion GGUF that does not match the role its option names (for example `sound_model:` pointing at an ASR GGUF fails to load, naming the kind it expected). See [Speaker Diarization]({{% relref "/features/audio-diarization" %}}) for the `Diarize` RPC and [Sound Classification]({{% relref "/features/audio-classification" %}}) for `SoundDetection`, and [Realtime API]({{% relref "/api/openai-realtime" %}}) for the live speaker/sound events emitted during a realtime session.
 
 ### Segment timestamps
 
@@ -278,7 +277,7 @@ The packed Redux file stores the encoder as ternary weights (213 MB). It cannot 
 
 #### VAD-only slices
 
-If you only need the VAD head, for the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}) or to cut audio before transcription, the same repository has two small files with the head cut out of the full model. The weights are not retrained, and the files cannot transcribe:
+If you only need the VAD head, for the [VAD endpoint]({{%relref "/features/voice-activity-detection" %}}) or to cut audio before transcription, the same repository has two small files with the head cut out of the full model. The weights are not retrained, and the files cannot transcribe:
 
 | Gallery entry | File | Size | Cut from |
 |---|---|---|---|
@@ -326,7 +325,7 @@ The segmenter options below apply to both `vad:true` and `vad_model`. Each is op
 | `vad_max_segment` | seconds | Cap on the length of a piece (default 30) |
 | `vad_trim` | seconds | Each piece shrinks to its first and last speech frame plus this much. Default `0.3`; `0` keeps the whole cuts, as before this option existed |
 
-`vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
+`vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "/features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
 
 ### Dropping noise words (`guard_*`)
 
@@ -367,9 +366,9 @@ The component that each role uses, and the option that picks another one:
 | Diarization | the `diar` component, only when asked for | `diar_component:<name>` |
 | Sound events | the `ced` component, only when asked for | `sound_component:<name>` |
 | Speaker naming | the `voice` component, only when asked for | `speaker_component:<name>` (needs a diarization component) |
-| Voice embedding and verification (`/v1/voice/*`, the realtime `voice_recognition` stage) | the `voice` component, only when asked for | `speaker_component:<name>`; declare `speaker_recognition` in `known_usecases`. Needs a libparakeet.so with `parakeet_capi_speaker_embed_pcm`. See [Voice Recognition]({{% relref "voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}) |
+| Voice embedding and verification (`/v1/voice/*`, the realtime `voice_recognition` stage) | the `voice` component, only when asked for | `speaker_component:<name>`; declare `speaker_recognition` in `known_usecases`. Needs a libparakeet.so with `parakeet_capi_speaker_embed_pcm`. See [Voice Recognition]({{% relref "/features/voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}) |
 
-`speaker_component:` also names registered speakers: LocalAI sends the voices from `/v1/voice/register` to the bundle's speaker component, as it does for `speaker_model:`. This works in `/v1/audio/diarization` and in realtime live transcription, and it needs no `speaker_model:`. `speaker_threshold`, `speaker_margin` and `speaker_strict` apply too. Only voices that carry an encoder fingerprint (voices enrolled from `speaker_profiles`) and voices with no tag at all are used by default. A voice registered with a tag only matches through `speaker_tag:`. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle).
+`speaker_component:` also names registered speakers: LocalAI sends the voices from `/v1/voice/register` to the bundle's speaker component, as it does for `speaker_model:`. This works in `/v1/audio/diarization` and in realtime live transcription, and it needs no `speaker_model:`. `speaker_threshold`, `speaker_margin` and `speaker_strict` apply too. Only voices that carry an encoder fingerprint (voices enrolled from `speaker_profiles`) and voices with no tag at all are used by default. A voice registered with a tag only matches through `speaker_tag:`. See [Voice Recognition]({{% relref "/features/voice-recognition" %}}#naming-speakers-from-a-bundle).
 
 A `*_component` option without the matching companion option takes the component from the model file itself. The companion options (`diarization_model:`, `sound_model:`, `speaker_model:`, `vad_model:`, `asr_model:`) can also name a bundle file, even the same file as the model: the only component of the wanted kind is used, and the `*_component` option picks one when there are several. This YAML loads the same file for four roles:
 
@@ -402,4 +401,4 @@ The licence of the CED weights is not consistent upstream: the model card says A
 
 ## See also
 
-- [Audio Transform]({{< relref "audio-transform.md" >}}) - clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.
+- [Audio Transform]({{< relref "/features/audio-transform" >}}) - clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.

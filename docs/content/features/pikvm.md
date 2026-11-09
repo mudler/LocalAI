@@ -2,10 +2,9 @@
 disableToc = false
 title = "PiKVM in chats and agents"
 weight = 24
-url = "/features/pikvm/"
 +++
 
-The PiKVM add-on lets your [chats](/features/chats/) and [saved agents](/features/chats-agents/) look at a [PiKVM](https://pikvm.org) (or another device that runs the kvmd API) and the machine it controls: is it on, what is the device, is the keyboard connected. If you allow it, they can also press the power buttons of that machine and type on its keyboard. A **person confirms those actions** unless you choose otherwise for power actions and key presses (see [Not asking for some actions](#not-asking-for-some-actions) and [Allow all](#allow-all)), and typing and forced power actions are off until an administrator switches them on.
+The PiKVM add-on lets your [chats]({{% relref "/features/chats" %}}) and [saved agents]({{% relref "/features/chats-agents" %}}) look at a [PiKVM](https://pikvm.org) (or another device that runs the kvmd API) and the machine it controls: is it on, what is the device, is the keyboard connected. If you allow it, they can also press the power buttons of that machine and type on its keyboard. A **person confirms those actions** unless you choose otherwise for power actions and key presses (see [Not asking for some actions](#not-asking-for-some-actions) and [Allow all](#allow-all)), and typing and forced power actions are off until an administrator switches them on.
 
 A chat can answer questions such as:
 
@@ -22,7 +21,7 @@ A chat can answer questions such as:
 4. On the add-on page, choose **New PiKVM connection**. Type the user name, the password and the address, for example `https://pikvm.local#sha256=<fingerprint>`. Press **Test**: the row shows the model and the kvmd version if the address and the login work.
 5. Leave the **write mode** on **Read only** until you have read the limits on this page.
 
-One connection is one device. For a second device, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one device. For a second device, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
 
 ### The user and the password
 
