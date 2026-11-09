@@ -8,7 +8,7 @@ icon = "rocket_launch"
 
 ![Quickstart journey: install, start LocalAI, pick a model, then chat or curl the API](/images/diagrams/quickstart-journey.png)
 
-**LocalAI** is a free, open-source alternative to OpenAI (Anthropic, etc.), functioning as a drop-in replacement REST API for local inferencing. It allows you to run [LLMs]({{% relref "features/text-generation" %}}), generate images, and produce audio, all locally or on-premises with consumer-grade hardware, supporting multiple model families and architectures.
+**LocalAI** is an open-source server for running open models on your own hardware. Its REST API follows the OpenAI and Anthropic formats. It allows you to run [LLMs]({{% relref "features/text-generation" %}}), generate images, and produce audio, all locally or on-premises, on consumer-grade hardware, with several model families and architectures.
 
 LocalAI comes with a **built-in web interface** for chatting with models, managing installations, configuring AI agents, and more, with no extra tools needed.
 

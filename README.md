@@ -5,8 +5,8 @@
 </h1>
 
 <p align="center">
-<a href='https://github.com/go-skynet/LocalAI/releases'>
-<img src='https://img.shields.io/github/release/go-skynet/LocalAI?&label=Latest&style=for-the-badge'>
+<a href='https://github.com/mudler/LocalAI/releases'>
+<img src='https://img.shields.io/github/release/mudler/LocalAI?&label=Latest&style=for-the-badge'>
 </a>
 <a href="LICENSE" target="blank">
 <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="LocalAI License"/>
@@ -38,19 +38,19 @@
 <a href="https://zdoc.app/zh/mudler/LocalAI">中文</a>
 </p>
 
-**LocalAI** is the open-source AI engine. Run any model - LLMs, vision, voice, image, video - on any hardware. No GPU required.
+**LocalAI** is the open-source AI engine. Run open models on your own hardware: LLMs, vision, voice, image and video. No GPU required.
 
 **A small core, not a bundle.** Each backend wraps a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX...) in its own image, pulled only when a model needs it. You install nothing you don't use.
 
 - **Composable by design**: backends are separate and pulled on demand, so you install only what your model needs
-- **Open and extensible**: load any model, or build your own backend in any language against an open interface
-- **Drop-in API compatibility**: OpenAI, Anthropic, and ElevenLabs APIs across every backend
-- **Any model, any modality**: LLMs, vision, voice, image, and video behind one API
-- **Any hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
+- **Open and extensible**: build your own backend in any language against an open interface
+- **API compatibility**: routes in the OpenAI, Anthropic and ElevenLabs formats, for the backends that support each feature
+- **Many modalities**: LLMs, vision, voice, image and video behind one API
+- **Hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
 - **Multi-user ready**: API key auth, user quotas, role-based access
 - **Chats with saved agents**: conversations the server keeps, with agents that use tools, MCP, skills and files, triggers, and a Telegram connector
 - **Add-ons**: Studio, Talk, Voice, Face, Simple Office, Sandbox and more install from a signed catalog, and run beside the server
-- **Privacy-first**: your data never leaves your infrastructure
+- **Self-hosted**: the server, the models and your files run on your own machines
 
 ![A small LocalAI core with backends (llama.cpp, vLLM, MLX, whisper.cpp, stable-diffusion, kokoro, parakeet.cpp...) plugged in as separate on-demand images](docs/static/images/diagrams/composable-core.png)
 
@@ -289,11 +289,12 @@ If you utilize this repository, data in a downstream project, please consider ci
 ```
 @misc{localai,
   author = {Ettore Di Giacinto},
-  title = {LocalAI: The free, Open source OpenAI alternative},
-  year = {2023},
+  title = {LocalAI: the open source AI engine},
+  year = {2026},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/go-skynet/LocalAI}},
+  howpublished = {\url{https://github.com/mudler/LocalAI}},
+}
 ```
 
 ## Sponsors
@@ -353,6 +354,6 @@ LocalAI couldn't have been built without the help of great software already avai
 ## Contributors
 
 This is a community project, a special thanks to our contributors!
-<a href="https://github.com/go-skynet/LocalAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=go-skynet/LocalAI" />
+<a href="https://github.com/mudler/LocalAI/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=mudler/LocalAI" />
 </a>
