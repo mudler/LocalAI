@@ -1,14 +1,28 @@
-<footer>
+<footer class="foot">
   <div class="shell">
-    <div class="foot">
+    <div class="foot__g">
       <div>
-        <img src="/img/logo-full.png" alt="LocalAI">
-        <p style="margin-top:1rem;font-size:.88rem;max-width:34ch;color:var(--dim)">AI that runs on the hardware you already own. MIT licensed, built in the open.</p>
+        <img class="lockup lt" src="{{ "img/brand/lockup-horizontal-light-color.svg" | relURL }}" alt="LocalAI" width="190" height="80">
+        <img class="lockup dk" src="{{ "img/brand/lockup-horizontal-dark-color.svg" | relURL }}" alt="" width="190" height="80">
+        <p class="fine" style="max-width:30ch">Ready to work for you. Free and open source under the MIT licence.</p>
       </div>
-      <div><h4>Product</h4><ul><li><a href="/docs/">Documentation</a></li><li><a href="/engines/">Engines</a></li><li><a href="/blog/">Blog</a></li><li><a href="/docs/getting-started/">Install</a></li></ul></div>
-      <div><h4>Community</h4><ul><li><a href="https://github.com/mudler/LocalAI">GitHub</a></li><li><a href="https://discord.gg/uJAeKSAGDy">Discord</a></li><li><a href="https://twitter.com/LocalAI_API">X</a></li><li><a href="https://huggingface.co/mudler">Hugging Face</a></li></ul></div>
-      <div><h4>Support us</h4><ul><li><a href="https://github.com/sponsors/mudler">Sponsor</a></li><li><a href="https://github.com/mudler/LocalAI/graphs/contributors">Contributors</a></li><li><a href="/docs/">Contributing</a></li></ul></div>
+      <div><h4>Product</h4><ul>
+        <li><a href="{{ "features/" | relURL }}">Features</a></li>
+        <li><a href="{{ "features/addons/" | relURL }}">Add-ons</a></li>
+        <li><a href="{{ "features/models/" | relURL }}">Models</a></li>
+        <li><a href="{{ "engines/" | relURL }}">Engines</a></li></ul></div>
+      <div><h4>Learn</h4><ul>
+        <li><a href="{{ "get-started/" | relURL }}">Get started</a></li>
+        <li><a href="{{ "download/" | relURL }}">Download</a></li>
+        <li><a href="{{ .Site.Params.docsURL }}">Documentation</a></li>
+        <li><a href="{{ "blog/" | relURL }}">Blog</a></li></ul></div>
+      <div><h4>Community</h4><ul>
+        <li><a href="{{ .Site.Params.github }}">GitHub</a></li>
+        <li><a href="{{ .Site.Params.discord }}">Discord</a></li>
+        <li><a href="{{ .Site.Params.x }}">X</a></li>
+        <li><a href="{{ .Site.Params.huggingface }}">Hugging Face</a></li>
+        <li><a href="https://github.com/sponsors/mudler">Sponsor</a></li></ul></div>
     </div>
-    <div class="foot__n"><span>© 2026 LocalAI</span><span>MIT licence</span><span><a href="{{ .Site.Params.github }}">Source on GitHub</a></span></div>
+    <div class="foot__n"><span>&copy; 2026 LocalAI</span><span>MIT licence</span><a href="{{ .Site.Params.github }}">Source on GitHub</a></div>
   </div>
 </footer>

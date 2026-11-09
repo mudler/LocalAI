@@ -1,26 +1,33 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ if .IsHome }}{{ .Site.Title }} · Make AI run on every machine{{ else }}{{ .Title }} · {{ .Site.Title }}{{ end }}</title>
+  <title>{{ if .IsHome }}LocalAI: run open models on your own hardware{{ else }}{{ .Title }} · LocalAI{{ end }}</title>
   {{ $desc := or .Description .Site.Params.description }}
   <meta name="description" content="{{ $desc }}">
   <meta name="author" content="{{ .Site.Params.author }}">
   {{ if not hugo.IsProduction }}<meta name="robots" content="noindex">{{ end }}
   <link rel="canonical" href="{{ .Permalink }}">
-
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="{{ .Site.Title }}">
-  <meta property="og:title" content="{{ if .IsHome }}Make AI run on every machine{{ else }}{{ .Title }}{{ end }}">
+  <meta property="og:site_name" content="LocalAI">
+  <meta property="og:title" content="{{ if .IsHome }}LocalAI: run open models on your own hardware{{ else }}{{ .Title }}{{ end }}">
   <meta property="og:description" content="{{ $desc }}">
   <meta property="og:url" content="{{ .Permalink }}">
-  <meta property="og:image" content="{{ "img/logo-full.png" | absURL }}">
+  <meta property="og:image" content="{{ "img/brand/og-card-1200x630.png" | absURL }}">
+  <meta property="og:image:alt" content="The LocalAI llama mascot with the LocalAI logo.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@LocalAI_API">
-
-  <link rel="icon" href="{{ "img/logo-mark.png" | relURL }}">
-  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/sora-700.woff2" | relURL }}" crossorigin>
-  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/geist-mono.woff2" | relURL }}" crossorigin>
-  <link rel="stylesheet" href="{{ "css/site.css" | relURL }}">
-  {{ range .Params.extracss }}<link rel="stylesheet" href="{{ printf "css/%s" . | relURL }}">
-  {{ end }}
+  <meta name="theme-color" content="#fff4dc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c1211" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="{{ "img/brand/favicon.svg" | relURL }}" type="image/svg+xml">
+  <link rel="icon" href="{{ "img/brand/favicon.ico" | relURL }}" sizes="48x48">
+  <link rel="apple-touch-icon" href="{{ "img/brand/apple-touch-icon.png" | relURL }}">
+  <link rel="manifest" href="{{ "img/brand/site.webmanifest" | relURL }}">
+  <script>
+    document.documentElement.classList.add('js');
+    try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  </script>
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/fredoka-700.woff2" | relURL }}" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/geist-500.woff2" | relURL }}" crossorigin>
+  <link rel="stylesheet" href="{{ "css/theme-localai.css" | relURL }}">
+  <link rel="stylesheet" href="{{ "css/localai.css" | relURL }}">
 </head>
