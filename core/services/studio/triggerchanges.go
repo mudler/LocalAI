@@ -315,7 +315,7 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 // chat chatID. A change of the definition waits for the person's answer and
 // applied is false. A change that only switches the trigger off or on applies
 // at once, applied is true, and the person can undo it. It is checked as a
-// proposal is: a schedule that changes runs at most once an hour.
+// proposal is: a schedule that changes runs at most once every MinCadence.
 func (h *Triggers) ProposeChange(ctx context.Context, user, chatID string, target triggers.Trigger, p TriggerPatch) (rec triggers.Trigger, applied bool, err error) {
 	owner := principal(user)
 	if target.Owner != owner || target.Proposed {

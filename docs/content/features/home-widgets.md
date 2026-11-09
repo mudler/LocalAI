@@ -38,7 +38,7 @@ A page can be a tile when its `page.json` has a `widget` block with a `size` of 
 
 A trigger starts a run of the assistant. The run rewrites a file, and the tile reads it.
 
-- A **schedule** trigger runs daily, on weekdays, weekly, monthly, once, or from a cron expression. A schedule that a chat proposes must not run more often than every 5 minutes.
+- A **schedule** trigger runs daily, on weekdays, weekly, monthly, once, or from a cron expression. A schedule trigger runs at most once every 5 minutes, however it is made.
 - A **file** trigger runs when a file arrives in a folder. A page can write that file. See [A page that starts a run]({{% relref "/features/pages#a-page-that-starts-a-run" %}}).
 
 There is no trigger that a web request can start from outside.
