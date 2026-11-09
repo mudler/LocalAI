@@ -483,6 +483,10 @@ type run struct {
 	// end stops what the turn started besides the loop itself: the heartbeat and
 	// the listener for control messages.
 	end func()
+	// admit gives up the admission of the turn under a shared agent's grant.
+	// It runs after the claim of the turn is released: a revocation answers
+	// once the grant is released, and by then nothing may read as running.
+	admit func()
 }
 
 const defaultHeartbeat = 15 * time.Second
@@ -1474,12 +1478,12 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 			}
 		}
 	})
-	end := func() { stopBeat(); stopListening(); release() }
+	end := func() { stopBeat(); stopListening() }
 	// The cards still pending in the record belong to an earlier turn, whose
 	// frontend may have died: nobody waits on them any more.
 	s.expireConsents(ctx, p, conv, "")
 	s.mu.Lock()
-	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
+	s.runs[k] = &run{id: runID, started: time.Now(), end: end, admit: release, chat: chat}
 	s.rings[k] = newEventRing(runID, ringMaxEvents, ringMaxBytes)
 	s.mu.Unlock()
 	recheck()
@@ -1491,6 +1495,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 		delete(s.rings, k)
 		s.mu.Unlock()
 		end()
+		release()
 		// s.chat opened the chat; with no turn running nothing else will close it.
 		if cerr := chat.Close(); cerr != nil {
 			s.log.Warn("studio: could not close the chat after a failed start", "chat", conv, "error", cerr)
@@ -1698,6 +1703,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		// if the store is failing, the reaper frees the chat later. Either way
 		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
+	}
+	if r.admit != nil {
+		r.admit()
 	}
 	final, guarded := r.final, false
 	if v, ok := s.guardRuns.Load(k); ok && v == r.id {
