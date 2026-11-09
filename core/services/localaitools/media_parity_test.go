@@ -227,4 +227,19 @@ var _ = Describe("media tool arguments match the API", func() {
 			Expect(err).To(MatchError(ContainSubstring("prompt_influence")))
 		})
 	})
+
+	Describe("speak", func() {
+		It("sends sample_rate, and refuses a rate out of range", func() {
+			_, err := cl.Speak(ctx, localaitools.SpeakRequest{Text: "hi", Model: "tts", SampleRate: 24000})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.body("/v1/audio/speech")).To(HaveKeyWithValue("sample_rate", BeNumerically("==", 24000)))
+			_, err = cl.Speak(ctx, localaitools.SpeakRequest{Text: "hi", Model: "tts"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv.body("/v1/audio/speech")).ToNot(HaveKey("sample_rate"))
+			for _, bad := range []int{-1, 100, 1000000} {
+				_, err = cl.Speak(ctx, localaitools.SpeakRequest{Text: "hi", Model: "tts", SampleRate: bad})
+				Expect(err).To(MatchError(ContainSubstring("sample_rate")))
+			}
+		})
+	})
 })

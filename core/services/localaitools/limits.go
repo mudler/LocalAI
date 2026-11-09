@@ -24,7 +24,9 @@ const (
 	maxVideoRefs     = 16  // references of one kind, as the video route
 	maxVideoSide     = 4096
 	maxVideoInputs   = 256 << 20 // all media of one video call together
-	maxRefImages     = 16        // the video route stops at 16 references of a kind; images use the same bound
+	minSampleRate    = 8000
+	maxSampleRate    = 192000
+	maxRefImages     = 16 // the video route stops at 16 references of a kind; images use the same bound
 	maxEmbedInputs   = 256
 	maxTextBatchSize = 1 << 20 // total bytes of the texts of one embed or rerank call
 

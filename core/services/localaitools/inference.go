@@ -507,6 +507,9 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	if req.Speed != nil && (*req.Speed < 0.25 || *req.Speed > 4) {
 		return nil, errors.New("speed must be from 0.25 to 4.0")
 	}
+	if req.SampleRate != 0 && (req.SampleRate < minSampleRate || req.SampleRate > maxSampleRate) {
+		return nil, fmt.Errorf("sample_rate must be from %d to %d", minSampleRate, maxSampleRate)
+	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
@@ -531,6 +534,9 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	}
 	if req.Instructions != "" {
 		body["instructions"] = req.Instructions
+	}
+	if req.SampleRate > 0 {
+		body["sample_rate"] = req.SampleRate
 	}
 	data, hdr, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {

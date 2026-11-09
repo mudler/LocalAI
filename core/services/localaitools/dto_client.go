@@ -56,6 +56,7 @@ type SpeakRequest struct {
 	Format       string   `json:"format,omitempty"       jsonschema:"wav, mp3, opus or flac."`
 	Speed        *float32 `json:"speed,omitempty"        jsonschema:"0.25 to 4.0."`
 	Instructions string   `json:"instructions,omitempty" jsonschema:"Voice style."`
+	SampleRate   int      `json:"sample_rate,omitempty"  jsonschema:"Output rate in Hz, for example 24000."`
 }
 
 // AudioResult is the result of speak and generate_sound.

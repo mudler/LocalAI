@@ -38,7 +38,10 @@ import (
 // song model reads: caption, bpm, keyscale, timesignature, language,
 // vocal_language, think, do_sample, prompt_influence, expansion_model (about
 // 480 bytes).
-const clientBudgetBytes = 8550
+//
+// 8,550 to 8,650: speak takes sample_rate, which the TTS route reads (about
+// 60 bytes).
+const clientBudgetBytes = 8650
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
