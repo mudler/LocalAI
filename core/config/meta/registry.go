@@ -418,6 +418,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "model-select",
 			Order:       0,
 		},
+		"vision_alias": {
+			Section:     "alias",
+			Label:       "Vision alias",
+			Description: "Alias only. Serves requests to this alias that carry an image on this model when the alias target cannot accept images. Text requests stay on the target; the profile block applies to both.",
+			Component:   "model-select",
+			Order:       0,
+		},
 
 		"profile.system_prompt": {
 			Section:     "alias",

@@ -245,7 +245,7 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 			// records requested=alias / served=target.
 			if cfg != nil && cfg.IsAlias() {
 				endAlias := diagnostics.Begin(ctx, diagnostics.PhaseAliasResolution)
-				resolved, _, aliasErr := re.modelConfigLoader.ResolveAlias(cfg)
+				resolved, _, aliasErr := re.modelConfigLoader.ResolveAliasForRequest(cfg, requestHasImages(input))
 				endAlias(diagnosticOutcome(ctx, aliasErr != nil), 0)
 				if aliasErr != nil {
 					return c.JSON(http.StatusBadRequest, schema.ErrorResponse{
