@@ -2,6 +2,7 @@ package trace
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -122,7 +123,7 @@ func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
 	}
 	backendMu.Lock()
 	key := filepath.Join(backendTraceDataPath, strconv.Itoa(maxItems))
-	if backendTraceBuffer == nil || backendTraceStoreKey != key {
+	if backendTraceBuffer == nil || backendTraceStoreKey != key || (backendTraceStore != nil && backendTraceStore.Closed()) {
 		var store *tracepersist.Store[BackendTrace]
 		var restored []BackendTrace
 		if backendTraceDataPath != "" {
@@ -164,7 +165,7 @@ func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
 					continue
 				}
 				if command.store != nil {
-					if err := command.store.Append(command.trace.ID, *command.trace); err != nil {
+					if err := command.store.Append(command.trace.ID, *command.trace); err != nil && !errors.Is(err, tracepersist.ErrClosed) {
 						xlog.Warn("Failed to persist backend trace", "error", err)
 					}
 				}
@@ -181,6 +182,18 @@ func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
 func ConfigureBackendTracePersistence(dataPath string) {
 	backendMu.Lock()
 	backendTraceDataPath = dataPath
+	backendMu.Unlock()
+}
+
+// ReleaseBackendTracePersistence keeps a later InitBackendTracingIfEnabled
+// from opening a store under dataPath again, e.g. from a backend call that
+// finishes after its application shut down. Another application's path is
+// left alone. Callers then close the open stores with tracepersist.CloseUnder.
+func ReleaseBackendTracePersistence(dataPath string) {
+	backendMu.Lock()
+	if backendTraceDataPath == dataPath {
+		backendTraceDataPath = ""
+	}
 	backendMu.Unlock()
 }
 

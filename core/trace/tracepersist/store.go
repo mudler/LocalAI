@@ -12,16 +12,38 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/xlog"
 )
+
+// ErrClosed is returned by writes to a store whose data directory was
+// released with CloseUnder.
+var ErrClosed = errors.New("trace store closed")
 
 type Store[T any] struct {
 	dir      string
 	maxItems int
 	mu       sync.Mutex
 	lastSeq  int64
+	// closed is set under mu, so setting it waits for a running write; it is
+	// atomic so Closed, which callers query on every traced call, never
+	// waits behind a write's fsync.
+	closed atomic.Bool
+}
+
+// Trace records are written by background consumers that outlive the request
+// which produced them. The registry lets the owner of a data directory stop
+// those writes before it releases the directory (see CloseUnder).
+var (
+	registryMu sync.Mutex
+	registry   = map[closer]struct{}{}
+)
+
+type closer interface {
+	directory() string
+	close()
 }
 
 func New[T any](dir string, maxItems int) (*Store[T], error) {
@@ -31,7 +53,64 @@ func New[T any](dir string, maxItems int) (*Store[T], error) {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, err
 	}
-	return &Store[T]{dir: dir, maxItems: maxItems}, nil
+	s := &Store[T]{dir: dir, maxItems: maxItems}
+	registryMu.Lock()
+	registry[s] = struct{}{}
+	registryMu.Unlock()
+	return s, nil
+}
+
+// CloseUnder closes every store whose directory lies inside root. It returns
+// once no write of such a store is in progress, and later writes to them are
+// dropped with ErrClosed, so the caller may remove root right away.
+func CloseUnder(root string) {
+	if root == "" {
+		return
+	}
+	registryMu.Lock()
+	var matched []closer
+	for s := range registry {
+		if within(root, s.directory()) {
+			matched = append(matched, s)
+			delete(registry, s)
+		}
+	}
+	registryMu.Unlock()
+	for _, s := range matched {
+		s.close()
+	}
+}
+
+func within(root, dir string) bool {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(absRoot, absDir)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func (s *Store[T]) directory() string { return s.dir }
+
+// close waits for a running Append or Clear, because both hold s.mu for the
+// whole file operation.
+func (s *Store[T]) close() {
+	s.mu.Lock()
+	s.closed.Store(true)
+	s.mu.Unlock()
+}
+
+// Closed reports whether the store was released with CloseUnder. Callers that
+// cache a store use it to open a fresh one when the directory is reused.
+func (s *Store[T]) Closed() bool {
+	return s.closed.Load()
 }
 
 func (s *Store[T]) Load() ([]T, error) {
@@ -69,6 +148,9 @@ func (s *Store[T]) Append(id string, record T) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return ErrClosed
+	}
 
 	seq := time.Now().UnixNano()
 	if seq <= s.lastSeq {
@@ -120,6 +202,9 @@ func (s *Store[T]) Append(id string, record T) error {
 func (s *Store[T]) Clear() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return ErrClosed
+	}
 
 	files, err := s.files()
 	if err != nil {
