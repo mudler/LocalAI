@@ -11,7 +11,7 @@ icon = "info"
 +++
 
 
-LocalAI is a composable AI stack for running models locally: a small core that speaks the OpenAI and Anthropic APIs, with each model backend added only when you need it. It's simple, efficient, and private by default, and a drop-in replacement that keeps your data on your own hardware.
+LocalAI is a composable AI stack for running models locally: a small core that speaks the OpenAI and Anthropic APIs, with each model backend added only when you need it. It runs on your own hardware, and the API follows the OpenAI and Anthropic formats, so many existing clients work against it.
 
 ![How LocalAI works: clients speak one API to a small core, which routes each request over gRPC to separate backend processes pulled on demand](/images/diagrams/architecture-overview.png)
 
@@ -19,7 +19,7 @@ LocalAI is a composable AI stack for running models locally: a small core that s
 
 In today's AI landscape, privacy, control, and flexibility are paramount. LocalAI addresses these needs by:
 
-- **Privacy First**: Your data never leaves your machine
+- **Self-hosted**: The server, the models and your files run on your own machines. Features that call outside services, such as web search or Gmail, are opt-in
 - **Complete Control**: Run models on your terms, with your hardware
 - **Open Source**: MIT licensed and community-driven
 - **Flexible Deployment**: From laptops to servers, with or without GPUs
@@ -29,10 +29,10 @@ In today's AI landscape, privacy, control, and flexibility are paramount. LocalA
 
 The LocalAI core is a single small binary (or container). It gives you everything you need to serve models, and pulls each model backend on demand, so you install only what you use:
 
-- **OpenAI-compatible API** - Drop-in replacement for OpenAI, Anthropic, and Open Responses APIs
+- **OpenAI-compatible API** - Routes that follow the OpenAI, Anthropic, and Open Responses formats
 - **Built-in Web Interface** - Chat, model management, agent creation, image generation, and system monitoring
 - **AI Agents** - Create autonomous agents with MCP (Model Context Protocol) tool support, directly from the UI
-- **Any Model, Any Modality**: LLMs, image and video, text-to-speech, speech-to-text, vision, and embeddings, each on its own backend, pulled automatically when you load a model
+- **Many modalities**: LLMs, image and video, text-to-speech, speech-to-text, vision, and embeddings, each on its own backend, pulled automatically when you load a model
 - **GPU Acceleration** - Automatic detection and support for NVIDIA, AMD, Intel, and Vulkan GPUs
 - **Distributed Mode** - Scale horizontally with worker nodes, P2P federation, and model sharding
 - **No GPU Required** - Runs on CPU with consumer-grade hardware
