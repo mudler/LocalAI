@@ -117,8 +117,8 @@ from any frontend. Pause does this, in order:
 
 1. It sets the flag in the shared store. From then on every frontend holds the
    messages to the chat (yours too), starts no turn, no loop run and no resume,
-   and the contact tool refuses every send, also in a turn that is still
-   running when the flag is set.
+   and the contact tool refuses every send and `spawn_agent` starts no helper,
+   also in a turn that is still running when the flag is set.
 2. It writes one audit row (kind `pause`, with who pressed it), only when the
    state changed. Pressing it twice writes one row.
 3. It stops the turn of the chat and its background helpers, on whichever
@@ -142,7 +142,11 @@ every send, and pressing pause again repeats the stop.
 
 ## Contacts and caps
 
-A coordinator writes to people only with the `contact` tool. The tool is
+A coordinator writes to people with the `contact` tool. The contact list, the
+caps, the pause and the audit govern this tool. Other tools that the creator
+gave the agent (add-on actions, commands, the web) follow the `act.*` grants of
+the agent and are not limited by the contact list or the caps: give a
+coordinator only the grants you want it to use unattended. The tool is
 offered to the chat of a coordinator and to no other chat: not to an ordinary
 chat, and not to a helper of the coordinator. It has two actions.
 
@@ -154,7 +158,9 @@ chat, and not to a helper of the coordinator. It has two actions.
 A user contact gets an item in their inbox (source `coordinator`), with the
 first 320 characters of the text. Only the owner gets a link to the chat. The
 creator lists the contacts: the model cannot add one, and an id that is not
-listed is refused.
+listed is refused. A user contact gets the message without asking, so list only
+users who expect it. The inbox is one-way: a user contact cannot answer a coordinator
+from it. Use a messaging contact when you need replies.
 
 Every `send` is checked in this order, against the shared store, at each call:
 pause, the contact list, the text, the cap for the minute, the cap for the day.
@@ -190,13 +196,18 @@ later. A switched-off binding is audit reason `binding_off`.
 
 A reply goes the other way. When a message arrives on a binding, the host first
 checks whether its sender (or chat) is an external contact of a coordinator of
-the binding's owner. If it is, the message goes to the chat of that
+the binding's owner. The sender must write in the chat that the contact lists:
+the same person in another chat, for example a group the bot is in, is not the
+contact and follows the normal path of the binding. If it is, the message goes to the chat of that
 coordinator, as text that starts with `[Reply from <name>]`, and the answer of
 the turn goes back to that contact. The reply counts as a wake from a
 contact: it is charged to the run budget, and while the coordinator is paused
 it waits as a stored message, with no message to the sender, until resume. A
 sender who is not a listed contact never reaches the coordinator: the message
-follows the normal path of the binding. If two coordinators list the same
+follows the normal path of the binding. The answer of a reply turn is the
+ordinary answer of a messaging chat: it does not use the `contact` tool, so the
+send caps do not count it and it has no audit row. The run budget limits how
+many replies can start a turn. If two coordinators list the same
 contact, the older one gets the reply.
 
 **State mode.** The routing reads the coordinator store, so every frontend
@@ -265,6 +276,10 @@ A wake turn is followed. When it runs longer than the trigger run limit
 The same pass prunes the audit rows older than the audit days (at most once an
 hour in a process).
 
+A wake that falls due while the chat is busy, for example when the messages
+held by a pause start at resume, is not sent again: the held messages are the
+turn, and the next wake comes `WakeEvery` later.
+
 **State mode.** Single-runner. The pass runs in the step of the chat reaper, on
 the frontend that holds its advisory lock, so no new lock exists. The reaper
 runs only on a process that hosts the background work of the chats: a chat
@@ -322,6 +337,77 @@ logged as an error. The sweeper runs every 30 seconds, so a report that no
 process was there to send waits at most one pass plus the lease. With no
 database (one process, JSON files) the reports are kept in a file next to the
 coordinators and survive a restart.
+
+## Clusters and upgrades
+
+- **Which frontend.** One frontend runs the wake-ups, the release of held
+  messages and the delivery of helper reports: the one that holds the reaper
+  lock. A chat worker and a dedicated add-on owner do not take that lock. This
+  also means that they no longer reap stale turns or resume interrupted ones;
+  the frontends do, as they always could.
+- **Turns.** A coordinator turn runs on the frontend that starts it. It is
+  never sent to a chat worker, because the gate, the run budget, the helper
+  limits and the `contact` tool live on the frontends.
+- **Upgrade together.** The pause, the budget and the helper limits are checked
+  by the code of each frontend. A frontend that runs an older version does not
+  know coordinators: it would start a turn of a paused coordinator and would not
+  count its runs. Upgrade all frontends before you create the first coordinator
+  or while all coordinators are paused.
+- **Stores.** The coordinator tables are created on start with the other chat
+  tables. They need PostgreSQL in a cluster, like the chats.
+
+## Walkthrough
+
+This is a day in the life of one coordinator, as the creator sees it.
+
+**1. Create it.** On **Agents**, press **New coordinator**. Pick a model, keep
+the starter instructions or write your own, and add the rules that matter to
+you. For example: "You keep the support queue under control. Each wake, read
+`state.md` in your page folder, work through the newest requests, start a helper
+for anything that needs a long investigation, and write what you did and what
+is open to the page. Ask Ops only when a request needs a decision from a
+person." Set the page name `support`, wake every hour, and add two contacts: Ops
+(a chat in a messaging app that your connection accepts) and yourself (a user
+contact). Keep the caps at 10 messages a minute and 100 a day, or lower them.
+
+**2. It wakes.** At the next pass (within 30 seconds) the first wake arrives in
+its chat: `[Coordinator wake: schedule at <time>]` and your note. The
+coordinator reads its page, starts two helpers in the background, writes its
+page, sends Ops one question with `contact` and sends you a short note in the
+inbox, then stops. The audit log shows one `wake` row and two `contact` rows
+(`sent`, with the length and a hash of each text, never the text).
+
+**3. A helper finishes.** The helper's answer arrives in the chat as
+`[Sub-agent finished: ...]` and starts a turn. The coordinator updates its page.
+The second helper is still running.
+
+**4. A contact replies.** Ops answers in the messaging app. The reply reaches
+the same chat as `[Reply from Ops]` and the answer goes back to Ops. Someone who
+is not in the contact list gets no route to the coordinator: their message
+follows the normal path of the connection.
+
+**5. An administrator presses Pause.** Under **Administration > Chats of all
+users > Coordinators**, after the confirmation, the turn stops, the running
+helper stops, and every new message waits. A reply from Ops and the next wake
+are held; no message goes out and Ops gets no answer. The audit log shows one
+`pause` row with the name of the administrator.
+
+**6. Resume.** The held reply starts one turn, in the order it arrived. The
+helper that the pause cut is reported as `[Sub-agent stopped: ...]` with the
+line "Its work may be incomplete.", so the coordinator can start it again. The
+wake that fell due during the pause does not run twice: it is part of the held
+turn, and the schedule goes on from there.
+
+**7. A frontend dies.** If the frontend that started a helper stops, another
+frontend ends the helper's turn as interrupted at the next pass and tells the
+coordinator once.
+
+**8. Limits bite.** When the coordinator tries to write to someone who is not a
+contact, or goes over the cap of the minute or the day, the tool answers that
+the message was not sent and why, and the audit log keeps a `denied` row with
+the reason. When the run budget of the day is spent, the next wake is not sent
+and one `wake` row with the reason `budget` says so. A new budget day starts at
+midnight UTC, or the operator raises the setting.
 
 ## In the interface
 

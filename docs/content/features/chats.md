@@ -941,7 +941,9 @@ later as a message in the conversation and as a `sub_agent_done` event.
 - A sub-agent is its own conversation, linked to its parent. It appears in the
   list with `kind` set to `subagent` and a `parent_id`.
 - A sub-agent gets the parent's tools, or a subset the parent names. It cannot
-  start sub-agents of its own.
+  start sub-agents of its own. The helpers of a [coordinator]({{%relref "features/chats-coordinators" %}}) are
+  the exception: a coordinator has its own limits for the helper count and the
+  depth, and the helpers of a coordinator may start helpers.
 - A chat runs at most four sub-agents in the background at once. The count
   comes from the shared store, so it holds when turns of the same chat run on
   different frontends of a cluster.
