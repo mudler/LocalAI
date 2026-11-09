@@ -742,6 +742,39 @@
           "addons": "Add-ons"
         }
       }
+    },
+    "tabs": {
+      "label": "Benachrichtigungen und Aktivität",
+      "notifications": "Benachrichtigungen",
+      "activity": "Aktivität"
+    },
+    "ops": {
+      "needsAttention": "Braucht Aufmerksamkeit",
+      "inProgress": "In Arbeit",
+      "seeAll": "Alle Aktivitäten anzeigen",
+      "waiting": "Wartet",
+      "node": "Knoten {{current}} von {{total}}",
+      "emptyTitle": "Nichts in Arbeit",
+      "emptyBody": "Installationen, Updates und Entfernungen erscheinen hier, solange sie laufen, und einen Tag danach.",
+      "title": {
+        "installing": "{{name}} wird installiert",
+        "upgrading": "{{name}} wird aktualisiert",
+        "removing": "{{name}} wird entfernt",
+        "staging": "{{name}} wird übertragen"
+      },
+      "failedTitle": {
+        "installing": "{{name}} konnte nicht installiert werden",
+        "upgrading": "{{name}} konnte nicht aktualisiert werden",
+        "removing": "{{name}} konnte nicht entfernt werden",
+        "staging": "{{name}} konnte nicht übertragen werden"
+      },
+      "recent": {
+        "title": "Zuletzt",
+        "installed": "{{name}} installiert",
+        "upgraded": "{{name}} aktualisiert",
+        "removed": "{{name}} entfernt",
+        "staged": "{{name}} übertragen"
+      }
     }
   },
   "change": {

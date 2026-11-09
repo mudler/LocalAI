@@ -128,5 +128,10 @@
   "inboxArrivedMany_one": "새 알림 {{count}}개",
   "inboxArrivedMany_other": "새 알림 {{count}}개",
   "updatesBadge_one": "업데이트 {{count}}개 확인 필요",
-  "updatesBadge_other": "업데이트 {{count}}개 확인 필요"
+  "updatesBadge_other": "업데이트 {{count}}개 확인 필요",
+  "inboxOps_one": "작업 {{count}}개 진행 중",
+  "inboxOps_other": "작업 {{count}}개 진행 중",
+  "inboxOpsFailed_one": "작업 {{count}}개 실패",
+  "inboxOpsFailed_other": "작업 {{count}}개 실패",
+  "inboxOpsFailedAnnounce": "작업이 실패했습니다. 알림의 활동 탭을 확인하세요."
 }

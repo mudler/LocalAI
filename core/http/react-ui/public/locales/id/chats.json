@@ -742,6 +742,39 @@
           "addons": "add-on"
         }
       }
+    },
+    "tabs": {
+      "label": "Notifikasi dan aktivitas",
+      "notifications": "Notifikasi",
+      "activity": "Aktivitas"
+    },
+    "ops": {
+      "needsAttention": "Perlu perhatian",
+      "inProgress": "Sedang berjalan",
+      "seeAll": "Lihat semua aktivitas",
+      "waiting": "Menunggu",
+      "node": "Node {{current}} dari {{total}}",
+      "emptyTitle": "Tidak ada yang berjalan",
+      "emptyBody": "Instalasi, pembaruan, dan penghapusan muncul di sini saat berjalan dan selama sehari sesudahnya.",
+      "title": {
+        "installing": "Memasang {{name}}",
+        "upgrading": "Memperbarui {{name}}",
+        "removing": "Menghapus {{name}}",
+        "staging": "Mentransfer {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Gagal memasang {{name}}",
+        "upgrading": "Gagal memperbarui {{name}}",
+        "removing": "Gagal menghapus {{name}}",
+        "staging": "Gagal mentransfer {{name}}"
+      },
+      "recent": {
+        "title": "Terbaru",
+        "installed": "{{name}} terpasang",
+        "upgraded": "{{name}} diperbarui",
+        "removed": "{{name}} dihapus",
+        "staged": "{{name}} ditransfer"
+      }
     }
   },
   "change": {

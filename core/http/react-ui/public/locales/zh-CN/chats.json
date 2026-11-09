@@ -742,6 +742,39 @@
           "addons": "附加组件"
         }
       }
+    },
+    "tabs": {
+      "label": "通知和活动",
+      "notifications": "通知",
+      "activity": "活动"
+    },
+    "ops": {
+      "needsAttention": "需要处理",
+      "inProgress": "进行中",
+      "seeAll": "查看全部活动",
+      "waiting": "等待中",
+      "node": "第 {{current}} 个节点，共 {{total}} 个",
+      "emptyTitle": "没有进行中的操作",
+      "emptyBody": "安装、更新和移除在进行时显示在这里，完成后保留一天。",
+      "title": {
+        "installing": "正在安装 {{name}}",
+        "upgrading": "正在更新 {{name}}",
+        "removing": "正在移除 {{name}}",
+        "staging": "正在传输 {{name}}"
+      },
+      "failedTitle": {
+        "installing": "无法安装 {{name}}",
+        "upgrading": "无法更新 {{name}}",
+        "removing": "无法移除 {{name}}",
+        "staging": "无法传输 {{name}}"
+      },
+      "recent": {
+        "title": "最近",
+        "installed": "已安装 {{name}}",
+        "upgraded": "已更新 {{name}}",
+        "removed": "已移除 {{name}}",
+        "staged": "已传输 {{name}}"
+      }
     }
   },
   "change": {

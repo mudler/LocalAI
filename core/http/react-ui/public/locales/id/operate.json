@@ -67,6 +67,26 @@
       "upgrade_failed": "Update failed. Check the owner logs for details.",
       "interrupted": "Update interrupted by owner shutdown or restart. It was not replayed.",
       "recovery_required": "Update interrupted. Data recovery is required before this add-on can run."
-    }
+    },
+    "cancel": "Batal",
+    "cancelLabel": "Batalkan {{name}}",
+    "cancelling": "Akan dibatalkan kecuali Anda mengurungkannya",
+    "cancellingToast": "Membatalkan {{name}}",
+    "cancelNow": "Batalkan sekarang",
+    "undo": "Urungkan",
+    "retry": "Coba lagi",
+    "retryLabel": "Coba lagi {{name}}",
+    "dismissLabel": "Tutup {{name}}",
+    "moveToHistory": "Pindahkan ke riwayat",
+    "progressLabel": "Kemajuan {{name}}",
+    "toNode": "ke {{node}}",
+    "phase": {
+      "resolving": "Menentukan file",
+      "downloading": "Mengunduh",
+      "verifying": "Memverifikasi",
+      "committing": "Menyelesaikan",
+      "persisting": "Menyimpan konfigurasi"
+    },
+    "retryFailed": "Percobaan ulang gagal: {{message}}"
   }
 }

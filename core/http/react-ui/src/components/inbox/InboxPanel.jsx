@@ -2,13 +2,17 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { useActivitySummary } from '../../hooks/useActivityFeed'
 import { usePendingChanges } from '../../hooks/usePendingChanges'
 import { disablePush, enablePush, pushState } from '../../utils/chatPush'
 import { relativeDate } from '../../utils/fileBrowser'
 import {
   failed, filterItems, groupByDay, iconOf, reasonText, sourceOf, targetOf, textOf, toneOf,
 } from '../../utils/inbox'
+import { nextTab, openingTab } from '../../utils/opsActivity'
 import ActionMenu from '../ActionMenu'
+import ActivityTab from './ActivityTab'
 import Icon from '../Icon'
 import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows } from '../ui'
 import './inbox.css'
@@ -137,6 +141,26 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
   const waiting = usePendingChanges()
   const panelRef = useRef(null)
 
+  // Administrators get a second tab, Activity, for the operations (installs,
+  // updates, removals). Everyone else has the panel as it always was, with no
+  // tabs. The panel opens on Activity when something runs, waits or failed, and
+  // on Notifications otherwise; a tab picked by hand holds while it stays open.
+  const { isAdmin } = useAuth()
+  const ops = useActivitySummary()
+  const [tab, setTab] = useState(() => (isAdmin ? openingTab(ops) : 'notifications'))
+  const tabs = isAdmin
+  const onNotifications = !tabs || tab === 'notifications'
+  const pickTab = (next) => { setConfirm(''); setTab(next) }
+  const tabLabels = { notifications: t('inbox.tabs.notifications'), activity: t('inbox.tabs.activity') }
+  const activityBadge = ops.failed ? ops.failedCount : ops.count
+  const onTabKey = (e) => {
+    const next = nextTab(tab, e.key)
+    if (!next) return
+    e.preventDefault()
+    pickTab(next)
+    document.getElementById(`${titleId}-tab-${next}`)?.focus()
+  }
+
   // Beside the sidebar, the bottom edge on the entry that opened it. The
   // numbers go in as custom properties so the stylesheet owns the layout; on a
   // phone the sheet ignores them.
@@ -160,7 +184,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
   useEffect(() => {
     const onDown = (e) => {
       if (panelRef.current?.contains(e.target)) return
-      if (e.target?.closest?.('.popover, [data-inbox-trigger]')) return
+      if (e.target?.closest?.('.popover, [data-inbox-trigger], .dk-toast-region')) return
       onClose(false)
     }
     const onKey = (e) => {
@@ -229,7 +253,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
   const onPanelKey = (e) => {
     if (e.defaultPrevented || e.target?.closest?.('[role="menu"]')) return
     const rows = Array.from(panelRef.current?.querySelectorAll('.nx-item__main') || [])
-    if (rows.length === 0) return
+    if (!onNotifications || rows.length === 0) return
     const at = rows.indexOf(document.activeElement)
     const go = (i) => { e.preventDefault(); rows[Math.max(0, Math.min(rows.length - 1, i))].focus() }
     if (e.key === 'ArrowDown') go(at < 0 ? 0 : at + 1)
@@ -291,13 +315,38 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
             <h2 id={titleId} className="nx-head__title">{t('inbox.title')}</h2>
             {inbox.unread > 0 && <span className="nx-head__count">{t('inbox.unread', { count: inbox.unread })}</span>}
             <span className="nx-head__acts">
-              <span data-testid="inbox-menu">
-                <ActionMenu items={menu} ariaLabel={t('inbox.more')} compact />
-              </span>
+              {onNotifications && (
+                <span data-testid="inbox-menu">
+                  <ActionMenu items={menu} ariaLabel={t('inbox.more')} compact />
+                </span>
+              )}
               <Button variant="ghost" size="sm" icon="close" className="nx-head__close" aria-label={t('inbox.close')} onClick={() => onClose(true)} />
             </span>
           </div>
-          {(inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-head__tools">
+          {tabs && (
+            <div className="nx-tabs" role="tablist" aria-label={t('inbox.tabs.label')} data-testid="inbox-tabs" onKeyDown={onTabKey}>
+              {['notifications', 'activity'].map((id) => (
+                <button
+                  key={id}
+                  id={`${titleId}-tab-${id}`}
+                  type="button"
+                  role="tab"
+                  className="nx-tab"
+                  aria-selected={tab === id}
+                  aria-controls={`${titleId}-pane-${id}`}
+                  tabIndex={tab === id ? 0 : -1}
+                  data-testid={`inbox-tab-${id}`}
+                  onClick={() => pickTab(id)}
+                >
+                  {tabLabels[id]}
+                  {id === 'activity' && activityBadge > 0 && (
+                    <span className={`nx-tab__n${ops.failed ? ' nx-tab__n--failed' : ''}`} data-testid="inbox-tab-activity-count" aria-hidden="true">{activityBadge}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          {onNotifications && (inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-head__tools">
             <Segmented
               className="nx-filter"
               label={t('inbox.filterLabel')}
@@ -311,7 +360,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
             </Button>
           </div>}
         </header>
-        {confirm && inbox.total > 0 && (
+        {onNotifications && confirm && inbox.total > 0 && (
           <Callout
             tone="warn"
             className="nx-confirm"
@@ -333,7 +382,24 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
             <span id={`${titleId}-confirm`}>{confirm === 'read' ? t('inbox.confirmRead', { count: readCount }) : t('inbox.confirmAll', { count: inbox.total })}</span>
           </Callout>
         )}
-        <div className="nx-body">
+        {tabs && (
+          // Kept mounted while the other tab shows, so a cancel waiting for its
+          // undo does not become final by a click on a tab.
+          <div
+            className="nx-body"
+            role="tabpanel"
+            id={`${titleId}-pane-activity`}
+            aria-labelledby={`${titleId}-tab-activity`}
+            hidden={onNotifications}
+            data-testid="inbox-pane-activity"
+          >
+            <ActivityTab onClose={onClose} />
+          </div>
+        )}
+        {onNotifications && <div
+          className="nx-body"
+          {...(tabs ? { role: 'tabpanel', id: `${titleId}-pane-notifications`, 'aria-labelledby': `${titleId}-tab-notifications` } : {})}
+        >
           {waiting.count > 0 && (
             <button
               type="button" className="nx-waiting" data-testid="inbox-proposals"
@@ -378,10 +444,12 @@ export default function InboxPanel({ inbox, anchorEl, onClose }) {
               <Button variant="ghost" size="sm" icon="chevron-down" data-testid="inbox-more" disabled={busy} onClick={() => attempt(() => inbox.showMore())}>{t('inbox.showMore')}</Button>
             </div>
           )}
-        </div>
-        <footer className="nx-foot">
-          <PushSwitch t={t} />
-        </footer>
+        </div>}
+        {onNotifications && (
+          <footer className="nx-foot">
+            <PushSwitch t={t} />
+          </footer>
+        )}
       </div>
     </>
   )

@@ -127,5 +127,10 @@
   "inboxArrivedMany_one": "{{count}} new notification",
   "inboxArrivedMany_other": "{{count}} new notifications",
   "updatesBadge_one": "{{count}} update needs you",
-  "updatesBadge_other": "{{count}} updates need you"
+  "updatesBadge_other": "{{count}} updates need you",
+  "inboxOps_one": "{{count}} operation in progress",
+  "inboxOps_other": "{{count}} operations in progress",
+  "inboxOpsFailed_one": "{{count}} operation failed",
+  "inboxOpsFailed_other": "{{count}} operations failed",
+  "inboxOpsFailedAnnounce": "An operation failed. See the Activity tab in Notifications."
 }

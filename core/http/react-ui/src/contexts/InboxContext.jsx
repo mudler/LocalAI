@@ -2,6 +2,7 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
+import { useActivitySummary } from '../hooks/useActivityFeed'
 import { useInbox } from '../hooks/useInbox'
 import { badgeText, entryVisible, hasUnreadFailure } from '../utils/inbox'
 import '../components/inbox/inbox-entry.css'
@@ -10,6 +11,10 @@ import '../components/inbox/inbox-entry.css'
 const InboxPanel = lazy(() => import('../components/inbox/InboxPanel'))
 
 const InboxContext = createContext(null)
+
+// What the ring says when nothing runs, and for anyone who is not an
+// administrator: operations are theirs alone to see.
+const NO_OPS = { active: false, value: null, failed: false, failedCount: 0, count: 0 }
 
 // The notification inbox of the whole app: one list, one stream, one panel.
 // App mounts it under the sign-in gate, so it never runs for a signed-out
@@ -25,6 +30,15 @@ export function InboxProvider({ features, children }) {
   const { isAdmin, hasFeature } = useAuth()
   const enabled = features !== null && hasFeature('chats') && features.chats !== false
   const inbox = useInbox({ enabled })
+  // Operations are a part of the inbox for an administrator: a ring on the
+  // entry while they run, a red one with a dot after a failure. They never
+  // touch the unread count, which stays the messages'.
+  const summary = useActivitySummary()
+  const { active, value: ringValue, failed: opsFailed, failedCount, count } = summary
+  const ops = useMemo(
+    () => (isAdmin ? { active, value: ringValue, failed: opsFailed, failedCount, count } : NO_OPS),
+    [isAdmin, active, ringValue, opsFailed, failedCount, count],
+  )
   const [open, setOpen] = useState(false)
   // The trigger that opened the panel, for the panel's place and for focus on close.
   const [anchorEl, setAnchorEl] = useState(null)
@@ -75,6 +89,14 @@ export function InboxProvider({ features, children }) {
       : t('inboxArrivedMany', { count: list.length }))
   }, [inbox.arrived, t])
 
+  // One polite announcement when an operation fails, not one per poll: only a
+  // rise in the number of failures speaks.
+  const failedBefore = useRef(0)
+  useEffect(() => {
+    if (ops.failedCount > failedBefore.current) setAnnounce(t('inboxOpsFailedAnnounce', { count: ops.failedCount }))
+    failedBefore.current = ops.failedCount
+  }, [ops.failedCount, t])
+
   const unread = inbox.unread
   const value = useMemo(() => ({
     visible,
@@ -82,9 +104,10 @@ export function InboxProvider({ features, children }) {
     unread,
     badge: badgeText(unread),
     failed: hasUnreadFailure(inbox.items),
+    ops,
     toggle,
     refresh: inbox.refresh,
-  }), [visible, open, unread, inbox.items, toggle, inbox.refresh])
+  }), [visible, open, unread, ops, inbox.items, toggle, inbox.refresh])
 
   return (
     <InboxContext.Provider value={value}>
@@ -101,7 +124,7 @@ export function InboxProvider({ features, children }) {
 
 // The inbox state for a trigger or a page. Outside the provider (a test of one
 // component) the entry is simply not there.
-const NONE = { visible: false, open: false, unread: 0, badge: '', failed: false, toggle: () => {}, refresh: () => {} }
+const NONE = { visible: false, open: false, unread: 0, badge: '', failed: false, ops: NO_OPS, toggle: () => {}, refresh: () => {} }
 export function useInboxEntry() {
   return useContext(InboxContext) || NONE
 }

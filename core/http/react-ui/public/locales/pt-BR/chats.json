@@ -742,6 +742,39 @@
           "addons": "complementos"
         }
       }
+    },
+    "tabs": {
+      "label": "Notificações e atividade",
+      "notifications": "Notificações",
+      "activity": "Atividade"
+    },
+    "ops": {
+      "needsAttention": "Precisa de atenção",
+      "inProgress": "Em andamento",
+      "seeAll": "Ver toda a atividade",
+      "waiting": "Aguardando",
+      "node": "Nó {{current}} de {{total}}",
+      "emptyTitle": "Nada em andamento",
+      "emptyBody": "Instalações, atualizações e remoções aparecem aqui enquanto rodam e por um dia depois.",
+      "title": {
+        "installing": "Instalando {{name}}",
+        "upgrading": "Atualizando {{name}}",
+        "removing": "Removendo {{name}}",
+        "staging": "Transferindo {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Não foi possível instalar {{name}}",
+        "upgrading": "Não foi possível atualizar {{name}}",
+        "removing": "Não foi possível remover {{name}}",
+        "staging": "Não foi possível transferir {{name}}"
+      },
+      "recent": {
+        "title": "Recentes",
+        "installed": "{{name}} instalado",
+        "upgraded": "{{name}} atualizado",
+        "removed": "{{name}} removido",
+        "staged": "{{name}} transferido"
+      }
     }
   },
   "change": {

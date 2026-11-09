@@ -128,5 +128,10 @@
   "inboxArrivedMany_one": "{{count}} notifikasi baru",
   "inboxArrivedMany_other": "{{count}} notifikasi baru",
   "updatesBadge_one": "{{count}} pembaruan butuh Anda",
-  "updatesBadge_other": "{{count}} pembaruan butuh Anda"
+  "updatesBadge_other": "{{count}} pembaruan butuh Anda",
+  "inboxOps_one": "{{count}} operasi sedang berjalan",
+  "inboxOps_other": "{{count}} operasi sedang berjalan",
+  "inboxOpsFailed_one": "{{count}} operasi gagal",
+  "inboxOpsFailed_other": "{{count}} operasi gagal",
+  "inboxOpsFailedAnnounce": "Sebuah operasi gagal. Lihat tab Aktivitas di Notifikasi."
 }

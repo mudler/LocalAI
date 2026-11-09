@@ -1,36 +1,4 @@
 {
-  "activity": {
-    "hide": "Masquer",
-    "moveToHistory": "Déplacer vers l'historique",
-    "moreCount": "{{count}} de plus",
-    "waitingForInstaller": "en attente de l'installateur",
-    "progressLabel": "Progression pour {{name}}",
-    "toNode": "vers {{node}}",
-    "nodesDone": "{{done}} nœuds sur {{total}} terminés",
-    "kind": {
-      "model": "modèle",
-      "backend": "backend"
-    },
-    "verb": {
-      "installing": "Installation du {{kind}}",
-      "installed": "{{kind}} installé",
-      "removed": "{{kind}} supprimé",
-      "staged": "Modèle préparé",
-      "failed": "Impossible d'installer le {{kind}}",
-      "queued": "En file",
-      "staging": "Préparation du modèle",
-      "removing": "Suppression du {{kind}}",
-      "failedRemoval": "Impossible de supprimer le {{kind}}",
-      "failedStaging": "Impossible de préparer le modèle"
-    },
-    "phase": {
-      "resolving": "Résolution des fichiers",
-      "downloading": "Téléchargement",
-      "verifying": "Vérification",
-      "committing": "Finalisation",
-      "persisting": "Enregistrement de la configuration"
-    }
-  },
   "manage": {
     "title": "Système",
     "subtitle": "Gérer les modèles et backends installés"

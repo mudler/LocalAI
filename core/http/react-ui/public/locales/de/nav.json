@@ -128,5 +128,10 @@
   "inboxArrivedMany_one": "{{count}} neue Benachrichtigung",
   "inboxArrivedMany_other": "{{count}} neue Benachrichtigungen",
   "updatesBadge_one": "{{count}} Aktualisierung braucht Sie",
-  "updatesBadge_other": "{{count}} Aktualisierungen brauchen Sie"
+  "updatesBadge_other": "{{count}} Aktualisierungen brauchen Sie",
+  "inboxOps_one": "{{count}} Vorgang läuft",
+  "inboxOps_other": "{{count}} Vorgänge laufen",
+  "inboxOpsFailed_one": "{{count}} Vorgang fehlgeschlagen",
+  "inboxOpsFailed_other": "{{count}} Vorgänge fehlgeschlagen",
+  "inboxOpsFailedAnnounce": "Ein Vorgang ist fehlgeschlagen. Siehe den Tab Aktivität in den Benachrichtigungen."
 }

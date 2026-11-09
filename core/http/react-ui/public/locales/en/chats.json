@@ -343,6 +343,39 @@
           "addons": "add-ons"
         }
       }
+    },
+    "tabs": {
+      "label": "Notifications and activity",
+      "notifications": "Notifications",
+      "activity": "Activity"
+    },
+    "ops": {
+      "needsAttention": "Needs attention",
+      "inProgress": "In progress",
+      "seeAll": "See all activity",
+      "waiting": "Waiting",
+      "node": "Node {{current}} of {{total}}",
+      "emptyTitle": "Nothing running",
+      "emptyBody": "Installs, updates and removals appear here while they run, and for a day after.",
+      "title": {
+        "installing": "Installing {{name}}",
+        "upgrading": "Updating {{name}}",
+        "removing": "Removing {{name}}",
+        "staging": "Staging {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Couldn't install {{name}}",
+        "upgrading": "Couldn't update {{name}}",
+        "removing": "Couldn't remove {{name}}",
+        "staging": "Couldn't stage {{name}}"
+      },
+      "recent": {
+        "title": "Recent",
+        "installed": "Installed {{name}}",
+        "upgraded": "Updated {{name}}",
+        "removed": "Removed {{name}}",
+        "staged": "Staged {{name}}"
+      }
     }
   },
   "connectorsPage": {

@@ -742,6 +742,39 @@
           "addons": "애드온"
         }
       }
+    },
+    "tabs": {
+      "label": "알림 및 활동",
+      "notifications": "알림",
+      "activity": "활동"
+    },
+    "ops": {
+      "needsAttention": "확인 필요",
+      "inProgress": "진행 중",
+      "seeAll": "모든 활동 보기",
+      "waiting": "대기 중",
+      "node": "노드 {{total}}개 중 {{current}}번째",
+      "emptyTitle": "진행 중인 작업 없음",
+      "emptyBody": "설치, 업데이트, 제거는 진행되는 동안과 끝난 뒤 하루 동안 여기에 표시됩니다.",
+      "title": {
+        "installing": "{{name}} 설치 중",
+        "upgrading": "{{name}} 업데이트 중",
+        "removing": "{{name}} 제거 중",
+        "staging": "{{name}} 전송 중"
+      },
+      "failedTitle": {
+        "installing": "{{name}}을(를) 설치하지 못했습니다",
+        "upgrading": "{{name}}을(를) 업데이트하지 못했습니다",
+        "removing": "{{name}}을(를) 제거하지 못했습니다",
+        "staging": "{{name}}을(를) 전송하지 못했습니다"
+      },
+      "recent": {
+        "title": "최근",
+        "installed": "{{name}} 설치됨",
+        "upgraded": "{{name}} 업데이트됨",
+        "removed": "{{name}} 제거됨",
+        "staged": "{{name}} 전송됨"
+      }
     }
   },
   "change": {

@@ -1,7 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockLedger, mockPlacement } from './ledger-fixtures.js'
+import { makeInbox, stubInbox } from './inbox-fixtures.js'
 
-// Selected rows, status strips and empty states keep to the taste guide:
+// Selected rows, status marks and empty states keep to the taste guide:
 // no coloured left rail on a selectable or card-like element, and an empty
 // state is a stacked column, not a row of three things run together.
 
@@ -39,7 +40,9 @@ test.describe('Model editor', () => {
   })
 })
 
-test('an install in progress is a plain strip with no status rail', async ({ page }) => {
+test('an install in progress shows on the inbox entry, not in a strip above the page', async ({ page }) => {
+  // The inbox stub first: the ledger stub is the more specific one and must win.
+  await stubInbox(page, makeInbox(0))
   await mockLedger(page, {
     operations: [{
       id: 'model-a', name: 'model-a', fullName: 'model-a', jobID: 'job-a', progress: 40, taskType: 'installation',
@@ -47,9 +50,8 @@ test('an install in progress is a plain strip with no status rail', async ({ pag
     }],
   })
   await page.goto('/app/models')
-  const strip = page.locator('.operations-strip')
-  await expect(strip).toBeVisible({ timeout: 15_000 })
-  expect(await leftBorder(strip)).toBe(0)
+  await expect(page.getByTestId('inbox-ring')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('.operations-strip')).toHaveCount(0)
 })
 
 test.describe('Add Model', () => {

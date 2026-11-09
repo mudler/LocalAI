@@ -742,6 +742,39 @@
           "addons": "modules complémentaires"
         }
       }
+    },
+    "tabs": {
+      "label": "Notifications et activité",
+      "notifications": "Notifications",
+      "activity": "Activité"
+    },
+    "ops": {
+      "needsAttention": "À traiter",
+      "inProgress": "En cours",
+      "seeAll": "Voir toute l'activité",
+      "waiting": "En attente",
+      "node": "Nœud {{current}} sur {{total}}",
+      "emptyTitle": "Rien en cours",
+      "emptyBody": "Les installations, mises à jour et suppressions apparaissent ici pendant leur exécution, et un jour après.",
+      "title": {
+        "installing": "Installation de {{name}}",
+        "upgrading": "Mise à jour de {{name}}",
+        "removing": "Suppression de {{name}}",
+        "staging": "Transfert de {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Impossible d'installer {{name}}",
+        "upgrading": "Impossible de mettre à jour {{name}}",
+        "removing": "Impossible de supprimer {{name}}",
+        "staging": "Impossible de transférer {{name}}"
+      },
+      "recent": {
+        "title": "Récents",
+        "installed": "{{name}} installé",
+        "upgraded": "{{name}} mis à jour",
+        "removed": "{{name}} supprimé",
+        "staged": "{{name}} transféré"
+      }
     }
   },
   "change": {
