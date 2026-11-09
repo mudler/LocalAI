@@ -76,7 +76,7 @@ export async function stubAddonRoutes(page) {
 const HOST_POLICY_DEFAULTS = {
   chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false,
   chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '',
-  chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0,
+  chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0, sandbox_profiles: { default: '', access: {}, memory_mib: 0, disk_mib: 0, pin_previous: [] },
 }
 export function hostPolicy(over = {}) {
   const policy = structuredClone(HOST_POLICY_DEFAULTS)

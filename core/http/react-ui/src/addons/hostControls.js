@@ -10,10 +10,11 @@
 import { declaresSlot } from './slots.js'
 import { usable } from './registryState.js'
 
-export const HOST_CONTROL_IDS = Object.freeze(['network-policy', 'tool-providers'])
+export const HOST_CONTROL_IDS = Object.freeze(['network-policy', 'tool-providers', 'sandbox-profiles'])
 
 export const NETWORK_POLICY = 'network-policy'
 export const TOOL_PROVIDERS = 'tool-providers'
+export const SANDBOX_PROFILES = 'sandbox-profiles'
 
 // The settings the network-policy control draws on the add-on's Settings tab,
 // in order. The Settings page does not draw the ones the control owns.

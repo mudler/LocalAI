@@ -1348,5 +1348,57 @@
   },
   "triggersPage": {
     "runLimit": "Batas waktu satu proses"
+  },
+  "sandboxProfile": {
+    "label": "Profil sandbox",
+    "tools": "Program: {{tools}}",
+    "notAllowed": "Administrator belum memberi Anda profil ini",
+    "absent": "Rilis ini tidak punya image untuk profil ini",
+    "unavailable": "{{title}} tidak tersedia: {{reason}}.",
+    "draft": "Obrolan baru dimulai di {{title}}. Anda dapat mengubah profil di dalam obrolan.",
+    "source": {
+      "chat": "Obrolan ini berjalan di {{title}}, pilihan Anda.",
+      "agent": "Obrolan ini berjalan di {{title}}, ditetapkan oleh agennya.",
+      "default": "Obrolan ini berjalan di {{title}}, bawaan."
+    },
+    "switchWarning": "Berpindah akan memulai ulang sandbox. File Anda tetap ada. Proses yang berjalan dan paket yang terpasang hilang.",
+    "switchTo": "Pindah ke {{title}}",
+    "cancel": "Batal",
+    "preparing": "Menyiapkan image {{title}}, {{percent}}%",
+    "failed": "Image {{title}} tidak dapat disiapkan: {{error}}",
+    "fallback": "{{title}} tidak dapat digunakan, jadi perintah berjalan di {{base}}.",
+    "newerImage": "Tersedia image yang lebih baru. Berlaku saat sandbox dimulai ulang.",
+    "notAllowedError": "Anda tidak boleh memakai profil ini.",
+    "unknownError": "Profil ini tidak ada.",
+    "saveError": "Profil tidak dapat diubah.",
+    "admin": {
+      "title": "Profil sandbox",
+      "intro": "Profil adalah lingkungan dengan program sendiri. Semua orang boleh memakai setiap profil sampai Anda membatasi salah satunya.",
+      "default": "Profil bawaan",
+      "defaultBase": "Dasar",
+      "profiles": "Profil",
+      "limits": "{{cpus}} CPU, memori {{memory}} MiB, disk {{disk}} MiB",
+      "baseAlways": "Semua pengguna boleh memakai Dasar. Profil ini dipakai saat profil lain tidak bisa.",
+      "who": "Siapa yang boleh memakai",
+      "everyone": "Semua orang",
+      "restricted": "Hanya peran dan pengguna di bawah",
+      "role": {
+        "admin": "Administrator",
+        "user": "Pengguna biasa"
+      },
+      "users": "Pengguna bernama",
+      "usersPlaceholder": "Nama dipisahkan koma",
+      "pin": "Kunci ke image sebelumnya",
+      "noPrevious": "Belum ada image sebelumnya",
+      "memory": "Batas memori satu sandbox, dalam MiB",
+      "disk": "Batas disk satu sandbox, dalam MiB",
+      "noLimit": "Tanpa batas",
+      "quotaHelp": "Batas hanya menurunkan batas profil dan tidak pernah menaikkannya. Kosongkan kolom untuk tanpa batas.",
+      "badQuota": "Gunakan bilangan bulat MiB, atau kosongkan kolom.",
+      "reload": "Muat ulang",
+      "ownerError": "Pengaturan pemilik tidak tersedia atau berubah: {{message}}",
+      "save": "Simpan",
+      "loadError": "Profil sandbox tidak dapat dibaca."
+    }
   }
 }

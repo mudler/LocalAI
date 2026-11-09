@@ -1665,5 +1665,57 @@
     "accounts": "Accounts",
     "messaging": "Messaging",
     "mcp": "MCP servers"
+  },
+  "sandboxProfile": {
+    "label": "Sandbox profile",
+    "tools": "Programs: {{tools}}",
+    "notAllowed": "Your administrator has not given you this profile",
+    "absent": "This release has no image for it",
+    "unavailable": "{{title}} is not available: {{reason}}.",
+    "draft": "A new chat starts in {{title}}. You can change the profile in the chat.",
+    "source": {
+      "chat": "This chat runs in {{title}}, your choice.",
+      "agent": "This chat runs in {{title}}, set by its agent.",
+      "default": "This chat runs in {{title}}, the default."
+    },
+    "switchWarning": "Switching restarts the sandbox. Your files stay. Running processes and installed packages are lost.",
+    "switchTo": "Switch to {{title}}",
+    "cancel": "Cancel",
+    "preparing": "Preparing the {{title}} image, {{percent}}%",
+    "failed": "The {{title}} image could not be prepared: {{error}}",
+    "fallback": "{{title}} could not be used, so commands run in {{base}}.",
+    "newerImage": "A newer image is available. It applies when the sandbox restarts.",
+    "notAllowedError": "You may not use this profile.",
+    "unknownError": "This profile does not exist.",
+    "saveError": "The profile could not be changed.",
+    "admin": {
+      "title": "Sandbox profiles",
+      "intro": "A profile is an environment with its own programs. Everyone may use every profile until you limit one.",
+      "default": "Default profile",
+      "defaultBase": "Base",
+      "profiles": "Profiles",
+      "limits": "{{cpus}} CPUs, {{memory}} MiB of memory, {{disk}} MiB of disk",
+      "baseAlways": "Every user may use Base. It is the profile that runs when another one cannot.",
+      "who": "Who may use it",
+      "everyone": "Everyone",
+      "restricted": "Only the roles and users below",
+      "role": {
+        "admin": "Administrators",
+        "user": "Regular users"
+      },
+      "users": "Named users",
+      "usersPlaceholder": "Names separated by commas",
+      "pin": "Pin to the previous image",
+      "noPrevious": "There is no previous image yet",
+      "memory": "Memory cap of a sandbox, in MiB",
+      "disk": "Disk cap of a sandbox, in MiB",
+      "noLimit": "No limit",
+      "quotaHelp": "A cap lowers the limit of a profile and never raises it. Leave a field empty for no cap.",
+      "badQuota": "Use a whole number of MiB, or leave the field empty.",
+      "reload": "Reload",
+      "ownerError": "Owner settings are unavailable or changed: {{message}}",
+      "save": "Save",
+      "loadError": "The sandbox profiles could not be read."
+    }
   }
 }

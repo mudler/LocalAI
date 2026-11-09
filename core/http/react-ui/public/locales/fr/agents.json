@@ -463,7 +463,10 @@
       "off": "Il ne lit ni n'enregistre de notes, et le droit de retenir des choses est désactivé. Rien n'est enregistré avant que vous enregistriez.",
       "reads": "Le droit de retenir des choses est désactivé : il lit les notes mais ne peut en enregistrer aucune. Rien n'est enregistré avant que vous enregistriez.",
       "saves": "Le droit de retenir des choses est activé. Rien n'est enregistré avant que vous enregistriez."
-    }
+    },
+    "sandboxProfile": "Profil de sandbox",
+    "sandboxProfileDefault": "Par défaut",
+    "sandboxProfileHelp": "Utilisé par les exécutions sans surveillance et comme profil de départ de ses conversations."
   },
   "run": {
     "workingLine": "Working"

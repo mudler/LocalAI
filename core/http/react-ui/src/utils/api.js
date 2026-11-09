@@ -457,6 +457,16 @@ export const chatEgressApi = {
   events: (params = {}) => fetchJSON(`/api/chats/admin/egress/events${q(params)}`),
 }
 
+// The sandbox profiles: the environment a chat's isolated commands run in.
+// get/set are the chat's own choice; list is what any user may pick from (and
+// the default); admin is the administrator's view with the limits and images.
+export const chatSandboxProfileApi = {
+  get: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/sandbox-profile`),
+  set: (chat, profile) => fetchJSON(`/api/chats/${enc2(chat)}/sandbox-profile`, { method: 'PUT', body: JSON.stringify({ profile }) }),
+  list: () => fetchJSON('/api/chats/sandbox-profiles'),
+  admin: () => fetchJSON('/api/chats/admin/sandbox-profiles'),
+}
+
 // The built-in chat tools an add-on may replace (Settings > Tools) and the
 // audit of the commands run on this machine. Administrators only.
 export const chatBuiltinToolsApi = {

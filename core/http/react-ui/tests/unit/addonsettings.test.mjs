@@ -39,7 +39,7 @@ test('add-on settings: the host draws the controls the apps list gives an add-on
   const sandbox = { id: 'sandbox', enabled: true, state: 'running', ui: ui([NETWORK_POLICY, TOOL_PROVIDERS]) }
   const devbox = { id: 'devbox', enabled: true, state: 'running', ui: ui([NETWORK_POLICY, 'from-a-newer-server']) }
   const plain = { id: 'notes', enabled: true, state: 'running', ui: ui(undefined) }
-  assert.deepEqual(HOST_CONTROL_IDS, ['network-policy', 'tool-providers'])
+  assert.deepEqual(HOST_CONTROL_IDS, ['network-policy', 'tool-providers', 'sandbox-profiles'])
   assert.deepEqual(controlsOf(sandbox), ['network-policy', 'tool-providers'])
   // An ID this page does not know is not drawn.
   assert.deepEqual(controlsOf(devbox), ['network-policy'])

@@ -463,7 +463,10 @@
       "off": "No lee ni guarda notas, y el permiso de recordar cosas está desactivado. No se guarda nada hasta que guardes.",
       "reads": "El permiso de recordar cosas está desactivado, así que lee notas pero no puede guardar ninguna. No se guarda nada hasta que guardes.",
       "saves": "El permiso de recordar cosas está activado. No se guarda nada hasta que guardes."
-    }
+    },
+    "sandboxProfile": "Perfil de sandbox",
+    "sandboxProfileDefault": "Predeterminado",
+    "sandboxProfileHelp": "Lo usan las ejecuciones sin supervisión y es el perfil inicial de sus chats."
   },
   "run": {
     "workingLine": "Working"

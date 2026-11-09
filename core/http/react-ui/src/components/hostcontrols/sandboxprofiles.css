@@ -1,0 +1,13 @@
+/* The sandbox-profiles control on the Sandbox add-on's Settings tab. Tokens only. */
+.sbp { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sbp__title { margin: 0; font-size: var(--fs-body); }
+.sbp__list { display: flex; flex-direction: column; gap: var(--sp-3); margin: 0; padding: 0; list-style: none; }
+.sbp__row { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3); border: 1px solid var(--color-border-divider); border-radius: var(--radius-md, 8px); }
+.sbp__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sp-2); }
+.sbp__meta { margin: 0; font-size: var(--fs-meta); color: var(--color-text-secondary); }
+.sbp__who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin: 0; padding: 0; border: 0; }
+.sbp__who legend { font-size: var(--fs-meta); font-weight: 600; padding: 0; }
+.sbp__check { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.sbp__field { display: flex; flex-direction: column; gap: var(--sp-1); }
+.sbp__pin { display: flex; align-items: center; gap: var(--sp-2); }
+.sbp__quota { display: flex; flex-wrap: wrap; gap: var(--sp-4); }

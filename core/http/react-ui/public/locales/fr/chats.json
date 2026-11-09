@@ -1348,5 +1348,57 @@
   },
   "triggersPage": {
     "runLimit": "Durée maximale d'une exécution"
+  },
+  "sandboxProfile": {
+    "label": "Profil de sandbox",
+    "tools": "Programmes : {{tools}}",
+    "notAllowed": "Votre administrateur ne vous a pas donné ce profil",
+    "absent": "Cette version n'a pas d'image pour ce profil",
+    "unavailable": "{{title}} n'est pas disponible : {{reason}}.",
+    "draft": "Une nouvelle conversation démarre dans {{title}}. Vous pouvez changer le profil dans la conversation.",
+    "source": {
+      "chat": "Cette conversation utilise {{title}}, à votre choix.",
+      "agent": "Cette conversation utilise {{title}}, défini par son agent.",
+      "default": "Cette conversation utilise {{title}}, le profil par défaut."
+    },
+    "switchWarning": "Le changement redémarre la sandbox. Vos fichiers restent. Les processus en cours et les paquets installés sont perdus.",
+    "switchTo": "Passer à {{title}}",
+    "cancel": "Annuler",
+    "preparing": "Préparation de l'image {{title}}, {{percent}} %",
+    "failed": "L'image {{title}} n'a pas pu être préparée : {{error}}",
+    "fallback": "{{title}} n'a pas pu être utilisé, les commandes s'exécutent donc dans {{base}}.",
+    "newerImage": "Une image plus récente est disponible. Elle s'applique au redémarrage de la sandbox.",
+    "notAllowedError": "Vous ne pouvez pas utiliser ce profil.",
+    "unknownError": "Ce profil n'existe pas.",
+    "saveError": "Le profil n'a pas pu être changé.",
+    "admin": {
+      "title": "Profils de sandbox",
+      "intro": "Un profil est un environnement avec ses propres programmes. Tout le monde peut utiliser chaque profil tant que vous n'en limitez pas un.",
+      "default": "Profil par défaut",
+      "defaultBase": "Base",
+      "profiles": "Profils",
+      "limits": "{{cpus}} CPU, {{memory}} Mio de mémoire, {{disk}} Mio de disque",
+      "baseAlways": "Tous les utilisateurs peuvent utiliser Base. C'est le profil utilisé quand un autre ne peut pas l'être.",
+      "who": "Qui peut l'utiliser",
+      "everyone": "Tout le monde",
+      "restricted": "Seulement les rôles et utilisateurs ci-dessous",
+      "role": {
+        "admin": "Administrateurs",
+        "user": "Utilisateurs ordinaires"
+      },
+      "users": "Utilisateurs nommés",
+      "usersPlaceholder": "Noms séparés par des virgules",
+      "pin": "Figer sur l'image précédente",
+      "noPrevious": "Il n'y a pas encore d'image précédente",
+      "memory": "Limite de mémoire d'une sandbox, en Mio",
+      "disk": "Limite de disque d'une sandbox, en Mio",
+      "noLimit": "Aucune limite",
+      "quotaHelp": "Une limite abaisse celle d'un profil et ne la relève jamais. Laissez un champ vide pour ne pas limiter.",
+      "badQuota": "Utilisez un nombre entier de Mio, ou laissez le champ vide.",
+      "reload": "Recharger",
+      "ownerError": "Les paramètres du propriétaire sont indisponibles ou ont changé : {{message}}",
+      "save": "Enregistrer",
+      "loadError": "Les profils de sandbox n'ont pas pu être lus."
+    }
   }
 }

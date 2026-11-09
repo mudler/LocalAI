@@ -1348,5 +1348,57 @@
   },
   "triggersPage": {
     "runLimit": "Límite de tiempo de una ejecución"
+  },
+  "sandboxProfile": {
+    "label": "Perfil de sandbox",
+    "tools": "Programas: {{tools}}",
+    "notAllowed": "Tu administrador no te ha dado este perfil",
+    "absent": "Esta versión no tiene imagen para este perfil",
+    "unavailable": "{{title}} no está disponible: {{reason}}.",
+    "draft": "Un chat nuevo empieza en {{title}}. Puedes cambiar el perfil en el chat.",
+    "source": {
+      "chat": "Este chat usa {{title}}, por tu elección.",
+      "agent": "Este chat usa {{title}}, fijado por su agente.",
+      "default": "Este chat usa {{title}}, el predeterminado."
+    },
+    "switchWarning": "Al cambiar se reinicia la sandbox. Tus archivos se conservan. Los procesos en ejecución y los paquetes instalados se pierden.",
+    "switchTo": "Cambiar a {{title}}",
+    "cancel": "Cancelar",
+    "preparing": "Preparando la imagen {{title}}, {{percent}} %",
+    "failed": "No se pudo preparar la imagen {{title}}: {{error}}",
+    "fallback": "No se pudo usar {{title}}, así que los comandos se ejecutan en {{base}}.",
+    "newerImage": "Hay una imagen más reciente. Se aplica cuando se reinicie la sandbox.",
+    "notAllowedError": "No puedes usar este perfil.",
+    "unknownError": "Este perfil no existe.",
+    "saveError": "No se pudo cambiar el perfil.",
+    "admin": {
+      "title": "Perfiles de sandbox",
+      "intro": "Un perfil es un entorno con sus propios programas. Todos pueden usar cualquier perfil hasta que limites uno.",
+      "default": "Perfil predeterminado",
+      "defaultBase": "Base",
+      "profiles": "Perfiles",
+      "limits": "{{cpus}} CPU, {{memory}} MiB de memoria, {{disk}} MiB de disco",
+      "baseAlways": "Todos los usuarios pueden usar Base. Es el perfil que se usa cuando otro no puede.",
+      "who": "Quién puede usarlo",
+      "everyone": "Todos",
+      "restricted": "Solo los roles y usuarios de abajo",
+      "role": {
+        "admin": "Administradores",
+        "user": "Usuarios normales"
+      },
+      "users": "Usuarios por nombre",
+      "usersPlaceholder": "Nombres separados por comas",
+      "pin": "Fijar a la imagen anterior",
+      "noPrevious": "Todavía no hay una imagen anterior",
+      "memory": "Límite de memoria de una sandbox, en MiB",
+      "disk": "Límite de disco de una sandbox, en MiB",
+      "noLimit": "Sin límite",
+      "quotaHelp": "Un límite baja el de un perfil y nunca lo sube. Deja un campo vacío para no poner límite.",
+      "badQuota": "Usa un número entero de MiB o deja el campo vacío.",
+      "reload": "Recargar",
+      "ownerError": "Los ajustes del propietario no están disponibles o han cambiado: {{message}}",
+      "save": "Guardar",
+      "loadError": "No se pudieron leer los perfiles de sandbox."
+    }
   }
 }

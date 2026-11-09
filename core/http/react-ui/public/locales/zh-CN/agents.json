@@ -463,7 +463,10 @@
       "off": "不读取也不保存笔记，“记住事情”的权限也已关闭。保存之前不会存储任何内容。",
       "reads": "“记住事情”的权限已关闭，所以它只读取笔记，无法保存。保存之前不会存储任何内容。",
       "saves": "“记住事情”的权限已开启。保存之前不会存储任何内容。"
-    }
+    },
+    "sandboxProfile": "沙箱配置",
+    "sandboxProfileDefault": "默认",
+    "sandboxProfileHelp": "用于无人值守的运行，也是其聊天的初始配置。"
   },
   "run": {
     "workingLine": "Working"

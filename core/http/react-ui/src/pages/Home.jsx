@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
+import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 // eslint-disable-next-line no-unused-vars
 import { SlashHelpCard } from '../components/chat/CommandCards'
 import { parseInvocation } from '../utils/slashCommands'
@@ -109,6 +110,8 @@ export default function Home() {
   const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '' })
   // The composer is the chat page's (useChatComposer): the draft is Home's,
   // the switches are a draft that goes with the new chat.
+  // A new chat shows the default sandbox profile; the choice is made in the chat.
+  const sandboxProfile = useChatSandboxProfile(null, 0)
   const composer = useChatComposer({
     draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
@@ -742,6 +745,7 @@ export default function Home() {
           {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
           <ChatComposer
             composer={composer}
+            sandboxProfile={sandboxProfile}
             filesOn={chatServer.files}
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}

@@ -20,7 +20,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 // React DOM detects input event support at import time, after JSDOM exists.
 const { createRoot } = await import('react-dom/client')
 // All nine fields are emitted by Go Policy.MarshalJSON.
-const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0 }
+const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0, sandbox_profiles: { default: '', access: {}, memory_mib: 0, disk_mib: 0, pin_previous: [] } }
 const dto = (revision = 1, policy = {}) => ({ schema_version: 1, revision, policy: { ...defaults, ...policy } })
 const reply = data => new Response(JSON.stringify({ payload: { data } }), { status: 200 })
 

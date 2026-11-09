@@ -6,6 +6,7 @@ import { useServerChat } from '../hooks/useServerChat'
 import { useChatComposer } from '../hooks/useChatComposer'
 import { useComposerArrival } from '../hooks/useComposerTransition'
 import { useChatEgress } from '../hooks/useChatEgress'
+import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 import { useLive } from '../hooks/useLive'
 import { useModels } from '../hooks/useModels'
 import { CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
@@ -298,6 +299,8 @@ function ChatPage() {
   const model = activeChat ? activeChat.model : draftModel
   // The network of the chat's isolated commands, read again on its events.
   const egress = useChatEgress(activeId, chat.ticks.egress)
+  // The sandbox profile of the chat's commands, with the progress of its image.
+  const sandboxProfile = useChatSandboxProfile(activeId, chat.ticks.egress)
   // Switching an add-on or a tool group on or off changes who runs the commands
   // and whether the network controls apply, so the network view is read again.
   const { refresh: refreshEgress } = egress
@@ -1413,6 +1416,7 @@ function ChatPage() {
               onPickModel={pickModel}
               pickerRef={pickerRef}
               egress={activeId ? egress : null}
+              sandboxProfile={sandboxProfile}
               toolsExtra={subAgents}
               chips={composerChips}
               slotContext={composerSlotContext}

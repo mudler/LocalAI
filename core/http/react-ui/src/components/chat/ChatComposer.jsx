@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext'
 import { CAP_CHAT } from '../../utils/capabilities'
 import { seesImages } from '../../utils/chatVision'
 import { networkMode } from '../../utils/chatEgress'
+import { profileMode } from '../../utils/chatSandboxProfile'
+import SandboxProfileRow from './SandboxProfileRow'
 import { gbLabel, gbNumber } from '../../utils/modelLedger'
 import { useModelFit } from '../../hooks/useModelFit'
 import { useCommandsNotice } from '../../hooks/useCommandsNotice'
@@ -56,6 +58,7 @@ import '../../pages/chat.css'
 //   pickerRef      reaches the model list (the /model command opens it)
 //   pickerDisabled, pickerPlaceholder   Home without a model installed
 //   egress         the chat's network (useChatEgress), for the Tools menu
+//   sandboxProfile the chat's sandbox profile (useChatSandboxProfile), for the Tools menu
 //   toolsExtra     more chips after Skills (the sub-agents of a chat)
 //   chips          more chips after the agent (the Files chip)
 //   imageModel     the model that describes images to a model that cannot see
@@ -69,7 +72,7 @@ import '../../pages/chat.css'
 // The other props go to HomeComposer as they are.
 export default function ChatComposer({
   composer, chatId = null, activeChat = null, filesOn = true, loadedIds, imageModel = '',
-  onPickModel, pickerRef, pickerDisabled = false, pickerPlaceholder, egress = null, toolsExtra, chips,
+  onPickModel, pickerRef, pickerDisabled = false, pickerPlaceholder, egress = null, sandboxProfile = null, toolsExtra, chips,
   slotContext, placeholder, onDictateError, slashSurface = 'chat', slashContext, onRunAction, ...rest
 }) {
   const { t } = useTranslation('chat')
@@ -134,6 +137,7 @@ export default function ChatComposer({
   const grants = useChatGrants(pickedAgent)
   const toolGroups = useToolGroups({ ...switches, grants }, { commandsInfo: commands.info })
   const network = egress && networkMode(egress) !== 'hidden'
+  const profiles = sandboxProfile && profileMode(sandboxProfile) !== 'hidden'
   const memoryIsOff = !!memoryOff(switches.memory, switches.builtins.find((b) => b.group === MEMORY_GROUP))
   // A chat whose agent has a folder reaches only that folder with its file tools.
   const scopeLine = agentFolderLine(pickedAgent, t)
@@ -143,8 +147,8 @@ export default function ChatComposer({
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')}
         note={chatId ? t('tools.note') : t('tools.draftNote')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={scopeLine || commands.info || network || switches.fallbacks.length > 0 || memoryIsOff
-          ? <><MemoryLine memory={switches.memory} builtins={switches.builtins} />{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
+        notice={scopeLine || commands.info || network || profiles || switches.fallbacks.length > 0 || memoryIsOff
+          ? <><MemoryLine memory={switches.memory} builtins={switches.builtins} />{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}{profiles ? <SandboxProfileRow view={sandboxProfile} /> : null}</>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>
