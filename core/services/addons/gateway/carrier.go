@@ -606,6 +606,16 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireSDK, Min: refusal.Min, Max: refusal.Max, Host: refusal.Host})
 		return
 	}
+	if errors.Is(e, addons.ErrOperationNotFound) && !errors.Is(e, ErrUnavailable) {
+		// A missing operation, or one that belongs to another user, is not a
+		// refusal of the caller's role. It has its own type so a page can drop
+		// the stale operation instead of telling an administrator to sign in
+		// as one.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireOperationNotFound})
+		return
+	}
 	if t := denialType(e); t != "" {
 		// Typed apart from a plain denial, so a forwarding frontend tells the
 		// model "no permission" or "no such resource" like the owner does.
@@ -623,6 +633,8 @@ const (
 	wireNotPermitted = "not_permitted"
 	wireUnreachable  = "resource_unreachable"
 	wireRateLimited  = "rate_limited"
+	// wireOperationNotFound is the 404 type of an unknown lifecycle operation.
+	wireOperationNotFound = "operation_not_found"
 )
 
 // denialType is the wire type of a denial that callers tell apart, or "".
@@ -890,6 +902,12 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 			var b sdkWire
 			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireRateLimited {
 				return nil, &contract.ErrRateLimited{RetryAfter: b.RetryAfter}
+			}
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			var b sdkWire
+			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireOperationNotFound {
+				return nil, addons.ErrOperationNotFound
 			}
 		}
 		if resp.StatusCode == http.StatusBadRequest {

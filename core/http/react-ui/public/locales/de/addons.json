@@ -149,6 +149,7 @@
   "errors": {
     "auth": "Du bist abgemeldet. Melde dich erneut an.",
     "denied": "Der Server hat dies abgelehnt. Möglicherweise fehlt dir die Berechtigung oder das Add-on hat sich geändert. Die Liste wurde aktualisiert.",
+    "operationNotFound": "Der Status dieses Updates ist nicht mehr verfügbar. Prüfe die Version des Add-ons.",
     "invalid": "Der Server konnte diese Anfrage nicht annehmen.",
     "network": "Der Server ist nicht erreichbar. Prüfe deine Verbindung.",
     "unavailable": "Add-ons sind gerade nicht verfügbar. Versuche es gleich noch einmal.",
@@ -618,6 +619,7 @@
       "unknownOutcome": "Das Ergebnis der Aktualisierung ist nicht bekannt. Lesen Sie ihren Status erneut; starten Sie keine weitere.",
       "auth": "Bitte erneut anmelden.",
       "denied": "Das kann nur ein Administrator in der eigenen Browsersitzung tun.",
+      "operationNotFound": "Der Status dieses Updates ist nicht mehr verfügbar. Prüfe die Version des Add-ons.",
       "network": "Das Netzwerk ist nicht erreichbar.",
       "unavailable": "Der Add-on-Dienst ist nicht verfügbar. Versuche es erneut."
     },

@@ -4210,7 +4210,10 @@ unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` respo
 status `503` and also carries the original `operationId`. Keep that `operationId` after
 an `outcome_unknown` response. Query
 `operation-status`; do not create another mutation. The carrier never retries mutations.
-`Manager.OperationStatus` binds the lookup to the original actor and current administrator.
+`Manager.OperationStatus` binds the lookup to the user who started the operation and to
+the current administrator. A later browser session or another key of the same user reads
+it. Another user, or an unknown ID, gets status `404` with `type` `operation_not_found`,
+which is not a refusal of the role.
 It does not submit, repair, start processes, or write the journal. `completed` describes
 durable lifecycle publication, not runtime health. `runtimeState: not-observed` makes
 that distinction explicit. Ambiguous legacy actor bindings deny lookup.

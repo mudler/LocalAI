@@ -149,6 +149,7 @@
   "errors": {
     "auth": "You are signed out. Sign in again.",
     "denied": "The server refused this. You may not have permission, or the add-on changed. The list was refreshed.",
+    "operationNotFound": "The status of this update is no longer available. Check the add-on version.",
     "invalid": "The server could not accept this request.",
     "network": "The server could not be reached. Check your connection.",
     "unavailable": "Add-ons are not available right now. Try again in a moment.",
@@ -618,6 +619,7 @@
       "unknownOutcome": "The result of the update is not known. Read its status again; do not start another.",
       "auth": "Sign in again to continue.",
       "denied": "Only an administrator can do this from their own browser session.",
+      "operationNotFound": "The status of this update is no longer available. Check the add-on version.",
       "network": "The network is not reachable.",
       "unavailable": "The add-on service is not available. Try again."
     },

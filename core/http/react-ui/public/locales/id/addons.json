@@ -149,6 +149,7 @@
   "errors": {
     "auth": "Anda sudah keluar. Masuk lagi.",
     "denied": "Server menolak ini. Anda mungkin tidak punya izin, atau add-on berubah. Daftar telah diperbarui.",
+    "operationNotFound": "Status pembaruan ini tidak lagi tersedia. Periksa versi add-on.",
     "invalid": "Server tidak dapat menerima permintaan ini.",
     "network": "Server tidak dapat dijangkau. Periksa koneksi Anda.",
     "unavailable": "Add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
@@ -618,6 +619,7 @@
       "unknownOutcome": "Hasil pembaruan tidak diketahui. Baca statusnya lagi; jangan mulai yang lain.",
       "auth": "Masuk lagi untuk melanjutkan.",
       "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
+      "operationNotFound": "Status pembaruan ini tidak lagi tersedia. Periksa versi add-on.",
       "network": "Jaringan tidak dapat dijangkau.",
       "unavailable": "Layanan add-on tidak tersedia. Coba lagi."
     },

@@ -152,6 +152,7 @@
   "errors": {
     "auth": "Vous êtes déconnecté. Reconnectez-vous.",
     "denied": "Le serveur a refusé cette demande. Vous n'avez peut-être pas la permission, ou le module a changé. La liste a été actualisée.",
+    "operationNotFound": "L'état de cette mise à jour n'est plus disponible. Vérifiez la version du module complémentaire.",
     "invalid": "Le serveur n'a pas pu accepter cette demande.",
     "network": "Le serveur est injoignable. Vérifiez votre connexion.",
     "unavailable": "Les modules ne sont pas disponibles pour le moment. Réessayez dans un instant.",
@@ -622,6 +623,7 @@
       "unknownOutcome": "Le résultat de la mise à jour n'est pas connu. Relisez son état ; n'en lancez pas une autre.",
       "auth": "Reconnectez-vous pour continuer.",
       "denied": "Seul un administrateur peut le faire depuis sa propre session de navigateur.",
+      "operationNotFound": "L'état de cette mise à jour n'est plus disponible. Vérifiez la version du module complémentaire.",
       "network": "Le réseau est injoignable.",
       "unavailable": "Le service des modules n’est pas disponible. Réessayez."
     },

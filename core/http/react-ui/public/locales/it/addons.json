@@ -149,6 +149,7 @@
   "errors": {
     "auth": "Hai effettuato la disconnessione. Accedi di nuovo.",
     "denied": "Il server ha rifiutato la richiesta. Potresti non avere il permesso, oppure il componente è cambiato. L'elenco è stato aggiornato.",
+    "operationNotFound": "Lo stato di questo aggiornamento non è più disponibile. Controlla la versione del componente.",
     "invalid": "Il server non ha potuto accettare la richiesta.",
     "network": "Impossibile raggiungere il server. Controlla la connessione.",
     "unavailable": "I componenti non sono disponibili al momento. Riprova tra poco.",
@@ -618,6 +619,7 @@
       "unknownOutcome": "Il risultato dell'aggiornamento non è noto. Leggi di nuovo il suo stato; non avviarne un altro.",
       "auth": "Accedi di nuovo per continuare.",
       "denied": "Solo un amministratore può farlo dalla propria sessione del browser.",
+      "operationNotFound": "Lo stato di questo aggiornamento non è più disponibile. Controlla la versione del componente.",
       "network": "La rete non è raggiungibile.",
       "unavailable": "Il servizio dei componenti non è disponibile. Riprova."
     },

@@ -22,6 +22,7 @@ export function describeError(error, t) {
   switch (kind) {
     case 'auth': return t('errors.auth')
     case 'denied': return serverReason(error) || t('errors.denied')
+    case 'operation_not_found': return t('errors.operationNotFound')
     case 'invalid': return serverReason(error) || t('errors.invalid')
     case 'unknown_outcome': return t('errors.unknownOutcome')
     case 'network': return t('errors.network')
