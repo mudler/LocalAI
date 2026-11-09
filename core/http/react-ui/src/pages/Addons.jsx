@@ -20,7 +20,10 @@ import '../components/addons/addons.css'
 // of each add-on. Hiding a tab is a convenience: the owner checks administration
 // again on every call.
 export default function Addons() {
-  const { t } = useTranslation('addons')
+  // The details pane and the install flow show words of the upgrade
+  // namespace. Load it with this page: a namespace that loads later suspends
+  // the page, which hides it and drops the focus of the person using it.
+  const { t } = useTranslation(['addons', 'upgrade'])
   const { isAdmin, hasFeature } = useAuth()
   // The installed count for the tab and whether the list is a first run (the
   // empty state then carries the way to Find add-ons, so the header does not).
