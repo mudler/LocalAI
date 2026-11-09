@@ -1345,5 +1345,8 @@
     "accounts": "账号",
     "messaging": "消息",
     "mcp": "MCP 服务器"
+  },
+  "triggersPage": {
+    "runLimit": "单次运行的时间限制"
   }
 }

@@ -1345,5 +1345,8 @@
     "accounts": "Akun",
     "messaging": "Pesan",
     "mcp": "Server MCP"
+  },
+  "triggersPage": {
+    "runLimit": "Batas waktu satu proses"
   }
 }

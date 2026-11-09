@@ -1345,5 +1345,8 @@
     "accounts": "Account",
     "messaging": "Messaggistica",
     "mcp": "Server MCP"
+  },
+  "triggersPage": {
+    "runLimit": "Limite di tempo di un'esecuzione"
   }
 }
