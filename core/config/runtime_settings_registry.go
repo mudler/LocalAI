@@ -838,6 +838,48 @@ var runtimeSettingsFields = []fieldSpec{
 			o.chatsLimitsMu.Unlock()
 		}),
 
+	// The coordinator agents of the chats: read at each use, so no restart.
+	loopIntField("chats_coordinator_helpers_ceiling", MaxChatsCoordinatorHelpersCeiling,
+		func(s *RuntimeSettings) **int { return &s.ChatsCoordinatorHelpersCeiling },
+		(*ApplicationConfig).EffectiveChatsCoordinatorHelpersCeiling,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsCoordinatorHelpersCeiling = v
+			o.chatsLimitsMu.Unlock()
+		}),
+	loopIntField("chats_coordinator_depth_ceiling", MaxChatsCoordinatorDepthCeiling,
+		func(s *RuntimeSettings) **int { return &s.ChatsCoordinatorDepthCeiling },
+		(*ApplicationConfig).EffectiveChatsCoordinatorDepthCeiling,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsCoordinatorDepthCeiling = v
+			o.chatsLimitsMu.Unlock()
+		}),
+	loopIntField("chats_coordinator_runs_per_day", MaxChatsCoordinatorRunsPerDay,
+		func(s *RuntimeSettings) **int { return &s.ChatsCoordinatorRunsPerDay },
+		(*ApplicationConfig).EffectiveChatsCoordinatorRunsPerDay,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsCoordinatorRunsPerDay = v
+			o.chatsLimitsMu.Unlock()
+		}),
+	loopIntField("chats_coordinator_max_running", MaxChatsCoordinatorMaxRunning,
+		func(s *RuntimeSettings) **int { return &s.ChatsCoordinatorMaxRunning },
+		(*ApplicationConfig).EffectiveChatsCoordinatorMaxRunning,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsCoordinatorMaxRunning = v
+			o.chatsLimitsMu.Unlock()
+		}),
+	loopIntField("chats_coordinator_audit_days", MaxChatsCoordinatorAuditDays,
+		func(s *RuntimeSettings) **int { return &s.ChatsCoordinatorAuditDays },
+		(*ApplicationConfig).EffectiveChatsCoordinatorAuditDays,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsCoordinatorAuditDays = v
+			o.chatsLimitsMu.Unlock()
+		}),
+
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
 	field("chats_suggestions",

@@ -1,6 +1,8 @@
 package localaitools
 
 import (
+	"time"
+
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 )
@@ -529,6 +531,36 @@ type HostExecEvent = schema.ChatsHostExecEvent
 // HostExecEventsQuery is the input for list_host_exec_events.
 type HostExecEventsQuery struct {
 	Limit int `json:"limit,omitempty" jsonschema:"How many lines, newest first. Defaults to 50; at most 500."`
+}
+
+// Coordinator is a coordinator agent as the assistant sees it
+// (list_coordinators, pause_coordinator, resume_coordinator).
+type Coordinator struct {
+	ID        string     `json:"id"`
+	Owner     string     `json:"owner"`
+	Name      string     `json:"name"`
+	Paused    bool       `json:"paused"`
+	PausedBy  string     `json:"paused_by,omitempty"`
+	NextWake  *time.Time `json:"next_wake,omitempty"`
+	RunsToday int        `json:"runs_today"`
+	SentToday int        `json:"sent_today"`
+}
+
+// CoordinatorRef is the input for pause_coordinator and resume_coordinator.
+type CoordinatorRef struct {
+	ID string `json:"id" jsonschema:"The coordinator's ID, from list_coordinators."`
+}
+
+// CoordinatorAuditEntry is one line of the audit log of the coordinators
+// (list_coordinator_audit). It holds no message text.
+type CoordinatorAuditEntry = schema.ChatsCoordinatorAuditEntry
+
+// CoordinatorAuditQuery is the input for list_coordinator_audit.
+type CoordinatorAuditQuery struct {
+	Coordinator string `json:"coordinator,omitempty" jsonschema:"Only the lines of this coordinator ID."`
+	Kind        string `json:"kind,omitempty"        jsonschema:"contact, wake, pause, resume or helper."`
+	Outcome     string `json:"outcome,omitempty"     jsonschema:"sent, denied or info."`
+	Limit       int    `json:"limit,omitempty"       jsonschema:"How many lines, newest first. Defaults to 50; at most 500."`
 }
 
 // ChatEgress is the administrator's view of the Sandbox network

@@ -141,6 +141,7 @@ export default function Agents() {
     </label>
   )
   const newAgent = <Button variant="primary" icon="plus" onClick={() => navigate('/app/agents/new')}>{t('actions.newAgent')}</Button>
+  const newCoordinator = <Button icon="robot" to="/app/agents/new-coordinator" data-testid="agents-new-coordinator">{t('actions.newCoordinator')}</Button>
   const empty = loaded && !error && rows.length === 0 && agents.length === 0
 
   return (
@@ -151,6 +152,7 @@ export default function Agents() {
         actions={!off && !empty && (
           <div className="header-actions">
             {importButton('ghost')}
+            {newCoordinator}
             {newAgent}
           </div>
         )}
@@ -170,7 +172,7 @@ export default function Agents() {
           <EmptyState
             title={t('empty.noConfigured')}
             body={t('empty.noConfiguredText')}
-            actions={<>{newAgent}{importButton('ghost')}</>}
+            actions={<>{newAgent}{newCoordinator}{importButton('ghost')}</>}
           />
           {templates && (templates.length > 0 || AGENT_TEMPLATES.length > 1) && (
             <section className="ag-group" aria-labelledby="ag-start-h">
@@ -262,7 +264,7 @@ function rowMenu(agent, { t, navigate, onExport, onDelete, onShare }) {
   if (isSharedWithMe(agent)) return [open]
   return [
     open,
-    { key: 'edit', icon: 'edit', label: t('actions.edit'), onClick: () => navigate(agentPath(agent.id, '/edit')) },
+    { key: 'edit', icon: 'edit', label: t('actions.edit'), onClick: () => navigate(agentPath(agent.id, agent.coordinator ? '/coordinator' : '/edit')) },
     ...(canShareAgent(agent) ? [{ key: 'share', icon: 'share', label: t('share.action'), onClick: () => onShare(agent) }] : []),
     { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => onExport(agent) },
     { divider: true },
@@ -288,6 +290,7 @@ function AgentRow({ agent, t, navigate, onExport, onDelete, onShare }) {
           <SharedByBadge entry={shareEntry} roleLabel={shareEntry.role === 'owner' ? undefined : t(`share.roles.${shareEntry.role}`)} hideRole={shareEntry.role === 'owner'} testId="agent-shared" />
         )}
         <span className="ag-meta">
+          {agent.coordinator && <Link to={agentPath(agent.id, '/coordinator')} data-testid="agent-coordinator-chip"><Icon name="robot" />{t('chips.coordinator')}</Link>}
           {info.model
             ? <span className="ag-mono" title={t('facts.model')}>{info.model}</span>
             : <span>{t('meta.anyModel')}</span>}

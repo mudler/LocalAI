@@ -440,7 +440,8 @@
       "memory": "记忆",
       "history": "以前的对话",
       "localai_client": "LocalAI 客户端",
-      "localai_admin": "LocalAI 管理"
+      "localai_admin": "LocalAI 管理",
+      "coordinator": "协调器"
     },
     "builtinBy": "{{tools}} · 内置",
     "onDemand": "按需加载",
@@ -700,7 +701,8 @@
     "source": {
       "trigger": "触发器",
       "connector": "连接器",
-      "system": "LocalAI"
+      "system": "LocalAI",
+      "coordinator": "协调器"
     },
     "itemUnread": "{{title}}，未读",
     "arrived": "新通知：{{title}}",
@@ -741,6 +743,9 @@
           "library": "后端资源库",
           "addons": "附加组件"
         }
+      },
+      "coordinatorMessage": {
+        "title": "来自 {{coordinator}} 的消息"
       }
     }
   },

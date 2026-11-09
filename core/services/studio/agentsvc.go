@@ -180,6 +180,7 @@ func (s *Service) DeleteAgent(ctx context.Context, user, id string) error {
 	if err := s.d.Agents.Delete(ctx, principal(user), id); err != nil {
 		return err
 	}
+	s.forgetCoordinator(ctx, id)
 	s.forgetAgentShares(ctx, principal(user), ag)
 	return nil
 }
@@ -246,6 +247,7 @@ func (s *Service) DeleteAgentWithNotes(ctx context.Context, user, id, notes stri
 	if err := s.d.Agents.Delete(ctx, principal(user), id); err != nil {
 		return nil, err
 	}
+	s.forgetCoordinator(ctx, id)
 	s.forgetAgentShares(ctx, principal(user), ag)
 	if notes == AgentNotesExport || notes == AgentNotesDelete {
 		if err := s.d.Files.DeleteHome(ctx, principal(user), "Memory/agents/"+id); err != nil {

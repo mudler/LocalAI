@@ -57,6 +57,9 @@ const (
 	// read the person's earlier chats. It is opt-in: off until the chat, or the
 	// saved agent that holds the grant history.read, switches it on.
 	GroupHistory = "history"
+	// GroupCoordinator holds contact: the one way a coordinator agent writes
+	// to the people it may contact. Only a coordinator chat is offered it.
+	GroupCoordinator = "coordinator"
 	// GroupLocalAIClient holds the LocalAI client tools: inference (images,
 	// speech, text analysis) within the user's own permissions. Each tool is
 	// offered only when the user holds its feature and a model can serve it.
@@ -99,6 +102,9 @@ type Chat struct {
 	AgentID, Model string
 	// SubAgent is true for a sub-agent's conversation.
 	SubAgent bool
+	// CanDelegate is true for a sub-agent that may start sub-agents of its
+	// own: the tree of a coordinator is deeper than one level.
+	CanDelegate bool
 	// Admin is true when the user is an administrator (always without
 	// accounts).
 	Admin bool

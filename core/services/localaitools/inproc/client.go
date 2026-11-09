@@ -32,6 +32,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/coordinator"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
@@ -1431,6 +1432,102 @@ func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaito
 	for _, e := range evs {
 		out = append(out, localaitools.HostExecEvent{User: e.User, Chat: e.Chat, Command: e.Command, Exit: e.Exit,
 			DurationMS: e.DurationMS, TimedOut: e.TimedOut, At: e.At})
+	}
+	return out, nil
+}
+
+// ---- Coordinators ----
+
+var errCoordinatorsOff = errors.New("coordinators are not available on this server")
+
+func (c *Client) coordinators() (*studio.Coordinators, error) {
+	svc, err := c.chats()
+	if err != nil {
+		return nil, err
+	}
+	h := svc.Coordinators()
+	if h == nil {
+		return nil, errCoordinatorsOff
+	}
+	return h, nil
+}
+
+// coordinatorActor is the administrator the assistant acts for. The tools are
+// in the admin group, which only an administrator has.
+func (c *Client) coordinatorActor(ctx context.Context) studio.CoordinatorActor {
+	by := studio.CoordinatorActor{Admin: true}
+	if u := c.actingUser(ctx); u != nil {
+		by.User = u.ID
+	}
+	return by
+}
+
+func coordinatorOf(v studio.CoordinatorView) localaitools.Coordinator {
+	out := localaitools.Coordinator{ID: v.Agent.ID, Owner: v.Config.Principal, Name: v.Agent.Name,
+		Paused: v.Config.Paused, PausedBy: v.Config.PausedBy, RunsToday: v.Usage.RunsToday, SentToday: v.Usage.SentToday}
+	if !v.Config.NextWake.IsZero() {
+		t := v.Config.NextWake
+		out.NextWake = &t
+	}
+	return out
+}
+
+func (c *Client) ListCoordinators(ctx context.Context) ([]localaitools.Coordinator, error) {
+	h, err := c.coordinators()
+	if err != nil {
+		return nil, err
+	}
+	list, err := h.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.Coordinator, 0, len(list))
+	for _, v := range list {
+		out = append(out, coordinatorOf(v))
+	}
+	return out, nil
+}
+
+func (c *Client) PauseCoordinator(ctx context.Context, id string) (*localaitools.Coordinator, error) {
+	h, err := c.coordinators()
+	if err != nil {
+		return nil, err
+	}
+	v, err := h.Pause(ctx, c.coordinatorActor(ctx), id)
+	if err != nil {
+		return nil, err
+	}
+	out := coordinatorOf(v)
+	return &out, nil
+}
+
+func (c *Client) ResumeCoordinator(ctx context.Context, id string) (*localaitools.Coordinator, error) {
+	h, err := c.coordinators()
+	if err != nil {
+		return nil, err
+	}
+	v, err := h.Resume(ctx, c.coordinatorActor(ctx), id)
+	if err != nil {
+		return nil, err
+	}
+	out := coordinatorOf(v)
+	return &out, nil
+}
+
+func (c *Client) ListCoordinatorAudit(ctx context.Context, q localaitools.CoordinatorAuditQuery) ([]localaitools.CoordinatorAuditEntry, error) {
+	h, err := c.coordinators()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := h.Audit(ctx, c.coordinatorActor(ctx), coordinator.AuditQuery{
+		CoordinatorID: q.Coordinator, Kind: q.Kind, Outcome: q.Outcome, Limit: q.Limit})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.CoordinatorAuditEntry, 0, len(rows))
+	for _, e := range rows {
+		out = append(out, localaitools.CoordinatorAuditEntry{ID: e.ID, At: e.At, CoordinatorID: e.CoordinatorID, Owner: e.Principal,
+			Kind: e.Kind, Outcome: e.Outcome, Reason: e.Reason, Actor: e.Actor, Target: e.Target, Via: e.Via, Length: e.Length, Hash: e.Hash})
 	}
 	return out, nil
 }

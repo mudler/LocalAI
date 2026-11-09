@@ -38,6 +38,13 @@ var _ = Describe("Chats feature registration", func() {
 			}
 		}
 		Expect(routes).To(ConsistOf(
+			"POST /api/chats/coordinators",
+			"GET /api/chats/coordinators",
+			"GET /api/chats/coordinators/:id",
+			"PUT /api/chats/coordinators/:id",
+			"POST /api/chats/coordinators/:id/pause",
+			"POST /api/chats/coordinators/:id/resume",
+			"GET /api/chats/coordinators/:id/audit",
 			"GET /api/chats/agents",
 			"POST /api/chats/agents",
 			"GET /api/chats/agents/templates",

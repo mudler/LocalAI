@@ -3,6 +3,8 @@ package studio
 import (
 	"context"
 	"time"
+
+	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
 // FastWaitsForTest shortens the polls and bounds of wait_agents and of the
@@ -29,4 +31,9 @@ func (s *Service) SetOriginForTest(ctx context.Context, user, conv, origin strin
 	}
 	rec.Origin = origin
 	return s.d.Store.UpdateChat(ctx, rec)
+}
+
+// StartIdleForTest is startIdle: it starts a turn only on an idle chat.
+func (s *Service) StartIdleForTest(ctx context.Context, user, conv, text string) (bool, error) {
+	return s.startIdle(ctx, principal(user), conv, session.Message{Text: text})
 }

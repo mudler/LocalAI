@@ -50,6 +50,7 @@ func folderIn(f *schema.ChatsAgentFolderWrite) *studiosvc.AgentFolderWrite {
 // agentFull is agentOut with the folder resolved for the user.
 func (h *Handlers) agentFull(c echo.Context, a agents.Agent) schema.ChatsAgent {
 	out := agentOut(a)
+	out.Coordinator = h.svc.Coordinators().Is(c.Request().Context(), a.ID)
 	h.addFolders(c, &out, a, h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID])
 	return out
 }
@@ -89,6 +90,11 @@ func (h *Handlers) agentIn(c echo.Context) (a agents.Agent, folders *[]studiosvc
 	if err := c.Bind(&req); err != nil {
 		return a, nil, false, fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
 	}
+	return h.agentOf(c, req)
+}
+
+// agentOf turns a write into an agent, after the model check of agentIn.
+func (h *Handlers) agentOf(c echo.Context, req schema.ChatsAgentWrite) (a agents.Agent, folders *[]studiosvc.AgentFolderWrite, ok bool, err error) {
 	if req.Model != "" && h.models != nil {
 		switch err := h.models.Check(c.Request().Context(), auth.GetUser(c), req.Model); {
 		case errors.Is(err, ErrUnknownModel):
@@ -157,12 +163,17 @@ func (h *Handlers) ListAgents(c echo.Context) error {
 		}
 	}
 	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), own)
+	coordinators, err := h.svc.Coordinators().IDs(c.Request().Context())
+	if err != nil {
+		return failFor(c, err)
+	}
 	for _, e := range list {
 		if !e.Access.Owner() {
 			out.Agents = append(out.Agents, h.sharedOut(e.Agent, e.Access))
 			continue
 		}
 		o := agentOut(e.Agent)
+		o.Coordinator = coordinators[e.Agent.ID]
 		h.addFolders(c, &o, e.Agent, rows[e.Agent.ID])
 		o.Access = h.accessOut(e.Access)
 		out.Agents = append(out.Agents, o)

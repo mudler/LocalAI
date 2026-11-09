@@ -47,8 +47,14 @@ const (
 	routeChatTools              = "/api/chats/admin/tools"
 	routeHostExecEvents         = "/api/chats/admin/host-exec/events"
 	routeChatEgress             = "/api/chats/admin/egress"
+	routeCoordinators           = "/api/chats/admin/coordinators"
+	routeCoordinatorAudit       = "/api/chats/admin/coordinators/audit"
 	routeEgressEvents           = "/api/chats/admin/egress/events"
 )
+
+func routeCoordinatorState(id, action string) string {
+	return routeCoordinators + "/" + url.PathEscape(id) + "/" + action
+}
 
 func routeSharedFolder(id int64) string {
 	return routeSharedFolders + "/" + strconv.FormatInt(id, 10)

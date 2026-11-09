@@ -8,10 +8,10 @@ export function badgeText(unread) {
   return unread > 99 ? '99+' : String(unread)
 }
 
-// What sent a notification: trigger, connector or system. Items stored before
+// What sent a notification: trigger, connector, coordinator or system. Items stored before
 // the server said so have no source; a run can only come from a trigger.
 export function sourceOf(n) {
-  if (n?.source === 'trigger' || n?.source === 'connector' || n?.source === 'system') return n.source
+  if (n?.source === 'trigger' || n?.source === 'connector' || n?.source === 'coordinator' || n?.source === 'system') return n.source
   if (n?.kind === 'run_ended' || n?.kind === 'run_failed') return 'trigger'
   return 'system'
 }
@@ -28,7 +28,7 @@ export function toneOf(n) {
   return 'accent'
 }
 
-const SOURCE_ICON = { trigger: 'bolt', connector: 'plug', system: 'info' }
+const SOURCE_ICON = { trigger: 'bolt', connector: 'plug', coordinator: 'robot', system: 'info' }
 
 export function iconOf(n) {
   if (typeof n?.code === 'string' && n.code.startsWith('updates.')) return 'arrow-up'
@@ -101,6 +101,10 @@ export function textOf(n, t) {
       title: t('inbox.codes.digest.title', { count: p.count }),
       body: names.length ? listWithMore(t, 'inbox.codes.digest', names, p.count) : n.body,
     }
+  } else if (n.code === 'coordinator_message') {
+    // The body is the message the coordinator wrote; only the title is worded here.
+    const name = typeof p.coordinator === 'string' ? p.coordinator.trim() : ''
+    if (name) out = { title: t('inbox.codes.coordinatorMessage.title', { coordinator: name }), body: n.body }
   } else if (n.code === 'updates.result') {
     out = resultText(t, p, n)
   } else if (n.code === 'updates.checkFailed') {

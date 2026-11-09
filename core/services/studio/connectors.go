@@ -459,6 +459,12 @@ poll:
 			if ctx.Err() != nil {
 				return
 			}
+			// This frontend may have lost the lead while the poll was in
+			// flight: the new leader reads the update again from the stored
+			// offset, so handing it over here would answer it twice.
+			if c.o.Lead != nil && !c.o.Lead(ctx) {
+				return
+			}
 			// The same function as the host operation: it reads the binding
 			// again, so a changed allowlist, agent or token applies, and a
 			// binding that was switched off ends the loop.
@@ -861,7 +867,21 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		}
 	}
 	key := c.conversationOf(ctx, b, m)
-	chatID, created, err := c.chatFor(ctx, b, key, name, fresh)
+	chatID, created, err := "", false, error(nil)
+	// A reply of a contact of a coordinator goes to the chat of that
+	// coordinator. It is charged to the run budget of the coordinator and
+	// held while it is paused; a sender that is no listed contact never gets
+	// here (it has no key that a coordinator lists).
+	if coord := c.svc.coordinators; coord != nil && !fresh {
+		if id, ok := coord.RouteOf(ctx, b, m); ok {
+			chatID, key = id, "coordinator:"+messageKey(b, m)
+			m.Text = coord.Frame(ctx, b, m, id)
+			ctx = WithWake(ctx, WakeReply)
+		}
+	}
+	if chatID == "" {
+		chatID, created, err = c.chatFor(ctx, b, key, name, fresh)
+	}
 	if err != nil {
 		switch {
 		case errors.Is(err, errAgentGone):
@@ -1146,11 +1166,21 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
-	_, err := c.start(ctx, b, chatID, m.Text, up, earlier)
+	res, err := c.start(ctx, b, chatID, m.Text, up, earlier)
 	if was {
 		c.smu.Lock()
 		st.joining--
 		c.smu.Unlock()
+	}
+	if err == nil && res.Held && !was {
+		// A paused or over-budget coordinator holds the message as a waiting
+		// one. The sender gets no reply and no turn is followed.
+		cancel()
+		c.smu.Lock()
+		st.active, st.grant = false, nil
+		c.smu.Unlock()
+		c.svc.access.clear(chatID)
+		return
 	}
 	if err != nil {
 		if !was {

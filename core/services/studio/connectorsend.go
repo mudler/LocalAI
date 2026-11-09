@@ -27,6 +27,9 @@ const (
 	SendNew = "new"
 	// SendDelivery is the report of a trigger run.
 	SendDelivery = "delivery"
+	// SendCoordinator is a message of a coordinator agent to one of its
+	// contacts. The creator's contact list is the authority for it.
+	SendCoordinator = "coordinator"
 )
 
 // ErrMessageEmpty and ErrMessageTooLong are the refusals of the text rules.
@@ -41,6 +44,8 @@ type Outgoing struct {
 	// Kind is one of the Send constants and Capability the capability that
 	// allowed it; both go to the audit.
 	Kind, Capability string
+	// NoQueue refuses the message with ErrOutboxBusy instead of queueing it.
+	NoQueue bool
 	// Senders and Roles are who made the turn that wrote it, for the audit.
 	Senders, Roles []string
 	// OnFail is called when a message that waited in the queue is not sent.
@@ -65,7 +70,7 @@ func (c *Connectors) Send(ctx context.Context, o Outgoing) (queued bool, err err
 	if b, gerr := c.o.Store.GetBinding(ctx, o.Binding); gerr == nil {
 		ev.Kind = b.Kind
 	}
-	queued, err = c.Post(ctx, Post{Binding: o.Binding, Chat: o.Chat, Thread: o.Thread, Text: text,
+	queued, err = c.Post(ctx, Post{Binding: o.Binding, Chat: o.Chat, Thread: o.Thread, Text: text, NoQueue: o.NoQueue,
 		OnFail: func(err error) {
 			f := ev
 			f.Reason = "failed after waiting"

@@ -27,6 +27,8 @@ const (
 	SourceTrigger   = "trigger"   // a trigger and its runs
 	SourceConnector = "connector" // a connector, such as a mail or chat account
 	SourceSystem    = "system"    // LocalAI itself, such as the conversion of old data
+	// SourceCoordinator is a message that a coordinator agent wrote to a user.
+	SourceCoordinator = "coordinator"
 )
 
 // Statuses of a notification.

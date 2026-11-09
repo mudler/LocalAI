@@ -440,7 +440,8 @@
       "memory": "Memori",
       "history": "Chat sebelumnya",
       "localai_client": "Klien LocalAI",
-      "localai_admin": "Admin LocalAI"
+      "localai_admin": "Admin LocalAI",
+      "coordinator": "Koordinator"
     },
     "builtinBy": "{{tools}} · bawaan",
     "onDemand": "Dimuat sesuai kebutuhan",
@@ -700,7 +701,8 @@
     "source": {
       "trigger": "Pemicu",
       "connector": "Konektor",
-      "system": "LocalAI"
+      "system": "LocalAI",
+      "coordinator": "Koordinator"
     },
     "itemUnread": "{{title}}, belum dibaca",
     "arrived": "Notifikasi baru: {{title}}",
@@ -741,6 +743,9 @@
           "library": "pustaka backend",
           "addons": "add-on"
         }
+      },
+      "coordinatorMessage": {
+        "title": "Pesan dari {{coordinator}}"
       }
     }
   },

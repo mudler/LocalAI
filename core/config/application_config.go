@@ -468,6 +468,14 @@ type ApplicationConfig struct {
 	ChatsTriggerMaxPerUser  int
 	ChatsTriggerMaxDailyCap int
 
+	// The operator limits of the coordinator agents. Zero means the default.
+	// Runtime-settable via /api/settings (chats_coordinator_*); read at each use.
+	ChatsCoordinatorHelpersCeiling int
+	ChatsCoordinatorDepthCeiling   int
+	ChatsCoordinatorRunsPerDay     int
+	ChatsCoordinatorMaxRunning     int
+	ChatsCoordinatorAuditDays      int
+
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents
 	// as sub-agents (list_agents and the agent argument of spawn_agent).
 	// Stored as the negation (chats_saved_agents), so it is on by default;
@@ -1743,6 +1751,60 @@ func (o *ApplicationConfig) EffectiveChatsTriggerMaxDailyCap() int {
 	o.chatsLimitsMu.RLock()
 	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsTriggerMaxDailyCap, MaxChatsTriggerMaxDailyCap, DefaultChatsTriggerMaxDailyCap)
+}
+
+// Bounds and defaults of the coordinator settings of the chats.
+const (
+	DefaultChatsCoordinatorHelpersCeiling = 16
+	MaxChatsCoordinatorHelpersCeiling     = 64
+	DefaultChatsCoordinatorDepthCeiling   = 3
+	MaxChatsCoordinatorDepthCeiling       = 4
+	DefaultChatsCoordinatorRunsPerDay     = 48
+	MaxChatsCoordinatorRunsPerDay         = 1000
+	DefaultChatsCoordinatorMaxRunning     = 2
+	MaxChatsCoordinatorMaxRunning         = 32
+	DefaultChatsCoordinatorAuditDays      = 90
+	MaxChatsCoordinatorAuditDays          = 365
+)
+
+// EffectiveChatsCoordinatorHelpersCeiling is chats_coordinator_helpers_ceiling
+// as it applies now: the most background helpers a coordinator may be set to.
+func (o *ApplicationConfig) EffectiveChatsCoordinatorHelpersCeiling() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsCoordinatorHelpersCeiling, MaxChatsCoordinatorHelpersCeiling, DefaultChatsCoordinatorHelpersCeiling)
+}
+
+// EffectiveChatsCoordinatorDepthCeiling is chats_coordinator_depth_ceiling as
+// it applies now: the deepest helper tree a coordinator may be set to.
+func (o *ApplicationConfig) EffectiveChatsCoordinatorDepthCeiling() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsCoordinatorDepthCeiling, MaxChatsCoordinatorDepthCeiling, DefaultChatsCoordinatorDepthCeiling)
+}
+
+// EffectiveChatsCoordinatorRunsPerDay is chats_coordinator_runs_per_day as it
+// applies now: the wake-driven runs one coordinator may start in a UTC day.
+func (o *ApplicationConfig) EffectiveChatsCoordinatorRunsPerDay() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsCoordinatorRunsPerDay, MaxChatsCoordinatorRunsPerDay, DefaultChatsCoordinatorRunsPerDay)
+}
+
+// EffectiveChatsCoordinatorMaxRunning is chats_coordinator_max_running as it
+// applies now: the coordinator chats that may run a turn at once.
+func (o *ApplicationConfig) EffectiveChatsCoordinatorMaxRunning() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsCoordinatorMaxRunning, MaxChatsCoordinatorMaxRunning, DefaultChatsCoordinatorMaxRunning)
+}
+
+// EffectiveChatsCoordinatorAuditDays is chats_coordinator_audit_days as it
+// applies now: how many days the audit log of the coordinators is kept.
+func (o *ApplicationConfig) EffectiveChatsCoordinatorAuditDays() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsCoordinatorAuditDays, MaxChatsCoordinatorAuditDays, DefaultChatsCoordinatorAuditDays)
 }
 
 // Bounds of chats_index_max_text_bytes.

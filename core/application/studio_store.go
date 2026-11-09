@@ -100,6 +100,9 @@ func (a *Application) initStudioStore() {
 	if err := a.initStudioLoopStore(); err != nil {
 		xlog.Warn("Loops disabled: failed to initialise their store", "error", err)
 	}
+	if err := a.initStudioCoordinatorStore(); err != nil {
+		xlog.Warn("Coordinators disabled: failed to initialise their store", "error", err)
+	}
 	a.initStudioJobStore()
 	a.migrateStudioPermissions()
 }

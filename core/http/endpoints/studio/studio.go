@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/coordinator"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -128,6 +129,9 @@ var chatRules = []errRule{
 	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadCommand),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrCommandBusy),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToCompact, studiosvc.ErrNothingToClear, studiosvc.ErrCannotCompact),
+	fixed(http.StatusNotFound, typeNotFound, "coordinator not found", studiosvc.ErrNotACoordinator),
+	fixed(http.StatusNotFound, typeCoordinatorsOff, "coordinators are not available on this server", studiosvc.ErrCoordinatorsOff),
+	verbatim(http.StatusBadRequest, typeInvalid, coordinator.ErrInvalid.Error()+": ", coordinator.ErrInvalid),
 	fixed(http.StatusNotFound, typeNotFound, "agent not found", agents.ErrNotFound),
 	fixed(http.StatusForbidden, typeAuthz, "only the owner of this agent can do this", studiosvc.ErrAgentNotOwner),
 	fixed(http.StatusConflict, "agent_not_shared", "this agent is no longer shared with you", studiosvc.ErrAgentNotShared),

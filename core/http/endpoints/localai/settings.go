@@ -533,6 +533,11 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 		v    *int
 		hi   int
 	}{
+		{"chats_coordinator_helpers_ceiling", s.ChatsCoordinatorHelpersCeiling, config.MaxChatsCoordinatorHelpersCeiling},
+		{"chats_coordinator_depth_ceiling", s.ChatsCoordinatorDepthCeiling, config.MaxChatsCoordinatorDepthCeiling},
+		{"chats_coordinator_runs_per_day", s.ChatsCoordinatorRunsPerDay, config.MaxChatsCoordinatorRunsPerDay},
+		{"chats_coordinator_max_running", s.ChatsCoordinatorMaxRunning, config.MaxChatsCoordinatorMaxRunning},
+		{"chats_coordinator_audit_days", s.ChatsCoordinatorAuditDays, config.MaxChatsCoordinatorAuditDays},
 		{"chats_trigger_max_per_user", s.ChatsTriggerMaxPerUser, config.MaxChatsTriggerMaxPerUser},
 		{"chats_trigger_max_daily_cap", s.ChatsTriggerMaxDailyCap, config.MaxChatsTriggerMaxDailyCap},
 		{"chats_loop_max_runs", s.ChatsLoopMaxRuns, config.MaxChatsLoopMaxRuns},

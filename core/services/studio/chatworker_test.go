@@ -170,6 +170,16 @@ var _ = Describe("chatworker", func() {
 		Expect(d[0]).To(Equal([]string{"and this"}), "the worker delivered %v, want the frontend's message", d)
 	})
 
+	It("a coordinator chat is not started on a chat worker: the gate, the budget and the contact tool live on the frontend", func() {
+		r := newWorkerRig(true)
+		rec, err := r.front.CreateAs(context.Background(), alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginCoordinator, ID: "a1"})
+		Expect(err).NotTo(HaveOccurred())
+		res := background(r.front, alice, rec.ID, "go")
+		Expect(res.Started).To(BeTrue(), "SendBackground = %+v, want a started turn", res)
+		until("the frontend to run the turn", func() bool { return len(r.hFront.Sent()) == 1 })
+		Expect(r.hWorker.Sent()).To(BeEmpty())
+	})
+
 	It("a background start runs on the frontend when no chat worker listens", func() {
 		r := newWorkerRig(false)
 		id := create(r.front, alice)

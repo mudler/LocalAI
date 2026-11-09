@@ -143,6 +143,16 @@ type RuntimeSettings struct {
 	ChatsTriggerRunLimit    *string `json:"chats_trigger_run_limit,omitempty"`
 	ChatsTriggerMaxPerUser  *int    `json:"chats_trigger_max_per_user,omitempty"`
 	ChatsTriggerMaxDailyCap *int    `json:"chats_trigger_max_daily_cap,omitempty"`
+	// The operator limits of the coordinator agents (all integers from 1):
+	// the ceiling of background helpers (max 64, default 16), the ceiling of
+	// helper depth (4, 3), runs a day of one coordinator (1000, 48),
+	// coordinator chats running at once (32, 2) and days the audit log is
+	// kept (365, 90). Read at each use.
+	ChatsCoordinatorHelpersCeiling *int `json:"chats_coordinator_helpers_ceiling,omitempty"`
+	ChatsCoordinatorDepthCeiling   *int `json:"chats_coordinator_depth_ceiling,omitempty"`
+	ChatsCoordinatorRunsPerDay     *int `json:"chats_coordinator_runs_per_day,omitempty"`
+	ChatsCoordinatorMaxRunning     *int `json:"chats_coordinator_max_running,omitempty"`
+	ChatsCoordinatorAuditDays      *int `json:"chats_coordinator_audit_days,omitempty"`
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`

@@ -4254,6 +4254,48 @@ definitions:
           $ref: '#/definitions/schema.ChatsAdminConnector'
         type: array
     type: object
+  schema.ChatsAdminCoordinator:
+    properties:
+      chat_id:
+        type: string
+      contacts:
+        type: integer
+      created:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      last_wake:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      next_wake:
+        type: string
+      owner:
+        type: string
+      paused:
+        type: boolean
+      paused_at:
+        type: string
+      paused_by:
+        type: string
+      updated:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.ChatsCoordinatorUsage'
+      wake_every:
+        type: integer
+    type: object
+  schema.ChatsAdminCoordinatorList:
+    properties:
+      coordinators:
+        items:
+          $ref: '#/definitions/schema.ChatsAdminCoordinator'
+        type: array
+    type: object
   schema.ChatsAdminTrigger:
     properties:
       acts:
@@ -4405,6 +4447,11 @@ definitions:
           (by add-on ID), the connections (binding IDs) the agent's chats may use.
           A chat of the agent cannot change the set. An add-on with no entry gets
           none from the agent: the person chooses in the chat.
+      coordinator:
+        description: |-
+          Coordinator says the agent is a coordinator (see ChatsCoordinator). Edit
+          it with /api/chats/coordinators/{id}, not with the agent routes.
+        type: boolean
       created:
         type: string
       description:
@@ -6680,6 +6727,373 @@ definitions:
         type: integer
       skipped:
         type: integer
+    type: object
+  schema.ChatsCoordinator:
+    properties:
+      access:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentAccess'
+        description: |-
+          Access is how you hold the agent: your own, or shared with you and by
+          whom. It is absent when the server does not share agents.
+      addons:
+        items:
+          type: string
+        type: array
+      builtins:
+        description: |-
+          Builtins are the builtin capabilities granted to the agent, by the names
+          that GET /api/chats/agents/builtin-grants lists (memory.write,
+          skills.write and so on). Empty grants none. A chat of the agent holds
+          the grants you may use at that moment.
+        items:
+          type: string
+        type: array
+      builtins_off:
+        description: |-
+          BuiltinsOff are the groups of built-in tools (web, files, triggers...)
+          the agent's chats never have, and BuiltinsOn the opt-in groups (saved
+          agents) they start with. The names are the ones GET /api/chats/{id}/tools
+          lists. Empty for an agent that has every group a chat has by default.
+        items:
+          type: string
+        type: array
+      builtins_on:
+        items:
+          type: string
+        type: array
+      chat_id:
+        description: ChatID is its one long-lived chat.
+        type: string
+      collections:
+        items:
+          type: string
+        type: array
+      connections:
+        allOf:
+        - $ref: '#/definitions/connsets.Sets'
+        description: |-
+          Connections names, for each add-on whose tools run with a credential
+          (by add-on ID), the connections (binding IDs) the agent's chats may use.
+          A chat of the agent cannot change the set. An add-on with no entry gets
+          none from the agent: the person chooses in the chat.
+      contacts:
+        items:
+          $ref: '#/definitions/schema.ChatsCoordinatorContact'
+        type: array
+      coordinator:
+        description: |-
+          Coordinator says the agent is a coordinator (see ChatsCoordinator). Edit
+          it with /api/chats/coordinators/{id}, not with the agent routes.
+        type: boolean
+      created:
+        type: string
+      description:
+        type: string
+      folder:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentFolder'
+        description: |-
+          Folder is the one folder that chats with the agent work in. It is
+          absent for an agent that works on all your files.
+      folder_notice:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentFolderNotice'
+        description: |-
+          FolderNotice is set when shared folders do not fit the access limit of
+          a chat of this agent and are left out.
+      folders:
+        description: |-
+          Folders are all the folders of the agent (at most 8), in order; Folder
+          is the first of them. Absent for an agent that works on all your files.
+        items:
+          $ref: '#/definitions/schema.ChatsAgentFolder'
+        type: array
+      id:
+        type: string
+      instructions:
+        type: string
+      last_wake:
+        type: string
+      max_depth:
+        type: integer
+      max_helpers:
+        type: integer
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      memory:
+        description: |-
+          Memory is the choice of notes for this agent: own (its own notes only),
+          mine_and_own (reads your notes and its own, saves to its own; the
+          default of a new agent in the interface), mine (your notes only) or
+          none. The host enforces it: it decides which notes go in the prompt of
+          a chat and where a note is saved. Absent is "as before", an agent saved
+          before the choice existed: it reads notes when its add-ons name Memory
+          and the model picks the scope of a note.
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        example: mine_and_own
+        type: string
+      memory_save:
+        description: |-
+          MemorySave is the agent's own rule for saving a note: always (every note
+          waits for the person, and the model cannot undo or forget by itself),
+          auto (Save it and tell me: this agent saves a note at once and tells the
+          person, with an Undo, even when the person's level is Ask me first) or
+          never (it reads notes and saves none). Absent uses the person's setting
+          (Account > Memory). Always and never are never looser than that setting.
+          auto loosens ask and auto for this agent only: the person's Always
+          confirm and Never still hold, and so do the limits of an automatic save.
+        enum:
+        - always
+        - auto
+        - never
+        example: always
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      network:
+        description: |-
+          Network is the network preset of the Sandbox commands of the agent's
+          unattended runs: off (the default), registries or all, capped by the
+          administrator's ceiling.
+        type: string
+      next_wake:
+        type: string
+      page:
+        type: string
+      paused:
+        type: boolean
+      paused_at:
+        type: string
+      paused_by:
+        type: string
+      resources:
+        allOf:
+        - $ref: '#/definitions/resourcesets.Sets'
+        description: |-
+          Resources names, for each add-on whose manifest scopes its resources per
+          agent (by add-on ID), the resources the agent may use and the mode of
+          each, read or write. An add-on of that kind with no entry gives the
+          agent no resource; the field has no effect on any other add-on. The host
+          checks it on every tool call that takes a resource, on top of what you
+          may use yourself, and the resource list and the selection of a chat show
+          the agent nothing outside it.
+      send_per_day:
+        type: integer
+      send_per_minute:
+        type: integer
+      skills:
+        items:
+          type: string
+        type: array
+      updated:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.ChatsCoordinatorUsage'
+      wake_every:
+        type: integer
+      wake_note:
+        type: string
+    type: object
+  schema.ChatsCoordinatorAuditEntry:
+    properties:
+      actor:
+        description: Actor is the user who acted, or coordinator; Target the contact
+          or helper.
+        type: string
+      at:
+        type: string
+      coordinator_id:
+        type: string
+      hash:
+        type: string
+      id:
+        type: integer
+      kind:
+        enum:
+        - contact
+        - wake
+        - pause
+        - resume
+        - helper
+        type: string
+      length:
+        type: integer
+      outcome:
+        enum:
+        - sent
+        - denied
+        - info
+        type: string
+      owner:
+        type: string
+      reason:
+        description: |-
+          Reason says why: ok, or what blocked it (paused, not_a_contact,
+          minute_cap, day_cap, binding_off, binding_busy, budget, concurrency...).
+        type: string
+      target:
+        type: string
+      via:
+        enum:
+        - inbox
+        - connector
+        type: string
+    type: object
+  schema.ChatsCoordinatorAuditList:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/schema.ChatsCoordinatorAuditEntry'
+        type: array
+      next_before:
+        type: integer
+    type: object
+  schema.ChatsCoordinatorContact:
+    properties:
+      binding:
+        description: |-
+          Binding is the ID of your connector binding, Chat the chat to write in
+          and Sender the sender that replies come from; an empty sender means the
+          same as chat (kind external).
+        type: string
+      chat:
+        type: string
+      description:
+        type: string
+      id:
+        description: |-
+          ID names the contact in the contact tool: lowercase letters, digits and
+          dashes, up to 40 characters, unique in the coordinator.
+        example: ops-team
+        type: string
+      kind:
+        enum:
+        - user
+        - external
+        type: string
+      name:
+        type: string
+      sender:
+        type: string
+      user:
+        description: User is the ID of the LocalAI user (kind user).
+        type: string
+    type: object
+  schema.ChatsCoordinatorList:
+    properties:
+      coordinators:
+        items:
+          $ref: '#/definitions/schema.ChatsCoordinator'
+        type: array
+    type: object
+  schema.ChatsCoordinatorUsage:
+    properties:
+      runs_limit:
+        type: integer
+      runs_today:
+        type: integer
+      send_limit:
+        type: integer
+      sent_today:
+        type: integer
+    type: object
+  schema.ChatsCoordinatorWrite:
+    properties:
+      addons:
+        items:
+          type: string
+        type: array
+      builtins:
+        items:
+          type: string
+        type: array
+      builtins_off:
+        items:
+          type: string
+        type: array
+      builtins_on:
+        items:
+          type: string
+        type: array
+      collections:
+        items:
+          type: string
+        type: array
+      contacts:
+        items:
+          $ref: '#/definitions/schema.ChatsCoordinatorContact'
+        type: array
+      description:
+        type: string
+      instructions:
+        type: string
+      max_depth:
+        type: integer
+      max_helpers:
+        description: MaxHelpers and MaxDepth bound its helpers; 0 is the default (8
+          and 2).
+        type: integer
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      memory:
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        type: string
+      memory_save:
+        enum:
+        - always
+        - auto
+        - never
+        - use_mine
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      network:
+        type: string
+      page:
+        description: |-
+          Page is the name of the page folder (pages/<name>) the coordinator keeps
+          its state in: lowercase letters, digits and dashes. Empty: no page, and
+          the coordinator works on all your files.
+        example: daily-ops
+        type: string
+      send_per_day:
+        type: integer
+      send_per_minute:
+        description: |-
+          SendPerMinute (up to 60) and SendPerDay (up to 5000) cap the messages the
+          coordinator sends; 0 is the default (10 and 100).
+        type: integer
+      skills:
+        items:
+          type: string
+        type: array
+      wake_every:
+        description: |-
+          WakeEvery is the schedule in seconds: 0 wakes on events only, else
+          300 (5 minutes) to 86400 (24 hours).
+        example: 3600
+        type: integer
+      wake_note:
+        description: WakeNote is added to every scheduled wake message (up to 4000
+          bytes).
+        type: string
     type: object
   schema.ChatsCreateRequest:
     properties:
@@ -18310,6 +18724,131 @@ paths:
       summary: Switch off a connector binding of any user (administrators).
       tags:
       - chats
+  /api/chats/admin/coordinators:
+    get:
+      description: With the owner, the pause state, the next wake and what each used
+        today. The instructions and contacts are not returned.
+      responses:
+        "200":
+          description: Every user's coordinators, by owner and name
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminCoordinatorList'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the coordinators of every user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/coordinators/{id}/pause:
+    post:
+      description: 'Same as the owner''s pause: all outbound stops, the run and helpers
+        are cancelled, messages are held until resume.'
+      parameters:
+      - description: the coordinator's agent id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The coordinator, paused
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminCoordinator'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such coordinator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Pause the coordinator of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/coordinators/{id}/resume:
+    post:
+      parameters:
+      - description: the coordinator's agent id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The coordinator, running
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminCoordinator'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such coordinator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Resume the coordinator of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/coordinators/audit:
+    get:
+      description: Newest first, for all users, or for one coordinator with the coordinator
+        filter. Rows never hold the text of a message.
+      parameters:
+      - description: only this coordinator's agent id
+        in: query
+        name: coordinator
+        type: string
+      - description: only this kind
+        enum:
+        - contact
+        - wake
+        - pause
+        - resume
+        - helper
+        in: query
+        name: kind
+        type: string
+      - description: only this outcome
+        enum:
+        - sent
+        - denied
+        - info
+        in: query
+        name: outcome
+        type: string
+      - description: from this time on (RFC 3339, inclusive)
+        in: query
+        name: since
+        type: string
+      - description: before this time (RFC 3339)
+        in: query
+        name: until
+        type: string
+      - description: the next_before of the previous page
+        in: query
+        name: before
+        type: integer
+      - description: page size, default 50, at most 500
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: A page of the log
+          schema:
+            $ref: '#/definitions/schema.ChatsCoordinatorAuditList'
+        "400":
+          description: A filter is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read the audit log of every coordinator (administrators).
+      tags:
+      - chats
   /api/chats/admin/egress:
     get:
       description: The chats_egress_* settings in force (ceiling, default, allow_private,
@@ -19867,6 +20406,213 @@ paths:
       summary: Report the conversion of your old agents, skills and chats.
       tags:
       - chats
+  /api/chats/coordinators:
+    get:
+      responses:
+        "200":
+          description: Your coordinators, by name
+          schema:
+            $ref: '#/definitions/schema.ChatsCoordinatorList'
+        "404":
+          description: Coordinators are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List your coordinators.
+      tags:
+      - chats
+    post:
+      description: 'A coordinator is a saved agent with one long-lived chat that wakes
+        on a schedule and on events (a reply, a finished helper), starts helpers and
+        contacts only the people listed in contacts. The server enforces the limits:
+        send caps per minute and day, a daily budget of wake-started runs, a ceiling
+        on helpers, one switch to pause everything, and an audit log. The agent gets
+        the act.files grant so it can write its page. Errors: 400 with the reason
+        for a bad contact, schedule or a value above the operator ceiling; 404 coordinators_off
+        when this server has no coordinators.'
+      parameters:
+      - description: the coordinator
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsCoordinatorWrite'
+      responses:
+        "201":
+          description: The coordinator
+          schema:
+            $ref: '#/definitions/schema.ChatsCoordinator'
+        "400":
+          description: The definition, a contact or a limit is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Coordinators are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a coordinator.
+      tags:
+      - chats
+  /api/chats/coordinators/{id}:
+    get:
+      parameters:
+      - description: the coordinator's agent id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The coordinator
+          schema:
+            $ref: '#/definitions/schema.ChatsCoordinator'
+        "404":
+          description: No such coordinator, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read one of your coordinators.
+      tags:
+      - chats
+    put:
+      description: The body replaces the agent and the settings. Its chat, its pause
+        state and its wake times stay as they are. A builtins_on and builtins_off
+        the body does not send keep the stored ones.
+      parameters:
+      - description: the coordinator's agent id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the coordinator
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsCoordinatorWrite'
+      responses:
+        "200":
+          description: The coordinator
+          schema:
+            $ref: '#/definitions/schema.ChatsCoordinator'
+        "400":
+          description: The definition, a contact or a limit is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such coordinator, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Replace one of your coordinators.
+      tags:
+      - chats
+  /api/chats/coordinators/{id}/audit:
+    get:
+      description: Every message it sent, every attempt that was denied or blocked,
+        wakes, pauses and helper events, newest first. Rows never hold the text of
+        a message, only its length and hash. Kept 90 days by default (an operator
+        setting). An administrator may read any coordinator's log.
+      parameters:
+      - description: the coordinator's agent id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: only this kind
+        enum:
+        - contact
+        - wake
+        - pause
+        - resume
+        - helper
+        in: query
+        name: kind
+        type: string
+      - description: only this outcome
+        enum:
+        - sent
+        - denied
+        - info
+        in: query
+        name: outcome
+        type: string
+      - description: from this time on (RFC 3339, inclusive)
+        in: query
+        name: since
+        type: string
+      - description: before this time (RFC 3339)
+        in: query
+        name: until
+        type: string
+      - description: the next_before of the previous page
+        in: query
+        name: before
+        type: integer
+      - description: page size, default 50, at most 500
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: A page of the log
+          schema:
+            $ref: '#/definitions/schema.ChatsCoordinatorAuditList'
+        "400":
+          description: A filter is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such coordinator, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read the audit log of one of your coordinators.
+      tags:
+      - chats
+  /api/chats/coordinators/{id}/pause:
+    post:
+      description: 'The one switch: it stops all outbound messages at once, cancels
+        the coordinator''s run and helpers, and holds every message to its chat until
+        resume. The owner or an administrator may press it; another user gets 404.
+        Pressing it again on a paused coordinator repeats the stop and changes nothing
+        else.'
+      parameters:
+      - description: the coordinator's agent id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The coordinator, paused
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminCoordinator'
+        "404":
+          description: No such coordinator, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Pause a coordinator.
+      tags:
+      - chats
+  /api/chats/coordinators/{id}/resume:
+    post:
+      description: Lifts the pause and starts the messages held meanwhile, as one
+        turn. The owner or an administrator may press it; another user gets 404.
+      parameters:
+      - description: the coordinator's agent id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The coordinator, running
+          schema:
+            $ref: '#/definitions/schema.ChatsAdminCoordinator'
+        "404":
+          description: No such coordinator, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Resume a coordinator.
+      tags:
+      - chats
   /api/chats/draft/addons:
     get:
       description: 'What GET /api/chats/{id}/addons lists, for a chat that does not
@@ -21369,7 +22115,7 @@ paths:
         name: agent
         type: string
       - description: 'only chats of one origin: person, automated, trigger, connector,
-          job or page'
+          job, page or coordinator'
         in: query
         name: origin
         type: string

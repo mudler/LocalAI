@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/coordinator"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
@@ -52,6 +53,8 @@ type studioServer struct {
 	// db is the account database; conns the connector manager.
 	db    *gorm.DB
 	conns *studio.Connectors
+	// coords is the coordinator store behind svc.
+	coords coordinator.Store
 }
 
 // studioSharedDB and studioSharedConnStore, when set, are the account
@@ -165,8 +168,13 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	svc.SetConnectors(conns)
 	DeferCleanup(conns.Close)
 	DeferCleanup(host.Close)
+	coordStore, err := coordinator.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	coordHost, err := studio.NewCoordinators(svc, studio.CoordinatorOptions{Store: coordStore})
+	Expect(err).NotTo(HaveOccurred())
+	svc.SetCoordinators(coordHost)
 
-	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc, store: st, db: db, conns: conns}
+	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc, store: st, db: db, conns: conns, coords: coordStore}
 	for _, id := range []string{"alice", "bob", "carol", "dave", "root"} {
 		role := auth.RoleUser
 		if id == "root" {

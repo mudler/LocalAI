@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"slices"
 	"strings"
@@ -26,7 +27,7 @@ import (
 // unattended says whether a chat started by itself: no person watches it and
 // nobody can approve a step.
 func unattended(origin string) bool {
-	return origin == session.OriginTrigger || origin == session.OriginJob
+	return origin == session.OriginTrigger || origin == session.OriginJob || origin == session.OriginCoordinator
 }
 
 // actPolicy gives the rights of an unattended run, or false for a chat that a
@@ -40,14 +41,27 @@ func unattended(origin string) bool {
 //   - Read only: the trigger declared that its runs only read, or it was made
 //     without asking by a binding in the auto_readonly mode.
 //   - Job run: jobs have no list of their own, so the run holds the act.*
-//     grants of its agent, and nothing without one.
+//     grants of its agent, and nothing without one. A coordinator chat is the
+//     same: its rights are the grants of its agent.
 func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builtins.ActPolicy, bool) {
+	if rec.Kind == session.KindSubAgent {
+		// A helper has the rights of the run it belongs to, at any depth.
+		_, root, err := s.chatDepth(ctx, rec)
+		switch {
+		case errors.Is(err, session.ErrNotFound):
+			// An orphan: its run is gone and it keeps what it had.
+		case err != nil:
+			return builtins.ActPolicy{ReadOnly: true}, true
+		case rec.Origin == "":
+			rec = root
+		}
+	}
 	if !unattended(rec.Origin) {
 		return builtins.ActPolicy{}, false
 	}
 	ceiling := actNames(s.chatGrants(ctx, rec))
 	switch rec.Origin {
-	case session.OriginJob:
+	case session.OriginJob, session.OriginCoordinator:
 		return builtins.ActPolicy{Held: ceiling}, true
 	}
 	if s.triggers == nil {

@@ -330,6 +330,22 @@ func (stubClient) SetChatEgressCeiling(_ context.Context, _ string) (*localaitoo
 	return &localaitools.ChatEgress{}, nil
 }
 
+func (stubClient) ListCoordinators(_ context.Context) ([]localaitools.Coordinator, error) {
+	return nil, nil
+}
+
+func (stubClient) PauseCoordinator(_ context.Context, _ string) (*localaitools.Coordinator, error) {
+	return &localaitools.Coordinator{}, nil
+}
+
+func (stubClient) ResumeCoordinator(_ context.Context, _ string) (*localaitools.Coordinator, error) {
+	return &localaitools.Coordinator{}, nil
+}
+
+func (stubClient) ListCoordinatorAudit(_ context.Context, _ localaitools.CoordinatorAuditQuery) ([]localaitools.CoordinatorAuditEntry, error) {
+	return nil, nil
+}
+
 func (stubClient) ListHostExecEvents(_ context.Context, _ int) ([]localaitools.HostExecEvent, error) {
 	return nil, nil
 }

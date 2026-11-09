@@ -440,7 +440,8 @@
       "memory": "Memória",
       "history": "Chats anteriores",
       "localai_client": "Cliente LocalAI",
-      "localai_admin": "Administração do LocalAI"
+      "localai_admin": "Administração do LocalAI",
+      "coordinator": "Coordenador"
     },
     "builtinBy": "{{tools}} · integradas",
     "onDemand": "Carregado sob demanda",
@@ -700,7 +701,8 @@
     "source": {
       "trigger": "Gatilho",
       "connector": "Conector",
-      "system": "LocalAI"
+      "system": "LocalAI",
+      "coordinator": "Coordenador"
     },
     "itemUnread": "{{title}}, não lida",
     "arrived": "Nova notificação: {{title}}",
@@ -741,6 +743,9 @@
           "library": "biblioteca de backends",
           "addons": "complementos"
         }
+      },
+      "coordinatorMessage": {
+        "title": "Mensagem de {{coordinator}}"
       }
     }
   },

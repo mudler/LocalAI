@@ -35,9 +35,10 @@ var ErrWorkerFull = errors.New("studio: the chat worker runs as many turns as it
 // which claims and runs the turn. The turn's events and a stop reach it over
 // the bus, as they reach another frontend. When no worker listens the turn runs
 // here. A message with files is sent here too: the files are saved before the
-// turn starts, and they would have to cross the bus.
+// turn starts, and they would have to cross the bus. So is a message to a
+// coordinator chat (see runsOnFrontend).
 func (s *Service) SendBackground(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
-	if s.d.Workers == nil || len(up) > 0 {
+	if s.d.Workers == nil || len(up) > 0 || s.runsOnFrontend(ctx, user, conv) {
 		return s.SendWithFiles(ctx, user, conv, text, up)
 	}
 	req := workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text}
@@ -60,6 +61,15 @@ func (s *Service) SendBackground(ctx context.Context, user, conv, text string, u
 		return SendResult{}, fmt.Errorf("%w: %s", ErrWorkerRefused, reply.Error)
 	}
 	return SendResult{Started: reply.Started, PendingID: reply.PendingID}, nil
+}
+
+// runsOnFrontend says whether the turns of the chat must not go to a chat
+// worker. The chat of a coordinator is such a chat: its pause gate, its run
+// budget, its helper limits and its contact tool need the coordinator host and
+// the connectors, and a chat worker has neither.
+func (s *Service) runsOnFrontend(ctx context.Context, user, conv string) bool {
+	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	return err == nil && isCoordinatorChat(rec)
 }
 
 // ServeStart runs a start that a frontend sent to this chat worker. The turn

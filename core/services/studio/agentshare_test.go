@@ -266,8 +266,14 @@ var _ = Describe("shared saved agents", func() {
 
 	stopsRun := func(change func(r *shareRig, ref string)) {
 		release := make(chan struct{})
+		// blocked closes when the turn read the agent and waits in its tool. A
+		// claim alone does not say so: a change before that point lets the turn
+		// run without the agent and end on its own, which is not a stop.
+		blocked := make(chan struct{})
+		var once sync.Once
 		r := newShareRig(func(_ workspace.Actor, text string) []studiotest.ToolStep {
 			if text == "long" {
+				once.Do(func() { close(blocked) })
 				return []studiotest.ToolStep{{Block: release}, {Say: "late"}}
 			}
 			return []studiotest.ToolStep{{Say: "ok"}}
@@ -277,7 +283,8 @@ var _ = Describe("shared saved agents", func() {
 		rec, err := r.svc.Create(ctx, bob, studio.CreateInput{Model: "m", AgentID: "ag1"})
 		Expect(err).NotTo(HaveOccurred())
 		sent(r.svc, bob, rec.ID, "long")
-		until("the turn to run", func() bool { return turn(r.svc, bob, rec.ID).Running })
+		Eventually(blocked, "20s").Should(BeClosed(), "the turn reaches its tool")
+		Expect(turn(r.svc, bob, rec.ID).Running).To(BeTrue())
 		change(r, ref)
 		// The change answers only once the turn stopped.
 		Expect(turn(r.svc, bob, rec.ID).Running).To(BeFalse())

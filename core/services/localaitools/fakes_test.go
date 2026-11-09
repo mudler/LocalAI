@@ -501,6 +501,26 @@ func (f *fakeClient) ListHostExecEvents(_ context.Context, limit int) ([]HostExe
 	return []HostExecEvent{}, nil
 }
 
+func (f *fakeClient) ListCoordinators(_ context.Context) ([]Coordinator, error) {
+	f.record("ListCoordinators", nil)
+	return []Coordinator{}, nil
+}
+
+func (f *fakeClient) PauseCoordinator(_ context.Context, id string) (*Coordinator, error) {
+	f.record("PauseCoordinator", id)
+	return &Coordinator{ID: id, Paused: true}, nil
+}
+
+func (f *fakeClient) ResumeCoordinator(_ context.Context, id string) (*Coordinator, error) {
+	f.record("ResumeCoordinator", id)
+	return &Coordinator{ID: id}, nil
+}
+
+func (f *fakeClient) ListCoordinatorAudit(_ context.Context, q CoordinatorAuditQuery) ([]CoordinatorAuditEntry, error) {
+	f.record("ListCoordinatorAudit", q)
+	return []CoordinatorAuditEntry{}, nil
+}
+
 func (f *fakeClient) GetChatEgress(_ context.Context) (*ChatEgress, error) {
 	f.record("GetChatEgress", nil)
 	return &ChatEgress{Ceiling: "off"}, nil

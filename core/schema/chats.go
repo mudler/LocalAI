@@ -112,9 +112,12 @@ type ChatsAgent struct {
 	FolderNotice *ChatsAgentFolderNotice `json:"folder_notice,omitempty"`
 	// Access is how you hold the agent: your own, or shared with you and by
 	// whom. It is absent when the server does not share agents.
-	Access  *ChatsAgentAccess `json:"access,omitempty"`
-	Created time.Time         `json:"created"`
-	Updated time.Time         `json:"updated"`
+	Access *ChatsAgentAccess `json:"access,omitempty"`
+	// Coordinator says the agent is a coordinator (see ChatsCoordinator). Edit
+	// it with /api/chats/coordinators/{id}, not with the agent routes.
+	Coordinator bool      `json:"coordinator"`
+	Created     time.Time `json:"created"`
+	Updated     time.Time `json:"updated"`
 }
 
 // ChatsAgentAccess is your access to a saved agent.
@@ -3124,4 +3127,153 @@ type ChatsBuiltinGrant struct {
 // ChatsBuiltinGrantList is the list of builtin grants, in display order.
 type ChatsBuiltinGrantList struct {
 	Grants []ChatsBuiltinGrant `json:"grants"`
+}
+
+// ChatsCoordinatorContact is a person or team a coordinator may contact. The
+// list of contacts is also the list of channels it may write to. A contact is
+// a LocalAI user (kind user, with user) or a person or team in a chat of one of
+// your connector bindings (kind external, with binding and chat).
+type ChatsCoordinatorContact struct {
+	// ID names the contact in the contact tool: lowercase letters, digits and
+	// dashes, up to 40 characters, unique in the coordinator.
+	ID          string `json:"id" example:"ops-team"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	Kind        string `json:"kind" enums:"user,external"`
+	// User is the ID of the LocalAI user (kind user).
+	User string `json:"user,omitempty"`
+	// Binding is the ID of your connector binding, Chat the chat to write in
+	// and Sender the sender that replies come from; an empty sender means the
+	// same as chat (kind external).
+	Binding string `json:"binding,omitempty"`
+	Chat    string `json:"chat,omitempty"`
+	Sender  string `json:"sender,omitempty"`
+}
+
+// ChatsCoordinatorWrite is the body that makes or replaces a coordinator: the
+// fields of an agent (see ChatsAgentWrite) and the coordinator settings. A
+// number of 0 means the default; a value above the operator ceiling is a 400.
+// The folders of the agent are not set here: a coordinator with a page works
+// in that page folder only.
+type ChatsCoordinatorWrite struct {
+	Name         string   `json:"name"`
+	Description  string   `json:"description,omitempty"`
+	Instructions string   `json:"instructions,omitempty"`
+	Model        string   `json:"model,omitempty"`
+	MCPServers   []string `json:"mcp_servers,omitempty"`
+	Addons       []string `json:"addons,omitempty"`
+	Collections  []string `json:"collections,omitempty"`
+	Skills       []string `json:"skills,omitempty"`
+	Network      string   `json:"network,omitempty"`
+	Memory       string   `json:"memory,omitempty" enums:"own,mine_and_own,mine,none"`
+	MemorySave   string   `json:"memory_save,omitempty" enums:"always,auto,never,use_mine"`
+	BuiltinsOff  []string `json:"builtins_off,omitempty"`
+	BuiltinsOn   []string `json:"builtins_on,omitempty"`
+	Builtins     []string `json:"builtins,omitempty"`
+	// Page is the name of the page folder (pages/<name>) the coordinator keeps
+	// its state in: lowercase letters, digits and dashes. Empty: no page, and
+	// the coordinator works on all your files.
+	Page     string                    `json:"page,omitempty" example:"daily-ops"`
+	Contacts []ChatsCoordinatorContact `json:"contacts,omitempty"`
+	// WakeEvery is the schedule in seconds: 0 wakes on events only, else
+	// 300 (5 minutes) to 86400 (24 hours).
+	WakeEvery int `json:"wake_every,omitempty" example:"3600"`
+	// WakeNote is added to every scheduled wake message (up to 4000 bytes).
+	WakeNote string `json:"wake_note,omitempty"`
+	// SendPerMinute (up to 60) and SendPerDay (up to 5000) cap the messages the
+	// coordinator sends; 0 is the default (10 and 100).
+	SendPerMinute int `json:"send_per_minute,omitempty"`
+	SendPerDay    int `json:"send_per_day,omitempty"`
+	// MaxHelpers and MaxDepth bound its helpers; 0 is the default (8 and 2).
+	MaxHelpers int `json:"max_helpers,omitempty"`
+	MaxDepth   int `json:"max_depth,omitempty"`
+}
+
+// ChatsCoordinatorUsage is what a coordinator used today (UTC) against its
+// limits. RunsLimit is the operator's limit of wake-started runs a day.
+type ChatsCoordinatorUsage struct {
+	RunsToday int `json:"runs_today"`
+	SentToday int `json:"sent_today"`
+	RunsLimit int `json:"runs_limit"`
+	SendLimit int `json:"send_limit"`
+}
+
+// ChatsCoordinator is a coordinator: its agent, its settings with the defaults
+// filled in, the state of its pause and its schedule, and what it used today.
+type ChatsCoordinator struct {
+	ChatsAgent
+	// ChatID is its one long-lived chat.
+	ChatID        string                    `json:"chat_id"`
+	Page          string                    `json:"page,omitempty"`
+	Contacts      []ChatsCoordinatorContact `json:"contacts"`
+	WakeEvery     int                       `json:"wake_every"`
+	WakeNote      string                    `json:"wake_note,omitempty"`
+	SendPerMinute int                       `json:"send_per_minute"`
+	SendPerDay    int                       `json:"send_per_day"`
+	MaxHelpers    int                       `json:"max_helpers"`
+	MaxDepth      int                       `json:"max_depth"`
+	Paused        bool                      `json:"paused"`
+	PausedBy      string                    `json:"paused_by,omitempty"`
+	PausedAt      *time.Time                `json:"paused_at,omitempty"`
+	NextWake      *time.Time                `json:"next_wake,omitempty"`
+	LastWake      *time.Time                `json:"last_wake,omitempty"`
+	Usage         ChatsCoordinatorUsage     `json:"usage"`
+}
+
+// ChatsCoordinatorList is the response of the coordinator list.
+type ChatsCoordinatorList struct {
+	Coordinators []ChatsCoordinator `json:"coordinators"`
+}
+
+// ChatsAdminCoordinator is a coordinator as an administrator sees it and as a
+// pause or resume answers: the owner, the state, and no instructions.
+type ChatsAdminCoordinator struct {
+	ID          string                `json:"id"`
+	Owner       string                `json:"owner"`
+	Name        string                `json:"name"`
+	Description string                `json:"description"`
+	Model       string                `json:"model,omitempty"`
+	ChatID      string                `json:"chat_id"`
+	Contacts    int                   `json:"contacts"`
+	WakeEvery   int                   `json:"wake_every"`
+	Paused      bool                  `json:"paused"`
+	PausedBy    string                `json:"paused_by,omitempty"`
+	PausedAt    *time.Time            `json:"paused_at,omitempty"`
+	NextWake    *time.Time            `json:"next_wake,omitempty"`
+	LastWake    *time.Time            `json:"last_wake,omitempty"`
+	Usage       ChatsCoordinatorUsage `json:"usage"`
+	Created     time.Time             `json:"created"`
+	Updated     time.Time             `json:"updated"`
+}
+
+// ChatsAdminCoordinatorList is the response of the administrator's listing.
+type ChatsAdminCoordinatorList struct {
+	Coordinators []ChatsAdminCoordinator `json:"coordinators"`
+}
+
+// ChatsCoordinatorAuditEntry is one line of the audit log. It never holds the
+// text of a message, only its length and SHA-256 hash.
+type ChatsCoordinatorAuditEntry struct {
+	ID            int64     `json:"id"`
+	At            time.Time `json:"at"`
+	CoordinatorID string    `json:"coordinator_id"`
+	Owner         string    `json:"owner"`
+	Kind          string    `json:"kind" enums:"contact,wake,pause,resume,helper"`
+	Outcome       string    `json:"outcome" enums:"sent,denied,info"`
+	// Reason says why: ok, or what blocked it (paused, not_a_contact,
+	// minute_cap, day_cap, binding_off, binding_busy, budget, concurrency...).
+	Reason string `json:"reason"`
+	// Actor is the user who acted, or coordinator; Target the contact or helper.
+	Actor  string `json:"actor,omitempty"`
+	Target string `json:"target,omitempty"`
+	Via    string `json:"via,omitempty" enums:"inbox,connector"`
+	Length int    `json:"length,omitempty"`
+	Hash   string `json:"hash,omitempty"`
+}
+
+// ChatsCoordinatorAuditList is a page of the audit log, newest first. Pass
+// next_before as before to read the next page; it is absent on the last page.
+type ChatsCoordinatorAuditList struct {
+	Entries    []ChatsCoordinatorAuditEntry `json:"entries"`
+	NextBefore int64                        `json:"next_before,omitempty"`
 }

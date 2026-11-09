@@ -364,6 +364,11 @@ type SendResult struct {
 	// running, and the message is pending under PendingID.
 	Started   bool
 	PendingID string
+	// Held is true when the message of a coordinator chat was kept waiting
+	// because the coordinator is paused or over its budget, with no turn
+	// running or started. It waits under PendingID until the coordinator is
+	// released.
+	Held bool
 }
 
 // Service runs conversations.
@@ -415,14 +420,15 @@ type Service struct {
 	admit sync.Mutex
 
 	// Sub-agents; see subagent.go.
-	changes    *Changes       // the change proposals
-	triggers   *Triggers      // set once by SetTriggers
-	loops      *Loops         // set once by SetLoops
-	jobs       *Jobs          // set once by SetJobs
-	connectors *Connectors    // set once by SetConnectors
-	capGate    CapabilityGate // set once by SetCapabilityGate; nil denies
-	ctxfiles   *contextfiles.Loader
-	memory     MemoryProvider // the notes of the chats; see memory.go
+	changes      *Changes       // the change proposals
+	triggers     *Triggers      // set once by SetTriggers
+	loops        *Loops         // set once by SetLoops
+	coordinators *Coordinators  // set once by SetCoordinators
+	jobs         *Jobs          // set once by SetJobs
+	connectors   *Connectors    // set once by SetConnectors
+	capGate      CapabilityGate // set once by SetCapabilityGate; nil denies
+	ctxfiles     *contextfiles.Loader
+	memory       MemoryProvider // the notes of the chats; see memory.go
 	// slotWirings is what each provider slot brings to providerslots.go.
 	slotWirings map[string]slotWiring
 	// providerHealth is the circuit breaker of the providers and
@@ -477,6 +483,10 @@ type run struct {
 	// end stops what the turn started besides the loop itself: the heartbeat and
 	// the listener for control messages.
 	end func()
+	// admit gives up the admission of the turn under a shared agent's grant.
+	// It runs after the claim of the turn is released: a revocation answers
+	// once the grant is released, and by then nothing may read as running.
+	admit func()
 }
 
 const defaultHeartbeat = 15 * time.Second
@@ -532,6 +542,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerTalkbackTool(); err != nil {
+		return nil, err
+	}
+	if err := s.registerContactTool(); err != nil {
 		return nil, err
 	}
 	changes, err := newChanges(s)
@@ -1148,46 +1161,31 @@ func joinPending(taken []store.Pending, msg session.Message) session.Message {
 // starts sub-agent conversations through it.
 func (s *Service) send(ctx context.Context, user, conv string, msg session.Message) (SendResult, error) {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
 		return SendResult{}, err
 	}
 	unlock := s.lock(key(p, conv))
 	defer unlock()
+	if s.coordinatorPaused(ctx, rec) {
+		// Paused: the message waits, with a turn running or not.
+		return s.holdMessage(ctx, p, conv, msg)
+	}
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case err == nil:
 		s.nameAfter(ctx, p, conv, msg.Text)
 		if err := s.startClaimed(ctx, p, conv, runID, msg); err != nil {
+			if errors.Is(err, ErrCoordinatorHeld) {
+				// The check at the door passed and the charge at the start did
+				// not: another sender took the last run. Nothing is lost.
+				return s.holdMessage(ctx, p, conv, msg)
+			}
 			return SendResult{}, err
 		}
 		return SendResult{Started: true}, nil
 	case errors.Is(err, store.ErrTurnRunning):
-		if msg.Directive != "" {
-			// A waiting message is plain text: the directive would reach the
-			// transcript as words the person did not write.
-			return SendResult{}, ErrCommandBusy
-		}
-		atts := msg.Attachments
-		if len(msg.Files) > 0 {
-			// The files are saved now, so the waiting message can carry their paths.
-			saved, aerr := s.attachWhileRunning(ctx, p, conv, msg.Files)
-			if aerr != nil {
-				return SendResult{}, aerr
-			}
-			atts = append(slices.Clip(atts), saved...)
-		}
-		// A waiting message holds the text the model gets; the transcript and
-		// the list of waiting messages split the files out of it again.
-		waiting := session.ComposeMessage(msg.Text, msg.Note, atts)
-		var (
-			pend store.Pending
-			err  error
-		)
-		if msg.Sender != nil {
-			pend, err = s.d.Store.AddPendingFrom(ctx, p, conv, waiting, msg.Sender)
-		} else {
-			pend, err = s.d.Store.AddPending(ctx, p, conv, waiting)
-		}
+		pend, err := s.queueMessage(ctx, p, conv, msg)
 		if err != nil {
 			return SendResult{}, err
 		}
@@ -1203,6 +1201,40 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 	default:
 		return SendResult{}, err
 	}
+}
+
+// queueMessage puts msg among the waiting messages of the chat. A message
+// that carries files has them saved now, so it can carry their paths.
+func (s *Service) queueMessage(ctx context.Context, p, conv string, msg session.Message) (store.Pending, error) {
+	if msg.Directive != "" {
+		// A waiting message is plain text: the directive would reach the
+		// transcript as words the person did not write.
+		return store.Pending{}, ErrCommandBusy
+	}
+	atts := msg.Attachments
+	if len(msg.Files) > 0 {
+		saved, aerr := s.attachWhileRunning(ctx, p, conv, msg.Files)
+		if aerr != nil {
+			return store.Pending{}, aerr
+		}
+		atts = append(slices.Clip(atts), saved...)
+	}
+	// A waiting message holds the text the model gets; the transcript and
+	// the list of waiting messages split the files out of it again.
+	waiting := session.ComposeMessage(msg.Text, msg.Note, atts)
+	if msg.Sender != nil {
+		return s.d.Store.AddPendingFrom(ctx, p, conv, waiting, msg.Sender)
+	}
+	return s.d.Store.AddPending(ctx, p, conv, waiting)
+}
+
+// holdMessage keeps msg waiting for a coordinator that may not run now.
+func (s *Service) holdMessage(ctx context.Context, p, conv string, msg session.Message) (SendResult, error) {
+	pend, err := s.queueMessage(ctx, p, conv, msg)
+	if err != nil {
+		return SendResult{}, err
+	}
+	return SendResult{PendingID: pend.ID, Held: true}, nil
 }
 
 // startClaimed runs msg as the turn that the claim runID holds, after the
@@ -1236,6 +1268,9 @@ func (s *Service) startClaimed(ctx context.Context, p, conv, runID string, msg s
 func (s *Service) startIdle(ctx context.Context, p, conv string, msg session.Message) (bool, error) {
 	unlock := s.lock(key(p, conv))
 	defer unlock()
+	if s.coordinatorHoldsChat(ctx, p, conv) {
+		return false, nil // a paused coordinator runs nothing, loops included
+	}
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case errors.Is(err, store.ErrTurnRunning):
@@ -1244,6 +1279,9 @@ func (s *Service) startIdle(ctx context.Context, p, conv string, msg session.Mes
 		return false, err
 	}
 	if err := s.startClaimed(ctx, p, conv, runID, msg); err != nil {
+		if errors.Is(err, ErrCoordinatorHeld) {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil
@@ -1362,6 +1400,9 @@ func (s *Service) stopLocal(ctx context.Context, p, conv string) error {
 // startFromPending starts a turn whose message is the waiting messages joined
 // in order. It reports whether it started one. The caller holds the lock.
 func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, error) {
+	if s.coordinatorHoldsChat(ctx, p, conv) {
+		return false, nil // a paused coordinator keeps its waiting messages
+	}
 	runID := newID()
 	// A claim that finds nothing to run gives the chat back as it was: a
 	// paused turn must still read as paused.
@@ -1394,6 +1435,9 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	}
 	if err := s.startTurn(ctx, p, conv, runID, joinPending(taken, session.Message{})); err != nil {
 		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
+		if errors.Is(err, ErrCoordinatorHeld) {
+			return false, nil
+		}
 		return false, err
 	}
 	s.confirm(p, conv, ids)
@@ -1403,6 +1447,12 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 
 // startTurn runs msg as a turn the claim runID already covers.
 func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	// The last gate of a coordinator chat: the check at the door may be a
+	// moment old, and the charge of the run budget is the atomic one.
+	if err := s.admitCoordinatorTurn(ctx, p, conv); err != nil {
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnDone)
+		return err
+	}
 	// A chat with an agent shared with its owner runs as admitted work of
 	// the agent's sharing record: a lowering or a revocation stops it.
 	release, recheck, err := s.admitAgentTurn(ctx, p, conv)
@@ -1428,12 +1478,12 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 			}
 		}
 	})
-	end := func() { stopBeat(); stopListening(); release() }
+	end := func() { stopBeat(); stopListening() }
 	// The cards still pending in the record belong to an earlier turn, whose
 	// frontend may have died: nobody waits on them any more.
 	s.expireConsents(ctx, p, conv, "")
 	s.mu.Lock()
-	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
+	s.runs[k] = &run{id: runID, started: time.Now(), end: end, admit: release, chat: chat}
 	s.rings[k] = newEventRing(runID, ringMaxEvents, ringMaxBytes)
 	s.mu.Unlock()
 	recheck()
@@ -1445,6 +1495,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 		delete(s.rings, k)
 		s.mu.Unlock()
 		end()
+		release()
 		// s.chat opened the chat; with no turn running nothing else will close it.
 		if cerr := chat.Close(); cerr != nil {
 			s.log.Warn("studio: could not close the chat after a failed start", "chat", conv, "error", cerr)
@@ -1653,6 +1704,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
 	}
+	if r.admit != nil {
+		r.admit()
+	}
 	final, guarded := r.final, false
 	if v, ok := s.guardRuns.Load(k); ok && v == r.id {
 		// This turn answered the note of the guard: it is not guarded again.
@@ -1747,6 +1801,9 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 			r.steps++
 		}
 		s.mu.Unlock()
+		if s.coordinatorHoldsChat(ctx, a.Principal, a.ChatID) {
+			return nil, nil // held until the coordinator is resumed
+		}
 		taken, err := s.d.Store.TakePending(ctx, a.Principal, a.ChatID)
 		if err != nil || len(taken) == 0 {
 			return nil, nil

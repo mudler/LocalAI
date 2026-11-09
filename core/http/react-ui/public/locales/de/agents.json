@@ -8,7 +8,8 @@
     "chat": "Chat",
     "export": "Exportieren",
     "delete": "Löschen",
-    "newAgent": "Neuer Agent"
+    "newAgent": "Neuer Agent",
+    "newCoordinator": "Neuer Koordinator"
   },
   "table": {
     "name": "Name",
@@ -617,7 +618,8 @@
     "addons_other": "{{count}} Add-ons"
   },
   "chips": {
-    "lastFailed": "Letzter Lauf fehlgeschlagen"
+    "lastFailed": "Letzter Lauf fehlgeschlagen",
+    "coordinator": "Koordinator"
   },
   "tasks": {
     "title": "Agenten-Aufgaben",
@@ -977,5 +979,232 @@
     "asksTitle_one": "Dieser Agent verlangt {{count}} Sache, ohne die Ihr Chat startet:",
     "asksTitle_other": "Dieser Agent verlangt {{count}} Sachen, ohne die Ihr Chat startet:",
     "asksHelp": "Er läuft als Sie. Schalten Sie sie im Chat nur ein, wenn Sie dem Agenten und der Person vertrauen, die ihn geteilt hat."
+  },
+  "coordinator": {
+    "optional": "(optional)",
+    "cancel": "Abbrechen",
+    "titleNew": "Neuer Koordinator",
+    "titleEdit": "Koordinator bearbeiten",
+    "supportingNew": "Ein Koordinator ist ein Agent, der lange von selbst arbeitet. Er wacht nach Zeitplan auf und wenn jemand antwortet, und er kann nur an die Kontakte schreiben, die du angibst.",
+    "supportingEdit": "Wacht nach Zeitplan und bei Antworten auf und schreibt nur an seine Kontakte.",
+    "loadFailed": "Dieser Koordinator konnte nicht geladen werden.",
+    "notSaved": "Nicht gespeichert.",
+    "created": "Koordinator „{{name}}“ erstellt",
+    "updated": "Koordinator „{{name}}“ gespeichert",
+    "paused": "„{{name}}“ ist pausiert",
+    "resumed": "„{{name}}“ läuft wieder",
+    "actionFailed": "Das hat nicht geklappt: {{message}}",
+    "save": "Speichern",
+    "discard": "Verwerfen",
+    "state": {
+      "paused": "Pausiert",
+      "scheduled": "Geplant",
+      "idle": "Ruhend"
+    },
+    "wake": {
+      "opt": {
+        "events": "Nur bei Ereignissen",
+        "15m": "Alle 15 Minuten",
+        "1h": "Jede Stunde",
+        "6h": "Alle 6 Stunden",
+        "24h": "Jeden Tag"
+      },
+      "custom": "Alle {{minutes}} Minuten",
+      "title": "Aufwachen",
+      "lead": "Ein Koordinator wacht auch auf, wenn ein Kontakt antwortet und wenn ein von ihm gestarteter Helfer fertig ist.",
+      "every": "Nach Zeitplan aufwachen",
+      "everyHelp": "Das kürzeste Intervall ist 15 Minuten. Ein Aufwachen, das während der Pause fällig wird, wartet.",
+      "note": "Notiz für jedes geplante Aufwachen",
+      "noteHelp": "Wird der Weckmeldung angehängt. Gut für eine feste Erinnerung, zum Beispiel was zuerst zu prüfen ist."
+    },
+    "usage": {
+      "runs": "{{used}} von {{limit}} Läufen",
+      "sent": "{{used}} von {{limit}} Nachrichten"
+    },
+    "pause": {
+      "title": "„{{name}}“ pausieren?",
+      "body": "Das stoppt sofort alles, was dieser Koordinator tut.",
+      "adminBody": "Das stoppt sofort alles, was dieser Koordinator tut, auch für seinen Besitzer.",
+      "stopsSending": "Er kann keine Nachricht senden.",
+      "stopsRuns": "Sein laufender Chat und seine Helfer werden gestoppt.",
+      "holds": "Eintreffende Nachrichten und Antworten warten und gehen nicht verloren.",
+      "resume": "Mit „Fortsetzen“ startet er wieder und bekommt, was gewartet hat.",
+      "confirm": "Pausieren"
+    },
+    "card": {
+      "title": "Zustand",
+      "openChat": "Chat öffnen",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "pausedBy": "Pausiert von {{who}}. Nichts wird gesendet und nichts läuft, bis er fortgesetzt wird.",
+      "pausedNote": "Pausiert. Nichts wird gesendet und nichts läuft, bis er fortgesetzt wird.",
+      "nextWake": "Nächstes Aufwachen",
+      "notWhilePaused": "Nicht während der Pause",
+      "lastWake": "Letztes Aufwachen",
+      "schedule": "Zeitplan",
+      "runsToday": "Läufe heute",
+      "sentToday": "Heute gesendet"
+    },
+    "identity": {
+      "title": "Name und Modell",
+      "name": "Name",
+      "needsName": "Gib dem Koordinator einen Namen.",
+      "description": "Beschreibung",
+      "model": "Modell",
+      "modelHelp": "Das Modell, das jedes Aufwachen ausführt. Im Chat wählt niemand eines, also wähle eines aus."
+    },
+    "rules": {
+      "title": "Anweisungen und Regeln",
+      "policy": "Worüber dieser Koordinator spricht und was er nie tun darf, entscheidest du. LocalAI hat keine eingebaute Liste von Themen oder verbotenen Inhalten und fügt keine hinzu.",
+      "instructions": "Anweisungen",
+      "instructionsHelp": "Die dauerhaften Regeln und Themen, so formuliert, wie sie befolgt werden sollen. Der Text gehört dir und kann geändert werden. Die Limits unten hält der Server ein, nicht dieser Text.",
+      "page": "Seitenname",
+      "pageHelp": "Ein Ordner unter pages/ für seine Statusseite, seine Notizen und eine Themendatei. Nur dort darf er schreiben. Kleinbuchstaben, Ziffern und Bindestriche verwenden. Leer lassen, wenn er keinen eigenen Ordner bekommen soll."
+    },
+    "contacts": {
+      "title": "Kontakte",
+      "lead": "Die einzigen Personen, denen er schreiben kann, bis zu {{max}}. Wer nicht aufgeführt ist, ist für ihn nicht erreichbar.",
+      "none": "Noch keine Kontakte. Ohne Kontakt kann der Koordinator keine Nachricht senden.",
+      "add": "Kontakt hinzufügen",
+      "edit": "Bearbeiten",
+      "remove": "Entfernen",
+      "editFor": "{{name}} bearbeiten",
+      "removeFor": "{{name}} entfernen",
+      "userTarget": "LocalAI-Benutzer {{user}}",
+      "externalTarget": "{{binding}}, Chat {{chat}}",
+      "kind": {
+        "user": "LocalAI-Benutzer",
+        "external": "Messaging-Chat"
+      },
+      "newTitle": "Kontakt hinzufügen",
+      "editTitle": "Kontakt bearbeiten",
+      "sheetDesc": "Eine Person oder ein Team, dem der Koordinator schreiben darf.",
+      "done": "Kontakt speichern",
+      "kindLabel": "Art",
+      "kindUserHelp": "Ein LocalAI-Benutzer erhält die Nachricht im Posteingang. Diese Art ist einseitig: Eine Antwort kann nicht zurück zum Koordinator gelangen.",
+      "kindExternalHelp": "Eine Person oder Gruppe in einem Chat einer deiner Messaging-Verbindungen. Ihre Antworten wecken den Koordinator.",
+      "id": "Kontakt-ID",
+      "idHelp": "Der Kurzname, den der Koordinator verwendet. Kleinbuchstaben, Ziffern und Bindestriche, bis zu 40 Zeichen.",
+      "name": "Name",
+      "description": "Wer das ist",
+      "descriptionHelp": "Eine Zeile, die der Koordinator liest, zum Beispiel die Rolle der Person.",
+      "user": "LocalAI-Benutzer-ID",
+      "userHelp": "Die ID des Benutzers, wie sie die Administration unter Benutzer sieht.",
+      "me": "Mein Konto verwenden",
+      "binding": "Messaging-Verbindung",
+      "pickBinding": "Verbindung wählen",
+      "bindingHelp": "Die Verbindung, die die Nachricht überträgt. Sie muss Antworten nach Absender oder nach Chat gruppieren.",
+      "bindingsFailed": "Deine Verbindungen konnten nicht gelesen werden. Versuche es später erneut.",
+      "noBindings": "Du hast noch keine Messaging-Verbindung. Füge zuerst unter Verbindungen eine hinzu.",
+      "off": "aus",
+      "modeWarn": "Diese Verbindung beginnt für jede Einheit „{{mode}}“ einen neuen Chat. Antworten lassen sich dem Koordinator nicht zuordnen. Wähle eine Verbindung, die nach Absender oder nach Chat gruppiert.",
+      "chat": "Chat",
+      "chatHelp": "Der Chat, die Gruppe oder der Kanal auf der Plattform, in den die Nachricht geht. Chats, die die Verbindung bereits erlaubt, werden vorgeschlagen.",
+      "sender": "Absender",
+      "senderHelp": "Von wem die Antworten kommen. Leer bedeutet dasselbe wie der Chat.",
+      "errors": {
+        "id": "Kleinbuchstaben, Ziffern und Bindestriche verwenden, bis zu 40 Zeichen, mit Buchstabe oder Ziffer am Anfang.",
+        "idTwice": "Ein anderer Kontakt hat diese ID bereits.",
+        "name": "Der Name ist länger als 80 Zeichen.",
+        "description": "Die Beschreibung ist länger als 200 Zeichen.",
+        "user": "Gib die ID eines LocalAI-Benutzers ein.",
+        "binding": "Wähle eine Messaging-Verbindung.",
+        "chat": "Gib den Chat ein, in den geschrieben wird.",
+        "kind": "Wähle, welche Art von Kontakt das ist.",
+        "tooMany": "Es gibt zu viele Kontakte."
+      }
+    },
+    "limits": {
+      "title": "Limits",
+      "lead": "Der Server erzwingt diese Limits, was die Anweisungen auch sagen. Ein leeres Feld verwendet den Standardwert.",
+      "perMinute": "Nachrichten pro Minute",
+      "perDay": "Nachrichten pro Tag",
+      "helpers": "Helfer gleichzeitig",
+      "depth": "Helfertiefe",
+      "help": "Standard {{def}}, höchstens {{max}}.",
+      "range": "Gib eine ganze Zahl von 1 bis {{max}} ein.",
+      "runs": "Läufe, die von selbst starten, sind vom Betreiber auf {{limit}} pro Tag begrenzt. Deine eigenen Nachrichten zählen nicht.",
+      "runsNew": "Der Betreiber begrenzt außerdem, wie viele Läufe ein Koordinator pro Tag von selbst startet.",
+      "ceilings": "Der Betreiber kann niedrigere Obergrenzen für Helfer und Tiefe setzen. Ein höherer Wert wird mit dem höchsten erlaubten Wert abgelehnt."
+    },
+    "tools": {
+      "title": "Werkzeuge und Skills",
+      "lead": "Was der Koordinator und seine Helfer verwenden dürfen. Das Senden an einen Kontakt ist immer verfügbar und läuft immer über die obigen Limits."
+    },
+    "audit": {
+      "title": "Audit-Log",
+      "lead": "Jede gesendete Nachricht, jeder blockierte Versuch, Aufwachen, Pausen und Helferereignisse. Es speichert Länge und Hash jeder Nachricht, nie den Text.",
+      "filters": "Audit-Log filtern",
+      "any": "Beliebig",
+      "coordinator": "Koordinator",
+      "kind": "Art",
+      "outcome": "Ergebnis",
+      "since": "Von",
+      "until": "Bis",
+      "clear": "Filter zurücksetzen",
+      "loadFailed": "Das Audit-Log konnte nicht geladen werden.",
+      "moreFailed": "Ältere Einträge konnten nicht geladen werden.",
+      "none": "Noch nichts im Log.",
+      "noneBody": "Nachrichten, blockierte Versuche, Aufwachen und Pausen erscheinen hier.",
+      "noMatch": "Kein Eintrag passt zu diesen Filtern.",
+      "when": "Wann",
+      "reasonCol": "Grund",
+      "who": "Wer",
+      "older": "Ältere Einträge anzeigen",
+      "chars": "{{count}} Zeichen",
+      "kinds": {
+        "contact": "Nachricht",
+        "wake": "Aufwachen",
+        "pause": "Pause",
+        "resume": "Fortsetzen",
+        "helper": "Helfer"
+      },
+      "outcomes": {
+        "sent": "Gesendet",
+        "denied": "Abgelehnt",
+        "info": "Hinweis"
+      },
+      "via": {
+        "inbox": "Posteingang",
+        "connector": "Messaging-Chat"
+      },
+      "reason": {
+        "ok": "Zugestellt",
+        "paused": "Pausiert",
+        "not_a_contact": "Kein aufgeführter Kontakt",
+        "bad_text": "Der Text war ungültig",
+        "minute_cap": "Limit pro Minute erreicht",
+        "day_cap": "Tageslimit erreicht",
+        "binding_off": "Die Verbindung ist aus",
+        "binding_busy": "Die Verbindung war ausgelastet",
+        "inbox_off": "Der Posteingang ist aus",
+        "delivery_failed": "Zustellung fehlgeschlagen",
+        "budget": "Tagesbudget an Läufen verbraucht",
+        "concurrency": "Zu viele Koordinatoren laufen",
+        "timeout": "Hat zu lange gedauert",
+        "helper_limit": "Helferlimit erreicht",
+        "depth_limit": "Helfertiefe erreicht"
+      }
+    }
+  },
+  "admin": {
+    "coordinators": {
+      "title": "Koordinatoren ({{count}})",
+      "lead": "Agenten, die von selbst arbeiten und Kontakten schreiben. Du kannst jeden pausieren. Eine Pause stoppt alles und hält Eintreffendes zurück, bis der Koordinator fortgesetzt wird.",
+      "loadFailed": "Die Koordinatoren konnten nicht gelesen werden.",
+      "none": "Kein Benutzer hat einen Koordinator.",
+      "nextWake": "Nächstes Aufwachen",
+      "usage": "Heute",
+      "contacts": "Kontakte: {{count}}",
+      "pausedBy": "von {{who}}",
+      "paused": "„{{name}}“ ist pausiert",
+      "resumed": "„{{name}}“ läuft wieder",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "pauseFor": "{{name}} pausieren",
+      "resumeFor": "{{name}} fortsetzen",
+      "showAudit": "Audit-Log anzeigen",
+      "hideAudit": "Audit-Log ausblenden"
+    }
   }
 }

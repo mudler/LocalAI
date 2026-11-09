@@ -12,7 +12,8 @@
     "moreFor": "More actions for {{name}}",
     "triggers": "Triggers",
     "tasks": "Tasks",
-    "newAgent": "New agent"
+    "newAgent": "New agent",
+    "newCoordinator": "New coordinator"
   },
   "table": {
     "name": "Name",
@@ -108,7 +109,8 @@
       "knowledge": "Knowledge base",
       "longTerm": "Long-term memory"
     },
-    "lastFailed": "Last run failed"
+    "lastFailed": "Last run failed",
+    "coordinator": "Coordinator"
   },
   "templates": {
     "researcher": {
@@ -1006,7 +1008,25 @@
     "delete": "Delete",
     "deleted": "\"{{name}}\" deleted",
     "loadFailed": "Could not read the list: {{message}}",
-    "actionFailed": "That did not work: {{message}}"
+    "actionFailed": "That did not work: {{message}}",
+    "coordinators": {
+      "title": "Coordinators ({{count}})",
+      "lead": "Agents that work on their own and write to contacts. You can pause any of them. A pause stops everything and holds what arrives until the coordinator is resumed.",
+      "loadFailed": "Could not read the coordinators.",
+      "none": "No user has a coordinator.",
+      "nextWake": "Next wake",
+      "usage": "Today",
+      "contacts": "Contacts: {{count}}",
+      "pausedBy": "by {{who}}",
+      "paused": "\"{{name}}\" is paused",
+      "resumed": "\"{{name}}\" is running again",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pauseFor": "Pause {{name}}",
+      "resumeFor": "Resume {{name}}",
+      "showAudit": "Show audit log",
+      "hideAudit": "Hide audit log"
+    }
   },
   "views": {
     "label": "Agents area",
@@ -1206,5 +1226,212 @@
     "asksTitle_one": "This agent asks for {{count}} thing your chat starts without:",
     "asksTitle_other": "This agent asks for {{count}} things your chat starts without:",
     "asksHelp": "It runs as you. Turn them on in the chat only if you trust the agent and the person who shared it."
+  },
+  "coordinator": {
+    "optional": "(optional)",
+    "cancel": "Cancel",
+    "titleNew": "New coordinator",
+    "titleEdit": "Edit coordinator",
+    "supportingNew": "A coordinator is an agent that works on its own for a long time. It wakes on a schedule and when someone answers, and it can write only to the contacts you list.",
+    "supportingEdit": "Wakes on a schedule and on replies, and writes only to its contacts.",
+    "loadFailed": "Could not load this coordinator.",
+    "notSaved": "Not saved.",
+    "created": "Coordinator \"{{name}}\" created",
+    "updated": "Coordinator \"{{name}}\" saved",
+    "paused": "\"{{name}}\" is paused",
+    "resumed": "\"{{name}}\" is running again",
+    "actionFailed": "That did not work: {{message}}",
+    "save": "Save",
+    "discard": "Discard",
+    "state": {
+      "paused": "Paused",
+      "scheduled": "Scheduled",
+      "idle": "Idle"
+    },
+    "wake": {
+      "opt": {
+        "events": "Only when something happens",
+        "15m": "Every 15 minutes",
+        "1h": "Every hour",
+        "6h": "Every 6 hours",
+        "24h": "Every day"
+      },
+      "custom": "Every {{minutes}} minutes",
+      "title": "Wake-ups",
+      "lead": "A coordinator also wakes when a contact replies and when a helper it started finishes.",
+      "every": "Wake on a schedule",
+      "everyHelp": "The shortest interval is 15 minutes. A wake that would run while the coordinator is paused waits.",
+      "note": "Note for every scheduled wake",
+      "noteHelp": "Added to the wake message. Use it for a standing reminder, for example what to check first."
+    },
+    "usage": {
+      "runs": "{{used}} of {{limit}} runs",
+      "sent": "{{used}} of {{limit}} messages"
+    },
+    "pause": {
+      "title": "Pause \"{{name}}\"?",
+      "body": "This stops everything this coordinator does, now.",
+      "adminBody": "This stops everything this coordinator does, now, for its owner too.",
+      "stopsSending": "It cannot send any message.",
+      "stopsRuns": "Its running chat and its helpers are stopped.",
+      "holds": "Messages and replies that arrive wait and are not lost.",
+      "resume": "Resume starts it again and delivers what waited.",
+      "confirm": "Pause"
+    },
+    "card": {
+      "title": "State",
+      "openChat": "Open its chat",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedBy": "Paused by {{who}}. Nothing is sent and nothing runs until it is resumed.",
+      "pausedNote": "Paused. Nothing is sent and nothing runs until it is resumed.",
+      "nextWake": "Next wake",
+      "notWhilePaused": "Not while paused",
+      "lastWake": "Last wake",
+      "schedule": "Schedule",
+      "runsToday": "Runs today",
+      "sentToday": "Sent today"
+    },
+    "identity": {
+      "title": "Name and model",
+      "name": "Name",
+      "needsName": "Give the coordinator a name.",
+      "description": "Description",
+      "model": "Model",
+      "modelHelp": "The model that runs every wake. Nobody picks one in the chat, so choose one."
+    },
+    "rules": {
+      "title": "Instructions and rules",
+      "policy": "What this coordinator talks about, and what it must never do, is your decision. LocalAI has no built-in list of topics or banned subjects and adds none.",
+      "instructions": "Instructions",
+      "instructionsHelp": "The standing rules and topics, written as you want them followed. The text is yours to change. The limits below are kept by the server, not by this text.",
+      "page": "Page name",
+      "pageHelp": "A folder under pages/ where it keeps its status page, its notes and a topics file. It can write only there. Use lowercase letters, digits and dashes. Leave empty to give it no folder of its own."
+    },
+    "contacts": {
+      "title": "Contacts",
+      "lead": "The only people it can write to, up to {{max}}. It cannot reach anyone who is not listed.",
+      "none": "No contacts yet. Without a contact the coordinator cannot send a message.",
+      "add": "Add contact",
+      "edit": "Edit",
+      "remove": "Remove",
+      "editFor": "Edit {{name}}",
+      "removeFor": "Remove {{name}}",
+      "userTarget": "LocalAI user {{user}}",
+      "externalTarget": "{{binding}}, chat {{chat}}",
+      "kind": {
+        "user": "LocalAI user",
+        "external": "Messaging chat"
+      },
+      "newTitle": "Add contact",
+      "editTitle": "Edit contact",
+      "sheetDesc": "A person or a team the coordinator may write to.",
+      "done": "Save contact",
+      "kindLabel": "Kind",
+      "kindUserHelp": "A LocalAI user gets the message in the inbox. This kind is one-way: a reply cannot come back into the coordinator.",
+      "kindExternalHelp": "A person or a group in a chat of one of your messaging connections. Their replies wake the coordinator.",
+      "id": "Contact ID",
+      "idHelp": "The short name the coordinator uses. Lowercase letters, digits and dashes, up to 40 characters.",
+      "name": "Name",
+      "description": "Who this is",
+      "descriptionHelp": "One line the coordinator reads, for example the role of the person.",
+      "user": "LocalAI user ID",
+      "userHelp": "The ID of the user, as the administrator sees it in Users.",
+      "me": "Use my account",
+      "binding": "Messaging connection",
+      "pickBinding": "Choose a connection",
+      "bindingHelp": "The connection that carries the message. It must group replies by sender or by chat.",
+      "bindingsFailed": "Could not read your connections. Try again later.",
+      "noBindings": "You have no messaging connection yet. Add one under Connections first.",
+      "off": "off",
+      "modeWarn": "This connection starts a new chat for each \"{{mode}}\". Replies cannot be matched to the coordinator. Pick a connection that groups by sender or by chat.",
+      "chat": "Chat",
+      "chatHelp": "The chat, group or channel on the platform where the message goes. Chats the connection already allows are suggested.",
+      "sender": "Sender",
+      "senderHelp": "Who the replies come from. Empty means the same as the chat.",
+      "errors": {
+        "id": "Use lowercase letters, digits and dashes, up to 40 characters, starting with a letter or digit.",
+        "idTwice": "Another contact already has this ID.",
+        "name": "The name is longer than 80 characters.",
+        "description": "The description is longer than 200 characters.",
+        "user": "Enter the ID of a LocalAI user.",
+        "binding": "Choose a messaging connection.",
+        "chat": "Enter the chat to write in.",
+        "kind": "Choose what kind of contact this is.",
+        "tooMany": "There are too many contacts."
+      }
+    },
+    "limits": {
+      "title": "Limits",
+      "lead": "The server enforces these limits whatever the instructions say. Leave a field empty to use the default.",
+      "perMinute": "Messages per minute",
+      "perDay": "Messages per day",
+      "helpers": "Helpers at once",
+      "depth": "Helper depth",
+      "help": "Default {{def}}, up to {{max}}.",
+      "range": "Use a whole number from 1 to {{max}}.",
+      "runs": "Runs that start on their own are limited to {{limit}} a day by the operator. Your own messages do not count.",
+      "runsNew": "The operator also limits how many runs a coordinator starts on its own each day.",
+      "ceilings": "The operator can set lower ceilings for helpers and depth. A value above them is refused with the highest one allowed."
+    },
+    "tools": {
+      "title": "Tools and skills",
+      "lead": "What the coordinator and its helpers may use. Sending to a contact is always available and always goes through the limits above."
+    },
+    "audit": {
+      "title": "Audit log",
+      "lead": "Every message sent, every attempt that was blocked, wakes, pauses and helper events. It keeps the length and a hash of each message, never the text.",
+      "filters": "Filter the audit log",
+      "any": "Any",
+      "coordinator": "Coordinator",
+      "kind": "Kind",
+      "outcome": "Outcome",
+      "since": "From",
+      "until": "To",
+      "clear": "Clear filters",
+      "loadFailed": "Could not load the audit log.",
+      "moreFailed": "Could not load older entries.",
+      "none": "Nothing in the log yet.",
+      "noneBody": "Messages, blocked attempts, wakes and pauses appear here.",
+      "noMatch": "No entry matches these filters.",
+      "when": "When",
+      "reasonCol": "Reason",
+      "who": "Who",
+      "older": "Show older entries",
+      "chars": "{{count}} characters",
+      "kinds": {
+        "contact": "Message",
+        "wake": "Wake",
+        "pause": "Pause",
+        "resume": "Resume",
+        "helper": "Helper"
+      },
+      "outcomes": {
+        "sent": "Sent",
+        "denied": "Denied",
+        "info": "Note"
+      },
+      "via": {
+        "inbox": "inbox",
+        "connector": "messaging chat"
+      },
+      "reason": {
+        "ok": "Delivered",
+        "paused": "Paused",
+        "not_a_contact": "Not a listed contact",
+        "bad_text": "The text was not valid",
+        "minute_cap": "Per-minute limit reached",
+        "day_cap": "Daily limit reached",
+        "binding_off": "The connection is off",
+        "binding_busy": "The connection was busy",
+        "inbox_off": "The inbox is off",
+        "delivery_failed": "Delivery failed",
+        "budget": "Daily run budget used",
+        "concurrency": "Too many coordinators running",
+        "timeout": "Took too long",
+        "helper_limit": "Helper limit reached",
+        "depth_limit": "Helper depth limit reached"
+      }
+    }
   }
 }

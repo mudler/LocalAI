@@ -523,6 +523,19 @@ export const chatAgentsApi = {
   needs: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/needs`),
 }
 
+// Coordinators: a saved agent with one long-lived chat that wakes on a
+// schedule, reaches only its contacts and is held by limits the server
+// enforces. audit takes the filters of utils/coordinator.js auditParams.
+export const chatCoordinatorsApi = {
+  list: () => fetchJSON('/api/chats/coordinators'),
+  get: (id) => fetchJSON(`/api/chats/coordinators/${enc2(id)}`),
+  create: (body) => postJSON('/api/chats/coordinators', body),
+  update: (id, body) => fetchJSON(`/api/chats/coordinators/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  pause: (id) => postJSON(`/api/chats/coordinators/${enc2(id)}/pause`, {}),
+  resume: (id) => postJSON(`/api/chats/coordinators/${enc2(id)}/resume`, {}),
+  audit: (id, query = {}) => fetchJSON(`/api/chats/coordinators/${enc2(id)}/audit${q(query)}`),
+}
+
 // The administrator's view of every user's agents, triggers and connectors.
 export const chatAdminApi = {
   agents: () => fetchJSON('/api/chats/admin/agents'),
@@ -534,6 +547,10 @@ export const chatAdminApi = {
   connectors: () => fetchJSON('/api/chats/admin/connectors'),
   disableConnector: (id) => postJSON(`/api/chats/admin/connectors/${enc2(id)}/disable`, {}),
   deleteConnector: (id) => fetchJSON(`/api/chats/admin/connectors/${enc2(id)}`, { method: 'DELETE' }),
+  coordinators: () => fetchJSON('/api/chats/admin/coordinators'),
+  pauseCoordinator: (id) => postJSON(`/api/chats/admin/coordinators/${enc2(id)}/pause`, {}),
+  resumeCoordinator: (id) => postJSON(`/api/chats/admin/coordinators/${enc2(id)}/resume`, {}),
+  coordinatorAudit: (query = {}) => fetchJSON(`/api/chats/admin/coordinators/audit${q(query)}`),
 }
 
 // Agent tasks and their jobs (the mcp_jobs feature): a prompt template run in

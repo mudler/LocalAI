@@ -159,7 +159,7 @@ func (s *Service) loopAllowed(rec session.ChatRecord, capability string) bool {
 // sender.
 func modelLoopOrigin(origin string) bool {
 	switch origin {
-	case "", session.OriginTrigger, session.OriginJob, session.OriginPage:
+	case "", session.OriginTrigger, session.OriginJob, session.OriginPage, session.OriginCoordinator:
 		return true
 	}
 	return false

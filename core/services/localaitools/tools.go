@@ -34,6 +34,8 @@ const (
 	ToolListHostExecEvents        = "list_host_exec_events"
 	ToolGetChatEgress             = "get_chat_egress"
 	ToolListEgressEvents          = "list_egress_events"
+	ToolListCoordinators          = "list_coordinators"
+	ToolListCoordinatorAudit      = "list_coordinator_audit"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
@@ -68,6 +70,8 @@ const (
 	ToolPinFailoverTarget    = "pin_failover_target"
 	ToolUnpinFailoverTarget  = "unpin_failover_target"
 	ToolSetChatEgressCeiling = "set_chat_egress_ceiling"
+	ToolPauseCoordinator     = "pause_coordinator"
+	ToolResumeCoordinator    = "resume_coordinator"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -115,4 +119,6 @@ var mutatingToolNames = []string{
 	ToolPinFailoverTarget,
 	ToolUnpinFailoverTarget,
 	ToolSetChatEgressCeiling,
+	ToolPauseCoordinator,
+	ToolResumeCoordinator,
 }
