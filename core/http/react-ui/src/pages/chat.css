@@ -1203,6 +1203,12 @@ button.cx-step__head:hover,
   box-shadow: inset 0 0 0 1px var(--dk-edge);
 }
 .cx-nomodel h2 { margin: 0; font-family: var(--font-sans); font-size: 15px; font-weight: 650; letter-spacing: 0; }
+.cx-nomodel__head { display: flex; align-items: center; gap: var(--sp-4); }
+.cx-nomodel__head > div { min-width: 0; }
+.cx-nomodel__head p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: 14px; }
+@media (max-width: 480px) {
+  .cx-nomodel__mascot { display: none; }
+}
 .cx-nomodel > p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: 14px; }
 .cx-nomodel .home-starters { margin-top: 0; }
 .cx-nomodel__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }

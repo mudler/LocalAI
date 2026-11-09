@@ -393,6 +393,7 @@ export default function Collections() {
         listError
       ) : empty ? (
         <EmptyState
+          mascot="welcome"
           icon="database"
           title={t('collections:empty.title')}
           body={t('collections:empty.text')}
