@@ -616,6 +616,38 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 			Expect(err).To(HaveOccurred(), "nothing landed in the rest of the home")
 		})
 
+		It("lists a generated result in the chat's file index", func() {
+			id := chatInFolder()
+			r.sayIn(bob, id, msg("generate_image", `{"prompt":"a red fox"}`))
+			made := decode[localaitools.ImageResult](r.result(id, "generate_image").Out)
+			name := path.Base(made.Images[0].Ref)
+			cf, err := r.svc.ChatFiles(ctx, bob, id)
+			Expect(err).NotTo(HaveOccurred())
+			var names []string
+			for _, f := range cf.Files {
+				names = append(names, f.Name)
+			}
+			Expect(names).To(ContainElement(name), "the Files panel lists the generated image")
+		})
+
+		It("lists a generated result of a plain chat in its file index and tells the clients", func() {
+			id := create(r.svc, bob)
+			evs, cancel, err := r.svc.Events(ctx, bob, id)
+			Expect(err).NotTo(HaveOccurred())
+			defer cancel()
+			r.sayIn(bob, id, msg("generate_image", `{"prompt":"a red fox"}`))
+			waitKind(evs, session.KindFiles) // the Files panel is told to read the list again
+			made := decode[localaitools.ImageResult](r.result(id, "generate_image").Out)
+			name := path.Base(made.Images[0].Ref)
+			cf, err := r.svc.ChatFiles(ctx, bob, id)
+			Expect(err).NotTo(HaveOccurred())
+			var names []string
+			for _, f := range cf.Files {
+				names = append(names, f.Name)
+			}
+			Expect(names).To(ContainElement(name), "the Files panel lists the generated image")
+		})
+
 		It("leaves a chat without a folder reading and writing the home as before", func() {
 			r.sayIn(bob, create(r.svc, bob), msg("voice_profile", clipArgs("/workspace/home/Outside/secret.wav")))
 			Expect(r.h.ResultsFor("voice_profile")[0].Err).NotTo(HaveOccurred())
@@ -625,6 +657,20 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 			Expect(made.Images[0].Ref).To(HavePrefix("/workspace/home/generated/"))
 			_, err := r.read(bob, made.Images[0].Ref)
 			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Describe("a server without a workspace", func() {
+		It("keeps the generated image out of any file store, says why, and sends no file event", func() {
+			r := newE2ERig(scriptCall, func(d *studio.Deps) { d.Files = files.Disabled("") })
+			id := create(r.svc, bob)
+			evs, cancel, err := r.svc.Events(ctx, bob, id)
+			Expect(err).NotTo(HaveOccurred())
+			defer cancel()
+			r.sayIn(bob, id, msg("generate_image", `{"prompt":"a red fox"}`))
+			res := r.result(id, "generate_image")
+			Expect(said(res)).To(ContainSubstring("not available"))
+			Consistently(evs, "200ms").ShouldNot(Receive(HaveField("Kind", session.KindFiles)))
 		})
 	})
 

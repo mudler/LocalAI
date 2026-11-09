@@ -21,6 +21,9 @@ import (
 type chatFiles struct {
 	f *files.Service
 	x session.Access
+	// changed tells the chat's clients that its files changed, so the Files
+	// panel reads the list again. Nil: nobody is told.
+	changed func()
 }
 
 // clientFilesOf returns the fenced file store of a chat. Without the files
@@ -30,7 +33,10 @@ func (s *Service) clientFilesOf(x session.Access) localaitools.FileStore {
 	if !s.d.Files.Available() || x.Actor().Principal == "" {
 		return noFiles{}
 	}
-	return chatFiles{f: s.d.Files, x: x}
+	a := x.Actor()
+	return chatFiles{f: s.d.Files, x: x, changed: func() {
+		s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindFiles})
+	}}
 }
 
 // noFiles refuses every read and write.
@@ -91,5 +97,11 @@ func (c chatFiles) Write(ctx context.Context, name string, data []byte, _ string
 		return "", err
 	}
 	c.f.Written(ctx, n, a.Principal)
+	// The file is in the chat's index already (the change set carries the
+	// chat), but a client only reads the index again when it is told. The file
+	// tools tell it; a client tool that saves a result must too.
+	if c.changed != nil {
+		c.changed()
+	}
 	return t.Guest(t.Abs), nil
 }
