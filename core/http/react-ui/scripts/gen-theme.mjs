@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
- * Writes src/theme-localai.css from src/theme/theme-localai.json.
+ * Writes src/theme-localai.css and ../static/theme-localai.css from
+ * src/theme/theme-localai.json. The second copy is for the few pages the server
+ * still renders itself (core/http/static/theme.css maps the old names onto it).
  *
  * The JSON is the one source of the palette. It is a copy of the LocalAI theme
  * file of the branding kit (tokens/theme-localai.json), taken as is: when the
@@ -22,7 +24,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SOURCE = join(ROOT, 'src/theme/theme-localai.json')
-const OUT = join(ROOT, 'src/theme-localai.css')
+const OUTS = [join(ROOT, 'src/theme-localai.css'), join(ROOT, '../static/theme-localai.css')]
 
 const block = (map, pad) => Object.entries(map).map(([k, v]) => `${' '.repeat(pad)}--dk-${k}: ${v};`).join('\n')
 
@@ -47,18 +49,19 @@ export function loadTheme() {
 }
 
 export function isCurrent() {
-  return existsSync(OUT) && readFileSync(OUT, 'utf8') === buildCss(loadTheme())
+  const css = buildCss(loadTheme())
+  return OUTS.every((f) => existsSync(f) && readFileSync(f, 'utf8') === css)
 }
 
 if (process.argv[1] && process.argv[1].endsWith('gen-theme.mjs')) {
   if (process.argv.includes('--check')) {
     if (!isCurrent()) {
-      console.error('src/theme-localai.css is out of date: run node scripts/gen-theme.mjs')
+      console.error('a theme-localai.css is out of date: run node scripts/gen-theme.mjs')
       process.exit(1)
     }
     console.log('theme css is up to date')
   } else {
-    writeFileSync(OUT, buildCss(loadTheme()))
-    console.log('wrote src/theme-localai.css')
+    for (const f of OUTS) writeFileSync(f, buildCss(loadTheme()))
+    console.log('wrote', OUTS.length, 'files')
   }
 }

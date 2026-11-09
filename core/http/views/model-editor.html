@@ -216,7 +216,7 @@
                             <!-- OCI -->
                             <div>
                                 <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
-                                    <i class="fas fa-box text-cyan-400"></i>
+                                    <i class="fas fa-box text-[var(--color-primary)]"></i>
                                     OCI Registry
                                 </h4>
                                 <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
@@ -240,7 +240,7 @@
                             <!-- Ollama -->
                             <div>
                                 <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
-                                    <i class="fas fa-cube text-indigo-400"></i>
+                                    <i class="fas fa-cube text-[var(--color-primary)]"></i>
                                     Ollama
                                 </h4>
                                 <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
@@ -257,7 +257,7 @@
                             <!-- YAML Config Files -->
                             <div>
                                 <h4 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2 flex items-center gap-2">
-                                    <i class="fas fa-code text-pink-400"></i>
+                                    <i class="fas fa-code text-[var(--color-primary)]"></i>
                                     YAML Configuration Files
                                 </h4>
                                 <div class="space-y-1.5 text-xs text-[var(--color-text-secondary)] font-mono pl-6">
@@ -540,8 +540,8 @@
              class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent)]/20 rounded-xl overflow-hidden h-[calc(100vh-250px)]">
             <div class="sticky top-0 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-subtle)] p-6 flex items-center justify-between z-10">
                 <h2 class="text-xl font-semibold text-[var(--color-text-primary)] flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-fuchsia-500/10 flex items-center justify-center">
-                        <i class="fas fa-code text-fuchsia-400"></i>
+                    <div class="w-8 h-8 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+                        <i class="fas fa-code text-[var(--color-primary)]"></i>
                     </div>
                     YAML Configuration Editor
                 </h2>
@@ -611,42 +611,42 @@
 }
 
 .CodeMirror-selected {
-    background: rgba(139, 92, 246, 0.25) !important;
+    background: color-mix(in srgb, var(--dk-accent) 25%, transparent) !important;
 }
 
 .CodeMirror-selectedtext {
-    background: rgba(139, 92, 246, 0.25) !important;
+    background: color-mix(in srgb, var(--dk-accent) 25%, transparent) !important;
 }
 
 .CodeMirror-focused .CodeMirror-selected {
-    background: rgba(139, 92, 246, 0.3) !important;
+    background: color-mix(in srgb, var(--dk-accent) 30%, transparent) !important;
 }
 
 .CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection {
-    background: rgba(139, 92, 246, 0.3) !important;
+    background: color-mix(in srgb, var(--dk-accent) 30%, transparent) !important;
 }
 
 .CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection {
-    background: rgba(139, 92, 246, 0.3) !important;
+    background: color-mix(in srgb, var(--dk-accent) 30%, transparent) !important;
 }
 
 /* Enhanced YAML Syntax Highlighting */
-.cm-keyword { color: #8b5cf6 !important; font-weight: 600 !important; }
-.cm-string { color: #10b981 !important; }
-.cm-number { color: #f59e0b !important; }
+.cm-keyword { color: var(--dk-accent-text) !important; font-weight: 600 !important; }
+.cm-string { color: var(--dk-ok-text) !important; }
+.cm-number { color: var(--dk-warn-text) !important; }
 .cm-comment { color: var(--color-text-muted) !important; font-style: italic !important; }
-.cm-property { color: #ec4899 !important; }
-.cm-operator { color: #ef4444 !important; }
-.cm-variable { color: #06b6d4 !important; }
-.cm-tag { color: #8b5cf6 !important; font-weight: 600 !important; }
-.cm-attribute { color: #f59e0b !important; }
-.cm-def { color: #ec4899 !important; font-weight: 600 !important; }
+.cm-property { color: var(--dk-series-6) !important; }
+.cm-operator { color: var(--dk-error-text) !important; }
+.cm-variable { color: var(--dk-series-4) !important; }
+.cm-tag { color: var(--dk-accent-text) !important; font-weight: 600 !important; }
+.cm-attribute { color: var(--dk-warn-text) !important; }
+.cm-def { color: var(--dk-series-6) !important; font-weight: 600 !important; }
 .cm-bracket { color: var(--color-text-secondary) !important; }
 .cm-punctuation { color: var(--color-text-secondary) !important; }
-.cm-quote { color: #10b981 !important; }
+.cm-quote { color: var(--dk-ok-text) !important; }
 .cm-meta { color: var(--color-text-muted) !important; }
-.cm-builtin { color: #f472b6 !important; }
-.cm-atom { color: #f59e0b !important; }
+.cm-builtin { color: var(--dk-series-2) !important; }
+.cm-atom { color: var(--dk-warn-text) !important; }
 
 /* Enhanced scrollbar styling */
 .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
@@ -678,7 +678,7 @@
 
 /* Focus ring styling */
 .CodeMirror-focused {
-    outline: 2px solid rgba(139, 92, 246, 0.5) !important;
+    outline: 2px solid color-mix(in srgb, var(--dk-accent) 50%, transparent) !important;
     outline-offset: -2px !important;
     border-radius: 0.5rem !important;
 }

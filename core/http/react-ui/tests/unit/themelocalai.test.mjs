@@ -38,6 +38,7 @@ test('theme: the CSS is generated from the source file', () => {
   const css = readFileSync(join(root, 'src/theme-localai.css'), 'utf8')
   assert.equal(css, buildCss(theme))
   assert.equal((css.match(/--dk-canvas:/g) || []).length, 3, 'one light and two dark blocks')
+  assert.equal(readFileSync(join(root, '../static/theme-localai.css'), 'utf8'), css, 'the copy for the server-rendered pages')
 })
 
 test('theme: light and dark fill the same 36 roles', () => {
