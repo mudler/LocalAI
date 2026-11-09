@@ -1,5 +1,5 @@
 ---
-title: Addon contracts
+title: Add-on contract reference
 weight: 40
 aliases:
   - "/features/addons/"

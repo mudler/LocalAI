@@ -1,5 +1,5 @@
 +++
-title = "Focused addon testing"
+title = "Testing add-ons"
 toc = true
 description = "Prepare and verify the toolchain for focused addon tests."
 weight = 50

@@ -21,6 +21,8 @@ workspace)**). When authentication is off, the single user has it. The files of
 the chats must be on (see [Chats]({{%relref "/features/chats" %}})).
 {{% /notice %}}
 
+To put a page on Home, or to keep it current with a schedule, see [Home widgets and live pages]({{% relref "/features/home-widgets" %}}).
+
 ## Where a page lives
 
 A page is a folder of your home:
