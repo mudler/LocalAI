@@ -9,6 +9,11 @@ ENV BUILD_TYPE=${BUILD_TYPE}
 ARG CUDA_MAJOR_VERSION
 ARG CUDA_MINOR_VERSION
 ARG SKIP_DRIVERS=false
+# ROCm packages installed when BUILD_TYPE=hipblas. The default matches the
+# ROCm 7.x apt repository of the rocm/dev-ubuntu-24.04:7.x base images. ROCm
+# 10.x ships different package names (e.g. amdrocm-blas-dev10.1), so a build
+# on another ROCm release overrides this together with BASE_IMAGE.
+ARG ROCM_PACKAGES="hipblas-dev hipblaslt-dev rocblas-dev"
 ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
 ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
 ENV DEBIAN_FRONTEND=noninteractive
@@ -172,10 +177,7 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
-        apt-get install -y --no-install-recommends \
-            hipblas-dev \
-            hipblaslt-dev \
-            rocblas-dev && \
+        apt-get install -y --no-install-recommends ${ROCM_PACKAGES} && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
