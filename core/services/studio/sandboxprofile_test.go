@@ -248,7 +248,9 @@ var _ = Describe("sandbox profiles", func() {
 
 	Describe("the model tools", func() {
 		script := func(steps ...studiotest.ToolStep) func(workspace.Actor, string) []studiotest.ToolStep {
-			return func(workspace.Actor, string) []studiotest.ToolStep { return append(steps, studiotest.ToolStep{Say: "done"}) }
+			return func(workspace.Actor, string) []studiotest.ToolStep {
+				return append(steps, studiotest.ToolStep{Say: "done"})
+			}
 		}
 		It("offers list_sandbox_profiles and use_sandbox_profile with the commands, and not without a sandbox that has profiles", func() {
 			r := newProfileRig(script())

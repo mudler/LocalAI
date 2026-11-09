@@ -141,7 +141,9 @@ func Parse(raw []byte) (Policy, error) {
 // Validate checks the shape of the policy. It does not know the profiles of the
 // add-on: a policy may name a profile that a later release adds.
 func (p Policy) Validate() error {
-	bad := func(format string, a ...any) error { return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...)) }
+	bad := func(format string, a ...any) error {
+		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
+	}
 	if p.Default != "" && !contract.ValidProfileID(p.Default) {
 		return bad("default is not a profile ID")
 	}
