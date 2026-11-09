@@ -48,6 +48,9 @@ type loadOpts struct {
 	// absent when the skills resolve, so a skill that needs an add-on's
 	// isolation is not loaded on the strength of a stale descriptor.
 	provided *bool
+	// hint, when set, is asked for a text to put before the instructions of
+	// the skill it loaded (see skills.SandboxHint). "" adds nothing.
+	hint func(skills.Skill) string
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -241,6 +244,11 @@ func (s *Service) loadSkill(ctx context.Context, p string, list []skills.Skill, 
 		return "", fmt.Errorf("the skill %s is too large to load (more than %d KiB)", sk.Name, skills.MaxFileSize>>10)
 	}
 	body := skills.Body(data)
+	if o.hint != nil {
+		if h := o.hint(sk); h != "" {
+			body = h + "\n\n" + body
+		}
+	}
 	// The first use of an imported skill clears its "new" mark.
 	if sk.Layer == skills.LayerPersonal {
 		s.d.Files.ClearSkillNew(ctx, p, sk.Name)

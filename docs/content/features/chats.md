@@ -1685,6 +1685,17 @@ In the web UI, the **Skills** item in the sidebar, right after Knowledge, opens 
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, by name and description only, and tells the model to call the `load_skill` tool with a skill's name before a task that matches it. `load_skill` returns the instructions of the skill, the text after its frontmatter. It offers exactly the skills of that list: for each name the nearest skill, not switched off, and the skills of the add-ons the chat can use now. Any other name is refused with the names of the chat's skills and the near ones first (for example `Did you mean pdf?` for `PDF`).
 
+An optional `sandbox` key names the sandbox profile the skill works best in, for example `sandbox: media` for a skill that cuts video with ffmpeg. It is a hint and nothing more. The index marks the skill as preferring that profile. When the chat runs another profile, `load_skill` adds a line that tells the model the skill wants the named profile, and the model may offer to switch with `use_sandbox_profile`. It never switches by itself and nothing restarts the sandbox. If a tool is missing, the model says which profile has it. A value that is not a profile ID is ignored.
+
+```yaml
+---
+name: cut-clips
+description: Cut a video into clips with ffmpeg.
+sandbox: media
+---
+```
+
+
 When the folder of a skill holds other files, such as references and scripts, the answer starts with `Base directory for this skill:` and the folder, and names up to 20 of the files, relative to it, so the model reads them with `read_file`. A sub-agent that has no `read_file` gets the instructions only. A skill with `requires: [exec]` in a chat that cannot run commands answers that it cannot be used there. Every chat with at least one skill has `load_skill`, and a sub-agent gets it with its parent's other tools. It has no switch and Settings > Tools does not list it; the Skills menu chooses what it offers. The Sandbox does not see the skill folders (the built-in `bash` does, see [Commands on this machine](#commands-on-this-machine)). When the model reads a `SKILL.md` with `read_file` at a wrong path, the error names the right path and `load_skill`. A `SKILL.md` over 64 KiB is refused.
 
 Skills come from six places, nearest first, and the nearest wins when two have the same name:
