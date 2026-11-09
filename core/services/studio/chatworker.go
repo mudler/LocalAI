@@ -35,12 +35,13 @@ var ErrWorkerFull = errors.New("studio: the chat worker runs as many turns as it
 // which claims and runs the turn. The turn's events and a stop reach it over
 // the bus, as they reach another frontend. When no worker listens the turn runs
 // here. A message with files is sent here too: the files are saved before the
-// turn starts, and they would have to cross the bus.
+// turn starts, and they would have to cross the bus. So is a message to a
+// coordinator chat (see runsOnFrontend).
 func (s *Service) SendBackground(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
-	if s.d.Workers == nil || len(up) > 0 {
+	if s.d.Workers == nil || len(up) > 0 || s.runsOnFrontend(ctx, user, conv) {
 		return s.SendWithFiles(ctx, user, conv, text, up)
 	}
-	req := workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text, Wake: string(WakeFrom(ctx))}
+	req := workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text}
 	if g, ok := turnGrantFrom(ctx); ok {
 		req.Grant = g.wire()
 	}
@@ -59,7 +60,16 @@ func (s *Service) SendBackground(ctx context.Context, user, conv, text string, u
 	case reply.Error != "":
 		return SendResult{}, fmt.Errorf("%w: %s", ErrWorkerRefused, reply.Error)
 	}
-	return SendResult{Started: reply.Started, PendingID: reply.PendingID, Held: reply.Held}, nil
+	return SendResult{Started: reply.Started, PendingID: reply.PendingID}, nil
+}
+
+// runsOnFrontend says whether the turns of the chat must not go to a chat
+// worker. The chat of a coordinator is such a chat: its pause gate, its run
+// budget, its helper limits and its contact tool need the coordinator host and
+// the connectors, and a chat worker has neither.
+func (s *Service) runsOnFrontend(ctx context.Context, user, conv string) bool {
+	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	return err == nil && isCoordinatorChat(rec)
 }
 
 // ServeStart runs a start that a frontend sent to this chat worker. The turn
@@ -83,7 +93,6 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if req.Sender != nil {
 		ctx = withTurnWho(ctx, turnWho{Sender: senderOf(req.Sender)})
 	}
-	ctx = WithWake(ctx, WakeSource(req.Wake))
 	var res SendResult
 	var err error
 	if req.Resume {
@@ -97,7 +106,7 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if res.Started {
 		s.limitWorkerRun(ctx, req.Principal, req.ChatID)
 	}
-	return workerctl.ChatStartReply{Started: res.Started, PendingID: res.PendingID, Held: res.Held}
+	return workerctl.ChatStartReply{Started: res.Started, PendingID: res.PendingID}
 }
 
 // checkWorkerRoom returns ErrWorkerFull when this chat worker runs

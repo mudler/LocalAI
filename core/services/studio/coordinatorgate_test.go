@@ -15,7 +15,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // gateRig is a coordinator rig whose turns end at once, except a message with
@@ -263,18 +262,5 @@ var _ = Describe("coordinator gate", func() {
 		until("the turn to end", func() bool { return !turn(r.svc, alice, chat).Running })
 		Expect(r.h.Sent(chat)).To(HaveLen(1))
 		Expect(pendingTexts(r.svc, alice, chat)).To(Equal([]string{"held"}))
-	})
-
-	It("a chat worker gates a start by the wake source it is sent", func() {
-		r := newGateRig(1, 0)
-		id, chat := r.desk("Desk")
-		start := func() workerctl.ChatStartReply {
-			return r.svc.ServeStart(bg, workerctl.ChatStartRequest{Principal: alice, ChatID: chat, Text: "w", Wake: string(studio.WakeReply)})
-		}
-		Expect(start().Started).To(BeTrue())
-		idle(r.svc, alice, chat)
-		Expect(start().Held).To(BeTrue(), "the budget of 1 is spent")
-		r.pause(id)
-		Expect(r.svc.ServeStart(bg, workerctl.ChatStartRequest{Principal: alice, ChatID: chat, Text: "o"}).Held).To(BeTrue(), "the owner's message is held too")
 	})
 })

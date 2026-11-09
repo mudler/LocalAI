@@ -87,7 +87,7 @@ func (s *Service) SweepResumes(ctx context.Context) (int, error) {
 // resumeInterruptedVia starts the resume on a chat worker when there is one and
 // here otherwise, as SendBackground does for an unattended message.
 func (s *Service) resumeInterruptedVia(ctx context.Context, p, conv string) (SendResult, error) {
-	if s.d.Workers == nil {
+	if s.d.Workers == nil || s.runsOnFrontend(ctx, p, conv) {
 		return s.ResumeInterrupted(ctx, p, conv)
 	}
 	reply, err := s.d.Workers.StartChat(ctx, workerctl.ChatStartRequest{Principal: p, ChatID: conv, Resume: true})
