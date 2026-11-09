@@ -248,6 +248,25 @@ func IsLegacyOwner(user *User, legacyOwnerEmail string) bool {
 		strings.EqualFold(strings.TrimSpace(user.Email), owner)
 }
 
+// LegacyOwnerID returns the ID of the account that IsLegacyOwner accepts for
+// legacyOwnerEmail, or "" when none is configured or registered.
+func LegacyOwnerID(db *gorm.DB, legacyOwnerEmail string) (string, error) {
+	owner := strings.TrimSpace(legacyOwnerEmail)
+	if db == nil || owner == "" {
+		return "", nil
+	}
+	var users []User
+	if err := db.Where("LOWER(email) = LOWER(?) AND role = ?", owner, RoleAdmin).Order("created_at").Find(&users).Error; err != nil {
+		return "", err
+	}
+	for i := range users {
+		if IsLegacyOwner(&users[i], owner) {
+			return users[i].ID, nil
+		}
+	}
+	return "", nil
+}
+
 // GetStorageUserID returns the user ID that scopes per-user storage
 // (collections, fine-tuning and quantization jobs). It is the authenticated
 // user's ID, except for the legacy owner, whose storage is the root area

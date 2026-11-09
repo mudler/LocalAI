@@ -138,13 +138,15 @@ What happens to each part when you switch authentication on:
   bot answers "not available" and is switched off.
 - **Collections** made without a user belong to the root storage area. With
   authentication on, each user has their own collections (see
-  [Collections](/features/collections/)).
+  [Collections](/features/collections/)); only the legacy owner (see below)
+  keeps the root ones.
 - **Old agents, tasks, skills, Telegram connectors and saved chats** of the
   previous agent pool are converted at start and given to the account that owned
   them (see [Chats migration]({{% relref "chats-migration" %}})). With
-  authentication on, an old item that belongs to no user is not converted: the
-  report at `/app/chats/conversion` lists it as skipped, and you make it again
-  under the intended account.
+  authentication on, an old item that belongs to no user goes to the legacy
+  owner (`LOCALAI_AUTH_LEGACY_OWNER`, see below) when one is configured and has an
+  account; otherwise it is not converted: the report at `/app/chats/conversion`
+  lists it as skipped, and you make it again under the intended account.
 
 {{% notice warning %}}
 LocalAI does not migrate, delete or pause anything when you enable
@@ -164,6 +166,16 @@ identity that merely reports the owner's address without verification keeps its
 own area. Treat the address like `LOCALAI_ADMIN_EMAIL` and register it before
 anyone else can. Legacy API keys (`LOCALAI_API_KEY`) are not the owner, and an
 owner account that loses the admin role loses the root area with it.
+
+The owner's chats use the root area too: their collection tools
+(`list_collections`, `search_collection`) and the texts proposed for Knowledge
+work on the root collections. While the owner works in the root area, collections that
+other accounts share with the owner are not reachable. The old agent-pool items
+of no user are converted to the owner's account (see the list above). The
+chats' own data of the anonymous owner (chats, saved agents, triggers,
+connector bindings, notifications and files made with the chats while auth was
+off) is not part of the root storage area and is not covered: export and import
+it as described below.
 
 ```bash
 LOCALAI_AUTH=true \

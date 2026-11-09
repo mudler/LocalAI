@@ -272,6 +272,23 @@ var _ = Describe("converting the old agents", func() {
 		Expect(without.agents[""][0].Name).To(Equal("Legacy"))
 	})
 
+	It("gives a root agent to the legacy owner when one is configured", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		tg.users["owner"] = true
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true, RootOwner: "owner"}, tg, memMarks())
+		it, _ := find(r, convert.KindAgent, "Legacy")
+		Expect(it.Status).To(Equal(convert.StatusConverted), "with a legacy owner: %+v", it)
+		Expect(tg.agents["owner"]).To(ContainElement(HaveField("Name", "Legacy")))
+		Expect(tg.agents[""]).To(BeEmpty(), "a root agent went to the anonymous user")
+
+		gone := newTargets()
+		r = run(convert.Sources{StateDir: dir, AuthEnabled: true, RootOwner: "owner"}, gone, memMarks())
+		it, _ = find(r, convert.KindAgent, "Legacy")
+		Expect(it.Status).To(Equal(convert.StatusSkipped), "a legacy owner without account must not receive: %+v", it)
+	})
+
 	It("drops every connector and keeps its token out of the report", func() {
 		dir := GinkgoT().TempDir()
 		poolFixture(dir)

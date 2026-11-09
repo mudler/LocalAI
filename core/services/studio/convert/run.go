@@ -133,7 +133,8 @@ func (r *run) add(kind, user, name, status, reason string) {
 
 // owner decides who an old item belongs to. A server with no accounts has one
 // user, the anonymous one (""). With accounts, an item of no user belongs to
-// nobody. The second result is the reason when it does not convert.
+// the legacy owner when one is configured, else to nobody. The second result
+// is the reason when it does not convert.
 func (r *run) owner(ctx context.Context, user string) (string, string) {
 	if !r.src.AuthEnabled {
 		if user != "" {
@@ -142,7 +143,10 @@ func (r *run) owner(ctx context.Context, user string) (string, string) {
 		return "", ""
 	}
 	if user == "" {
-		return "", "the item has no owner: make it again in the new pages"
+		if r.src.RootOwner == "" {
+			return "", "the item has no owner: make it again in the new pages"
+		}
+		user = r.src.RootOwner
 	}
 	ok, err := r.tg.UserExists(ctx, user)
 	if err != nil {

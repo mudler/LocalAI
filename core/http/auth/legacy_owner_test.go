@@ -53,6 +53,18 @@ var _ = Describe("Legacy owner storage scope", func() {
 		return newStorageScopeApp(db, appConfig)
 	}
 
+	It("finds the legacy owner's account for the chats conversion, and only an admin", func() {
+		id, err := auth.LegacyOwnerID(db, " owner@EXAMPLE.test ")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(id).To(Equal(owner.ID))
+		id, err = auth.LegacyOwnerID(db, "bob@example.test")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(id).To(BeEmpty(), "a regular user must not receive the root items")
+		id, err = auth.LegacyOwnerID(db, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(id).To(BeEmpty())
+	})
+
 	It("gives the legacy owner the root storage area over a session", func() {
 		rec := doRequest(appWithOwner("owner@example.test"), http.MethodGet, "/scope",
 			withSessionCookie(session(owner.ID)))
