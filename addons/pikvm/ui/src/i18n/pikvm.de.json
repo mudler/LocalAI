@@ -66,21 +66,25 @@
   },
   "writeMode": {
     "label": "Was der Agent mit diesem Gerät tun darf",
-    "hint": "Den Zustand lesen ist immer erlaubt. Jede Aktion bestätigst du, sofern du im Abschnitt unten für ein Werkzeug nichts anderes einstellst.",
+    "hint": "Den Zustand lesen ist immer erlaubt. Jede Aktion bestätigst du, sofern du nicht Alles erlauben oder für ein Werkzeug im Abschnitt unten Don't ask wählst. Getippter Text wird immer bestätigt.",
     "off": "Nur lesen",
     "propose": "Fragt dich zuerst",
     "line": {
       "off": "Er kann nur lesen.",
-      "propose": "Jede Aktion wartet auf dein OK, sofern du das nicht ausschaltest."
+      "propose": "Jede Aktion wartet auf dein OK, sofern du das nicht ausschaltest.",
+      "auto": "Power-Aktionen und Tastendrücke laufen sofort."
     },
     "note": {
       "off": "Schreibzugriff ist aus: Diese Verbindung liest nur den Zustand.",
-      "propose": "Jede Power-Aktion, jeder Text und jeder Tastendruck wartet in deinen Freigaben, bis du ihn bestätigst, sofern du das für dieses Werkzeug nicht ausgeschaltet hast. Tippen und harte Power-Aktionen brauchen zusätzlich den Schalter unten."
+      "propose": "Jede Power-Aktion, jeder Text und jeder Tastendruck wartet in deinen Freigaben, bis du ihn bestätigst, sofern du das für dieses Werkzeug nicht ausgeschaltet hast. Tippen und harte Power-Aktionen brauchen zusätzlich den Schalter unten.",
+      "auto": "Ein Chat von dir drückt die Power-Taste und Tasten auf der Maschine sofort, ohne Karte, und ungespeicherte Arbeit geht verloren. Das lässt sich nicht zurücknehmen. Getippter Text wartet weiterhin auf deine Bestätigung, und Tippen und harte Power-Aktionen brauchen weiterhin den Schalter unten. Läufe ohne dich warten weiterhin auf deine Bestätigung."
     },
     "row": {
       "off": "Nur lesen",
-      "propose": "Fragt dich zuerst"
-    }
+      "propose": "Fragt dich zuerst",
+      "auto": "Alles erlauben"
+    },
+    "auto": "Alles erlauben"
   },
   "settings": {
     "title": "Tippen und harte Power-Aktionen",
@@ -94,12 +98,12 @@
     "broken": "Die gespeicherten Schalter konnten nicht gelesen werden, daher gilt alles als aus. Speichere sie erneut, um sie zu reparieren.",
     "none": "Füge eine PiKVM-Verbindung hinzu, um ihre Schalter zu setzen.",
     "typing": "Tippen und Tastendrücke erlauben",
-    "typingHint": "Erlaubt einem Chat, darum zu bitten, Text zu tippen und Tasten zu drücken. Getippter Text wartet immer auf deine Bestätigung. Tastendrücke auch, sofern du das nicht ausgeschaltet hast.",
+    "typingHint": "Erlaubt einem Chat, darum zu bitten, Text zu tippen und Tasten zu drücken. Getippter Text wartet immer auf deine Bestätigung. Tastendrücke auch, sofern du für sie nicht Don't ask oder Alles erlauben gewählt hast.",
     "maxChars": "Längster Text",
     "maxCharsHint": "Zeichen in einem getippten Text. Standard {{default}}, höchstens 1000.",
     "maxCharsShape": "Gib eine ganze Zahl von 1 bis 1000 ein.",
     "hard": "Harte Power-Aktionen erlauben",
-    "hardHint": "Erlaubt einem Chat, ein erzwungenes Ausschalten, einen Hardware-Reset oder ein langes Drücken der Power-Taste anzufordern. Jede Anfrage wartet auf deine Bestätigung, sofern du das für Power-Aktionen nicht ausgeschaltet hast.",
+    "hardHint": "Erlaubt einem Chat, ein erzwungenes Ausschalten, einen Hardware-Reset oder ein langes Drücken der Power-Taste anzufordern. Jede Anfrage wartet auf deine Bestätigung, sofern du für Power-Aktionen nicht Don't ask oder Alles erlauben gewählt hast.",
     "save": "Schalter speichern",
     "saved": "Gespeichert. Der nächste Aufruf nutzt die neuen Schalter.",
     "neverTitle": "Nie verfügbar",
@@ -148,7 +152,7 @@
     },
     "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
-    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
     "loading": "Reading your choice...",
     "loadFailed": "Your choice could not be read. Reload the page to try again.",

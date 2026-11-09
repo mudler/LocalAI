@@ -66,21 +66,25 @@
   },
   "writeMode": {
     "label": "Cosa può fare l'agente con questo dispositivo",
-    "hint": "Leggere lo stato è sempre consentito. Ogni azione la confermi tu, a meno che tu scelga Non chiedere per uno strumento nella sezione qui sotto.",
+    "hint": "Leggere lo stato è sempre consentito. Ogni azione la confermi tu, a meno che tu scelga Consenti tutto o Non chiedere per uno strumento nella sezione qui sotto. Il testo digitato è sempre confermato.",
     "off": "Sola lettura",
     "propose": "Chiede prima a te",
     "line": {
       "off": "Può solo leggere.",
-      "propose": "Ogni azione aspetta il tuo OK, a meno che tu lo disattivi."
+      "propose": "Ogni azione aspetta il tuo OK, a meno che tu lo disattivi.",
+      "auto": "Le azioni di alimentazione e i tasti premuti partono subito."
     },
     "note": {
       "off": "L'accesso in scrittura è disattivato: questa connessione legge soltanto lo stato.",
-      "propose": "Ogni azione di alimentazione, ogni testo e ogni tasto premuto aspetta tra le tue approvazioni finché non lo confermi, a meno che tu abbia scelto Non chiedere per quello strumento. La digitazione e le azioni di alimentazione forzata richiedono anche l'interruttore qui sotto."
+      "propose": "Ogni azione di alimentazione, ogni testo e ogni tasto premuto aspetta tra le tue approvazioni finché non lo confermi, a meno che tu abbia scelto Non chiedere per quello strumento. La digitazione e le azioni di alimentazione forzata richiedono anche l'interruttore qui sotto.",
+      "auto": "Una tua chat preme il pulsante di accensione e i tasti sulla macchina subito, senza scheda, e il lavoro non salvato va perso. Non si può annullare. Il testo digitato aspetta comunque la tua conferma, e la digitazione e le azioni di alimentazione forzata richiedono comunque l'interruttore qui sotto. Le esecuzioni senza di te presente aspettano comunque la tua conferma."
     },
     "row": {
       "off": "Sola lettura",
-      "propose": "Chiede prima a te"
-    }
+      "propose": "Chiede prima a te",
+      "auto": "Consenti tutto"
+    },
+    "auto": "Consenti tutto"
   },
   "settings": {
     "title": "Digitazione e azioni di alimentazione forzata",
@@ -94,12 +98,12 @@
     "broken": "Gli interruttori salvati non si sono potuti leggere, quindi tutto è trattato come disattivato. Salvali di nuovo per ripararli.",
     "none": "Aggiungi una connessione PiKVM per impostare i suoi interruttori.",
     "typing": "Consenti digitazione e tasti premuti",
-    "typingHint": "Permette a una chat di chiedere di scrivere testo e premere tasti. Il testo digitato aspetta sempre la tua conferma. Anche i tasti, a meno che tu abbia scelto Non chiedere.",
+    "typingHint": "Permette a una chat di chiedere di scrivere testo e premere tasti. Il testo digitato aspetta sempre la tua conferma. Anche i tasti, a meno che tu abbia scelto Non chiedere o Consenti tutto.",
     "maxChars": "Testo più lungo",
     "maxCharsHint": "Caratteri in un testo digitato. Predefinito {{default}}, al massimo 1000.",
     "maxCharsShape": "Inserisci un numero intero da 1 a 1000.",
     "hard": "Consenti azioni di alimentazione forzata",
-    "hardHint": "Permette a una chat di chiedere uno spegnimento forzato, un reset hardware o una pressione lunga del pulsante di accensione. Ogni richiesta aspetta la tua conferma, a meno che tu abbia scelto Non chiedere per le azioni di accensione.",
+    "hardHint": "Permette a una chat di chiedere uno spegnimento forzato, un reset hardware o una pressione lunga del pulsante di accensione. Ogni richiesta aspetta la tua conferma, a meno che tu abbia scelto Non chiedere per le azioni di accensione o Consenti tutto.",
     "save": "Salva gli interruttori",
     "saved": "Salvato. La prossima chiamata usa i nuovi interruttori.",
     "neverTitle": "Mai disponibili",
@@ -148,7 +152,7 @@
     },
     "textAlways": "Il testo digitato chiede sempre. Può inserire una password o un comando, quindi non ha Non chiedere.",
     "who": "Non chiedere vale per le tue chat e per i mittenti di messaggistica che hai abbinato al bot. Tutti gli altri vengono comunque interpellati: mittenti solo in lista consentiti, mittenti ammessi perché il bot accetta chiunque, esecuzioni programmate e sotto-agenti.",
-    "needsWrite": "Una connessione in sola lettura non esegue nulla, qualunque cosa scelga qui.",
+    "needsWrite": "Una connessione in sola lettura non esegue nulla, qualunque cosa scelga qui. Una connessione su Consenti tutto esegue subito le azioni di alimentazione e i tasti, qualunque cosa scelga qui.",
     "audit": "Ogni esecuzione senza chiedere viene scritta nel registro con lo strumento, la connessione e l'esito. Il testo digitato e i tasti no.",
     "loading": "Lettura della tua scelta...",
     "loadFailed": "Non è stato possibile leggere la tua scelta. Ricarica la pagina per riprovare.",

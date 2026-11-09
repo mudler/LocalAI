@@ -66,21 +66,25 @@
   },
   "writeMode": {
     "label": "Qué puede hacer el agente con este dispositivo",
-    "hint": "Leer el estado siempre está permitido. Cada acción la confirmas tú, salvo que elijas otra cosa para una herramienta en la sección de abajo.",
+    "hint": "Leer el estado siempre está permitido. Cada acción la confirmas tú, salvo que elijas Permitir todo o Don't ask para una herramienta en la sección de abajo. El texto escrito siempre se confirma.",
     "off": "Solo lectura",
     "propose": "Te pregunta antes",
     "line": {
       "off": "Solo puede leer.",
-      "propose": "Cada acción espera tu visto bueno, salvo que lo desactives."
+      "propose": "Cada acción espera tu visto bueno, salvo que lo desactives.",
+      "auto": "Las acciones de encendido y las teclas se ejecutan al instante."
     },
     "note": {
       "off": "El acceso de escritura está desactivado: esta conexión solo lee el estado.",
-      "propose": "Cada acción de encendido, texto y pulsación de tecla espera en tus aprobaciones hasta que la confirmes, salvo que lo hayas desactivado para esa herramienta. Escribir y las acciones de apagado forzado también necesitan el interruptor de abajo."
+      "propose": "Cada acción de encendido, texto y pulsación de tecla espera en tus aprobaciones hasta que la confirmes, salvo que lo hayas desactivado para esa herramienta. Escribir y las acciones de apagado forzado también necesitan el interruptor de abajo.",
+      "auto": "Un chat tuyo pulsa el botón de encendido y las teclas de la máquina al instante, sin tarjeta, y el trabajo sin guardar se pierde. No se puede deshacer. El texto escrito sigue esperando tu confirmación, y escribir y los apagados forzados siguen necesitando el interruptor de abajo. Las ejecuciones sin ti presente siguen esperando tu confirmación."
     },
     "row": {
       "off": "Solo lectura",
-      "propose": "Te pregunta antes"
-    }
+      "propose": "Te pregunta antes",
+      "auto": "Permitir todo"
+    },
+    "auto": "Permitir todo"
   },
   "settings": {
     "title": "Escribir y acciones de apagado forzado",
@@ -94,12 +98,12 @@
     "broken": "No se pudieron leer los interruptores guardados, así que todo se trata como desactivado. Guárdalos de nuevo para repararlos.",
     "none": "Añade una conexión de PiKVM para configurar sus interruptores.",
     "typing": "Permitir escribir y pulsar teclas",
-    "typingHint": "Permite que un chat pida escribir texto y pulsar teclas. El texto escrito siempre espera tu confirmación. Las teclas también, salvo que lo hayas desactivado.",
+    "typingHint": "Permite que un chat pida escribir texto y pulsar teclas. El texto escrito siempre espera tu confirmación. Las teclas también, salvo que hayas elegido Don't ask para ellas o Permitir todo.",
     "maxChars": "Texto más largo",
     "maxCharsHint": "Caracteres en un texto escrito. Por defecto {{default}}, como máximo 1000.",
     "maxCharsShape": "Introduce un número entero del 1 al 1000.",
     "hard": "Permitir acciones de apagado forzado",
-    "hardHint": "Permite que un chat pida un apagado forzado, un reinicio por hardware o una pulsación larga del botón de encendido. Cada petición espera tu confirmación, salvo que lo hayas desactivado para las acciones de encendido.",
+    "hardHint": "Permite que un chat pida un apagado forzado, un reinicio por hardware o una pulsación larga del botón de encendido. Cada petición espera tu confirmación, salvo que hayas elegido Don't ask para las acciones de encendido o Permitir todo.",
     "save": "Guardar interruptores",
     "saved": "Guardado. La próxima llamada usa los interruptores nuevos.",
     "neverTitle": "Nunca disponible",
@@ -148,7 +152,7 @@
     },
     "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
-    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "needsWrite": "Una conexión en Solo lectura no ejecuta nada, elijas lo que elijas aquí. Una conexión en Permitir todo ejecuta al instante las acciones de encendido y las teclas, elijas lo que elijas aquí.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
     "loading": "Reading your choice...",
     "loadFailed": "Your choice could not be read. Reload the page to try again.",

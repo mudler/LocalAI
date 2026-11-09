@@ -66,21 +66,25 @@
   },
   "writeMode": {
     "label": "Apa yang boleh dilakukan agen pada perangkat ini",
-    "hint": "Membaca status selalu diizinkan. Setiap tindakan Anda konfirmasi, kecuali Anda memilih lain untuk sebuah alat di bagian bawah.",
+    "hint": "Membaca status selalu diizinkan. Setiap tindakan Anda konfirmasi, kecuali Anda memilih Izinkan semua atau Don't ask untuk sebuah alat di bagian bawah. Teks yang diketik selalu dikonfirmasi.",
     "off": "Hanya baca",
     "propose": "Tanya Anda dulu",
     "line": {
       "off": "Agen hanya dapat membaca.",
-      "propose": "Setiap tindakan menunggu persetujuan Anda, kecuali Anda mematikannya."
+      "propose": "Setiap tindakan menunggu persetujuan Anda, kecuali Anda mematikannya.",
+      "auto": "Tindakan daya dan penekanan tombol langsung dijalankan."
     },
     "note": {
       "off": "Akses tulis nonaktif: koneksi ini hanya membaca status.",
-      "propose": "Setiap tindakan daya, teks, dan penekanan tombol menunggu di persetujuan Anda sampai Anda mengonfirmasinya, kecuali Anda mematikannya untuk alat itu. Mengetik dan tindakan daya paksa juga memerlukan sakelar di bawah."
+      "propose": "Setiap tindakan daya, teks, dan penekanan tombol menunggu di persetujuan Anda sampai Anda mengonfirmasinya, kecuali Anda mematikannya untuk alat itu. Mengetik dan tindakan daya paksa juga memerlukan sakelar di bawah.",
+      "auto": "Chat Anda langsung menekan tombol daya dan tombol lain pada mesin, tanpa kartu, dan pekerjaan yang belum disimpan akan hilang. Ini tidak dapat dibatalkan. Teks yang diketik tetap menunggu konfirmasi Anda, dan pengetikan serta tindakan daya paksa tetap memerlukan sakelar di bawah. Jalan tanpa kehadiran Anda tetap menunggu konfirmasi Anda."
     },
     "row": {
       "off": "Hanya baca",
-      "propose": "Tanya Anda dulu"
-    }
+      "propose": "Tanya Anda dulu",
+      "auto": "Izinkan semua"
+    },
+    "auto": "Izinkan semua"
   },
   "settings": {
     "title": "Mengetik dan tindakan daya paksa",
@@ -94,12 +98,12 @@
     "broken": "Sakelar yang tersimpan tidak dapat dibaca, jadi semuanya dianggap nonaktif. Simpan lagi untuk memperbaikinya.",
     "none": "Tambahkan koneksi PiKVM untuk mengatur sakelarnya.",
     "typing": "Izinkan mengetik dan menekan tombol",
-    "typingHint": "Memungkinkan chat meminta untuk mengetik teks dan menekan tombol. Teks yang diketik selalu menunggu konfirmasi Anda. Penekanan tombol juga, kecuali Anda mematikannya.",
+    "typingHint": "Memungkinkan chat meminta untuk mengetik teks dan menekan tombol. Teks yang diketik selalu menunggu konfirmasi Anda. Penekanan tombol juga, kecuali Anda memilih Don't ask untuknya atau Izinkan semua.",
     "maxChars": "Teks terpanjang",
     "maxCharsHint": "Karakter dalam satu teks yang diketik. Bawaan {{default}}, paling banyak 1000.",
     "maxCharsShape": "Masukkan bilangan bulat dari 1 sampai 1000.",
     "hard": "Izinkan tindakan daya paksa",
-    "hardHint": "Memungkinkan chat meminta pemadaman paksa, reset perangkat keras, atau penekanan lama tombol daya. Setiap permintaan menunggu konfirmasi Anda, kecuali Anda mematikannya untuk tindakan daya.",
+    "hardHint": "Memungkinkan chat meminta pemadaman paksa, reset perangkat keras, atau penekanan lama tombol daya. Setiap permintaan menunggu konfirmasi Anda, kecuali Anda memilih Don't ask untuk tindakan daya atau Izinkan semua.",
     "save": "Simpan sakelar",
     "saved": "Tersimpan. Panggilan berikutnya memakai sakelar baru.",
     "neverTitle": "Tidak pernah tersedia",
@@ -148,7 +152,7 @@
     },
     "textAlways": "Typed text always asks. It can enter a password or a command, so it has no Don't ask.",
     "who": "Don't ask holds for your own chats and for messaging senders you paired with the bot. Everyone else is still asked: senders only on the allowlist, senders let in because the bot accepts anyone, scheduled runs and sub-agents.",
-    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here.",
+    "needsWrite": "A connection set to Read only runs nothing, whatever you choose here. A connection set to Allow all runs power actions and key presses at once, whatever you choose here.",
     "audit": "Every run without asking is written to the log with the tool, the connection and the result. The typed text and the keys are not.",
     "loading": "Reading your choice...",
     "loadFailed": "Your choice could not be read. Reload the page to try again.",

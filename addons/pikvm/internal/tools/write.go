@@ -19,12 +19,14 @@ import (
 )
 
 // The three write tools have physical effects on a real machine. The manifest
-// declares approval "always" for each: a person confirms every call, whatever
-// the write mode of the connection is. power-action and send-key are also
-// approvalOverridable: the owner can choose "Don't ask" for them, and only the
-// host honors that, for the owner's own chat and for paired senders. type-text
-// is never overridable. The kvmd API has no idempotency key, so
-// the add-on notes an operation before it sends it and never sends one twice.
+// declares approval "always" for each: a person confirms every call in the
+// propose mode of the connection. power-action and send-key are also
+// approvalOverridable: the owner can choose "Don't ask" for them, and the
+// write mode Allow all lifts the same ceiling. type-text is never
+// overridable, so it waits for a person in every mode. The per-device switches
+// for typing and hard power actions are checked here and hold in every mode.
+// The kvmd API has no idempotency key, so the add-on notes an operation before
+// it sends it and never sends one twice.
 
 const (
 	previewBudget = 8 << 10
