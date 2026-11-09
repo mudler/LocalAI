@@ -358,7 +358,7 @@ React pages that want to filter the ModelSelector by capability import this symb
 
 A new capability deserves its own page under `docs/content/features/`, plus cross-links from related features. See the pattern used by `face-recognition.md` / `object-detection.md`.
 
-Announcing it is the release's job, not this page's: the capability gets covered in the release blog post under `website/content/blog/`. See [preparing-a-release.md](preparing-a-release.md). `docs/content/whats-new.md` is only a pointer at the blog and GitHub Releases, so there is nothing to add there.
+Announcing it is the release's job, not this page's: the capability gets covered in the release blog post under `website/content/blog/`. See [preparing-a-release.md](preparing-a-release.md). `docs/content/start/whats-new.md` is only a pointer at the blog and GitHub Releases, so there is nothing to add there.
 
 ## Path protection rules
 

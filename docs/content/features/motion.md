@@ -1,6 +1,5 @@
 +++
 title = "Motion Capture"
-url = "/features/motion/"
 weight = 21
 +++
 

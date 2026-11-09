@@ -2,7 +2,6 @@
 disableToc = false
 title = "Pages"
 weight = 22
-url = "/features/pages/"
 +++
 
 A page is a small HTML page in your workspace that LocalAI shows as part of its
@@ -19,7 +18,7 @@ Pages need the `chats` feature and the `pages` feature. An administrator always
 has `pages`. For other users it is off until an administrator switches it on in
 the user's permissions (**Users**, then **Pages (HTML pages in the
 workspace)**). When authentication is off, the single user has it. The files of
-the chats must be on (see [Chats]({{%relref "features/chats" %}})).
+the chats must be on (see [Chats]({{%relref "/features/chats" %}})).
 {{% /notice %}}
 
 ## Where a page lives
@@ -253,7 +252,7 @@ may imitate another site.
 ## A page that starts a run
 
 A page cannot call the assistant on its own, but it can write files, and a
-[file trigger](/features/chats-agents/#triggers) can watch a folder of the
+[file trigger]({{% relref "/features/chats-agents" %}}#triggers) can watch a folder of the
 page. Each file the page writes there starts a run, which answers by writing a
 file the page reads back.
 
@@ -403,7 +402,7 @@ A shared folder is a folder outside your home that an administrator gave you
 access to, read-only or read-write (a workspace grant). An administrator
 creates the shared folders and chooses their members in the **Shared** tab of
 **Files** or through the API (see [Shared
-folders]({{%relref "features/chats#shared-folders" %}})). Its pages are the
+folders]({{%relref "/features/chats#shared-folders" %}})). Its pages are the
 folders `pages/<name>/` with an `index.html`, as in your home. They show on the
 Pages screen under **Shared with you**, with their author (the account that
 last wrote `index.html`), the folder, and a badge: **Not allowed yet**,
@@ -472,7 +471,7 @@ consent audit (`studio_page_consent_events`: who, which page and folder, which
 hash, when) and to the log.
 
 An administrator can turn shared pages off at run time with
-`shared_pages_enabled` in the [runtime settings](/features/runtime-settings/)
+`shared_pages_enabled` in the [runtime settings]({{% relref "/administration/runtime-settings" %}})
 (or start with `LOCALAI_DISABLE_SHARED_PAGES=true`). Then the list still shows
 the pages, dimmed, with "Shared pages are off on this server. An administrator
 turned them off."; a page does not open; and the bridge refuses every call, so

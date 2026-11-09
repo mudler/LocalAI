@@ -1,11 +1,10 @@
-
 +++
 disableToc = false
 title = "Runtime errors and troubleshooting"
-weight = 26
+weight = 60
 +++
 
-This page maps the runtime and backend error messages you actually see in the logs (or in an API response) to their likely cause and fix. It covers failures that happen while a model is loading or running, as opposed to API-envelope validation errors (bad request shape, unknown field, wrong content type), which are documented in {{% relref "reference/api-errors" %}}.
+This page maps the runtime and backend error messages you actually see in the logs (or in an API response) to their likely cause and fix. It covers failures that happen while a model is loading or running, as opposed to API-envelope validation errors (bad request shape, unknown field, wrong content type), which are documented in {{% relref "/api/api-errors" %}}.
 
 If you only have an HTTP `500` and no message, read [How to read the real error](#how-to-read-the-real-error) first: the useful text is almost always in the server log, not in the HTTP body.
 
@@ -20,7 +19,7 @@ The left column is the literal string as it appears in the LocalAI server log (o
 | `could not load model - all backends returned error: ...` | LocalAI tried every candidate backend for the model and each one failed. Usually the backend for this model type is not installed, or the model file is unusable. | Install the correct backend with `local-ai backends install <backend>` (or from the Backends page). Confirm the model config `backend:` field names an installed backend. Inspect the concatenated per-backend messages for the real cause. |
 | `grpc service not ready` | The backend process was spawned but its gRPC server did not become healthy in time (slow start, crash on startup, or the process died while loading). When a local backend has already exited, the error includes its exit code and last stderr line. | Use the included stderr diagnostic when present; otherwise check the log lines just above. A crash here often means out of memory, a missing shared library, or an incompatible CPU (see `SIGILL`). Increase available RAM/VRAM or pick a smaller quantization. |
 | `failed to load model: ...` | Returned by the load endpoints and several feature paths (voice, realtime, audio transform) when the model config could not be resolved or the backend load failed. | Confirm the model name exists (`local-ai models list`) and its YAML is valid. The trailing text carries the specific reason. |
-| HTTP `503` with a `Retry-After` header, after a load failed | Model-load failure cooldown. After a model fails to load, LocalAI refuses new load attempts for that model for a short window so a client that keeps polling a broken model does not respawn a crashing backend on every request. The window starts at `--model-load-failure-cooldown` (default `10s`) and doubles per consecutive failure up to 5m; it resets on the first success. | Fix the underlying load failure (see the rows above), then wait out the `Retry-After` seconds before retrying, or restart LocalAI to clear the cooldown. Set `--model-load-failure-cooldown 0` (or `LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN=0`) to disable the cooldown entirely. See {{% relref "reference/cli-reference" %}}. |
+| HTTP `503` with a `Retry-After` header, after a load failed | Model-load failure cooldown. After a model fails to load, LocalAI refuses new load attempts for that model for a short window so a client that keeps polling a broken model does not respawn a crashing backend on every request. The window starts at `--model-load-failure-cooldown` (default `10s`) and doubles per consecutive failure up to 5m; it resets on the first success. | Fix the underlying load failure (see the rows above), then wait out the `Retry-After` seconds before retrying, or restart LocalAI to clear the cooldown. Set `--model-load-failure-cooldown 0` (or `LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN=0`) to disable the cooldown entirely. See {{% relref "/reference/cli-reference" %}}. |
 | HTTP `503` with `no available nodes` or `no healthy nodes match selector` | The scheduler could not find any healthy node to serve the model. All nodes are full and eviction cannot free a slot, or a `node_selector` in the model's scheduling config excludes every candidate. | Retry after a node becomes available or an in-flight request completes and frees a slot. In a cluster, add nodes or replicas. If a selector is set, confirm at least one healthy node matches it. |
 | HTTP `429` with a `Retry-After` header, under load | Per-model concurrency limit reached. When a model config sets a `MaxConcurrent` limit, extra requests are rejected with `429` and a `Retry-After` (whole seconds, floor 1) instead of queueing. | Retry after the advised delay, raise the model's concurrency limit, or run more replicas. |
 | HTTP `429` when backend inference is saturated | The process-wide `--max-concurrent-backend-requests` backend-execution ceiling is full. This protects inference and in-flight backend-trace memory without blocking UI or administrative endpoints. | Retry after the advised delay, reduce inference concurrency, raise the limit if the host has capacity, or add replicas. |
@@ -56,10 +55,10 @@ Slow inference is usually a configuration or hardware issue rather than an error
 - **Do not overbook the CPU.** Ideally `--threads` matches the number of physical cores. For a 4-core CPU, allocate `<= 4` threads per model.
 - **Run with `DEBUG=true`** to see token-inference stats and confirm where time is going.
 - **Confirm you are getting output at all:** send a simple request with `"stream": true` and watch how fast tokens arrive.
-- **Check GPU offload.** If you expect GPU acceleration, confirm the model actually loaded onto the GPU (the backend log reports offloaded layers). See {{% relref "features/GPU-acceleration" %}}.
+- **Check GPU offload.** If you expect GPU acceleration, confirm the model actually loaded onto the GPU (the backend log reports offloaded layers). See {{% relref "/models/gpu-acceleration" %}}.
 
 ## See also
 
-- {{% relref "reference/api-errors" %}} for API-envelope error formats and status codes.
-- {{% relref "getting-started/first-agent" %}} for the "if your agent will not run" checklist (agent-specific failures).
-- {{% relref "reference/cli-reference" %}} for the full flag list, including the model-load failure cooldown and watchdog options.
+- {{% relref "/api/api-errors" %}} for API-envelope error formats and status codes.
+- {{% relref "/start/first-agent" %}} for the "if your agent will not run" checklist (agent-specific failures).
+- {{% relref "/reference/cli-reference" %}} for the full flag list, including the model-load failure cooldown and watchdog options.

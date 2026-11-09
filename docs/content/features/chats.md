@@ -2,7 +2,6 @@
 disableToc = false
 title = "Chats"
 weight = 21
-url = "/features/chats/"
 +++
 
 Chats are conversations that the server keeps. You can keep typing while the
@@ -36,7 +35,7 @@ administrator always has all of them:
 | `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
 | `connectors` | off | Telegram and Slack bindings (`/api/chats/connectors`): a public door to one of your agents. |
 | `mcp_jobs` | off | The agent tasks and jobs API (`/api/agent/...`). |
-| `pages` | off | The pages of the workspace (`/api/chats/pages...`): HTML pages in `pages/` of the home, shown in a sandboxed frame. See [Pages]({{%relref "features/pages" %}}). |
+| `pages` | off | The pages of the workspace (`/api/chats/pages...`): HTML pages in `pages/` of the home, shown in a sandboxed frame. See [Pages]({{%relref "/features/pages" %}}). |
 
 A command-line MCP server (stdio) in your MCP connectors stays for administrators
 only, whatever the features. A trigger or a connector whose owner loses its feature
@@ -74,7 +73,7 @@ a bot token or an agent's instructions:
 
 The agent tasks and jobs have their own view: `?all_users=true` on
 `GET /api/agent/tasks` and `GET /api/agent/jobs` (see [Agent tasks and
-jobs](/features/agent-jobs/)).
+jobs]({{% relref "/features/agent-jobs" %}})).
 
 ## Switch the chats off
 
@@ -92,7 +91,7 @@ what runs (`chats`, `agents`, `triggers`, `connectors`).
 | `LOCALAI_DISABLE_AGENTS` | `false` | Deprecated. It kept the meaning it had in the old agent pool, which also held the knowledge base: it sets `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`, and logs a warning. |
 
 `LOCALAI_DISABLE_COLLECTIONS` stays separate and turns off only the
-[collections](/features/collections/).
+[collections]({{% relref "/features/collections" %}}).
 
 ## Start a chat and send messages
 
@@ -164,7 +163,7 @@ a card `{"kind": "files_change", "id": "<rev>:<path>"}` (`delete_file` moves to
 the Trash, where you restore it).
 `POST /api/chats/files/undo {"rev": N}` undoes that change set; the chat page
 uses this for the Undo of its change notes (see
-[Make LocalAI yours](/features/make-localai-yours/#what-a-change-shows)). To
+[Make LocalAI yours]({{% relref "/features/make-localai-yours" %}}#what-a-change-shows)). To
 undo a whole turn, undo the changes of its tool lines, newest first. The
 checkpoint line marks the end of the turn; its `rev` is `0` and its `text` is
 empty, because the turn's changes are already kept call by call.
@@ -349,7 +348,7 @@ stop it. Type `/loop` in the message box, or use the API.
   `wait_agents` need the capability `loops.wait` and a listed or paired
   sender. `loops.wait` is on by default for new bots and is added once to
   existing bots; `loops.start` is off until the owner ticks it, as for any
-  other capability (see [Chats: connectors](/features/chats-connectors/)).
+  other capability (see [Chats: connectors]({{% relref "/features/chats-connectors" %}})).
   A bot that accepts anyone gives neither to a sender who is not paired. The
   server checks the capability again when the model calls the tool. A loop in
   a chat that a trigger, a job, a page or a connector started ends after a fifth
@@ -535,7 +534,7 @@ every open tab that the list changed, and a user line that a loop sent carries
 Both run a prompt without you typing it. Choose by where the answers should go
 and how often:
 
-| | Loop | [Trigger](/features/chats-agents/) |
+| | Loop | [Trigger]({{% relref "/features/chats-agents" %}}) |
 |---|---|---|
 | Where it runs | In the chat where you started it, which keeps its history | A new chat for each run |
 | How often | From every minute (or as the model decides) | At most once every 5 minutes, on a schedule, or when a file arrives |
@@ -786,7 +785,7 @@ the model:
   `known_input_modalities`) the image goes to the model inside the message,
   as an `image_url` part, and the model answers about it directly. A model
   behind a cloud proxy cannot be asked what it accepts: declare `vision` in
-  its configuration (see [Cloud passthrough proxy]({{% relref "operations/cloud-proxy#images" %}})).
+  its configuration (see [Cloud passthrough proxy]({{% relref "/administration/cloud-proxy#images" %}})).
   With a model that cannot look at images, the model gets the file path and
   the `describe_image` tool.
 - **Video.** `mp4`, `webm`, `mov`, `mkv` and `avi` files go to a model that
@@ -853,7 +852,7 @@ every turn, so it knows which files exist and where they are now.
   The model sees the same file as
   `/workspace/home/Chats/2026-10-29 Budget/q1.csv`. The folder is made at the
   first attachment. In a chat whose agent works in [one
-  folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}), the
+  folder]({{%relref "/features/chats-agents#folders-of-an-agent" %}}), the
   model sees the chat folder at `/workspace/chat` instead (the file above is
   `/workspace/chat/q1.csv`), and the folder is made before the first turn. The
   list on this page keeps the paths in your home.
@@ -874,7 +873,7 @@ every turn, so it knows which files exist and where they are now.
   fork lists them while they are there.
 
 To follow the changes to your files as they happen (from any tab, chat,
-trigger or frontend), open the [change feed](/features/workspace-feed/)
+trigger or frontend), open the [change feed]({{% relref "/features/workspace-feed" %}})
 (`GET /api/workspace/events`).
 
 ```bash
@@ -1023,7 +1022,7 @@ later as a message in the conversation and as a `sub_agent_done` event.
 - A `sub_agent_started` event (with the run's id and title) and a
   `sub_agent_done` event mark the run in the parent's event stream.
 - A sub-agent of a chat whose agent works in [one
-  folder]({{%relref "features/chats-agents#folders-of-an-agent" %}})
+  folder]({{%relref "/features/chats-agents#folders-of-an-agent" %}})
   works inside the chat's folders, never in more of your files and never
   with more rights than the chat.
 - A sub-agent cannot run commands when its parent cannot (see [Running
@@ -1076,7 +1075,7 @@ curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
 ### Saved agents as sub-agents
 
 A chat can also start one of your [saved
-agents]({{%relref "features/chats-agents#saved-agents" %}}) as a sub-agent. This
+agents]({{%relref "/features/chats-agents#saved-agents" %}}) as a sub-agent. This
 is off for every chat until you switch **Saved agents** on in the chat's
 **Tools** menu. The chat then has two more things:
 
@@ -1084,7 +1083,7 @@ is off for every chat until you switch **Saved agents** on in the chat's
   `model`, at most 100, and for an agent that works in a folder the folder's
   name (`folder`) and its mode (`folder_mode`, `read` or `write`). It lists only
   your own agents. In a chat whose agent has a folder it lists only the agents
-  that can start there (see [Folders of an agent]({{%relref "features/chats-agents#folders-of-an-agent" %}})).
+  that can start there (see [Folders of an agent]({{%relref "/features/chats-agents#folders-of-an-agent" %}})).
 - `spawn_agent` takes an `agent` argument, the id or the name (ignoring case) of
   one of them. The sub-agent runs with the agent's instructions, its model (or
   the chat's model when the agent names none) and only what the agent grants,
@@ -1138,10 +1137,10 @@ A chat runs commands and code with one tool, `bash`. Who serves it depends on
 the server:
 
 - **The Sandbox.** With the [Sandbox
-  add-on]({{%relref "features/addons#sandbox" %}}) installed, running and on
+  add-on]({{%relref "/addons/contract-reference#sandbox" %}}) installed, running and on
   for the chat, `bash` runs in an isolated sandbox. The add-on's `bash`
   replaces the built-in one (see [Tools that replace a built-in
-  tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}})),
+  tool]({{%relref "/addons/contract-reference#tools-that-replace-a-built-in-tool" %}})),
   so the chat never has two.
 - **This machine.** Otherwise, when an administrator allows it, the built-in
   `bash` runs commands directly on the machine that runs LocalAI, **with no
@@ -1150,7 +1149,7 @@ the server:
 - **Nothing.** With neither, nothing in the chat runs code.
 
 A chat whose agent works in [one
-folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}) runs
+folder]({{%relref "/features/chats-agents#folders-of-an-agent" %}}) runs
 commands only in the Sandbox, never on this machine. Its sandbox has the
 agent's folder at `/workspace/home` and the chat's own folder at
 `/workspace/chat`.
@@ -1304,7 +1303,7 @@ nothing changes and the model is told to try again.
 
 The Sandbox has no network device: its commands reach HTTP and HTTPS only
 through a proxy that asks LocalAI about each connection (see [Network
-access]({{%relref "features/addons#network-access" %}})). Each chat has a
+access]({{%relref "/addons/contract-reference#network-access" %}})). Each chat has a
 **Network** row in its Tools menu with three choices:
 
 - **Off**: commands reach nothing.
@@ -1358,7 +1357,7 @@ on this machine and use its network*: these settings do not apply there.
 
 The Network row is drawn by LocalAI for the add-on that runs the chat's
 commands, when that add-on has the `network-policy` [host
-control]({{%relref "features/addons#host-controls" %}}) (the Sandbox has it).
+control]({{%relref "/addons/contract-reference#host-controls" %}}) (the Sandbox has it).
 With an add-on that runs commands but does not have it, the Tools menu has no
 Network row; the limit and the default still apply to its commands.
 
@@ -1366,7 +1365,7 @@ The routes, for the chat's owner (another user's chat is 404):
 
 | Route | What it does |
 |---|---|
-| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is true when the add-on that serves `bash` reports, in its typed execution status, that it enforces the network policy and the status is available and isolated (the Sandbox does, except on the host backend). It is false when commands run on this machine (`applies_reason` `host`), no Sandbox serves `bash`, or the add-on does not report enforcement (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{%relref "features/addons#host-controls" %}})); it is absent when no add-on runs the commands or that add-on has no such control. The chat shows the Network row only when `applies` is true and `addon` is set; otherwise it shows a line that says why the settings do not apply. A rule the ceiling no longer admits has `above_limit`. |
+| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is true when the add-on that serves `bash` reports, in its typed execution status, that it enforces the network policy and the status is available and isolated (the Sandbox does, except on the host backend). It is false when commands run on this machine (`applies_reason` `host`), no Sandbox serves `bash`, or the add-on does not report enforcement (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{%relref "/addons/contract-reference#host-controls" %}})); it is absent when no add-on runs the commands or that add-on has no such control. The chat shows the Network row only when `applies` is true and `addon` is set; otherwise it shows a line that says why the settings do not apply. A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
 | `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). The same answer sent twice is one answer (204, nothing changes). Another answer to a card already answered is 409 `already_answered`. A host the ceiling does not admit refuses the card and gives 400 `egress_above_ceiling` on this answer and on every later one, so a stale card never ends in a conflict loop. In `GET /api/chats/{id}/egress` such a card has `above_ceiling`: no answer can make it work. |
@@ -1385,7 +1384,7 @@ it is right after a restart and the same on every frontend of a cluster.
 ### Sandbox profile
 
 A Sandbox add-on that declares profiles (the Sandbox does: `base` and
-`media`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
+`media`, see [Sandbox profiles]({{%relref "/addons/contract-reference#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
 default of the administrator (`media` when the administrator sets none), or the
@@ -1437,7 +1436,7 @@ shown when the Sandbox is already installed, or when add-ons are off.
   `chats_host_exec` says: a command here can read every file LocalAI can read,
   so nothing keeps it in that folder. Such a chat runs commands only in the
   Sandbox, and its Tools menu says why. See
-  [Folders of an agent]({{%relref "features/chats-agents#folders-of-an-agent" %}}).
+  [Folders of an agent]({{%relref "/features/chats-agents#folders-of-an-agent" %}}).
 - **Your files.** Each chat gets a scratch folder with your files: `home/`
   there is `/workspace/home` of the file tools, and `shared-<name>/` is a
   shared folder. A command starts in `home/`, so a relative path is a path in
@@ -1546,8 +1545,8 @@ curl -s localhost:8080/api/chats/$ID/addons
 ### The connections of an add-on
 
 Some add-ons run their tools with a token that you keep in a connection (for
-example the [GitHub add-on](/features/chats-connectors/#github) or the
-[Jellyfin add-on](/features/chats-connectors/#jellyfin)). Any add-on
+example the [GitHub add-on]({{% relref "/features/chats-connectors" %}}#github) or the
+[Jellyfin add-on]({{% relref "/features/chats-connectors" %}}#jellyfin)). Any add-on
 that declares a credential in its manifest works this way. LocalAI never
 chooses the connections for you, and a chat can use more than one for the same
 add-on:
@@ -1561,7 +1560,7 @@ add-on:
   connection switches the add-on on.
 - With **none**, the row says "No connection yet" and links to the Connectors
   page.
-- A [saved agent](/features/chats-agents/#connections-of-an-agent) can name a
+- A [saved agent]({{% relref "/features/chats-agents" %}}#connections-of-an-agent) can name a
   set of connections for the add-on. A chat of that agent uses that set, shows it
   read only, and cannot change it. An agent with no set follows the same rules as
   a chat.
@@ -1735,7 +1734,7 @@ chats, as it does for `/v1/chat/completions`. A user needs the
 A tool cannot take the name of a built-in tool such as `spawn_agent`.
 
 You can also add MCP servers of your own, stored on the server: see
-[MCP servers](/features/chats-connectors/#mcp-servers). Your enabled connectors
+[MCP servers]({{% relref "/features/chats-connectors" %}}#mcp-servers). Your enabled connectors
 are offered to your chats next to the model's servers; the model's own
 configuration is not changed.
 
@@ -1770,7 +1769,7 @@ The **Tools** menu over the message box lists the groups of built-in tools, the 
 chat's model and your connectors, with a switch each. What cannot be used now is
 shown off, with the reason (a connector that is switched off, a model server
 that the model does not use by itself). A switch takes effect at the next turn.
-Switches only take away: a chat with a [saved agent](/features/chats-agents/)
+Switches only take away: a chat with a [saved agent]({{% relref "/features/chats-agents" %}})
 lists only what the agent grants and never gets more than that. A trigger run with no
 agent copies the switches of the chat that proposed it.
 
@@ -1807,15 +1806,15 @@ it off, so a chat that never touches the menu works as before:
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
-| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}}): `generate_image`, `speak`, `embed`, `voice_profile` and more. Each one is offered only when your account has its feature and an installed model can serve it. Saving a voice with `voice_profile` shows a card where you confirm that the speaker agreed; nothing is saved before |
+| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "/features/localai-assistant#tool-groups" %}}): `generate_image`, `speak`, `embed`, `voice_profile` and more. Each one is offered only when your account has its feature and an installed model can serve it. Saving a voice with `voice_profile` shows a card where you confirm that the speaker agreed; nothing is saved before |
 | **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats](#past-chats)) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
-| **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory](/features/short-memory/)). Switch it off to make the chat private: it neither reads nor saves memory |
-| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "features/localai-assistant#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
-| **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory](/features/short-memory/#choose-how-a-note-is-saved)) |
+| **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory]({{% relref "/features/short-memory" %}})). Switch it off to make the chat private: it neither reads nor saves memory |
+| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "/features/localai-assistant#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
+| **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals]({{% relref "/addons/contract-reference" %}}#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory]({{% relref "/features/short-memory" %}}#choose-how-a-note-is-saved)) |
 
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
@@ -1826,7 +1825,7 @@ them in full: it sends `tool_search`, `tool_describe` and `tool_call` instead, a
 model finds and runs their tools through them, under the same permissions. The setting
 `chats_tool_search` (`auto`, `on` or `off`) decides; with `on`, the tools of the user's MCP
 connectors load on demand in the same way. See
-[Tool search]({{% relref "features/localai-assistant#tool-search" %}}). The tools panel marks
+[Tool search]({{% relref "/features/localai-assistant#tool-search" %}}). The tools panel marks
 such a group with `"deferred":true`.
 
 `off` replaces the earlier list, and a name that is not a group is refused
@@ -1871,7 +1870,7 @@ with the reason. The row also shows as not usable when you do not have the
 `triggers` feature, and it is not listed at all when the server runs no
 triggers (`LOCALAI_DISABLE_TRIGGERS`). The group has no runtime setting: the
 start-up switch governs it. See
-[Proposals](/features/chats-agents/#proposals).
+[Proposals]({{% relref "/features/chats-agents" %}}#proposals).
 
 The saved agents group (`saved_agents`) is opt-in: it is off until `on` names
 it. See [Saved agents as sub-agents](#saved-agents-as-sub-agents).
@@ -1882,7 +1881,7 @@ A tool of an MCP server can declare an interactive HTML page in
 `_meta.ui.resourceUri`, as the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview)
 defines. When the model calls such a tool, the chat shows the page under the tool
 line, with the arguments and the result of the call. This works for your
-[connectors](/features/chats-connectors/#mcp-apps) and for the MCP servers of the
+[connectors]({{% relref "/features/chats-connectors" %}}#mcp-apps) and for the MCP servers of the
 chat's model. The page appears as soon as the tool call ends, while the turn
 goes on, and it stays when the turn ends or the chat is opened again.
 
@@ -1979,13 +1978,13 @@ Skills come from six places, nearest first, and the nearest wins when two have t
 | Add-on | ships with an installed add-on | the add-on owner |
 | Built-in | ships with the server | the server |
 
-The agent layer holds the skills of one saved agent. Only a chat that runs that agent sees them, and it needs no grant in the agent's skill list. They win over your personal skill of the same name, for that agent only. An agent writes one by a change proposal of kind `skill` with scope `agent` (see [Agents]({{%relref "features/chats-agents" %}})); nothing is written until you confirm, and the write can be undone. An agent skill cannot take the name of a built-in skill or of a document skill such as `xlsx`, and a skill that you locked in your personal layer stays locked against it. The grant `skills.write` shows the built-in `writing-skills` to the agent, led by the line "Do not write files. Call propose_change with kind skill." The **Skills** page lists agent skills with the agent's name and a **Remove** button; a removed skill goes to the Trash. `GET /api/chats/skills?agents=true` adds them to the list with `layer: "agent"`, `agent` and `agent_name` (a chat's own list has the layer of its agent already), and `GET` or `DELETE /api/chats/skills/agent/<name>?agent=<id>` reads or removes one.
+The agent layer holds the skills of one saved agent. Only a chat that runs that agent sees them, and it needs no grant in the agent's skill list. They win over your personal skill of the same name, for that agent only. An agent writes one by a change proposal of kind `skill` with scope `agent` (see [Agents]({{%relref "/features/chats-agents" %}})); nothing is written until you confirm, and the write can be undone. An agent skill cannot take the name of a built-in skill or of a document skill such as `xlsx`, and a skill that you locked in your personal layer stays locked against it. The grant `skills.write` shows the built-in `writing-skills` to the agent, led by the line "Do not write files. Call propose_change with kind skill." The **Skills** page lists agent skills with the agent's name and a **Remove** button; a removed skill goes to the Trash. `GET /api/chats/skills?agents=true` adds them to the list with `layer: "agent"`, `agent` and `agent_name` (a chat's own list has the layer of its agent already), and `GET` or `DELETE /api/chats/skills/agent/<name>?agent=<id>` reads or removes one.
 
 The add-on layer holds the skills of the add-ons that the chat can use now: installed, running, usable by you and on for the chat (see [Add-on tools](#add-on-tools)). A chat with a saved agent gets them only for the add-ons the agent grants. The model loads one by its name with `load_skill`; its files are in `/workspace/shared-addon-skills/<add-on>/<skill>/`, where the add-on ID says where it comes from. Switching the add-on off for a chat takes its skills out of that chat's index, and the skill list shows each one with `addon` and `addon_title`. Its switch id is `addon:<name>`.
 
 An add-on can also replace a built-in skill of the same name, for example the Office add-on's own `xlsx`, written for its tools. The add-on's skill then serves and the built-in one shows `shadowed: "addon"` with `shadowed_by`, the add-on's ID. When the add-on is off for the chat or not running, or you switch its skill off (`addon:xlsx`), the built-in skill serves again: the model is told in one line, and the built-in skill in the skill list carries `fallback`, the add-on's title. When several add-ons replace one skill, the one installed first serves until an administrator chooses another in Settings > Tools, under **Skills that add-ons replace**, or with the switch in the add-on's details on the Add-ons page.
 
-In the **Skills** menu over the message box each skill says where it comes from: **Built-in**, the add-on's title, **Personal**, **Shared** or **Workspace**. A built-in skill that an add-on replaces is listed under the others, dimmed, with "Replaced by <add-on>" and no switch. When a built-in skill serves because the add-on's own skill is off or not running, one line under the title says so. The **Skills** page lists add-on skills under the **Add-on** layer, with the add-on's title as the badge, and says which skill replaces which. See [Skills of an add-on]({{%relref "features/addons#skills" %}}) for how an add-on ships them.
+In the **Skills** menu over the message box each skill says where it comes from: **Built-in**, the add-on's title, **Personal**, **Shared** or **Workspace**. A built-in skill that an add-on replaces is listed under the others, dimmed, with "Replaced by <add-on>" and no switch. When a built-in skill serves because the add-on's own skill is off or not running, one line under the title says so. The **Skills** page lists add-on skills under the **Add-on** layer, with the add-on's title as the badge, and says which skill replaces which. See [Skills of an add-on]({{%relref "/addons/contract-reference#skills" %}}) for how an add-on ships them.
 
 The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Skills in the public [Agent Skills](https://agentskills.io/specification) format can also be imported from a zip file and exported as one (see [Import and export skills](#import-and-export-skills)). Git sources are not part of chats.
 
@@ -2002,11 +2001,11 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
 The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps`, `localai`, `assemble-media` and `media-prompting`.
-`localai` teaches the model the [LocalAI client tools]({{% relref "features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
-An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "features/localai-assistant#the-prompt-and-the-recipes" %}}).
+`localai` teaches the model the [LocalAI client tools]({{% relref "/features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
+An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "/features/localai-assistant#the-prompt-and-the-recipes" %}}).
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
-see [Make LocalAI yours](/features/make-localai-yours/).
-`localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
+see [Make LocalAI yours]({{% relref "/features/make-localai-yours" %}}).
+`localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "/features/pages" %}}).
 `assemble-media` is for the sandbox. It has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. It can also make a simple video from frames drawn with Python or SVG. It carries a hint for the `media` sandbox profile.
 `media-prompting` teaches the model how to prompt the image, video, music and speech models: a loop of pick, read the card, generate, inspect and change one thing, the anatomy of a prompt for each kind, what steps, guidance, size and seed do, and what to refuse. It has one card per model family in its `cards/` folder (Qwen-Image, MiniMax-H3, YuE2 and Qwen3-TTS), which the model reads when it uses that family. To add a family, add a card and a row in the table of `SKILL.md`.
 
@@ -2037,8 +2036,8 @@ An export of a skill imports again to the same files.
 ### Document skills
 
 The familiar names `docx`, `pptx`, `pdf`, and `xlsx` identify document authoring skills from add-ons, not built-in skills.
-[Sandbox]({{%relref "features/addons#sandbox" %}}) supplies Python/Paper procedures and their references.
-[Simple Office]({{%relref "features/addons#simple-office" %}}) supplies separate procedures for its document tools, without command execution.
+[Sandbox]({{%relref "/addons/contract-reference#sandbox" %}}) supplies Python/Paper procedures and their references.
+[Simple Office]({{%relref "/addons/contract-reference#simple-office" %}}) supplies separate procedures for its document tools, without command execution.
 
 1. Install and enable a provider on the **Add-ons** page.
 2. Switch the provider on in the chat's **Tools** menu.
@@ -2081,7 +2080,7 @@ administrator can switch each tool off, set a SearXNG instance for the
 searches and allow more ports in **Settings > Tools**. An add-on can replace
 either tool by name: the optional Web add-on replaces both, to search with Brave
 Search, Tavily or Google with a key and to read PDF files. See
-[Web search and web pages in chats](/features/web/).
+[Web search and web pages in chats]({{% relref "/features/web" %}}).
 
 ## Collections
 
@@ -2126,13 +2125,13 @@ With authentication off, chats belong to one anonymous owner.
 ## Memory settings
 
 Your settings page (Account) has a **Memory** tab. It lists the notes that the host
-puts in the prompt of your chats ([Memory](/features/short-memory/) is built in, and another add-on can declare context files): your own index and its topic files, the notes of
+puts in the prompt of your chats ([Memory]({{% relref "/features/short-memory" %}}) is built in, and another add-on can declare context files): your own index and its topic files, the notes of
 each saved agent and of each connector conversation, and the agent profiles. Each
 index shows its size against the caps (at most 40 lines and 2 KiB for an index,
 4 KiB for a profile, 6 KiB of notes in one turn). You can open a file, edit it,
 delete it (it goes to the Trash) or clear all of them. An index cannot be saved
 over its cap. A model changes these files only through a confirmed
-[change proposal](/features/addons/#change-proposals-from-chats).
+[change proposal]({{% relref "/addons/contract-reference" %}}#change-proposals-from-chats).
 
 `GET /api/chats/context-files` returns the list for the page: `limits`, and
 `groups` of `{source, scope, key, max_bytes, max_lines, files[]}`. It only reads.
@@ -2204,7 +2203,7 @@ The **Files** page in the sidebar is a file browser for all of this.
 
 LocalAI keeps two folders of your home for itself: `LocalAI/`, the settings it
 reads (persona, profile, shortcuts, Home, theme; see [Make LocalAI
-yours](/features/make-localai-yours/#the-localai-folder)), and `Chats/`, one
+yours]({{% relref "/features/make-localai-yours" %}}#the-localai-folder)), and `Chats/`, one
 folder per chat. **Files** lists your own files first and these two last,
 under **Managed by LocalAI**; the list API marks them with `managed`
 (`localai` or `chats`). Moving one to the Trash or renaming it asks first and
@@ -2220,7 +2219,7 @@ Choose **Extract here** in the menu of an archive on the Files page to unpack it
 - **A name that is taken.** An existing file is never replaced. The new file is saved next to it as a copy named `name (from <user>).ext`, and the answer lists it under `conflicts`. A file with the same content as the existing one is not written again.
 - **What is skipped.** Symbolic links, hard links, devices, sockets and pipes are not extracted. A name that is not valid UTF-8, a name that the Files page does not allow, a path deeper than 64 levels, a repeated name, an encrypted ZIP entry and a file over 256 MiB are skipped too. The answer lists them under `skipped` with a reason. A nested archive is written as a plain file; it is not unpacked.
 - **Paths that leave the folder.** An entry with an absolute path, a `..` part or a NUL byte makes the whole archive refused with a 400 error, and nothing is written. A backslash in a name counts as a folder separator.
-- **Limits.** The limits are counted on the bytes that are really read, not on the sizes that the archive says. They are: most bytes in all files (1 GiB by default), most entries (20,000 by default), 256 MiB for one file, a ratio of 1,000 between the expanded size and the size read (checked after 64 MiB), and 10 minutes. An archive over a limit writes nothing and the answer says which limit it was (413, or 408 for the time). An administrator sets the first two in **Settings > Tools** (`chats_extract_max_bytes` and `chats_extract_max_entries`, see [Runtime settings](/features/runtime-settings/)).
+- **Limits.** The limits are counted on the bytes that are really read, not on the sizes that the archive says. They are: most bytes in all files (1 GiB by default), most entries (20,000 by default), 256 MiB for one file, a ratio of 1,000 between the expanded size and the size read (checked after 64 MiB), and 10 minutes. An archive over a limit writes nothing and the answer says which limit it was (413, or 408 for the time). An administrator sets the first two in **Settings > Tools** (`chats_extract_max_bytes` and `chats_extract_max_entries`, see [Runtime settings]({{% relref "/administration/runtime-settings" %}})).
 - **Names with other encodings.** A ZIP made by an old tool may store names in a local code page. Those names are not valid UTF-8, so they are skipped and listed. Extract such an archive in a chat sandbox with a tool that knows the code page.
 
 The model has no tool for this on purpose: a tool would cost tokens in every chat. A chat can unpack a small archive in its sandbox. The `localai` skill tells the model to point you to the Files page for a large one.
@@ -2249,14 +2248,14 @@ Rules for this folder are in /workspace/home/Reports/AGENTS.md. Read that file b
   of a folder above it, was not named yet, the same line is added to the
   result of that call. Each file is named once a turn. Reading the
   `AGENTS.md` itself counts.
-- A [trigger run](/features/chats-agents/) already gets the rules of its
+- A [trigger run]({{% relref "/features/chats-agents" %}}) already gets the rules of its
   folder and the folders above it in its first message, so it gets no line for
   them.
 - The checks run as you, on the shared workspace, and keep nothing between
   turns, so they work the same with several frontends.
 
 A folder `pages/<name>/` with an `index.html` is a page: the UI shows it in a
-sandboxed frame under **Pages**. See [Pages]({{%relref "features/pages" %}}).
+sandboxed frame under **Pages**. See [Pages]({{%relref "/features/pages" %}}).
 
 ### Shared folders
 
@@ -2265,7 +2264,7 @@ it and chooses its members: a user, or **Everyone** (every user, also the ones
 who sign up later), each with **Can read** or **Can edit**. A member's chats see
 the folder at `/workspace/shared-<name>` (read-only for a reader), and its pages
 show on the Pages screen under **Shared with you** (see [Shared
-pages]({{%relref "features/pages#shared-pages" %}})). A user who is not a member
+pages]({{%relref "/features/pages#shared-pages" %}})). A user who is not a member
 sees nothing of the folder: every call about it answers `404`, as for a folder
 that does not exist.
 
@@ -2322,7 +2321,7 @@ curl -X POST ".../api/chats/admin/shared-folders/restore" -d '{"rev": 118}'
 ```
 
 The LocalAI Assistant has the same operations as tools (see [LocalAI
-Assistant]({{%relref "features/localai-assistant" %}})). In a cluster the
+Assistant]({{%relref "/features/localai-assistant" %}})). In a cluster the
 folders and the grants live in the shared workspace database and the audit in
 the auth database, so every frontend sees the same state.
 
@@ -2332,7 +2331,7 @@ You can share a folder of your own home with other people, without an
 administrator. Open **Files**, choose **Share…** in the menu of a folder, and
 add a person or **Everyone**, with **Can read** or **Can edit**. This is the
 same Share dialog as for agents and the other things you can share (see
-[Sharing resources]({{%relref "features/sharing" %}})).
+[Sharing resources]({{%relref "/features/sharing" %}})).
 
 - **What you can share.** A folder inside your home: not the home itself, and
   not a folder that LocalAI keeps or reads as your own words: `LocalAI/`,
@@ -2350,7 +2349,7 @@ same Share dialog as for agents and the other things you can share (see
 - **Who.** An active account that the search finds, or **Everyone** (every
   account, also the ones created later). The search is the user picker of the
   other kinds of sharing (see
-  [Sharing resources]({{%relref "features/sharing#api" %}})): it starts at three
+  [Sharing resources]({{%relref "/features/sharing#api" %}})): it starts at three
   characters of the display name, a part of an address finds nobody, and an
   account without a name is found by its whole address only. It shows a name and
   nothing else.
@@ -2463,11 +2462,11 @@ A sub-agent conversation is read-only: it runs with the tools its parent chose,
 and a message to it answers `409`.
 
 The JSON files are for one LocalAI process. A cluster needs PostgreSQL, as
-[distributed mode]({{% relref "features/distributed-mode" %}}) already does.
+[distributed mode]({{% relref "/administration/distributed-mode" %}}) already does.
 
 ## Clusters
 
-In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend can serve any request about any chat.
+In [distributed mode]({{% relref "/administration/distributed-mode" %}}) any frontend can serve any request about any chat.
 
 **State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once. The ring of recent events that serves a reconnect is per instance, on purpose: it is a cache of the live tail on the frontend or chat worker that runs the turn, and the transcript is the record. The process that runs a turn records its instance id (`LOCALAI_INSTANCE_ID`) on the chat. A reconnect that reaches another frontend asks that process for the missed events over the message bus (request and reply on `chats.replay.<instance>`), in replies of at most 512 KiB. When that process is gone, does not answer in 2 seconds, or no longer has the events, the client gets a `resync` and reads the transcript. The cap of 8 event streams per chat and user is per frontend.
 
@@ -2475,7 +2474,7 @@ In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend c
 
 **Settings and edits.** The settings, the title and the model of a chat, and the cut that regenerate and edit make, are stored with the chat. A change of title or model, a regenerate and an edit take the same turn claim as a message, so they are refused with 409 while a turn runs on any frontend. A video that comes with a message is held in the memory of the frontend that runs the turn, for that turn's first request.
 
-**MCP connectors.** The records of your [MCP connectors](/features/chats-connectors/#mcp-servers) are shared in PostgreSQL. The open MCP sessions are per instance: each frontend opens its own, and a local command (`stdio`) is refused in a cluster.
+**MCP connectors.** The records of your [MCP connectors]({{% relref "/features/chats-connectors" %}}#mcp-servers) are shared in PostgreSQL. The open MCP sessions are per instance: each frontend opens its own, and a local command (`stdio`) is refused in a cluster.
 
 **Where a turn runs.** The frontend that wins the claim runs the whole turn. The model calls it makes are routed to inference nodes, and its MCP tool calls are sent to agent workers, exactly as for any other request. Agent workers do not run chats: they have no database.
 
@@ -2489,14 +2488,14 @@ In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend c
 
 **The answer that was being written.** A message is stored as a line when it ends, so a process that is killed in the middle of a long answer would lose it. While a message streams, the server saves its text so far into the chat record every 2 seconds, or when 4 KiB of new text have come (not more than four times a second), and clears it when the line is stored. A message that ends in under 2 seconds writes nothing. When the next turn starts (a resume, or a new message of yours) a text that is still there becomes an assistant line, kept as it was when last saved, up to 128 KiB. A resume also tells the model where its message stopped, so that it goes on from there. A graceful stop does not need this: the turn that Close cuts short stores its text as it ends.
 
-In terms of the [distributed state rule]({{% relref "features/distributed-mode" %}}): the resume state is shared (it is in the chat row), and the sweep is single-runner (the advisory lock of the reaper).
+In terms of the [distributed state rule]({{% relref "/administration/distributed-mode" %}}): the resume state is shared (it is in the chat row), and the sweep is single-runner (the advisory lock of the reaper).
 
 The JSON files are not supported in a cluster, as the Storage table says.
 
 ## Saved agents
 
 An agent is a saved set of instructions and tool grants that a chat can start
-with. See [Saved agents, triggers and inbox](/features/chats-agents/).
+with. See [Saved agents, triggers and inbox]({{% relref "/features/chats-agents" %}}).
 
 ## The LocalAI assistant
 
@@ -2505,7 +2504,7 @@ models and backends, edit model configs, check status). It starts from the Home
 page with `/assistant`, or over the API with `assistant: true` in
 `POST /api/chats`. It is an ordinary chat in the list after that. Only that chat
 has the tools, never its sub-agents. The `chats_localai_admin` setting
-turns the admin tools off. See [LocalAI Assistant](/features/localai-assistant/).
+turns the admin tools off. See [LocalAI Assistant]({{% relref "/features/localai-assistant" %}}).
 
 ## Chats in the web UI
 
@@ -2516,7 +2515,7 @@ and opens again from any browser.
   the one of the chat page, so everything a new chat offers works there before
   the chat exists:
   - pick the model (each row says whether it is loaded, what it can do and how
-    it fits this machine) and a [saved agent](/features/chats-agents/);
+    it fits this machine) and a [saved agent]({{% relref "/features/chats-agents" %}});
   - switch tools, add-ons and skills in the **Tools** and **Skills** menus.
     They are a draft: the chat starts with them (`switches` in
     `POST /api/chats`);
@@ -2572,7 +2571,7 @@ The chat page (`/app/chats/<id>`) shows one chat.
   without leaving the page.
 - **A new chat.** **New chat** in the **More** menu, in the `Ctrl+K` list and
   `/new` in the message box open Home. A chat with a [saved
-  agent](/features/chats-agents/) starts from the agent's row on the Agents
+  agent]({{% relref "/features/chats-agents" %}}) starts from the agent's row on the Agents
   page: the chat page opens empty with the agent chosen, and its **Tools** and
   **Skills** menus are a draft for the new chat, as on Home. Picking another model
   in an open chat moves the chat to it from the next turn (not while a turn
@@ -2639,7 +2638,7 @@ The chat page (`/app/chats/<id>`) shows one chat.
   with a tab per sheet and the first 200 rows; Word documents and
   presentations as their text (the formatting is not shown); PDF files in the
   browser's viewer; HTML files run in the sandbox of
-  [Pages]({{%relref "features/pages" %}}) with no network and no bridge;
+  [Pages]({{%relref "/features/pages" %}}) with no network and no bridge;
   images, Markdown, JSON, code, audio and video with their own views; any
   other type as a card with **Download**. An add-on that previews a type (the
   `files.preview` slot) replaces the built-in view for it. Drop files on the
@@ -2653,17 +2652,17 @@ The chat page (`/app/chats/<id>`) shows one chat.
   line: an edit lists each field before and after with **Apply** and
   **Dismiss**, a delete shows the trigger with **Delete** and **Keep**, and a
   pause or a resume, which applies at once, is a receipt with **Undo**. See
-  [Changes from a chat](/features/chats-agents/#changes-from-a-chat).
+  [Changes from a chat]({{% relref "/features/chats-agents" %}}#changes-from-a-chat).
 - **Shortcuts** over the message box are the prompts of your
   `LocalAI/shortcuts.json`, or the default starters without it. A click puts one in the
   box; **Edit shortcuts** changes the list. See [Make LocalAI
-  yours](/features/make-localai-yours/).
+  yours]({{% relref "/features/make-localai-yours" %}}).
 - **Find** (`Ctrl+Shift+F`), focus mode, copying the chat as Markdown and
   the keyboard shortcuts work as before.
 
 Administrators find every user's agents, triggers and connectors under
 **Operate > Settings > Chats of all users**. The [agent tasks and
-jobs](/features/agent-jobs/) have a page of their own, **Agents > Tasks**
+jobs]({{% relref "/features/agent-jobs" %}}) have a page of their own, **Agents > Tasks**
 (`/app/agent-tasks`).
 
 ## Troubleshooting a failed reply
@@ -2688,7 +2687,7 @@ The reason is stored with the chat, so a reload shows the same banner as the liv
 
 ## Moving from the old chat
 
-The old chat page, the agents, the agent jobs and the old skills were replaced by the chats. At the first start the server converts what they left; see [Moving from the old chat and agents](/features/chats-migration/).
+The old chat page, the agents, the agent jobs and the old skills were replaced by the chats. At the first start the server converts what they left; see [Moving from the old chat and agents]({{% relref "/features/chats-migration" %}}).
 
 ## API reference
 

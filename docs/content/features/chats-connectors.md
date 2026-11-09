@@ -2,7 +2,6 @@
 disableToc = false
 title = "Chats: connectors (messaging add-ons and MCP servers)"
 weight = 23
-url = "/features/chats-connectors/"
 +++
 
 **Connections** is an item of its own in the sidebar, right after **Agents**. It has three tabs at the top of its pages:
@@ -22,7 +21,7 @@ Core keeps what is the same for every platform: the bindings, the sealed bot tok
 the allowlist, the sender log, one chat for each sender (or for each thread) and the
 turn itself. The
 platform's API is spoken by an add-on that declares the `connector` capability (see
-[Connector add-ons]({{% relref "features/addons" %}}#connector-add-ons)). Install the add-on
+[Connector add-ons]({{% relref "/addons/contract-reference" %}}#connector-add-ons)). Install the add-on
 from the add-on gallery, and its page adds and edits the bindings of its platform.
 
 The Accounts and Messaging tabs group your bindings by add-on and links each group to the
@@ -32,7 +31,7 @@ platforms and opens the add form of the one you pick. With no connector add-on i
 to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
 add-on serves. A kind whose add-on declares a setup text also has `setup`, a short phrase
 such as "a bot token from @BotFather" that says what the person needs before a connection
-works (see [Setup text]({{%relref "features/addons#setup-text" %}})).
+works (see [Setup text]({{%relref "/addons/contract-reference#setup-text" %}})).
 
 A binding names the add-on that serves it. A binding made before connectors became
 add-ons names none, and belongs to the add-on of its kind: a Telegram binding keeps
@@ -50,7 +49,7 @@ Each kind in the add-on manifest declares `delivery`:
 - **`push`**. The add-on calls the host operation `connector.inbound` for each
   message. The turn then runs in the process that hosts the add-on. A push add-on
   therefore needs a `combined` owner or a distributed owner (see
-  [The owner in distributed mode]({{% relref "features/addons" %}}#the-owner-in-distributed-mode)).
+  [The owner in distributed mode]({{% relref "/addons/contract-reference" %}}#the-owner-in-distributed-mode)).
 
 ### Multiple frontends and readiness
 
@@ -90,15 +89,15 @@ The page of a connector add-on (Telegram, Slack, Discord, GitHub and the others)
 
 ## Telegram
 
-The Telegram add-on binds a bot to one of your [saved agents](/features/chats-agents/).
+The Telegram add-on binds a bot to one of your [saved agents]({{% relref "/features/chats-agents" %}}).
 A person who messages the bot talks to that agent, in a conversation of their
 own, and the answer comes back in Telegram. The conversation is a
-[chat](/features/chats/) of yours: it uses your quota and your model allowlist,
+[chat]({{% relref "/features/chats" %}}) of yours: it uses your quota and your model allowlist,
 and you can open it in LocalAI.
 
 ### LocalAI tools in a messaging chat
 
-The [LocalAI client tools]({{% relref "features/localai-assistant#tool-groups" %}}) (images, speech, transcription and so on) work in a messaging chat by default, within the permissions and model allowlist of the agent's owner. An agent can switch the group off with `localai_client` in `builtins_off`. The admin group is never offered there, whatever the agent says: the person who writes to the bot may not be the owner. Three actions are refused in a messaging chat with a plain error, because they read or change data of the owner that the sender must not reach: `voice_profile` with `delete`, and `identify` of `voice` and `face` (they search the registry of known people). `voice_profile` with `create` is refused too, because the person who confirms that the speaker agreed does it in Studio, not in a messaging chat.
+The [LocalAI client tools]({{% relref "/features/localai-assistant#tool-groups" %}}) (images, speech, transcription and so on) work in a messaging chat by default, within the permissions and model allowlist of the agent's owner. An agent can switch the group off with `localai_client` in `builtins_off`. The admin group is never offered there, whatever the agent says: the person who writes to the bot may not be the owner. Three actions are refused in a messaging chat with a plain error, because they read or change data of the owner that the sender must not reach: `voice_profile` with `delete`, and `identify` of `voice` and `face` (they search the registry of known people). `voice_profile` with `create` is refused too, because the person who confirms that the speaker agreed does it in Studio, not in a messaging chat.
 
 ### Set up a binding
 
@@ -175,7 +174,7 @@ A binding says `active: false` and gives a `reason` while its add-on does not ru
 
 ## GitHub
 
-The GitHub add-on lets your [saved agents](/features/chats-agents/) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. If you allow it, they can also write: comment on issues and pull requests, open issues, change a title or close an issue, add labels, and comment on a line of a pull request diff. It cannot merge, delete, push code, approve or request changes on a review.
+The GitHub add-on lets your [saved agents]({{% relref "/features/chats-agents" %}}) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. If you allow it, they can also write: comment on issues and pull requests, open issues, change a title or close an issue, add labels, and comment on a line of a pull request diff. It cannot merge, delete, push code, approve or request changes on a review.
 
 1. Install the **GitHub** add-on from the add-on gallery.
 2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. The add-on page has a **Create a token on GitHub** button, and the steps and a table of the permissions are open there until you have a first connection. Give the token read access to Contents, Issues and Pull requests. To let the agent write, also give read and write access to Issues and Pull requests. Classic tokens (`ghp_`) are refused unless you allow them on the connection; see [Classic tokens](#classic-tokens).
@@ -183,9 +182,9 @@ The GitHub add-on lets your [saved agents](/features/chats-agents/) read reposit
 
 This connection does not listen for `@mentions` on GitHub yet. An agent works on GitHub only when you ask it in a chat.
 
-A tool-only connection has no agent. The GitHub kind is tool-only, like the Home Assistant, Jellyfin, Mail and PiKVM kinds: the form has no Agent field, and a connection answers no message. Many agents can use one connection. Each agent chooses it in its own **Account it uses** list (see [Agents](/features/chats-agents/)), and the connection says **Used by N agents** in the list and in its pane, or **Not used by any agent**. The count is of your own saved agents. The server clears `agent_id` on every save and on every read, so an older connection that still held an agent shows none. It cannot be switched on, accept anyone, take an allowlist, send notifications or hold permissions, and the server refuses `enabled` and `accept_any` with a message. This is the manifest key `toolOnly` of the kind (see [Connector add-ons](/features/addons/)). Telegram and Slack bindings always need an agent. Over the API the connection reports `agent_id: ""`, `credentials_only: true` and `used_by`, the number of your saved agents that hold the connection; the kind reports `tool_only: true` and `agent_optional: true`.
+A tool-only connection has no agent. The GitHub kind is tool-only, like the Home Assistant, Jellyfin, Mail and PiKVM kinds: the form has no Agent field, and a connection answers no message. Many agents can use one connection. Each agent chooses it in its own **Account it uses** list (see [Agents]({{% relref "/features/chats-agents" %}})), and the connection says **Used by N agents** in the list and in its pane, or **Not used by any agent**. The count is of your own saved agents. The server clears `agent_id` on every save and on every read, so an older connection that still held an agent shows none. It cannot be switched on, accept anyone, take an allowlist, send notifications or hold permissions, and the server refuses `enabled` and `accept_any` with a message. This is the manifest key `toolOnly` of the kind (see [Connector add-ons]({{% relref "/addons/contract-reference" %}})). Telegram and Slack bindings always need an agent. Over the API the connection reports `agent_id: ""`, `credentials_only: true` and `used_by`, the number of your saved agents that hold the connection; the kind reports `tool_only: true` and `agent_optional: true`.
 
-The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not covered by it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on](/features/chats/#the-connections-of-an-add-on).
+The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not covered by it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on]({{% relref "/features/chats" %}}#the-connections-of-an-add-on).
 
 ### Any repository
 
@@ -201,7 +200,7 @@ A star works only as the whole entry `*` or as the whole name after an owner (`o
 
 `*` needs a confirmation. In the page, tick the box under the list. Over the API, send `confirm_any_resource` set to `allow any resource` in the request that adds `*` (create, or an update that did not have it). The write mode is separate: `*` with **Read only** can change nothing. With `*`, the agent can also list the repositories the token reaches (the `list-repos` tool); with any other list it asks you which repository to use. The Test button reports how many repositories the token reaches instead of testing each one.
 
-This is the manifest key `wildcardResources` of the connector kind (see [Connector add-ons](/features/addons/)). Only the GitHub kind declares it; for every other add-on, the Jellyfin and Home Assistant lists included, each entry stays an exact name. A tool that lists what a credential reaches declares `enumerates` and runs only for a connection whose list is `*`.
+This is the manifest key `wildcardResources` of the connector kind (see [Connector add-ons]({{% relref "/addons/contract-reference" %}})). Only the GitHub kind declares it; for every other add-on, the Jellyfin and Home Assistant lists included, each entry stays an exact name. A tool that lists what a credential reaches declares `enumerates` and runs only for a connection whose list is `*`.
 
 ### Classic tokens
 
@@ -232,7 +231,7 @@ This version does not listen for mentions.
 
 ## Google Drive
 
-The Google Drive add-on lets your [saved agents](/features/chats-agents/) read the files in the Drive folders you choose: search, list a folder, read the details of a file and read its text. Google Docs are read as Markdown, Google Sheets as CSV (the first sheet) and Google Slides as plain text. If you allow it, they can also create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file, changes who can see it, makes it public or deletes it for good. By default every change waits for your OK; with the write mode **Allow all** a chat of yours makes the change at once.
+The Google Drive add-on lets your [saved agents]({{% relref "/features/chats-agents" %}}) read the files in the Drive folders you choose: search, list a folder, read the details of a file and read its text. Google Docs are read as Markdown, Google Sheets as CSV (the first sheet) and Google Slides as plain text. If you allow it, they can also create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file, changes who can see it, makes it public or deletes it for good. By default every change waits for your OK; with the write mode **Allow all** a chat of yours makes the change at once.
 
 It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#connections-that-log-in-with-oauth)). Each LocalAI server brings its own Google client; no client is shipped with LocalAI.
 
@@ -240,7 +239,7 @@ It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#c
 
 1. In the Google Cloud console, create a project and turn on the **Google Drive API** for it.
 2. Set up the **OAuth consent screen**. Add the scope `https://www.googleapis.com/auth/drive.readonly`, and the scope `https://www.googleapis.com/auth/drive.file` if people may write. Then **publish the app to production**. While the app is in the *Testing* state, Google ends every refresh token after 7 days, and the connections stop working until each person connects again.
-3. Create a client of the type **Web application**. As the authorized redirect URI, enter the callback address of your server: the base URL followed by `/api/chats/connectors/oauth/callback`, for example `https://localai.example.test/api/chats/connectors/oauth/callback`. The **Settings** tab of the add-on shows it as the **Callback address**. Set the external base URL of the server first if the form says it does not know its public address (see [the login routes](/features/addons/#the-login-routes)).
+3. Create a client of the type **Web application**. As the authorized redirect URI, enter the callback address of your server: the base URL followed by `/api/chats/connectors/oauth/callback`, for example `https://localai.example.test/api/chats/connectors/oauth/callback`. The **Settings** tab of the add-on shows it as the **Callback address**. Set the external base URL of the server first if the form says it does not know its public address (see [the login routes]({{% relref "/addons/contract-reference" %}}#the-login-routes)).
 4. On the **Add-ons** page open **Google Drive**, select the **Settings** tab, enter the **Client ID** and **Client secret** of the client and select **Approve and save**.
 
 `drive.readonly` is a restricted scope. An app that stays unverified can still be used, but Google shows a warning at sign-in and limits the app to 100 users. If you need more users, or the app belongs to an organization outside your own Google Workspace, the app must pass Google's verification for restricted scopes, which includes a security assessment. In a Google Workspace you can set the user type to **Internal**, which needs no verification and allows only the people of that organization.
@@ -253,7 +252,7 @@ It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#c
 
 The agent is optional. A connection with no agent and nothing that needs one (no listening, no allowlist, no permissions, and the trigger approval left at its default of asking you) saves as it is: it only holds the login, the folder list and the write mode for your chats. LocalAI asks for an agent only when you set something that needs one, such as a trigger approval that runs without asking.
 
-All folders is stored as the single entry `*` of the connection's `resources` list (the kind declares `wildcardResources`, see [Connector add-ons](/features/addons/)); a request that adds it must also carry `confirm_any_resource` set to `"allow any resource"`. An empty list still means no access. An agent names the entry as the `folder` argument of a tool: `*`. It may also name one folder ID, and the tool then stays inside that folder.
+All folders is stored as the single entry `*` of the connection's `resources` list (the kind declares `wildcardResources`, see [Connector add-ons]({{% relref "/addons/contract-reference" %}})); a request that adds it must also carry `confirm_any_resource` set to `"allow any resource"`. An empty list still means no access. An agent names the entry as the `folder` argument of a tool: `*`. It may also name one folder ID, and the tool then stays inside that folder.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any folder that is not on it. The add-on then checks that each file it reads or changes lies inside that folder, at any depth, and refuses a file outside it. With All folders there is no single folder to hold a file to: the list of the connection and your Google login are the limit, and a search covers every drive that the login reaches. A shortcut is not followed. A search can come back with fewer items than asked, because files outside the folder are left out of each page.
 
@@ -292,7 +291,7 @@ A call ends after 30 seconds. A request or a result is at most 1 MiB, and a resu
 
 ## Gmail
 
-The Gmail add-on lets your [saved agents](/features/chats-agents/) read the mail of your Google account: search it, read a message or a whole thread, list the labels and read the text of an attachment. If you allow it, they can also save a draft and send a draft that exists. By default every draft and every send waits for your OK; with the write mode **Allow all** a chat of yours saves and sends at once. It never deletes, trashes, labels or forwards mail, and it never changes a setting or a filter.
+The Gmail add-on lets your [saved agents]({{% relref "/features/chats-agents" %}}) read the mail of your Google account: search it, read a message or a whole thread, list the labels and read the text of an attachment. If you allow it, they can also save a draft and send a draft that exists. By default every draft and every send waits for your OK; with the write mode **Allow all** a chat of yours saves and sends at once. It never deletes, trashes, labels or forwards mail, and it never changes a setting or a filter.
 
 {{% notice warning %}}
 **A connection reaches the whole mailbox the account can read, unless you list labels.** Mail is the most private text most people have: password resets, bank letters, health, work. Everything the agent reads goes to the model of the chat. Use the label list below to keep an agent to one label, and write `ALL` only for an agent you trust with the whole mailbox. The label list is a limit on what the agent may ask for. It is not a way to hide mail from a model that you give a label to.
@@ -373,13 +372,13 @@ A call ends after 30 seconds. A request or a result is at most 1 MiB, and a resu
 
 ## Jellyfin
 
-The Jellyfin add-on lets your [saved agents](/features/chats-agents/) and your chats look into a [Jellyfin](https://jellyfin.org) media server: search the library by title, browse a library, read the details of a film, a show or an album, see what was added lately, what a user can resume and which episode is next, see which players are active and what they play, and read the server version. If you allow it, they can also remote control a player (play an item, pause, resume, stop, seek, set the volume), mark an item watched or not watched, set a favourite and add items to a playlist. It cannot delete anything, scan or edit the library, or manage users. It needs Jellyfin 10.9 or later.
+The Jellyfin add-on lets your [saved agents]({{% relref "/features/chats-agents" %}}) and your chats look into a [Jellyfin](https://jellyfin.org) media server: search the library by title, browse a library, read the details of a film, a show or an album, see what was added lately, what a user can resume and which episode is next, see which players are active and what they play, and read the server version. If you allow it, they can also remote control a player (play an item, pause, resume, stop, seek, set the volume), mark an item watched or not watched, set a favourite and add items to a playlist. It cannot delete anything, scan or edit the library, or manage users. It needs Jellyfin 10.9 or later.
 
 1. Install the **Jellyfin** add-on from the add-on gallery.
 2. In the Jellyfin dashboard, as an administrator, open **Advanced**, then **API Keys**, choose the plus button, name the key (for example `LocalAI`) and copy it. A Jellyfin API key works for the whole server and not for one user; the write mode below is what limits the agent. Deleting the key in the dashboard cuts the access at once.
 3. On the add-on page, choose **New Jellyfin connection**. Paste the key and write the **server address** as you open it in a browser, with the port, for example `http://192.168.1.10:8096` or `https://media.example/jellyfin`. Press **Test**: the row says whether the server answers, which version it runs and whether it accepts the key.
 
-One connection holds one key and one server. To use a second server, add a second connection; when several are enabled in a chat the model names the connection in each call (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)). The agent field is optional, as for GitHub: a connection without an agent holds credentials only.
+One connection holds one key and one server. To use a second server, add a second connection; when several are enabled in a chat the model names the connection in each call (see [The connections of an add-on]({{% relref "/features/chats" %}}#the-connections-of-an-add-on)). The agent field is optional, as for GitHub: a connection without an agent holds credentials only.
 
 **The address is the access list.** The server address is the one entry that the connection lists, and LocalAI checks it before the add-on is called, like a repository of a GitHub connection. The add-on talks to that address and to no other: only `http` and `https` are accepted, an address with a user name, a password or a query is refused, the key goes only in the `Authorization` header and never in an address, the paths are built by the add-on, and a redirect is not followed. A plain `http` address sends the key unencrypted; the page says so. Use it only on a network you trust.
 
@@ -397,7 +396,7 @@ The connection has a `write_mode` field over the API: `off`, `propose` or `auto`
 
 ## Mail (IMAP and SMTP)
 
-The Mail add-on lets your [saved agents](/features/chats-agents/) read a mailbox over IMAP and, if you allow it, write mail over SMTP. It works with any provider that offers both protocols. The provider is not part of the add-on: you give it the server names.
+The Mail add-on lets your [saved agents]({{% relref "/features/chats-agents" %}}) read a mailbox over IMAP and, if you allow it, write mail over SMTP. It works with any provider that offers both protocols. The provider is not part of the add-on: you give it the server names.
 
 What the agent can do:
 
@@ -446,7 +445,7 @@ A call takes at most 30 seconds. A result is at most 128 KiB; a message body is 
 
 ## Slack
 
-The Slack add-on binds a Slack app to one of your [saved agents](/features/chats-agents/).
+The Slack add-on binds a Slack app to one of your [saved agents]({{% relref "/features/chats-agents" %}}).
 People talk to the agent in a direct message with the app, or by mentioning the app in
 a channel. The add-on uses Socket Mode, so LocalAI needs no public address.
 
@@ -563,7 +562,7 @@ gives the same events without one.
 
 ## Discord
 
-The Discord add-on binds a Discord bot to one of your [saved agents](/features/chats-agents/).
+The Discord add-on binds a Discord bot to one of your [saved agents]({{% relref "/features/chats-agents" %}}).
 People talk to the agent in a direct message with the bot, or by mentioning the bot in a
 channel or thread of a server. The add-on keeps a Gateway link (a websocket that the
 add-on opens to Discord), so LocalAI needs no public address.
@@ -714,7 +713,7 @@ that uses the same token would receive the same events and answer twice.
   arrives while the agent works waits and is read at the agent's next request, as in
   any chat; the answer of that turn covers it.
 - **An agent with a folder.** When the agent has a
-  [folder](/features/chats-agents/#folders-of-an-agent), the chat of each sender
+  [folder]({{% relref "/features/chats-agents" %}}#folders-of-an-agent), the chat of each sender
   reaches only that folder, its own chat folder, the shared folders and the skills,
   and the bot sends only files from those folders (see `send_files`). When the
   folder is deleted, unreadable or not chosen, the agent does not run: each message
@@ -945,7 +944,7 @@ the sender attached.
 - On Telegram a PNG, JPEG or WebP picture goes as a photo and anything else as a
   document. On Slack the file is uploaded into the conversation (the app needs
   `files:write`).
-- When the files of the chats are off (see [Files](/features/chats/)), nothing is sent.
+- When the files of the chats are off (see [Files]({{% relref "/features/chats" %}})), nothing is sent.
 - The agent can also give the sender a file that already exists, such as one from an
   earlier turn or from a folder it was given. It calls the `attach_file` tool with the
   path, and the file goes after the answer, with the files the turn made. The same limits
@@ -1098,7 +1097,7 @@ add-on.
   capability is sensitive: only a paired sender holds it, and a bot that accepts
   anyone never gives it to an unpaired sender. `loops.start` is off by default and never part of a
   preset: the owner ticks it. A loop that a connector chat started ends after a fifth of
-  the run limit, as a loop of a trigger does. See [Loops](/features/chats/#loops-repeat-a-prompt-in-a-chat).
+  the run limit, as a loop of a trigger does. See [Loops]({{% relref "/features/chats" %}}#loops-repeat-a-prompt-in-a-chat).
 - **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
   a workspace, and report the roles of each sender. You map a role to capabilities
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
@@ -1192,7 +1191,7 @@ all of them may do.
 A tool of an add-on that holds your credential and changes something outside
 LocalAI (a comment on an issue, for example) needs `tools.write`. So does a tool
 that changes a resource of an add-on whose manifest scopes its resources per agent
-(see [Resources of an agent](/features/chats-agents/#resources-of-an-agent)). The
+(see [Resources of an agent]({{% relref "/features/chats-agents" %}}#resources-of-an-agent)). The
 host reads this from the add-on's manifest, so it applies to every add-on of that
 shape. The
 sender needs the capability as above; the write mode of the connection and the
@@ -1236,7 +1235,7 @@ connection in write mode `off`, or a missing connection. The same note appears w
 the agent names a connection of an add-on that no longer exists.
 
 The agent's grants narrow the result: see Builtin grants in
-[Agents](/features/chats-agents/). For `triggers.propose`, `triggers.run`,
+[Agents]({{% relref "/features/chats-agents" %}}). For `triggers.propose`, `triggers.run`,
 `talkback.channels`, `talkback.new_channel` and `files.upload` the sender must hold
 the capability and the agent must hold the grant.
 
@@ -1456,7 +1455,7 @@ skill, a page or the Home dashboard, with `propose_change`) in a chat from a mes
 app, LocalAI writes the question in that chat. The model does not write it, and it does
 not send the person to Studio. A messaging chat asks first by default; the owner can let a
 paired sender in a private chat save at once with the row **In messaging apps** (see
-[Memory](/features/short-memory/#in-messaging-apps)). This section is the answer to the
+[Memory]({{% relref "/features/short-memory" %}}#in-messaging-apps)). This section is the answer to the
 question.
 
 - **The language.** The question and the replies come in the reply language of the
@@ -1478,7 +1477,7 @@ question.
 - **Add-on writes.** A write of an add-on that waits because its connection asks first is
   written in the chat the same way and answered with the same words, by a paired sender
   who holds `proposals.confirm`. See [Confirming a held write in the
-  chat]({{% relref "features/addons" %}}#confirming-a-held-write-in-the-chat).
+  chat]({{% relref "/addons/contract-reference" %}}#confirming-a-held-write-in-the-chat).
 - **Several waiting.** A bare word answers only when exactly one proposal (a change, an
   add-on write or a trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
   person writes `confirm CODE` or `cancel CODE`.
@@ -1566,7 +1565,7 @@ the line of the row), or in the `approval` field of the binding
 |---|---|
 | `ask` (default) | The bot posts the proposal and waits for a plain answer. |
 | `auto` | The trigger is made at once. The bot tells the person what was set up and that `cancel` (within 30 minutes) or `cancel CODE` (any time) removes it. |
-| `auto_readonly` | Like `auto` when the proposal says its runs only read and report (`access: read_only`, no file written); any other proposal asks. The runs of a trigger made this way can use only tools that read: every other tool is refused at the call, whatever the agent holds (see [Action policy of unattended runs](../chats-agents/#action-policy-of-unattended-runs)). |
+| `auto_readonly` | Like `auto` when the proposal says its runs only read and report (`access: read_only`, no file written); any other proposal asks. The runs of a trigger made this way can use only tools that read: every other tool is refused at the call, whatever the agent holds (see [Action policy of unattended runs]({{% relref "/features/chats-agents" %}}#action-policy-of-unattended-runs)). |
 
 The automatic modes are bounded by limits of the owner. Anything over a limit is not
 refused but asked instead, and the proposal says why.
@@ -1610,7 +1609,7 @@ The list is a ceiling, not a grant. The acts of a proposal are what the model as
   it may ask for here. It is told to ask the person "only report, or also act?" when the
   job clearly changes things.
 - The agent is checked again at each run. If it loses a grant after the person said yes,
-  the run holds the rest (see [Action policy of unattended runs](../chats-agents/#action-policy-of-unattended-runs)).
+  the run holds the rest (see [Action policy of unattended runs]({{% relref "/features/chats-agents" %}}#action-policy-of-unattended-runs)).
   A trigger made without asking also keeps to the acts of the binding at that moment.
 
 What each approval mode does with a proposal that has acts (`act.files` also counts when
@@ -1700,7 +1699,7 @@ so it needs no public address.
 With accounts, the owner of a binding can share it with other people. Open
 **Connectors** and choose **Share** on the binding, or on the page of the add-on
 choose **Share** in the menu of its row or at the foot of its pane. The
-[Share dialog]({{%relref "features/sharing" %}}) finds people by name. A binding has
+[Share dialog]({{%relref "/features/sharing" %}}) finds people by name. A binding has
 one role, **Can use**, and is never shared with everyone. A person can receive it
 only when their account may use connectors (the `connectors` feature).
 
@@ -1713,7 +1712,7 @@ A person who holds **Can use**:
   credential and its list of resources, as for the owner. A shared binding is never
   picked by default: the rule "the only connection" counts the person's own bindings.
   The one exception is a saved agent that the owner shared with the person and that
-  names the binding: see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}).
+  names the binding: see [Share an agent]({{%relref "/features/chats-agents#share-an-agent" %}}).
 - never learns the list of resources. A call for a resource that is not on the list
   is refused and the tool result says only that it is not listed; the owner, and the
   owner's own calls, get the list so the model can pick from it.
@@ -1738,7 +1737,7 @@ first stops every share of it.
 
 The grants are then listed and changed with
 `/api/shares/connection/{resource_id}/grants`, see
-[Sharing resources]({{%relref "features/sharing" %}}).
+[Sharing resources]({{%relref "/features/sharing" %}}).
 
 The shares live with the add-on owner. With several frontends, every frontend
 lists the shared bindings and the shares, and makes a binding shareable, by asking
@@ -1808,7 +1807,7 @@ connection with the same states as below (**Connect**, **Reconnect**,
 page shows no button: an administrator sees a link to the add-on's **Settings**
 tab, and other people see a note to ask an administrator. A login may return to
 any page of the web app that starts with `/app`: the `return_to` field of the
-start call (see [the login routes]({{% relref "features/addons" %}}#the-login-routes)).
+start call (see [the login routes]({{% relref "/addons/contract-reference" %}}#the-login-routes)).
 
 A binding that logs in shows one state under its name:
 
@@ -1866,7 +1865,7 @@ may add. Before anyone can connect:
 1. Register the **Callback address** with the service as the redirect address
    of a new client. If the form says the server does not know its public
    address, set the external base URL of the server first (see [OAuth 2.0
-   credentials]({{% relref "features/addons" %}}#oauth-20-credentials)).
+   credentials]({{% relref "/addons/contract-reference" %}}#oauth-20-credentials)).
 2. Enter the **Client ID** and **Client secret** that the service gives you. The
    secret is write-only: the form never shows it again, and an empty field
    keeps the stored one. A login that uses no secret has no secret field.
@@ -1899,7 +1898,7 @@ back to the page you started from, with `oauth=ok`, `oauth=denied` or
 says `connected` and names the account. `POST .../oauth/disconnect` ends the
 login. An administrator must first save the add-on's client, which approves the
 login the add-on declares. See [OAuth 2.0
-credentials]({{% relref "features/addons" %}}#oauth-20-credentials) for the
+credentials]({{% relref "/addons/contract-reference" %}}#oauth-20-credentials) for the
 routes, the callback address to register with the service and the approval.
 
 ## Storage and clusters
@@ -1927,7 +1926,7 @@ restart). The JSON store is for one process.
 ### For add-on authors: sending files
 
 A connector add-on does not choose which files reach a person. The host does, and it
-sends each one with the typed `send_file` op: the request carries a `transfer` handle for the bytes (`name`, `mime` and `size` of the file; see [File abilities and limits](/features/addons/#file-abilities-and-limits)) with the chat and the thread of the message it answers. The
+sends each one with the typed `send_file` op: the request carries a `transfer` handle for the bytes (`name`, `mime` and `size` of the file; see [File abilities and limits]({{% relref "/addons/contract-reference" %}}#file-abilities-and-limits)) with the chat and the thread of the message it answers. The
 host chooses the files in two ways:
 
 - The files that the turn made or changed go on their own, after the answer.
@@ -2097,7 +2096,7 @@ time limit to start and to answer. It runs on the frontend, as the LocalAI proce
   `docs__search`, `mail__search` (the connector's name in lower case, two underscores, the tool). The names do not change while the connectors stay as they are.
 - **Limits.** A call has the time limit of the model's MCP tools (360 seconds), so a research or document tool that takes minutes finishes, and its output is cut at 64 KiB like the output of the chat's own tools.
 - **Per chat switches.** The tools panel of a chat lists the connectors and the
-  model's MCP servers with a switch each. See [Chats](/features/chats/#mcp-tools).
+  model's MCP servers with a switch each. See [Chats]({{% relref "/features/chats" %}}#mcp-tools).
 
 ### MCP Apps
 
@@ -2116,7 +2115,7 @@ with the connector's own credential. The credential never reaches the browser.
   by a page. A tool whose visibility does not include `"model"` is not offered
   to the model.
 
-See [Chats](/features/chats/#interactive-tool-pages-mcp-apps) for the routes and
+See [Chats]({{% relref "/features/chats" %}}#interactive-tool-pages-mcp-apps) for the routes and
 the sandbox.
 
 ### Import from this browser

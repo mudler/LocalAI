@@ -1,7 +1,7 @@
 // Package prefixcache implements prefix-cache-aware routing for distributed
 // mode: it turns a request prompt into a chain of prefix hashes, tracks which
 // node served which prefix in an in-memory radix tree, and provides a
-// load-guarded preferred-node decision. See docs/content/features/distributed-mode.md.
+// load-guarded preferred-node decision. See docs/content/administration/distributed-mode.md.
 package prefixcache
 
 // RoutePolicy selects the routing strategy for a model. The zero value is

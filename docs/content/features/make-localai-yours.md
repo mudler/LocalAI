@@ -2,18 +2,17 @@
 disableToc = false
 title = "Make LocalAI yours"
 weight = 23
-url = "/features/make-localai-yours/"
 +++
 
 You can change how LocalAI looks and behaves for you by asking for it in a
-[chat](/features/chats/): the name and the instructions of the assistant, what
+[chat]({{% relref "/features/chats" %}}): the name and the instructions of the assistant, what
 it knows about you, the shortcuts of the message box, the widgets on Home, the
 look, and small tools of your own (pages). Every change is a file in your home
 folder, so it has a history, it can be undone, and the settings pages edit the
 same files. The settings files are in the `LocalAI/` folder of your home;
 pages are in `pages/`.
 
-The files need the chats and files of the server (see [Chats](/features/chats/)).
+The files need the chats and files of the server (see [Chats]({{% relref "/features/chats" %}})).
 
 ## What you can change
 
@@ -99,7 +98,7 @@ A plain Markdown file of at most 4 KiB with the persona and the standing rules o
 saved agent. The host adds it to the prompt of every chat of that agent, right after the
 agent's instructions and the persona; longer text is cut. You can edit it in the Files
 page. Add-ons can also register index files that the host loads in the same way (see
-[Context files](/features/addons/#context-files)).
+[Context files]({{% relref "/addons/contract-reference" %}}#context-files)).
 
 ### LocalAI/user.json
 
@@ -251,7 +250,7 @@ A metric uses `value`, `note` and `series` (numbers for the small line). A
 of recent chats under it. A missing data file shows as empty. A data file that
 breaks its schema shows its last valid data, marked as stale.
 
-A `page` widget shows one of your [pages](/features/pages/#a-page-on-home) as
+A `page` widget shows one of your [pages]({{% relref "/features/pages" %}}#a-page-on-home) as
 a tile, in the page's compact mode. It names the page (`page`, the folder name
 under `pages/`) and, for a page of a shared folder, `folder` (the folder id).
 Its `title` is optional: without it, the tile shows the title of the page's
@@ -271,7 +270,7 @@ every key they do not show, so a save from Edit layout keeps a widget's
 
 To update a widget every morning, ask the assistant: it writes the data file,
 adds the widget, and proposes a schedule trigger that you confirm on its card
-(see [triggers](/features/chats-agents/#proposals)). Each run is one chat turn,
+(see [triggers]({{% relref "/features/chats-agents" %}}#proposals)). Each run is one chat turn,
 and a schedule proposed in a chat runs at most once every 5 minutes. A run ends with one
 short sentence about what changed, which you read in the chat and the inbox.
 
@@ -302,7 +301,7 @@ A page is a small tool, such as a task board or a reading list: an
 sandbox, as you, cannot reach the network, and reads and writes only its own
 folder. The **Pages** entry of the sidebar shows once you have a page, with a
 one-time **New** label; pinned pages show under it. Two ready pages ship with
-LocalAI (a task board and a reading list). See [Pages](/features/pages/) for
+LocalAI (a task board and a reading list). See [Pages]({{% relref "/features/pages" %}}) for
 the folder, the bridge and the limits.
 
 ## Updates on a schedule
@@ -312,14 +311,14 @@ widget, adds the widget, and proposes a schedule trigger with
 `propose_trigger`. Nothing runs until you confirm the trigger on its card. Each
 run is one chat turn on your model, so it uses your models and counts toward
 your usage; keep at least an hour between runs. Pause, resume or delete the
-trigger on the Triggers page (see [triggers](/features/chats-agents/)). A
+trigger on the Triggers page (see [triggers]({{% relref "/features/chats-agents" %}})). A
 failed run keeps the last good data, marked as stale.
 
 ## Sharing pages
 
 A page in a shared folder runs as the person who opens it, so it never runs
 before they allow it, and a change by its author asks again. See
-[Pages](/features/pages/).
+[Pages]({{% relref "/features/pages" %}}).
 
 ## Look
 
@@ -435,10 +434,10 @@ suggestions**, stored under `seen` in `LocalAI/user.json`:
 
 - The whole feature follows the chats and their files: with the chats or the
   files off, none of these screens or files is used.
-- Pages need the `pages` feature of a user (see [Pages](/features/pages/)).
+- Pages need the `pages` feature of a user (see [Pages]({{% relref "/features/pages" %}})).
 - The runtime setting `chats_suggestions` (**Offers from the assistant** in the
   settings, on by default) is the default for users who did not choose. It
-  applies at once. See [Runtime settings]({{%relref "features/runtime-settings" %}}).
+  applies at once. See [Runtime settings]({{%relref "/administration/runtime-settings" %}}).
 - The hint record lives in each user's `LocalAI/user.json`, in the shared workspace,
   so the limits hold when several frontends serve the chats.
 

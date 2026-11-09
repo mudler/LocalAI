@@ -2,10 +2,9 @@
 disableToc = false
 title = "Chats: moving from the old chat, agents and skills"
 weight = 24
-url = "/features/chats-migration/"
 +++
 
-[Chats](/features/chats/) replace the old chat page, the old agents, the agent
+[Chats]({{% relref "/features/chats" %}}) replace the old chat page, the old agents, the agent
 jobs and the old skills. At start the server reads what those left on disk and
 in the database, and makes the matching definitions of the chats. It never
 changes or deletes the old data.
@@ -14,12 +13,12 @@ changes or deletes the old data.
 
 | Old | New |
 |---|---|
-| An agent of the pool | A [saved agent](/features/chats-agents/): instructions, model, the collection named like the agent, selected skills |
-| An agent that ran by itself (periodic) | A [trigger](/features/chats-agents/) on the agent, **switched off** |
+| An agent of the pool | A [saved agent]({{% relref "/features/chats-agents" %}}): instructions, model, the collection named like the agent, selected skills |
+| An agent that ran by itself (periodic) | A [trigger]({{% relref "/features/chats-agents" %}}) on the agent, **switched off** |
 | A scheduled task with a cron text | A trigger, **switched off**; `{{.name}}` parts of the prompt are filled from the task's parameters |
-| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector](/features/chats-connectors/#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
+| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector]({{% relref "/features/chats-connectors" %}}#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
 | A local MCP command of an agent (`mcp_stdio_servers`) | The same, only when the owner is an administrator; otherwise it is dropped, with the reason |
-| A Telegram connector of an agent | A [connector binding](/features/chats-connectors/), **switched off**; the old `admins` become the allowlist |
+| A Telegram connector of an agent | A [connector binding]({{% relref "/features/chats-connectors" %}}), **switched off**; the old `admins` become the allowlist |
 | A skill folder (shared or personal) | A shared or personal skill |
 | A conversation saved in the database | A chat with its transcript (the newest 5000 messages) |
 
@@ -65,12 +64,12 @@ actions, the prepare script of MCP servers, knowledge-base settings other than t
 collection grant, planning and memory switches, the webhooks of old tasks, skills
 from a git repository, skill resource files, and connectors other than
 Telegram. A name that is taken becomes `Name (2)`. A task is converted into a
-trigger; to run it through the [agent jobs API](/features/agent-jobs/) with
+trigger; to run it through the [agent jobs API]({{% relref "/features/agent-jobs" %}}) with
 parameters and a webhook, make it again as a task.
 
 The Telegram connector of the chats reads text, photos and voice messages in a
 private chat, and in a group only a message that names the bot or answers it (see
-[connectors](/features/chats-connectors/#what-a-person-can-send)). A voice message
+[connectors]({{% relref "/features/chats-connectors" %}}#what-a-person-can-send)). A voice message
 needs a transcription model. Saved agents have no export or import: copy the definition through
 `GET /api/chats/agents/{id}` and `POST /api/chats/agents`.
 
@@ -84,7 +83,7 @@ It returns your items: `kind` (`agent`, `trigger`, `skill`, `chat`,
 `connector`), `name`, `status` (`converted`, `skipped`, `failed`, `dropped`)
 and a `reason`. It never holds a token or the text of a prompt. An
 administrator also gets `totals` for all users, and the items that had no owner (made before accounts existed, skipped when accounts are on). A chat that had pictures, audio or files says how many attachments were not kept. Each user with something new
-gets one notification in the [inbox](/features/chats-agents/).
+gets one notification in the [inbox]({{% relref "/features/chats-agents" %}}).
 
 A run is safe to repeat. A converted item is marked and is not converted
 again. An item that cannot convert for good, such as a task with no cron text,
@@ -116,7 +115,7 @@ a chat is never twice.
 
 ## What stays
 
-The [collections](/features/runtime-settings/#chats-and-collections-settings) and their API, the terminal agent (`local-ai chat`), and the agent worker of a cluster, which serves the MCP tool calls of the frontend. The collections backend is built on localrecall.
+The [collections]({{% relref "/administration/runtime-settings" %}}#chats-and-collections-settings) and their API, the terminal agent (`local-ai chat`), and the agent worker of a cluster, which serves the MCP tool calls of the frontend. The collections backend is built on localrecall.
 
 ## What was removed
 
@@ -128,21 +127,21 @@ These APIs answer `404`:
 | `/api/agents/skills` and `/api/agents/git-repos` | `/api/chats/skills` |
 | `/api/conversations` | `/api/chats` |
 
-The [collections](/features/runtime-settings/#chats-and-collections-settings) API moved from `/api/agents/collections` to `/api/collections`. The old path still works and answers with a `Deprecation: true` header; switch to the new one.
+The [collections]({{% relref "/administration/runtime-settings" %}}#chats-and-collections-settings) API moved from `/api/agents/collections` to `/api/collections`. The old path still works and answers with a `Deprecation: true` header; switch to the new one.
 
 A request to `/v1/responses` whose `model` names a former agent is a plain request for a model of that name.
 
-The agent tasks and jobs API (`/api/agent/tasks` and `/api/agent/jobs`) is back, with the paths and JSON it had; see [Agent jobs](/features/agent-jobs/). A job is now a background chat of its owner. Scheduling a task is done with a [trigger](/features/chats-agents/#triggers), not with a cron text on the task.
+The agent tasks and jobs API (`/api/agent/tasks` and `/api/agent/jobs`) is back, with the paths and JSON it had; see [Agent jobs]({{% relref "/features/agent-jobs" %}}). A job is now a background chat of its owner. Scheduling a task is done with a [trigger]({{% relref "/features/chats-agents" %}}#triggers), not with a cron text on the task.
 
 The page `/app/chat` redirects to the chats, and the model in `/app/chat/<model>` becomes `?model=<model>` and the chats page selects it. The pages `/app/agents` and `/app/skills` keep their addresses and now manage the saved agents and the skills of the chats. `/app/agent-jobs` redirects to `/app/triggers`, which manages the triggers, and the former `/app/chats/agents`, `/app/chats/skills` and `/app/chats/triggers` redirect to `/app/agents`, `/app/skills` and `/app/triggers`.
 
 The pages do not offer some features of the removed ones. The agent form has no actions, connectors, filters, dynamic prompts, STDIO or HTTP MCP servers by URL, periodic runs, goals or memory switches, and no "draft with a model" button. You can import the JSON export of an older agent: its name, description, model, instructions and skills are read, and the page lists what was not imported. The skills page has no Git repositories, no `.tar.gz` import or export, no files tab and no "try in a context" sheet. The triggers page has no task parameters, media sources, webhooks or cron expressions with `@` shortcuts, and no job details page: a run of a trigger is a chat, and its row opens that chat.
 
-The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change](/features/chats/#settings-rename-and-model-change) and [Regenerate, edit, fork, search, export](/features/chats/#regenerate-edit-fork-search-export)). Two are gone: MCP servers that the browser connected to (use [MCP connectors](/features/chats-connectors/) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
+The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change]({{% relref "/features/chats" %}}#settings-rename-and-model-change) and [Regenerate, edit, fork, search, export]({{% relref "/features/chats" %}}#regenerate-edit-fork-search-export)). Two are gone: MCP servers that the browser connected to (use [MCP connectors]({{% relref "/features/chats-connectors" %}}) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
 
-Studio and Talk moved to add-ons in the same change: nothing is preinstalled, and users need the `addons` feature, which the upgrade does not grant. See [Upgrading: Studio and Talk are add-ons now](/features/addons/#upgrading-studio-and-talk-are-add-ons-now).
+Studio and Talk moved to add-ons in the same change: nothing is preinstalled, and users need the `addons` feature, which the upgrade does not grant. See [Upgrading: Studio and Talk are add-ons now]({{% relref "/addons/contract-reference" %}}#upgrading-studio-and-talk-are-add-ons-now).
 
-The features `skills` and `chat_history` are gone from the user permissions; their old keys in a stored permission map are ignored. The features `agents` and `mcp_jobs` are back, with `triggers` and `connectors` beside them, all off by default for a user; a stored `agents` or `mcp_jobs` value carries over, and a one-time rule keeps the access of the users who use them (see [Permissions](/features/chats/#permissions)).
+The features `skills` and `chat_history` are gone from the user permissions; their old keys in a stored permission map are ignored. The features `agents` and `mcp_jobs` are back, with `triggers` and `connectors` beside them, all off by default for a user; a stored `agents` or `mcp_jobs` value carries over, and a one-time rule keeps the access of the users who use them (see [Permissions]({{% relref "/features/chats" %}}#permissions)).
 
 ## Options that are ignored now
 
@@ -150,15 +149,15 @@ These flags and environment variables are accepted and do nothing, and the serve
 
 `LOCALAI_AGENT_POOL_MULTIMODAL_MODEL`, `LOCALAI_AGENT_POOL_TRANSCRIPTION_MODEL`, `LOCALAI_AGENT_POOL_TRANSCRIPTION_LANGUAGE`, `LOCALAI_AGENT_POOL_TTS_MODEL`, `LOCALAI_AGENT_POOL_TIMEOUT`, `LOCALAI_AGENT_POOL_ENABLE_SKILLS`, `LOCALAI_AGENT_POOL_CUSTOM_ACTIONS_DIR`, `LOCALAI_AGENT_POOL_ENABLE_LOGS` and `LOCALAI_AGENT_HUB_URL`. For `local-ai agent-worker`: `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN`.
 
-`LOCALAI_AGENT_JOB_RETENTION_DAYS` (and `AGENT_JOB_RETENTION_DAYS`) and `LOCALAI_MCP_CI_JOB_TIMEOUT` work again for the server: they set how long ended [agent jobs](/features/agent-jobs/) are kept and how long a job may run. For `local-ai agent-worker` the timeout is still ignored.
+`LOCALAI_AGENT_JOB_RETENTION_DAYS` (and `AGENT_JOB_RETENTION_DAYS`) and `LOCALAI_MCP_CI_JOB_TIMEOUT` work again for the server: they set how long ended [agent jobs]({{% relref "/features/agent-jobs" %}}) are kept and how long a job may run. For `local-ai agent-worker` the timeout is still ignored.
 
 The `agent_job_retention_days`, `agent_pool_enable_logs` and `agent_pool_agent_hub_url` keys of `runtime_settings.json` are ignored too: set the retention with the flag or the environment variable. The command `local-ai agent` is gone.
 
-Renamed, because the [collections](/features/collections/) use them. The old names still work and the server logs one deprecation warning for each one that is set. When both names are set, the new one wins.
+Renamed, because the [collections]({{% relref "/features/collections" %}}) use them. The old names still work and the server logs one deprecation warning for each one that is set. When both names are set, the new one wins.
 
 | Old name | New name |
 |---|---|
-| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`. The old name keeps its meaning (the whole agent pool, knowledge base included). `LOCALAI_DISABLE_TRIGGERS` and `LOCALAI_DISABLE_CONNECTORS` switch off one part. See [Chats](/features/chats/#switch-the-chats-off). |
+| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`. The old name keeps its meaning (the whole agent pool, knowledge base included). `LOCALAI_DISABLE_TRIGGERS` and `LOCALAI_DISABLE_CONNECTORS` switch off one part. See [Chats]({{% relref "/features/chats" %}}#switch-the-chats-off). |
 | `LOCALAI_AGENT_POOL_STATE_DIR` | `LOCALAI_COLLECTIONS_STATE_DIR` |
 | `LOCALAI_AGENT_POOL_DEFAULT_MODEL` | `LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
 | `LOCALAI_AGENT_POOL_API_URL` | `LOCALAI_COLLECTIONS_API_URL` |

@@ -1,9 +1,7 @@
-
 +++
 disableToc = false
 title = "Text to Audio (TTS)"
 weight = 31
-url = "/features/text-to-audio/"
 aliases = ["/features/sound-generation/"]
 +++
 
@@ -80,7 +78,7 @@ this control may ignore it.
 
 ## Voice Library
 
-Every user who may use speech can keep reusable voice-cloning references of their own, and administrators manage all of them. Use the **Library** tab of the Voice add-on (**Add-ons → Voice**) in the LocalAI WebUI. (Recognition, the first tab of that page, is a separate feature: voiceprints for recognising who is speaking. See [Voice recognition](/features/voice-recognition/).) The library replaces per-model filesystem and YAML setup for supported cloning backends:
+Every user who may use speech can keep reusable voice-cloning references of their own, and administrators manage all of them. Use the **Library** tab of the Voice add-on (**Add-ons → Voice**) in the LocalAI WebUI. (Recognition, the first tab of that page, is a separate feature: voiceprints for recognising who is speaking. See [Voice recognition]({{% relref "/features/voice-recognition" %}}).) The library replaces per-model filesystem and YAML setup for supported cloning backends:
 
 1. Select **Add a speech voice** and upload or record a clear reference clip. A speech voice can also be made while enrolling a speaker, from the enrol sheet.
 2. Enter the exact words spoken in the clip. Add more audio/transcript pairs when the personality needs more examples.
@@ -1078,7 +1076,7 @@ request to the family's voice-cloning task automatically, and supplying instruct
 it to voice design, where the family supports them. Cloning-only families such as
 `chatterbox` advertise no plain TTS task, so every request to them must carry a reference
 clip. See the
-[audio.cpp backend]({{%relref "features/audio-cpp" %}}) page for the full option list,
+[audio.cpp backend]({{%relref "/features/audio-cpp" %}}) page for the full option list,
 including the `load.` and `session.` namespaces and the supertonic packaging caveat.
 
 ### NeMo-Speech.cpp (MagpieTTS)
@@ -1105,7 +1103,7 @@ The codec and the tokenizer directory are both required. Both are discovered fro
 model's own directory when left unset: a sibling file whose name contains `nanocodec` and
 a sibling directory named `extracted`. MagpieTTS conditions on a speaker rather than on a
 prose style, so `voice` selects a speaker index or a voice name and `instructions` has no
-equivalent. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}})
+equivalent. See the [NeMo-Speech.cpp backend]({{%relref "/features/nemo-speech-cpp" %}})
 page for the full option list and the conversion steps.
 
 ### LFM3-Audio (llama.cpp, experimental)

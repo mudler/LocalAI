@@ -2,7 +2,6 @@
 disableToc = false
 title = "NeMo-Speech.cpp backend"
 weight = 39
-url = "/features/nemo-speech-cpp/"
 +++
 
 [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) is NVIDIA's Apache-2.0
@@ -250,7 +249,7 @@ no HIP and no SYCL backend, so there is nothing to build against. A host reporti
 capability gets the CPU build, which is the honest answer rather than a broken image. If
 you want NeMo ASR on an AMD or Intel GPU, use
 [parakeet-cpp](https://github.com/mudler/parakeet.cpp) instead, which is described on the
-[Audio to text]({{%relref "features/audio-to-text" %}}) page.
+[Audio to text]({{%relref "/features/audio-to-text" %}}) page.
 
 ## Limitations
 

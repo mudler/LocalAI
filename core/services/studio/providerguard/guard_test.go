@@ -89,11 +89,11 @@ var allowed = []entry{
 	{"pkg/addons/packaging/registry.go", "GitHub event name", "release tooling: GitHub Actions is the build system"},
 	{"docs/content/reference/binaries.md", "GitHub", "release downloads: the service"},
 	{"docs/content/reference/cli-reference.md", "GitHub OAuth", "the options of the GitHub OAuth login"},
-	{"docs/content/advanced/private-sources.md", "GitHub", "private gallery sources on the service"},
-	{"docs/content/getting-started/linux.md", "GitHub Releases", "release downloads: the service"},
-	{"docs/content/getting-started/macos.md", "GitHub releases", "release downloads: the service"},
-	{"docs/content/getting-started/models.md", "GitHub", "release downloads: the service"},
-	{"docs/content/getting-started/troubleshooting.md", "GitHub", "the issue tracker of the project: the service"},
+	{"docs/content/models/private-sources.md", "GitHub", "private gallery sources on the service"},
+	{"docs/content/start/install/linux.md", "GitHub Releases", "release downloads: the service"},
+	{"docs/content/start/install/macos.md", "GitHub releases", "release downloads: the service"},
+	{"docs/content/models/setting-up-models.md", "GitHub", "release downloads: the service"},
+	{"docs/content/administration/troubleshooting.md", "GitHub", "the issue tracker of the project: the service"},
 
 	// Chat platforms named as examples of what a connector carries. The
 	// platform is a third-party service; the add-on is not named as one.
@@ -103,10 +103,9 @@ var allowed = []entry{
 	{"core/services/addons/tools/consumers.go", "such as Telegram", "an example of a chat platform in a note for add-on authors"},
 	{locales, "connectorsPage.noAddonHint", "a chat platform as an example of what a connector add-on carries"},
 	{"docs/content/reference/cli-reference.md", "(Telegram, Slack)", "help text that gives chat platforms as examples"},
-	{"docs/content/getting-started/_index.en.md", "Telegram", "a chat platform as an example of where an agent can answer"},
-	{"docs/content/getting-started/first-agent.md", "Telegram", "a chat platform as an example of where an agent can answer"},
-	{"docs/content/reference/ai-coding-assistants.md", "Discord channel", "the project community server, not the add-on"},
-	{"docs/content/getting-started/troubleshooting.md", "LocalAI Discord", "the project community server, not the add-on"},
+	{"docs/content/start/first-agent.md", "Telegram", "a chat platform as an example of where an agent can answer"},
+	{"docs/content/contributing/ai-coding-assistants.md", "Discord channel", "the project community server, not the add-on"},
+	{"docs/content/administration/troubleshooting.md", "LocalAI Discord", "the project community server, not the add-on"},
 
 	// The profiles of the environment that runs commands. Any add-on that
 	// runs commands can declare them; "sandbox" here is the kind of
@@ -136,10 +135,10 @@ var allowed = []entry{
 	{ui + "utils/traffic.js", "'web'", "usage source of a request from the web UI session"},
 	{ui + "utils/chatApps.js", "'web'", "the platform of a chat made in the web UI"},
 	{ui + "utils/settingsSchema.js", "Web ", "the labels of the built-in web tool settings"},
-	{"docs/content/advanced/reverse-proxy-tls.md", "Web UI", "the web UI of LocalAI"},
-	{"docs/content/getting-started/quickstart.md", "Web Interface", "the web UI of LocalAI"},
-	{"docs/content/getting-started/troubleshooting.md", "Web UI", "the web UI of LocalAI"},
-	{"docs/content/getting-started/troubleshooting.md", "Web ", "the web UI of LocalAI"},
+	{"docs/content/administration/reverse-proxy-tls.md", "Web UI", "the web UI of LocalAI"},
+	{"docs/content/start/quickstart.md", "Web Interface", "the web UI of LocalAI"},
+	{"docs/content/administration/troubleshooting.md", "Web UI", "the web UI of LocalAI"},
+	{"docs/content/administration/troubleshooting.md", "Web ", "the web UI of LocalAI"},
 }
 
 var knownDebt = []debt{}
@@ -147,6 +146,44 @@ var knownDebt = []debt{}
 // maxKnownDebt is the size of knownDebt now. Lower it when an entry goes; a
 // higher number is a new special case that is excused instead of fixed.
 const maxKnownDebt = 0
+
+// coreDocs are the docs pages that describe LocalAI itself, not an add-on. They
+// were the reference, advanced and getting-started folders before the docs were
+// grouped by task, so the list names each page.
+var coreDocs = []string{
+	"docs/content/administration/embedded-routing-log.md",
+	"docs/content/administration/p2p-api.md",
+	"docs/content/administration/reverse-proxy-tls.md",
+	"docs/content/administration/troubleshooting.md",
+	"docs/content/api/api-errors.md",
+	"docs/content/concepts/architecture.md",
+	"docs/content/contributing/ai-coding-assistants.md",
+	"docs/content/contributing/build-from-source.md",
+	"docs/content/models/advanced-usage.md",
+	"docs/content/models/compatibility-table.md",
+	"docs/content/models/model-configuration.md",
+	"docs/content/models/private-sources.md",
+	"docs/content/models/setting-up-models.md",
+	"docs/content/models/vram-management.md",
+	"docs/content/reference/_index.md",
+	"docs/content/reference/binaries.md",
+	"docs/content/reference/cli-reference.md",
+	"docs/content/reference/runtime-errors.md",
+	"docs/content/reference/shell-completion.md",
+	"docs/content/reference/system-info.md",
+	"docs/content/start/_index.md",
+	"docs/content/start/customize-model.md",
+	"docs/content/start/first-agent.md",
+	"docs/content/start/install/_index.md",
+	"docs/content/start/install/containers.md",
+	"docs/content/start/install/docker.md",
+	"docs/content/start/install/kubernetes.md",
+	"docs/content/start/install/linux.md",
+	"docs/content/start/install/macos.md",
+	"docs/content/start/install/nvidia-l4t.md",
+	"docs/content/start/quickstart.md",
+	"docs/content/start/try-it-out.md",
+}
 
 var _ = Describe("the names of the shipped add-ons in core", func() {
 	It("reads every add-on from its manifest and marks the ones with a role", func() {
@@ -210,7 +247,7 @@ var _ = Describe("the names of the shipped add-ons in core", func() {
 		add(scanGo(root, n, []string{"core/services/studio/sandbox"}))
 		add(scanUI(root, n))
 		add(scanLocales(root, n))
-		add(scanDocs(root, n, []string{"docs/content/reference", "docs/content/advanced", "docs/content/getting-started"}))
+		add(scanDocs(root, n, coreDocs))
 
 		usedAllowed := make([]bool, len(allowed))
 		usedDebt := make([]bool, len(knownDebt))

@@ -1,16 +1,14 @@
-
 +++
 disableToc = false
 title = "Interleaved Thinking with Tool Calls"
 weight = 13
-url = "/features/interleaved-thinking/"
 +++
 
 Reasoning models can "think" before they answer. When such a model also calls a tool, the useful behaviour is for the thinking and the tool call to travel together, and for that thinking to survive the tool-result round trip. LocalAI calls this **interleaved thinking**: a single assistant turn carries both `reasoning` and `tool_calls`, and the client hands the `reasoning` back on the next turn so the model's chain of thought is not lost when the tool result is appended.
 
 This matters because a tool-calling loop is multi-turn. The model reasons, asks for a tool, your client runs the tool, and then you call the model again with the tool result. Without interleaved thinking the reasoning produced in the first turn is discarded, and the model has to reconstruct its plan from scratch. With it, the reasoning is echoed back and the model continues where it left off.
 
-See also: [OpenAI Functions and Tools]({{%relref "features/openai-functions" %}}) for how tool calls are extracted per backend, [Text Generation (GPT)]({{%relref "features/text-generation" %}}) for the chat completions basics, and [Advanced model configuration]({{%relref "advanced/model-configuration" %}}) for the model `options` referenced below.
+See also: [OpenAI Functions and Tools]({{%relref "/api/openai-functions" %}}) for how tool calls are extracted per backend, [Text Generation (GPT)]({{%relref "/features/text-generation" %}}) for the chat completions basics, and [Advanced model configuration]({{%relref "/models/model-configuration" %}}) for the model `options` referenced below.
 
 ## The round-trip contract
 

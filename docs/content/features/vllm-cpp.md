@@ -2,7 +2,6 @@
 disableToc = false
 title = "vllm.cpp backend"
 weight = 16
-url = "/features/vllm-cpp/"
 +++
 
 [vllm.cpp](https://github.com/mudler/vllm.cpp) is the LocalAI team's C++20 port of
@@ -15,7 +14,7 @@ inside the engine.
 This page covers installing the backend and the models LocalAI ships ready to run
 on it. For the full `engine_args` reference (KV sizing, scheduling policy,
 speculative decoding, LMCache), see the
-[vllm.cpp section of the text generation guide]({{% relref "features/text-generation" %}}#vllmcpp).
+[vllm.cpp section of the text generation guide]({{% relref "/features/text-generation" %}}#vllmcpp).
 
 ## Installing
 
@@ -198,7 +197,7 @@ correctness gap.
 The `vllm-cpp` backend serves the kev-compatible SystemOne endpoints (the Decisions API): typed
 `choice`, `noul` and `score` questions over a state text, answered by a
 non-generative decision model in one pass. A decision model declares
-`known_usecases: [decisions]`. See [Decisions API]({{% relref "features/decisions" %}})
+`known_usecases: [decisions]`. See [Decisions API]({{% relref "/api/decisions" %}})
 for the request shape, the models you can install and the access rules.
 
 | Endpoint | Method | Description |
@@ -219,4 +218,4 @@ MiniMax-H3, which generates video and audio jointly, is supported through the
 stable-diffusion.cpp backend (the `-ggml` gallery entries), not through
 `vllm-cpp`. The `vllm-cpp` video path has no gallery entries because it does not
 finish a clip in a practical time. See
-[Video generation]({{% relref "features/video-generation" %}}#minimax-h3).
+[Video generation]({{% relref "/features/video-generation" %}}#minimax-h3).
