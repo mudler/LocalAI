@@ -1,0 +1,18 @@
+<div class="install">
+  <div class="tabs" role="group" aria-label="Installation method">
+    <button class="tab" type="button" aria-selected="true" data-pane="p-script" data-copy="curl -sSL https://localai.io/install.sh | sh">Script</button>
+    <button class="tab" type="button" aria-selected="false" data-pane="p-docker" data-copy="docker run -p 8080:8080 --name local-ai -ti localai/localai:latest">Docker</button>
+    <button class="tab" type="button" aria-selected="false" data-pane="p-k8s" data-copy="helm install local-ai go-skynet/local-ai">Kubernetes</button>
+  </div>
+  <div class="term">
+    <div class="term__b"><span>shell</span><button class="cpy" type="button" data-copy="curl -sSL https://localai.io/install.sh | sh" aria-label="Copy the command of the selected tab">copy</button></div>
+    <div class="pane" id="p-script"><h4>Script</h4><pre><span class="p">$</span> curl -sSL https://localai.io/install.sh | sh
+<span class="p">$</span> local-ai run qwen3-4b
+<span class="o"># the API and the web UI are on http://localhost:8080</span></pre></div>
+    <div class="pane" id="p-docker" hidden><h4>Docker</h4><pre><span class="p">$</span> docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
+<span class="o"># Podman works the same way</span></pre></div>
+    <div class="pane" id="p-k8s" hidden><h4>Kubernetes</h4><pre><span class="p">$</span> helm install local-ai go-skynet/local-ai
+<span class="o"># or: kubectl apply -f https://localai.io/install/kubernetes.yaml</span></pre></div>
+  </div>
+  <div class="alts"><span>macOS: DMG</span><span>Linux: binary</span><span>Podman</span><span>Helm chart</span><span>Build from source</span></div>
+</div>
