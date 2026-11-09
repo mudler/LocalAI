@@ -1,8 +1,7 @@
-
 +++
 disableToc = false
 title = "LocalAI binaries"
-weight = 26
+weight = 30
 +++
 
 LocalAI binaries are available for both Linux and MacOS platforms and can be executed directly from your command line. These binaries are continuously updated and hosted on [our GitHub Releases page](https://github.com/mudler/LocalAI/releases). This method also supports Windows users via the Windows Subsystem for Linux (WSL).

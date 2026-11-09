@@ -2,10 +2,9 @@
 disableToc = false
 title = "Contacts"
 weight = 26
-url = "/features/contacts/"
 +++
 
-The Contacts add-on gives you an address book inside LocalAI. Ask a chat or a [saved agent](/features/chats-agents/) "what is Marco's number?" or "add Anna, anna@example.org" and it reads or changes the book. There is no account to connect, no sync and no setup: install the add-on and use it.
+The Contacts add-on gives you an address book inside LocalAI. Ask a chat or a [saved agent]({{% relref "/features/chats-agents" %}}) "what is Marco's number?" or "add Anna, anna@example.org" and it reads or changes the book. There is no account to connect, no sync and no setup: install the add-on and use it.
 
 ## What it keeps
 
@@ -32,7 +31,7 @@ Open **Contacts** in the add-ons. It has a search box, the list of contacts, the
 
 The reads run at once. The writes are action tools: they run at once, as the user, with no confirmation card, and an unattended run (a trigger or a job) needs the `act.addons` grant for them. The add-on ships a skill that tells the model when to use them.
 
-In a messaging chat, the owner and the senders paired with the bot can read and change the book. Every other sender the bot lets in can read it but not change it (the `tools.write` rule, see [Add-ons that keep the owner's own data](/features/addons/#add-ons-that-keep-the-owners-own-data)). The book is private to its user: a tool call can never name another user's book.
+In a messaging chat, the owner and the senders paired with the bot can read and change the book. Every other sender the bot lets in can read it but not change it (the `tools.write` rule, see [Add-ons that keep the owner's own data]({{% relref "/addons/contract-reference" %}}#add-ons-that-keep-the-owners-own-data)). The book is private to its user: a tool call can never name another user's book.
 
 ## Limits
 

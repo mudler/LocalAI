@@ -2,7 +2,6 @@
 disableToc = false
 title = "Speaker Diarization"
 weight = 33
-url = "/features/audio-diarization/"
 +++
 
 ![Diarization: segment, embed, and cluster (or a single ASR pass) into speaker-labelled segments](/images/diagrams/diarization-pipeline.png)
@@ -13,9 +12,9 @@ LocalAI exposes this through the `/v1/audio/diarization` endpoint, modelled afte
 
 - **[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)** - pyannote-3.0 segmentation + a speaker-embedding extractor (3D-Speaker, NeMo, WeSpeaker) + fast clustering. Pure diarization - no transcription cost. Recommended when you only need speaker turns.
 - **[vibevoice.cpp](https://github.com/microsoft/VibeVoice)** - produces speaker-labelled segments as a by-product of its long-form ASR pass, so you can optionally get a transcript per segment for free.
-- **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)** - NVIDIA Sortformer, served standalone by the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}}). It is end to end, so the speaker capacity is fixed by the checkpoint and the count hints are ignored. The same backend can instead put speaker tags on a transcript, by attaching a Sortformer model to an ASR one.
-- **[audio.cpp](https://github.com/0xShug0/audio.cpp)** - the `sortformer_diar` family, served by the multi-modality [audio.cpp backend]({{%relref "features/audio-cpp" %}}).
-- **[parakeet.cpp](https://github.com/mudler/parakeet.cpp)** - NVIDIA Nemotron-3-Diarization (Sortformer, up to 8 speakers), served standalone or paired with a Parakeet ASR model for per-segment text. See the [Audio to Text]({{% relref "audio-to-text" %}}) page for the parakeet-cpp option reference.
+- **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)** - NVIDIA Sortformer, served standalone by the [NeMo-Speech.cpp backend]({{%relref "/features/nemo-speech-cpp" %}}). It is end to end, so the speaker capacity is fixed by the checkpoint and the count hints are ignored. The same backend can instead put speaker tags on a transcript, by attaching a Sortformer model to an ASR one.
+- **[audio.cpp](https://github.com/0xShug0/audio.cpp)** - the `sortformer_diar` family, served by the multi-modality [audio.cpp backend]({{%relref "/features/audio-cpp" %}}).
+- **[parakeet.cpp](https://github.com/mudler/parakeet.cpp)** - NVIDIA Nemotron-3-Diarization (Sortformer, up to 8 speakers), served standalone or paired with a Parakeet ASR model for per-segment text. See the [Audio to Text]({{% relref "/features/audio-to-text" %}}) page for the parakeet-cpp option reference.
 
 Because diarization is exposed as a regular OpenAI-compatible endpoint, any HTTP client works. There is no Python dependency on pyannote or NeMo on the consumer side.
 
@@ -86,7 +85,7 @@ Adds per-speaker totals and (when the backend supports it and `include_text=true
 
 ### Speaker names
 
-With a parakeet-cpp model that has a `speaker_model:` (or a `speaker_component:`, for a bundle file such as `parakeet-cpp-bundle-standard`) and voices registered through `/v1/voice/register`, segments whose speaker matches a registered voice gain `name` and `name_score` (the cosine similarity of the match), and the matching `speakers` entry gains `name`. Both fields are omitted for a speaker that was not identified, so an unnamed response looks exactly as before. `speaker` stays `SPEAKER_NN`, and RTTM output still uses `SPEAKER_NN`. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription) for the setup and the limits.
+With a parakeet-cpp model that has a `speaker_model:` (or a `speaker_component:`, for a bundle file such as `parakeet-cpp-bundle-standard`) and voices registered through `/v1/voice/register`, segments whose speaker matches a registered voice gain `name` and `name_score` (the cosine similarity of the match), and the matching `speakers` entry gains `name`. Both fields are omitted for a speaker that was not identified, so an unnamed response looks exactly as before. `speaker` stays `SPEAKER_NN`, and RTTM output still uses `SPEAKER_NN`. See [Voice Recognition]({{% relref "/features/voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription) for the setup and the limits.
 
 ```json
 {
@@ -138,7 +137,7 @@ curl http://localhost:8080/v1/audio/diarization \
 }
 ```
 
-An empty `sounds` array means the sound model ran and found no event. The field is absent when `include_sounds` is not set. The events come from the same sound stream, with the same on and off thresholds, that a [realtime session]({{% relref "openai-realtime" %}}) runs, so a clip gives the same events offline and live. The thresholds are not request fields.
+An empty `sounds` array means the sound model ran and found no event. The field is absent when `include_sounds` is not set. The events come from the same sound stream, with the same on and off thresholds, that a [realtime session]({{% relref "/api/openai-realtime" %}}) runs, so a clip gives the same events offline and live. The thresholds are not request fields.
 
 The model needs a sound companion, a `sound_model:` option pointing at a CED GGUF (the gallery entry `parakeet-cpp-multilingual-diarization-speakers-sounds` has one). Without it the request fails with HTTP 501 and a message that starts with the stable code `include_sounds_unsupported`; the same happens for a backend that cannot report sound events. LocalAI never answers with an empty list in place of that error. The speaker segments, text and voice prints are independent of the sound model and cost nothing extra when `include_sounds` is off.
 
@@ -238,7 +237,7 @@ See [Remember speakers in the Web UI](#remember-speakers-in-the-web-ui) for inst
 
 The `parakeet-cpp-multilingual-diarization-speakers-sounds` entry downloads Parakeet TDT 0.6B v3 (25 European languages), Nemotron-3-Diarization, the WeSpeaker ResNet34 speaker encoder and CED-Tiny, and sets `diarization_model`, `speaker_model` and `sound_model`. It answers the whole request above from one model name. See [Sound events](#sound-events).
 
-The entries `parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard` hold Nemotron-3-Diarization, an ASR model and the WeSpeaker speaker encoder in one file (`diar_component:diar` and `speaker_component:voice`), so one install serves the transcript and the identification options above. See [Bundle GGUF files]({{% relref "audio-to-text" %}}#bundle-gguf-files-several-models-in-one-file).
+The entries `parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard` hold Nemotron-3-Diarization, an ASR model and the WeSpeaker speaker encoder in one file (`diar_component:diar` and `speaker_component:voice`), so one install serves the transcript and the identification options above. See [Bundle GGUF files]({{% relref "/features/audio-to-text" %}}#bundle-gguf-files-several-models-in-one-file).
 
 For manual configuration, this example pairs Sortformer with ASR:
 
@@ -264,7 +263,7 @@ curl http://localhost:8080/v1/audio/diarization \
   -F response_format=verbose_json
 ```
 
-Sortformer clusters on voice-like characteristics, not on "is this a human". A loud non-speech sound with voice-like pitch and rhythm (a rooster crow, in one test clip) can come back as its own speaker segment alongside the real speakers. This is model behavior, not a bug in the LocalAI integration: treat an unexpected extra speaker as a hint the clip may contain a non-speech sound, and use [Sound Classification]({{% relref "audio-classification" %}}) to confirm what it is.
+Sortformer clusters on voice-like characteristics, not on "is this a human". A loud non-speech sound with voice-like pitch and rhythm (a rooster crow, in one test clip) can come back as its own speaker segment alongside the real speakers. This is model behavior, not a bug in the LocalAI integration: treat an unexpected extra speaker as a hint the clip may contain a non-speech sound, and use [Sound Classification]({{% relref "/features/audio-classification" %}}) to confirm what it is.
 
 ## Notes
 
@@ -274,7 +273,7 @@ Sortformer clusters on voice-like characteristics, not on "is this a human". A l
 
 ## See also
 
-- [Sound Classification]({{% relref "audio-classification" %}}) - tag non-speech sound events (alarms, glass breaking, baby cry) in a clip.
+- [Sound Classification]({{% relref "/features/audio-classification" %}}) - tag non-speech sound events (alarms, glass breaking, baby cry) in a clip.
 
 ### Backend profile transport
 
@@ -365,7 +364,7 @@ human name. Slots may be sparse and out of order; display names may repeat.
 Preview `intervals` against the original audio, not separated audio. Disable
 saving unavailable profiles. Enrollment is explicit, never automatic; only
 relabel after a successful registration response. See
-[portable voice registration](/features/voice-recognition/#portable-profile-registration).
+[portable voice registration]({{% relref "/features/voice-recognition" %}}#portable-profile-registration).
 
 Profiles are sensitive, unsigned biometric data, not proof of identity or consent.
 Do not log their vectors. Obtain the speaker's consent before enrollment.
@@ -439,7 +438,7 @@ available there and does not require diarization.
 This example uses the same complete gallery entry and requires `curl` and `jq`.
 The commands assume a local server without authentication.
 If authentication is enabled, add `-H "Authorization: Bearer <key>"` to every request using your authorized key.
-Keep keys out of shared scripts, logs, and shell history; see [Authentication]({{% relref "authentication" %}}).
+Keep keys out of shared scripts, logs, and shell history; see [Authentication]({{% relref "/administration/authentication" %}}).
 Installation requires model-management access; inference and enrollment require the permissions described above.
 
 Install the model if it is not already installed:
@@ -453,7 +452,7 @@ curl --fail-with-body "$LOCALAI/models/apply" \
 ```
 
 Installation is asynchronous. Wait for successful completion in **Operate → Activity** before continuing.
-API clients can query the returned job `status` URL; see the [model gallery API]({{% relref "model-gallery" %}}).
+API clients can query the returned job `status` URL; see the [model gallery API]({{% relref "/models" %}}).
 
 {{% notice warning %}}
 Exported profiles contain biometric vectors. Obtain consent before enrollment.
@@ -512,4 +511,4 @@ rmdir "$WORK"
 Matching speakers can now carry `name`, even though this request omits `include_speaker_profiles`.
 Keep `include_text=true` and `verbose_json` when you want transcript text.
 Recognition is not proof of identity. Registrations remain global and disappear on server restart.
-See [portable profile registration](/features/voice-recognition/#portable-profile-registration) for encoder compatibility and validation rules.
+See [portable profile registration]({{% relref "/features/voice-recognition" %}}#portable-profile-registration) for encoder compatibility and validation rules.

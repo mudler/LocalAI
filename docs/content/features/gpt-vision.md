@@ -1,9 +1,7 @@
-
 +++
 disableToc = false
 title = "GPT Vision"
 weight = 40
-url = "/features/gpt-vision/"
 +++
 
 LocalAI supports understanding images by using [LLaVA](https://llava.hliu.cc/), and implements the [GPT Vision API](https://platform.openai.com/docs/guides/vision) from OpenAI.
@@ -44,4 +42,4 @@ Install a vision-capable model from the gallery, either from the **Models** page
 local-ai run moondream2-20250414
 ```
 
-Other vision models are available in the gallery (for example `smolvlm-instruct` and `smolvlm2-2.2b-instruct`). Browse them on the **Models** page or see the {{% relref "features/model-gallery" %}}.
+Other vision models are available in the gallery (for example `smolvlm-instruct` and `smolvlm2-2.2b-instruct`). Browse them on the **Models** page or see the {{% relref "/models" %}}.

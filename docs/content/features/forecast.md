@@ -2,7 +2,6 @@
 disableToc = false
 title = "Time-Series Forecasting"
 weight = 42
-url = "/features/forecast/"
 +++
 
 LocalAI forecasts numeric time series with [timestral.cpp](https://github.com/mudler/timestral.cpp), a C++/ggml port of Mistral's Timestral models. You send one or more series, with optional covariates, to `POST /v1/forecast` and get quantile trajectories for the next steps.

@@ -2,13 +2,12 @@
 disableToc = false
 title = "Object Detection"
 weight = 41
-url = "/features/object-detection/"
 +++
 
 LocalAI supports object detection and image segmentation through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Available backends include [RF-DETR](https://github.com/roboflow/rf-detr) (Python) and [rf-detr.cpp](https://github.com/localai-org/rf-detr.cpp) (native C++/ggml) for object detection and segmentation, and [sam3.cpp](https://github.com/PABannier/sam3.cpp) for image segmentation (SAM 3/2/EdgeTAM).
 
 For detecting **faces** specifically, see the dedicated
-[Face Recognition](/features/face-recognition/) feature - its
+[Face Recognition]({{% relref "/features/face-recognition" %}}) feature - its
 `/v1/detection` support is tuned for face bounding boxes and ships
 with commercially-safe model options.
 
@@ -129,7 +128,7 @@ The RF-DETR backend is implemented as a Python-based gRPC service that integrate
 
 #### Available Models
 
-Currently, the following model is available in the [Model Gallery]({{%relref "features/model-gallery" %}}):
+Currently, the following model is available in the [Model Gallery]({{%relref "/models" %}}):
 
 - **rfdetr-base**: Base model with balanced performance and accuracy
 
@@ -337,7 +336,7 @@ Additional object detection models and backends will be added to this category i
 
 ## Related Features
 
-- [🎨 Image generation]({{%relref "features/image-generation" %}}): Generate images with AI
-- [📖 Text generation]({{%relref "features/text-generation" %}}): Generate text with language models
-- [🔍 GPT Vision]({{%relref "features/gpt-vision" %}}): Analyze images with language models
-- [🚀 GPU acceleration]({{%relref "features/GPU-acceleration" %}}): Optimize performance with GPU acceleration
+- [🎨 Image generation]({{%relref "/features/image-generation" %}}): Generate images with AI
+- [📖 Text generation]({{%relref "/features/text-generation" %}}): Generate text with language models
+- [🔍 GPT Vision]({{%relref "/features/gpt-vision" %}}): Analyze images with language models
+- [🚀 GPU acceleration]({{%relref "/models/gpu-acceleration" %}}): Optimize performance with GPU acceleration

@@ -2,15 +2,14 @@
 disableToc = false
 title = "Knowledge (collections)"
 weight = 21
-url = "/features/collections/"
 +++
 
 Knowledge is the part of LocalAI that holds collections of documents that agents
 can search. In the web UI it is the **Knowledge** item in the sidebar. Each item
 in it is a collection: a named set of documents that LocalAI splits into chunks and
 stores as embeddings. You can search a collection by meaning. A
-[saved agent](/features/chats-agents/) can list the collections it may search,
-and a [chat](/features/chats/) with that agent gets the tools `list_collections`
+[saved agent]({{% relref "/features/chats-agents" %}}) can list the collections it may search,
+and a [chat]({{% relref "/features/chats" %}}) with that agent gets the tools `list_collections`
 and `search_collection`.
 
 Collections are on by default. To turn them off, set `LOCALAI_DISABLE_COLLECTIONS=true`.
@@ -51,7 +50,7 @@ text in characters.
 ## Sharing a collection
 
 With accounts, the owner of a collection can share it. Open **Knowledge**, open the
-collection and choose **Share**. The [Share dialog]({{%relref "features/sharing" %}})
+collection and choose **Share**. The [Share dialog]({{%relref "/features/sharing" %}})
 finds people by name and can share with **Everyone**, every account of the server.
 A person can receive it when their account may use collections.
 
@@ -133,7 +132,7 @@ Other users cannot use either parameter. `user_id` is ignored for them and they 
 ## Settings
 
 Set these as environment variables or flags. Most can also be set in the
-[runtime settings](/features/runtime-settings/) file, and a change needs a restart.
+[runtime settings]({{% relref "/administration/runtime-settings" %}}) file, and a change needs a restart.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -161,7 +160,7 @@ LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://user:password@host:5432/localrecal
 
 The `docker-compose.yaml` of the project has a commented example with a
 PostgreSQL service. With several frontends in
-[distributed mode](/features/distributed-mode/), use the `postgres` engine, so
+[distributed mode]({{% relref "/administration/distributed-mode" %}}), use the `postgres` engine, so
 that all frontends share the same collections.
 
 The shares of the collections are records in the policy store of the add-on owner,
@@ -177,7 +176,7 @@ that does not exist; a person's own collections are not affected.
 ## Use a collection in an agent
 
 Add the names of your collections to the `collections` list of a
-[saved agent](/features/chats-agents/). A chat with that agent can then search
+[saved agent]({{% relref "/features/chats-agents" %}}). A chat with that agent can then search
 only those collections. If a listed collection is deleted, the chat still starts
 and the model is told that it is not available.
 
@@ -185,7 +184,7 @@ and the model is told that it is not available.
 
 A model can ask to add a text to a collection, for example a procedure that you
 pasted in the chat, with the `propose_change` tool and the kind `knowledge`. It
-works like any other [suggested change]({{%relref "features/chats-agents#builtin-grants" %}}),
+works like any other [suggested change]({{%relref "/features/chats-agents#builtin-grants" %}}),
 with these rules:
 
 - **A grant.** The agent needs the grant `knowledge.write` (**Add to knowledge**

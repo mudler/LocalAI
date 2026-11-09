@@ -2,10 +2,9 @@
 disableToc = false
 title = "Home Assistant in chats and agents"
 weight = 23
-url = "/features/home-assistant/"
 +++
 
-The Home Assistant add-on lets your [chats](/features/chats/) and [saved agents](/features/chats-agents/) read your smart home: find entities, read a state, look at a history, list what is unavailable. If you allow it, they can also switch things, such as a light or a thermostat. You set the limits. The add-on never operates a lock, an alarm, a garage door or a siren, whatever you choose.
+The Home Assistant add-on lets your [chats]({{% relref "/features/chats" %}}) and [saved agents]({{% relref "/features/chats-agents" %}}) read your smart home: find entities, read a state, look at a history, list what is unavailable. If you allow it, they can also switch things, such as a light or a thermostat. You set the limits. The add-on never operates a lock, an alarm, a garage door or a siren, whatever you choose.
 
 A chat can answer questions such as:
 
@@ -21,7 +20,7 @@ A chat can answer questions such as:
 3. On the add-on page, choose **New Home Assistant connection**. Paste the token and write the address you use to open Home Assistant in a browser, for example `https://homeassistant.local:8123`. Press **Test**: the row shows the Home Assistant version if the address and the token work.
 4. Leave the **write mode** on **Read only** until you have read the limits on this page.
 
-One connection is one home: one token and one address. For a second home, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one home: one token and one address. For a second home, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
 
 ### How the address is kept
 

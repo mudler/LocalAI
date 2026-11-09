@@ -2,7 +2,7 @@
 // fixture of the conformance test. Its manifest declares every role of the
 // slot; Service stands for the web service behind the add-on, in memory, so a
 // test needs no network. A provider author reads it as the smallest example of
-// the tool contract (docs/content/features/addons.md, "Write a provider").
+// the tool contract (docs/content/addons/contract-reference.md, "Write a provider").
 package sample
 
 import (

@@ -2,10 +2,9 @@
 disableToc = false
 title = "SSH in chats and agents"
 weight = 25
-url = "/features/ssh/"
 +++
 
-The SSH add-on lets your [chats](/features/chats/) and [saved agents](/features/chats-agents/) run commands on a remote machine over SSH. By default **a person confirms each command**: the card shows the host, the user and the exact text before anything runs.
+The SSH add-on lets your [chats]({{% relref "/features/chats" %}}) and [saved agents]({{% relref "/features/chats-agents" %}}) run commands on a remote machine over SSH. By default **a person confirms each command**: the card shows the host, the user and the exact text before anything runs.
 
 A chat can answer questions such as:
 
@@ -24,7 +23,7 @@ The add-on runs **one non-interactive command** per call. It has no terminal, no
 5. Press **Check host key**. The page reads the key the machine presents and shows its fingerprint. Compare it with the one on the machine (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), tick that you trust it and save.
 6. Press **Test**: the row shows the user and the system name if the login works.
 
-One connection is one host. For a second machine, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one host. For a second machine, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
 
 ### The secret
 
@@ -57,7 +56,7 @@ Each connection has a mode, set on the page by you and never by a model:
 | **Asks you first** | Each command waits in your approvals. The card shows the host, the user, the exact command, the time limit and the host key. A new connection made on the page starts here. |
 | **Runs at once** | The command runs as soon as the chat calls it, with no card. |
 
-Choose **Runs at once** only for a host and a user where a wrong command does no harm. In that mode the model is told to say plainly which command ran. The mode is the host's write mode of the connection (see [Confirming a held write in the chat](/features/addons/#confirming-a-held-write-in-the-chat)): the tool declares no approval of its own, so the connection decides. In a messaging chat, the usual rules for who may confirm apply.
+Choose **Runs at once** only for a host and a user where a wrong command does no harm. In that mode the model is told to say plainly which command ran. The mode is the host's write mode of the connection (see [Confirming a held write in the chat]({{% relref "/addons/contract-reference" %}}#confirming-a-held-write-in-the-chat)): the tool declares no approval of its own, so the connection decides. In a messaging chat, the usual rules for who may confirm apply.
 
 ## Tools
 

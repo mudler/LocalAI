@@ -2,11 +2,10 @@
 disableToc = false
 title = "Agent tasks and jobs"
 weight = 25
-url = "/features/agent-jobs/"
 +++
 
 A **task** is a saved prompt template. A **job** is one run of a task: a
-[chat](/features/chats/) that runs in the background, as the owner of the task,
+[chat]({{% relref "/features/chats" %}}) that runs in the background, as the owner of the task,
 with the same loop as every other chat. Use them to call LocalAI from a script,
 a CI pipeline or another service: start a job with parameters, poll it, and read
 the answer, or have LocalAI call a webhook when it ends.
@@ -18,7 +17,7 @@ its transcript.
 {{% notice note %}}
 The API needs the `mcp_jobs` feature, which is off by default for a user. An
 administrator grants it in **Settings → Users and keys** and has it always. See
-[Chats permissions](/features/chats/#permissions). `LOCALAI_DISABLE_CHATS`
+[Chats permissions]({{% relref "/features/chats" %}}#permissions). `LOCALAI_DISABLE_CHATS`
 turns the jobs off with the rest of the chats.
 {{% /notice %}}
 
@@ -62,7 +61,7 @@ curl -X POST .../api/agent/tasks -d '{
 | Field | Meaning |
 |---|---|
 | `name` | Unique per user, ignoring case. |
-| `model` | The model the job talks to. May be empty when `agent_id` names a [saved agent](/features/chats-agents/) that has a model. |
+| `model` | The model the job talks to. May be empty when `agent_id` names a [saved agent]({{% relref "/features/chats-agents" %}}) that has a model. |
 | `agent_id` | Optional. The job runs with the instructions and the grants of the saved agent (MCP servers, add-ons, collections, skills), as a chat with that agent does. Without it the job gets the tools a plain chat gets: the model's MCP servers when its `mcp.auto` is on, your MCP connectors and the add-ons you may use. To pin the MCP servers of a job, use an agent. |
 | `prompt` | A Go template. `{{.name}}` is a parameter. A parameter the template names and the caller leaves out is a `400`. |
 | `enabled` | `false` switches the task off without deleting it. |
@@ -73,7 +72,7 @@ curl -X POST .../api/agent/tasks -d '{
 retention passes.
 
 `cron`, `cron_parameters` and `multimedia_sources` are refused. A task does not
-schedule itself: put the saved agent on a [trigger](/features/chats-agents/#triggers).
+schedule itself: put the saved agent on a [trigger]({{% relref "/features/chats-agents" %}}#triggers).
 
 ## A job
 
@@ -142,7 +141,7 @@ Tasks and jobs belong to their owner; another user's id is `404`. An
 administrator can read any job (`GET /api/agent/jobs/{id}`) and list every user's
 tasks and jobs with `?all_users=true`, which adds a `user_groups` object keyed by
 owner. The view is read-only. To switch off or delete what a user set up, see the
-[administrator's view](/features/chats/#permissions) of agents, triggers and
+[administrator's view]({{% relref "/features/chats" %}}#permissions) of agents, triggers and
 connectors under `/api/chats/admin`.
 
 ## Clusters
@@ -150,7 +149,7 @@ connectors under `/api/chats/admin`.
 Tasks and job records are in the database, shared by every frontend. A job is
 watched by the frontend that received the request. Its turn runs there too,
 unless the frontends send unattended turns to
-[chat workers](/features/distributed-mode/#chat-workers): then a chat worker runs
+[chat workers]({{% relref "/administration/distributed-mode" %}}#chat-workers): then a chat worker runs
 it, and the frontend still watches it and stops it at the run limit. If the
 process that runs the turn dies, the chat is ended by the usual reaper, and the
 leader's sweep (an advisory lock) records the end and delivers the webhooks of a

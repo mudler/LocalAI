@@ -2,7 +2,6 @@
 disableToc = false
 title = "Video Generation"
 weight = 51
-url = "/features/video-generation/"
 aliases = ["/features/longcat-video/"]
 +++
 
@@ -174,7 +173,7 @@ The required OCI backend is installed automatically when LocalAI first loads the
 
 #### DGX Spark and NVIDIA ARM64
 
-Use a LocalAI CUDA 13 ARM64 image as described in [GPU acceleration]({{%relref "features/GPU-acceleration" %}}). The backend defaults to PyTorch SDPA, avoiding the FlashAttention dependency that is commonly unavailable on Blackwell ARM64 systems.
+Use a LocalAI CUDA 13 ARM64 image as described in [GPU acceleration]({{%relref "/models/gpu-acceleration" %}}). The backend defaults to PyTorch SDPA, avoiding the FlashAttention dependency that is commonly unavailable on Blackwell ARM64 systems.
 
 For unified-memory systems, start with BF16 (`use_int8:false`, the default). INT8 lowers steady-state DiT memory but can have a higher load-time peak because the full model is materialized before the quantized weights are applied.
 
