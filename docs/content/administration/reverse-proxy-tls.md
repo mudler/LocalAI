@@ -6,7 +6,7 @@ aliases:
   - "/advanced/reverse-proxy-tls/"
 ---
 
-![TLS at the edge: terminate TLS at the reverse proxy and forward headers so LocalAI emits correct https URLs](/images/diagrams/reverse-proxy-tls.png)
+![TLS at the edge: terminate TLS at the reverse proxy and forward headers so LocalAI emits correct https URLs](/docs/images/diagrams/reverse-proxy-tls.png)
 
 # TLS Reverse Proxy Configuration
 

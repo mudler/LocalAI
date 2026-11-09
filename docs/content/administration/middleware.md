@@ -8,7 +8,7 @@ weight = 100
 aliases = ["/features/middleware/"]
 +++
 
-![The request lifecycle: one shared hook chain for auth, model routing, and PII, with decision and event logs](/images/diagrams/middleware-lifecycle.png)
+![The request lifecycle: one shared hook chain for auth, model routing, and PII, with decision and event logs](/docs/images/diagrams/middleware-lifecycle.png)
 
 LocalAI ships a request-middleware layer that sits between the HTTP API and
 the backend dispatcher. Two subsystems share that layer because they share

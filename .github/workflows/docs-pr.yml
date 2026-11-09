@@ -1,0 +1,83 @@
+---
+# Builds the documentation site for every pull request that touches it, and
+# runs the checks that keep old links alive. Until this workflow existed, the
+# site was only built after a push to master, so a broken page was found
+# after the merge.
+#
+# The pinned Hugo version must match .github/workflows/gh-pages.yml.
+name: 'docs build'
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'gallery/**'
+      - '.github/ci/modelslist.go'
+      - '.github/ci/gen-redirects.sh'
+      - '.github/ci/check-docs-redirects.sh'
+      - '.github/ci/check-docs-links.py'
+      - '.github/workflows/docs-pr.yml'
+
+concurrency:
+  group: ci-docs-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: 'Build, redirects and links'
+    # Pull request code runs here, so this job stays on the hosted pool.
+    runs-on: ubuntu-latest
+    env:
+      HUGO_VERSION: "0.166.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # needed for enableGitInfo
+          submodules: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: ${{ env.HUGO_VERSION }}
+          extended: true
+
+      - name: Check that the colour variants match the token file
+        run: python3 docs/tools/gen-theme-variants.py --check
+
+      # The gallery page is a static asset of the docs site.
+      - name: Generate gallery
+        run: go run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
+
+      # Hugo fails the build on a broken relref link, a bad front matter or a
+      # template error. Warnings are printed and do not fail the build.
+      - name: Build documentation site
+        working-directory: docs
+        run: |
+          mkdir -p layouts/_default
+          hugo --minify --baseURL "https://localai.io/docs/"
+
+      - name: Every published URL still resolves
+        run: .github/ci/check-docs-redirects.sh docs/public docs/redirects.txt
+
+      # The merged site is built from two Hugo sites. This repeats the merge
+      # step of the deploy workflow on the docs output only, so the check also
+      # covers the old root-level URLs.
+      - name: Every published URL still resolves at the site root
+        run: |
+          mkdir -p merged/docs
+          cp -R docs/public/. merged/docs/
+          .github/ci/gen-redirects.sh merged "https://localai.io/"
+          .github/ci/check-docs-redirects.sh docs/public docs/redirects.txt merged
+
+      - name: Internal links and anchors
+        run: .github/ci/check-docs-links.py docs/public --fragments

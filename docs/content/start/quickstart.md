@@ -6,7 +6,7 @@ weight = 30
 aliases = ["/basics/getting_started/"]
 +++
 
-![Quickstart journey: install, start LocalAI, pick a model, then chat or curl the API](/images/diagrams/quickstart-journey.png)
+![Quickstart journey: install, start LocalAI, pick a model, then chat or curl the API](/docs/images/diagrams/quickstart-journey.png)
 
 **LocalAI** is an open source server that speaks the OpenAI and Anthropic APIs. It runs [LLMs]({{% relref "/features/text-generation" %}}), generates images and produces audio on hardware you choose, from a consumer-grade computer to a server, with many model families and architectures.
 

@@ -5,7 +5,7 @@ weight = 20
 aliases = ["/features/openai-functions/"]
 +++
 
-![Function calling: one tool-call request shape, each backend's native parser extracts the calls](/images/diagrams/tool-call-parsers.png)
+![Function calling: one tool-call request shape, each backend's native parser extracts the calls](/docs/images/diagrams/tool-call-parsers.png)
 
 LocalAI supports running the OpenAI [functions and tools API](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools) across multiple backends. The OpenAI request shape is the same regardless of which backend runs your model - LocalAI is responsible for extracting structured tool calls from the model's output before returning the response.
 
