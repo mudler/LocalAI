@@ -32,6 +32,7 @@ var _ = Describe("the GORM coordinator store on PostgreSQL", func() {
 		Expect(db.Exec("DELETE FROM studio_coordinators").Error).NotTo(HaveOccurred())
 		Expect(db.Exec("DELETE FROM studio_coordinator_counters").Error).NotTo(HaveOccurred())
 		Expect(db.Exec("DELETE FROM studio_coordinator_reports").Error).NotTo(HaveOccurred())
+		Expect(db.Exec("DELETE FROM studio_coordinator_audit").Error).NotTo(HaveOccurred())
 		return s
 	})
 })
