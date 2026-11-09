@@ -1838,7 +1838,7 @@ clean-ui-test-server:
 swagger:
 	swag init -g core/http/app.go --output swagger
 
-# DEPRECATED: gen-assets is for the legacy Alpine.js UI. Remove when legacy UI is removed.
+# DEPRECATED: gen-assets is for the Explorer page (Alpine.js). Remove when the Explorer page moves to the React UI.
 .PHONY: gen-assets
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
