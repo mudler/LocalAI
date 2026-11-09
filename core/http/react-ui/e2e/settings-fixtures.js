@@ -30,7 +30,7 @@ export function settingsFixture(overrides = {}) {
   }
 }
 
-export const RESOURCES = { gpus: [{ used: 18.4e9, total: 24e9 }], ram: { used: 20e9, total: 64e9 } }
+export const RESOURCES = { gpus: [{ used_vram: 18.4e9, total_vram: 24e9 }], ram: { used: 20e9, total: 64e9 } }
 
 // Answers GET and POST /api/settings and /api/resources. `posts` collects the
 // request bodies, in order. `failNext` makes the next POST answer 400.
