@@ -28,6 +28,7 @@
 #   GRPC_MAKEFLAGS            ("-j4 -Otarget")
 #   APT_MIRROR / APT_PORTS_MIRROR  (optional; consumed by /usr/local/sbin/apt-mirror)
 #   AMDGPU_TARGETS            (optional; only relevant for hipblas downstream)
+#   ROCM_PACKAGES             (optional; hipblas only, default "hipblas-dev hipblaslt-dev rocblas-dev")
 #
 # IMPORTANT: install logic is copied verbatim from the prior in-Dockerfile
 # RUN blocks. Do not paraphrase apt invocations / version pins / sed line
@@ -238,10 +239,11 @@ fi
 # --- 6. ROCm / HIP build deps (BUILD_TYPE=hipblas) ---
 if [ "${BUILD_TYPE:-}" = "hipblas" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; then
     apt_retry update
+    # ROCM_PACKAGES lets a build on another ROCm release (e.g. 10.x, whose
+    # package names differ) pass its own list; unset keeps the 7.x default.
+    # shellcheck disable=SC2086 # word splitting of the package list is intended
     apt_retry install -y --no-install-recommends \
-        hipblas-dev \
-        hipblaslt-dev \
-        rocblas-dev
+        ${ROCM_PACKAGES-hipblas-dev hipblaslt-dev rocblas-dev}
     apt-get clean
     rm -rf /var/lib/apt/lists/*
     # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install,
