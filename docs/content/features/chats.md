@@ -1146,6 +1146,34 @@ the one chosen in `chats_tool_providers` or the one installed first, and none
 when the chosen one is stopped. It is read from the add-on host each time, so
 it is right after a restart and the same on every frontend of a cluster.
 
+### Sandbox profile
+
+A Sandbox add-on that declares profiles (the Sandbox does: `base`, `media` and
+`video`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
+gives the Tools menu a **Profile** row next to the Network row. It shows the
+profile the next command runs and lets you pick another one. A new chat gets the
+default of the administrator, or the profile of its saved agent. Switching
+restarts the sandbox at the next command: your files stay, running processes and
+installed packages are lost, and the row says so before you switch. While the
+image of a profile is pulled for the first time, the row shows the progress. If
+the profile cannot be used, commands run in `base` and the row says so. A
+running chat keeps its sandbox until it restarts, and the row shows when a newer
+image is available. A profile the administrator did not give you is shown but
+cannot be picked.
+
+The model has two tools for this in the **Run commands** group:
+`list_sandbox_profiles` (the profiles, their programs and whether you may use
+each one) and `use_sandbox_profile` (switch). They follow the rules of the row.
+A saved agent has a `sandbox_profile` field, for its unattended runs and as the
+starting profile of its chats.
+
+| Route | What it does |
+|---|---|
+| `GET /api/chats/{id}/sandbox-profile` | `{applies, addon, profile, selected, source, default, fallback, fallback_reason, newer_image, profiles}`. `source` is `chat`, `agent` or `default`. Each profile has `id`, `title`, `description`, `tools`, the limits, `allowed` and `state` (`phase` `idle`, `pulling` with `percent`, `ready`, `failed` with `error`, or `absent`). `applies` is false when commands run in no sandbox with profiles. |
+| `PUT /api/chats/{id}/sandbox-profile {profile}` | Sets the profile, or goes back to the agent's or the default with an empty one. 400 `sandbox_profile_unknown`, 403 `sandbox_profile_not_allowed`, 409 for a sub-agent. |
+| `GET /api/chats/sandbox-profiles` | The profiles you may pick for a saved agent, and the default. |
+| `GET /api/chats/admin/sandbox-profiles` | Administrators: the profiles with their limits and the state of their images. |
+
 ### Commands on this machine
 
 The built-in `bash` is for a server that cannot run the Sandbox. Read this
@@ -1534,7 +1562,7 @@ it off, so a chat that never touches the menu works as before:
 
 | Row | Group | Tools |
 |-----|-------|-------|
-| **Run commands** | `shell` | `bash`, whoever serves it: the Sandbox add-on (isolated) or the built-in bash on this machine |
+| **Run commands** | `shell` | `bash`, whoever serves it: the Sandbox add-on (isolated) or the built-in bash on this machine; `list_sandbox_profiles` and `use_sandbox_profile` when the add-on has profiles |
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |

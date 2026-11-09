@@ -6090,6 +6090,7 @@ the add-on's ID to decide.
 |---|---|---|
 | `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare [`capabilities.network`](#network-capability). A manifest written before that field existed and declares a tool that replaces `bash` keeps the control. |
 | `tool-providers` | On the add-on's **Settings** tab: the rows of Settings > Tools for the built-in tools it replaces (who serves the tool, the choice when several add-ons replace it, and the switch of the built-in tool). | Declare at least one tool that replaces a built-in tool (`shadows`). |
+| `sandbox-profiles` | On the add-on's **Settings** tab: the policy of its [sandbox profiles](#sandbox-profiles) (the default profile, who may use each one, the memory and disk quota and the pins to the previous image). In the chat's Tools menu: the **Profile** row. | Declare [`execution.profiles`](#sandbox-profiles) on the tool that replaces `bash`. It needs no host operation. |
 
 The network controls read the durable policy from the add-on owner, not the
 frontend's runtime settings. The form displays the owner's revision. **Apply** sends
@@ -6555,7 +6556,7 @@ applied to an add-on's commands only when the provider reports that it enforces 
 A provider that only reports isolation does not count. This behavior can change in a
 later release.
 
-The Settings tab lists the backends of the host, each with its state (in use, ready or unavailable); the reason a backend does not work is under **Details**. When gVisor fails with `exit status 128` and `cannot read client sync file`, the row also says that gVisor needs an AppArmor profile that allows user namespaces and a container that may create them, and links to [The Sandbox in the LocalAI container](#the-sandbox-in-the-localai-container). The add-on asks for the `network-policy` and `tool-providers` [host controls](#host-controls), so the same tab also holds the network of the Sandbox commands (the limit, the preset of a new chat, the ports, the extra registries, the always allowed hosts, private networks, the audit retention and the audit) and the `bash` row of Settings > Tools, and saves them like the Settings page. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
+The Settings tab lists the backends of the host, each with its state (in use, ready or unavailable); the reason a backend does not work is under **Details**. When gVisor fails with `exit status 128` and `cannot read client sync file`, the row also says that gVisor needs an AppArmor profile that allows user namespaces and a container that may create them, and links to [The Sandbox in the LocalAI container](#the-sandbox-in-the-localai-container). The add-on asks for the `network-policy`, `tool-providers` and `sandbox-profiles` [host controls](#host-controls), so the same tab also holds the [sandbox profile policy](#sandbox-profiles), the network of the Sandbox commands (the limit, the preset of a new chat, the ports, the extra registries, the always allowed hosts, private networks, the audit retention and the audit) and the `bash` row of Settings > Tools, and saves them like the Settings page. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
 
 The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the Settings tab of the Sandbox details (for administrators) shows a notice for as long as the host backend is the one in use. The model sees it in the answer of the status tool. Treat the machine as one that code can harm.
 
@@ -6563,21 +6564,50 @@ The choice is kept in the add-on's data directory. Changing it removes the runni
 
 The guest image, `runsc` and the KVM programs are not part of the add-on's source. A release sets `main.guestImage` (the image of the `base` profile, by digest) at build time. It sets `main.profileImages` (`media=<ref>,video=<ref>`) for the images of the other profiles. A profile without an image is not offered by that release. The checksums of the `runsc` and of the Cloud Hypervisor and `virtiofsd` it was tested with are compiled into the add-on (`runscPins` and `kvmPins` in `addons/sandbox/cmd/sandbox`), and tests keep them equal to `package/runsc.json` and `package/kvm.json`. A build without a guest image reports that on the page, and only the host backend can run.
 
-### What the guest has
+### Sandbox profiles
 
-The guest image carries exactly these programs and libraries for the model to use (the model is told this list in the prompt of each chat that has the Sandbox):
+A profile is an environment a sandbox can run in: a name, what it is for, the limits of one sandbox (CPUs, memory, disk) and the programs it has. The Sandbox add-on declares its profiles in its manifest, in the `execution.profiles` list of the `bash` tool. An administrator cannot add an image: only the add-on lists profiles, and each has an image the release built and pinned by digest. The release ships these:
 
-python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl
+<!-- sandbox-profiles:start -->
+| Profile | For | Programs | CPUs | Memory | Disk |
+|---|---|---|---|---|---|
+| `base` | Python, documents, PDF and the usual command-line tools. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl | 2 | 2048 MiB | 10240 MiB |
+| `media` | Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl, ffmpeg (with ffprobe), sox, ImageMagick (magick, convert) | 2 | 4096 MiB | 20480 MiB |
+| `video` | Media plus a Rust toolchain and the fframes renderer to make videos from code. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl, ffmpeg (with ffprobe), sox, ImageMagick (magick, convert), Rust (rustc and cargo, 1.88 or newer), fframes (cargo fframes, renders video from code) | 4 | 8192 MiB | 30720 MiB |
+<!-- sandbox-profiles:end -->
+
+`base` is the fallback and is always allowed. The model is told the profile its chat runs, the programs it has and the programs the other profiles add, in the prompt of each turn, and the description of `bash` names the profile. The text is built from the manifest, so it never differs from the image. The command line runs as an unprivileged user and `apt` is blocked by the proxy, so nothing can be installed from inside the guest with a system package manager. `pip` can install Python packages within the chat's network setting (see [Network access](#network-access)). Adding a program means a new guest image. The build of each image fails when a program of its profile is missing or does not start (`addons/sandbox/images/guest/check-tools.sh <profile>` reads the checks from the manifest).
 
 matplotlib draws charts without a display: it writes PNG and SVG files, and the model can save them in the user's files. Its font cache is kept in `/tmp`.
 
-It does not have Node.js or npm, ImageMagick, ffmpeg or OCR. The command line runs as an unprivileged user and `apt` is blocked by the proxy, so nothing can be installed from inside the guest with a system package manager. `pip` can install Python packages within the chat's network setting (see [Network access](#network-access)). Adding a program means a new guest image. The build of the image fails when one of these programs is missing or does not start (`addons/sandbox/images/guest/check-tools.sh`).
+**Choosing a profile.** The profile of a chat is the first of these that exists and that the user may use:
+
+1. The profile the person picked in the chat. The picker sits next to the network switcher in the Tools menu of the chat.
+2. The profile of the saved agent of the chat (`sandbox_profile`). Unattended runs of an agent (triggers, jobs, connectors) use it too.
+3. The default profile of the administrator (`default` of the policy below), then `base`.
+
+Switching the profile restarts the sandbox at the next command. The user's files stay. Running processes and installed packages are lost, and the picker says so before you switch. The model can switch too: `list_sandbox_profiles` shows the profiles with their programs, and `use_sandbox_profile` switches. Both are in the *Run commands* group of the chat and follow the rules of the picker: the user's own chat and the policy of the administrator. A skill can name the profile it wants with the frontmatter field `sandbox: media` (see [Chats](/features/chats/)). It is a hint: the model is told, may offer the switch and never switches without the person's yes.
+
+**Policy.** The administrator sets the policy on the Settings tab of the add-on (the owner host setting `sandbox_profiles`, with the same owner rules as the network settings). Everything is open by default: with no policy every user may use every profile.
+
+| Key | Meaning |
+|---|---|
+| `default` | The profile a new chat gets. Empty: `base`. |
+| `access` | For a profile, the `roles` (`admin`, `user`) and the `users` who may use it. A profile that is not listed, or has no roles and no users, is open to everyone. |
+| `memory_mib`, `disk_mib` | The most memory and disk one sandbox may have, whatever the profile asks. `0` is no cap. |
+| `pin_previous` | The profiles that run their previous image. See below. |
+
+**Images.** An image is pulled and converted on the first use of a profile. The picker shows the progress ("Preparing the Media image, 40%") while the first command waits for it. After an add-on upgrade, the add-on pulls the new image of each profile this host used before in the background, so the first command after the upgrade does not wait. A chat keeps its sandbox, and its image, until the sandbox restarts. The picker then shows that a newer image is available. The add-on keeps the current and the previous image of each profile and deletes the older ones, except an image that a running sandbox still uses. If a new image breaks something, an administrator can add the profile to `pin_previous`: new sandboxes of the profile then start from the previous image.
+
+If a profile is missing in the release, or its image cannot be pulled, the command runs in `base`. The output of the command says so ("The media sandbox profile is not available (...), so this command ran in the base profile"), and the picker shows the same notice. The add-on never runs a command in a different profile without saying so. A failed pull is not retried for five minutes, so a broken registry does not stall every command.
+
+**API.** `GET` and `PUT /api/chats/{id}/sandbox-profile` read and set the profile of a chat, `GET /api/chats/sandbox-profiles` lists the profiles for a saved agent, and `GET /api/chats/admin/sandbox-profiles` is the administrator's view with the state of the images.
 
 ### Network access
 
 The guest of a sandbox has no network device: no NIC, no TAP device and no user-mode network stack. A command reaches the network only through one proxy, on guest port 3128, which the guest image sets in `HTTP_PROXY`, `HTTPS_PROXY`, pip, apt, git, npm and `GOPROXY`. The guest agent forwards each connection to that port to the add-on, over vsock (KVM) or a Unix socket (gVisor), and the add-on's proxy asks LocalAI about each connection with the host operation `egress.check`. LocalAI decides; the add-on dials. The proxy never decrypts TLS and holds no certificate the guest trusts.
 
-The guest image has `curl`, `git`, `pip` and the CA certificates, and all of them use the proxy (the full list of its programs is under [What the guest has](#what-the-guest-has)). The model is told so at each turn, with the chat's preset. To read or search web pages it is told to prefer `web_fetch` and `web_search` when the chat has them (the built-in ones or the Web add-on's), and to use `curl` for APIs, downloads and installs. With the network off, the note says that nothing is reachable.
+The guest image has `curl`, `git`, `pip` and the CA certificates, and all of them use the proxy (the programs of each profile are under [Sandbox profiles](#sandbox-profiles)). The model is told so at each turn, with the chat's preset. To read or search web pages it is told to prefer `web_fetch` and `web_search` when the chat has them (the built-in ones or the Web add-on's), and to use `curl` for APIs, downloads and installs. With the network off, the note says that nothing is reachable.
 
 Commands that run on this machine (the host backend, or the chats' built-in `bash`) have the network of the server: none of this applies to them, and the settings say so.
 

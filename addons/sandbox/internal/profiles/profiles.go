@@ -105,3 +105,21 @@ func ParseImages(list string) (Images, error) {
 	}
 	return out, nil
 }
+
+// Markers of the generated block of the add-on documentation.
+const (
+	DocsStart = "<!-- sandbox-profiles:start -->"
+	DocsEnd   = "<!-- sandbox-profiles:end -->"
+)
+
+// MarkdownTable is the table of the profiles in the documentation, built from
+// the same table the manifest and the note for the model come from. A test
+// keeps the documentation equal to it.
+func MarkdownTable() string {
+	var b strings.Builder
+	b.WriteString("| Profile | For | Programs | CPUs | Memory | Disk |\n|---|---|---|---|---|---|\n")
+	for _, p := range Declared() {
+		fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d MiB | %d MiB |\n", p.ID, p.Description, p.ToolList(), p.CPUs, p.MemoryMiB, p.DiskMiB)
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
