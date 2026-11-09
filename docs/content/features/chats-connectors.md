@@ -225,7 +225,7 @@ This version does not listen for mentions.
 
 ## Google Drive
 
-The Google Drive add-on lets your [saved agents](/features/chats-agents/) read the files in the Drive folders you choose: search, list a folder, read the details of a file and read its text. Google Docs are read as Markdown, Google Sheets as CSV (the first sheet) and Google Slides as plain text. If you allow it, they can also create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file, changes who can see it, makes it public or deletes it for good. Every change waits for your OK.
+The Google Drive add-on lets your [saved agents](/features/chats-agents/) read the files in the Drive folders you choose: search, list a folder, read the details of a file and read its text. Google Docs are read as Markdown, Google Sheets as CSV (the first sheet) and Google Slides as plain text. If you allow it, they can also create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file, changes who can see it, makes it public or deletes it for good. By default every change waits for your OK; with the write mode **Allow all** a chat of yours makes the change at once.
 
 It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#connections-that-log-in-with-oauth)). Each LocalAI server brings its own Google client; no client is shipped with LocalAI.
 
@@ -271,7 +271,13 @@ What Drive returns (names and file text) is written by other people. Every resul
 
 The write tools need the optional access `https://www.googleapis.com/auth/drive.file`, which you allow when you connect. Google gives that access only to the files that the add-on created, so `update-file`, `move-file` and `trash-file` work on files made through this add-on; on any other file the tool answers that the change was refused and nothing was sent. The read access reaches all files in the folders.
 
-The tools declare that a person must approve every change, so a chat or an agent never applies one, even when the connection's write mode would let a chat act. The approval card shows the file, the folder and the exact text that will be saved. The change is refused when the file changed after the preview. A created file carries a private property that names the operation, so if Drive took a change and the answer was lost, the add-on finds the file and does not create it twice.
+You choose the write mode on the connection:
+
+- **Read only** (the default) refuses every write tool.
+- **Asks you first** stores each change as a proposal, and you confirm it in the approvals of the web interface. A chat or an agent cannot confirm it.
+- **Allow all** lets a chat of yours make `create-file`, `update-file`, `move-file` and `trash-file` changes at once, without a card. LocalAI cannot undo a change that was made, and the page says so. A run without you present, such as an agent started by a trigger, still leaves a proposal. Allow all is never chosen for you: a new connection starts on **Read only**, and a connection saved before this mode existed keeps the mode it had.
+
+The approval card shows the file, the folder and the exact text that will be saved. The change is refused when the file changed after the preview. A created file carries a private property that names the operation, so if Drive took a change and the answer was lost, the add-on finds the file and does not create it twice.
 
 ### Limits
 
@@ -279,7 +285,7 @@ A call ends after 30 seconds. A request or a result is at most 1 MiB, and a resu
 
 ## Gmail
 
-The Gmail add-on lets your [saved agents](/features/chats-agents/) read the mail of your Google account: search it, read a message or a whole thread, list the labels and read the text of an attachment. If you allow it, they can also save a draft and send a draft that exists. Every draft and every send waits for your OK. It never deletes, trashes, labels or forwards mail, and it never changes a setting or a filter.
+The Gmail add-on lets your [saved agents](/features/chats-agents/) read the mail of your Google account: search it, read a message or a whole thread, list the labels and read the text of an attachment. If you allow it, they can also save a draft and send a draft that exists. By default every draft and every send waits for your OK; with the write mode **Allow all** a chat of yours saves and sends at once. It never deletes, trashes, labels or forwards mail, and it never changes a setting or a filter.
 
 {{% notice warning %}}
 **A connection reaches the whole mailbox the account can read, unless you list labels.** Mail is the most private text most people have: password resets, bank letters, health, work. Everything the agent reads goes to the model of the chat. Use the label list below to keep an agent to one label, and write `ALL` only for an agent you trust with the whole mailbox. The label list is a limit on what the agent may ask for. It is not a way to hide mail from a model that you give a label to.
@@ -342,7 +348,13 @@ Mail is written by other people, and some of it is written to steer a model. Eve
 
 ### Drafts and sending
 
-The write tools need the optional access `gmail.compose`. Sending takes two approvals on purpose: `create-draft` saves a draft that you can also see and edit in Gmail, and `send-draft` sends a draft by its ID. The approval card of a send shows the recipients (To, Cc and Bcc), the subject, the text and the names of the attachments of the draft as they are in Gmail at that moment. The send is refused when the draft changed after the preview.
+The write tools need the optional access `gmail.compose`. The write mode of the connection decides who approves:
+
+- **Read only** (the default) refuses `create-draft` and `send-draft`.
+- **Asks you first** stores each draft and each send as a proposal that you confirm in the approvals of the web interface.
+- **Allow all** lets a chat of yours save drafts and send them at once, without a card. A sent mail cannot be taken back, and the page says so. A run without you present still leaves a proposal. Allow all is never chosen for you, and a connection saved before this mode existed keeps the mode it had.
+
+With **Asks you first**, sending takes two approvals on purpose: `create-draft` saves a draft that you can also see and edit in Gmail, and `send-draft` sends a draft by its ID. The approval card of a send shows the recipients (To, Cc and Bcc), the subject, the text and the names of the attachments of the draft as they are in Gmail at that moment. The send is refused when the draft changed after the preview.
 
 Addresses must be plain (`name@example.com`, no display name), at most 20 recipients in all, and no address, subject or header may hold a line break, so a model cannot add a hidden recipient. The body is plain text and is sent encoded, so no line of it can be read as a header. A draft with more than 20 recipients, or none, is not sent. The tools cannot add an attachment.
 
@@ -383,7 +395,7 @@ The Mail add-on lets your [saved agents](/features/chats-agents/) read a mailbox
 What the agent can do:
 
 - **Read:** list the folders, search a folder (sender, recipient, subject, text anywhere, a date range, unread only, with an attachment), read one message, read the other messages of its conversation in the same folder, and read the text of a text attachment. Searches return 30 messages a page, up to 50, and a cursor for the next page. Reading does not mark mail as read.
-- **Write:** send a plain text email, or save one in the Drafts folder. Both are proposals: each one waits for your confirmation, in every write mode.
+- **Write:** send a plain text email, or save one in the Drafts folder. With **Asks you first** each one is a proposal that waits for your confirmation. With **Allow all** a chat of yours sends and saves at once, and a sent mail cannot be taken back.
 - **Never:** delete, move, flag, forward or expunge mail. There is no tool for it.
 
 ### Set up a connection
@@ -398,7 +410,7 @@ What the agent can do:
 | SMTP | port 465 | port 587 |
 
    The port follows the protection you choose. Optional: a sender name, a list of the only folders the agent may use (one per line; the INBOX is matched without regard to case), and the name of the Drafts folder for a server that does not mark it.
-4. Choose **Read only** or **Asks you first**, and save. Saving logs in to both servers; a wrong password, an unreachable server or a refused certificate stops the save with a short message. **Test** logs in again and shows the IMAP result and the SMTP result on separate lines.
+4. Choose **Read only** (the default), **Asks you first** or **Allow all**, and save. **Allow all** lets a chat of yours send mail and save drafts without a card; everyone in To and Cc reads a sent mail, and it cannot be taken back. A run without you present still leaves a proposal. Saving logs in to both servers; a wrong password, an unreachable server or a refused certificate stops the save with a short message. **Test** logs in again and shows the IMAP result and the SMTP result on separate lines.
 
 Example settings. These are examples: check your provider's own pages, because servers and rules change.
 

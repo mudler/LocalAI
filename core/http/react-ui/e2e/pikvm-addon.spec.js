@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, openPane } from './connector-fixtures.js'
+import { connectorApi, openEdit, openPane } from './connector-fixtures.js'
 
 // The page of the PiKVM add-on (the real built bundle, inside the add-on
 // shell): the choice of what is still asked before a power action or a key
@@ -40,7 +40,7 @@ async function host(page, { declared = DECLARED, values = {}, failSave = false, 
     state.accessReads += 1
     const approvals = ['power-action', 'send-key'].map(tool => {
       const skip = state.values[`approval-${tool}`] === 'skip'
-      return { tool, skip, ...(skip && writeMode !== 'off' ? { runs_without_asking: ['owner', 'paired'] } : {}) }
+      return { tool, skip, ...((skip || writeMode === 'auto') && writeMode !== 'off' ? { runs_without_asking: ['owner', 'paired'] } : {}) }
     })
     return route.fulfill({ json: { binding: 'b1', subjects: [], recent: [], approvals } })
   })
@@ -129,6 +129,37 @@ test.describe('PiKVM add-on approvals', () => {
     await expect(page.getByTestId('pikvm-approval-power-action').getByRole('radio', { name: /Ask each time/ })).toBeChecked()
     await openPane(page)
     await expect(page.getByTestId('connector-pane').getByTestId('connector-approval-send-key')).toHaveAttribute('data-state', 'runs')
+  })
+
+  test('the write mode offers Allow all, warns about it, and a saved Allow all reads back', async ({ page }) => {
+    await install(page)
+    const a = api(page, [{ ...BINDING, write_mode: 'propose' }])
+    await a.install()
+    await host(page)
+    await page.goto(PAGE)
+    await openEdit(page)
+    const group = page.getByRole('radiogroup', { name: 'What the agent may do with this device' })
+    await expect(group.getByRole('radio')).toHaveCount(3)
+    await expect(group.getByRole('radio', { name: /Asks you first/ })).toBeChecked()
+    await expect(group.getByRole('radio', { name: /Allow all/ })).not.toBeChecked()
+    await group.getByRole('radio', { name: /Allow all/ }).check()
+    const note = page.getByTestId('pikvm-write-note')
+    await expect(note).toContainText('cannot be taken back')
+    await expect(note).toContainText('Typed text still waits for your confirmation')
+    await page.getByTestId('connector-save').click()
+    expect(a.s.calls.find(c => c.method === 'PUT' || c.method === 'PATCH').body.write_mode).toBe('auto')
+    await install(page)
+    await api(page, [{ ...BINDING, write_mode: 'auto' }]).install()
+    await host(page, { writeMode: 'auto' })
+    await page.goto(PAGE)
+    await openPane(page)
+    await expect(page.getByTestId('pikvm-row-write')).toHaveText('Allow all')
+    const pane = page.getByTestId('connector-pane')
+    await expect(pane.getByTestId('connector-approval-power-action')).toHaveAttribute('data-state', 'runs')
+    await expect(pane.getByTestId('connector-approval-send-key')).toHaveAttribute('data-state', 'runs')
+    await page.goto(PAGE)
+    await openEdit(page)
+    await expect(page.getByRole('radio', { name: /Allow all/ })).toBeChecked()
   })
 
   test('a connection that is read only says that the choice does nothing', async ({ page }) => {

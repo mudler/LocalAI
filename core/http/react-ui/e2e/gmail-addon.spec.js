@@ -72,7 +72,7 @@ test.describe('Gmail add-on', () => {
     expect(put.body.token).toBeUndefined()
   })
 
-  test('the write mode offers read only and asks you first, and says every draft and send waits', async ({ page }) => {
+  test('the write mode offers read only, asks you first and Allow all, and says every draft and send waits in the other modes', async ({ page }) => {
     await install(page)
     const a = api(page, [{ ...BINDING, write_mode: 'off' }])
     await a.install()
@@ -80,11 +80,33 @@ test.describe('Gmail add-on', () => {
     await openEdit(page)
     const group = page.getByRole('radiogroup', { name: 'What the agent may do with your mail' })
     await expect(group.getByRole('radio', { name: /Read only/ })).toBeChecked()
-    await expect(group.getByRole('radio', { name: /Acts without asking/ })).toHaveCount(0)
+    await expect(group.getByRole('radio')).toHaveCount(3)
+    await expect(group.getByRole('radio', { name: /Allow all/ })).not.toBeChecked()
     await group.getByRole('radio', { name: /Asks you first/ }).check()
     await expect(page.getByTestId('gmail-write-note')).toContainText('optional write access')
     await saveSheet(page)
     expect(a.s.calls.find(c => c.method === 'PUT').body.write_mode).toBe('propose')
+  })
+
+  test('Allow all warns that it cannot be undone, is saved and reads back after a reload', async ({ page }) => {
+    await install(page)
+    const a = api(page, [{ ...BINDING, write_mode: 'off' }])
+    await a.install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    await page.getByRole('radio', { name: /Allow all/ }).check()
+    await expect(page.getByTestId('gmail-write-note')).toContainText('cannot be taken back')
+    await saveSheet(page)
+    expect(a.s.calls.find(c => c.method === 'PUT').body.write_mode).toBe('auto')
+    await install(page)
+    const b = api(page, [{ ...BINDING, write_mode: 'auto' }])
+    await b.install()
+    await page.goto(PAGE)
+    await openPane(page)
+    await expect(page.getByTestId('gmail-row-write')).toHaveText('Allow all')
+    await page.goto(PAGE)
+    await openEdit(page)
+    await expect(page.getByRole('radio', { name: /Allow all/ })).toBeChecked()
   })
 
   // The login of the page: the host's component adds the connection, starts the
