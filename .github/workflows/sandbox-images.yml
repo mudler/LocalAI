@@ -9,8 +9,8 @@ name: 'sandbox guest image'
 # executable:
 #
 #   SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest> \
-#   SANDBOX_GUEST_IMAGE_MEDIA=<repository>-media@sha256:<digest> \
-#   SANDBOX_GUEST_IMAGE_VIDEO=<repository>-video@sha256:<digest> \
+#   SANDBOX_GUEST_IMAGE_MEDIA=<repository>@sha256:<digest> \
+#   SANDBOX_GUEST_IMAGE_VIDEO=<repository>@sha256:<digest> \
 #     sh scripts/addons/package.sh ...
 #
 # This workflow outputs these values as "image" (the base image; also the bare
@@ -27,9 +27,10 @@ name: 'sandbox guest image'
 #
 # The repository of the base image is quay.io/go-skynet/sandbox-guest unless
 # the repository variable SANDBOX_GUEST_REPOSITORY names another one. The media
-# and video images go to the same name with the suffix -media and -video. The
-# repositories must allow anonymous pulls: the add-on pulls an image on the
-# host that runs it.
+# and video images go to the same repository with the tags media-sha-<sha> and
+# video-sha-<sha>; the base image keeps sha-<sha>. The references by digest all
+# name the one repository. The repository must allow anonymous pulls: the
+# add-on pulls an image on the host that runs it.
 
 on:
   workflow_call:
@@ -131,7 +132,7 @@ jobs:
           sbom: false
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
-          tags: ${{ env.REPOSITORY }}-media:sha-${{ github.sha }}
+          tags: ${{ env.REPOSITORY }}:media-sha-${{ github.sha }}
           push: ${{ env.PUSH == 'true' }}
       - name: Build video
         id: build_video
@@ -145,7 +146,7 @@ jobs:
           sbom: false
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
-          tags: ${{ env.REPOSITORY }}-video:sha-${{ github.sha }}
+          tags: ${{ env.REPOSITORY }}:video-sha-${{ github.sha }}
           push: ${{ env.PUSH == 'true' }}
       - name: Name the images by digest
         id: ref
@@ -164,13 +165,13 @@ jobs:
           done
           {
             echo "image=${REPOSITORY}@${DIGEST}"
-            echo "image_media=${REPOSITORY}-media@${DIGEST_MEDIA}"
-            echo "image_video=${REPOSITORY}-video@${DIGEST_VIDEO}"
+            echo "image_media=${REPOSITORY}@${DIGEST_MEDIA}"
+            echo "image_video=${REPOSITORY}@${DIGEST_VIDEO}"
           } >> "$GITHUB_OUTPUT"
           {
             echo '### Sandbox guest images'
             echo
             echo "SANDBOX_GUEST_IMAGE=${REPOSITORY}@${DIGEST}"
-            echo "SANDBOX_GUEST_IMAGE_MEDIA=${REPOSITORY}-media@${DIGEST_MEDIA}"
-            echo "SANDBOX_GUEST_IMAGE_VIDEO=${REPOSITORY}-video@${DIGEST_VIDEO}"
+            echo "SANDBOX_GUEST_IMAGE_MEDIA=${REPOSITORY}@${DIGEST_MEDIA}"
+            echo "SANDBOX_GUEST_IMAGE_VIDEO=${REPOSITORY}@${DIGEST_VIDEO}"
           } >> "$GITHUB_STEP_SUMMARY"
