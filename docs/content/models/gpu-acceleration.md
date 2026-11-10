@@ -3,6 +3,8 @@ disableToc = false
 title = "GPU Acceleration"
 weight = 90
 aliases = ["/features/gpu-acceleration/"]
+description = "Run LocalAI on NVIDIA, AMD, Intel, Vulkan and ARM GPUs, with the right container image and flags."
+keywords = ["gpu","cuda","rocm","vulkan","nvidia"]
 +++
 
 This page covers how to use LocalAI with GPU acceleration across different hardware vendors. For container image tags and registry details, see [Container Images]({{%relref "/start/install/containers" %}}). For memory management with multiple GPU-accelerated models, see [VRAM Management]({{%relref "/models/vram-management" %}}).

@@ -2,6 +2,8 @@
 title = "Operate overview"
 weight = 20
 aliases = ["/operations/overview/"]
+description = "The Operate console: one page that shows if anything is wrong with your LocalAI instance."
+keywords = ["operate","admin","monitoring"]
 +++
 
 `/app/operate` is the front door to the Operate console. It answers one

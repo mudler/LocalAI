@@ -3,6 +3,8 @@ disableToc = false
 title = "Runtime Settings"
 weight = 40
 aliases = ["/features/runtime-settings/"]
+description = "Change LocalAI settings in the web interface without a restart."
+keywords = ["settings","runtime","admin"]
 +++
 
 LocalAI provides a web-based interface for managing application settings at runtime. These settings can be configured through the web UI and are automatically persisted to a configuration file, allowing changes to take effect immediately without requiring a restart.

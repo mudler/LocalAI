@@ -3,6 +3,8 @@ url = "/features/image-generation/"
 disableToc = false
 title = "Image Generation"
 weight = 50
+description = "Generate and edit images with Stable Diffusion and diffusers models through the images API."
+keywords = ["image generation","stable diffusion","diffusers"]
 +++
 
 LocalAI supports generating images with Stable diffusion, running on CPU using C++ and Python implementations.

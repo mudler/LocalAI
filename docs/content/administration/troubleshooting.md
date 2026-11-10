@@ -4,6 +4,8 @@ title = "Troubleshooting"
 icon = "build"
 weight = 190
 aliases = ["/basics/troubleshooting/"]
+description = "Find the cause of common LocalAI problems: startup, models, GPUs and downloads."
+keywords = ["troubleshooting","errors","debug"]
 +++
 
 This guide covers common issues you may encounter when using LocalAI, organized by category. For each issue, diagnostic steps and solutions are provided.

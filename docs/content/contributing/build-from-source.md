@@ -7,7 +7,7 @@ aliases = ["/basics/build/"]
 +++
 
 
-### Build
+## Build
 
 LocalAI can be built as a container image or as a single, portable binary. Note that some model architectures might require Python libraries, which are not included in the binary.
 
@@ -15,9 +15,9 @@ LocalAI's extensible architecture allows you to add your own backends, which can
 
 This section contains instructions on how to build LocalAI from source.
 
-#### Build LocalAI locally
+### Build LocalAI locally
 
-##### Requirements
+#### Requirements
 
 In order to build LocalAI locally, you need the following requirements:
 
@@ -65,7 +65,7 @@ make build
 {{% /tab %}}
 {{< /tabs >}}
 
-##### Build
+#### Build
 To build LocalAI with `make`:
 
 ```
@@ -76,7 +76,7 @@ make build
 
 This should produce the binary `local-ai`
 
-#### Container image
+### Container image
 
 Requirements:
 
@@ -89,7 +89,7 @@ docker build -t localai .
 docker run localai
 ```
 
-### Example: Build on mac
+## Example: Build on mac
 
 Building on Mac (M1, M2 or M3) works, but you may need to install some prerequisites using `brew`. 
 
@@ -123,7 +123,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
    }'
 ```
 
-#### Troubleshooting mac
+### Troubleshooting mac
 
 - If you encounter errors regarding a missing utility metal, install `Xcode` from the App Store.
 
