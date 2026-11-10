@@ -235,13 +235,15 @@ function dockerPrefix(option) {
 const image = (option, dev) => `localai/localai:${dev ? option.devTag : option.tag}`
 
 // The command that starts a registered worker. The token is never read by the
-// page: the command names a variable and the person fills it in.
-export function workerCommand({ flavor, nodeType, option, dev, frontend, natsUrl = 'nats://nats:4222' }) {
+// page: the command names a variable and the person fills it in. The worker
+// learns the cluster transport from the frontend, and the NATS address too when
+// the cluster uses NATS, so the command names none.
+export function workerCommand({ flavor, nodeType, option, dev, frontend }) {
   const sub = nodeType === 'agent' ? 'agent-worker' : 'worker'
   if (flavor === 'cli') {
-    return `local-ai ${sub} \\\n  --register-to "${frontend}" \\\n  --nats-url "${natsUrl}" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`
+    return `local-ai ${sub} \\\n  --register-to "${frontend}" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`
   }
-  return `${dockerPrefix(option)}-e LOCALAI_REGISTER_TO="${frontend}" \\\n  -e LOCALAI_NATS_URL="${natsUrl}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${image(option, dev)} ${sub}`
+  return `${dockerPrefix(option)}-e LOCALAI_REGISTER_TO="${frontend}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${image(option, dev)} ${sub}`
 }
 
 // Peer instances and memory shards join with the P2P network token. The
@@ -258,4 +260,6 @@ export function p2pCommand({ method, option, dev, token, flavor }) {
   return `${dockerPrefix(opt)}-e TOKEN="${tokenValue}" \\\n  --name ${name} \\\n  ${image(opt, dev)} ${suffix}`
 }
 
-export const DISTRIBUTED_COMMAND = 'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"'
+// NATS is optional: a cluster with only PostgreSQL uses the database tunnel,
+// and NATS can be added and switched to later from the Nodes page.
+export const DISTRIBUTED_COMMAND = 'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db"'
