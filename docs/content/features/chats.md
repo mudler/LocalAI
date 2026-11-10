@@ -1190,7 +1190,11 @@ for [commands on this machine](#commands-on-this-machine), `start` shows the
 same card as `bash`, with the whole command, and the approval of the start
 covers the input of that job: no card per input. Input is still refused when
 the chat could not run a command now, and every start, input and kill of a job
-on this machine is written to the audit of the commands.
+on this machine is written to the audit of the commands. When the tools of the
+chat cannot be read, or the add-on that serves its `bash` cannot work, `start`
+says so and runs nothing. A run that nobody watches (a trigger or an agent job)
+needs, for `start` and `input`, what its `bash` needs: on this machine
+`act.files` and `act.spend`, in the Sandbox the act grant of the add-on.
 
 A job has the fixed environment of the built-in `bash`, its own process group,
 and one ring of the last 256 KiB of its output (standard output and error
@@ -1200,11 +1204,16 @@ the model reads is data, not an instruction.
 **Limits.** 4 running jobs per chat, 8 per user, 32 per server, each for at most
 2 hours. The server counts the jobs that run on it and the Sandbox add-on
 counts its own, so the jobs on this machine and the jobs in the Sandbox have
-separate limits. The jobs of sub-agents count for the user. A finished job stays readable for 30 minutes (at most 16 per chat). A
-job ends when it exits, when the model or you stop it, at its lifetime, when
-the chat is deleted, when the shell tools are switched off for the chat or the
-administrator switches commands off (within 30 seconds), when the chat's agent
-gets a folder that confines it, and when the server stops. A job holds the
+separate limits. The jobs of sub-agents count for the user. A start holds its
+place before it runs, so two starts at once never pass a limit together. The
+per-user limit of the jobs on this machine is counted on each server. A
+finished job stays readable for 30 minutes (at most 16 per chat). A job ends
+when it exits, when the model or you stop it, at its lifetime, when the chat is
+deleted, when the shell tools are switched off for the chat (within 30
+seconds), when the chat's agent gets a folder that confines it, and when the
+server stops. A job on this machine also ends when the administrator switches
+commands on this machine off; that setting does not govern the Sandbox, so it
+does not end Sandbox jobs. A job holds the
 scratch folder of its chat (on this machine or in the Sandbox): the server does not evict it, put it to sleep or
 refresh it while the job runs, so a command run in the same chat meanwhile does
 not see files that changed elsewhere until the jobs end. A user has at most 4
@@ -1223,6 +1232,29 @@ says so and runs nothing elsewhere (see [Execution provider and status
 payload]({{%relref "features/addons#execution-provider-and-status-payload" %}})).
 A call that must make the sandbox again (a new profile, folder or mode) ends the
 chat's jobs first and says so at the top of its output.
+
+The add-on does not tell the server when a job ends; the server asks it. Your
+list of jobs, the model's `job list`, a wait on the job and a start in the chat
+each ask once per chat, and the server that started a job (or saw it running)
+asks every 30 seconds while the chat has a running job. That sweep also ends
+the chat's jobs when the shell tools are switched off for it, when its agent
+gets a folder that confines it (seen on two sweeps in a row), when the chat is
+gone, or when the sub-agent that started them has ended; the end reason says
+which. The sweep is per server: after a restart of that server, it follows a
+chat again from the first time it shows the chat's jobs, and until then the
+2-hour lifetime bounds them. Starts, input, kills (with their reason) and the
+ends the server sees are written to the audit of the Sandbox jobs; a start the
+add-on refused ran nothing and is not written.
+
+A Sandbox job reaches the network through the same proxy as `bash`. The proxy
+cannot tell which process opened a connection: while a `bash` call of the chat
+runs, a connection of a job counts as that call's, so a network card that a job
+causes then looks as if the command of the call asked. When no call runs, a
+connection counts as the oldest running job's, and a host that would need your
+yes is blocked with the reason `unattended`, even while the model is still
+writing its answer; curl or pip print the block into the job's output. The add-on
+keeps at most 64 jobs it can save files and reach the network for; a start
+beyond that says so and runs nothing.
 
 **Sub-agents.** A sub-agent gets `job` exactly when it gets `bash`, with the
 same limits and the same checks. It never sees a card, so on this machine it
@@ -1247,10 +1279,14 @@ moved. A restart of that process or the loss of that node ends the job, and its
 output and exit status are gone. The chat record keeps an index of its jobs (id,
 node, provider, state, never the command), so a turn that runs on another node
 still reads, writes to and kills the job, by a request to the node that runs it.
-After the loss the index marks the job lost, and a wait on it wakes with a text
-that says the job is gone with its node and that the condition is not known. If
-the node only answers slowly, nothing changes and the model is told to try
-again.
+A node that answers but does not know the job (it restarted) marks the job lost
+at once. A node that nobody answers for marks it lost only after three asks
+over at least 30 seconds, so a short break does not lose a running job; until
+then the model is told to try again and a wait counts a failed check. A read or
+a stop of a lost job still asks the node, and a job it still knows is live
+again. A wait on a lost job wakes with a text that says the job is gone with its
+node and that the condition is not known. If the node only answers slowly,
+nothing changes and the model is told to try again.
 
 ### Network of the Sandbox commands
 

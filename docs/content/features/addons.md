@@ -248,8 +248,12 @@ no tool schema may use), `id` (`job-` and six base32 characters), `command` and
 absolute byte offset; omitted, the read goes on where the model's last read
 ended), `maxBytes` (256 to 65536, default 16384), `observe` (a read that does
 not move the model's cursor and carries the last 2000 bytes as `tail`: the
-check of a wait), `input` (at most 2000 bytes) and `closeInput`, and `signal`
-(`term`, the default, `int` or `kill`). The host's `execution` call options are
+check of a wait), `input` (at most 2000 bytes) and `closeInput`, and for a kill
+`signal` (`term`, the default, `int` or `kill`) and `reason`. `reason` is why
+the host ends the job: `stopped` (the person's Stop), `chat_deleted`,
+`agent_ended`, `shell_off`, `group_off` or `fenced`. The add-on records it as
+the job's `end` (`stopped` with the state `killed`, the others `exited`);
+without it the end is `killed`. The host's `execution` call options are
 added as for `bash`. The answer is `contract.JobReply`: `ok`, `job` or `jobs`
 (`id`, `label`, `state`, `end`, `exit`, `started`, `ended`, `lastOutput`,
 `total`, `idleMs`; never the command), and for a read `output`, `from` and
@@ -264,8 +268,14 @@ start's request live as a **job lease**, so the job's final checkpoint
 `egress.audit`) still find a live request after the call returned. The lease
 has the actor, scope, resource and chat of the start. It ends when an answer of
 the jobs tool reports the job finished, two hours and five minutes after the
-start, or when the add-on process stops. Under a lease the channel allows only
-those four operations, and an add-on holds at most 64 leases. The in-flight
+start, or when the add-on process stops. A kill does not end the lease: the
+job's final checkpoint runs after the kill. The host asks the jobs tool every
+30 seconds while a chat it follows has a running job, so a finished job's lease
+ends soon after the job. Under a lease the channel allows only those four
+operations, and an add-on holds at most 64 leases. The owner takes the place
+of a lease before it sends a start; with every place taken or held by a start
+in flight, it does not send the start and answers it as a refusal with the code
+`limit`. The in-flight
 table, and so the lease, lives in the owner process, where every act of a
 frontend is forwarded.
 
