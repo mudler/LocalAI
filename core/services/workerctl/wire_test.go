@@ -154,8 +154,7 @@ var _ = Describe("Control payload wire format", func() {
 
 var _ = Describe("Agent worker verbs", func() {
 	It("names two verbs that the backend worker does not serve", func() {
-		Expect(workerctl.AgentVerbs()).To(ConsistOf(workerctl.VerbMCPToolExecute, workerctl.VerbMCPDiscovery))
-		for _, v := range workerctl.AgentVerbs() {
+		for _, v := range []string{workerctl.VerbMCPToolExecute, workerctl.VerbMCPDiscovery} {
 			Expect(workerctl.AllVerbs()).ToNot(ContainElement(v), v)
 		}
 	})

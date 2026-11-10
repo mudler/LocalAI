@@ -13,9 +13,3 @@ const (
 	// model. Unary.
 	VerbMCPDiscovery = "mcp.discovery"
 )
-
-// AgentVerbs returns the verbs of an agent worker once, not counting
-// VerbBackendStop.
-func AgentVerbs() []string {
-	return []string{VerbMCPToolExecute, VerbMCPDiscovery}
-}

@@ -60,7 +60,7 @@ func (c *StatusCommand) Run() error {
 
 func (c *StatusCommand) run(ctx context.Context, out io.Writer) error {
 	var view cluster.Report
-	_, raw, err := c.do(ctx, c.client(), http.MethodGet, carrierPath, nil, &view)
+	raw, err := c.do(ctx, c.client(), http.MethodGet, carrierPath, nil, &view)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (c *AbortCommand) Run() error {
 
 func (c *AbortCommand) run(ctx context.Context, out io.Writer) error {
 	var row cluster.CarrierRow
-	_, raw, err := c.do(ctx, c.client(), http.MethodPost, carrierPath, map[string]any{"abort": true}, &row)
+	raw, err := c.do(ctx, c.client(), http.MethodPost, carrierPath, map[string]any{"abort": true}, &row)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (c *SwitchCommand) run(ctx context.Context, out io.Writer, in io.Reader, in
 	// The dry run is the preflight. A change runs it again on the server, so
 	// this one is for the person who reads the replica list.
 	var report cluster.Report
-	_, raw, err := c.do(ctx, client, http.MethodPost, carrierPath, map[string]any{"target": target, "dry_run": true}, &report)
+	raw, err := c.do(ctx, client, http.MethodPost, carrierPath, map[string]any{"target": target, "dry_run": true}, &report)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (c *SwitchCommand) run(ctx context.Context, out io.Writer, in io.Reader, in
 		Target string `json:"target"`
 		Epoch  int64  `json:"epoch"`
 	}
-	_, raw, err = c.do(ctx, client, http.MethodPost, carrierPath, map[string]any{"target": target, "force": c.Force}, &started)
+	raw, err = c.do(ctx, client, http.MethodPost, carrierPath, map[string]any{"target": target, "force": c.Force}, &started)
 	if err != nil {
 		var ae *apiError
 		if errors.As(err, &ae) && ae.Status == http.StatusUnprocessableEntity {
@@ -195,7 +195,7 @@ func (c *SwitchCommand) wait(ctx context.Context, client *http.Client, out io.Wr
 	last := ""
 	for {
 		var st cluster.Report
-		if _, _, err := c.do(ctx, client, http.MethodGet, carrierPath, nil, &st); err != nil {
+		if _, err := c.do(ctx, client, http.MethodGet, carrierPath, nil, &st); err != nil {
 			if ctx.Err() != nil {
 				return fmt.Errorf("gave up waiting; the change goes on, check it with `local-ai cluster carrier status`: %w", ctx.Err())
 			}

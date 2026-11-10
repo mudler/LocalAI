@@ -69,24 +69,24 @@ func endpointURL(base, path string) (string, error) {
 	return u.String(), nil
 }
 
-// do sends one request and decodes a JSON answer into out. It returns the status
-// code and the raw body as well. A status outside 2xx is an *apiError.
-func (r *Remote) do(ctx context.Context, client *http.Client, method, path string, in, out any) (int, []byte, error) {
+// do sends one request and decodes a JSON answer into out. It returns the raw
+// body as well. A status outside 2xx is an *apiError.
+func (r *Remote) do(ctx context.Context, client *http.Client, method, path string, in, out any) ([]byte, error) {
 	target, err := endpointURL(r.Endpoint, path)
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
 	var body io.Reader
 	if in != nil {
 		raw, err := json.Marshal(in)
 		if err != nil {
-			return 0, nil, err
+			return nil, err
 		}
 		body = bytes.NewReader(raw)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, target, body)
 	if err != nil {
-		return 0, nil, errors.New("cannot create the request")
+		return nil, errors.New("cannot create the request")
 	}
 	req.Header.Set("Accept", "application/json")
 	if in != nil {
@@ -98,29 +98,29 @@ func (r *Remote) do(ctx context.Context, client *http.Client, method, path strin
 	resp, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
-			return 0, nil, ctx.Err()
+			return nil, ctx.Err()
 		}
 		// A transport error can echo the URL and the credentials of a proxy.
-		return 0, nil, errors.New("cannot reach the server at the endpoint")
+		return nil, errors.New("cannot reach the server at the endpoint")
 	}
 	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return resp.StatusCode, nil, errors.New("cannot read the answer")
+		return nil, errors.New("cannot read the answer")
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var e struct {
 			Error string `json:"error"`
 		}
 		_ = json.Unmarshal(raw, &e)
-		return resp.StatusCode, raw, &apiError{Status: resp.StatusCode, Msg: e.Error, Body: raw}
+		return raw, &apiError{Status: resp.StatusCode, Msg: e.Error, Body: raw}
 	}
 	if out != nil {
 		if err := json.Unmarshal(raw, out); err != nil {
-			return resp.StatusCode, raw, fmt.Errorf("the server answered with a body that is not valid: %w", err)
+			return raw, fmt.Errorf("the server answered with a body that is not valid: %w", err)
 		}
 	}
-	return resp.StatusCode, raw, nil
+	return raw, nil
 }
 
 func (r *Remote) client() *http.Client {

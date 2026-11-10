@@ -192,7 +192,7 @@ var _ = Describe("Forwarding holders", func() {
 
 	Describe("WorkerDialer", func() {
 		It("dials with the carrier the pointer names at the moment of each dial", func() {
-			dialFor := carrier.NewWorkerDialer(&cur)
+			dialFor := carrier.NewRoutedWorkerDialer(&cur, nil)
 			dial := dialFor("node-1") // a client keeps this function for good
 
 			_, _ = dial(ctx, "tcp", "x:1")
@@ -244,7 +244,7 @@ var _ = Describe("Forwarding holders", func() {
 		It("adds no allocation to a forwarded call", func() {
 			h := carrier.NewCommands(&cur)
 			cl := carrier.NewClients(&cur)
-			dial := carrier.NewWorkerDialer(&cur)("node-1")
+			dial := carrier.NewRoutedWorkerDialer(&cur, nil)("node-1")
 
 			cur.Store(newQuietCarrier().set)
 

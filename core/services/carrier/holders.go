@@ -329,17 +329,11 @@ func (h *Clients) NewClient(nodeID, address string, parallel bool) grpc.Backend 
 	return cur.Clients.NewClient(nodeID, address, parallel)
 }
 
-// NewWorkerDialer returns a nodes.WorkerNetDialerFor that picks the set at the
-// moment of each dial, not when the dial function is created. An HTTP client
+// NewRoutedWorkerDialer returns a nodes.WorkerNetDialerFor that picks the set at
+// the moment of each dial, not when the dial function is created. An HTTP client
 // keeps its dial function for as long as it lives, so resolving earlier would
-// pin it to the carrier it was created on.
-func NewWorkerDialer(cur *atomic.Pointer[Set]) nodes.WorkerNetDialerFor {
-	return NewRoutedWorkerDialer(cur, nil)
-}
-
-// NewRoutedWorkerDialer is NewWorkerDialer for a dial that also follows the
-// window: during a change of carrier it dials through the carrier that the worker
-// is attached to.
+// pin it to the carrier it was created on. With a window, during a change of
+// carrier it dials through the carrier that the worker is attached to.
 func NewRoutedWorkerDialer(cur *atomic.Pointer[Set], win *Window) nodes.WorkerNetDialerFor {
 	return func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
 		return func(ctx context.Context, network, addr string) (net.Conn, error) {
