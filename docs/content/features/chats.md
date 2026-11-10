@@ -1191,8 +1191,8 @@ it is right after a restart and the same on every frontend of a cluster.
 
 ### Sandbox profile
 
-A Sandbox add-on that declares profiles (the Sandbox does: `base`, `media` and
-`video`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
+A Sandbox add-on that declares profiles (the Sandbox does: `base` and
+`media`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
 default of the administrator, or the profile of its saved agent. Switching
@@ -1802,13 +1802,13 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps`, `localai`, `assemble-media` and `fframes-video`.
+The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps`, `localai` and `assemble-media`.
 `localai` teaches the model the [LocalAI client tools]({{% relref "features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
 An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "features/localai-assistant#the-prompt-and-the-recipes" %}}).
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours](/features/make-localai-yours/).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
-`assemble-media` and `fframes-video` are for the sandbox. `assemble-media` has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. `fframes-video` shows how to make a video in code with fframes on the CPU. Both carry a hint for the `media` and `video` sandbox profiles.
+`assemble-media` is for the sandbox. It has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. It can also make a simple video from frames drawn with Python or SVG. It carries a hint for the `media` sandbox profile.
 
 ### Import and export skills
 
