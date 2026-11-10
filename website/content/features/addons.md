@@ -4,7 +4,7 @@ weight: 7
 card: "Install software that adds chat apps, tools and pages."
 headline: 'New powers for your <span class="hl">assistant</span>.'
 lede: "An add-on is software you install."
-docs: "/docs/features/addons/"
+docs: "/docs/addons/user-guide/"
 scene: "s7-tools"
 alt: "The llama stands in front of a wall of colourful sockets."
 layout: "addons"

@@ -4,7 +4,7 @@ weight: 2
 card: "Upload files and let an agent read, search and share them."
 headline: 'Files in. Results <span class="hl">out</span>.'
 lede: "Keep your files on the server. An agent reads them, searches them and writes results back."
-docs: "/docs/features/chats/"
+docs: "/docs/features/files/"
 scene: "s6-files"
 alt: "The llama sits at a table with four llama colleagues, folders and a chart on the table."
 points:
