@@ -2,12 +2,14 @@
 disableToc = false
 title = "Model Gallery"
 linkTitle = "Models and backends"
-weight = 4
+weight = 5
 description = "Browse and install models from the model gallery, with the web interface, the CLI or the API."
 keywords = ["models","gallery","install model"]
 +++
 
 The model gallery is a curated collection of models configurations for [LocalAI](https://github.com/go-skynet/LocalAI) that enables one-click install of models directly from the LocalAI Web interface.
+
+To see what the models can do, such as text, speech, images and video, see [What models can do]({{% relref "/models/capabilities" %}}). For engines with their own page, see [Engines]({{% relref "/models/engines" %}}). To fine-tune or quantize a model, see [Train and quantize]({{% relref "/models/training" %}}).
 
 A list of the models available can also be browsed at [the Public LocalAI Gallery](https://models.localai.io).
 

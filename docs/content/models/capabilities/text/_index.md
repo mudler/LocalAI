@@ -7,6 +7,6 @@ weight = 10
 aliases = ["/features/text/"]
 +++
 
-Text generation, grammars, embeddings, reranking, moderation and forecasting.
+Text generation, grammars, thinking models, embeddings, reranking, moderation, forecasting and benchmarks.
 
 {{% pages description="true" display="tree" orderby="weight" %}}

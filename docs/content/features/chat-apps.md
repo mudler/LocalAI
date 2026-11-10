@@ -3,7 +3,7 @@ url = "/features/chats-connectors/"
 disableToc = false
 title = "Chat apps and connections"
 description = "Connect Telegram, Slack and Discord bots to a saved agent, and manage accounts and MCP servers that agents use as tools."
-weight = 50
+weight = 5
 aliases = ["/features/connectors-and-agents/"]
 keywords = ["connectors", "telegram", "slack", "discord", "bot", "chat apps", "mcp servers"]
 +++
