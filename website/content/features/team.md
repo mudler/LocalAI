@@ -5,8 +5,10 @@ card: "One server, a login for each person, and admin control."
 headline: 'One server. Your whole <span class="hl">team</span>.'
 lede: "Each person has a login and their own chats. An admin chooses what each person can use."
 docs: "/docs/concepts/users-and-sharing/"
-scene: "s4-office"
-alt: "The llama stands in an open-plan office between two llama coworkers at their desks."
+icon: "team"
+illus: "team"
+# demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
+demo: ""
 points:
   - "Each person logs in and has their own chats."
   - "An admin turns features on or off for each person."

@@ -1,23 +1,23 @@
 {{ define "main" }}
 <main id="main">
-<header class="pagehead"><div class="shell duo">
+<header class="pagehead"><div class="shell duo duo--wide">
   <div>
     <p class="crumb"><a href="{{ "features/" | relURL }}">Features</a> / {{ .Title }}</p>
     <h1>{{ .Params.headline | safeHTML }}</h1>
     <p class="lede">{{ .Params.lede }}</p>
-    <div class="acts" style="margin-top:1.6rem">
-      {{ with .Params.docs }}<a class="btn" href="{{ . }}">Read the docs</a>{{ end }}
+    <div class="acts">
+      {{ with .Params.docs }}<a class="btn" href="{{ . }}">Read the {{ $.Title }} docs</a>{{ end }}
       <a class="btn btn--o" href="{{ "get-started/" | relURL }}">Get started</a>
     </div>
   </div>
-  {{ with .Params.scene }}<figure class="scene"><img src="{{ printf "img/scenes/scene-%s.jpg" . | relURL }}" width="1024" height="576" alt="{{ $.Params.alt }}"></figure>{{ end }}
+  {{ partial "demo-slot.html" (dict "kind" .Params.illus "demo" .Params.demo "alt" (printf "%s: a short demo" .Title)) }}
 </div></header>
-<section><div class="shell prose">
+<section><div class="shell"><div class="prose">
   <h2>What it does</h2>
   <ul class="list">{{ range .Params.points }}<li>{{ . | markdownify }}</li>{{ end }}</ul>
-  {{ with .Params.notes }}<div class="note" style="margin-top:2rem"><b>Good to know</b><ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul></div>{{ end }}
+  {{ with .Params.notes }}<div class="note note--mt"><b>Good to know</b><ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul></div>{{ end }}
   {{ .Content }}
   {{ if eq .Params.special "models" }}{{ partial "engines-teaser.html" . }}{{ end }}
-</div></section>
+</div></div></section>
 </main>
 {{ end }}

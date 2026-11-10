@@ -1,12 +1,14 @@
 ---
 title: "Pages and widgets"
-weight: 6
+weight: 7
 card: "Ask for a small page and pin it to Home."
 headline: 'Ask for a page. Pin it to <span class="hl">Home</span>.'
 lede: "The assistant proposes a small page. You confirm it. Home shows it as a tile, next to widgets that show your data."
 docs: "/docs/features/pages/"
-scene: "s7-tools"
-alt: "The llama stands in front of a wall of colourful sockets with cables plugged in."
+icon: "home"
+illus: "home"
+# demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
+demo: ""
 points:
   - "The assistant proposes a page from a sentence. The page is created only after you confirm."
   - "A page is saved in your home folder, under pages."
