@@ -234,13 +234,23 @@ export function galleryUpdateMap(rows) {
 // update is, whatever the setting says. An update that this server refuses by
 // policy (installs off) is not: nobody can act on it.
 export function badgeOf(rows) {
-  let count = 0
-  let failed = false
-  for (const row of rows) {
-    if (row.state === 'failed') { count += 1; failed = true } else if (row.state === 'held') count += 1
-    else if (row.state === 'blocked') { if (row.blocked !== 'installsDisabled') count += 1 } else if (row.state === 'ready' && !row.covered) count += 1
-  }
-  return { count, failed }
+  const needing = needsPersonRows(rows)
+  return { count: needing.length, failed: needing.some(r => r.state === 'failed') }
+}
+
+// The rows behind that number: backends and add-ons alike. Every page that
+// shows the count and then lists what it counts reads this, so the number and
+// the list cannot disagree.
+export function needsPersonRows(rows) {
+  return (rows || []).filter((row) => {
+    switch (row.state) {
+      case 'failed':
+      case 'held': return true
+      case 'blocked': return row.blocked !== 'installsDisabled'
+      case 'ready': return !row.covered
+      default: return false
+    }
+  })
 }
 
 // ---- Sources ----------------------------------------------------------------

@@ -4,7 +4,7 @@ import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useUpdates } from './UpdatesContext'
 import { useDistributedMode } from '../hooks/useDistributedMode'
-import { galleryUpdateMap } from '../utils/updates'
+import { galleryUpdateMap, needsPersonRows } from '../utils/updates'
 import { appendSample, capacityOf } from '../utils/operateStatus'
 
 // The state of the installation, assembled once for everything in the Operate
@@ -99,7 +99,9 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const { refetch } = usePolling(fetchSummary, pollInterval, { enabled: !distributedLoading })
 
   const value = useMemo(() => {
-    const upgradeList = Object.values(upgrades || {})
+    // Backends and add-ons, the rows the Updates tab counts: this item's number
+    // and the names under it are the same set the Updates page lists.
+    const upgradeList = needsPersonRows(updateRows)
     const failedOps = operations.filter(op => op.error)
     const unhealthyNodes = nodes.filter(n => nodeUnhealthy(n))
 
@@ -111,7 +113,10 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         id: 'updates',
         kind: 'backend-update',
         count: upgradeList.length,
-        names: upgradeList.map(u => u.backend_name),
+        names: upgradeList.map(u => u.name),
+        // Only what is ready can be picked in the update-ready list; the rest
+        // is under Needs you.
+        ready: upgradeList.some(u => u.state === 'ready'),
       }] : []),
       ...failedOps.map(op => ({
         id: `op:${op.id || op.uid || op.name}`,
@@ -156,7 +161,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         running: running || null,
       },
     }
-  }, [upgrades, updates, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading])
+  }, [upgrades, updateRows, updates, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading])
 
   return (
     <OperateSummaryContext.Provider value={value}>
