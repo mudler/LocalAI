@@ -1,12 +1,14 @@
 ---
 title: "Connectors"
-weight: 8
+weight: 9
 card: "Message an agent from Slack, Telegram or Discord."
 headline: 'Text it from your <span class="hl">phone</span>.'
 lede: "Connect an agent to the chat apps you already use. Add-ons do the connecting."
 docs: "/docs/features/chats-connectors/"
-scene: "s3-text"
-alt: "The llama stands in a warm room next to three phones on stands."
+icon: "apps"
+illus: "apps"
+# demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
+demo: ""
 points:
   - "Slack, Telegram and Discord connect through add-ons."
   - "A connection is bound to exactly one agent."

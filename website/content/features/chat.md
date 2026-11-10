@@ -5,8 +5,10 @@ card: "Chat with an open model, then ask it to do the work."
 headline: 'Talk. Then it <span class="hl">works</span>.'
 lede: "Chat with an open model that runs on your own hardware. Ask it to read a file, make a table or write a report."
 docs: "/docs/features/chats/"
-scene: "s1-talk"
-alt: "The llama in sunglasses chats at a cafe table while a waiter with a tray looks on."
+icon: "chat"
+illus: "chat"
+# demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
+demo: ""
 points:
   - "Chat with an open model on your own hardware."
   - "Save **agents**. Each one has its own name, model, add-ons, skills and memory."

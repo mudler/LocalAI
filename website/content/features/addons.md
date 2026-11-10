@@ -1,12 +1,15 @@
 ---
 title: "Add-ons"
-weight: 7
+weight: 8
 card: "Install software that adds chat apps, tools and pages."
 headline: 'New powers for your <span class="hl">assistant</span>.'
-lede: "An add-on is software you install."
+lede: "An add-on is software you install. It adds chat apps, tools and pages."
+description: "Add-ons add chat apps, tools and pages to LocalAI. See what each one does and what an admin has to turn on."
 docs: "/docs/addons/user-guide/"
-scene: "s7-tools"
-alt: "The llama stands in front of a wall of colourful sockets."
+icon: "addons"
+illus: "addons"
+# demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
+demo: ""
 layout: "addons"
 notes:
   - "An admin installs add-ons from the official library. Each person may need the add-ons feature turned on."
