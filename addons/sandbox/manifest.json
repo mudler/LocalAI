@@ -270,6 +270,13 @@
                     "magick -version",
                     "convert -version"
                   ]
+                },
+                {
+                  "name": "rsvg-convert",
+                  "detail": "renders SVG to PNG, also the SVG reader of ImageMagick",
+                  "check": [
+                    "rsvg-convert --version"
+                  ]
                 }
               ]
             }

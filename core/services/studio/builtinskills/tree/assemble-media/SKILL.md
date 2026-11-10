@@ -302,6 +302,13 @@ ffmpeg -y -v error -f lavfi -i "gradients=s=1920x1080:r=30:d=5:c0=0x142050:c1=0x
 
 For 9:16, crop before `zoompan` (`crop=ih*9/16:ih,zoompan=...:s=1080x1920`), or change the sizes in `xfade` to 1080:1920. Add `xfade=transition=` values such as `slideleft`, `wipeleft`, `dissolve` for other moves. `drawtext` needs the font file: without `fontfile=` it may fail with no system font.
 
+SVG frames: `rsvg-convert` draws them (text needs `font-family="DejaVu Sans"`). `-w 1920` scales a 16:9 SVG to 1080p. `magick x.svg out.png` works too.
+
+```sh
+for i in 0 1 2; do rsvg-convert -w 1920 -o f_0$i.png f$i.svg; done      # or pipe: rsvg-convert ... | ffmpeg -f image2pipe -framerate 5 -i - ...
+ffmpeg -y -v error -framerate 5 -i f_%02d.png -c:v libx264 -pix_fmt yuv420p svg.mp4
+```
+
 Finish: add a voice or music with the commands in "Audio track" (`-af apad -shortest` keeps the video length). Then check the result: size, frame count, length, and one frame to look at.
 
 ```sh

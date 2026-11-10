@@ -32,7 +32,7 @@ func TestDeclaredProfilesAreValidAndNested(t *testing.T) {
 			}
 		}
 	}
-	for _, want := range []string{"ffmpeg", "sox", "ImageMagick"} {
+	for _, want := range []string{"ffmpeg", "sox", "ImageMagick", "rsvg-convert"} {
 		if !have[profiles.Media][want] || have[profiles.Base][want] {
 			t.Errorf("%s must be in media and not in base", want)
 		}

@@ -52,6 +52,7 @@ func mediaTools() []contract.ProfileTool {
 		tool("ffmpeg", "with ffprobe", "ffmpeg -version", "ffprobe -version"),
 		tool("sox", "", "sox --version"),
 		tool("ImageMagick", "magick, convert", "magick -version", "convert -version"),
+		tool("rsvg-convert", "renders SVG to PNG, also the SVG reader of ImageMagick", "rsvg-convert --version"),
 	)
 }
 

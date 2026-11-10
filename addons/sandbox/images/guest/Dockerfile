@@ -115,11 +115,11 @@ COPY addons/sandbox/images/guest/document-skills/ /usr/local/lib/localai/documen
 COPY addons/sandbox/images/guest/check-document-skills.py /usr/local/lib/localai/document-skills/check-document-skills.py
 RUN python3 /usr/local/lib/localai/document-skills/check-document-skills.py
 
-# media: base plus ffmpeg, sox and ImageMagick.
+# media: base plus ffmpeg, sox, ImageMagick and rsvg-convert.
 FROM base-tools AS media-tools
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends ffmpeg sox libsox-fmt-all imagemagick; \
+    apt-get install -y --no-install-recommends ffmpeg sox libsox-fmt-all imagemagick librsvg2-bin; \
     rm -rf /var/lib/apt/lists/*; \
     sh /usr/local/lib/localai/check-tools.sh media /usr/local/lib/localai/manifest.json
 
