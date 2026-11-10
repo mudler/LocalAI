@@ -38,7 +38,7 @@ var _ = Describe("bounding the connections that publishing uses", func() {
 		var firstErr atomic.Value
 		var wg sync.WaitGroup
 		start := make(chan struct{})
-		for i := 0; i < total; i++ {
+		for i := range total {
 			wg.Add(1)
 			go func(i int) {
 				defer GinkgoRecover()

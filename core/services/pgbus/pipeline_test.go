@@ -55,7 +55,7 @@ var _ = Describe("reading spilled broadcasts", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		const total = 300
-		for i := 0; i < total; i++ {
+		for i := range total {
 			fill := "x"
 			if i%3 == 0 {
 				fill = strings.Repeat("y", 16*1024) // spills
@@ -83,7 +83,7 @@ var _ = Describe("reading spilled broadcasts", func() {
 		payload := probe{Fill: strings.Repeat("a", 64*1024)}
 		var sent atomic.Int64
 		var wg sync.WaitGroup
-		for w := 0; w < 16; w++ {
+		for range 16 {
 			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
@@ -109,7 +109,7 @@ var _ = Describe("reading spilled broadcasts", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		const total = 8
-		for i := 0; i < total; i++ {
+		for i := range total {
 			Expect(db.Create(&pgbus.BusMessage{
 				ID: fmt.Sprintf("ov-%d", i), Subject: "staging.overlap.probe", Payload: []byte(fmt.Sprintf(`{"i":%d}`, i)),
 			}).Error).To(Succeed())
@@ -127,7 +127,7 @@ var _ = Describe("reading spilled broadcasts", func() {
 		}
 		DeferCleanup(release)
 		Expect(held.Exec("LOCK TABLE bus_messages IN ACCESS EXCLUSIVE MODE").Error).To(Succeed())
-		for i := 0; i < total; i++ {
+		for i := range total {
 			Expect(db.Exec("SELECT pg_notify('localai_staging', ?)",
 				fmt.Sprintf(`{"s":"staging.overlap.probe","i":"ov-%d"}`, i)).Error).To(Succeed())
 		}
@@ -142,7 +142,7 @@ var _ = Describe("reading spilled broadcasts", func() {
 			"the replica reads its spilled rows one after the other")
 		release()
 
-		for want := 0; want < total; want++ {
+		for want := range total {
 			Eventually(out, 30*time.Second).Should(Receive(Equal(want)))
 		}
 	})

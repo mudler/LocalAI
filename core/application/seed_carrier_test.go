@@ -13,7 +13,7 @@ import (
 
 var _ = Describe("seeding the carrier of the cluster", func() {
 	It("lets a replica without a NATS flag start while replicas with one seed, whatever the order", func() {
-		for round := 0; round < 5; round++ {
+		for range 5 {
 			db := testutil.SetupTestDB()
 			ctx := context.Background()
 			store, err := cluster.NewCarrierStore(db)
