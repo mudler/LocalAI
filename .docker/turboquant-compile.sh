@@ -26,7 +26,7 @@ if [ "$BUILD_TARGET" = "turboquant-cpu-all" ]; then
   # arm64: the armv9.2 SME variants need gcc-14 (gcc-13 rejects +sme).
   if [ "${TARGETARCH}" = "arm64" ]; then
     sh /LocalAI/.docker/apt-mirror.sh || true
-    apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
+    sh /LocalAI/.docker/apt-mirror.sh apt-get update -qq && sh /LocalAI/.docker/apt-mirror.sh apt-get install -y -qq gcc-14 g++-14
     export CC=gcc-14 CXX=g++-14
   fi
 fi

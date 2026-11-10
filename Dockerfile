@@ -17,8 +17,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 # GPUs at all, so the image reports "No GPU detected" (see issue #10941).
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+    sh /usr/local/sbin/apt-mirror apt-get update && \
+    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
         ffmpeg libopenblas0 libopenblas-dev libopus0 sox \
         hwdata e2fsprogs && \
@@ -206,8 +206,9 @@ ARG CMAKE_FROM_SOURCE=false
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    sh /usr/local/sbin/apt-mirror apt-get update && \
+    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
         build-essential \
         ccache \
         ca-certificates espeak-ng \
@@ -220,12 +221,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install CMake (the version in 22.04 is too old)
-RUN <<EOT bash
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror <<EOT bash
     if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
     else
-        apt-get update && \
-        apt-get install -y \
+        sh /usr/local/sbin/apt-mirror apt-get update && \
+        sh /usr/local/sbin/apt-mirror apt-get install -y \
             cmake && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
@@ -271,8 +272,8 @@ gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${UBUNTU_CODENAME}/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+    sh /usr/local/sbin/apt-mirror apt-get update && \
+    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
         intel-oneapi-runtime-libs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

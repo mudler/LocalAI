@@ -20,8 +20,8 @@ ARG APT_PORTS_MIRROR
 
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+    sh /usr/local/sbin/apt-mirror apt-get update && \
+    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
         build-essential \
         ccache \
         ca-certificates \
