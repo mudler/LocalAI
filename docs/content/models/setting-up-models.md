@@ -7,7 +7,7 @@ weight = 20
 aliases = ["/getting-started/models/"]
 +++
 
-![Model resolution: many sources converge on one resolve, auto-detect backend, load, and serve path](/docs/images/diagrams/model-resolution.png)
+{{< diagram "model-resolution" "Model resolution: many sources converge on one resolve, auto-detect backend, load, and serve path" >}}
 
 This section covers everything you need to know about installing and configuring models in LocalAI. You'll learn multiple methods to get models running.
 

@@ -5,7 +5,7 @@ title = "Model Quantization"
 weight = 83
 +++
 
-![From an HF model to a quantized GGUF: convert to f16, then quantize, tracked as a job](/docs/images/diagrams/quantization-flow.png)
+{{< diagram "quantization-flow" "From an HF model to a quantized GGUF: convert to f16, then quantize, tracked as a job" >}}
 
 LocalAI supports model quantization directly through the API and Web UI. Quantization converts HuggingFace models to GGUF format and compresses them to smaller sizes for efficient inference with llama.cpp.
 

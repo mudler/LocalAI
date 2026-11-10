@@ -1,0 +1,4 @@
+{{- /* A diagram with a light and a dark picture. Use: {{< diagram "architecture-overview" "Alt text" >}}. The files are static/images/diagrams/<name>.png and <name>-dark.png. The two pictures are swapped by CSS (see css/custom.css), so they follow both the system setting and the theme variant that the reader picks in the menu. */ -}}
+{{- $name := .Get 0 | default (.Get "name") -}}
+{{- $alt := .Get 1 | default (.Get "alt") -}}
+<span class="lai-diagram"><img class="lai-diagram-light" src="{{ printf "images/diagrams/%s.png" $name | relURL }}" alt="{{ $alt }}" loading="lazy"><img class="lai-diagram-dark" src="{{ printf "images/diagrams/%s-dark.png" $name | relURL }}" alt="{{ $alt }}" loading="lazy"></span>

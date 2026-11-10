@@ -8,7 +8,7 @@ weight = 120
 aliases = ["/features/mitm-proxy/"]
 +++
 
-![MITM proxy: allowlisted hosts are decrypted and scanned, everything else is a blind TCP tunnel](/docs/images/diagrams/mitm-intercept.png)
+{{< diagram "mitm-intercept" "MITM proxy: allowlisted hosts are decrypted and scanned, everything else is a blind TCP tunnel" >}}
 
 LocalAI can act as a local HTTPS proxy that **redacts PII from your Claude
 Code, OpenAI Codex CLI, or any HTTPS client** without holding their API keys.

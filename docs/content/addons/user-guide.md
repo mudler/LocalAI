@@ -11,6 +11,8 @@ An add-on is a separate program that gives LocalAI new tools, pages or services.
 An installed add-on is trusted code. It runs as the operating system user that runs LocalAI. It is not sandboxed. Install only add-ons that you trust. An add-on that you install from a local file is not signed.
 {{% /callout %}}
 
+{{< diagram "addons-permissions" "Add-ons: an admin installs and turns them on, users with the add-ons feature use them, each person connects their own accounts. An add-on can add tools, skills, pages and services, and it runs as trusted code." >}}
+
 ## Who can do what
 
 | Task | Who |

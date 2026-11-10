@@ -5,7 +5,7 @@ weight = 160
 aliases = ["/features/mlx-distributed/"]
 +++
 
-![MLX pipeline-parallel inference: layers split across ranks, rank 0 coordinates, activations flow down the ring](/docs/images/diagrams/mlx-pipeline.png)
+{{< diagram "mlx-pipeline" "MLX pipeline-parallel inference: layers split across ranks, rank 0 coordinates, activations flow down the ring" >}}
 
 MLX distributed inference allows you to split large language models across multiple Apple Silicon Macs (or other devices) for joint inference. Unlike federation (which distributes whole requests), MLX distributed splits a single model's layers across machines so they all participate in every forward pass.
 

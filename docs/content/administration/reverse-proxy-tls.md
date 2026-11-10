@@ -6,7 +6,7 @@ aliases:
   - "/advanced/reverse-proxy-tls/"
 ---
 
-![TLS at the edge: terminate TLS at the reverse proxy and forward headers so LocalAI emits correct https URLs](/docs/images/diagrams/reverse-proxy-tls.png)
+{{< diagram "reverse-proxy-tls" "TLS at the edge: terminate TLS at the reverse proxy and forward headers so LocalAI emits correct https URLs" >}}
 
 When running LocalAI behind a TLS termination reverse proxy, the Web UI may fail to load static assets (CSS, JS) correctly because the application doesn't automatically detect that it's being served over HTTPS. This guide explains how to properly configure your reverse proxy to work with LocalAI.
 

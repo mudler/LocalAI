@@ -5,7 +5,7 @@ weight = 140
 aliases = ["/features/distribution/", "/features/distribute/"]
 +++
 
-![Federated vs worker mode: federated routes a whole request to one node; worker shards one model across nodes](/docs/images/diagrams/federated-vs-worker.png)
+{{< diagram "federated-vs-worker" "Federated vs worker mode: federated routes a whole request to one node; worker shards one model across nodes" >}}
 
 {{% callout style="tip" %}}
 Looking for production-grade horizontal scaling with PostgreSQL and NATS? See [Distributed Mode]({{% relref "/administration/distributed-mode" %}}).

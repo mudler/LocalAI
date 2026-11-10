@@ -8,7 +8,7 @@ aliases = ["/basics/getting_started/"]
 keywords = ["quickstart", "install", "first model", "run", "getting started"]
 +++
 
-![Quickstart journey: install, start LocalAI, pick a model, then chat or curl the API](/docs/images/diagrams/quickstart-journey.png)
+{{< diagram "quickstart-journey" "Quickstart in four steps: install with the script, Docker or the macOS app; start LocalAI; pick a model; talk to it in the web UI or the API. Then build an agent, install add-ons or add machines." >}}
 
 
 
