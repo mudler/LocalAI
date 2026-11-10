@@ -2,7 +2,7 @@
 name: 'UI Unit Tests'
 
 # The checks that need only Node: eslint (errors), the inline-style ratchet,
-# the UI kit ratchet, the host UI unit tests, the UI unit tests of every add-on
+# the UI kit ratchet, the colour ratchet, the host UI unit tests, the UI unit tests of every add-on
 # and the locale
 # completeness ratchet. They take seconds, so they run on every change to the
 # UI or to an add-on UI package, ahead of the browser suites.

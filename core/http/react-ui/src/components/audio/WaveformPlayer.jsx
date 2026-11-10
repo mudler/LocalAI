@@ -44,7 +44,7 @@ export default function WaveformPlayer({
     const accent =
       getComputedStyle(canvas).getPropertyValue('--audio-wave').trim() ||
       getComputedStyle(canvas).getPropertyValue('--color-primary').trim() ||
-      '#74bdb5'
+      'currentColor'
     ctx.fillStyle = dimmed ? withAlpha(accent, 0.32) : accent
     const mid = cssH / 2
     const barW = Math.max(1, cssW / peaks.length)

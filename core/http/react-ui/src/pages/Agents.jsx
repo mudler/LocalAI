@@ -168,6 +168,7 @@ export default function Agents() {
       ) : empty ? (
         <div className="ag-launch" data-testid="agents-empty">
           <EmptyState
+            mascot="welcome"
             title={t('empty.noConfigured')}
             body={t('empty.noConfiguredText')}
             actions={<>{newAgent}{importButton('ghost')}</>}

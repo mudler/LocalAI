@@ -238,6 +238,14 @@
   text-align: left;
 }
 .ui-empty__main { display: flex; gap: var(--sp-4); align-items: flex-start; min-width: 0; }
+.ui-mascot { display: block; width: auto; flex: none; object-fit: contain; user-select: none; }
+.ui-mascot--sm { height: 72px; }
+.ui-mascot--md { height: 112px; }
+.ui-mascot--lg { height: 160px; }
+.ui-empty__mascot { align-self: center; }
+@media (max-width: 480px) {
+  .ui-empty__mascot { display: none; }
+}
 .ui-empty__icon {
   display: grid;
   place-items: center;

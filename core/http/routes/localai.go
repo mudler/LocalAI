@@ -82,18 +82,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
-		// Import model page
-		router.GET("/import-model", func(c echo.Context) error {
-			return c.Render(200, "views/model-editor", map[string]any{
-				"Title":                  "LocalAI - Import Model",
-				"BaseURL":                middleware.BaseURL(c),
-				"Version":                internal.PrintableVersion(),
-				"DisableRuntimeSettings": appConfig.DisableRuntimeSettings,
-			})
-		}, adminMiddleware)
-
-		// Edit model page
-		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig), adminMiddleware)
+		// The old server-rendered import and edit pages are gone. Both URLs
+		// redirect to the React routes so bookmarks still work.
+		router.GET("/import-model", ImportModelRedirect, adminMiddleware)
+		router.GET("/models/edit/:name", EditModelRedirect, adminMiddleware)
 		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig, galleryService, cl)
 		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint(), adminMiddleware)
 		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint(), adminMiddleware)

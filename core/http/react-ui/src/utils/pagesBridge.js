@@ -375,15 +375,18 @@ const BOOTSTRAP = `(function () {
     var show = function () {
       var host = document.createElement('localai-notice')
       var root = host.attachShadow({ mode: 'closed' })
-      var dark = info.theme === 'dark'
+      // The colours come from the host theme (the warning roles); the system
+      // colours cover a caller that gives none.
+      var c = info.colors || {}
+      var accent = c.accent || 'Highlight'
       var style = document.createElement('style')
       style.textContent = ':host{all:initial;position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;display:flex;justify-content:center;pointer-events:none}' +
         '.n{pointer-events:auto;display:flex;gap:12px;align-items:flex-start;max-width:640px;box-sizing:border-box;padding:10px 12px;border-radius:8px;' +
-        'border:1px solid ' + (dark ? '#5c4a1f' : '#e7cf8f') + ';border-left:4px solid ' + (dark ? '#e3b341' : '#b7791f') + ';' +
-        'background:' + (dark ? '#1f1b12' : '#fffaf0') + ';color:' + (dark ? '#f0e6cf' : '#3d2f0f') + ';' +
-        'font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.18)}' +
+        'border:1px solid color-mix(in srgb,' + accent + ' 38%,transparent);border-left:4px solid ' + accent + ';' +
+        'background:' + (c.bg || 'Canvas') + ';color:' + (c.fg || 'CanvasText') + ';' +
+        'font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 6px 24px color-mix(in srgb,CanvasText 18%,transparent)}' +
         'p{margin:0;flex:1;overflow-wrap:anywhere}button{all:unset;cursor:pointer;min-width:24px;min-height:24px;text-align:center;border-radius:4px;font-size:16px;line-height:24px}' +
-        'button:focus-visible{outline:2px solid currentColor;outline-offset:1px}button:hover{background:rgba(127,127,127,.18)}'
+        'button:focus-visible{outline:2px solid currentColor;outline-offset:1px}button:hover{background:color-mix(in srgb,currentColor 18%,transparent)}'
       var box = document.createElement('div')
       box.className = 'n'
       box.setAttribute('role', 'alert')
@@ -412,7 +415,20 @@ export const WIDGET_SIZES = ['small', 'medium', 'large']
 
 const newlines = (text) => (text.match(/\n/g) || []).length
 
-export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '' } = {}) {
+// The colours of the notice in the frame, read from the host theme: the
+// warning roles, which are plain colour values. A value that is not a plain
+// hex colour is dropped, so nothing else can reach the frame's style.
+export function noticeColours() {
+  if (typeof document === 'undefined') return {}
+  const css = getComputedStyle(document.documentElement)
+  const read = (name) => {
+    const v = css.getPropertyValue(name).trim()
+    return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : undefined
+  }
+  return { bg: read('--dk-warn-wash'), fg: read('--dk-warn-text'), accent: read('--dk-warn') }
+}
+
+export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '', colors = {} } = {}) {
   const widget = mode === 'widget'
   const info = scriptJSON({
     // The lines LocalAI puts before the page: the bridge takes them off the
@@ -423,6 +439,7 @@ export function buildPageSrcdoc(html, { name, title, theme, head = '', modules =
     mode: widget ? 'widget' : 'page', size: widget ? (WIDGET_SIZES.includes(size) ? size : 'medium') : '',
     notes: (Array.isArray(notes) ? notes : []).slice(0, 50).map((n) => ({ level: n.level === 'error' ? 'error' : 'warn', message: String(n.message || '').slice(0, 500) })),
     banner: String(banner || '').slice(0, 1000), dismiss: String(dismiss || ''),
+    colors: Object.fromEntries(['bg', 'fg', 'accent'].filter((k) => /^#[0-9a-fA-F]{3,8}$/.test(colors && colors[k])).map((k) => [k, colors[k]])),
   })
   const pre = `<meta http-equiv="Content-Security-Policy" content="${pageCsp(modules)}"><script>${BOOTSTRAP.replace('INFO', () => info)}</script>${head}`
   return withHead(html, pre)

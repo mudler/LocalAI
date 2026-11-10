@@ -253,9 +253,9 @@
    hovered or selected card outline. */
 :root,
 [data-theme="dark"] {
-  --color-surface-raised: #1b2524;
-  --color-surface-float: #232f2e;
-  --color-border-emphasis: #3a4a47;
+  --color-surface-raised: color-mix(in srgb, var(--dk-card) 95%, var(--dk-text));
+  --color-surface-float: color-mix(in srgb, var(--dk-card) 91%, var(--dk-text));
+  --color-border-emphasis: color-mix(in srgb, var(--dk-edge) 55%, var(--dk-control-edge));
 }
 [data-theme="light"] {
   --color-surface-raised: var(--dk-card);
