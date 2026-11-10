@@ -160,7 +160,7 @@ settings bypasses this automatic default.
 | `--http-compression-min-length` | `1024` | Minimum response size in bytes before gzip compression is applied. Smaller responses are sent as-is because the gzip envelope would outweigh the saving | `$LOCALAI_HTTP_COMPRESSION_MIN_LENGTH` |
 | `--upload-limit` | `0` | Upload limit in MB for request bodies; `0` means not set, and then 15 MB applies, except to uploads of the Files page, which are limited only by the 256 MiB workspace file size, and to chat messages with attachments, which are limited to 1 GiB. When set, it applies to both too, lower or higher (a file is never above 256 MiB and a message never above 1 GiB) | `$LOCALAI_UPLOAD_LIMIT`, `$UPLOAD_LIMIT` |
 | `--api-keys` | | List of API Keys to enable API authentication. When this is set, all requests must be authenticated with one of these API keys | `$LOCALAI_API_KEY`, `$API_KEY` |
-| `--disable-webui` | `false` | Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface | `$LOCALAI_DISABLE_WEBUI`, `$DISABLE_WEBUI` |
+| `--disable-web-ui` | `false` | Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface | `$LOCALAI_DISABLE_WEBUI`, `$DISABLE_WEBUI` |
 | `--disable-runtime-settings` | `false` | Disables the runtime settings feature. When set to true, the server will not load runtime settings from the `runtime_settings.json` file and the settings web interface will be disabled | `$LOCALAI_DISABLE_RUNTIME_SETTINGS`, `$DISABLE_RUNTIME_SETTINGS` |
 | `--disable-gallery-endpoint` | `false` | Disable the gallery endpoints | `$LOCALAI_DISABLE_GALLERY_ENDPOINT`, `$DISABLE_GALLERY_ENDPOINT` |
 | `--disable-metrics-endpoint` | `false` | Disable the `/metrics` endpoint | `$LOCALAI_DISABLE_METRICS_ENDPOINT`, `$DISABLE_METRICS_ENDPOINT` |
@@ -175,7 +175,7 @@ The collections service is the knowledge base that the chats search. The old
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-collections` | `false` | Turn the collections service off (the API under `/api/collections`) | `$LOCALAI_DISABLE_COLLECTIONS` |
-| `--collections-api-url` | self | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
+| `--collections-apiurl` | self | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
 | `--collections-api-key` | first API key | API key the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_KEY` |
 | `--collections-default-model` | | Default model of the collections | `$LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
 | `--collections-state-dir` | | State directory of the collections | `$LOCALAI_COLLECTIONS_STATE_DIR` |
@@ -206,12 +206,12 @@ switches the chats themselves off except the `chats` permission of each user.
 |-----------|---------|-------------|----------------------|
 | `--auth-enabled` | `false` | Enable user authentication and authorization | `$LOCALAI_AUTH` |
 | `--auth-database-url` | `{DataPath}/database.db` | Database URL for auth - `postgres://...` for PostgreSQL, or a file path for SQLite | `$LOCALAI_AUTH_DATABASE_URL`, `$DATABASE_URL` |
-| `--github-client-id` | | GitHub OAuth App Client ID (auto-enables auth when set) | `$GITHUB_CLIENT_ID` |
-| `--github-client-secret` | | GitHub OAuth App Client Secret | `$GITHUB_CLIENT_SECRET` |
+| `--git-hub-client-id` | | GitHub OAuth App Client ID (auto-enables auth when set) | `$GITHUB_CLIENT_ID` |
+| `--git-hub-client-secret` | | GitHub OAuth App Client Secret | `$GITHUB_CLIENT_SECRET` |
 | `--oidc-issuer` | | OIDC issuer URL for auto-discovery | `$LOCALAI_OIDC_ISSUER` |
 | `--oidc-client-id` | | OIDC Client ID (auto-enables auth when set) | `$LOCALAI_OIDC_CLIENT_ID` |
 | `--oidc-client-secret` | | OIDC Client Secret | `$LOCALAI_OIDC_CLIENT_SECRET` |
-| `--auth-base-url` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) | `$LOCALAI_BASE_URL` |
+| `--external-base-url` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) | `$LOCALAI_BASE_URL` |
 | `--auth-admin-email` | | Email address to auto-promote to admin role on login | `$LOCALAI_ADMIN_EMAIL` |
 | `--auth-registration-mode` | `open` | Registration mode: `open`, `approval`, or `invite` | `$LOCALAI_REGISTRATION_MODE` |
 | `--disable-local-auth` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only setups) | `$LOCALAI_DISABLE_LOCAL_AUTH` |
@@ -246,7 +246,7 @@ See [Chats]({{% relref "/features/chats#switch-the-chats-off" %}}), [Agent tasks
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-collections` | `false` | Disable the collections service (the knowledge base API under `/api/collections`) | `$LOCALAI_DISABLE_COLLECTIONS` |
-| `--collections-api-url` | the local server | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
+| `--collections-apiurl` | the local server | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
 | `--collections-api-key` | the first API key | API key the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_KEY` |
 | `--collections-default-model` | | Default model of the collections | `$LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
 | `--collections-state-dir` | the data path | State directory of the collections | `$LOCALAI_COLLECTIONS_STATE_DIR` |
@@ -329,7 +329,7 @@ distinct from the `1` a failure reports.
 | `--p2p-dht-interval` | `360` | Interval for DHT refresh (used during token generation) | `$LOCALAI_P2P_DHT_INTERVAL`, `$P2P_DHT_INTERVAL` |
 | `--p2p-otp-interval` | `9000` | Interval for OTP refresh (used during token generation) | `$LOCALAI_P2P_OTP_INTERVAL`, `$P2P_OTP_INTERVAL` |
 | `--p2ptoken` | | Token for P2P mode (optional) | `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$TOKEN` |
-| `--p2p-network-id` | | Network ID for P2P mode, can be set arbitrarily by the user for grouping a set of instances | `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID` |
+| `--peer-2-peer-network-id` | | Network ID for P2P mode, can be set arbitrarily by the user for grouping a set of instances | `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID` |
 | `--federated` | `false` | Enable federated instance | `$LOCALAI_FEDERATED`, `$FEDERATED` |
 
 ## Library sources

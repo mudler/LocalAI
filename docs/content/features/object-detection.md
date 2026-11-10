@@ -332,7 +332,7 @@ LocalAI includes a dedicated **object-detection** category for models and backen
 - **rfdetr-cpp**: Native C++/ggml RF-DETR for detection + segmentation
 - **sam3-cpp**: SAM 3/2/EdgeTAM image segmentation
 
-Additional object detection models and backends will be added to this category in the future. You can filter models by the `object-detection` tag in the model gallery to find all available object detection models.
+You can filter models by the `object-detection` tag in the model gallery to find all available object detection models.
 
 ## Related Features
 

@@ -1142,7 +1142,7 @@ the owner must join distributed mode too. Give it the same settings as the
 frontends:
 
 - the same NATS URL (`--nats-url`) and registration token (`--registration-token`);
-- the same PostgreSQL database (`--auth-database-url`), with `--auth` on;
+- the same PostgreSQL database (`--auth-database-url`), with `--auth-enabled` on;
 - `--distributed`.
 
 With these, the owner takes part in the leader locks and sends model loads to the

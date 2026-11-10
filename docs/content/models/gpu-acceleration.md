@@ -109,14 +109,13 @@ To use CUDA, use the images with the `cublas` tag, for example.
 
 The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
 
-- CUDA `11` tags: `master-gpu-nvidia-cuda-11`, `v1.40.0-gpu-nvidia-cuda-11`, ...
-- CUDA `12` tags: `master-gpu-nvidia-cuda-12`, `v1.40.0-gpu-nvidia-cuda-12`, ...
-- CUDA `13` tags: `master-gpu-nvidia-cuda-13`, `v1.40.0-gpu-nvidia-cuda-13`, ...
+- CUDA `12` tags: `latest-gpu-nvidia-cuda-12`, `master-gpu-nvidia-cuda-12`, `{{< version >}}-gpu-nvidia-cuda-12`
+- CUDA `13` tags: `latest-gpu-nvidia-cuda-13`, `master-gpu-nvidia-cuda-13`, `{{< version >}}-gpu-nvidia-cuda-13`
 
 In addition to the commands to run LocalAI normally, you need to specify `--gpus all` to docker, for example:
 
 ```bash
-docker run --rm -ti --gpus all -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:v1.40.0-gpu-nvidia-cuda12
+docker run --rm -ti --gpus all -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12
 ```
 
 If the GPU inferencing is working, you should be able to see something like:
@@ -280,7 +279,7 @@ docker run \
 
 Please ensure to add all other required environment variables, port forwardings, etc to your `compose` file or `run` command.
 
-#### Example (k8s) (Advanced Deployment/WIP)
+#### Example (Kubernetes)
 
 For k8s deployments there is an additional step required before deployment, this is the deployment of the [ROCm/k8s-device-plugin](https://artifacthub.io/packages/helm/amd-gpu-helm/amd-gpu).
 For any k8s environment the documentation provided by AMD from the ROCm project should be successful. It is recommended that if you use rke2 or OpenShift that you deploy the SUSE or RedHat provided version of this resource to ensure compatibility.

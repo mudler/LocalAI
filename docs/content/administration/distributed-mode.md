@@ -76,7 +76,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--chat-worker` | `LOCALAI_CHAT_WORKER` | `false` | Run this instance as a [chat worker](#chat-workers) instead of a frontend for the unattended chat runs. |
 | `--chat-worker-max-turns` | `LOCALAI_CHAT_WORKER_MAX_TURNS` | `32` | On a [chat worker](#chat-workers), the most turns it runs at once. `0` means no limit. |
 | `--chat-start-timeout` | `LOCALAI_CHAT_START_TIMEOUT` | `30s` | How long a frontend waits for a [chat worker](#chat-workers) to start a turn, and how long the worker gives the start. |
-| `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
+| `--auth-enabled` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
@@ -239,7 +239,7 @@ By default, NATS connections are anonymous: any client that can reach port `4222
 | `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | Account signing seed (`SU...`). The frontend mints a per-node user JWT at registration (`nats_jwt` in the register response). |
 | `--nats-service-jwt` | `LOCALAI_NATS_SERVICE_JWT` | User JWT for the frontend (and optional fallback for agent workers) to publish install/upgrade and related subjects. |
 | `--nats-service-seed` | `LOCALAI_NATS_SERVICE_SEED` | User signing seed (`SU...`) paired with the service JWT. |
-| `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of minted worker JWTs (default `24h`). |
+| `--nats-worker-jwtttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of minted worker JWTs (default `24h`). |
 | `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | Fail startup if JWT credentials are missing when distributed mode is enabled. |
 
 ### NATS TLS / mTLS (optional)
@@ -248,7 +248,7 @@ Use `tls://` in `--nats-url` / `LOCALAI_NATS_URL` for encrypted transport. When 
 
 | Flag | Env Var | Description |
 |------|---------|-------------|
-| `--nats-tls-ca` | `LOCALAI_NATS_TLS_CA` | PEM file to verify the NATS server (private CA) |
+| `--nats-tlsca` | `LOCALAI_NATS_TLS_CA` | PEM file to verify the NATS server (private CA) |
 | `--nats-tls-cert` | `LOCALAI_NATS_TLS_CERT` | Client certificate for NATS mTLS |
 | `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | Client private key (required with `--nats-tls-cert`) |
 
@@ -416,7 +416,7 @@ local-ai worker \
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
 | `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `false` | Require NATS JWT+seed (from registration or env) |
-| `--nats-tls-ca` | `LOCALAI_NATS_TLS_CA` | *(empty)* | PEM file for NATS server CA |
+| `--nats-tlsca` | `LOCALAI_NATS_TLS_CA` | *(empty)* | PEM file for NATS server CA |
 | `--nats-tls-cert` | `LOCALAI_NATS_TLS_CERT` | *(empty)* | Client certificate for NATS mTLS |
 | `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | *(empty)* | Client private key for NATS mTLS |
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
@@ -1212,7 +1212,7 @@ local-ai worker ds4-distributed -- \
 - The coordinator and all connected workers together **must cover every layer**. Until they do, the coordinator returns a gRPC `UNAVAILABLE` error on inference requests (so a worker that starts slightly after the coordinator is tolerated: once it connects and the route is complete, requests succeed). The wait is tunable via `ds4_route_timeout`.
 
 {{% notice note %}}
-ds4 layer-split inference is **manual setup** in this release (Phase 1): you place the coordinator config and launch each worker yourself, and the layer ranges must be partitioned by hand so they cover the whole model. P2P auto-discovery of the coordinator is planned for a later phase.
+ds4 layer-split inference is **manual setup**. You place the coordinator config and start each worker yourself. You must split the layer ranges by hand so that they cover the whole model. The coordinator is not found automatically over P2P.
 {{% /notice %}}
 
 ## Scaling
@@ -1556,7 +1556,7 @@ The pipeline accepts additional independently weighted scorers and alternate
 pickers without coupling them to `SmartRouter`. This is the extension point for
 queue depth, precise KV utilization, latency, and fairness signals.
 
-## Roadmap: Routing and Caching Enhancements
+## Prefix-cache-aware routing
 
 The scheduling algorithm supports **prefix-cache-aware** routing: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. A router-side radix tree maps prompt-prefix hashes to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and NATS sync across frontends. It is purely a routing-layer hint (no backend changes) and never routes worse than round-robin.
 
@@ -1584,7 +1584,7 @@ chain algorithm are not compatible and will never match requests correctly.
 Reported events populate the exact-residency provider, but the guessed provider
 remains the routing default until a backend producer is available.
 
-Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, Ray Serve, llm-d, AIBrix, and NVIDIA Dynamo, are tracked under the routing roadmap epic ([#10063](https://github.com/mudler/LocalAI/issues/10063)):
+Open work on routing, taken from a survey of SGLang, vLLM production-stack, Ray Serve, llm-d, AIBrix, and NVIDIA Dynamo, is tracked in the routing epic ([#10063](https://github.com/mudler/LocalAI/issues/10063)):
 
 - **Reported/precise KV-event mode** ([#10064](https://github.com/mudler/LocalAI/issues/10064)): subscribe to actual backend KV-cache events for exact residency instead of inferring it from routing history.
 - **Multi-tier cache-overlap scoring** ([#10065](https://github.com/mudler/LocalAI/issues/10065)): credit GPU/CPU/disk cache tiers separately.
