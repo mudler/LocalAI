@@ -938,14 +938,16 @@
       "sources": {
         "tool": "alat {{name}}",
         "url": "{{name}}",
-        "script": "sebuah skrip"
+        "script": "sebuah skrip",
+        "job": "{{name}}"
       },
       "end": {
         "met": "Selesai: kondisi terpenuhi",
         "failing_one": "Dihentikan: sumber gagal {{count}} kali berturut-turut",
         "failing_other": "Dihentikan: sumber gagal {{count}} kali berturut-turut",
         "timedOut": "Waktu habis, kondisi tidak terpenuhi",
-        "stopped": "Tunggu dihentikan"
+        "stopped": "Tunggu dihentikan",
+        "jobGone": "Dihentikan: job hilang bersama node-nya"
       },
       "waking": {
         "met": "Kondisi terpenuhi. Menanyakan ke model apa yang harus dilakukan.",
@@ -975,6 +977,46 @@
         "stopAll": "Hentikan semua",
         "title_one": "{{count}} penantian",
         "title_other": "{{count}} penantian"
+      }
+    },
+    "job": {
+      "stop": "Hentikan",
+      "details": "Detail job",
+      "done_one": "{{count}} job selesai",
+      "done_other": "{{count}} job selesai",
+      "runTime": "berjalan selama {{span}}",
+      "ranFor": "berjalan selama {{span}}",
+      "lastOutput": "keluaran terakhir {{ago}} lalu",
+      "endedAgo": "berakhir {{ago}} lalu",
+      "byAgent": "dimulai oleh sub-agen",
+      "where": {
+        "machine": "di mesin ini",
+        "sandbox": "terisolasi"
+      },
+      "status": {
+        "starting": "Memulai",
+        "running": "Berjalan",
+        "ending": "Menghentikan",
+        "stalled": "Berjalan, tanpa keluaran selama {{span}}",
+        "lost": "Hilang: node-nya sudah tidak ada",
+        "notStarted": "Tidak dapat dimulai",
+        "killed": "Dimatikan (kill)",
+        "stopped": "Dihentikan oleh Anda",
+        "ended": "Berakhir",
+        "exitedOk": "Selesai, status 0",
+        "exitedCode": "Selesai dengan status {{code}}",
+        "exitedUnknown": "Selesai, status tidak diketahui"
+      },
+      "end": {
+        "lifetime": "Berakhir: mencapai batas waktu",
+        "chat_deleted": "Berakhir: chat dihapus",
+        "shell_off": "Berakhir: perintah dimatikan",
+        "group_off": "Berakhir: alat perintah dimatikan untuk chat ini",
+        "fenced": "Berakhir: chat ini tidak boleh lagi menjalankan perintah",
+        "sandbox_remade": "Berakhir: lingkungannya dibuat ulang",
+        "agent_ended": "Berakhir: sub-agennya selesai",
+        "shutdown": "Berakhir: server berhenti",
+        "start_failed": "Tidak dapat dimulai"
       }
     }
   },

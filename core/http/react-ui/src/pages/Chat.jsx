@@ -1392,7 +1392,7 @@ function ChatPage() {
               />
             )}
             {activeId && loopListFor === activeId && <LoopList loops={chat.loops} onClose={() => setLoopListFor('')} />}
-            <LoopBar loops={chat.loops} chatId={activeId} chat={chat} />
+            <LoopBar loops={chat.loops} jobs={chat.jobs} chatId={activeId} chat={chat} />
             {activeId && chat.reconnecting && !gaveUp && (
               <p className="cx-reconnect" role="status" data-testid="chat-reconnecting">
                 <Icon name="alert-circle" /> {t('connection.lost')}

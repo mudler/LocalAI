@@ -938,14 +938,16 @@
       "sources": {
         "tool": "ferramenta {{name}}",
         "url": "{{name}}",
-        "script": "um script"
+        "script": "um script",
+        "job": "{{name}}"
       },
       "end": {
         "met": "Concluída: a condição foi atendida",
         "failing_one": "Parada: a fonte falhou {{count}} vez seguida",
         "failing_other": "Parada: a fonte falhou {{count}} vezes seguidas",
         "timedOut": "Tempo esgotado, a condição não foi atendida",
-        "stopped": "Espera parada"
+        "stopped": "Espera parada",
+        "jobGone": "Interrompida: o job sumiu junto com o nó dele"
       },
       "waking": {
         "met": "A condição foi atendida. Perguntando ao modelo o que fazer.",
@@ -975,6 +977,46 @@
         "stopAll": "Parar todas",
         "title_one": "{{count}} espera",
         "title_other": "{{count}} esperas"
+      }
+    },
+    "job": {
+      "stop": "Parar",
+      "details": "Detalhes do job",
+      "done_one": "{{count}} job encerrado",
+      "done_other": "{{count}} jobs encerrados",
+      "runTime": "em execução há {{span}}",
+      "ranFor": "durou {{span}}",
+      "lastOutput": "última saída há {{ago}}",
+      "endedAgo": "encerrado há {{ago}}",
+      "byAgent": "iniciado por um subagente",
+      "where": {
+        "machine": "nesta máquina",
+        "sandbox": "isolado"
+      },
+      "status": {
+        "starting": "Iniciando",
+        "running": "Em execução",
+        "ending": "Parando",
+        "stalled": "Em execução, sem saída há {{span}}",
+        "lost": "Perdido: o nó dele sumiu",
+        "notStarted": "Não foi possível iniciar",
+        "killed": "Morto (kill)",
+        "stopped": "Parado por você",
+        "ended": "Encerrado",
+        "exitedOk": "Encerrou, status 0",
+        "exitedCode": "Encerrou com status {{code}}",
+        "exitedUnknown": "Encerrou, status desconhecido"
+      },
+      "end": {
+        "lifetime": "Encerrado: atingiu o limite de tempo",
+        "chat_deleted": "Encerrado: o chat foi excluído",
+        "shell_off": "Encerrado: os comandos foram desativados",
+        "group_off": "Encerrado: as ferramentas de comando foram desativadas para este chat",
+        "fenced": "Encerrado: este chat não pode mais executar comandos",
+        "sandbox_remade": "Encerrado: o ambiente dele foi recriado",
+        "agent_ended": "Encerrado: o subagente dele terminou",
+        "shutdown": "Encerrado: o servidor parou",
+        "start_failed": "Não foi possível iniciar"
       }
     }
   },

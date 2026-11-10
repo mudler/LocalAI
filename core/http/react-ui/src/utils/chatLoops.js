@@ -128,7 +128,7 @@ function hhmm(iso) {
 export function waitView(t, loop, now = Date.now()) {
   const w = loop.watch
   const phase = w.phase || 'waiting'
-  const source = t(`loops.wait.sources.${['url', 'script'].includes(w.source_kind) ? w.source_kind : 'tool'}`, { name: w.source })
+  const source = t(`loops.wait.sources.${['url', 'script', 'job'].includes(w.source_kind) ? w.source_kind : 'tool'}`, { name: w.source })
   const facts = [
     { key: 'source', text: t('loops.wait.watching', { source }) },
     { key: 'until', text: t('loops.wait.until', { condition: w.condition }) },
@@ -160,7 +160,10 @@ export function waitView(t, loop, now = Date.now()) {
   if (phase === 'ended') {
     switch (w.end) {
       case 'condition_met': title = t('loops.wait.end.met'); tone = 'ok'; icon = 'check-circle'; break
-      case 'source_failing': title = t('loops.wait.end.failing', { count: w.max_errors || w.errors }); tone = 'error'; icon = 'close-circle'; break
+      case 'source_failing':
+        // A job that is gone is not a source that failed to answer.
+        title = w.source_kind === 'job' ? t('loops.wait.end.jobGone') : t('loops.wait.end.failing', { count: w.max_errors || w.errors })
+        tone = 'error'; icon = 'close-circle'; break
       case 'timed_out': title = t('loops.wait.end.timedOut'); tone = 'warn'; icon = 'warning'; break
       default: title = t('loops.wait.end.stopped'); tone = 'idle'; icon = 'stop'
     }
@@ -243,4 +246,76 @@ export function loopSummary(t, loop, now = Date.now(), withPhase = true) {
   if (loop.runs > 0) parts.push(t('loops.chip.run', { count: loop.runs }))
   if (loop.state === 'paused') parts.push(t('loops.chip.paused'))
   return parts.join(' · ')
+}
+
+// --- Background jobs ----------------------------------------------------------
+// A job is a command the model started with the job tool and left running. The
+// server sends them as `jobs` next to the loops (core/schema/chats.go,
+// ChatsJob): id, label, state, end reason, exit status, times, never the
+// command. Like waitView, jobView is pure, with the clock passed in.
+
+// A running job that wrote nothing for this long is shown as stalled. It is
+// the default `idle` of a stall wait (10 minutes).
+export const JOB_STALL_MS = 600000
+
+function jobAge(iso, now) {
+  const at = Date.parse(iso)
+  return Number.isNaN(at) ? 0 : Math.max(0, now - at)
+}
+
+// jobView describes a job for the page:
+//   kind    running | stalled | ending | starting | ok | failed | killed | stopped | lost | ended
+//   tone    run, warn, error, ok, idle (the same tones as a wait)
+//   icon    kit icon name
+//   title   the label the model gave, or the id
+//   status  one phrase for the state, in words, never colour alone
+//   facts   [{ key, text }]: where, run time, last output or size
+//   live    true while the process may still run (it can be stopped)
+export function jobView(t, job, now = Date.now()) {
+  const title = job.label || job.id
+  const where = t(job.provider && job.provider !== 'builtin' ? 'loops.job.where.sandbox' : 'loops.job.where.machine')
+  const facts = [{ key: 'where', text: where }]
+  const started = Date.parse(job.started)
+  const ended = job.ended ? Date.parse(job.ended) : NaN
+  let kind; let tone; let icon; let status
+  const live = ['starting', 'running', 'ending'].includes(job.state)
+  if (live) {
+    const quiet = jobAge(job.last_output || job.started, now)
+    if (job.state === 'starting') { kind = 'starting'; tone = 'run'; icon = 'terminal'; status = t('loops.job.status.starting') }
+    else if (job.state === 'ending') { kind = 'ending'; tone = 'warn'; icon = 'stop'; status = t('loops.job.status.ending') }
+    else if (quiet >= JOB_STALL_MS) {
+      kind = 'stalled'; tone = 'warn'; icon = 'clock'
+      status = t('loops.job.status.stalled', { span: spanText(t, quiet) })
+    } else { kind = 'running'; tone = 'run'; icon = 'terminal'; status = t('loops.job.status.running') }
+    if (!Number.isNaN(started)) facts.push({ key: 'time', text: t('loops.job.runTime', { span: spanText(t, now - started) }) })
+    if (job.last_output && kind !== 'stalled') {
+      facts.push({ key: 'output', text: t('loops.job.lastOutput', { ago: spanText(t, jobAge(job.last_output, now)) }) })
+    }
+  } else {
+    const span = !Number.isNaN(started) && !Number.isNaN(ended) ? spanText(t, ended - started) : ''
+    if (job.state === 'lost') { kind = 'lost'; tone = 'warn'; icon = 'plug-off'; status = t('loops.job.status.lost') }
+    else if (job.state === 'failed') { kind = 'failed'; tone = 'error'; icon = 'close-circle'; status = t('loops.job.status.notStarted') }
+    else if (job.end === 'stopped') { kind = 'stopped'; tone = 'idle'; icon = 'stop'; status = t('loops.job.status.stopped') }
+    else if (job.state === 'killed' || job.end === 'killed') { kind = 'killed'; tone = 'idle'; icon = 'stop'; status = t('loops.job.status.killed') }
+    else if (job.end && job.end !== 'exit') {
+      kind = 'ended'; tone = 'idle'; icon = 'stop'
+      status = t(`loops.job.end.${job.end}`, { defaultValue: t('loops.job.status.ended') })
+    } else if (job.exit === 0) { kind = 'ok'; tone = 'ok'; icon = 'check-circle'; status = t('loops.job.status.exitedOk') }
+    else {
+      kind = 'failed'; tone = 'error'; icon = 'close-circle'
+      status = job.exit > 0 ? t('loops.job.status.exitedCode', { code: job.exit }) : t('loops.job.status.exitedUnknown')
+    }
+    if (span) facts.push({ key: 'time', text: t('loops.job.ranFor', { span }) })
+    if (!Number.isNaN(ended)) facts.push({ key: 'ended', text: t('loops.job.endedAgo', { ago: spanText(t, now - ended) }) })
+  }
+  if (job.agent) facts.push({ key: 'agent', text: t('loops.job.byAgent') })
+  return { kind, tone, icon, title, status, facts, live }
+}
+
+// The jobs the bar shows: running ones in their own cards, the finished ones
+// together, newest first. The server already sorts them this way.
+export function splitJobs(jobs) {
+  const list = Array.isArray(jobs) ? jobs : []
+  const live = list.filter(j => ['starting', 'running', 'ending'].includes(j.state))
+  return { live, done: list.filter(j => !live.includes(j)) }
 }

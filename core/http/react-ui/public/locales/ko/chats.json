@@ -938,14 +938,16 @@
       "sources": {
         "tool": "도구 {{name}}",
         "url": "{{name}}",
-        "script": "스크립트"
+        "script": "스크립트",
+        "job": "{{name}}"
       },
       "end": {
         "met": "완료: 조건이 충족되었습니다",
         "failing_one": "중지됨: 소스가 연속 {{count}}번 실패했습니다",
         "failing_other": "중지됨: 소스가 연속 {{count}}번 실패했습니다",
         "timedOut": "시간 초과, 조건이 충족되지 않았습니다",
-        "stopped": "대기 중지됨"
+        "stopped": "대기 중지됨",
+        "jobGone": "중단됨: 작업이 노드와 함께 사라짐"
       },
       "waking": {
         "met": "조건이 충족되었습니다. 모델에게 다음 작업을 묻는 중입니다.",
@@ -975,6 +977,46 @@
         "stopAll": "모두 중지",
         "title_one": "대기 {{count}}개",
         "title_other": "대기 {{count}}개"
+      }
+    },
+    "job": {
+      "stop": "중지",
+      "details": "작업 세부 정보",
+      "done_one": "종료된 작업 {{count}}개",
+      "done_other": "종료된 작업 {{count}}개",
+      "runTime": "{{span}} 동안 실행 중",
+      "ranFor": "{{span}} 동안 실행됨",
+      "lastOutput": "마지막 출력 {{ago}} 전",
+      "endedAgo": "{{ago}} 전에 종료됨",
+      "byAgent": "하위 에이전트가 시작함",
+      "where": {
+        "machine": "이 머신에서",
+        "sandbox": "격리된 환경에서"
+      },
+      "status": {
+        "starting": "시작 중",
+        "running": "실행 중",
+        "ending": "중지하는 중",
+        "stalled": "실행 중, {{span}} 동안 출력 없음",
+        "lost": "분실: 실행하던 노드가 사라짐",
+        "notStarted": "시작할 수 없음",
+        "killed": "강제 종료됨",
+        "stopped": "내가 중지함",
+        "ended": "종료됨",
+        "exitedOk": "종료됨, 상태 0",
+        "exitedCode": "상태 {{code}}(으)로 종료됨",
+        "exitedUnknown": "종료됨, 상태 알 수 없음"
+      },
+      "end": {
+        "lifetime": "종료됨: 시간 제한에 도달함",
+        "chat_deleted": "종료됨: 채팅이 삭제됨",
+        "shell_off": "종료됨: 명령이 꺼짐",
+        "group_off": "종료됨: 이 채팅의 명령 도구가 꺼짐",
+        "fenced": "종료됨: 이 채팅은 더 이상 명령을 실행할 수 없음",
+        "sandbox_remade": "종료됨: 환경이 다시 만들어짐",
+        "agent_ended": "종료됨: 하위 에이전트가 끝남",
+        "shutdown": "종료됨: 서버가 중지됨",
+        "start_failed": "시작할 수 없음"
       }
     }
   },

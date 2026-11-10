@@ -938,14 +938,16 @@
       "sources": {
         "tool": "strumento {{name}}",
         "url": "{{name}}",
-        "script": "uno script"
+        "script": "uno script",
+        "job": "{{name}}"
       },
       "end": {
         "met": "Fatto: la condizione è soddisfatta",
         "failing_one": "Fermata: la fonte è fallita {{count}} volta di fila",
         "failing_other": "Fermata: la fonte è fallita {{count}} volte di fila",
         "timedOut": "Tempo scaduto, la condizione non è stata soddisfatta",
-        "stopped": "Attesa fermata"
+        "stopped": "Attesa fermata",
+        "jobGone": "Interrotta: il job è sparito con il suo nodo"
       },
       "waking": {
         "met": "La condizione è soddisfatta. Chiedo al modello cosa fare.",
@@ -975,6 +977,46 @@
         "stopAll": "Ferma tutte",
         "title_one": "{{count}} attesa",
         "title_other": "{{count}} attese"
+      }
+    },
+    "job": {
+      "stop": "Ferma",
+      "details": "Dettagli del job",
+      "done_one": "{{count}} job terminato",
+      "done_other": "{{count}} job terminati",
+      "runTime": "in esecuzione da {{span}}",
+      "ranFor": "durato {{span}}",
+      "lastOutput": "ultimo output {{ago}} fa",
+      "endedAgo": "terminato {{ago}} fa",
+      "byAgent": "avviato da un sotto-agente",
+      "where": {
+        "machine": "su questa macchina",
+        "sandbox": "in isolamento"
+      },
+      "status": {
+        "starting": "In avvio",
+        "running": "In esecuzione",
+        "ending": "In arresto",
+        "stalled": "In esecuzione, nessun output da {{span}}",
+        "lost": "Perso: il suo nodo non c'è più",
+        "notStarted": "Impossibile avviarlo",
+        "killed": "Terminato con kill",
+        "stopped": "Fermato da te",
+        "ended": "Terminato",
+        "exitedOk": "Uscito, stato 0",
+        "exitedCode": "Uscito con stato {{code}}",
+        "exitedUnknown": "Uscito, stato sconosciuto"
+      },
+      "end": {
+        "lifetime": "Terminato: ha raggiunto il limite di tempo",
+        "chat_deleted": "Terminato: la chat è stata eliminata",
+        "shell_off": "Terminato: i comandi sono stati disattivati",
+        "group_off": "Terminato: gli strumenti di comando sono stati disattivati per questa chat",
+        "fenced": "Terminato: questa chat non può più eseguire comandi",
+        "sandbox_remade": "Terminato: il suo ambiente è stato ricreato",
+        "agent_ended": "Terminato: il suo sotto-agente ha finito",
+        "shutdown": "Terminato: il server si è fermato",
+        "start_failed": "Impossibile avviarlo"
       }
     }
   },
