@@ -6,6 +6,16 @@ weight = 20
 aliases = ["/features/sandbox/"]
 +++
 
+In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
+
+## At a glance
+
+| | |
+|---|---|
+| What it adds | A `bash` tool that runs commands and code in an isolated sandbox with your files mounted. It makes charts, converts files and runs scripts. |
+| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
+| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. You switch **Sandbox** on in the **Tools** menu of a chat. You need chats and their files on. |
+
 Sandbox is an add-on. It lets a chat run commands and code, for example to make a chart, convert a file or run a script. The commands run in an isolated sandbox with your files mounted. The Sandbox add-on is for Linux. In the current development builds, it is in the add-on library in the development channel, so it can change.
 
 ## What you need

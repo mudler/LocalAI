@@ -5,6 +5,16 @@ weight = 10
 aliases = ["/features/studio/"]
 +++
 
+In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
+
+## At a glance
+
+| | |
+|---|---|
+| What it adds | A page to make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and to keep what you make. |
+| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
+| Who turns it on | A person needs the `addons` feature, which is off by default for new users on a server with accounts. The page opens at `/app/addons/studio/studio`. |
+
 {{% callout style="note" %}}
 Studio is an add-on. It is not part of the web bundle: install it from **Find add-ons** in the [Add-ons]({{% relref "/addons/contract-reference" %}}#the-studio-add-on) page with **Install and turn on**. Once it is usable, it is in My add-ons and can be shown in the sidebar, and it opens at `/app/addons/studio/studio`. Use its canonical add-on page address.
 {{% /callout %}}

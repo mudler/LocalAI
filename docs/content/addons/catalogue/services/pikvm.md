@@ -5,6 +5,16 @@ weight = 70
 aliases = ["/features/pikvm/"]
 +++
 
+In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
+
+## At a glance
+
+| | |
+|---|---|
+| What it adds | Tools to check a PiKVM and the machine it controls. If you allow it, press its power buttons and type on its keyboard, with a confirmation each time unless you say otherwise. |
+| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
+| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. A person adds a connection: a user name, a password and the address of the device. |
+
 The PiKVM add-on lets your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) look at a [PiKVM](https://pikvm.org) (or another device that runs the kvmd API) and the machine it controls: is it on, what is the device, is the keyboard connected. If you allow it, they can also press the power buttons of that machine and type on its keyboard. A **person confirms those actions** unless you choose otherwise for power actions and key presses (see [Not asking for some actions](#not-asking-for-some-actions) and [Allow all](#allow-all)), and typing and forced power actions are off until an administrator switches them on.
 
 A chat can answer questions such as:
