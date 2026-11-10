@@ -5,8 +5,12 @@ package hostexec_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,6 +18,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -115,6 +120,40 @@ var _ = Describe("background jobs of the built-in bash", func() {
 		Expect(fin.Exit).To(Equal(128 + 9))
 	})
 
+	It("kills a background child of the job when the job ends, however it ends", func() {
+		childOf := func(cmd string) (bgjob.Info, int) {
+			in := start(cmd)
+			var pid int
+			Eventually(func() error {
+				_, err := fmt.Sscanf(string(read(in.ID).Output), "%d", &pid)
+				return err
+			}, "5s", "20ms").Should(Succeed())
+			DeferCleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+			return in, pid
+		}
+		running := func(pid int) bool {
+			if b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat"); err == nil {
+				return !strings.Contains(string(b), ") Z ")
+			}
+			return syscall.Kill(pid, 0) == nil
+		}
+		// The main process returns at once and leaves a server behind.
+		in, pid := childOf("sleep 300 </dev/null >/dev/null 2>&1 & echo $!")
+		waitEnd(in.ID)
+		Eventually(func() bool { return running(pid) }, "5s", "20ms").Should(BeFalse())
+		// The job is killed while the main process and its child run.
+		in, pid = childOf("(trap '' TERM; sleep 300) </dev/null >/dev/null 2>&1 & echo $!; wait")
+		_, err := e.r.Jobs().Kill("alice", "c1", in.ID, bgjob.EndKilled, 15)
+		Expect(err).NotTo(HaveOccurred())
+		waitEnd(in.ID)
+		Eventually(func() bool { return running(pid) }, "15s", "50ms").Should(BeFalse())
+		// The chat is deleted.
+		in, pid = childOf("(trap '' TERM; sleep 300) </dev/null >/dev/null 2>&1 & echo $!; wait")
+		e.r.Jobs().EndChat("alice", "c1", bgjob.EndChatDeleted)
+		waitEnd(in.ID)
+		Eventually(func() bool { return running(pid) }, "15s", "50ms").Should(BeFalse())
+	})
+
 	It("keeps the sandbox entry while a job runs and gives it back after", func() {
 		in := start("sleep 5")
 		chatN, userN, nodeN := e.r.Jobs().Counts("alice", "c1")
@@ -186,6 +225,30 @@ var _ = Describe("background jobs of the built-in bash", func() {
 		_, err = e.r.StartJob(ctx, hostexec.JobSpec{Actor: e.a})
 		Expect(err).To(HaveOccurred())
 		e.r.Jobs().EndChat("alice", "c1", bgjob.EndChatDeleted)
+	})
+
+	It("leaves no failed entry for a start that was refused as busy", func() {
+		for _, c := range []string{"c1", "c2", "c3", "c4"} {
+			a := e.a
+			a.ChatID = c
+			_, err := e.r.StartJob(ctx, hostexec.JobSpec{Actor: a, Label: "t", Command: "sleep 30"})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		mu.Lock()
+		before := len(changes)
+		mu.Unlock()
+		a := e.a
+		a.ChatID = "c5"
+		_, err := e.r.StartJob(ctx, hostexec.JobSpec{Actor: a, Label: "t", Command: "true"})
+		Expect(errors.Is(err, runner.ErrBusy)).To(BeTrue())
+		mu.Lock()
+		Expect(changes).To(HaveLen(before), "no state change for a job that never began")
+		mu.Unlock()
+		l, _ := e.r.Jobs().List(ctx, "alice", "c5")
+		Expect(l).To(BeEmpty())
+		for _, c := range []string{"c1", "c2", "c3", "c4"} {
+			e.r.Jobs().EndChat("alice", c, bgjob.EndChatDeleted)
+		}
 	})
 
 	It("refuses a chat whose agent works in one folder", func() {

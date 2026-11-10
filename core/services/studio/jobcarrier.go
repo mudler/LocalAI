@@ -20,6 +20,9 @@ func NewJobCarrier(mc ReplyRequester, log *slog.Logger) bgjob.Carrier {
 	return &busJobs{mc: mc, log: log}
 }
 
+// maxJobAsks bounds the requests one node answers at the same time.
+const maxJobAsks = 32
+
 type busJobs struct {
 	mc  ReplyRequester
 	log *slog.Logger
@@ -45,18 +48,35 @@ func (b *busJobs) Ask(instance string, req bgjob.Request) (bgjob.Reply, error) {
 }
 
 func (b *busJobs) Serve(instance string, h func(bgjob.Request) bgjob.Reply) (func(), error) {
+	// The bus delivers the messages of one subscription one at a time, so a
+	// request that waits (an input to a child that does not read) would hold
+	// every other ask to this node. Each request runs in its own goroutine,
+	// at most maxJobAsks at once; one more is answered at once as busy.
+	slots := make(chan struct{}, maxJobAsks)
 	sub, err := b.mc.SubscribeReply(bgjob.Subject(instance), func(data []byte, reply func([]byte)) {
+		answer := func(rep bgjob.Reply) {
+			raw, err := json.Marshal(rep)
+			if err != nil {
+				b.log.Warn("studio: could not encode a job reply", "error", err)
+				raw, _ = json.Marshal(bgjob.Reply{Code: bgjob.CodeBad, Message: "could not encode the reply"})
+			}
+			reply(raw)
+		}
 		var req bgjob.Request
-		rep := bgjob.Reply{Code: bgjob.CodeBad, Message: "unreadable request"}
-		if err := json.Unmarshal(data, &req); err == nil {
-			rep = h(req)
+		if err := json.Unmarshal(data, &req); err != nil {
+			answer(bgjob.Reply{Code: bgjob.CodeBad, Message: "unreadable request"})
+			return
 		}
-		raw, err := json.Marshal(rep)
-		if err != nil {
-			b.log.Warn("studio: could not encode a job reply", "error", err)
-			raw, _ = json.Marshal(bgjob.Reply{Code: bgjob.CodeBad, Message: "could not encode the reply"})
+		select {
+		case slots <- struct{}{}:
+		default:
+			answer(bgjob.Reply{Code: bgjob.CodeBad, Message: "the node is busy with other requests; try again"})
+			return
 		}
-		reply(raw)
+		go func() {
+			defer func() { <-slots }()
+			answer(h(req))
+		}()
 	})
 	if err != nil {
 		return nil, err

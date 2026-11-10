@@ -712,6 +712,8 @@ func (b *hostJobBackend) start(ctx context.Context, a workspace.Actor, c JobCall
 	case err == nil:
 	case errors.As(err, &le):
 		return JobResult{Text: "Not started: " + le.Error() + "."}, nil
+	case errors.Is(err, runner.ErrBusyTotal):
+		return JobResult{Text: "Not started: this server runs as many sandboxes as it may; try again later."}, nil
 	case errors.Is(err, runner.ErrBusy):
 		return JobResult{Text: fmt.Sprintf("Not started: you have sandboxes with work in %d chats; end a job in another chat first.", runner.DefaultPerUser)}, nil
 	case errors.Is(err, hostexec.ErrScoped):

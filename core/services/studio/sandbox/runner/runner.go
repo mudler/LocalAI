@@ -31,6 +31,19 @@ const (
 // ErrBusy says the runner holds as many sandboxes as it may.
 var ErrBusy = errors.New("as many sandboxes run as may; try again later")
 
+// ErrBusyTotal says the server as a whole holds as many sandboxes as it may,
+// all of them in use. It is an ErrBusy, so a caller that does not tell the
+// two apart still handles it; the text differs because the user's own
+// sandboxes are not the cause.
+var ErrBusyTotal error = busyTotal{}
+
+type busyTotal struct{}
+
+func (busyTotal) Error() string {
+	return "this server runs as many sandboxes as it may; try again later"
+}
+func (busyTotal) Is(target error) bool { return target == ErrBusy }
+
 // Store is the workspace of the sandboxes: the store itself in the server,
 // or the host operations in the add-on (workspace.materialize,
 // workspace.commit, workspace.changes). A sandbox reads the files with
@@ -309,7 +322,7 @@ func (m *Manager) find(user, conv string, ro bool) (*entry, error) {
 		}
 		if len(victims) == 0 {
 			m.mu.Unlock()
-			return nil, ErrBusy
+			return nil, ErrBusyTotal
 		}
 	}
 	own := make([]*entry, 0, m.o.PerUser)
