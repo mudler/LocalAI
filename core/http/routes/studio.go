@@ -333,6 +333,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.DELETE(base+"/:id/loops", h.StopLoops)
 	e.PUT(base+"/:id/loops/:loopId", h.SetLoopState)
 	e.DELETE(base+"/:id/loops/:loopId", h.StopLoop)
+	e.POST(base+"/:id/jobs/:job/kill", h.StopJob)
 	e.POST(base+"/:id/compact", h.Compact)
 	e.POST(base+"/:id/clear", h.Clear)
 	e.GET(base+"/:id/events", h.Events)

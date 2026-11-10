@@ -228,7 +228,10 @@ func (s *Service) RecordJob(ctx context.Context, in bgjob.Info) {
 	})
 	if err != nil && !errors.Is(err, session.ErrNotFound) {
 		s.log.Warn("Chats: could not record a background job", "chat", in.Chat, "job", in.ID, "error", err)
+		return
 	}
+	// The job list of the page reads the chat again when the loops change.
+	s.bus.Publish(key(in.Owner, in.Chat), session.Event{Kind: session.KindLoops})
 }
 
 // markJobLost marks a stub whose node does not know the job any more.

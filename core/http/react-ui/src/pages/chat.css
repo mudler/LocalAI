@@ -1444,8 +1444,12 @@ button.cx-step__head:hover,
 .cx-wait__facts { display: flex; flex-wrap: wrap; gap: 0 var(--sp-4); margin: 0; padding: 0 0 0 calc(1em + var(--sp-2)); list-style: none; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 .cx-wait__fact { min-width: 0; overflow-wrap: anywhere; }
 .cx-wait__fact--error { flex: 1 1 100%; color: var(--dk-error-text); }
+/* A background job: the card of a wait, with its id in the code font. */
+.cx-job__id code { font-family: var(--font-mono); font-size: inherit; color: var(--dk-muted); }
 @media (max-width: 640px) {
   .cx-wait__facts { flex-direction: column; }
+  /* A job has short facts: they wrap in rows, so four jobs do not fill a phone. */
+  .cx-job .cx-wait__facts { flex-direction: row; column-gap: var(--sp-3); }
 }
 /* Three or more waits that still wait fold into one chip that opens to the
    cards. The head is a wait card with a toggle and Stop all side by side. */

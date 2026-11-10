@@ -1262,14 +1262,16 @@
       "sources": {
         "tool": "tool {{name}}",
         "url": "{{name}}",
-        "script": "a script"
+        "script": "a script",
+        "job": "{{name}}"
       },
       "end": {
         "met": "Done: the condition was met",
         "failing_one": "Stopped: the source failed {{count}} time in a row",
         "failing_other": "Stopped: the source failed {{count}} times in a row",
         "timedOut": "Timed out, the condition was not met",
-        "stopped": "Wait stopped"
+        "stopped": "Wait stopped",
+        "jobGone": "Stopped: the job is gone with its node"
       },
       "waking": {
         "met": "The condition was met. Asking the model what to do.",
@@ -1299,6 +1301,46 @@
         "stopAll": "Stop all",
         "title_one": "{{count}} waiting",
         "title_other": "{{count}} waiting"
+      }
+    },
+    "job": {
+      "stop": "Stop",
+      "details": "Job details",
+      "done_one": "{{count}} finished job",
+      "done_other": "{{count}} finished jobs",
+      "runTime": "running {{span}}",
+      "ranFor": "ran for {{span}}",
+      "lastOutput": "last output {{ago}} ago",
+      "endedAgo": "ended {{ago}} ago",
+      "byAgent": "started by a sub-agent",
+      "where": {
+        "machine": "on this machine",
+        "sandbox": "in isolation"
+      },
+      "status": {
+        "starting": "Starting",
+        "running": "Running",
+        "ending": "Stopping",
+        "stalled": "Running, no output for {{span}}",
+        "lost": "Lost: its node is gone",
+        "notStarted": "Could not start",
+        "killed": "Killed",
+        "stopped": "Stopped by you",
+        "ended": "Ended",
+        "exitedOk": "Exited, status 0",
+        "exitedCode": "Exited with status {{code}}",
+        "exitedUnknown": "Exited, status unknown"
+      },
+      "end": {
+        "lifetime": "Ended: reached its time limit",
+        "chat_deleted": "Ended: the chat was deleted",
+        "shell_off": "Ended: commands were switched off",
+        "group_off": "Ended: the command tools were switched off for this chat",
+        "fenced": "Ended: this chat may not run commands now",
+        "sandbox_remade": "Ended: its environment was rebuilt",
+        "agent_ended": "Ended: its sub-agent finished",
+        "shutdown": "Ended: the server stopped",
+        "start_failed": "Could not start"
       }
     }
   },

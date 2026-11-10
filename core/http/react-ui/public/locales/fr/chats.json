@@ -938,14 +938,16 @@
       "sources": {
         "tool": "outil {{name}}",
         "url": "{{name}}",
-        "script": "un script"
+        "script": "un script",
+        "job": "{{name}}"
       },
       "end": {
         "met": "Terminé : la condition est remplie",
         "failing_one": "Arrêtée : la source a échoué {{count}} fois de suite",
         "failing_other": "Arrêtée : la source a échoué {{count}} fois de suite",
         "timedOut": "Délai dépassé, la condition n'a pas été remplie",
-        "stopped": "Attente arrêtée"
+        "stopped": "Attente arrêtée",
+        "jobGone": "Arrêtée : le job a disparu avec son nœud"
       },
       "waking": {
         "met": "La condition est remplie. Le modèle est sollicité pour la suite.",
@@ -975,6 +977,46 @@
         "stopAll": "Tout arrêter",
         "title_one": "{{count}} attente",
         "title_other": "{{count}} attentes"
+      }
+    },
+    "job": {
+      "stop": "Arrêter",
+      "details": "Détails du job",
+      "done_one": "{{count}} job terminé",
+      "done_other": "{{count}} jobs terminés",
+      "runTime": "en cours depuis {{span}}",
+      "ranFor": "a duré {{span}}",
+      "lastOutput": "dernière sortie il y a {{ago}}",
+      "endedAgo": "terminé il y a {{ago}}",
+      "byAgent": "lancé par un sous-agent",
+      "where": {
+        "machine": "sur cette machine",
+        "sandbox": "en isolation"
+      },
+      "status": {
+        "starting": "Démarrage",
+        "running": "En cours",
+        "ending": "Arrêt en cours",
+        "stalled": "En cours, aucune sortie depuis {{span}}",
+        "lost": "Perdu : son nœud a disparu",
+        "notStarted": "Impossible à démarrer",
+        "killed": "Tué (kill)",
+        "stopped": "Arrêté par vous",
+        "ended": "Terminé",
+        "exitedOk": "Terminé, statut 0",
+        "exitedCode": "Terminé avec le statut {{code}}",
+        "exitedUnknown": "Terminé, statut inconnu"
+      },
+      "end": {
+        "lifetime": "Terminé : limite de durée atteinte",
+        "chat_deleted": "Terminé : la conversation a été supprimée",
+        "shell_off": "Terminé : les commandes ont été désactivées",
+        "group_off": "Terminé : les outils de commande ont été désactivés pour cette conversation",
+        "fenced": "Terminé : cette conversation ne peut plus exécuter de commandes",
+        "sandbox_remade": "Terminé : son environnement a été recréé",
+        "agent_ended": "Terminé : son sous-agent a fini",
+        "shutdown": "Terminé : le serveur s'est arrêté",
+        "start_failed": "Impossible à démarrer"
       }
     }
   },
