@@ -57,28 +57,21 @@ type SwapperOptions struct {
 	// Interval is the poll, DefaultSwapInterval when zero. Each wait is varied by
 	// up to a fifth so that replicas do not read the row at the same moment.
 	Interval time.Duration
-	// Settle is how long after the release of a carrier its handoff runs again,
-	// for the producers that were slow to flip. Twice the interval when zero.
+	// Settle is how long a released set stays open, for the calls that took it
+	// just before the pointer and the window moved. Twice the interval when zero.
 	Settle time.Duration
-	// StopGrace bounds the wait for the work of a set to stop. A set whose work
-	// does not stop in time is logged and left behind, so that the hand-over and
-	// the close of the set are not held up by it. 30 seconds when zero.
-	StopGrace time.Duration
-	// CloseGrace bounds the wait of Close for the hand-over that runs in the
-	// background. After it the hand-over is cancelled. 10 seconds when zero.
-	CloseGrace time.Duration
-	Meter      metric.Meter
+	Meter  metric.Meter
 }
 
 // Swapper is what a replica does in a change of carrier. It follows the row:
 //
 //   - prepare: build the target set while the old one serves, attach every
 //     subscription to it, and report ready for the epoch of the row.
-//   - commit: store the target set, so that publishes, enqueues and new calls go
-//     to it; start its work; keep the old set attached; confirm.
+//   - commit: store the target set, so that publishes and new calls go to it;
+//     keep the old set attached; confirm.
 //   - stable with a drain: nothing. The old set stays attached.
-//   - stable with no drain: release the old set. Stop its work, hand over what it
-//     held, close it, and run the reconnect hooks once.
+//   - stable with no drain: release the old set. Detach it, run the reconnect
+//     hooks once, and close it after the settle time.
 //   - stable after an abort: drop the set that was built for nothing.
 //
 // The row is authoritative. A replica that polls late, restarts, or joins during a
@@ -89,11 +82,8 @@ type Swapper struct {
 	o SwapperOptions
 
 	mu       sync.Mutex
-	base     context.Context
 	prepared *Set // built for the change in prepare, attached, not yet in use
 	draining *Set // the previous set, attached through the drain
-	members  map[*Set]*member
-	startErr map[*Set]error // why the work of a set did not start, until it does
 	reported struct {
 		set    bool
 		epoch  int64
@@ -101,11 +91,6 @@ type Swapper struct {
 	}
 	prepareSeen time.Time
 	closed      bool
-
-	// life is the context of the hand-over that runs in the background. It ends
-	// when Close gives up waiting for it.
-	life       context.Context
-	lifeCancel context.CancelFunc
 
 	wake     chan struct{}
 	done     chan struct{}
@@ -118,12 +103,6 @@ type Swapper struct {
 	swaps          metric.Int64Counter
 	failures       metric.Int64Counter
 	swapSeconds    metric.Float64Histogram
-}
-
-// member is the work that a set started.
-type member struct {
-	cancel context.CancelCauseFunc
-	stop   func()
 }
 
 // NewSwapper returns the swapper of a replica. Cur must already name the set
@@ -143,19 +122,10 @@ func NewSwapper(o SwapperOptions) (*Swapper, error) {
 	if o.Settle <= 0 {
 		o.Settle = 2 * o.Interval
 	}
-	if o.StopGrace <= 0 {
-		o.StopGrace = 30 * time.Second
-	}
-	if o.CloseGrace <= 0 {
-		o.CloseGrace = 10 * time.Second
-	}
-	life, lifeCancel := context.WithCancel(context.Background())
 	s := &Swapper{
-		o: o, base: context.Background(), life: life, lifeCancel: lifeCancel,
-		members:  map[*Set]*member{},
-		startErr: map[*Set]error{},
-		wake:     make(chan struct{}, 1),
-		done:     make(chan struct{}),
+		o:    o,
+		wake: make(chan struct{}, 1),
+		done: make(chan struct{}),
 	}
 	s.registerMetrics()
 	return s, nil
@@ -209,20 +179,6 @@ func (s *Swapper) registerMetrics() {
 	}, epoch, state, active, drain, ready)
 }
 
-// Adopt starts the work of the set in use, and takes ctx as the parent of every
-// piece of work that the swapper starts. Call it once, when the replica starts.
-func (s *Swapper) Adopt(ctx context.Context) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.base = ctx
-	// ensureStarted logs why the work did not start. The first poll tries again
-	// and tells the cluster that this replica is not ready, so nothing else is
-	// done here.
-	if err := s.ensureStarted(s.o.Cur.Load()); err != nil {
-		xlog.Warn("The work of the carrier did not start; the next poll tries again", "carrier", s.o.Cur.Load().Name, "error", err)
-	}
-}
-
 // Wake asks the polling loop to look at the row now. It is the hint that the
 // leader sends; losing it costs one interval.
 func (s *Swapper) Wake() {
@@ -235,7 +191,6 @@ func (s *Swapper) Wake() {
 // Run polls the row until ctx ends.
 func (s *Swapper) Run(ctx context.Context) {
 	defer s.doneOnce.Do(func() { close(s.done) })
-	s.Adopt(ctx)
 	var lastErr string
 	for {
 		if err := s.Poll(ctx); err != nil && ctx.Err() == nil {
@@ -301,12 +256,6 @@ func (s *Swapper) Reconcile(ctx context.Context, row cluster.CarrierRow) error {
 			return s.report(ctx, row.Epoch, fmt.Sprintf("cannot build the %s carrier: %v", row.Active, err))
 		}
 	}
-	// A replica that cannot run the work of its carrier is not ready. It says so,
-	// and the next poll tries again.
-	if cur := s.o.Cur.Load(); s.ensureStarted(cur) != nil {
-		s.countFailure()
-		return s.report(ctx, row.Epoch, fmt.Sprintf("cannot start the work of the %s carrier: %v", cur.Name, s.startErr[cur]))
-	}
 
 	switch row.State {
 	case cluster.StatePrepare:
@@ -316,8 +265,8 @@ func (s *Swapper) Reconcile(ctx context.Context, row cluster.CarrierRow) error {
 	default:
 		s.prepareSeen = time.Time{}
 		s.settle(ctx, row)
-		// A replica that said it was not ready, and can run its work now, says so
-		// even when no change is in progress. Otherwise the reason stays on the
+		// A replica that said it was not ready, and can use its carrier now, says
+		// so even when no change is in progress. Otherwise the reason stays on the
 		// replica until the next change.
 		if s.reported.set && s.reported.reason != "" {
 			return s.report(ctx, row.Epoch, "")
@@ -431,9 +380,8 @@ func (s *Swapper) swapTo(ctx context.Context, row cluster.CarrierRow) error {
 	if third != nil && third != old {
 		// A set from a drain that was never closed. It is not in use and nothing
 		// routes to it any more.
-		s.retire(third, next)
+		s.retire(third)
 	}
-	startErr := s.ensureStarted(next)
 	if s.swaps != nil {
 		s.swaps.Add(ctx, 1, metric.WithAttributes(attribute.String("to", string(next.Name))))
 	}
@@ -446,36 +394,6 @@ func (s *Swapper) swapTo(ctx context.Context, row cluster.CarrierRow) error {
 	}
 	xlog.Info("This replica now uses another carrier; the previous one stays attached while it drains",
 		"carrier", next.Name, "previous", old.Name, "epoch", row.Epoch, "since_prepare", took.Round(time.Millisecond))
-	if startErr != nil {
-		return fmt.Errorf("the carrier is in use but its work did not start: %w", startErr)
-	}
-	return nil
-}
-
-// errCarrierReleased is the cause that the context of the work of a set is
-// cancelled with when the set is released.
-var errCarrierReleased = errors.New("the carrier of this work was released")
-
-// ensureStarted starts the work of a set once. It returns why the work could not
-// start, and tries again at the next call.
-func (s *Swapper) ensureStarted(set *Set) error {
-	if set == nil || set.Start == nil {
-		return nil
-	}
-	if _, ok := s.members[set]; ok {
-		return nil
-	}
-	ctx, cancel := context.WithCancelCause(s.base)
-	stop, err := set.Start(ctx)
-	if err != nil {
-		cancel(err)
-		// Tried again at the next poll.
-		xlog.Error("Could not start the work of the carrier", "carrier", set.Name, "error", err)
-		s.startErr[set] = err
-		return err
-	}
-	delete(s.startErr, set)
-	s.members[set] = &member{cancel: cancel, stop: stop}
 	return nil
 }
 
@@ -499,7 +417,7 @@ func (s *Swapper) settle(ctx context.Context, row cluster.CarrierRow) {
 		if s.o.Window != nil {
 			s.o.Window.Close()
 		}
-		s.retire(old, s.o.Cur.Load())
+		s.retire(old)
 	}
 }
 
@@ -520,9 +438,6 @@ func (s *Swapper) reattachDraining(ctx context.Context, row cluster.CarrierRow) 
 	if s.o.Window != nil {
 		s.o.Window.Open(set)
 	}
-	if err := s.ensureStarted(set); err != nil {
-		xlog.Warn("The work of the carrier that is draining did not start on this replica", "carrier", row.Draining, "error", err)
-	}
 	xlog.Info("This replica attached the carrier that is draining", "carrier", row.Draining, "epoch", row.Epoch)
 }
 
@@ -534,79 +449,33 @@ func (s *Swapper) dropListening(set *Set) *Set {
 	return set
 }
 
-// retire releases old after next took over: stop listening on it, stop its work,
-// hand over what it held, close it, and run the reconnect hooks once. The slow
-// part runs in the background, so that the poll goes on.
-func (s *Swapper) retire(old, next *Set) {
+// retire releases old after another set took over: stop listening on it, run
+// the reconnect hooks once, and close it after the settle time. The wait runs in
+// the background, so that the poll goes on.
+func (s *Swapper) retire(old *Set) {
 	s.dropListening(old)
-	m := s.members[old]
-	delete(s.members, old)
-	delete(s.startErr, old)
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		if m != nil {
-			// A run that is still going loses its carrier here. It is told why, so
-			// that it is not offered to the new carrier to run again.
-			m.cancel(errCarrierReleased)
-			s.stopBounded(old.Name, m.stop)
-		}
-		s.handoff(old, next)
+	s.wg.Go(func() {
 		// Messages across the flip were not ordered, so the consumers read their
 		// tables once.
 		s.o.Bus.NotifyReconnect()
 		// The set stays open for the settle time. A call that took the old set from
-		// the window or from the pointer just before they moved is still using it,
-		// and a producer that was slow to flip can still put work on it. Closing it
-		// first would fail those calls.
+		// the window or from the pointer just before they moved is still using it.
+		// Closing it first would fail those calls.
 		select {
 		case <-time.After(s.o.Settle):
 		case <-s.done:
 		}
-		// The handoff is a compare-and-set, so a second run finds nothing that the
-		// first took.
-		if cur := s.o.Cur.Load(); cur != old {
-			s.handoff(old, cur)
-		}
 		closeSet(old)
-	}()
+	})
 }
 
-// stopBounded waits for stop, and gives up after StopGrace. Work that does not
-// stop would hold the hand-over of the queue, the close of the set and the
-// release of its connections for as long as it runs.
-func (s *Swapper) stopBounded(name cluster.Carrier, stop func()) {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		stop()
-	}()
-	timer := time.NewTimer(s.o.StopGrace)
-	defer timer.Stop()
-	select {
-	case <-done:
-	case <-timer.C:
-		xlog.Warn("The work of a carrier did not stop in time; going on without waiting for it",
-			"carrier", name, "grace", s.o.StopGrace)
-	}
-}
+// closeGrace bounds the wait of Close for the sets that are released in the
+// background.
+const closeGrace = 10 * time.Second
 
-func (s *Swapper) handoff(from, to *Set) {
-	if from.Handoff == nil || to == nil {
-		return
-	}
-	// Not bound to the context of the replica, so that a stop of the replica does
-	// not drop the hand-over of the queue; Close bounds it with CloseGrace.
-	ctx, cancel := context.WithTimeout(s.life, 2*time.Minute)
-	defer cancel()
-	if err := from.Handoff(ctx, to); err != nil {
-		xlog.Warn("Could not hand over what the released carrier held", "from", from.Name, "to", to.Name, "error", err)
-	}
-}
-
-// Close stops the work of every set, and closes the sets that are not in use.
-// The set in use is closed by whoever built it, after this returns. It is safe to
-// call more than once.
+// Close closes the sets that are not in use, and the ones that are released in
+// the background. The set in use is closed by whoever built it, after this
+// returns. It is safe to call more than once.
 func (s *Swapper) Close() {
 	s.mu.Lock()
 	if s.closed {
@@ -614,8 +483,6 @@ func (s *Swapper) Close() {
 		return
 	}
 	s.closed = true
-	members := s.members
-	s.members = map[*Set]*member{}
 	var extra []*Set
 	for _, set := range []*Set{s.prepared, s.draining} {
 		if set != nil && set != s.o.Cur.Load() {
@@ -630,36 +497,20 @@ func (s *Swapper) Close() {
 	if s.o.Window != nil {
 		s.o.Window.Close()
 	}
-
-	var stopping sync.WaitGroup
-	for set, m := range members {
-		m.cancel(context.Canceled)
-		stopping.Go(func() { s.stopBounded(set.Name, m.stop) })
-	}
-	stopping.Wait()
 	for _, set := range extra {
 		s.dropListening(set)
 		closeSet(set)
 	}
 	s.doneOnce.Do(func() { close(s.done) })
-	// The hand-over that runs in the background gets CloseGrace to finish. After
-	// that it is cancelled, and Close returns when it has seen that.
 	finished := make(chan struct{})
 	go func() { s.wg.Wait(); close(finished) }()
-	timer := time.NewTimer(s.o.CloseGrace)
+	timer := time.NewTimer(closeGrace)
 	defer timer.Stop()
 	select {
 	case <-finished:
 	case <-timer.C:
-		xlog.Warn("The hand-over of a released carrier did not finish before the replica stopped; cancelling it", "grace", s.o.CloseGrace)
-		s.lifeCancel()
-		select {
-		case <-finished:
-		case <-time.After(s.o.CloseGrace):
-			xlog.Warn("The hand-over of a released carrier ignored its cancel; the replica stops without it")
-		}
+		xlog.Warn("A released carrier did not close before the replica stopped; the replica stops without it", "grace", closeGrace)
 	}
-	s.lifeCancel()
 }
 
 func closeSet(set *Set) {

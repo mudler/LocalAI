@@ -139,12 +139,11 @@ and names it in the note of the row.
 jitter, and a hint on `state.carrier` makes it look at once; the poll decides. In
 `prepare` it builds the target, attaches every subscription to it
 (`Broadcaster.Listen`) and reports ready for the epoch. In `commit` it stores the
-set, so that publishes and new calls use it, starts the work of the set
-(`Set.Start`, which no carrier sets today) and confirms. In `stable` with a drain it
-does nothing: the old set stays attached. When the leader ends the drain it stops
-listening on the old set, cancels its work, runs `Set.Handoff` (no carrier sets it
-today), closes the set, and runs the reconnect hooks once. A replica that polls
-late, restarts or joins during a change acts on the row alone.
+set, so that publishes and new calls use it, and confirms. In `stable` with a drain
+it does nothing: the old set stays attached. When the leader ends the drain it stops
+listening on the old set, runs the reconnect hooks once, and closes the set after a
+settle time, so that a call that took the set just before the switch can end. A
+replica that polls late, restarts or joins during a change acts on the row alone.
 
 `carrier.Window` is the only per-worker routing, and it exists between the commit
 and the end of the drain. A control verb, a file transfer, a dial or a client for
