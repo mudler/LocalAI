@@ -331,3 +331,8 @@ func (c *Client) Close() {
 		c.conn.FlushTimeout(5 * time.Second)
 	}
 }
+
+// IsNoResponders reports whether err says that no subscriber listens on the
+// subject of a request. It is the carrier's own check, so code above the
+// seam can tell "nobody there" from a timeout without importing nats.go.
+func IsNoResponders(err error) bool { return errors.Is(err, nats.ErrNoResponders) }
