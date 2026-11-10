@@ -8275,6 +8275,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/pages/{name}/errors": {
+            "post": {
+                "description": "The UI calls this for an error that the script of the caller's own page threw (window.onerror or an unhandled rejection), caught by the frame. Nothing is added to a chat; the assistant reads the errors with its page_errors tool. The texts are cut, the browser's own noise (such as ResizeObserver loop) is dropped, the same error is counted once, and a page keeps its 10 newest errors until any of its files changes. A page that reports too fast gets 429. Shared pages have no such route: only the owner's own view records.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Report a runtime error of a page (bridge error capture).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the error",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesErrorRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "recorded is false for noise",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesErrorResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "No message",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such page of yours",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many reports",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/pages/{name}/file": {
             "get": {
                 "description": "With encoding=base64 the file must be an image (png, jpg, gif, webp, avif, bmp, ico or svg, by extension) and content is its bytes in base64. The UI uses it to put the images next to a page into the page as data: URLs; the bridge of a page reads text only.",
@@ -32920,6 +32973,40 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.PagesErrorRequest": {
+            "type": "object",
+            "properties": {
+                "column": {
+                    "type": "integer"
+                },
+                "count": {
+                    "description": "Count is how many times the frame saw this error since its last report.",
+                    "type": "integer"
+                },
+                "file": {
+                    "description": "File is the script file of the page that threw; empty for index.html.",
+                    "type": "string"
+                },
+                "line": {
+                    "description": "Line and Column are 0 when the browser gave none.",
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "stack": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesErrorResponse": {
+            "type": "object",
+            "properties": {
+                "recorded": {
+                    "type": "boolean"
                 }
             }
         },

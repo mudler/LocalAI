@@ -61,7 +61,7 @@ type Handlers struct {
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	h := &Handlers{svc: svc, models: models, previews: newPreviewCache()}
 	if svc != nil {
-		h.pages = pages.New(svc.Files())
+		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()))
 		store := svc.PageConsents()
 		if store == nil {
 			store, _ = pages.NewJSONConsents("")

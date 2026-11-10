@@ -340,6 +340,8 @@ export const pagesApi = {
   send: (name, text, chatId, model) => postJSON(`${pageUrl(name)}/chat`, {
     text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}),
   }),
+  // An error that the page's script threw, for the assistant to read later.
+  reportError: (name, error) => postJSON(`${pageUrl(name)}/errors`, error),
   starters: () => fetchJSON('/api/chats/page-starters'),
   copyStarter: (id) => postJSON(`/api/chats/page-starters/${encodeURIComponent(id)}/copy`, {}),
 }

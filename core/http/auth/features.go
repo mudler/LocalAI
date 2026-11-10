@@ -108,6 +108,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/pages/:name/file", FeatureChats},
 	{"PUT", "/api/chats/pages/:name/file", FeatureChats},
 	{"POST", "/api/chats/pages/:name/chat", FeatureChats},
+	{"POST", "/api/chats/pages/:name/errors", FeatureChats},
 	{"GET", "/api/chats/page-starters", FeatureChats},
 	{"POST", "/api/chats/page-starters/:id/copy", FeatureChats},
 	{"GET", "/api/chats/shared-folders", FeatureChats},

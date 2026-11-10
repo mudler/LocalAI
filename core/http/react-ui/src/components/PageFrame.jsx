@@ -31,6 +31,9 @@ import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAsset
 //   visible        false while the frame is out of sight (a tile scrolled
 //                  away): with a hidden tab, the page gets a visibility event
 //                  ({visible}) so it can pause its timers
+//   (errors)       the page's script errors are recorded for the assistant
+//                  (page_errors) only when the page is the user's own: no
+//                  files and no codeFiles. They never go to the chat.
 //   onRefused(err) a bridge call was refused because the page may no longer
 //                  run (a shared page whose consent was revoked): the caller
 //                  takes the frame down
@@ -166,6 +169,9 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       },
       chat: { send: (text) => handlers.current.onSend(text) },
       links: { open: (target) => (handlers.current.onLink ? handlers.current.onLink(target) : { opened: false }) },
+      // Only the owner's own run records: a viewer of a shared page is not
+      // its owner, and the errors are kept in the owner's workspace.
+      errors: handlers.current.files || codeFiles !== null ? undefined : { report: (e) => pagesApi.reportError(name, e) },
     })
     channel.port1.onmessage = (e) => { host.receive(e.data) }
     live.current.host = host

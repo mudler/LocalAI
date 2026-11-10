@@ -165,6 +165,7 @@ func (a *Application) initStudioService() {
 		ContextTokens:     a.studioContextTokens,
 		RemoteModel:       a.studioRemoteModel,
 		PageConsents:      a.studioPageConsents(),
+		PageErrors:        a.studioPageErrors(),
 		SharedFolderAudit: a.studioSharedFolderAudit(),
 		Proposals:         a.studioProposalStore(),
 		UserSetting:       a.studioUserSetting,
@@ -842,6 +843,29 @@ func (a *Application) studioPageConsents() pages.ConsentStore {
 	if err != nil {
 		xlog.Warn("Chats: the consents to shared pages are kept in memory", "error", err)
 		st, _ = pages.NewJSONConsents("")
+	}
+	return st
+}
+
+// studioPageErrors opens the store of the runtime errors of the pages, like the
+// consents: the auth database (shared by the frontends of a cluster), a file
+// under the data path, or memory.
+func (a *Application) studioPageErrors() pages.ErrorStore {
+	var (
+		st  pages.ErrorStore
+		err error
+	)
+	switch {
+	case a.authDB != nil:
+		st, err = pages.NewGORMErrors(a.authDB)
+	case a.applicationConfig.DataPath != "":
+		st, err = pages.NewJSONErrors(filepath.Join(a.applicationConfig.DataPath, "chats", "pages"))
+	default:
+		st, err = pages.NewJSONErrors("")
+	}
+	if err != nil {
+		xlog.Warn("Chats: the errors of the pages are kept in memory", "error", err)
+		st, _ = pages.NewJSONErrors("")
 	}
 	return st
 }

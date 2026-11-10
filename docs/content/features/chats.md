@@ -1858,8 +1858,9 @@ A sub-agent follows the switches of its parent chat: it never gets a tool of a
 group the parent switched off. A trigger run with no agent copies these
 switches from the chat that proposed it, as it copies the others. Each group
 keeps its own rules for the runs that start by themselves (for example a
-trigger or connector run never gets the trigger tools). `load_skill` and the
-goal and loop tools have no switch.
+trigger or connector run never gets the trigger tools). `load_skill`, `page_errors`
+(it reads the errors of a page's script, see [Pages]({{%relref "features/pages" %}}))
+and the goal and loop tools have no switch.
 
 The trigger tools have a group too, `triggers`: `propose_trigger`,
 `list_triggers`, `update_trigger` and `delete_trigger` switch together, and the

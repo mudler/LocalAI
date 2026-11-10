@@ -189,6 +189,9 @@ type Service struct {
 	writes *limiter
 	sends  *limiter
 	refs   refCache
+	// errs keeps the runtime errors of the pages (see errors.go).
+	errs      ErrorStore
+	errorRate *limiter
 }
 
 // Option configures a Service.
@@ -196,6 +199,16 @@ type Option func(*Service)
 
 // WithClock sets the clock of the rate limits, for tests.
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// WithErrorStore sets where the errors of the pages are kept. Without it they
+// are kept in memory.
+func WithErrorStore(st ErrorStore) Option {
+	return func(s *Service) {
+		if st != nil {
+			s.errs = st
+		}
+	}
+}
 
 // New returns the service on the files of the chats.
 func New(f *files.Service, opts ...Option) *Service {
@@ -206,6 +219,12 @@ func New(f *files.Service, opts ...Option) *Service {
 	// A page that saves on every keystroke must debounce; 30 writes a minute
 	// with a burst of 20 is plenty for a person using a page.
 	s.writes = newLimiter(20, 2*time.Second, s.now)
+	// A throw in an animation frame repeats 60 times a second; the frame
+	// counts repeats and the server keeps a burst, then one report in 2 s.
+	s.errorRate = newLimiter(20, 2*time.Second, s.now)
+	if s.errs == nil {
+		s.errs, _ = NewJSONErrors("")
+	}
 	// A message to the assistant starts a turn, which costs far more.
 	s.sends = newLimiter(3, 20*time.Second, s.now)
 	return s

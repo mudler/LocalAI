@@ -188,6 +188,10 @@ type Deps struct {
 	// PageConsents keeps the consents of the viewers of shared pages. Nil: an
 	// in-memory store, for a single process and tests.
 	PageConsents pages.ConsentStore
+	// PageErrors keeps the runtime errors of the pages, which the UI records
+	// and the page_errors tool reads. Nil: an in-memory store, for a single
+	// process and tests.
+	PageErrors pages.ErrorStore
 	// SharedFolderAudit keeps the audit of the shared folders. Nil: an
 	// in-memory audit, for a single process and tests.
 	SharedFolderAudit sharedfolders.AuditStore
@@ -563,6 +567,13 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerHistoryTools(); err != nil {
+		return nil, err
+	}
+	if d.PageErrors == nil {
+		d.PageErrors, _ = pages.NewJSONErrors("")
+		s.d.PageErrors = d.PageErrors
+	}
+	if err := s.registerPageErrors(); err != nil {
 		return nil, err
 	}
 	if err := s.registerTriggerTools(); err != nil {
@@ -1034,6 +1045,10 @@ func (s *Service) ExtractLimits() files.ExtractLimits {
 
 // PageConsents returns the store of the consents to shared pages, or nil.
 func (s *Service) PageConsents() pages.ConsentStore { return s.d.PageConsents }
+
+// PageErrors returns the store of the runtime errors of the pages, shared by
+// the pages endpoints and the page_errors tool.
+func (s *Service) PageErrors() pages.ErrorStore { return s.d.PageErrors }
 
 // SharedPagesOn says whether the pages of shared folders are on now.
 func (s *Service) SharedPagesOn() bool { return s.d.SharedPagesOn == nil || s.d.SharedPagesOn() }
