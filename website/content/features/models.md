@@ -3,7 +3,7 @@ title: "Models"
 weight: 10
 card: "Pick an open model from the gallery. LocalAI picks the engine."
 headline: 'Open models, your <span class="hl">hardware</span>.'
-lede: "Run open models on your own hardware. Pick one from the gallery and LocalAI installs it."
+lede: "Pick an open model from the gallery. LocalAI installs it and runs it on your own hardware."
 docs: "/docs/models/"
 icon: "models"
 illus: "models"
