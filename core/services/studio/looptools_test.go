@@ -58,9 +58,7 @@ var _ = Describe("start_loop", func() {
 		// no start_loop.
 		r.pass()
 		Expect(r.runs(chat)).To(Equal(0))
-		r.sh.clock.Advance(2 * time.Minute)
-		r.pass()
-		r.settled(l.ID)
+		r.fire(l.ID, 2*time.Minute)
 		Expect(r.runs(chat)).To(Equal(1))
 		Expect(r.h.ToolNames(chat)).To(ContainElements("schedule_next", "loop_done"))
 		Expect(r.h.ToolNames(chat)).NotTo(ContainElement("start_loop"))
@@ -124,9 +122,7 @@ var _ = Describe("start_loop", func() {
 		chat := create(r.svc, alice)
 		arm(r, chat)
 		list, _ := r.host.List(ctx, alice, chat)
-		r.sh.clock.Advance(2 * time.Minute)
-		r.pass()
-		Expect(r.settled(list[0].ID).State).To(Equal(loops.StateEnded), "say() does not ask for another run")
+		Expect(r.fire(list[0].ID, 2*time.Minute).State).To(Equal(loops.StateEnded), "say() does not ask for another run")
 		sent(r.svc, alice, chat, "hello")
 		idle(r.svc, alice, chat)
 		Expect(r.h.ToolNames(chat)).To(ContainElement("start_loop"))
@@ -158,9 +154,7 @@ var _ = Describe("start_loop", func() {
 		list, _ := r.host.List(ctx, alice, chat)
 		id := list[0].ID
 		for range 2 {
-			r.sh.clock.Advance(time.Minute)
-			r.pass()
-			r.settled(id)
+			r.fire(id, time.Minute)
 		}
 		l := r.get(id)
 		Expect(l.State).To(Equal(loops.StateEnded))
