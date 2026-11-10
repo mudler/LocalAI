@@ -5,6 +5,16 @@ weight = 60
 aliases = ["/features/home-assistant/"]
 +++
 
+In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
+
+## At a glance
+
+| | |
+|---|---|
+| What it adds | Tools to read a smart home: find entities, read a state, look at a history. If you allow it, switch things such as a light or a thermostat, within limits you set. |
+| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
+| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. A person adds a connection: one Home Assistant address and one long-lived access token. |
+
 The Home Assistant add-on lets your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) read your smart home: find entities, read a state, look at a history, list what is unavailable. If you allow it, they can also switch things, such as a light or a thermostat. You set the limits. The add-on never operates a lock, an alarm, a garage door or a siren, whatever you choose.
 
 A chat can answer questions such as:
