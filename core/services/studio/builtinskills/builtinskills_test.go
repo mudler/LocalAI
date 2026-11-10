@@ -20,7 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
-var names = []string{"writing-skills", "localai-workspace", "localai-apps", "localai", "memory", "memory-check-own-files", "assemble-media", "fframes-video"}
+var names = []string{"writing-skills", "localai-workspace", "localai-apps", "localai", "memory", "memory-check-own-files", "assemble-media"}
 
 var _ = Describe("the built-in skills", func() {
 	It("sends the model to another skill by its name, never by a path", func() {
