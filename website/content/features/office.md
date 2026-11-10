@@ -4,7 +4,7 @@ weight: 3
 card: "Make Word, Excel, PDF and PowerPoint files from one sentence."
 headline: 'A sentence becomes your <span class="hl">documents</span>.'
 lede: "Type what you need. LocalAI makes real Word, Excel, PDF and PowerPoint files and saves them in Files."
-docs: "/docs/features/simple-office/"
+docs: "/docs/features/office/"
 scene: "s4-office"
 alt: "The llama stands in an open-plan office between two llama coworkers at their desks."
 points:

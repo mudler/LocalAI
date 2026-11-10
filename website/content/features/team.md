@@ -4,7 +4,7 @@ weight: 5
 card: "One server, a login for each person, and admin control."
 headline: 'One server. Your whole <span class="hl">team</span>.'
 lede: "Each person has a login and their own chats. An admin chooses what each person can use."
-docs: "/docs/features/authentication/"
+docs: "/docs/concepts/users-and-sharing/"
 scene: "s4-office"
 alt: "The llama stands in an open-plan office between two llama coworkers at their desks."
 points:
