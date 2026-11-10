@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -52,6 +53,19 @@ var _ = Describe("NATS chat starter", func() {
 		reply, err := start(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reply.Error).To(Equal("studio: the user is not active"))
+	})
+
+	It("lets a carrier that picks the worker move a start past a full worker, and keeps ErrNotDelivered as itself", func() {
+		q := &pickingRequester{replies: [][]byte{mustJSON(workerctl.ChatStartReply{Error: "full", Full: true}), mustJSON(workerctl.ChatStartReply{Started: true})}}
+		reply, err := NewNATSChatStarter(q).StartChat(context.Background(), workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reply.Started).To(BeTrue())
+		Expect(q.movedOn).To(Equal([]bool{true, false}))
+
+		q = &pickingRequester{err: fmt.Errorf("%w: no worker reached", messaging.ErrNotDelivered)}
+		_, err = NewNATSChatStarter(q).StartChat(context.Background(), workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1"})
+		Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
+		Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "a start that reached no worker is not a route that does not exist")
 	})
 
 	It("sends the request on the chat start subject", func() {
@@ -184,3 +198,30 @@ var _ = Describe("NATS chat start server", func() {
 		Expect(err).To(MatchError(ContainSubstring(messaging.SubjectChatStart)))
 	})
 })
+
+// pickingRequester is a carrier that picks the member of a queue: it hands its
+// replies to moveOn in order, as a carrier that tries one member after another.
+type pickingRequester struct {
+	*scriptedMessagingClient
+	replies [][]byte
+	err     error
+	movedOn []bool
+}
+
+func (p *pickingRequester) Request(string, []byte, time.Duration) ([]byte, error) {
+	return nil, errors.New("a queue request must go through RequestQueue")
+}
+
+func (p *pickingRequester) RequestQueue(_ string, _ []byte, _ time.Duration, moveOn func([]byte) bool) ([]byte, error) {
+	if p.err != nil {
+		return nil, p.err
+	}
+	for _, r := range p.replies {
+		next := moveOn(r)
+		p.movedOn = append(p.movedOn, next)
+		if !next {
+			return r, nil
+		}
+	}
+	return p.replies[len(p.replies)-1], nil
+}

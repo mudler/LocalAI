@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // requestBus is the fake bus with request/reply: a request reaches the reply
@@ -225,6 +226,9 @@ var _ = Describe("chatworker", func() {
 		_, err := r.front.SendBackground(context.Background(), alice, second, "go", nil)
 		Expect(err).To(MatchError(studio.ErrWorkerRefused), "SendBackground to a full worker = %v", err)
 		Expect(err).To(MatchError(ContainSubstring("runs as many turns as it may")))
+		// The refusal says that the worker is full, so a frontend that picks the
+		// worker can send the start to another one.
+		Expect(r.worker.ServeStart(context.Background(), workerctl.ChatStartRequest{Principal: alice, ChatID: second, Text: "go"}).Full).To(BeTrue())
 		Expect(r.hFront.Sent()).To(BeEmpty(), "a refused start ran on the frontend")
 		Expect(r.hWorker.Sent()).To(HaveLen(1))
 		Expect(turn(r.front, alice, second).Running).To(BeFalse())

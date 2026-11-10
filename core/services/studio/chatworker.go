@@ -83,7 +83,7 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 		s.admit.Lock()
 		defer s.admit.Unlock()
 		if err := s.checkWorkerRoom(ctx, req.Principal, req.ChatID); err != nil {
-			return workerctl.ChatStartReply{Error: err.Error()}
+			return workerctl.ChatStartReply{Error: err.Error(), Full: errors.Is(err, ErrWorkerFull)}
 		}
 	}
 	if req.Grant != nil {
