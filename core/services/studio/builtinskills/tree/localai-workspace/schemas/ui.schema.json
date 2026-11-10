@@ -25,9 +25,9 @@
     "defaultModel": {
       "type": "string",
       "title": "Default model",
-      "description": "The model a new chat starts with.",
+      "description": "The model a new chat starts with. Kept from older versions: used only when defaults.json has no chat. Set the chat default in defaults.json.",
       "maxLength": 200,
-      "x-ui": { "widget": "model" }
+      "x-ui": { "widget": "model", "hidden": true }
     },
     "homeBackground": {
       "type": "object",

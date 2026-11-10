@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/defaults.json",
+  "title": "LocalAI/defaults.json",
+  "description": "The model to use for each kind of work. A value is the name of an installed model, \"ask\" (ask the person each time) or null (no choice; LocalAI picks an installed model itself). A key that is missing is the same as null. A tool uses a model the caller names first, then this default; with \"ask\", or a model that is no longer installed, it stops and the assistant asks the user.",
+  "type": "object",
+  "properties": {
+    "chat": {
+      "type": ["string", "null"],
+      "title": "Chat",
+      "description": "The model a new chat starts with. When this key is missing, the older defaultModel of ui.json is used.",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "image": {
+      "type": ["string", "null"],
+      "title": "Image generation",
+      "description": "The model that draws images (the generate_image tool).",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "tts": {
+      "type": ["string", "null"],
+      "title": "Text to speech",
+      "description": "The model that reads text aloud (the speak tool).",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "stt": {
+      "type": ["string", "null"],
+      "title": "Speech to text",
+      "description": "The model that turns speech into text (the transcribe_audio tool).",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "embeddings": {
+      "type": ["string", "null"],
+      "title": "Embeddings",
+      "description": "The model that turns text into vectors (the embed tool).",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "rerank": {
+      "type": ["string", "null"],
+      "title": "Reranking",
+      "description": "The model that sorts search results by how well they match (the rerank tool).",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "video": {
+      "type": ["string", "null"],
+      "title": "Video generation",
+      "description": "The model that makes short clips (the generate_video tool).",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    },
+    "vision": {
+      "type": ["string", "null"],
+      "title": "Image understanding",
+      "description": "The model that looks at pictures and describes them (the describe_image tool).",
+      "maxLength": 200,
+      "x-ui": { "widget": "model" }
+    }
+  }
+}

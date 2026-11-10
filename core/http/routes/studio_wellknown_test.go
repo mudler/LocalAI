@@ -103,6 +103,21 @@ var _ = Describe("Chats well-known files endpoints", func() {
 		Expect(decodeJSON(rec)["errors"]).NotTo(BeEmpty())
 	})
 
+	It("writes and reads the default models of a user and refuses a value that is not a name", func() {
+		rec := put("alice", "defaults", "", map[string]any{"values": map[string]any{"image": "flux.1-schnell", "tts": "ask", "video": nil}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		data := decodeJSON(rec)["data"].(map[string]any)
+		Expect(data).To(HaveKeyWithValue("image", "flux.1-schnell"))
+		Expect(data).To(HaveKeyWithValue("tts", "ask"))
+		Expect(data).NotTo(HaveKey("video"))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/wellknown/defaults", nil))).To(HaveKeyWithValue("path", "/LocalAI/defaults.json"))
+
+		rec = put("alice", "defaults", "", map[string]any{"values": map[string]any{"image": 7}})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(decodeJSON(rec)["errors"]).NotTo(BeEmpty())
+		Expect(s.do("bob", http.MethodGet, "/api/chats/wellknown/defaults", nil).Body.String()).To(ContainSubstring(`"exists":false`))
+	})
+
 	It("shows a broken file's last good version and reverts to it", func() {
 		Expect(put("alice", "shortcuts", "", map[string]any{"values": map[string]any{"shortcuts": []any{map[string]any{"label": "Plan", "prompt": "Plan my day"}}}}).Code).To(Equal(http.StatusOK))
 		up := s.do("alice", http.MethodPut, "/api/chats/files/content?path=/LocalAI/shortcuts.json&overwrite=1", `{"shortcuts": "oops"}`)
