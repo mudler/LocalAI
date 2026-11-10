@@ -1,6 +1,8 @@
 package tunnel
 
 import (
+	"context"
+	"net"
 	"time"
 
 	"github.com/libp2p/go-yamux/v5"
@@ -31,4 +33,10 @@ func SetHandshakeTimeout(d time.Duration) (restore func()) {
 	old := dialHandshakeTimeout
 	dialHandshakeTimeout = d
 	return func() { dialHandshakeTimeout = old }
+}
+
+// RequestThrough sends a request over streams that open returns, as
+// PeerPool.Request does over the peer link.
+func RequestThrough(ctx context.Context, open func(context.Context, string) (net.Conn, error), target, subject string, data []byte, maxBytes int) ([]byte, error) {
+	return request(ctx, open, target, subject, data, maxBytes)
 }
