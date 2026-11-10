@@ -3,7 +3,7 @@ url = "/features/files/"
 disableToc = false
 title = "Files and shared folders"
 description = "Keep your files in LocalAI, share folders with other people, and use the files in a chat."
-weight = 18
+weight = 10
 +++
 
 LocalAI keeps a workspace for each user. It holds your files and folders, the files that a chat reads or writes, and a Trash with a history. The **Files** page in the sidebar is the browser for it.
@@ -39,7 +39,7 @@ A chat can use your files in two ways.
 - Attach a file to a message. The file is saved in the folder of the chat, and the model gets its path.
 - Ask the model to work with your files. A chat has file tools to list, read, search, write and edit files. They change your files like you do, so every change is in the history and you can undo it.
 
-The model can read the text of PDF, Word, Excel and PowerPoint files. It can also look at images and transcribe audio when a model for that is installed. To run commands or code on the files, install the [Sandbox]({{% relref "/features/files-and-documents/sandbox" %}}) add-on. To make Word, Excel, PowerPoint and PDF files, see [Office documents]({{% relref "/features/files-and-documents/office" %}}).
+The model can read the text of PDF, Word, Excel and PowerPoint files. It can also look at images and transcribe audio when a model for that is installed. To run commands or code on the files, install the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) add-on. To make Word, Excel, PowerPoint and PDF files, see [Office documents]({{% relref "/features/files-and-documents/office" %}}).
 
 A saved agent can work in chosen folders only, each as read or write. Without folders, an agent works on all your files. See [Folders of an agent]({{% relref "/features/chats-and-agents/chats-agents#folders-of-an-agent" %}}).
 

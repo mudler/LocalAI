@@ -12,7 +12,7 @@ a low level API that consists of only `get`, `set`, `delete` and `find`.
 **Face recognition uses this store.** The 1:N face identification flow
 (`/v1/face/register`, `/v1/face/identify`, `/v1/face/forget`) is built
 on top of the generic store - see
-[Face Recognition]({{% relref "/features/vision/face-recognition" %}}) for the face-oriented
+[Face Recognition]({{% relref "/models/capabilities/vision/face-recognition" %}}) for the face-oriented
 API.
 {{% /callout %}}
 

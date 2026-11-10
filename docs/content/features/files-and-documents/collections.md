@@ -2,7 +2,7 @@
 url = "/features/collections/"
 disableToc = false
 title = "Knowledge (collections)"
-weight = 21
+weight = 30
 description = "Knowledge collections: upload documents, search them by meaning, and let an agent use them."
 keywords = ["knowledge","collections","rag","search","embeddings"]
 +++
@@ -53,7 +53,7 @@ text in characters.
 ## Sharing a collection
 
 With accounts, the owner of a collection can share it. Open **Knowledge**, open the
-collection and choose **Share**. The [Share dialog]({{%relref "/features/files-and-documents/sharing" %}})
+collection and choose **Share**. The [Share dialog]({{%relref "/features/sharing" %}})
 finds people by name and can share with **Everyone**, every account of the server.
 A person can receive it when their account may use collections.
 

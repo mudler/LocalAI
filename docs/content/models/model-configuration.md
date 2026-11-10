@@ -705,7 +705,7 @@ Pre-converted GGUFs with MTP heads are published on the [ggml-org HuggingFace or
 
 ### Reasoning Models (DeepSeek-R1, Qwen3, etc.)
 
-These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array. For how reasoning is returned alongside tool calls and survives the tool-result round trip, see [Interleaved Thinking with Tool Calls]({{%relref "/features/text/interleaved-thinking" %}}).
+These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array. For how reasoning is returned alongside tool calls and survives the tool-result round trip, see [Interleaved Thinking with Tool Calls]({{%relref "/models/capabilities/text/interleaved-thinking" %}}).
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -877,7 +877,7 @@ Notes:
 
 ### Prompt Caching
 
-The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "/features/text/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
+The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "/models/capabilities/text/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
 
 Of the fields below, only `prompt_cache_all` is used by the `llama-cpp` gRPC server. The others come from upstream llama.cpp's **CLI completion tool** and are passed through for compatibility, but the server does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
 

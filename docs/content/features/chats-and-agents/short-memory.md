@@ -1,7 +1,7 @@
 ---
 url: "/features/short-memory/"
 title: "Short memory"
-weight: 36
+weight: 40
 ---
 
 Memory is built into LocalAI. It gives your chats a few notes about you. The model reads
@@ -166,7 +166,7 @@ These rules hold whatever you choose:
   the chat** answers there with `yes` or `no`, within 24 hours. `undo` takes a saved note
   back for 30 minutes. Another sender, or one without that permission, cannot answer: the
   note waits in Studio for you. See
-  [Confirming a change in the chat]({{% relref "/features/chats-and-agents/chats-connectors" %}}#confirming-a-change-in-the-chat).
+  [Confirming a change in the chat]({{% relref "/features/chat-apps" %}}#confirming-a-change-in-the-chat).
 - A saved agent cannot widen your choice. If you choose to be asked, it asks, even when
   you let it write to memory.
 - A reply saves at most 5 notes at once. A long note, or one that looks like it holds a

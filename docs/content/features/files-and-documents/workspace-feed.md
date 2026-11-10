@@ -1,8 +1,8 @@
 +++
 url = "/features/workspace-feed/"
 disableToc = false
-title = "Chats: the change feed of your files"
-weight = 24
+title = "See what changed in your files"
+weight = 40
 +++
 
 The change feed tells a client which of your files changed, as it happens. A

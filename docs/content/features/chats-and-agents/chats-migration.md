@@ -1,8 +1,8 @@
 +++
 url = "/features/chats-migration/"
 disableToc = false
-title = "Chats: moving from the old chat, agents and skills"
-weight = 24
+title = "Move from the old chat, agents and skills"
+weight = 110
 aliases = ["/features/agents/"]
 +++
 
@@ -16,7 +16,7 @@ changes or deletes the old data.
 | You used to | Now |
 |---|---|
 | Create an agent on the Agents page | Create a [saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}): instructions, a model, and exact lists of the MCP servers, add-ons, collections and skills it may use |
-| Chat with an agent | Start a chat with the agent from its row on the Agents page, or send it a message in Telegram through a [connector]({{% relref "/features/chats-and-agents/chats-connectors" %}}) |
+| Chat with an agent | Start a chat with the agent from its row on the Agents page, or send it a message in Telegram through a [connector]({{% relref "/features/chat-apps" %}}) |
 | Give an agent to other people | [Share the saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}#share-an-agent): each person runs it as themselves |
 | Run an agent by itself, or a cron task | Make a [trigger]({{% relref "/features/chats-and-agents/chats-agents" %}}#triggers): a schedule, or a file arriving in a folder |
 | Call a task from a script, with parameters and a webhook | The [agent tasks and jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) API: same paths and JSON as before; a job is a background chat |
@@ -35,9 +35,9 @@ The next sections describe what the server did with your old data at the first s
 | An agent of the pool | A [saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}): instructions, model, the collection named like the agent, selected skills |
 | An agent that ran by itself (periodic) | A [trigger]({{% relref "/features/chats-and-agents/chats-agents" %}}) on the agent, **switched off** |
 | A scheduled task with a cron text | A trigger, **switched off**; `{{.name}}` parts of the prompt are filled from the task's parameters |
-| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
+| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector]({{% relref "/features/chat-apps" %}}#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
 | A local MCP command of an agent (`mcp_stdio_servers`) | The same, only when the owner is an administrator; otherwise it is dropped, with the reason |
-| A Telegram connector of an agent | A [connector binding]({{% relref "/features/chats-and-agents/chats-connectors" %}}), **switched off**; the old `admins` become the allowlist |
+| A Telegram connector of an agent | A [connector binding]({{% relref "/features/chat-apps" %}}), **switched off**; the old `admins` become the allowlist |
 | A skill folder (shared or personal) | A shared or personal skill |
 | A conversation saved in the database | A chat with its transcript (the newest 5000 messages) |
 
@@ -88,7 +88,7 @@ parameters and a webhook, make it again as a task.
 
 The Telegram connector of the chats reads text, photos and voice messages in a
 private chat, and in a group only a message that names the bot or answers it (see
-[connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}}#what-a-person-can-send)). A voice message
+[connectors]({{% relref "/features/chat-apps" %}}#what-a-person-can-send)). A voice message
 needs a transcription model. Saved agents have no export or import: copy the definition through
 `GET /api/chats/agents/{id}` and `POST /api/chats/agents`.
 
@@ -156,7 +156,7 @@ The page `/app/chat` redirects to the chats, and the model in `/app/chat/<model>
 
 The pages do not offer some features of the removed ones. The agent form has no actions, connectors, filters, dynamic prompts, STDIO or HTTP MCP servers by URL, periodic runs, goals or memory switches, and no "draft with a model" button. You can import the JSON export of an older agent: its name, description, model, instructions and skills are read, and the page lists what was not imported. The skills page has no Git repositories, no `.tar.gz` import or export, no files tab and no "try in a context" sheet. The triggers page has no task parameters, media sources, webhooks or cron expressions with `@` shortcuts, and no job details page: a run of a trigger is a chat, and its row opens that chat.
 
-The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change]({{% relref "/features/chats-and-agents/chats" %}}#settings-rename-and-model-change) and [Regenerate, edit, fork, search, export]({{% relref "/features/chats-and-agents/chats" %}}#regenerate-edit-fork-search-export)). Two are gone: MCP servers that the browser connected to (use [MCP connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}}) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
+The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change]({{% relref "/features/chats-and-agents/chats" %}}#settings-rename-and-model-change) and [Regenerate, edit, fork, search, export]({{% relref "/features/chats-and-agents/chats" %}}#regenerate-edit-fork-search-export)). Two are gone: MCP servers that the browser connected to (use [MCP connectors]({{% relref "/features/chat-apps" %}}) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
 
 Studio and Talk moved to add-ons in the same change: nothing is preinstalled, and users need the `addons` feature, which the upgrade does not grant. See [Upgrading: Studio and Talk are add-ons now]({{% relref "/addons/contract-reference" %}}#upgrading-studio-and-talk-are-add-ons-now).
 
