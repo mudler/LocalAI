@@ -315,7 +315,7 @@ func (s *Service) sweepSandboxChat(c *sweptChat) bool {
 			continue // a kill was sent; the next sweep records the end
 		}
 		if _, err := s.d.SandboxJobs.End(ctx, sc, in.ID, reason); err != nil {
-			s.log.Debug("Chats: could not end a Sandbox job", "chat", c.chat, "job", in.ID, "reason", reason, "error", err)
+			s.log.Debug("Chats: could not end an add-on job", "chat", c.chat, "job", in.ID, "reason", reason, "error", err)
 		}
 	}
 	return true

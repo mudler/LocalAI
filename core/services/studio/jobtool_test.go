@@ -250,7 +250,7 @@ var _ = Describe("the job tool", func() {
 			idle(c.svc, alice, id)
 			Expect(c.h.ToolNames(id)).To(ContainElements("bash", "job"))
 			out := c.say(alice, id, "start build sleep 9")
-			Expect(out).To(ContainSubstring("Sandbox add-on here cannot run background jobs"))
+			Expect(out).To(ContainSubstring("add-on here cannot run background jobs"))
 			_, _, node := c.host.reg.Counts(alice, id)
 			Expect(node).To(Equal(0), "nothing started on this machine")
 			Expect(c.stubs(alice, id)).To(BeEmpty())

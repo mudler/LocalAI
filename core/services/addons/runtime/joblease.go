@@ -84,7 +84,7 @@ func (c *Client) jobArgs(env contract.Envelope) (contract.JobArgs, bool) {
 // JobLeasesFullText is the refusal of a start when every lease place of the
 // add-on is taken: a job without a lease could not save its files or reach
 // the network once the call is over, so it is not started.
-const JobLeasesFullText = "Not started: the Sandbox holds as many background jobs as it may right now. End a job, or wait for one to end, then try again."
+const JobLeasesFullText = "Not started: this add-on holds as many background jobs as it may right now. End a job, or wait for one to end, then try again."
 
 // reserveJobLease takes the place of the lease of a job start before it is
 // sent. A full table is a refusal of the jobs tool, and nothing is sent. The

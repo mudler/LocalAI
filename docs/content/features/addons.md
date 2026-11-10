@@ -236,7 +236,7 @@ page-only tool that may be an action tool. No model is offered it and no page
 can call it: the host calls it through the act path, with the chat as the
 resource and the person as the actor, and with the arguments and answer below.
 A provider without `jobs` cannot run background jobs. The host then answers
-`job start` with "The Sandbox add-on here cannot run background jobs: it is
+`job start` with "The add-on here cannot run background jobs: it is
 older than this LocalAI. An administrator can update it." and does not run the
 job anywhere else. A manifest with `jobs` and a lower `featureLevel` is
 refused; an older host refuses the add-on with "needs a newer LocalAI".

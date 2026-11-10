@@ -38,7 +38,7 @@ var ErrAddonNoJobs = errors.New("studio: the add-on cannot run background jobs")
 // SandboxJobsTooOld is what the model reads when the add-on cannot run jobs.
 // A Sandbox chat never falls back to the built-in bash for a job: isolation
 // must not change silently.
-const SandboxJobsTooOld = "The Sandbox add-on here cannot run background jobs: it is older than this LocalAI. An administrator can update it."
+const SandboxJobsTooOld = "The add-on here cannot run background jobs: it is older than this LocalAI. An administrator can update it."
 
 // JobAuditMax bounds the text of a job audit line (the command of a start,
 // the input of an input), as for a host command.
@@ -321,7 +321,7 @@ func SandboxJobText(err error) (string, bool) {
 	case errors.Is(err, ErrAddonNoJobs):
 		return SandboxJobsTooOld, true
 	case errors.Is(err, contract.ErrJobReply):
-		return "The Sandbox add-on gave an answer about the job that is not valid; nothing is shown. Try again.", true
+		return "The add-on gave an answer about the job that is not valid; nothing is shown. Try again.", true
 	}
 	return "", false
 }
@@ -431,12 +431,12 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 		if t, ok := b.errText(err); ok {
 			return JobResult{Text: t}, nil
 		}
-		return JobResult{Text: "Not started: the Sandbox add-on could not be reached; try again."}, nil
+		return JobResult{Text: "Not started: the add-on could not be reached; try again."}, nil
 	}
 	in.Parent = c.Parent
 	if err := b.commitReservation(ctx, a, held, in); err != nil {
 		if errors.Is(err, errJobIDTaken) {
-			return JobResult{Text: "Not started: the Sandbox add-on gave an answer about the job that is not valid; nothing is shown. Try again."}, nil
+			return JobResult{Text: "Not started: the add-on gave an answer about the job that is not valid; nothing is shown. Try again."}, nil
 		}
 		return JobResult{}, err
 	}
@@ -608,7 +608,7 @@ func (b *addonJobs) act(ctx context.Context, a workspace.Actor, c JobCall) (JobR
 		if t, ok := b.errText(err); ok {
 			return JobResult{Text: t}, nil
 		}
-		return JobResult{Text: fmt.Sprintf("Could not reach the Sandbox add-on that runs %s; try again.", st.ID)}, nil
+		return JobResult{Text: fmt.Sprintf("Could not reach the add-on that runs %s; try again.", st.ID)}, nil
 	}
 	if in.ID != "" {
 		in.Parent = c.Parent
