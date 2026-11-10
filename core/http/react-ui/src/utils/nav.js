@@ -90,6 +90,21 @@ export function readItems(data) {
   return out
 }
 
+// The ui.json strings key of a built-in entry that a user may rename there.
+// New chat, Recent chats and All chats have keys too, but nav.json cannot
+// list them, so only Home is shared by both files.
+const STRING_KEY_OF = Object.freeze({ home: 'nav.home' })
+
+// entryLabel picks the label of a built-in sidebar entry when two files can
+// rename it: the more specific one wins. A nav.json label names this entry in
+// this place, so it beats the ui.json strings text, which beats the built-in
+// label (the '' this returns). text(key) answers the strings text or ''.
+export function entryLabel(id, navLabel, text = () => '') {
+  if (typeof navLabel === 'string' && navLabel.trim()) return navLabel
+  const key = STRING_KEY_OF[id]
+  return (key && text(key)) || ''
+}
+
 // sections turns the items of the file into what the sidebar draws:
 // [{key, group, entries}], where group is the title (null before the first
 // group) and an entry is {key, kind: 'builtin', id, label} or

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  NAV_BUILTIN_IDS, NAV_LIMITS, canAdd, cleanRows, defaultRows, editorRows, itemKey, itemKind, mergeItems, navUrlOk,
+  NAV_BUILTIN_IDS, NAV_LIMITS, canAdd, cleanRows, defaultRows, editorRows, entryLabel, itemKey, itemKind, mergeItems, navUrlOk,
   mergeNav, readItems, rename, rowKind, sections, setHidden, withGroup, withLink,
 } from '../../src/utils/nav.js'
 import { move, WELL_KNOWN_FILES } from '../../src/utils/wellKnown.js'
@@ -218,4 +218,17 @@ test('nav: a group whose title was cleared in the editor is dropped on save, and
   const out = cleanRows(rows)
   assert.deepEqual(out.at(-1), { group: 'Mine' })
   assert.ok(out.every(r => r._uid === undefined))
+})
+
+test('nav: a nav.json label beats the ui.json strings text, which beats the built-in label', () => {
+  const strings = { 'nav.home': 'Start' }
+  const text = (key) => strings[key] || ''
+  assert.equal(entryLabel('home', 'Dashboard', text), 'Dashboard')
+  assert.equal(entryLabel('home', undefined, text), 'Start')
+  assert.equal(entryLabel('home', '  ', text), 'Start')
+  assert.equal(entryLabel('home', undefined, () => ''), '')
+  assert.equal(entryLabel('home', undefined), '')
+  // Only Home has a strings key among the entries nav.json lists.
+  assert.equal(entryLabel('files', undefined, () => 'Never'), '')
+  assert.equal(entryLabel('files', 'Docs', text), 'Docs')
 })

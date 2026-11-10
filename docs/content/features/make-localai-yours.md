@@ -480,6 +480,10 @@ server refuses any key that is not in the list. A text with a placeholder its
 key does not take, or a brace without its pair, is refused too. An empty box in
 the Text tab removes the key, and the default text shows again.
 
+Home can be renamed in two places: `nav.home` here, and a `label` on the
+`home` item of `nav.json` (see "Navigation"). The more specific one wins: a
+`nav.json` label beats `nav.home`, which beats the built-in label.
+
 ### Home and chat backgrounds
 
 `homeBackground` puts a colour, a gradient or a picture behind the Home page.
@@ -563,7 +567,8 @@ An item is exactly one of three kinds:
 
 Some things never change. New chat, Chats (the recent chats and All chats), the
 settings entries and the search are not items, so the file cannot move, rename
-or hide them. Home can be moved and renamed but not hidden. A built-in entry
+or hide them. Home can be moved and renamed but not hidden; its `nav.json` label wins over
+the `nav.home` text of `ui.json`. A built-in entry
 that the list does not name is added after the last item, in the default order,
 so a short list never loses an entry. An entry that your account or this server
 does not offer (for example Models for a user who is not an administrator, or

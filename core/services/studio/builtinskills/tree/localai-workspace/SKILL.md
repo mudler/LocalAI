@@ -60,7 +60,7 @@ Rules:
 
 - `persona.json` `avatar` (a picture path, rule of the background `image`; no SVG), `greeting`, `emptyChat`; `home.json` `headline`. Their texts take only `{user.name}`, `{time_of_day}` ("Good morning"), `{date}`; another `{name}` or a lone brace breaks the file.
 - `ui.json` `look`: values from the lists of the schema, never CSS. An `accent` under 4.5:1 contrast on the page of the theme is ignored: say so.
-- `ui.json` `strings`: only `home.headline`, `composer.placeholder` (`{model}`), `chat.empty.title`, `nav.newChat`, `nav.home`, `nav.recentChats`, `nav.allChats`. No other text can change.
+- `ui.json` `strings`: only `home.headline`, `composer.placeholder` (`{model}`), `chat.empty.title`, `nav.newChat`, `nav.home`, `nav.recentChats`, `nav.allChats`. No other text can change. A `nav.json` label wins over `nav.home`.
 
 ## Widget data
 

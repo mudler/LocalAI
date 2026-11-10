@@ -25,7 +25,7 @@ import { usePinnedPages } from '../hooks/usePinnedPages'
 import { useNewLabel } from './wellknown/useNewLabel'
 import SidebarNavLink from './SidebarNavLinks'
 import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
-import { sections as navSections } from '../utils/nav'
+import { sections as navSections, entryLabel } from '../utils/nav'
 import { useUiString } from './wellknown/Identity'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -292,7 +292,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
               <Fragment key={item.path}>
                 <NavItem
                   item={item} onClose={onClose} collapsed={collapsed}
-                  label={label || (item.path === '/app' ? uiString('nav.home', '') : '')}
+                  label={entryLabel(item.path === '/app' ? 'home' : item.id, label, key => uiString(key, ''))}
                   active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)}
                   badge={item.pagesEntry && pagesNew && !collapsed ? <span className="nav-new" data-testid="nav-pages-new">{t('new')}</span> : undefined}
                 />
