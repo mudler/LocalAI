@@ -989,9 +989,7 @@
       "used": "Using <code>{{model}}</code>, your default for images.",
       "exampleModel": "your image model"
     },
-    "stored": "Saved in your settings (the old default model of Appearance moves here)",
-    "preview": "What is saved",
-    "revert": "Revert to previous version"
+    "preview": "What is saved"
   },
   "identity": {
     "messageName": "Message {{name}}...",

@@ -276,8 +276,9 @@ this request and offers to set a new default. The Defaults tab marks such a row
 opens the model gallery.
 
 Each row of the tab lists only the installed models that can do that kind of
-work. A pick is saved at once. **Source** shows the file, and **Revert to
-previous version** writes the earlier version back.
+work. A pick is saved at once. The line under the tab names the file, as on
+the other tabs: **Source** shows it, and **Revert to previous version** writes
+the earlier version back.
 
 The `defaultModel` key of `ui.json` is the older way to set the chat model.
 It is still read, but only when `defaults.json` has no `chat`. The Defaults

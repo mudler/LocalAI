@@ -968,9 +968,7 @@
       "used": "Avec <code>{{model}}</code>, votre modèle par défaut pour les images.",
       "exampleModel": "votre modèle d’images"
     },
-    "stored": "Enregistré dans vos réglages (l’ancien modèle par défaut d’Apparence passe ici)",
-    "preview": "Ce qui est enregistré",
-    "revert": "Revenir à la version précédente"
+    "preview": "Ce qui est enregistré"
   },
   "identity": {
     "messageName": "Écrire à {{name}}...",

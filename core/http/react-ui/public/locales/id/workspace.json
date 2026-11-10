@@ -968,9 +968,7 @@
       "used": "Memakai <code>{{model}}</code>, model bawaan Anda untuk gambar.",
       "exampleModel": "model gambar Anda"
     },
-    "stored": "Disimpan di pengaturan Anda (model bawaan lama dari Tampilan pindah ke sini)",
-    "preview": "Yang tersimpan",
-    "revert": "Kembali ke versi sebelumnya"
+    "preview": "Yang tersimpan"
   },
   "identity": {
     "messageName": "Kirim pesan ke {{name}}...",

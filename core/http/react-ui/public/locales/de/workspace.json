@@ -968,9 +968,7 @@
       "used": "Verwendet <code>{{model}}</code>, dein Standard für Bilder.",
       "exampleModel": "dein Bildmodell"
     },
-    "stored": "In deinen Einstellungen gespeichert (das alte Standardmodell aus Darstellung wird hierher übernommen)",
-    "preview": "Was gespeichert ist",
-    "revert": "Auf vorherige Version zurücksetzen"
+    "preview": "Was gespeichert ist"
   },
   "identity": {
     "messageName": "Nachricht an {{name}}...",

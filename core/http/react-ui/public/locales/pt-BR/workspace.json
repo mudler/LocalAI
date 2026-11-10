@@ -968,9 +968,7 @@
       "used": "Usando <code>{{model}}</code>, seu padrão para imagens.",
       "exampleModel": "seu modelo de imagens"
     },
-    "stored": "Salvo nas suas configurações (o antigo modelo padrão de Aparência passa para cá)",
-    "preview": "O que está salvo",
-    "revert": "Voltar à versão anterior"
+    "preview": "O que está salvo"
   },
   "identity": {
     "messageName": "Mensagem para {{name}}...",

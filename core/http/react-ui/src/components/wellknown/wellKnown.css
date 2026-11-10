@@ -354,6 +354,7 @@
 .wk-stored { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-4); padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--color-border-card); border-radius: var(--r-md); font-size: var(--fs-meta); color: var(--color-text-muted); }
 .wk-stored > .lai-icon { width: 14px; height: 14px; flex: none; }
 .wk-stored code { font-family: var(--font-mono); font-size: var(--fs-meta); padding: 1px 6px; border-radius: var(--r-sm); background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
+.wk-stored__saved { color: var(--color-text-muted); }
 .wk-stored__acts { display: inline-flex; align-items: center; gap: var(--sp-2); margin-left: auto; }
 
 /* Placeholders under a text that takes them. */

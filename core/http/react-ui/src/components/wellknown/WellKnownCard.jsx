@@ -54,6 +54,28 @@ export function StoredIn({ file, onRevert, canRevert, busy, versionsOf, onRevert
   )
 }
 
+// FileFooter is the line under a settings editor that names its file, with
+// Source and a revert to the previous version. Every editor of a settings
+// file draws the same line. The path is shown as data, never as part of the
+// translated copy, so the copy names no file. children go after the path
+// (a saved time, for example); sourceOpen, when given, marks Source as a
+// toggle.
+export function FileFooter({ name, file, onSource, sourceOpen, onRevert, canRevert, children }) {
+  const { t } = useTranslation('workspace')
+  return (
+    <footer className="wk-stored" data-testid={`wk-stored-${name}`}>
+      <Icon name="file" />
+      <span>{t('wellKnown.storedIn')} <code>{file}</code></span>
+      {children}
+      <span className="wk-stored__acts">
+        <button type="button" className="wk-linkbtn" onClick={onSource} aria-expanded={sourceOpen} data-testid={`wk-stored-source-${name}`}>{t('wellKnown.source.label')}</button>
+        <span aria-hidden="true">·</span>
+        <button type="button" className="wk-linkbtn" onClick={onRevert} disabled={!canRevert} data-testid={`wk-stored-revert-${name}`}>{t('wellKnown.revert')}</button>
+      </span>
+    </footer>
+  )
+}
+
 // WellKnownCard edits one well-known file: a form drawn from its schema, a
 // Source view of the raw JSON with the same validation, the file name with
 // a revert to the previous version, and the answer to a conflict.
@@ -318,15 +340,10 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
         </form>
       )}
       {footer && (
-        <footer className="wk-stored" data-testid={`wk-stored-${name}`}>
-          <Icon name="file" />
-          <span>{t('wellKnown.storedIn')} <code>{file}</code></span>
-          <span className="wk-stored__acts">
-            <button type="button" className="wk-linkbtn" onClick={() => { setSource(sourceText({ ...fileData, ...(dirty ? values : {}) })); setMode('source') }} data-testid={`wk-stored-source-${name}`}>{t('wellKnown.source.label')}</button>
-            <span aria-hidden="true">·</span>
-            <button type="button" className="wk-linkbtn" onClick={revert} disabled={busy || !doc?.exists} data-testid={`wk-stored-revert-${name}`}>{t('wellKnown.revert')}</button>
-          </span>
-        </footer>
+        <FileFooter
+          name={name} file={file} onRevert={revert} canRevert={!busy && !!doc?.exists}
+          onSource={() => { setSource(sourceText({ ...fileData, ...(dirty ? values : {}) })); setMode('source') }}
+        />
       )}
     </section>
   )

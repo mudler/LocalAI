@@ -968,9 +968,7 @@
       "used": "正在使用 <code>{{model}}</code>，这是你的图像默认模型。",
       "exampleModel": "你的图像模型"
     },
-    "stored": "保存在你的设置中（外观里旧的默认模型已移到这里）",
-    "preview": "已保存的内容",
-    "revert": "恢复到上一个版本"
+    "preview": "已保存的内容"
   },
   "identity": {
     "messageName": "给 {{name}} 发消息...",

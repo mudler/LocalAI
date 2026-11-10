@@ -4,11 +4,11 @@ import { Trans, useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
 import { Button, Segmented, StatusChip } from '../ui'
-import { ProblemDetails } from './WellKnownCard'
+import { FileFooter, ProblemDetails } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { useModels } from '../../hooks/useModels'
 import { ASK, DEFAULT_KINDS, defaultChoice, modelsFor, rowState, valueFor } from '../../utils/defaults'
-import { parseSource, sourceText, wellKnownProblem } from '../../utils/wellKnown'
+import { parseSource, sourceText, wellKnownProblem, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import './wellKnown.css'
 import './defaults.css'
 
@@ -233,18 +233,12 @@ export default function DefaultsTab() {
         </div>
       )}
 
-      <footer className="df-foot" data-testid="df-foot">
-        <span className="df-foot__text">
-          <Icon name="file" />
-          <span>{t('defaults.stored')}</span>
-          {savedAt && <span className="df-foot__saved" role="status" data-testid="df-saved">{t('wellKnown.savedAt', { time: timeLabel(savedAt, i18n.language) })}</span>}
-        </span>
-        <span className="df-foot__links">
-          <button type="button" className="wk-linkbtn" onClick={openSource} aria-expanded={sourceOpen} data-testid="df-source">{t('wellKnown.source.label')}</button>
-          <span aria-hidden="true">·</span>
-          <button type="button" className="wk-linkbtn" onClick={revert} disabled={busy || !doc?.exists} data-testid="df-revert">{t('defaults.revert')}</button>
-        </span>
-      </footer>
+      <FileFooter
+        name="defaults" file={WELL_KNOWN_FILES.defaults} onSource={openSource} sourceOpen={sourceOpen}
+        onRevert={revert} canRevert={!busy && !!doc?.exists}
+      >
+        {savedAt && <span className="wk-stored__saved" role="status" data-testid="df-saved">{t('wellKnown.savedAt', { time: timeLabel(savedAt, i18n.language) })}</span>}
+      </FileFooter>
     </section>
   )
 }

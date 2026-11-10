@@ -968,9 +968,7 @@
       "used": "<code>{{model}}</code> 사용, 이미지의 기본 모델이에요.",
       "exampleModel": "이미지 모델"
     },
-    "stored": "설정에 저장돼요 (모양 설정에 있던 예전 기본 모델은 여기로 옮겨져요)",
-    "preview": "저장된 내용",
-    "revert": "이전 버전으로 되돌리기"
+    "preview": "저장된 내용"
   },
   "identity": {
     "messageName": "{{name}}에게 메시지...",

@@ -54,7 +54,7 @@ test('defaults: one row per kind of work, with only the models that can do it', 
   await expect(row(page, 'video')).toHaveAttribute('data-state', 'none')
   await expect(page.getByTestId('df-install-video')).toHaveAttribute('href', /\/app\/models/)
   // The footer says where the choices are kept, and nothing is saved yet.
-  await expect(page.getByTestId('df-foot')).toContainText('Saved in your settings')
+  await expect(page.getByTestId('wk-stored-defaults')).toContainText('Stored in LocalAI/defaults.json')
   expect((await page.request.get('/api/chats/wellknown/defaults').then(r => r.json())).exists).toBe(false)
 })
 
@@ -143,7 +143,7 @@ test('defaults: Source edits the whole file with the same validation, and Revert
   await write(request, 'defaults', { image: 'sd-3.5-medium' })
   await openDefaults(page)
 
-  await page.getByTestId('df-source').click()
+  await page.getByTestId('wk-stored-source-defaults').click()
   await page.getByTestId('df-source-text').fill('{"image": 42}')
   await page.getByTestId('df-source-save').click()
   await expect(page.getByTestId('wk-problem-defaults')).toContainText('Some values are not valid.')
@@ -153,7 +153,7 @@ test('defaults: Source edits the whole file with the same validation, and Revert
   await page.getByTestId('df-source-save').click()
   await expect.poll(async () => (await read(request, 'defaults')).data).toEqual({ image: 'flux.1-schnell', stt: 'ask' })
 
-  await page.getByTestId('df-revert').click()
+  await page.getByTestId('wk-stored-revert-defaults').click()
   await expect.poll(async () => (await read(request, 'defaults')).data).toEqual({ image: 'sd-3.5-medium' })
 })
 

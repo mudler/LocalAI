@@ -968,9 +968,7 @@
       "used": "Uso <code>{{model}}</code>, il tuo predefinito per le immagini.",
       "exampleModel": "il tuo modello per le immagini"
     },
-    "stored": "Salvato nelle tue impostazioni (il vecchio modello predefinito di Aspetto passa qui)",
-    "preview": "Ciò che è salvato",
-    "revert": "Torna alla versione precedente"
+    "preview": "Ciò che è salvato"
   },
   "identity": {
     "messageName": "Scrivi a {{name}}...",
