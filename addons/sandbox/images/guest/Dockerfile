@@ -69,7 +69,7 @@ COPY go.mod go.sum ./
 COPY addons/sandbox/internal/sandbox/guestagent ./addons/sandbox/internal/sandbox/guestagent
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=-s -o /sandbox-agent ./addons/sandbox/internal/sandbox/guestagent/cmd/sandbox-agent
 
-# One userland stage per profile (base, media, video), each built on the one
+# One userland stage per profile (base, media), each built on the one
 # before it, on the build machine's network. The proxy settings of the guest
 # are set only in the finish block of each target below, so no install runs
 # with the guest proxy. Every target repeats the finish block; it is short.
@@ -122,64 +122,6 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends ffmpeg sox libsox-fmt-all imagemagick; \
     rm -rf /var/lib/apt/lists/*; \
     sh /usr/local/lib/localai/check-tools.sh media /usr/local/lib/localai/manifest.json
-
-# video: media plus a Rust toolchain (1.88 or newer, from trixie-backports; the
-# release of trixie has an older rustc) and the fframes renderer. The build
-# prerequisites of the Skia and ffmpeg builds that fframes needs are installed
-# with it. At run time the guest reaches crates.io, github.com and
-# release-assets.githubusercontent.com through the proxy, so the network
-# preset of the chat must allow them. The libraries libasound2-dev and
-# mesa-vulkan-drivers are there because the project template builds the native
-# player (ALSA) and renders with Skia on Vulkan: the guest has no GPU, so the
-# software Vulkan driver (lavapipe) does the drawing.
-FROM media-tools AS video-tools
-# The version of the fframes CLI (crate cargo-fframes, the cargo fframes command)
-# and of the fframes-media crate that projects use. Both are pinned.
-ARG CARGO_FFRAMES_VERSION=1.4.0
-ARG FFRAMES_MEDIA_VERSION=1.4.0
-RUN set -eux; \
-    echo 'deb http://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/backports.list; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends -t trixie-backports rustc cargo; \
-    apt-get install -y --no-install-recommends build-essential pkg-config clang libclang-dev nasm libx264-dev python3-dev cmake ninja-build libfontconfig1-dev libfreetype-dev libgl1-mesa-dev libssl-dev libasound2-dev mesa-vulkan-drivers libvulkan1; \
-    rm -rf /var/lib/apt/lists/*; \
-    rustc --version | awk '{split($2,v,"."); exit !(v[1]>1 || (v[1]==1 && v[2]>=88))}'
-# FFMPEG_FORCE_BUILD makes the fframes-media crate build ffmpeg from source,
-# also in the builds of the user. The CLI is installed with a temporary cargo
-# home, so the home of the guest user is not touched.
-ENV FFMPEG_FORCE_BUILD=1 FFRAMES_MEDIA_VERSION=${FFRAMES_MEDIA_VERSION}
-# The project that "cargo fframes new" writes pins fframes at =1.4.0 but not
-# fframes-media, so cargo picks fframes-media 1.4.1, which does not compile with
-# fframes 1.4.0. The wrapper adds the pin to the new project. The crate installs
-# one executable, cargo-fframes, so the real one goes to a libexec folder.
-COPY addons/sandbox/images/guest/cargo-fframes-wrapper.sh /usr/local/bin/cargo-fframes
-RUN set -eux; \
-    CARGO_HOME=/tmp/cargo-install cargo install --locked --root /usr/local/libexec/fframes cargo-fframes@${CARGO_FFRAMES_VERSION}; \
-    rm -rf /tmp/cargo-install; \
-    chmod 0755 /usr/local/bin/cargo-fframes; \
-    sh /usr/local/lib/localai/check-tools.sh video /usr/local/lib/localai/manifest.json
-
-# Target video. The video profile.
-FROM video-tools AS video
-ARG IMAGE_VERSION=dev
-LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
-      org.opencontainers.image.version="${IMAGE_VERSION}" \
-      org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on, profile video"
-# The guest has no network device. Every tool must use the proxy on the
-# loopback interface; the sandbox serves it with a host port handler.
-ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \
-    http_proxy=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 no_proxy=localhost,127.0.0.1
-# Go and npm fetch from their registries through the proxy, not from version
-# control hosts directly (GOPROXY without ",direct"). cargo and uv read
-# HTTPS_PROXY.
-ENV GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod \
-    npm_config_proxy=http://127.0.0.1:3128 npm_config_https_proxy=http://127.0.0.1:3128
-RUN set -eux; \
-    printf '[global]\nproxy = http://127.0.0.1:3128\nbreak-system-packages = true\n' > /etc/pip.conf; \
-    printf 'Acquire::http::Proxy "http://127.0.0.1:3128";\nAcquire::https::Proxy "http://127.0.0.1:3128";\n' > /etc/apt/apt.conf.d/80proxy; \
-    git config --system http.proxy http://127.0.0.1:3128
-COPY --from=kernel /vmlinux /boot/vmlinux
-COPY --from=agent /sandbox-agent /sbin/sandbox-agent
 
 # Target media. The media profile.
 FROM media-tools AS media

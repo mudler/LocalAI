@@ -4,17 +4,16 @@ name: 'sandbox guest image'
 # Builds the guest images of the Sandbox add-on for linux/amd64 and
 # linux/arm64 (addons/sandbox/images/guest/Dockerfile) and pushes them to the
 # project registry, the one the other image jobs use (quay.io/go-skynet). There
-# is one image for each sandbox profile: the targets base, media and video of
+# is one image for each sandbox profile: the targets base and media of
 # the Dockerfile. The release of the add-on stamps the digests into the
 # executable:
 #
 #   SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest> \
 #   SANDBOX_GUEST_IMAGE_MEDIA=<repository>@sha256:<digest> \
-#   SANDBOX_GUEST_IMAGE_VIDEO=<repository>@sha256:<digest> \
 #     sh scripts/addons/package.sh ...
 #
 # This workflow outputs these values as "image" (the base image; also the bare
-# "digest"), "image_media" and "image_video", so a caller workflow can run it
+# "digest") and "image_media", so a caller workflow can run it
 # with `uses:` and pass the outputs to the package legs of the sandbox add-on.
 #
 # Event policy:
@@ -27,8 +26,8 @@ name: 'sandbox guest image'
 #
 # The repository of the base image is quay.io/go-skynet/sandbox-guest unless
 # the repository variable SANDBOX_GUEST_REPOSITORY names another one. The media
-# and video images go to the same repository with the tags media-sha-<sha> and
-# video-sha-<sha>; the base image keeps sha-<sha>. The references by digest all
+# image goes to the same repository with the tag media-sha-<sha>; the base
+# image keeps sha-<sha>. The references by digest all
 # name the one repository. The repository must allow anonymous pulls: the
 # add-on pulls an image on the host that runs it.
 
@@ -44,9 +43,6 @@ on:
       image_media:
         description: 'Reference of the media guest image by digest'
         value: ${{ jobs.build.outputs.image_media }}
-      image_video:
-        description: 'Reference of the video guest image by digest'
-        value: ${{ jobs.build.outputs.image_video }}
   workflow_dispatch:
   push:
     branches: [master]
@@ -77,7 +73,6 @@ jobs:
       image: ${{ steps.ref.outputs.image }}
       digest: ${{ steps.build.outputs.digest }}
       image_media: ${{ steps.ref.outputs.image_media }}
-      image_video: ${{ steps.ref.outputs.image_video }}
     env:
       REPOSITORY: ${{ vars.SANDBOX_GUEST_REPOSITORY || 'quay.io/go-skynet/sandbox-guest' }}
       # A caller's push to a branch other than master publishes nothing
@@ -103,7 +98,7 @@ jobs:
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
       # Each target is one build. The kernel and the agent stages are shared,
-      # so the layer cache makes the second and third build short for them.
+      # so the layer cache makes the second build short for them.
       - name: Build base
         id: build
         uses: docker/build-push-action@v7
@@ -134,30 +129,15 @@ jobs:
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
           tags: ${{ env.REPOSITORY }}:media-sha-${{ github.sha }}
           push: ${{ env.PUSH == 'true' }}
-      - name: Build video
-        id: build_video
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./addons/sandbox/images/guest/Dockerfile
-          target: video
-          platforms: linux/amd64,linux/arm64
-          provenance: false
-          sbom: false
-          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
-          cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
-          tags: ${{ env.REPOSITORY }}:video-sha-${{ github.sha }}
-          push: ${{ env.PUSH == 'true' }}
       - name: Name the images by digest
         id: ref
         if: env.PUSH == 'true'
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
           DIGEST_MEDIA: ${{ steps.build_media.outputs.digest }}
-          DIGEST_VIDEO: ${{ steps.build_video.outputs.digest }}
         run: |
           set -eu
-          for d in "$DIGEST" "$DIGEST_MEDIA" "$DIGEST_VIDEO"; do
+          for d in "$DIGEST" "$DIGEST_MEDIA"; do
             case "$d" in
             sha256:????????????????????????????????????????????????????????????????) ;;
             *) echo "a build returned no image digest: '$d'" >&2; exit 1 ;;
@@ -166,12 +146,10 @@ jobs:
           {
             echo "image=${REPOSITORY}@${DIGEST}"
             echo "image_media=${REPOSITORY}@${DIGEST_MEDIA}"
-            echo "image_video=${REPOSITORY}@${DIGEST_VIDEO}"
           } >> "$GITHUB_OUTPUT"
           {
             echo '### Sandbox guest images'
             echo
             echo "SANDBOX_GUEST_IMAGE=${REPOSITORY}@${DIGEST}"
             echo "SANDBOX_GUEST_IMAGE_MEDIA=${REPOSITORY}@${DIGEST_MEDIA}"
-            echo "SANDBOX_GUEST_IMAGE_VIDEO=${REPOSITORY}@${DIGEST_VIDEO}"
           } >> "$GITHUB_STEP_SUMMARY"

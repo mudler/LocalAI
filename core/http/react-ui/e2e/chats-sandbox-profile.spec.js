@@ -31,7 +31,7 @@ const profile = (id, title, description, tools, extra = {}) => ({ id, title, des
 const PROFILES = () => [
   profile('base', 'Base', 'Python, documents, PDF and the usual command-line tools.', ['python3 (pandas, matplotlib)', 'jq', 'git']),
   profile('media', 'Media', 'Base plus ffmpeg, sox and ImageMagick.', ['python3 (pandas, matplotlib)', 'jq', 'git', 'ffmpeg', 'sox', 'ImageMagick'], { state: { phase: 'idle', percent: 0, error: '' } }),
-  profile('video', 'Video', 'Media plus a Rust toolchain and fframes.', ['ffmpeg', 'Rust', 'fframes'], { allowed: false }),
+  profile('heavy', 'Heavy', 'Media plus a compiler.', ['ffmpeg', 'gcc'], { allowed: false }),
 ]
 const spView = (over = {}) => ({ applies: true, addon: 'sandbox', profile: 'base', selected: '', source: 'default', default: 'base', fallback: false, fallback_reason: '', newer_image: false, profiles: PROFILES(), ...over })
 
@@ -75,8 +75,8 @@ test.describe('Sandbox profile of the commands', () => {
     await expect(row.getByRole('radio', { name: 'Base' })).toHaveAttribute('aria-checked', 'true')
     await expect(row.getByTestId('chat-sandbox-profile-about')).toContainText('usual command-line tools')
     await expect(row.getByTestId('chat-sandbox-profile-tools')).toContainText('jq')
-    await expect(row.getByTestId('chat-sandbox-profile-video')).toBeDisabled()
-    await expect(row.getByTestId('chat-sandbox-profile-why-video')).toContainText('Your administrator has not given you this profile')
+    await expect(row.getByTestId('chat-sandbox-profile-heavy')).toBeDisabled()
+    await expect(row.getByTestId('chat-sandbox-profile-why-heavy')).toContainText('Your administrator has not given you this profile')
     await expect(row.getByTestId('chat-sandbox-profile-source')).toContainText('the default')
     await shot(page, 'sbp-picker')
   })

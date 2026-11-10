@@ -9,7 +9,7 @@ import (
 
 func TestOpenByDefault(t *testing.T) {
 	var p sandboxpolicy.Policy
-	for _, id := range []string{"base", "media", "video"} {
+	for _, id := range []string{"base", "media", "heavy"} {
 		if !p.Allows(id, "alice", "user") {
 			t.Errorf("%s: the empty policy must allow everyone", id)
 		}
@@ -22,7 +22,7 @@ func TestOpenByDefault(t *testing.T) {
 func TestAccessByRoleAndUser(t *testing.T) {
 	p := sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{
 		"media": {Roles: []string{"admin"}, Users: []string{"carol"}},
-		"video": {Roles: []string{}},
+		"heavy": {Roles: []string{}},
 		"base":  {Roles: []string{"admin"}},
 	}}
 	cases := []struct {
@@ -33,7 +33,7 @@ func TestAccessByRoleAndUser(t *testing.T) {
 		{"media", "carol", "user", true},
 		{"media", "alice", "user", false},
 		{"media", "alice", "", false},
-		{"video", "alice", "user", true},
+		{"heavy", "alice", "user", true},
 		{"base", "alice", "user", true}, // the fallback is never closed
 	}
 	for _, c := range cases {
@@ -72,7 +72,7 @@ func TestParseRefusesBadPolicies(t *testing.T) {
 }
 
 func TestNormalizedDropsOpenAccess(t *testing.T) {
-	p := sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"media": {}, "video": {Roles: []string{"admin"}}}}.Normalized()
+	p := sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"media": {}, "heavy": {Roles: []string{"admin"}}}}.Normalized()
 	if _, ok := p.Access["media"]; ok || len(p.Access) != 1 || p.PinPrevious == nil {
 		t.Fatalf("%+v", p)
 	}

@@ -23,9 +23,9 @@ func TestDeclaredProfilesAreValidAndNested(t *testing.T) {
 			}
 		}
 	}
-	// media is base plus more, video is media plus more: a profile never has
-	// fewer tools than the one it extends.
-	for _, pair := range [][2]string{{profiles.Base, profiles.Media}, {profiles.Media, profiles.Video}} {
+	// media is base plus more: a profile never has fewer tools than the one
+	// it extends.
+	for _, pair := range [][2]string{{profiles.Base, profiles.Media}} {
 		for name := range have[pair[0]] {
 			if !have[pair[1]][name] {
 				t.Errorf("%s lacks %s, which %s has", pair[1], name, pair[0])
@@ -37,14 +37,11 @@ func TestDeclaredProfilesAreValidAndNested(t *testing.T) {
 			t.Errorf("%s must be in media and not in base", want)
 		}
 	}
-	if !have[profiles.Video]["fframes"] || !have[profiles.Video]["Rust"] {
-		t.Error("video needs Rust and fframes")
-	}
 }
 
 func TestParseImages(t *testing.T) {
 	d := strings.Repeat("a", 64)
-	got, err := profiles.ParseImages("media=quay.io/x/guest-media@sha256:" + d + ", video=quay.io/x/guest-video@sha256:" + d)
+	got, err := profiles.ParseImages("media=quay.io/x/guest-media@sha256:" + d + ", big=quay.io/x/guest-big@sha256:" + d)
 	if err != nil || len(got) != 2 || got["media"] == "" {
 		t.Fatalf("got %v, %v", got, err)
 	}

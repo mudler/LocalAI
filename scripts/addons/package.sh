@@ -22,10 +22,10 @@
 # The Sandbox add-on needs the reference of its guest image, built into the
 # executable with -X main.guestImage. Set SANDBOX_GUEST_IMAGE to
 # <repository>@sha256:<digest> (the output of the sandbox-images workflow).
-# The other profiles have their own images: SANDBOX_GUEST_IMAGE_MEDIA and
-# SANDBOX_GUEST_IMAGE_VIDEO, each <repository>@sha256:<digest>, both optional.
-# They reach the executable as one flag, -X main.profileImages=media=<ref>,video=<ref>;
-# a profile without an image is not offered by that release.
+# The media profile has its own image: SANDBOX_GUEST_IMAGE_MEDIA,
+# <repository>@sha256:<digest>, optional. It reaches the executable as the
+# flag -X main.profileImages=media=<ref>; a profile without an image is not
+# offered by that release.
 # Without SANDBOX_GUEST_IMAGE the script refuses to build or accept a Sandbox executable, unless
 # --local-check is given: the build then uses a stand-in reference that no
 # registry serves, and the receipt is not publishable anyway.
@@ -84,7 +84,7 @@ if [ "$addon" = sandbox ]; then
     }
     ldflags="-X main.guestImage=$guest"
     extra=
-    for pair in media:${SANDBOX_GUEST_IMAGE_MEDIA-} video:${SANDBOX_GUEST_IMAGE_VIDEO-}; do
+    for pair in media:${SANDBOX_GUEST_IMAGE_MEDIA-}; do
         ref=${pair#*:}
         [ -n "$ref" ] || continue
         printf '%s\n' "$ref" | grep -E '^[A-Za-z0-9._/:-]+@sha256:[0-9a-f]{64}$' >/dev/null || {
