@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // The job tool: a command that runs for minutes, in the background, where the
@@ -39,7 +40,7 @@ const MaxJobInput = bgjob.MaxInput
 // sent.
 const jobDescription = "Run a shell command in the background, where bash runs, and come back to it later: builds, tests, servers, downloads. " +
 	"start returns a job id; list shows this chat's jobs; read returns new output; input writes to its standard input; kill stops it. " +
-	"A job ends after 2h. To be woken when it exits, prints something or goes quiet, use wait_for with job. Show the person the command you start."
+	"A job ends after 2h. Run a server as the job itself, never with &: what a command leaves in the background may be killed when the command returns. To be woken when it exits, prints something or goes quiet, use wait_for with job. Show the person the command you start."
 
 const jobSchema = `{"type":"object","properties":{` +
 	`"action":{"type":"string","enum":["start","list","read","input","kill"]},` +
@@ -395,6 +396,10 @@ func (s *Service) runJob(ctx context.Context, a workspace.Actor, args json.RawMe
 			return "Not started: the command contains a NUL byte.", nil
 		case len([]rune(in.Label)) > 80:
 			return "Not started: the label is at most 80 characters.", nil
+		case !contract.ValidJobLabel(strings.TrimSpace(in.Label)):
+			// The label is shown to the person and kept in the chat record: no
+			// line breaks, control or direction characters.
+			return "Not started: the label must be one line of plain text.", nil
 		}
 		call.Command, call.Label = in.Command, strings.TrimSpace(in.Label)
 		if call.Label == "" {
@@ -698,7 +703,7 @@ func (b *hostJobBackend) start(ctx context.Context, a workspace.Actor, c JobCall
 	if b.hj == nil {
 		return JobResult{Text: "Not started: this server cannot run commands."}, nil
 	}
-	outcome, refusal, err := b.s.approveHostExec(ctx, a, c.Command)
+	outcome, refusal, err := b.s.approveHostExecNote(ctx, a, c.Command, jobCardNote)
 	if err != nil {
 		return JobResult{}, err
 	}
@@ -712,6 +717,8 @@ func (b *hostJobBackend) start(ctx context.Context, a workspace.Actor, c JobCall
 	case err == nil:
 	case errors.As(err, &le):
 		return JobResult{Text: "Not started: " + le.Error() + "."}, nil
+	case errors.Is(err, runner.ErrBusyTotal):
+		return JobResult{Text: "Not started: this server runs as many sandboxes as it may; try again later."}, nil
 	case errors.Is(err, runner.ErrBusy):
 		return JobResult{Text: fmt.Sprintf("Not started: you have sandboxes with work in %d chats; end a job in another chat first.", runner.DefaultPerUser)}, nil
 	case errors.Is(err, hostexec.ErrScoped):
@@ -722,7 +729,7 @@ func (b *hostJobBackend) start(ctx context.Context, a workspace.Actor, c JobCall
 		return JobResult{}, err
 	}
 	session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: outcome})
-	text := fmt.Sprintf("Started job %s (%q) %s. It ends after 2h at the latest. Read it with job read; to be woken when it ends, use wait_for with job %q and until \"exit\". Show the person this command:\n",
+	text := fmt.Sprintf("Started job %s (%q) %s. It ends after 2h at the latest. Read it with job read; to be woken when it ends, use wait_for with job %q and until \"exit\". The person's approval of this start also covers the input you write to the job with job input: it needs no approval of its own. Show the person this command:\n",
 		in.ID, in.Label, jobWhere(BuiltinProvider), in.ID)
 	f := fenceOf(c.Command)
 	text += f + "\n" + c.Command + "\n" + f
@@ -808,6 +815,8 @@ func (b *hostJobBackend) act(ctx context.Context, a workspace.Actor, c JobCall) 
 		return JobResult{Text: "Not written: only the chat that started " + st.ID + " may write to it."}, nil
 	case errors.Is(err, bgjob.ErrInputTimeout):
 		return JobResult{Text: "Not written: " + st.ID + " does not read its input right now."}, nil
+	case errors.Is(err, bgjob.ErrInputClosed):
+		return JobResult{Text: fmt.Sprintf("The input of %s is closed.", st.ID)}, nil
 	case bgjob.Gone(err):
 		if st.State.Finished() {
 			return JobResult{Text: fmt.Sprintf("%s %q: %s. Its output is no longer kept.", st.ID, st.Label, endText(st))}, nil

@@ -130,6 +130,10 @@ func jobScript(_ workspace.Actor, text string) []studiotest.ToolStep {
 		return call(map[string]any{"action": f[0], "id": f[1]})
 	case "input":
 		return call(map[string]any{"action": "input", "id": f[1], "input": strings.Join(f[2:], " ") + "\n"})
+	case "closeinput":
+		return call(map[string]any{"action": "input", "id": f[1], "input": "bye\n", "close_input": true})
+	case "startlabel":
+		return call(map[string]any{"action": "start", "label": "a\nb\u202eX", "command": "true"})
 	case "inputbig":
 		return call(map[string]any{"action": "input", "id": f[1], "input": strings.Repeat("x", 2001)})
 	case "bash":
@@ -303,6 +307,23 @@ var _ = Describe("the job tool", func() {
 			Eventually(got).Should(Receive(Equal("yes please\n")))
 		})
 
+		It("says the input is closed after close_input, not that the job has ended", func() {
+			c := newJobChat("on", nil)
+			id := create(c.svc, bob)
+			c.say(bob, id, "start t run")
+			job := c.stubs(bob, id)[0].ID
+			go func() { _, _ = io.Copy(io.Discard, c.host.stdin(job)) }()
+			Expect(c.say(bob, id, "closeinput "+job)).To(Equal("Wrote 4 bytes to " + job + "."))
+			Expect(c.say(bob, id, "input "+job+" more")).To(Equal("The input of " + job + " is closed."))
+		})
+
+		It("refuses a label with a line break or a direction character", func() {
+			c := newJobChat("on", nil)
+			id := create(c.svc, bob)
+			Expect(c.say(bob, id, "startlabel x")).To(Equal("Not started: the label must be one line of plain text."))
+			Expect(c.stubs(bob, id)).To(BeEmpty())
+		})
+
 		It("kills with term and says so; a second call on the ended job says it has ended", func() {
 			c := newJobChat("on", nil)
 			id := create(c.svc, bob)
@@ -373,13 +394,15 @@ var _ = Describe("the job tool", func() {
 				for ev := range events {
 					if ev.Kind == session.KindHostExecConsent {
 						cards++
-						Expect(ev.Text).To(Equal("sleep 9"))
+						Expect(ev.Text).To(HavePrefix("sleep 9\n"))
+						Expect(ev.Text).To(ContainSubstring("takes input from the model without a further approval"))
 						Expect(c.svc.HostExecDecide(context.Background(), alice, id, ev.IDs[0], studio.HostExecOnce)).To(Succeed())
 					}
 				}
 			}()
 			out := c.say(alice, id, "start t sleep 9")
 			Expect(out).To(HavePrefix("Started job"))
+			Expect(out).To(ContainSubstring("approval of this start also covers the input"))
 			job := c.stubs(alice, id)[0].ID
 			c.say(alice, id, "input "+job+" yes")
 			Expect(cards).To(Equal(1), "the approval of the start covers the input")

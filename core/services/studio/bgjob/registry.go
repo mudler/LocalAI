@@ -30,6 +30,10 @@ const (
 	Retention = 30 * time.Minute
 	// KeepFinished is the most finished jobs a chat keeps.
 	KeepFinished = 16
+	// KeepFinishedTotal is the most finished jobs the process keeps, whatever
+	// their chats. A ring holds up to 2 x 256 KiB, so the cap bounds the
+	// memory of finished jobs to about 64 MiB however many chats end jobs.
+	KeepFinishedTotal = 128
 	// KillGrace is the wait between a polite signal and SIGKILL.
 	KillGrace = 10 * time.Second
 	// SweepEvery is how often a process checks the end conditions of its jobs.
@@ -74,6 +78,10 @@ func (e *EndedError) Error() string { return "bgjob: the job has ended" }
 // ErrForbidden says the caller may not do that to the job: a parent chat may
 // read and kill the jobs of its sub-agents, never write to them.
 var ErrForbidden = errors.New("bgjob: not allowed for this chat")
+
+// ErrInputClosed says the input of the job was closed with close_input: it
+// takes no more.
+var ErrInputClosed = errors.New("bgjob: the input of the job is closed")
 
 // ErrInputTimeout says the child did not read its input in time.
 var ErrInputTimeout = errors.New("bgjob: the job did not read its input")
@@ -193,6 +201,11 @@ var _ Observer = (*Registry)(nil)
 // Lifetime is how long a job of this registry may run.
 func (r *Registry) Lifetime() time.Duration { return r.o.Lifetime }
 
+// KillGrace is the wait between a polite signal and SIGKILL. The owner of a
+// job's process gives its context the lifetime plus this grace, so the polite
+// signal of the sweep comes before the hard stop of the context.
+func (r *Registry) KillGrace() time.Duration { return r.o.KillGrace }
+
 // Spec describes a job to reserve.
 type Spec struct {
 	Owner, Chat string
@@ -213,9 +226,10 @@ type Job struct {
 	// stdin is an OS pipe, not an io.Pipe: a child that is given a plain
 	// reader gets a copying goroutine that nothing can stop when the child
 	// ends, and its Wait would never return.
-	inMu   sync.Mutex
-	stdinR *os.File
-	stdinW *os.File
+	inMu     sync.Mutex
+	stdinR   *os.File
+	stdinW   *os.File
+	inClosed bool // close_input ran; guarded by inMu
 
 	mu      sync.Mutex
 	info    Info
@@ -382,6 +396,26 @@ func (j *Job) Fail() {
 	j.r.changed(info)
 }
 
+// Abandon says the job never began and leaves no trace: it frees the slot and
+// the pipes, drops the job from the registry and does not call Changed. Use it
+// for a start that was refused before any process or stub existed (a busy
+// sandbox, a failure to get one ready); Fail is for a start that began.
+func (j *Job) Abandon() {
+	j.mu.Lock()
+	if j.info.State.Finished() || j.info.State != StateStarting {
+		j.mu.Unlock()
+		return
+	}
+	j.info.State, j.info.End, j.info.Ended = StateFailed, EndStartFailed, j.r.o.Now()
+	id := j.info.ID
+	j.mu.Unlock()
+	_ = j.stdinW.Close()
+	_ = j.stdinR.Close()
+	close(j.exited)
+	close(j.done)
+	j.r.drop(id)
+}
+
 // wait follows the process to its end.
 func (j *Job) wait() {
 	code, err := j.proc.Wait()
@@ -510,6 +544,12 @@ func (j *Job) Kill(reason EndReason, sig syscall.Signal) error {
 // closeInput is set. The write waits at most InputTimeout, so a child that
 // does not read cannot hold a turn.
 func (j *Job) Input(text string, closeInput bool) (int, error) {
+	return j.input(text, closeInput, 0)
+}
+
+// input is Input with a shorter wait: timeout is used when it is above zero
+// and below InputTimeout.
+func (j *Job) input(text string, closeInput bool, timeout time.Duration) (int, error) {
 	j.mu.Lock()
 	if j.info.State.Finished() {
 		info := j.infoLocked()
@@ -519,11 +559,18 @@ func (j *Job) Input(text string, closeInput bool) (int, error) {
 	j.mu.Unlock()
 	j.inMu.Lock()
 	defer j.inMu.Unlock()
-	_ = j.stdinW.SetWriteDeadline(time.Now().Add(j.r.o.InputTimeout))
+	if j.inClosed {
+		return 0, ErrInputClosed
+	}
+	if timeout <= 0 || timeout > j.r.o.InputTimeout {
+		timeout = j.r.o.InputTimeout
+	}
+	_ = j.stdinW.SetWriteDeadline(time.Now().Add(timeout))
 	n, err := j.stdinW.Write([]byte(text))
 	switch {
 	case err == nil:
 		if closeInput {
+			j.inClosed = true
 			_ = j.stdinW.Close()
 		}
 		return n, nil
@@ -541,6 +588,17 @@ func (r *Registry) changed(in Info) {
 	}
 }
 
+// visibleTo tells whether the chat of the owner started the job, or started
+// the sub-agent that did when parentOK is set. An empty owner or chat sees
+// nothing, and an empty Parent is no parent: a request without them must not
+// match every top-level job.
+func (j *Job) visibleTo(owner, chat string, parentOK bool) bool {
+	if owner == "" || chat == "" || j.info.Owner != owner {
+		return false
+	}
+	return j.info.Chat == chat || parentOK && j.info.Parent != "" && j.info.Parent == chat
+}
+
 func (r *Registry) find(owner, chat, id string, parentOK bool) *Job {
 	r.mu.Lock()
 	j := r.jobs[id]
@@ -550,7 +608,7 @@ func (r *Registry) find(owner, chat, id string, parentOK bool) *Job {
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	if j.info.Owner != owner || j.info.Chat != chat && !(parentOK && j.info.Parent == chat) {
+	if !j.visibleTo(owner, chat, parentOK) {
 		return nil
 	}
 	return j
@@ -624,6 +682,9 @@ func (r *Registry) Read(_ context.Context, q ReadRequest) (Observation, error) {
 
 // List implements Observer.
 func (r *Registry) List(_ context.Context, owner, chat string) ([]Info, error) {
+	if owner == "" || chat == "" {
+		return nil, nil
+	}
 	r.mu.Lock()
 	all := make([]*Job, 0, len(r.jobs))
 	for _, j := range r.jobs {
@@ -633,7 +694,7 @@ func (r *Registry) List(_ context.Context, owner, chat string) ([]Info, error) {
 	var out []Info
 	for _, j := range all {
 		in := j.Info()
-		if in.Owner == owner && (in.Chat == chat || in.Parent == chat) {
+		if in.Owner == owner && (in.Chat == chat || in.Parent != "" && in.Parent == chat) {
 			out = append(out, in)
 		}
 	}
@@ -653,6 +714,10 @@ func (r *Registry) List(_ context.Context, owner, chat string) ([]Info, error) {
 // Input writes to a job that the chat itself started. A parent chat gets
 // ErrForbidden.
 func (r *Registry) Input(owner, chat, id, text string, closeInput bool) (int, error) {
+	return r.input(owner, chat, id, text, closeInput, 0)
+}
+
+func (r *Registry) input(owner, chat, id, text string, closeInput bool, timeout time.Duration) (int, error) {
 	j := r.find(owner, chat, id, true)
 	if j == nil {
 		return 0, ErrUnknown
@@ -660,7 +725,7 @@ func (r *Registry) Input(owner, chat, id, text string, closeInput bool) (int, er
 	if j.Info().Chat != chat {
 		return 0, ErrForbidden
 	}
-	n, err := j.Input(text, closeInput)
+	n, err := j.input(text, closeInput, timeout)
 	if err == nil && r.o.Audit != nil {
 		r.o.Audit(AuditEvent{Kind: AuditInput, Info: j.Info(), Text: text[:min(len(text), n)]})
 	}
@@ -693,6 +758,9 @@ func sigName(s syscall.Signal) string {
 // EndChat ends every live job started by the chat, and by its sub-agents when
 // children is set.
 func (r *Registry) EndChat(owner, chat string, reason EndReason) int {
+	if owner == "" || chat == "" {
+		return 0
+	}
 	r.mu.Lock()
 	all := make([]*Job, 0, len(r.jobs))
 	for _, j := range r.jobs {
@@ -702,7 +770,7 @@ func (r *Registry) EndChat(owner, chat string, reason EndReason) int {
 	n := 0
 	for _, j := range all {
 		in := j.Info()
-		if in.Owner != owner || in.State.Finished() || in.Chat != chat && in.Parent != chat {
+		if in.Owner != owner || in.State.Finished() || in.Chat != chat && (in.Parent == "" || in.Parent != chat) {
 			continue
 		}
 		j.End(reason)
@@ -768,12 +836,20 @@ func (r *Registry) Sweep(ctx context.Context) {
 			}
 		}
 	}
+	var kept []*Job
 	for _, list := range finished {
-		if len(list) <= r.o.KeepFinished {
-			continue
-		}
 		slices.SortFunc(list, func(a, b *Job) int { return b.Info().Ended.Compare(a.Info().Ended) })
-		for _, j := range list[r.o.KeepFinished:] {
+		if len(list) > r.o.KeepFinished {
+			for _, j := range list[r.o.KeepFinished:] {
+				r.drop(j.Info().ID)
+			}
+			list = list[:r.o.KeepFinished]
+		}
+		kept = append(kept, list...)
+	}
+	if len(kept) > KeepFinishedTotal {
+		slices.SortFunc(kept, func(a, b *Job) int { return b.Info().Ended.Compare(a.Info().Ended) })
+		for _, j := range kept[KeepFinishedTotal:] {
 			r.drop(j.Info().ID)
 		}
 	}

@@ -131,8 +131,10 @@ func (r *Runner) StartJob(ctx context.Context, s JobSpec) (bgjob.Info, error) {
 	release, err := r.m.StartJob(ctx, req,
 		func(sb sandbox.Sandbox) (bgjob.EndFunc, error) {
 			// The process must not die with the call that starts it.
-			pctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.jobs.Lifetime())
-			proc, err := sb.Exec(pctx, sandbox.Cmd{Args: []string{"bash", "-lc", s.Command}, Dir: runner.GuestHome, Stdin: job.Stdin(), Stdout: job.Output(), Stderr: job.Output()})
+			// The lifetime ends the job with a polite signal first (the sweep), so
+			// the hard stop of the context comes one grace later.
+			pctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.jobs.Lifetime()+r.jobs.KillGrace())
+			proc, err := sb.Exec(pctx, sandbox.Cmd{Args: []string{"bash", "-lc", s.Command}, Dir: runner.GuestHome, Job: true, Stdin: job.Stdin(), Stdout: job.Output(), Stderr: job.Output()})
 			if err != nil {
 				cancel()
 				return nil, err
@@ -141,7 +143,8 @@ func (r *Runner) StartJob(ctx context.Context, s JobSpec) (bgjob.Info, error) {
 			return job.End, nil
 		})
 	if err != nil {
-		job.Fail()
+		// No process ever ran and no stub exists: leave no failed entry.
+		job.Abandon()
 		return bgjob.Info{}, err
 	}
 	released <- release

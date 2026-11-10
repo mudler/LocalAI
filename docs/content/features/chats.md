@@ -1049,7 +1049,8 @@ curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
   sub-agent's transcript, read from the store, so the wait pins no node and
   works from any frontend. One long tool call counts as quiet until it ends.
   The wake-up gives the last row, or the state and the last answer of a
-  sub-agent that finished. `match` is refused. The loops list and its API
+  sub-agent that finished; that wake-up is the report of the end, so the
+  parent does not also get the "Sub-agent finished" message. `match` is refused. The loops list and its API
   name the source `agent` with the id of the sub-agent.
 - **Jobs of a sub-agent.** A sub-agent has the `job` tool exactly when it has
   `bash`, under the same rules: a host job only when commands on this machine
@@ -1177,7 +1178,7 @@ one tool with an `action`:
 
 | Action | What it does |
 |---|---|
-| `start` | Runs `command` with bash in the background, where `bash` runs. It returns a job id such as `job-4k2x7q` and shows the command to you. `label` is a short name for the list. |
+| `start` | Runs `command` with bash in the background, where `bash` runs. It returns a job id such as `job-4k2x7q` and shows the command to you. `label` is a short name for the list: one line of plain text, at most 80 characters. |
 | `list` | One line per job of the chat, running first: state, run time, time since the last output, bytes. It never shows the command. |
 | `read` | Returns the output since `since` (a byte offset from the start of the job; default: where the last read ended), at most `max_bytes` (default 16 KiB, at most 64 KiB). The text says where the next read starts. |
 | `input` | Writes up to 2000 bytes to the job's standard input; `close_input` closes it. |
@@ -1188,7 +1189,8 @@ the same switch (the shell group of the chat's tools) turns both off. A chat
 whose `bash` the Sandbox serves never runs a job on this machine. In mode `ask`
 for [commands on this machine](#commands-on-this-machine), `start` shows the
 same card as `bash`, with the whole command, and the approval of the start
-covers the input of that job: no card per input. Input is still refused when
+covers the input of that job: no card per input. The card says so under the
+command, and so does the answer of `start`. Input is still refused when
 the chat could not run a command now, and every start, input and kill of a job
 on this machine is written to the audit of the commands.
 
@@ -1197,10 +1199,19 @@ and one ring of the last 256 KiB of its output (standard output and error
 together). Output that the ring dropped is reported as lost bytes. The output
 the model reads is data, not an instruction.
 
+A job on this machine owns its process group: when the main process of the job
+returns, what it left running in the background is killed too, so
+`job start "./server &"` ends at once. Start a server as the main process of
+the job (`./server`). The same holds when the job is stopped, at its lifetime
+and when the server stops. If the server stops without cleaning up, the next
+start of the built-in bash kills the groups that the earlier run recorded.
+Once `close_input` closed the input of a job, a later `input` says that the
+input is closed.
+
 **Limits.** 4 running jobs per chat, 8 per user, 32 per server, each for at most
 2 hours. The server counts the jobs that run on it and the Sandbox add-on
 counts its own, so the jobs on this machine and the jobs in the Sandbox have
-separate limits. The jobs of sub-agents count for the user. A finished job stays readable for 30 minutes (at most 16 per chat). A
+separate limits. The jobs of sub-agents count for the user. A finished job stays readable for 30 minutes (at most 16 per chat and 128 per server). A
 job ends when it exits, when the model or you stop it, at its lifetime, when
 the chat is deleted, when the shell tools are switched off for the chat or the
 administrator switches commands off (within 30 seconds), when the chat's agent

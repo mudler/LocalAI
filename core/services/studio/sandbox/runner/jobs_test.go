@@ -45,7 +45,9 @@ type jobRig struct {
 	n    int
 }
 
-func newJobRig(perUser int) *jobRig {
+func newJobRig(perUser int) *jobRig { return newJobRigTotal(perUser, 0) }
+
+func newJobRigTotal(perUser, total int) *jobRig {
 	r := &jobRig{ctx: context.Background(), st: sbtest.OpenStore(), now: time.Now(), mode: workspace.ModeWrite}
 	_, err := r.st.Put(r.ctx, admin, "/users/alice/in.txt", strings.NewReader("inside\n"), workspace.PutOptions{})
 	Expect(err).NotTo(HaveOccurred())
@@ -64,6 +66,7 @@ func newJobRig(perUser int) *jobRig {
 			return r.st.View(ctx, a, []workspace.MountRequest{{Path: "/users/alice", At: "home", Mode: mode}})
 		},
 		PerUser:   perUser,
+		Total:     total,
 		IdleAfter: time.Minute,
 		MaxAge:    24 * time.Hour,
 		Now:       r.clock,
@@ -178,6 +181,18 @@ var _ = Describe("background jobs on a sandbox entry", func() {
 			Expect(a.ended()).To(BeEmpty())
 			Expect(b.ended()).To(BeEmpty())
 			Expect(r.m.Count("alice")).To(Equal(2))
+		})
+	})
+
+	Describe("the server total", func() {
+		It("refuses with its own error when every sandbox of the server has a job", func() {
+			r := newJobRigTotal(4, 2)
+			a, b := r.job("c1"), r.job("c2")
+			_, err := r.bash("c3", "true")
+			Expect(err).To(MatchError(runner.ErrBusyTotal))
+			Expect(errors.Is(err, runner.ErrBusy)).To(BeTrue(), "a caller that ignores the difference still works")
+			Expect(a.ended()).To(BeEmpty())
+			Expect(b.ended()).To(BeEmpty())
 		})
 	})
 

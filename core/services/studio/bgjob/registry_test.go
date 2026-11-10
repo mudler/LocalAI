@@ -297,6 +297,16 @@ var _ = Describe("Registry", func() {
 			Expect(err).To(MatchError(bgjob.ErrInputTimeout))
 		})
 
+		It("says the input is closed after close_input, also over the carrier", func() {
+			j := start("alice", "c1", newProc())
+			_, err := reg.Input("alice", "c1", j.ID(), "last\n", true)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = reg.Input("alice", "c1", j.ID(), "more\n", false)
+			Expect(err).To(MatchError(bgjob.ErrInputClosed))
+			rep := reg.Handle(ctx, bgjob.Request{Action: bgjob.ActionInput, Owner: "alice", Chat: "c1", ID: j.ID(), Input: "x"})
+			Expect(rep.Err()).To(MatchError(bgjob.ErrInputClosed))
+		})
+
 		It("says a finished job has ended", func() {
 			p := newProc()
 			j := start("alice", "c1", p)
@@ -306,6 +316,66 @@ var _ = Describe("Registry", func() {
 			var ended *bgjob.EndedError
 			Expect(errors.As(err, &ended)).To(BeTrue())
 			Expect(ended.Info.Exit).To(Equal(0))
+		})
+	})
+
+	Describe("a request without an owner or a chat", func() {
+		It("matches no top-level job and ends none", func() {
+			j := start("alice", "c1", newProc())
+			sub, _ := reg.Reserve(bgjob.Spec{Owner: "alice", Chat: "sub", Parent: "c1"})
+			sub.Run(newProc(), func() {}, nil)
+			for _, who := range [][2]string{{"alice", ""}, {"", "c1"}, {"", ""}} {
+				_, err := reg.Observe(ctx, bgjob.ObserveRequest{Owner: who[0], Chat: who[1], ID: j.ID()})
+				Expect(err).To(MatchError(bgjob.ErrUnknown), "%q", who)
+				l, _ := reg.List(ctx, who[0], who[1])
+				Expect(l).To(BeEmpty(), "%q", who)
+				Expect(reg.EndChat(who[0], who[1], bgjob.EndChatDeleted)).To(BeZero(), "%q", who)
+				_, err = reg.Kill(who[0], who[1], j.ID(), bgjob.EndKilled, syscall.SIGTERM)
+				Expect(err).To(MatchError(bgjob.ErrUnknown), "%q", who)
+				rep := reg.Handle(ctx, bgjob.Request{Action: bgjob.ActionList, Owner: who[0], Chat: who[1]})
+				Expect(rep.List).To(BeEmpty(), "%q", who)
+			}
+			Expect(j.Info().State).To(Equal(bgjob.StateRunning))
+			// A top-level job has no parent: the parent match needs one.
+			l, _ := reg.List(ctx, "alice", "c1")
+			Expect(l).To(HaveLen(2))
+		})
+	})
+
+	Describe("the global cap of finished jobs", func() {
+		It("drops the oldest finished jobs beyond the total, whatever their chats", func() {
+			var all []*bgjob.Job
+			for i := range bgjob.KeepFinishedTotal + 10 {
+				p := newProc()
+				j := start("alice", "chat"+string(rune('A'+i%26))+string(rune('a'+i/26)), p)
+				p.finish(0, nil)
+				finished(j)
+				clk.Add(time.Second)
+				all = append(all, j)
+			}
+			reg.Sweep(ctx)
+			var left int
+			for _, j := range all {
+				if _, err := reg.Observe(ctx, bgjob.ObserveRequest{Owner: "alice", Chat: j.Info().Chat, ID: j.ID()}); err == nil {
+					left++
+				}
+			}
+			Expect(left).To(Equal(bgjob.KeepFinishedTotal))
+			_, err := reg.Observe(ctx, bgjob.ObserveRequest{Owner: "alice", Chat: all[0].Info().Chat, ID: all[0].ID()})
+			Expect(err).To(MatchError(bgjob.ErrUnknown), "the oldest went first")
+		})
+	})
+
+	Describe("a start that never began", func() {
+		It("is dropped without a state change", func() {
+			j, err := reg.Reserve(bgjob.Spec{Owner: "alice", Chat: "c1"})
+			Expect(err).NotTo(HaveOccurred())
+			j.Abandon()
+			Expect(changes).To(BeEmpty())
+			l, _ := reg.List(ctx, "alice", "c1")
+			Expect(l).To(BeEmpty())
+			chatN, _, _ := reg.Counts("alice", "c1")
+			Expect(chatN).To(BeZero())
 		})
 	})
 

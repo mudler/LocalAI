@@ -65,6 +65,7 @@ const (
 	CodeEnded     = "ended"
 	CodeForbidden = "forbidden"
 	CodeTimeout   = "input_timeout"
+	CodeClosed    = "input_closed"
 	CodeBad       = "bad"
 )
 
@@ -81,7 +82,7 @@ type Reply struct {
 }
 
 // Err turns a failing Reply back into the error the registry returned:
-// ErrUnknown, *EndedError, ErrForbidden, ErrInputTimeout, or a plain error.
+// ErrUnknown, *EndedError, ErrForbidden, ErrInputTimeout, ErrInputClosed, or a plain error.
 func (r Reply) Err() error {
 	switch r.Code {
 	case "":
@@ -98,6 +99,8 @@ func (r Reply) Err() error {
 		return ErrForbidden
 	case CodeTimeout:
 		return ErrInputTimeout
+	case CodeClosed:
+		return ErrInputClosed
 	}
 	return fmt.Errorf("bgjob: the node refused the request: %s", r.Message)
 }
@@ -113,6 +116,8 @@ func errReply(err error) Reply {
 		return Reply{Code: CodeForbidden}
 	case errors.Is(err, ErrInputTimeout):
 		return Reply{Code: CodeTimeout}
+	case errors.Is(err, ErrInputClosed):
+		return Reply{Code: CodeClosed}
 	}
 	return Reply{Code: CodeBad, Message: err.Error()}
 }
@@ -133,6 +138,18 @@ func ParseSignal(s string) (syscall.Signal, bool) {
 // Handle answers one request against this registry. It is what the carrier
 // serves and what a call in the same process uses, so both behave alike.
 func (r *Registry) Handle(ctx context.Context, q Request) Reply {
+	return r.handle(ctx, q, 0)
+}
+
+// RemoteInputWait is how long an input that came over the carrier waits for a
+// child that does not read. It is below AskTimeout, so the node answers
+// before the asker gives up: a retry of an input the asker never saw answered
+// would write it twice. The bus also hands a node one request at a time per
+// subscription, so the wait is kept short: a stalled input delays the next
+// ask to the node by at most this long.
+const RemoteInputWait = AskTimeout - 500*time.Millisecond
+
+func (r *Registry) handle(ctx context.Context, q Request, inputWait time.Duration) Reply {
 	switch q.Action {
 	case ActionList:
 		l, err := r.List(ctx, q.Owner, q.Chat)
@@ -156,7 +173,7 @@ func (r *Registry) Handle(ctx context.Context, q Request) Reply {
 		if len(q.Input) > MaxInput {
 			return Reply{Code: CodeBad, Message: "input is longer than the most one call may write"}
 		}
-		n, err := r.Input(q.Owner, q.Chat, q.ID, q.Input, q.CloseInput)
+		n, err := r.input(q.Owner, q.Chat, q.ID, q.Input, q.CloseInput, inputWait)
 		if err != nil {
 			return errReply(err)
 		}
@@ -231,7 +248,7 @@ func (r *Router) Serve() (func(), error) {
 	if r.Carrier == nil || r.Self == "" || r.Local == nil {
 		return func() {}, nil
 	}
-	return r.Carrier.Serve(r.Self, func(q Request) Reply { return r.Local.Handle(context.Background(), q) })
+	return r.Carrier.Serve(r.Self, func(q Request) Reply { return r.Local.handle(context.Background(), q, RemoteInputWait) })
 }
 
 // Do runs req on the node named by instance. The error is a failure to ask
