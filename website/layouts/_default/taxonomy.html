@@ -1,17 +1,15 @@
 {{ define "main" }}
-<main id="top">
-  <section class="navy">
-    <div class="shell">
-      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-      <p class="kicker">Tags</p>
-      <h2 class="mt1">Everything we have written about</h2>
-      <div class="chips mt2">
-        {{ range .Data.Terms.Alphabetical }}
-        <a href="{{ .Page.RelPermalink }}"><span>{{ .Page.Title }} ({{ .Count }})</span></a>
-        {{ end }}
-      </div>
-      <p class="mt3"><a class="btn btn--o" href="{{ "blog/" | relURL }}">All posts &#8594;</a></p>
-    </div>
-  </section>
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="crumb"><a href="{{ "blog/" | relURL }}">Blog</a> / Tags</p>
+  <h1>Every <span class="hl">tag</span>.</h1>
+  <p class="lede">Browse the posts by subject.</p>
+</div></header>
+<section><div class="shell">
+  <ul class="tagrow">
+    {{ range .Data.Terms.Alphabetical }}<li><a class="chip" href="{{ .Page.RelPermalink }}">{{ .Page.Title }} ({{ .Count }})</a></li>{{ end }}
+  </ul>
+  <p class="mt-s"><a class="btn btn--o" href="{{ "blog/" | relURL }}">All posts</a></p>
+</div></section>
 </main>
 {{ end }}

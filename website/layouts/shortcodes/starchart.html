@@ -1,6 +1,6 @@
-{{- $pts := .Site.Data.stars -}}
-{{- $marks := .Site.Data.milestones -}}
-{{- $meta := .Site.Data.starsmeta -}}
+{{- $pts := hugo.Data.stars -}}
+{{- $marks := hugo.Data.milestones -}}
+{{- $meta := hugo.Data.starsmeta -}}
 {{- $last := index $pts (sub (len $pts) 1) -}}
 <figure class="sc" role="group" aria-labelledby="sc-title" aria-describedby="sc-desc">
   <figcaption class="sc__head">
@@ -16,16 +16,16 @@
     <svg class="sc__svg" viewBox="0 0 900 340" preserveAspectRatio="none" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id="scFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#5FCDE4" stop-opacity=".22"/>
-          <stop offset="100%" stop-color="#5FCDE4" stop-opacity="0"/>
+          <stop offset="0%" stop-color="currentColor" stop-opacity=".22"/>
+          <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
         </linearGradient>
       </defs>
       <g class="sc__grid"></g>
       <g class="sc__marks"></g>
       <path class="sc__area" fill="url(#scFill)"></path>
-      <path class="sc__line" fill="none" stroke="#5FCDE4" stroke-width="2"
+      <path class="sc__line" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
-      <path class="sc__est" fill="none" stroke="#5FCDE4" stroke-width="2" stroke-dasharray="3 5"
+      <path class="sc__est" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"
             stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
       <g class="sc__cursor" hidden>
         <line class="sc__cross" y1="0" y2="340"></line>
