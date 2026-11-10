@@ -424,12 +424,15 @@ func (rig *switchRig) reports(nodeID string) {
 }
 
 type switchReplica struct {
-	rig       *switchRig
-	id        string
-	url       string
-	tunnels   *tunnel.Registry
-	sessions  *tunnel.PeerSessions
-	pool      *tunnel.PeerPool
+	rig      *switchRig
+	id       string
+	url      string
+	tunnels  *tunnel.Registry
+	sessions *tunnel.PeerSessions
+	pool     *tunnel.PeerPool
+	replies  *tunnel.Replies
+	// held holds every request whose body is "hold" until a spec closes it.
+	held      atomic.Pointer[chan struct{}]
 	cur       atomic.Pointer[carrier.Set]
 	bus       *carrier.Broadcaster
 	commands  *carrier.Commands
@@ -449,6 +452,14 @@ type switchReplica struct {
 }
 
 func (r *switchReplica) active() cluster.Carrier { return r.cur.Load().Name }
+
+// release lets the held requests answer, and rehold holds the next ones.
+func (r *switchReplica) release() { close(*r.held.Load()) }
+
+func (r *switchReplica) rehold() {
+	ch := make(chan struct{})
+	r.held.Store(&ch)
+}
 
 func (r *switchReplica) buildCount(c cluster.Carrier) int {
 	r.mu.Lock()
@@ -513,6 +524,7 @@ func (r *switchReplica) build(ctx context.Context, row cluster.CarrierRow, targe
 			AgentSelector:  nodes.NewAgentSelector(rig.nodeReg, rig.clusterR, r.id),
 			Registry:       rig.nodeReg,
 			InstallTimeout: 30 * time.Second, UpgradeTimeout: 30 * time.Second, Token: registrationToken,
+			Self: r.id, Peers: r.pool, Replies: r.replies,
 		})
 	}
 	return nil, fmt.Errorf("unknown carrier %q", target)
@@ -531,10 +543,12 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	r := &switchReplica{rig: rig, id: id, cancel: cancel, chatter: newTally(),
 		builds: map[cluster.Carrier]int{}, failBuild: map[cluster.Carrier]error{}, holdBuild: map[cluster.Carrier]chan struct{}{}}
 	DeferCleanup(cancel)
+	r.rehold()
 
 	cred := cluster.NewPeerCredential()
 	r.tunnels = tunnel.NewRegistry(rig.clusterR, id)
-	r.sessions = tunnel.NewPeerSessions(tunnel.NewRelay(r.tunnels).Stream)
+	r.replies = tunnel.NewReplies(id, messaging.MaxBroadcastBytes)
+	r.sessions = tunnel.NewPeerSessions(tunnel.NewRelay(r.tunnels, tunnel.WithReplies(r.replies)).Stream)
 	DeferCleanup(r.sessions.Close)
 	r.pool = tunnel.NewPeerPool(id, cred, rig.clusterR)
 	DeferCleanup(r.pool.Close)
@@ -614,6 +628,9 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	_, err = r.bus.Subscribe(messaging.SubjectCarrierChanged, func([]byte) { r.swapper.Wake() })
 	Expect(err).ToNot(HaveOccurred())
 	_, err = r.bus.SubscribeReply(replaySubject(id), func(data []byte, reply func([]byte)) {
+		if string(data) == "hold" {
+			<-*r.held.Load()
+		}
 		reply(append([]byte(id+":"), data...))
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -644,8 +661,23 @@ func (rig *switchRig) row() cluster.CarrierRow {
 // ask sends a request from one replica to the replay subject of another, as a
 // frontend asks the owner of a chat turn for the events it missed.
 func (rig *switchRig) ask(from, to *switchReplica) (string, error) {
-	out, err := from.bus.Request(replaySubject(to.id), []byte("ping"), 2*time.Second)
+	out, err := from.bus.RequestInstance(to.id, replaySubject(to.id), []byte("ping"), 2*time.Second)
 	return string(out), err
+}
+
+// askHeld sends a request that to holds until its held channel is closed, and
+// returns where its answer arrives.
+func (rig *switchRig) askHeld(from, to *switchReplica) <-chan string {
+	answer := make(chan string, 1)
+	go func() {
+		out, err := from.bus.RequestInstance(to.id, replaySubject(to.id), []byte("hold"), 30*time.Second)
+		if err != nil {
+			answer <- "error: " + err.Error()
+			return
+		}
+		answer <- string(out)
+	}()
+	return answer
 }
 
 // mcp sends an MCP tool call from a replica to an agent worker.
@@ -828,12 +860,10 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		GinkgoWriter.Printf("both workers reported the tunnel %s after the commit was seen\n", time.Since(followed))
 
 		// The agent worker followed by itself, and the MCP calls of either replica
-		// reach it over the tunnel. The tunnel has no request and reply between
-		// the replicas, so a request finds nobody and the caller handles it in
-		// its own process.
+		// reach it over the tunnel. Request and reply between the replicas goes
+		// over the peer link.
 		Eventually(func() (string, error) { return rig.mcp(b) }, "20s", "100ms").Should(Equal("ran search"))
-		_, err = rig.ask(a, b)
-		Expect(messaging.IsNoResponders(err)).To(BeTrue(), "%v", err)
+		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"))
 
 		By("letting the install and the load finish where they began")
 		close(w.installGate)
@@ -930,8 +960,14 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		}()
 		Eventually(w.backend.loading, "10s").Should(Receive(Equal("slow")))
 
+		By("holding a request between the replicas on NATS across the change")
+		onNATS := rig.askHeld(a, b)
 		followed := time.Now()
 		change(cluster.CarrierTunnel, false)
+		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "a new request goes over the peer link")
+		b.release()
+		Eventually(onNATS, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight ends on NATS")
+		b.rehold()
 		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "20ms").Should(ContainElement(cluster.CarrierTunnel))
 		GinkgoWriter.Printf("the worker reported the tunnel %s after the change was requested\n", time.Since(followed))
 		close(w.backend.gate)
@@ -947,8 +983,12 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(reply.Success).To(BeTrue())
 		Expect(w.installsOn(cluster.CarrierTunnel)).To(Equal(1))
 
-		By("going back to NATS")
+		By("going back to NATS with a request between the replicas held on the tunnel")
+		onTunnel := rig.askHeld(a, b)
 		change(cluster.CarrierNATS, false)
+		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "a new request goes over NATS")
+		b.release()
+		Eventually(onTunnel, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight ends on the tunnel")
 		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "20ms").Should(ContainElement(cluster.CarrierNATS))
 		drained()
 		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierNATS}))

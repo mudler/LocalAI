@@ -26,6 +26,7 @@ import (
 	clusterapi "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/messaging/messagingtest"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -188,6 +189,7 @@ type replica struct {
 	tunnels  *tunnel.Registry
 	sessions *tunnel.PeerSessions
 	pool     *tunnel.PeerPool
+	replies  *tunnel.Replies
 	set      *carrier.Set
 	active   *atomic.Pointer[carrier.Set]
 
@@ -212,7 +214,8 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	r := &replica{id: id}
 	cred := cluster.NewPeerCredential()
 	r.tunnels = tunnel.NewRegistry(clusterR, id)
-	r.sessions = tunnel.NewPeerSessions(tunnel.NewRelay(r.tunnels).Stream)
+	r.replies = tunnel.NewReplies(id, messaging.MaxBroadcastBytes)
+	r.sessions = tunnel.NewPeerSessions(tunnel.NewRelay(r.tunnels, tunnel.WithReplies(r.replies)).Stream)
 	DeferCleanup(r.sessions.Close)
 	r.pool = tunnel.NewPeerPool(id, cred, clusterR)
 	DeferCleanup(r.pool.Close)
@@ -255,6 +258,9 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 		InstallTimeout: 30 * time.Second,
 		UpgradeTimeout: 30 * time.Second,
 		Token:          registrationToken,
+		Self:           id,
+		Peers:          r.pool,
+		Replies:        r.replies,
 	}
 	for _, t := range tweak {
 		t(&options)
