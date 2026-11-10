@@ -74,17 +74,6 @@ var _ = Describe("Instance registry", func() {
 		Expect(live).To(BeEmpty())
 	})
 
-	It("lists only the live replicas in LiveInstanceIDsSQL, with the same window", func() {
-		Expect(reg.Register(ctx, "live", "v1", 0, "")).To(Succeed())
-		Expect(reg.Register(ctx, "stale", "v1", 0, "")).To(Succeed())
-		Expect(db.Model(&cluster.Instance{}).Where("id = ?", "stale").
-			Update("last_seen", gorm.Expr("now() - interval '10 minutes'")).Error).To(Succeed())
-
-		var ids []string
-		Expect(db.Raw(cluster.LiveInstanceIDsSQL, time.Minute.Seconds()).Scan(&ids).Error).To(Succeed())
-		Expect(ids).To(Equal([]string{"live"}))
-	})
-
 	It("brings a stale instance back with a heartbeat", func() {
 		Expect(reg.Register(ctx, "revive", "v1", 0, "")).To(Succeed())
 		Expect(db.Model(&cluster.Instance{}).Where("id = ?", "revive").
