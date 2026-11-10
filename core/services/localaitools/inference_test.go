@@ -818,6 +818,106 @@ var _ = Describe("list_models", func() {
 			Expect(out.Models[0].Description).To(HaveSuffix("..."))
 		})
 
+		Describe("paging, order and search", func() {
+			names := func(out *localaitools.ModelList) []string {
+				var n []string
+				for _, m := range out.Models {
+					n = append(n, m.Name)
+				}
+				return n
+			}
+			BeforeEach(func() {
+				// 100 lower case chat models and 46 capitalised image
+				// models: byte order would put every capital first.
+				srv.listed = nil
+				for i := 0; i < 100; i++ {
+					srv.listed = append(srv.listed, entry(fmt.Sprintf("m%03d", i), "", "chat"))
+				}
+				for i := 0; i < 46; i++ {
+					srv.listed = append(srv.listed, entry(fmt.Sprintf("Img-%02d", i), "", "image"))
+				}
+			})
+
+			DescribeTable("pages",
+				func(offset, limit, wantFirstN int, wantReturned, wantMore int, wantHint string) {
+					out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Offset: offset, Limit: limit})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(out.Total).To(Equal(146))
+					Expect(out.Offset).To(Equal(offset))
+					Expect(out.Returned).To(Equal(wantReturned))
+					Expect(out.Models).To(HaveLen(wantReturned))
+					Expect(out.More).To(Equal(wantMore))
+					if wantHint == "" {
+						Expect(out.Hint).To(BeEmpty())
+					} else {
+						Expect(out.Hint).To(ContainSubstring(wantHint))
+					}
+					_ = wantFirstN
+				},
+				Entry("first page", 0, 0, 0, 60, 86, "showing 1-60 of 146; call list_models again with offset=60 to continue, or pass capability or query to narrow"),
+				Entry("middle page", 60, 0, 0, 60, 26, "showing 61-120 of 146; call list_models again with offset=120"),
+				Entry("last page", 120, 0, 0, 26, 0, ""),
+				Entry("past the end", 500, 0, 0, 0, 0, "offset 500 is past the end: 146 models match"),
+				Entry("small limit", 10, 5, 0, 5, 131, "showing 11-15 of 146; call list_models again with offset=15"),
+				Entry("limit above the maximum", 0, 1000, 0, 60, 86, "offset=60"),
+			)
+
+			It("sorts without regard to case, so the same name family stays together", func() {
+				srv.listed = []map[string]any{
+					entry("zed", "", "chat"), entry("Qwen-Image-2.1-Turbo", "", "image"),
+					entry("qwen-image-2.1", "", "image"), entry("Alpha", "", "chat"), entry("beta", "", "chat"),
+					entry("QWEN-image-2.1", "", "image"),
+				}
+				out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(names(out)).To(Equal([]string{"Alpha", "beta", "QWEN-image-2.1", "qwen-image-2.1", "Qwen-Image-2.1-Turbo", "zed"}))
+			})
+
+			It("reaches a lower case name that byte order would hide", func() {
+				out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Offset: 0, Limit: 60})
+				Expect(err).ToNot(HaveOccurred())
+				// Img-00 sorts with the "i" names, after m-less names do not exist,
+				// so both kinds appear on the first page only by name order.
+				Expect(names(out)[0]).To(Equal("Img-00"))
+				out, err = cl.ListModels(ctx, localaitools.ListModelsRequest{Offset: 120})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(names(out)[len(out.Models)-1]).To(Equal("m099"))
+			})
+
+			It("filters by query on the name or the description, in any case", func() {
+				srv.listed = []map[string]any{
+					entry("Qwen-Image", "", "image"), entry("flux", "Draws with QWEN style.", "image"), entry("asr", "", "transcript"),
+				}
+				out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Query: " qwen "})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(names(out)).To(Equal([]string{"flux", "Qwen-Image"}))
+				Expect(out.Total).To(Equal(2))
+				out, err = cl.ListModels(ctx, localaitools.ListModelsRequest{Query: "nothing"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out.Models).To(BeEmpty())
+				Expect(out.Hint).To(ContainSubstring(`no model matches query "nothing"`))
+			})
+
+			It("pages inside a capability filter", func() {
+				out, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Capability: "image", Offset: 40})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out.Total).To(Equal(46))
+				Expect(out.Returned).To(Equal(6))
+				Expect(out.Hint).To(BeEmpty())
+				out, err = cl.ListModels(ctx, localaitools.ListModelsRequest{Capability: "chat", Limit: 30})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out.Total).To(Equal(100))
+				Expect(out.Hint).To(ContainSubstring("showing 1-30 of 100; call list_models again with offset=30"))
+			})
+
+			It("refuses a negative offset or limit", func() {
+				_, err := cl.ListModels(ctx, localaitools.ListModelsRequest{Offset: -1})
+				Expect(err).To(HaveOccurred())
+				_, err = cl.ListModels(ctx, localaitools.ListModelsRequest{Limit: -1})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		It("sends the key, and reports a refusal of the server", func() {
 			_, err := cl.ListModels(ctx, localaitools.ListModelsRequest{})
 			Expect(err).ToNot(HaveOccurred())

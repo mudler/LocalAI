@@ -13,7 +13,7 @@ A file argument is a reference: a path in the user's files, or the `ref` that an
 
 ## Tools
 
-- `list_models` (`capability`): the models you may use, with capabilities. When you do not know the model name, call it with a capability (image, tts, transcript, sound_generation, embeddings, detection, video, rerank, upscale, audio_transform, chat) and pass a name from it as `model`. Skip it when the default is fine. Never guess a name.
+- `list_models` (`capability`, `query`, `offset`, `limit`): the models you may use. When you do not know the model name, call it with a capability (image, tts, transcript, sound_generation, embeddings, detection, video, rerank, upscale, audio_transform, chat) or a `query` and pass a name from it as `model`. Skip it when the default is fine. Never guess a name.
 - `generate_image` (`prompt`, `size`, `negative_prompt`, `steps`, `n`, `seed`, `image`, `mask`, `ref_images`, `model`): a new image. `image` alone starts from that picture (img2img). `image` with `mask` repaints the white area of the mask; `seed` and `ref_images` do not work with a mask, and `mask` alone is an error. `ref_images` (several files) guide models that take references. Same `seed`, same image.
 - `upscale_image` (`image`, `scale`, `model`): a larger copy of an image. `scale` is the model's own factor (often 4). Model: capability upscale.
 - `transform_audio` (`audio`, `reference`, `response_format`, `sample_rate`, `params`, `model`): remove echo or noise, split stems, convert a voice. Model: capability audio_transform. `reference` is the echo loopback or the target voice. `params` takes only noise_gate, noise_gate_threshold_dbfs, stem, language, text, target_text. Each stem comes back as a file.

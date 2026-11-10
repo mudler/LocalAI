@@ -57,7 +57,11 @@ import (
 // group would be 10,289 bytes without that); no argument was removed. The
 // group measures 9,651 bytes. Upscaling and transform are not merge
 // candidates, and the tool search can defer the group on a small window.
-const clientBudgetBytes = 9700
+//
+// 9,700 to 9,900: the offset, limit and query arguments of list_models. They
+// let the model page through a long model list and search it by name; the
+// group measures 9,879 bytes.
+const clientBudgetBytes = 9900
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
