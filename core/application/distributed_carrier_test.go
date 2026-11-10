@@ -278,10 +278,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			first, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(first.Shutdown)
-			cfg2 := *cfg
-			cfg2.Distributed.InstanceID = "replica-b"
-			cfg2.DataPath = GinkgoT().TempDir()
-			second, err := initDistributed(&cfg2, db, nil, nil)
+			second, err := initDistributed(secondReplica(cfg), db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(second.Shutdown)
 			Expect(live()).To(ConsistOf("replica-a", "replica-b"))
@@ -350,10 +347,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(first.Shutdown)
 
-			cfg2 := *cfg
-			cfg2.Distributed.InstanceID = "replica-b"
-			cfg2.DataPath = GinkgoT().TempDir()
-			second, err := initDistributed(&cfg2, db, nil, nil)
+			second, err := initDistributed(secondReplica(cfg), db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(second.Shutdown)
 
@@ -436,3 +430,15 @@ var _ = AfterSuite(func() {
 		_ = natsCtr.Terminate(context.Background())
 	}
 })
+
+// secondReplica is the configuration of another replica of the deployment of
+// cfg. It is built field by field, because the configuration holds atomics that
+// must not be copied.
+func secondReplica(cfg *config.ApplicationConfig) *config.ApplicationConfig {
+	return &config.ApplicationConfig{
+		Context:     cfg.Context,
+		DataPath:    GinkgoT().TempDir(),
+		Auth:        cfg.Auth,
+		Distributed: func() config.DistributedConfig { d := cfg.Distributed; d.InstanceID = "replica-b"; return d }(),
+	}
+}

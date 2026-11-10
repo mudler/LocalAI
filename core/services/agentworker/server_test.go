@@ -1,9 +1,7 @@
 package agentworker_test
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -145,17 +143,3 @@ var _ = Describe("The control plane of an agent worker", func() {
 		})
 	})
 })
-
-// envelopes reads the lines of a streaming response.
-func envelopes(resp *http.Response) []workerctl.Envelope {
-	GinkgoHelper()
-	var out []workerctl.Envelope
-	sc := bufio.NewScanner(resp.Body)
-	sc.Buffer(make([]byte, 1<<20), 1<<20)
-	for sc.Scan() {
-		var env workerctl.Envelope
-		Expect(json.Unmarshal(sc.Bytes(), &env)).To(Succeed(), sc.Text())
-		out = append(out, env)
-	}
-	return out
-}
