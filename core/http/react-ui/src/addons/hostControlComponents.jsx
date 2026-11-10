@@ -2,7 +2,7 @@
 import { lazy } from 'react'
 import NetworkRow from '../components/chat/NetworkRow'
 import { networkMode } from '../utils/chatEgress'
-import { NETWORK_POLICY, TOOL_PROVIDERS } from './hostControls'
+import { NETWORK_POLICY, SANDBOX_PROFILES, TOOL_PROVIDERS } from './hostControls'
 
 // The components of each host control, by placement. The host owns all of
 // them: an add-on that the apps list entitles to a control gets it drawn on
@@ -17,10 +17,12 @@ import { NETWORK_POLICY, TOOL_PROVIDERS } from './hostControls'
 // The settings blocks load on demand, so the chat page does not carry them.
 const NetworkPolicySettings = lazy(() => import('../components/hostcontrols/NetworkPolicySettings'))
 const ToolProvidersSettings = lazy(() => import('../components/hostcontrols/ToolProvidersSettings'))
+const SandboxProfilesSettings = lazy(() => import('../components/hostcontrols/SandboxProfilesSettings'))
 
 export const HOST_CONTROLS = Object.freeze({
   [NETWORK_POLICY]: Object.freeze({ settings: NetworkPolicySettings, 'chat.tools': NetworkRow }),
   [TOOL_PROVIDERS]: Object.freeze({ settings: ToolProvidersSettings }),
+  [SANDBOX_PROFILES]: Object.freeze({ settings: SandboxProfilesSettings }),
 })
 
 // The network of the chat in its Tools menu. The server names in egress.addon

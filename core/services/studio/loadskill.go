@@ -48,6 +48,9 @@ type loadOpts struct {
 	// absent when the skills resolve, so a skill that needs an add-on's
 	// isolation is not loaded on the strength of a stale descriptor.
 	provided *bool
+	// hint, when set, is asked for a text to put before the instructions of
+	// the skill it loaded (see skills.SandboxHint). "" adds nothing.
+	hint func(context.Context, skills.Skill) string
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -100,7 +103,7 @@ func (s *Service) fitLoadSkill(a workspace.Actor, tools []session.Tool) []sessio
 	}
 	// Final tools may only narrow the freshly checked descriptor at call time.
 	provided := addonRunner(tools) != ""
-	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), provided: &provided})
+	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), provided: &provided, hint: s.sandboxHint(a)})
 	return tools
 }
 
@@ -241,6 +244,11 @@ func (s *Service) loadSkill(ctx context.Context, p string, list []skills.Skill, 
 		return "", fmt.Errorf("the skill %s is too large to load (more than %d KiB)", sk.Name, skills.MaxFileSize>>10)
 	}
 	body := skills.Body(data)
+	if o.hint != nil {
+		if h := o.hint(ctx, sk); h != "" {
+			body = h + "\n\n" + body
+		}
+	}
 	// The first use of an imported skill clears its "new" mark.
 	if sk.Layer == skills.LayerPersonal {
 		s.d.Files.ClearSkillNew(ctx, p, sk.Name)

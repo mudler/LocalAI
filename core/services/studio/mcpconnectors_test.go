@@ -106,6 +106,11 @@ type mcpConnRig struct {
 }
 
 func newMCPConnRig(script func(workspace.Actor, string) []studiotest.ToolStep, fc *fakeMCPConnectors, modelFns ...functions.Function) *mcpConnRig {
+	return newMCPConnRigWith(script, fc, nil, modelFns...)
+}
+
+// newMCPConnRigWith is newMCPConnRig with one more option on the Deps.
+func newMCPConnRigWith(script func(workspace.Actor, string) []studiotest.ToolStep, fc *fakeMCPConnectors, opt func(*studio.Deps), modelFns ...functions.Function) *mcpConnRig {
 	as, err := agents.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	fm := &fakeMCP{fns: modelFns}
@@ -127,6 +132,9 @@ func newMCPConnRig(script func(workspace.Actor, string) []studiotest.ToolStep, f
 				return nil, nil
 			}
 			return fm, nil
+		}
+		if opt != nil {
+			opt(d)
 		}
 	})
 	return &mcpConnRig{agentRig: &agentRig{svc: svc, h: h, agents: as, ask: ask}, fc: fc, asks: &asks, servers: &servers}

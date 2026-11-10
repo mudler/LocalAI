@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Limits of one SKILL.md.
@@ -103,6 +105,37 @@ func Requires(data []byte) []string {
 		}
 	}
 	return out
+}
+
+// Sandbox reads the optional "sandbox" key of the frontmatter: the sandbox
+// profile the procedure prefers, such as media. It is a hint only. A value
+// that is not a profile ID is dropped, so a typo never hides a skill.
+func Sandbox(data []byte) string {
+	if len(data) > MaxFileSize {
+		return ""
+	}
+	fm, ok := frontmatter(string(data))
+	if !ok {
+		return ""
+	}
+	v := strings.ToLower(strings.Trim(strings.TrimSpace(keyValues(fm)["sandbox"]), `"'`))
+	if !contract.ValidProfileID(v) {
+		return ""
+	}
+	return v
+}
+
+// SandboxHint is the sentence that goes with a loaded skill that prefers a
+// sandbox profile other than the one the chat runs. It is "" when the skill
+// names no profile, the chat runs it already, or the add-on has no such
+// profile (known lists the profile IDs). The model may offer the switch; it
+// never switches without asking.
+func SandboxHint(skillProfile, active string, known []string) string {
+	if skillProfile == "" || skillProfile == active || !slices.Contains(known, skillProfile) {
+		return ""
+	}
+	return "This skill wants the sandbox profile " + skillProfile + "; this chat runs " + active +
+		". If a tool is missing, tell the user and offer to call sandbox_profile with action use (do not switch without asking)."
 }
 
 // Locked reads the optional "locked" key of the frontmatter: the owner's mark

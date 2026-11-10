@@ -463,7 +463,10 @@
       "off": "Agen tidak membaca dan tidak menyimpan catatan, dan izin mengingat hal dimatikan. Tidak ada yang tersimpan sampai Anda menyimpan.",
       "reads": "Izin mengingat hal dimatikan, jadi agen membaca catatan tetapi tidak bisa menyimpan. Tidak ada yang tersimpan sampai Anda menyimpan.",
       "saves": "Izin mengingat hal dinyalakan. Tidak ada yang tersimpan sampai Anda menyimpan."
-    }
+    },
+    "sandboxProfile": "Profil sandbox",
+    "sandboxProfileDefault": "Bawaan",
+    "sandboxProfileHelp": "Dipakai oleh eksekusi tanpa pengawasan dan sebagai profil awal obrolannya."
   },
   "run": {
     "workingLine": "Working"

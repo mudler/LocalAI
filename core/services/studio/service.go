@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/pkg/sandboxpolicy"
 	"log/slog"
 	"maps"
 	"slices"
@@ -229,6 +230,11 @@ type Deps struct {
 	// IsAdmin says whether a user is an administrator. Nil: everyone is (a
 	// server without accounts).
 	IsAdmin func(ctx context.Context, user string) bool
+	// SandboxPolicy is the administrator's policy for sandbox profiles (the
+	// owner's host setting sandbox_profiles): the default profile, who may use
+	// each, the memory and disk quota and the pins to the previous image. Nil:
+	// the open default, everyone may use every profile.
+	SandboxPolicy func(context.Context) (sandboxpolicy.Policy, error)
 	// ToolPins names, for a built-in tool that several add-ons replace, the
 	// add-on an administrator chose to serve it (runtime setting
 	// chats_tool_providers). Nil: no pins.
@@ -520,6 +526,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerSavedAgents(); err != nil {
+		return nil, err
+	}
+	if err := s.registerSandboxTools(); err != nil {
 		return nil, err
 	}
 	if err := s.registerLocalAIGroups(); err != nil {

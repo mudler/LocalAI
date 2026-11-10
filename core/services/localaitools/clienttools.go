@@ -31,6 +31,9 @@ const (
 	ToolVoice           = "voice"
 	ToolFace            = "face"
 	ToolVoiceProfile    = "voice_profile"
+	ToolListModels      = "list_models"
+	ToolUpscaleImage    = "upscale_image"
+	ToolTransformAudio  = "transform_audio"
 )
 
 // ClientToolSpec is what a client tool needs from the API: the route it
@@ -49,13 +52,17 @@ type ClientToolSpec struct {
 	Action  string
 	Method  string
 	Route   string
-	Feature string
+	Feature string // NoFeature when the route checks none
 	// Flag is the use case an installed model must have. FLAG_ANY (zero): the
 	// tool needs no model, as voice_profile, which only manages data.
 	Flag config.ModelConfigUsecase
 	// Capability names the use case in messages, for example "image".
 	Capability string
 }
+
+// NoFeature is the Feature of a client tool whose route needs no feature
+// permission.
+const NoFeature = ""
 
 // ClientTools lists the client tools in registration order.
 var ClientTools = []ClientToolSpec{
@@ -76,6 +83,11 @@ var ClientTools = []ClientToolSpec{
 	{ToolVoiceProfile, ActionCreate, "POST", "/api/voice-profiles", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
 	{ToolVoiceProfile, ActionList, "GET", "/api/voice-profiles", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
 	{ToolVoiceProfile, ActionDelete, "DELETE", "/api/voice-profiles/:id", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
+	{ToolUpscaleImage, "", "POST", "/v1/images/upscale", auth.FeatureImages, config.FLAG_UPSCALE, "image upscaling"},
+	{ToolTransformAudio, "", "POST", "/audio/transformations", auth.FeatureAudioTransform, config.FLAG_AUDIO_TRANSFORM, "audio transformation"},
+	// list_models has no feature: any signed-in user may list the models the
+	// route shows them (their own allow-list applies).
+	{ToolListModels, "", "GET", "/v1/models/capabilities", NoFeature, config.FLAG_ANY, "models"},
 }
 
 // ActionEdit is the Action of the generate_image row that repaints an image.

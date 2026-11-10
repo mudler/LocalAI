@@ -324,6 +324,8 @@ When auth is enabled, the React UI sidebar dynamically shows/hides sections base
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 
+On Home, the memory line with the list of loaded models is shown to admins only, because it reads the admin endpoints `GET /system` and `GET /api/resources`. Other users do not see the line, rather than a "No models loaded" that may not be true.
+
 In Chat, a non-admin user holding the `mcp` feature can select the MCP servers of a model whose configuration declares them (**MCP → Servers**, plus that model's MCP prompts and resources). Users without the `mcp` feature only see client-side MCP. The model information panel and the automatic context size stay admin-only, because they read the full model configuration.
 
 ### Sign-in, invite and account pages

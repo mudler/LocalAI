@@ -330,7 +330,7 @@ function AgentEditor() {
     else if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
     else if (s.id === 'Uses') {
-      keys = ['builtins_off', 'builtins_on', 'builtins', 'addons', 'mcp_servers', 'network', 'connections', 'resources']
+      keys = ['builtins_off', 'builtins_on', 'builtins', 'addons', 'mcp_servers', 'network', 'sandbox_profile', 'connections', 'resources']
       const { on, total } = switchCounts(switchRows(toolGroups))
       summary = total ? t('create.toolsSummary', { on, total }) : t('create.noneYet')
       state = on ? 'ready' : 'empty'

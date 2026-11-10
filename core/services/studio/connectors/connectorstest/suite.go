@@ -72,6 +72,19 @@ func Run(newStore NewStore) {
 		Expect(got.ReplyMode()).To(Equal(connectors.ReplyProgress))
 		Expect(got.SendsFiles()).To(BeTrue())
 	})
+	It("keeps the media kinds a binding accepts, and none as none", func() {
+		s := newStore()
+		b := binding("media", "u1", "Media")
+		b.InboundMedia = []string{"audio", "photo"}
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "media")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.InboundMedia).To(Equal([]string{"audio", "photo"}))
+		got.InboundMedia = nil
+		Expect(s.PutBinding(ctx, got)).To(Succeed())
+		got, _ = s.GetBinding(ctx, "media")
+		Expect(got.InboundMedia).To(BeEmpty())
+	})
 	It("keeps the reply language, and reads a binding stored without one as auto", func() {
 		s := newStore()
 		b := binding("lang", "u1", "Language")

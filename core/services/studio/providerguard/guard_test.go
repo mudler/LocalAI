@@ -108,6 +108,13 @@ var allowed = []entry{
 	{"docs/content/reference/ai-coding-assistants.md", "Discord channel", "the project community server, not the add-on"},
 	{"docs/content/getting-started/troubleshooting.md", "LocalAI Discord", "the project community server, not the add-on"},
 
+	// The profiles of the environment that runs commands. Any add-on that
+	// runs commands can declare them; "sandbox" here is the kind of
+	// environment, not the add-on.
+	{"core/services/studio/skills/parse.go", `sandbox`, "the frontmatter key a skill uses to name the profile of the environment that runs its commands"},
+	{locales, "sandboxProfile.", "the name of the profile feature of the environment that runs commands"},
+	{locales, "create.sandboxProfile", "the name of the profile feature of the environment that runs commands"},
+
 	// Ordinary words that equal an id or a title.
 	{"core/schema/chats.go", `example:"Sandbox"`, "a sample value in the API documentation"},
 	{locales + "de/pages.json", "Sie öffnen sich hier in einer Sandbox", "German for the isolated frame of a page: the ordinary noun"},

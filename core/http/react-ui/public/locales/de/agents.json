@@ -463,7 +463,10 @@
       "off": "Er liest und speichert keine Notizen, und das Recht, sich Dinge zu merken, ist aus. Nichts ist gespeichert, bis du speicherst.",
       "reads": "Das Recht, sich Dinge zu merken, ist aus. Er liest Notizen, kann aber keine speichern. Nichts ist gespeichert, bis du speicherst.",
       "saves": "Das Recht, sich Dinge zu merken, ist an. Nichts ist gespeichert, bis du speicherst."
-    }
+    },
+    "sandboxProfile": "Sandbox-Profil",
+    "sandboxProfileDefault": "Standard",
+    "sandboxProfileHelp": "Wird von unbeaufsichtigten Läufen und als Startprofil seiner Chats verwendet."
   },
   "run": {
     "workingLine": "Working"

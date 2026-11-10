@@ -5,7 +5,7 @@ import { Check, Field, Hint, Notice } from '../../../internal/connector-ui/src/c
 import { WriteModeChip, WriteModeField } from '../../../internal/connector-ui/src/addonparts'
 import './i18n'
 import ProposalCard from './ProposalCard'
-import { ALL_FOLDERS, extraBody, extraForm, extraValid, foldersIssue, parseFolders, OFFERED_MODES, writeModeOf } from './folders'
+import { ALL_FOLDERS, extraBody, extraForm, extraValid, foldersIssue, parseFolders, WRITE_MODES, writeModeOf } from './folders'
 
 // The folders the agent may use. The host refuses any other one before the
 // add-on is called, and the add-on refuses a file outside the folder. All
@@ -34,7 +34,7 @@ function GdriveFields({ form, setForm, t }) {
           )}
         </Field>
       )}
-      <WriteModeField ns="gdrive" form={form} setForm={setForm} t={t} modes={OFFERED_MODES} modeOf={writeModeOf} />
+      <WriteModeField ns="gdrive" form={form} setForm={setForm} t={t} modes={WRITE_MODES} modeOf={writeModeOf} />
     </>
   )
 }

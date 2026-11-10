@@ -129,6 +129,12 @@ func (e *env) read(rel string) string {
 	return b.String()
 }
 
+func mustAbs(e *env, rel string) string {
+	abs, err := e.f.Abs("alice", rel)
+	Expect(err).NotTo(HaveOccurred())
+	return abs
+}
+
 func (e *env) put(rel, content string) {
 	abs, _ := e.f.Abs("alice", rel)
 	_, err := e.f.Store().Put(context.Background(), e.f.Actor("alice"), abs, strings.NewReader(content), workspace.PutOptions{Overwrite: true})
@@ -174,6 +180,26 @@ var _ = Describe("commands on this machine", func() {
 		// A file written afterwards with the file tools is there at the next call.
 		e.put("/later.txt", "later\n")
 		Expect(e.bash("cat later.txt", 0)).To(Equal("later\n"))
+	})
+
+	It("runs a read-only call that sees the user's files and saves nothing it writes", func() {
+		e := newEnv()
+		e.put("/seen.txt", "seen\n")
+		before, err := e.f.Store().History(context.Background(), e.f.Actor("alice"), workspace.HistoryQuery{Path: session.HomePath("alice"), Limit: 10})
+		Expect(err).NotTo(HaveOccurred())
+		raw, _ := json.Marshal(map[string]any{"command": "cat seen.txt; echo made > made.txt; echo changed > seen.txt; cat made.txt"})
+		out, err := e.r.RunReadOnly(context.Background(), e.a, raw)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(HavePrefix("seen\nmade\n"))
+		Expect(e.read("/seen.txt")).To(Equal("seen\n"), "a read-only call changed a file")
+		_, _, err = e.f.Store().Open(context.Background(), e.f.Actor("alice"), mustAbs(e, "/made.txt"))
+		Expect(err).To(HaveOccurred(), "a read-only call made a file")
+		after, err := e.f.Store().History(context.Background(), e.f.Actor("alice"), workspace.HistoryQuery{Path: session.HomePath("alice"), Limit: 10})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(HaveLen(len(before)), "a read-only call made a change set")
+		// A call that may write still does, and is not held back by the other.
+		e.bash("echo real > real.txt", 0)
+		Expect(e.read("/real.txt")).To(Equal("real\n"))
 	})
 
 	It("runs a skill's script in place from the read-only skill layers, and never changes them", func() {

@@ -182,4 +182,108 @@ var _ = Describe("Inference voice profiles", func() {
 		_, err = create(localaitools.WithVoiceConsent(context.Background()), "/files/voice.wav")
 		Expect(err).To(MatchError(ContainSubstring("at most 20 profiles")))
 	})
+
+	Describe("with several clips", func() {
+		var second []byte
+
+		BeforeEach(func() {
+			second = wavBytes()
+			second[len(second)-1] ^= 0x01
+			fs.files["/files/second.wav"] = localaitools.File{Name: "second.wav", MIME: "audio/wav", Data: second}
+		})
+
+		createMany := func(ctx context.Context) (*localaitools.VoiceProfile, error) {
+			return inf.CreateVoiceProfile(ctx, localaitools.CreateVoiceProfileRequest{
+				Name: "Narrator", Description: "Calm", Transcript: "First words.", Language: "en", Audio: "/files/voice.wav",
+				ExtraClips: []localaitools.VoiceClip{{Audio: "/files/second.wav", Transcript: "Second words."}},
+			})
+		}
+
+		It("sends every clip with its own transcript, in order, and the description", func() {
+			var audios, transcripts []string
+			do := inf.Do
+			inf.Do = func(r *http.Request) (*http.Response, error) {
+				body, _ := io.ReadAll(r.Body)
+				_, params, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+				mr := multipart.NewReader(strings.NewReader(string(body)), params["boundary"])
+				for {
+					part, err := mr.NextPart()
+					if err != nil {
+						break
+					}
+					b, _ := io.ReadAll(part)
+					switch part.FormName() {
+					case "audio":
+						audios = append(audios, hex.EncodeToString(b[len(b)-1:]))
+					case "transcript":
+						transcripts = append(transcripts, string(b))
+					}
+				}
+				r.Body = io.NopCloser(strings.NewReader(string(body)))
+				return do(r)
+			}
+			_, err := createMany(localaitools.WithVoiceConsent(context.Background()))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(audios).To(Equal([]string{hex.EncodeToString(wavBytes()[len(wavBytes())-1:]), hex.EncodeToString(second[len(second)-1:])}))
+			Expect(transcripts).To(Equal([]string{"First words.", "Second words."}))
+			Expect(fields).To(HaveKeyWithValue("description", "Calm"))
+			Expect(fields).To(HaveKeyWithValue("consent_confirmed", "true"))
+		})
+
+		It("pins one clip as its own digest and several as the digest of their digests", func() {
+			one := sha256.Sum256(wavBytes())
+			two := sha256.Sum256(second)
+			a, b := hex.EncodeToString(one[:]), hex.EncodeToString(two[:])
+			Expect(localaitools.ClipsPin([]string{a})).To(Equal(a))
+			Expect(localaitools.ClipsPin([]string{a, b})).ToNot(Equal(localaitools.ClipsPin([]string{b, a})), "the order counts")
+			p, err := createMany(localaitools.WithVoiceCheck(context.Background()))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Audio.SHA256).To(Equal(localaitools.ClipsPin([]string{a, b})))
+			Expect(p.Audio.SizeBytes).To(Equal(int64(len(wavBytes()) + len(second))))
+			Expect(requests).To(BeEmpty())
+		})
+
+		It("refuses a swapped extra clip at the confirmation, and sends no request", func() {
+			check, err := createMany(localaitools.WithVoiceCheck(context.Background()))
+			Expect(err).NotTo(HaveOccurred())
+			swapped := wavBytes()
+			swapped[len(swapped)-1] ^= 0x7f
+			fs.files["/files/second.wav"] = localaitools.File{Name: "second.wav", MIME: "audio/wav", Data: swapped}
+			ctx := localaitools.WithVoiceClipPin(localaitools.WithVoiceConsent(context.Background()), check.Audio.SHA256, check.Audio.SizeBytes)
+			_, err = createMany(ctx)
+			Expect(err).To(MatchError(localaitools.ErrClipChanged))
+			Expect(requests).To(BeEmpty())
+		})
+
+		It("needs the consent of a person for the extra clips too", func() {
+			_, err := createMany(context.Background())
+			Expect(err).To(MatchError(localaitools.ErrConsentNeeded))
+			Expect(requests).To(BeEmpty())
+		})
+
+		It("refuses a missing transcript, a clip that is not WAV and more than ten clips", func() {
+			ctx := localaitools.WithVoiceConsent(context.Background())
+			_, err := inf.CreateVoiceProfile(ctx, localaitools.CreateVoiceProfileRequest{Name: "N", Transcript: "t", Audio: "/files/voice.wav",
+				ExtraClips: []localaitools.VoiceClip{{Audio: "/files/second.wav"}}})
+			Expect(err).To(MatchError(ContainSubstring("extra_clips[0] needs a transcript")))
+			_, err = inf.CreateVoiceProfile(ctx, localaitools.CreateVoiceProfileRequest{Name: "N", Transcript: "t", Audio: "/files/voice.wav",
+				ExtraClips: []localaitools.VoiceClip{{Audio: "/files/voice.mp3", Transcript: "x"}}})
+			Expect(err).To(MatchError(localaitools.ErrNotWAV))
+			many := make([]localaitools.VoiceClip, 10)
+			for k := range many {
+				many[k] = localaitools.VoiceClip{Audio: "/files/second.wav", Transcript: "x"}
+			}
+			_, err = inf.CreateVoiceProfile(ctx, localaitools.CreateVoiceProfileRequest{Name: "N", Transcript: "t", Audio: "/files/voice.wav", ExtraClips: many})
+			Expect(err).To(MatchError(ContainSubstring("at most 10 clips")))
+			Expect(requests).To(BeEmpty())
+		})
+
+		It("reads a clip only from the file store, never by path", func() {
+			ctx := localaitools.WithVoiceConsent(context.Background())
+			_, err := inf.CreateVoiceProfile(ctx, localaitools.CreateVoiceProfileRequest{Name: "N", Transcript: "t", Audio: "/files/voice.wav",
+				ExtraClips: []localaitools.VoiceClip{{Audio: "/etc/passwd", Transcript: "x"}}})
+			Expect(err).To(HaveOccurred())
+			Expect(requests).To(BeEmpty())
+		})
+	})
 })

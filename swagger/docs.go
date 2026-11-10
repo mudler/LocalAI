@@ -4763,6 +4763,23 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/admin/sandbox-profiles": {
+            "get": {
+                "description": "The profiles of the Sandbox add-on with their limits, tools and the state of their images (has_previous says an older image is kept, so a profile can be pinned to it), and the roles a policy can name. The policy is the owner host setting sandbox_profiles (default, access by role and user, memory_mib and disk_mib quota, pin_previous); change it with the add-on host settings.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the sandbox profiles (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "The profiles",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfilesAdmin"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/admin/shared-folders": {
             "get": {
                 "description": "A member is a user, or @everyone for every user, with the mode read or write.",
@@ -6109,7 +6126,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files and reply_language, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
+                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
                 "tags": [
                     "chats"
                 ],
@@ -8588,6 +8605,23 @@ const docTemplate = `{
                         "description": "The request is not valid",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/sandbox-profiles": {
+            "get": {
+                "description": "The profiles of the Sandbox add-on that runs your commands, whether you may use each one, and the administrator's default. Empty when no add-on with profiles runs commands. Use it for the sandbox_profile of a saved agent.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the sandbox profiles you may pick.",
+                "responses": {
+                    "200": {
+                        "description": "The profiles",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileChoices"
                         }
                     }
                 }
@@ -11931,6 +11965,89 @@ const docTemplate = `{
                         "description": "Whether a turn started",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/sandbox-profile": {
+            "get": {
+                "description": "The profile the next command of the chat runs (the one you picked, else the saved agent's, else the administrator's default, else base), where it comes from, the profiles the Sandbox add-on offers with their tools and limits, whether the administrator's policy lets you use each one (allowed), and where the image of each is on the host (state: pulling shows percent). fallback is true when the next command cannot use the profile because its image failed or is missing, and runs base. newer_image is true when the running sandbox is older than the current image. applies is false when the commands of the chat run in no sandbox with profiles. Another user's chat is 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the sandbox profile of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The profile of the chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileView"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Switches the environment the commands of the chat run in. The sandbox restarts at the next command: your files stay, running processes and installed packages are lost. An empty profile goes back to the saved agent's or the default profile. A profile the Sandbox does not have is 400 sandbox_profile_unknown; one the administrator did not give you is 403 sandbox_profile_not_allowed. A sub-agent follows its parent: 409.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set the sandbox profile of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the profile",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileSet"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The profile of the chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileView"
+                        }
+                    },
+                    "400": {
+                        "description": "No such profile",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "The administrator did not give you this profile",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -18086,7 +18203,8 @@ const docTemplate = `{
                         "type": "string",
                         "enum": [
                             "network-policy",
-                            "tool-providers"
+                            "tool-providers",
+                            "sandbox-profiles"
                         ]
                     },
                     "example": [
@@ -18685,6 +18803,13 @@ const docTemplate = `{
                     "description": "Note is one plain sentence for the model when the provider reports\nisolated execution, such as the programs its environment has.",
                     "type": "string"
                 },
+                "profiles": {
+                    "description": "Profiles are the environments the provider can run commands in. The\nfirst one is the fallback and has the ID FallbackProfile. When there\nare profiles, the host builds the note for the model from the profile\nof the chat and Note is not used.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ExecutionProfile"
+                    }
+                },
                 "skills": {
                     "description": "Skills says which skills run on this provider.",
                     "allOf": [
@@ -18696,6 +18821,40 @@ const docTemplate = `{
                 "title": {
                     "description": "Title names the provider in the text the host shows the person and the\nmodel, for example \"Sandbox\". It falls back to the add-on's title.",
                     "type": "string"
+                }
+            }
+        },
+        "contract.ExecutionProfile": {
+            "type": "object",
+            "properties": {
+                "cpus": {
+                    "description": "CPUs, MemoryMiB and DiskMiB are the limits of one sandbox.",
+                    "type": "integer"
+                },
+                "description": {
+                    "description": "Description says what the profile is for, in one sentence.",
+                    "type": "string"
+                },
+                "diskMiB": {
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "ID is a short lower case name, such as base or media.",
+                    "type": "string"
+                },
+                "memoryMiB": {
+                    "type": "integer"
+                },
+                "title": {
+                    "description": "Title is the name the person sees.",
+                    "type": "string"
+                },
+                "tools": {
+                    "description": "Tools are the programs the environment has. The provider's image build\nfails when one of them is missing (see ProfileTool.Check).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ProfileTool"
+                    }
                 }
             }
         },
@@ -18750,6 +18909,26 @@ const docTemplate = `{
                 },
                 "size": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.ProfileTool": {
+            "type": "object",
+            "properties": {
+                "check": {
+                    "description": "Check are the commands the image build runs to prove the tool works,\neach a program name with its version flags, for example \"jq --version\".",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "detail": {
+                    "description": "Detail is an optional short remark, for example the libraries of Python.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is how the model and the person read it, for example ffmpeg.",
+                    "type": "string"
                 }
             }
         },
@@ -22582,6 +22761,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "inbound_media": {
+                    "description": "InboundMedia lists the kinds of file that the bot takes from senders:\nphoto, voice, audio, video_note, document. Empty takes every kind.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "kind": {
                     "type": "string"
                 },
@@ -22940,6 +23126,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/resourcesets.Sets"
                         }
                     ]
+                },
+                "sandbox_profile": {
+                    "description": "SandboxProfile is the sandbox profile of the agent's unattended runs and\nthe starting profile of its chats (GET /api/chats/sandbox-profiles lists\nthem). Empty: the administrator's default. A profile the Sandbox does\nnot have, or that you may not use, runs the default or base.",
+                    "type": "string"
                 },
                 "skills": {
                     "type": "array",
@@ -23449,6 +23639,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/resourcesets.Sets"
                         }
                     ]
+                },
+                "sandbox_profile": {
+                    "description": "SandboxProfile is the sandbox profile of the agent (see ChatsAgent).\nA profile ID, or empty for the default; a value that is not a profile ID\nis 400.",
+                    "type": "string"
                 },
                 "skills": {
                     "type": "array",
@@ -24051,6 +24245,13 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "inbound_media": {
+                    "description": "InboundMedia lists the kinds of file that the bot takes from senders:\nphoto, voice, audio, video_note, document. Empty takes every kind.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "kind": {
                     "type": "string"
@@ -25134,6 +25335,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.ChatsConnectorRoleGrant"
+                    }
+                },
+                "inbound_media": {
+                    "description": "InboundMedia lists the kinds of file that the bot takes from senders\n(photo, voice, audio, video_note, document); a file of another kind is\nnever read, and the sender is told. Empty takes every kind. Absent\nmeans every kind for a new binding and unchanged for an update.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 },
                 "kind": {
@@ -27721,6 +27929,165 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsSandboxProfile": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "description": "Allowed says whether the administrator's policy lets you use it.",
+                    "type": "boolean"
+                },
+                "cpus": {
+                    "description": "CPUs, MemoryMiB and DiskMiB are the limits of one sandbox of the\nprofile, before the administrator's quota.",
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disk_mib": {
+                    "type": "integer",
+                    "example": 20480
+                },
+                "has_previous": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "media"
+                },
+                "memory_mib": {
+                    "type": "integer",
+                    "example": 4096
+                },
+                "state": {
+                    "$ref": "#/definitions/schema.ChatsSandboxProfileState"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Media"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileChoices": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSandboxProfile"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileSet": {
+            "type": "object",
+            "properties": {
+                "profile": {
+                    "description": "Profile is a profile ID, or empty for the agent's or the default one.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileState": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "percent": {
+                    "type": "integer"
+                },
+                "phase": {
+                    "description": "Phase is idle (not pulled yet; the first use pulls it), pulling, ready,\nfailed or absent (this release has no image for it).",
+                    "type": "string",
+                    "enum": [
+                        "idle",
+                        "pulling",
+                        "ready",
+                        "failed",
+                        "absent"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileView": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "applies": {
+                    "description": "Applies is false when the commands of the chat run in no sandbox with\nprofiles (built-in bash, no add-on, or commands on this machine).",
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "fallback": {
+                    "description": "Fallback is true when the next command cannot use Profile because its\nimage is not available, and runs base. FallbackReason says why.",
+                    "type": "boolean"
+                },
+                "fallback_reason": {
+                    "type": "string"
+                },
+                "newer_image": {
+                    "description": "NewerImage is true when the running sandbox was made from an older image\nthan the current one. The newer image applies when the sandbox restarts.",
+                    "type": "boolean"
+                },
+                "profile": {
+                    "description": "Profile is the one the next command runs. Selected is your own choice\nfor the chat (\"\" when none). Source says where Profile comes from.",
+                    "type": "string"
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSandboxProfile"
+                    }
+                },
+                "selected": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "chat",
+                        "agent",
+                        "default"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsSandboxProfilesAdmin": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSandboxProfile"
+                    }
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsSearchHit": {
             "type": "object",
             "properties": {
@@ -28944,7 +29311,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "mode": {
-                    "description": "Mode is change, match or json_equals; Condition says it in words.",
+                    "description": "Mode is change, match, json_equals or exit_zero; Condition says it in\nwords.",
                     "type": "string"
                 },
                 "next_check": {
@@ -28966,7 +29333,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source_kind": {
-                    "description": "SourceKind is \"tool\" or \"url\". Source is the name of the tool, or the\nhost and path of the URL without the query.",
+                    "description": "SourceKind is \"tool\", \"url\" or \"script\". Source is the name of the tool,\nthe host and path of the URL without the query, or \"a script\": the text\nof a command is never in this object.",
                     "type": "string"
                 }
             }
@@ -31091,6 +31458,10 @@ const docTemplate = `{
                 "context_size": {
                     "description": "ContextSize is the effective context window in tokens the backend will\nrun with: the configured context_size, or the default when unset. 0 means\nthe value is unknown (e.g. a loose file with no config). Clients can use\nthis to size their context budget for auto-compaction and pruning.",
                     "type": "integer"
+                },
+                "description": {
+                    "description": "Description is the short text the model's configuration carries, when it\nhas one. It never includes paths or settings.",
+                    "type": "string"
                 },
                 "id": {
                     "type": "string"

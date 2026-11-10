@@ -264,6 +264,17 @@ var _ = Describe("the write tools of an add-on with a credential", Label("propos
 			Expect(err).NotTo(HaveOccurred())
 			Expect(receipt.State).To(Equal(contract.ReceiptCommitted))
 		})
+		It("keeps a proposal for a person in propose mode when the tool does not declare approval always", func() {
+			setup("")
+			binding.set(gateway.WritePropose)
+			p, err := f.broker.Propose(ctx, who, request("op-1", "acme/widgets"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.AwaitsPerson).To(BeTrue())
+			Expect(p.Hold).To(Equal("write_mode_propose"))
+			_, err = f.broker.Confirm(ctx, chat("owner"), "op-1")
+			Expect(err).To(MatchError(ErrForbidden))
+			Expect(spy.applies).To(BeEmpty())
+		})
 		It("keeps a proposal for a person when the tool declares approval always", func() {
 			setup(contract.ApprovalAlways)
 			binding.set(gateway.WriteAuto)
@@ -358,7 +369,7 @@ var _ = Describe("the approval a person may relax", Label("proposals", "credenti
 		Entry("the person said skip, the tool allows it, mode propose: no confirmation", true, gateway.WritePropose, true, false),
 		Entry("the person said skip, the tool allows it, mode auto: no confirmation", true, gateway.WriteAuto, true, false),
 		Entry("the person said ask: confirmation, mode propose", true, gateway.WritePropose, false, true),
-		Entry("the person said ask: confirmation, mode auto", true, gateway.WriteAuto, false, true),
+		Entry("the person said ask: still no confirmation in auto, the person chose Allow all", true, gateway.WriteAuto, false, false),
 		Entry("the tool does not allow it: confirmation whatever the setting says", false, gateway.WriteAuto, true, true),
 		Entry("the tool does not allow it, mode propose", false, gateway.WritePropose, true, true),
 	)

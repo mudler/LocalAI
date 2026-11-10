@@ -93,7 +93,7 @@
       },
       {
         "name": "power-action",
-        "description": "Press a power button of the machine the PiKVM controls: on, off (short press, soft power off) or reset. off_hard, reset_hard and long_press force the machine and are refused unless an administrator allowed hard power actions for this device. A person confirms each call and sees the power state, unless the owner chose to skip that for this tool. Do not say it was done until the result says so.",
+        "description": "Press a power button of the machine the PiKVM controls: on, off (short press, soft power off) or reset. off_hard, reset_hard and long_press force the machine and are refused unless an administrator allowed hard power actions for this device. A person confirms each call and sees the power state, unless the owner skips this or chose Allow all. Do not say it was done until the result says so.",
         "kind": "write",
         "approval": "always",
         "approvalOverridable": true,
@@ -127,9 +127,8 @@
       },
       {
         "name": "type-text",
-        "description": "Type text on the keyboard of the machine the PiKVM controls, into whatever has the focus. A newline presses Enter. At most 200 characters by default (1000 at most), no control characters except newline and tab, no private keys, tokens or password lists. Off until an administrator allows typing for this device. A person confirms every call and sees the exact text.",
+        "description": "Type text on the keyboard of the machine the PiKVM controls, into whatever has the focus. A newline presses Enter. At most 200 characters by default (1000 at most), no control characters except newline and tab, no private keys, tokens or password lists. Off until an administrator allows typing for this device. A person confirms every call and sees the exact text, unless the owner chose Allow all.",
         "kind": "write",
-        "approval": "always",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -154,7 +153,7 @@
       },
       {
         "name": "send-key",
-        "description": "Press single keys or the chords ctrl+alt+delete, ctrl+c and ctrl+z on the machine the PiKVM controls, in order. Allowed keys: a-z, 0-9, up, down, left, right, enter, escape, tab, f1 to f12. Nothing else, no Windows or Meta chords. Off until an administrator switches on typing for this device. A person confirms each call, unless the owner chose to skip that for this tool.",
+        "description": "Press single keys or the chords ctrl+alt+delete, ctrl+c and ctrl+z on the machine the PiKVM controls, in order. Allowed keys: a-z, 0-9, up, down, left, right, enter, escape, tab, f1 to f12. Nothing else, no Windows or Meta chords. Off until an administrator switches on typing for this device. A person confirms each call, unless the owner skips this or chose Allow all.",
         "kind": "write",
         "approval": "always",
         "approvalOverridable": true,

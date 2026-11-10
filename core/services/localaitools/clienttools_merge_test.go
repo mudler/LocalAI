@@ -14,12 +14,50 @@ import (
 // Every tool of an always-sent group is paid on every turn of every chat, by
 // every user, whether or not the turn needs it. On a small context window
 // that cost decides whether the chat fits at all. The value is the measured
-// size after the merges and trims (6,523 bytes, about 1,650 tokens) plus
+// size after the merges and trims (6,948 bytes, about 1,750 tokens) plus
 // about 1%: the voice_profile tool took 613 bytes of the 5,910 before it. Raise
 // it only with a reason in the commit message: a new tool must justify its place first, and
 // an operation that shares state with an existing tool belongs in that tool
 // as an action (see .agents/localai-assistant-mcp.md).
-const clientBudgetBytes = 6600
+//
+// 6,600 to 7,000: list_models (345 bytes). Without it a user who is not an
+// administrator cannot learn the names of the models the other tools take,
+// and guesses them. It is the one listing tool for every user, so it is not
+// a candidate for a merge: it shares no state with a generation tool.
+//
+// 7,000 to 7,300: generate_image takes seed, an init image and reference
+// images (about 240 bytes). They are arguments of the one image route the API
+// already has, so they cost no new tool.
+//
+// 7,300 to 8,000: generate_video reads what the /video route reads and the
+// tool did not send: end_image, audio, ref_images, ref_videos, ref_audios,
+// seed, cfg_scale, steps (about 700 bytes). ref_videos is a list of frame
+// lists because that is how the route takes a video.
+//
+// 8,000 to 8,550: generate_sound takes the ten fields of the route that a
+// song model reads: caption, bpm, keyscale, timesignature, language,
+// vocal_language, think, do_sample, prompt_influence, expansion_model (about
+// 480 bytes).
+//
+// 8,550 to 8,650: speak takes sample_rate, which the TTS route reads (about
+// 60 bytes).
+//
+// 8,650 to 8,900: voice_profile create takes description and extra_clips,
+// because the API takes up to ten clips and a description (about 210 bytes).
+//
+// 8,900 to 9,250: detect takes points and boxes (segmentation prompts), and
+// voice and face take anti_spoofing for verify (about 340 bytes together).
+// All three are fields their routes read.
+//
+// 9,250 to 9,700: upscale_image (401 bytes) and transform_audio (690 bytes).
+// Each is its own route and model use case; neither shares state with an
+// existing tool. transform_audio is one flat schema with a single
+// allow-listed params map instead of a field per backend key. The argument
+// descriptions of the whole group were shortened in the same change (the
+// group would be 10,289 bytes without that); no argument was removed. The
+// group measures 9,651 bytes. Upscaling and transform are not merge
+// candidates, and the tool search can defer the group on a small window.
+const clientBudgetBytes = 9700
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
@@ -103,13 +141,26 @@ var _ = Describe("Client tool surface", func() {
 			Expect(calls[0].args).To(Equal(EditImageRequest{Prompt: "a hat", Image: "a.png", Mask: "m.png", Steps: 5}))
 		})
 
-		It("refuses an image without a mask and a mask without an image, and calls nothing", func() {
+		It("starts from an image without a mask (img2img) and passes seed and references", func() {
 			fc := &fakeClient{}
 			ctx, sess, done := connectInMemory(fc, Options{})
 			DeferCleanup(done)
-			res := callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "image": "a.png"})
+			res := callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "image": "a.png", "seed": 7, "ref_images": []string{"r1.png", "r2.png"}})
+			Expect(res.IsError).To(BeFalse(), resultText(res))
+			calls := fc.recorded()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].method).To(Equal("GenerateImage"))
+			seed := 7
+			Expect(calls[0].args).To(Equal(GenerateImageRequest{Prompt: "x", Image: "a.png", Seed: &seed, RefImages: []string{"r1.png", "r2.png"}}))
+		})
+
+		It("refuses a mask without an image, and a seed or references with a mask, and calls nothing", func() {
+			fc := &fakeClient{}
+			ctx, sess, done := connectInMemory(fc, Options{})
+			DeferCleanup(done)
+			res := callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "image": "a.png", "mask": "m.png", "seed": 1})
 			Expect(res.IsError).To(BeTrue())
-			Expect(resultText(res)).To(ContainSubstring("mask is required"))
+			Expect(resultText(res)).To(ContainSubstring("do not work with mask"))
 			res = callTool(ctx, sess, ToolGenerateImage, map[string]any{"prompt": "x", "mask": "m.png"})
 			Expect(res.IsError).To(BeTrue())
 			Expect(resultText(res)).To(ContainSubstring("mask needs image"))

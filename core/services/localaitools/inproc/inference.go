@@ -195,6 +195,10 @@ func (w workspaceFiles) Write(ctx context.Context, name string, data []byte, _ s
 
 // ---- Client (inference) ----
 
+func (c *Client) ListModels(ctx context.Context, req localaitools.ListModelsRequest) (*localaitools.ModelList, error) {
+	return c.inference(ctx).ListModels(ctx, req)
+}
+
 func (c *Client) GenerateImage(ctx context.Context, req localaitools.GenerateImageRequest) (*localaitools.ImageResult, error) {
 	return c.inference(ctx).GenerateImage(ctx, req)
 }
@@ -233,6 +237,14 @@ func (c *Client) GenerateVideo(ctx context.Context, req localaitools.GenerateVid
 
 func (c *Client) GenerateSound(ctx context.Context, req localaitools.GenerateSoundRequest) (*localaitools.AudioResult, error) {
 	return c.inference(ctx).GenerateSound(ctx, req)
+}
+
+func (c *Client) UpscaleImage(ctx context.Context, req localaitools.UpscaleImageRequest) (*localaitools.ImageResult, error) {
+	return c.inference(ctx).UpscaleImage(ctx, req)
+}
+
+func (c *Client) TransformAudio(ctx context.Context, req localaitools.TransformAudioRequest) (*localaitools.TransformAudioResult, error) {
+	return c.inference(ctx).TransformAudio(ctx, req)
 }
 
 func (c *Client) VerifyVoice(ctx context.Context, req localaitools.VoiceVerifyRequest) (*localaitools.VerifyResult, error) {

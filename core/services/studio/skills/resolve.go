@@ -126,6 +126,9 @@ type Skill struct {
 	// Requires are the capabilities the skill needs (the "requires" key of
 	// its frontmatter), for example RequireExec.
 	Requires []string
+	// Sandbox is the sandbox profile the skill prefers (the "sandbox" key of
+	// its frontmatter), or "". It is a hint: nothing switches the profile.
+	Sandbox string
 	// Unavailable, set by the product, says why the skill cannot be used in
 	// this chat, for example "needs command execution". Index lists such a
 	// skill with the reason, so the model explains instead of starting it.
@@ -454,6 +457,7 @@ func readSkill(ctx context.Context, s workspace.Store, a workspace.Actor, b cont
 	}
 	sk.Name, sk.Description = name, desc
 	sk.Requires = Requires(data)
+	sk.Sandbox = Sandbox(data)
 	return sk, true, nil
 }
 

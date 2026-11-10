@@ -662,8 +662,15 @@ message as rules for the run. Treat it as text from whoever can write there.
   run that is found running after a restart. The API shows `run_limit` and `effective_run_limit`, the one
   that applies now. A proposal from a messaging app is held to the same
   ceiling when the trigger is set up by itself. At most 2 runs go at once, one per trigger, and a trigger has a daily
-  limit (`daily_cap`, default 24, at most 1000 or `chats_trigger_max_daily_cap`
-  when an administrator sets it lower). A run that is skipped or fails shows its
+  limit (`daily_cap`, at most 1000 or `chats_trigger_max_daily_cap` when an
+  administrator sets it lower). When you set none, a schedule trigger gets one
+  run for each time its schedule fires in a day, and at least 24: a trigger
+  every 30 minutes gets 48 and one every 5 minutes gets 288. A limit you set
+  is used as written. A schedule trigger is switched off, and you get a
+  notification, after 3 failed runs in a row. One that runs more often than
+  hourly is also switched off after 3 runs in a row that the daily limit
+  skipped. A run that is skipped because the previous run is still going is
+  recorded once for a stretch of such skips, not once for each missed time. A run that is skipped or fails shows its
   reason on the trigger. An administrator sets the limits of the triggers in the
   [runtime settings]({{%relref "features/runtime-settings" %}}).
 - **Cost.** A run is a chat turn on the trigger's model, so it uses tokens. A run
@@ -838,10 +845,13 @@ trigger runs when it was undone, and does not propose a declined one again
 unless you ask. A declined or undone proposal does not count towards the limit
 of 10 waiting proposals or 50 triggers.
 
-A schedule proposed in a chat runs at most once an hour. A shorter one (for
-example `*/15 * * * *`) is refused with the reason, and the model is told to
-propose an hourly or slower one. An edit of the proposal keeps the same floor.
-On the Triggers page you can still choose a shorter schedule yourself.
+A schedule trigger runs at most once every 5 minutes, however it is made. A
+shorter one (for example `* * * * *`, every minute) is refused with the reason,
+and the model is told to propose a slower one. An edit of the proposal keeps the
+same floor, and so do the Triggers page and the REST API when you create a
+trigger or change its schedule. A trigger that was saved with a shorter schedule
+before this floor keeps running; you can rename it or edit its prompt, and only
+a change of its schedule is checked.
 
 A proposal also carries a plan, so you see what it does before you create it:
 what a run reads (`reads`), the file in your home it rewrites (`writes`), the
@@ -868,7 +878,7 @@ exact name when only one trigger has that name.
 
 - `update_trigger {ref, name, prompt, when, time_zone, daily_cap, run_limit, enabled, reads, writes, widget, estimated_tokens}`
   changes the fields it names and keeps the others. The same rules as for a
-  proposal apply: a schedule that changes runs at most once an hour, the
+  proposal apply: a schedule that changes runs at most once every 5 minutes, the
   folder and the `writes` file must be in your files. A change of anything
   other than `enabled` does nothing by itself: a card shows each changed field
   before and after, with **Apply** and **Dismiss**. A change that only pauses

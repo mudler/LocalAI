@@ -904,7 +904,8 @@
       "lastError": "마지막 오류: {{message}}",
       "sources": {
         "tool": "도구 {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "스크립트"
       },
       "end": {
         "met": "완료: 조건이 충족되었습니다",
@@ -1348,5 +1349,57 @@
   },
   "triggersPage": {
     "runLimit": "실행 시간 제한"
+  },
+  "sandboxProfile": {
+    "label": "샌드박스 프로필",
+    "tools": "프로그램: {{tools}}",
+    "notAllowed": "관리자가 이 프로필을 허용하지 않았습니다",
+    "absent": "이 릴리스에는 이 프로필의 이미지가 없습니다",
+    "unavailable": "{{title}}을(를) 사용할 수 없습니다: {{reason}}.",
+    "draft": "새 채팅은 {{title}}에서 시작합니다. 채팅에서 프로필을 바꿀 수 있습니다.",
+    "source": {
+      "chat": "이 채팅은 {{title}}에서 실행됩니다. 직접 선택했습니다.",
+      "agent": "이 채팅은 {{title}}에서 실행됩니다. 에이전트가 정했습니다.",
+      "default": "이 채팅은 {{title}}에서 실행됩니다. 기본값입니다."
+    },
+    "switchWarning": "바꾸면 샌드박스가 다시 시작됩니다. 파일은 그대로 남습니다. 실행 중인 프로세스와 설치한 패키지는 사라집니다.",
+    "switchTo": "{{title}}(으)로 전환",
+    "cancel": "취소",
+    "preparing": "{{title}} 이미지를 준비하는 중, {{percent}}%",
+    "failed": "{{title}} 이미지를 준비하지 못했습니다: {{error}}",
+    "fallback": "{{title}}을(를) 사용할 수 없어 명령이 {{base}}에서 실행됩니다.",
+    "newerImage": "더 새로운 이미지가 있습니다. 샌드박스를 다시 시작하면 적용됩니다.",
+    "notAllowedError": "이 프로필을 사용할 수 없습니다.",
+    "unknownError": "이 프로필이 없습니다.",
+    "saveError": "프로필을 바꾸지 못했습니다.",
+    "admin": {
+      "title": "샌드박스 프로필",
+      "intro": "프로필은 자체 프로그램이 있는 환경입니다. 제한하기 전에는 모두가 모든 프로필을 쓸 수 있습니다.",
+      "default": "기본 프로필",
+      "defaultBase": "기본",
+      "profiles": "프로필",
+      "limits": "CPU {{cpus}}개, 메모리 {{memory}} MiB, 디스크 {{disk}} MiB",
+      "baseAlways": "모든 사용자가 기본 프로필을 쓸 수 있습니다. 다른 프로필을 쓸 수 없을 때 이것이 실행됩니다.",
+      "who": "사용할 수 있는 사람",
+      "everyone": "모두",
+      "restricted": "아래 역할과 사용자만",
+      "role": {
+        "admin": "관리자",
+        "user": "일반 사용자"
+      },
+      "users": "지정한 사용자",
+      "usersPlaceholder": "쉼표로 구분한 이름",
+      "pin": "이전 이미지에 고정",
+      "noPrevious": "아직 이전 이미지가 없습니다",
+      "memory": "샌드박스 하나의 메모리 상한(MiB)",
+      "disk": "샌드박스 하나의 디스크 상한(MiB)",
+      "noLimit": "제한 없음",
+      "quotaHelp": "상한은 프로필의 한도를 낮추기만 하고 높이지 않습니다. 비워 두면 상한이 없습니다.",
+      "badQuota": "MiB 단위의 정수를 입력하거나 비워 두세요.",
+      "reload": "다시 불러오기",
+      "ownerError": "소유자 설정을 사용할 수 없거나 바뀌었습니다: {{message}}",
+      "save": "저장",
+      "loadError": "샌드박스 프로필을 읽지 못했습니다."
+    }
   }
 }

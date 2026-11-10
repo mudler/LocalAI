@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
- "fmt"
+	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/mudler/LocalAI/pkg/egresspolicy"
@@ -103,78 +104,78 @@ var _ = Describe("Owner policy", func() {
 		Expect(off.Policy.AllowPrivate).To(BeFalse())
 	})
 	It("prunes oldest receipts and preserves restart replay without limiting updates", func() {
-        open()
-        // Seed the full retention window through real reducer transitions, then
-        // persist it once to avoid quadratic disk writes in this boundary test.
-        var st state = s.state
-        patch := Patch{Ports: ptr("8443")}
-        for i := 0; i < MaxReceipts; i++ {
-            r := reduce(st, update{Patch: patch, Revision: uint64(i+1), ID: fmt.Sprintf("op-%d", i)})
-            Expect(r.Err).NotTo(HaveOccurred())
-            st = reduce(r.State, persisted{}).State
-        }
-        s.state = st
-        _, err := s.persist(st.(ready).doc)
-        Expect(err).NotTo(HaveOccurred())
-        last, err := s.Update(ctx, Patch{AllowedHosts: ptr("example.com")}, uint64(MaxReceipts+1), "newest")
-        Expect(err).NotTo(HaveOccurred())
-        Expect(last.Revision).To(Equal(uint64(MaxReceipts+2)))
-        Expect(s.state.(ready).doc.Receipts).To(HaveLen(MaxReceipts))
-        Expect(s.state.(ready).doc.Receipts).NotTo(HaveKey("op-0"))
-        Expect(s.Close()).To(Succeed())
-        s = nil
-        open()
-        before, err := os.ReadFile(path)
-        Expect(err).NotTo(HaveOccurred())
-        replay, err := s.Update(ctx, patch, 2, "op-1")
-        Expect(err).NotTo(HaveOccurred())
-        Expect(replay.Revision).To(Equal(uint64(3)))
-        _, err = s.Update(ctx, Patch{}, 2, "op-1")
-        Expect(err).To(MatchError(ErrOperationMismatch))
-        _, err = s.Update(ctx, patch, 1, "op-0")
-        Expect(err).To(MatchError(ErrConflict))
-        live, err := s.Snapshot(ctx)
-        Expect(err).NotTo(HaveOccurred())
-        Expect(live).To(Equal(last))
-        after, err := os.ReadFile(path)
-        Expect(err).NotTo(HaveOccurred())
-        Expect(after).To(Equal(before))
-        _, err = s.Update(ctx, Patch{}, live.Revision, "continues")
-        Expect(err).NotTo(HaveOccurred())
-    })
-    It("rejects trailing JSON in patches and durable documents", func() {
-        var p Patch
-        Expect(strictJSON([]byte(`{"chats_egress_ports":"443"} {}`), &p)).NotTo(Succeed())
-        open()
-        Expect(s.Close()).To(Succeed())
-        s = nil
-        original, err := os.ReadFile(path)
-        Expect(err).NotTo(HaveOccurred())
-        for _, suffix := range []string{" {}", " null", " trailing"} {
-            body := append(append([]byte{}, original...), []byte(suffix)...)
-            Expect(os.WriteFile(path, body, 0600)).To(Succeed())
-            other, err := Open(path, legacy())
-            Expect(err).To(HaveOccurred())
-            Expect(other).To(BeNil())
-            after, err := os.ReadFile(path)
-            Expect(err).NotTo(HaveOccurred())
-            Expect(after).To(Equal(body))
-        }
-    })
+		open()
+		// Seed the full retention window through real reducer transitions, then
+		// persist it once to avoid quadratic disk writes in this boundary test.
+		var st state = s.state
+		patch := Patch{Ports: ptr("8443")}
+		for i := 0; i < MaxReceipts; i++ {
+			r := reduce(st, update{Patch: patch, Revision: uint64(i + 1), ID: fmt.Sprintf("op-%d", i)})
+			Expect(r.Err).NotTo(HaveOccurred())
+			st = reduce(r.State, persisted{}).State
+		}
+		s.state = st
+		_, err := s.persist(st.(ready).doc)
+		Expect(err).NotTo(HaveOccurred())
+		last, err := s.Update(ctx, Patch{AllowedHosts: ptr("example.com")}, uint64(MaxReceipts+1), "newest")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(last.Revision).To(Equal(uint64(MaxReceipts + 2)))
+		Expect(s.state.(ready).doc.Receipts).To(HaveLen(MaxReceipts))
+		Expect(s.state.(ready).doc.Receipts).NotTo(HaveKey("op-0"))
+		Expect(s.Close()).To(Succeed())
+		s = nil
+		open()
+		before, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		replay, err := s.Update(ctx, patch, 2, "op-1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(replay.Revision).To(Equal(uint64(3)))
+		_, err = s.Update(ctx, Patch{}, 2, "op-1")
+		Expect(err).To(MatchError(ErrOperationMismatch))
+		_, err = s.Update(ctx, patch, 1, "op-0")
+		Expect(err).To(MatchError(ErrConflict))
+		live, err := s.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(live).To(Equal(last))
+		after, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(Equal(before))
+		_, err = s.Update(ctx, Patch{}, live.Revision, "continues")
+		Expect(err).NotTo(HaveOccurred())
+	})
+	It("rejects trailing JSON in patches and durable documents", func() {
+		var p Patch
+		Expect(strictJSON([]byte(`{"chats_egress_ports":"443"} {}`), &p)).NotTo(Succeed())
+		open()
+		Expect(s.Close()).To(Succeed())
+		s = nil
+		original, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		for _, suffix := range []string{" {}", " null", " trailing"} {
+			body := append(append([]byte{}, original...), []byte(suffix)...)
+			Expect(os.WriteFile(path, body, 0600)).To(Succeed())
+			other, err := Open(path, legacy())
+			Expect(err).To(HaveOccurred())
+			Expect(other).To(BeNil())
+			after, err := os.ReadFile(path)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(after).To(Equal(body))
+		}
+	})
 	It("reopens canonical migration without provider pins", func() {
-        m := legacy()
-        m.Candidates[0].ToolProviders = nil
-        var err error
-        s, err = Open(path, m)
-        Expect(err).NotTo(HaveOccurred())
-        Expect(s.Close()).To(Succeed())
-        s = nil
-        s, err = Open(path, nil)
-        Expect(err).NotTo(HaveOccurred())
-        live, err := s.Snapshot(ctx)
-        Expect(err).NotTo(HaveOccurred())
-        Expect(live.Policy.ToolProviders).To(BeEmpty())
-    })
+		m := legacy()
+		m.Candidates[0].ToolProviders = nil
+		var err error
+		s, err = Open(path, m)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Close()).To(Succeed())
+		s = nil
+		s, err = Open(path, nil)
+		Expect(err).NotTo(HaveOccurred())
+		live, err := s.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(live.Policy.ToolProviders).To(BeEmpty())
+	})
 	for name, body := range map[string]string{
 		"duplicate ceiling":  `{"chats_egress_ceiling":"off","chats_egress_ceiling":"all"}`,
 		"escaped duplicate":  `{"chats_egress_ceiling":"off","chats_egress_\u0063eiling":"all"}`,
@@ -222,7 +223,7 @@ var _ = Describe("Owner policy", func() {
 				for _, replacement := range []string{"missing", "null", "wrong type"} {
 					// A document written before the key existed has none, and
 					// reads as the default (see files_ceiling_test.go).
-					if replacement == "missing" && key == "connector_files_ceiling_bytes" {
+					if replacement == "missing" && (key == "connector_files_ceiling_bytes" || key == "sandbox_profiles" || slices.Contains(pathParts, "sandbox_profiles")) {
 						continue
 					}
 					var copyRoot map[string]any
@@ -230,6 +231,10 @@ var _ = Describe("Owner policy", func() {
 					target := copyRoot
 					for _, part := range pathParts {
 						target = target[part].(map[string]any)
+					}
+					// An empty list is a list, so it is not a wrong type for one.
+					if replacement == "wrong type" && (key == "pin_previous" || key == "roles" || key == "users") {
+						continue
 					}
 					switch replacement {
 					case "missing":

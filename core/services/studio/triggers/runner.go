@@ -103,7 +103,11 @@ type Options struct {
 	// MaxDailyCap, when set, gives the highest daily limit that applies now:
 	// a trigger with a higher limit is held to it. Read at each use.
 	MaxDailyCap func() int
-	Logf        func(format string, args ...any)
+	// Pause is called when a schedule trigger that runs more often than once
+	// an hour was skipped CapSkipsToPause times in a row because it reached its
+	// daily limit. The host switches the trigger off and tells its owner.
+	Pause func(t Trigger, why string)
+	Logf  func(format string, args ...any)
 }
 
 // Runner starts the runs of the triggers in a Store.
@@ -323,12 +327,70 @@ func (r *Runner) scheduleOne(ctx context.Context, t Trigger, now time.Time) erro
 	if err := r.admit(ctx, t, &run, now, true, false); err != nil {
 		return err
 	}
+	if r.repeatsSkip(ctx, t.ID, run) {
+		// The same skip as the row before: keep one row for the stretch, so a
+		// fast schedule does not fill the history with copies of it.
+		return r.o.Store.SetLastDue(ctx, t.ID, due.UTC())
+	}
 	if err := r.claim(ctx, run); err != nil {
 		return err
 	}
 	// Claim first: a crash between the two calls finds the same due time
 	// again, and the claim is refused.
-	return r.o.Store.SetLastDue(ctx, t.ID, due.UTC())
+	if err := r.o.Store.SetLastDue(ctx, t.ID, due.UTC()); err != nil {
+		return err
+	}
+	if run.Status == StatusSkipped && strings.HasPrefix(run.Reason, capReasonPrefix) {
+		r.pauseOnCapSkips(ctx, t, sched, loc, now)
+	}
+	return nil
+}
+
+// capReasonFormat is the reason of a run that the daily limit skipped.
+const (
+	capReasonPrefix = "daily limit of "
+	capReasonFormat = capReasonPrefix + "%d runs reached"
+)
+
+// CapSkipsToPause is how many runs in a row the daily limit may skip before a
+// schedule trigger that runs more often than hourly is switched off.
+const CapSkipsToPause = 3
+
+// pauseBelow is the gap under which a schedule trigger is paused for hitting
+// its daily limit again and again. A slower schedule skips only a few times a
+// day and gets its limit back at midnight, so a limit it chose stays a limit.
+const pauseBelow = time.Hour
+
+// repeatsSkip tells whether run is a skip for an earlier run that is still
+// going or waiting, and the newest row of the trigger is a skip with the same
+// reason. A skip for the daily limit is always kept: the pause counts them.
+func (r *Runner) repeatsSkip(ctx context.Context, triggerID string, run Run) bool {
+	if run.Status != StatusSkipped || (run.Reason != ReasonStillGoing && run.Reason != ReasonWaiting) {
+		return false
+	}
+	prev, err := r.o.Store.ListRuns(ctx, triggerID, 1)
+	return err == nil && len(prev) == 1 && prev[0].Status == StatusSkipped && prev[0].Reason == run.Reason
+}
+
+// pauseOnCapSkips asks the host to switch t off when its last
+// CapSkipsToPause runs were all skipped for the daily limit.
+func (r *Runner) pauseOnCapSkips(ctx context.Context, t Trigger, sched Schedule, loc *time.Location, now time.Time) {
+	if r.o.Pause == nil {
+		return
+	}
+	if gap := sched.MinGap(now, loc); gap <= 0 || gap >= pauseBelow {
+		return
+	}
+	runs, err := r.o.Store.ListRuns(ctx, t.ID, CapSkipsToPause)
+	if err != nil || len(runs) < CapSkipsToPause {
+		return
+	}
+	for _, x := range runs {
+		if x.Status != StatusSkipped || !strings.HasPrefix(x.Reason, capReasonPrefix) {
+			return
+		}
+	}
+	r.o.Pause(t, fmt.Sprintf("it reached its daily limit and %d runs in a row were skipped", CapSkipsToPause))
 }
 
 // admit decides what happens to a run that was just made: it stays queued, or
@@ -359,14 +421,14 @@ func (r *Runner) admit(ctx context.Context, t Trigger, run *Run, now time.Time, 
 	if err != nil {
 		return err
 	}
-	cap := t.CapOrDefault()
+	cap := t.EffectiveCap(now)
 	if r.o.MaxDailyCap != nil {
 		if m := r.o.MaxDailyCap(); m > 0 && cap > m {
 			cap = m
 		}
 	}
 	if n >= cap {
-		run.Status, run.Reason, run.Ended = StatusSkipped, fmt.Sprintf("daily limit of %d runs reached", cap), now.UTC()
+		run.Status, run.Reason, run.Ended = StatusSkipped, fmt.Sprintf(capReasonFormat, cap), now.UTC()
 	}
 	return nil
 }

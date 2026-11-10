@@ -71,6 +71,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: true
+      # Route apt traffic of the docker builds through a mirror, as
+      # backend_build.yml and image_build.yml do. archive.ubuntu.com stalls
+      # now and then and the builds fail with "Unable to locate package".
+      - name: Configure apt mirror on runner
+        id: apt_mirror
+        uses: ./.github/actions/configure-apt-mirror
       - name: Dependencies
         run: |
           # Install protoc
@@ -81,8 +87,11 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Test
+        env:
+          APT_MIRROR: ${{ steps.apt_mirror.outputs.effective-mirror }}
+          APT_PORTS_MIRROR: ${{ steps.apt_mirror.outputs.effective-ports-mirror }}
         run: |
-            PATH="$PATH:$HOME/go/bin" make backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-e2e e2e-aio
+            PATH="$PATH:$HOME/go/bin" make APT_MIRROR="$APT_MIRROR" APT_PORTS_MIRROR="$APT_PORTS_MIRROR" backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-e2e e2e-aio
       # tmate keeps the runner busy until the 6 hour job limit, so a single
       # failure costs a whole runner slot. Only open a session when someone
       # asked for one by labelling the pull request `ci-debug`, and cap the

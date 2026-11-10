@@ -1147,8 +1147,9 @@ static uint8_t* load_and_resize_image(const char* path, int target_width, int ta
 }
 
 // Read a RIFF/WAVE file (PCM 16/24/32-bit or IEEE float 32-bit) into an
-// sd_audio_t holding planar float samples (all of channel 0, then channel 1,
-// ...), the layout sd.cpp expects. The caller owns out->data (free()).
+// sd_audio_t holding interleaved float samples (frame-major: ch0_s0, ch1_s0,
+// ch0_s1, ...), the layout sd.cpp reads as data[frame * channels + channel].
+// The caller owns out->data (free()).
 // Returns false and prints the reason on any unsupported or malformed input.
 static bool load_wav_audio(const char* path, sd_audio_t* out) {
     *out = {0, 0, 0, nullptr};
@@ -1204,8 +1205,8 @@ static bool load_wav_audio(const char* path, sd_audio_t* out) {
     size_t bytes_per_sample = bits / 8;
     uint64_t frames = data.size() / (bytes_per_sample * channels);
     if (frames == 0) { fprintf(stderr, "Reference audio '%s' has no samples\n", path); return false; }
-    float* planar = (float*)malloc((size_t)frames * channels * sizeof(float));
-    if (!planar) return false;
+    float* interleaved = (float*)malloc((size_t)frames * channels * sizeof(float));
+    if (!interleaved) return false;
     for (uint64_t i = 0; i < frames; i++) {
         for (uint32_t c = 0; c < channels; c++) {
             const uint8_t* b = data.data() + (i * channels + c) * bytes_per_sample;
@@ -1220,18 +1221,21 @@ static bool load_wav_audio(const char* path, sd_audio_t* out) {
             } else {
                 v = (int32_t)rd32(b) / 2147483648.0f;
             }
-            planar[(uint64_t)c * frames + i] = v;
+            interleaved[i * channels + c] = v;
         }
     }
-    *out = {rate, channels, frames, planar};
+    *out = {rate, channels, frames, interleaved};
     return true;
 }
 
 // Write sd.cpp's audio buffer to a temp WAV file (IEEE float, interleaved).
-// sd_audio_t.data is planar (all channel 0 samples, then channel 1, etc.) — we
-// interleave on the fly so ffmpeg's standard wav demuxer can read it directly.
+// sd_audio_t.data is already interleaved (frame-major: ch0_s0, ch1_s0, ch0_s1,
+// ...): sd.cpp permutes its [samples, channels] waveform before copying it out
+// and its own writers read data[frame * channels + channel]. The buffer is
+// copied as is. Reading it as planar swaps the halves of the clip between the
+// channels and stretches each half to the full length (slow, one octave lower).
 // Returns 0 on success and fills wav_path.
-static int write_planar_float_wav(const sd_audio_t* a, char* wav_path, size_t wav_path_sz) {
+static int write_interleaved_float_wav(const sd_audio_t* a, char* wav_path, size_t wav_path_sz) {
     if (!a || !a->data || a->sample_count == 0 || a->channels == 0 || a->sample_rate == 0) {
         return -1;
     }
@@ -1283,15 +1287,24 @@ static int write_planar_float_wav(const sd_audio_t* a, char* wav_path, size_t wa
     fwrite("data", 1, 4, f);
     fwrite(&data_bytes, 4, 1, f);
 
-    // Interleave planar [ch0_samples..., ch1_samples...] → [ch0_s0, ch1_s0, ...]
-    for (uint64_t s = 0; s < frames; s++) {
-        for (uint32_t c = 0; c < channels; c++) {
-            float v = a->data[(size_t)c * frames + s];
-            fwrite(&v, sizeof(float), 1, f);
-        }
+    // The buffer is interleaved already: [ch0_s0, ch1_s0, ch0_s1, ch1_s1, ...]
+    if (fwrite(a->data, sizeof(float), (size_t)total_samples64, f) != (size_t)total_samples64) {
+        perror("fwrite wav data");
+        fclose(f);
+        unlink(wav_path);
+        return -1;
     }
     fclose(f);
     return 0;
+}
+
+// Video length in seconds ("-t" value) and the matching "apad" filter that
+// pads the audio with silence up to that length. The filter needs ffmpeg 4.2
+// or newer (whole_dur).
+static void format_mux_duration(int num_frames, int fps, char* dur, size_t dur_size,
+                                char* apad, size_t apad_size) {
+    snprintf(dur, dur_size, "%.6f", fps > 0 ? (double)num_frames / fps : 0.0);
+    snprintf(apad, apad_size, "apad=whole_dur=%s", dur);
 }
 
 // Pipe raw RGB/RGBA frames to ffmpeg stdin and let it produce an MP4 at dst.
@@ -1313,12 +1326,15 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
     char fps_str[32];
     snprintf(size_str, sizeof(size_str), "%dx%d", width, height);
     snprintf(fps_str, sizeof(fps_str), "%d", fps);
+    char dur_str[32];
+    char apad_str[48];
+    format_mux_duration(num_frames, fps, dur_str, sizeof(dur_str), apad_str, sizeof(apad_str));
 
     // Optional audio: write a temp WAV file if the model produced audio.
     char wav_path[4096] = {0};
     bool have_audio = false;
     if (audio && audio->data && audio->sample_count > 0 && audio->channels > 0 && audio->sample_rate > 0) {
-        if (write_planar_float_wav(audio, wav_path, sizeof(wav_path)) == 0) {
+        if (write_interleaved_float_wav(audio, wav_path, sizeof(wav_path)) == 0) {
             have_audio = true;
             fprintf(stderr, "ffmpeg_mux: audio %u Hz × %u ch × %" PRIu64 " frames → %s\n",
                     audio->sample_rate, audio->channels, audio->sample_count, wav_path);
@@ -1376,10 +1392,20 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
             argv.push_back(const_cast<char*>("aac"));
             argv.push_back(const_cast<char*>("-b:a"));
             argv.push_back(const_cast<char*>("192k"));
-            // -shortest so the final clip ends with the shorter of the two
-            // streams — guards against an audio buffer that overshoots the
-            // video duration (or vice versa) on certain LTX variants.
-            argv.push_back(const_cast<char*>("-shortest"));
+            // Make the audio exactly as long as the video: pad it with silence
+            // and cut the output at the last frame. The audio of a video model
+            // can be a little shorter than the frames (MiniMax-H3 has 40 audio
+            // latents per second, so 56 frames at 24 fps give 2.325 s of audio
+            // for 2.333 s of video), and -shortest then dropped the last frame.
+            // An audio buffer longer than the video is still cut.
+            if (fps > 0) {
+                argv.push_back(const_cast<char*>("-af"));
+                argv.push_back(apad_str);
+                argv.push_back(const_cast<char*>("-t"));
+                argv.push_back(dur_str);
+            } else {
+                argv.push_back(const_cast<char*>("-shortest"));
+            }
         }
         argv.push_back(const_cast<char*>("-c:v"));
         argv.push_back(const_cast<char*>("libx264"));

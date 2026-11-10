@@ -11,7 +11,7 @@
   "allFolders": {
     "label": "Todas las carpetas (Mi unidad y unidades compartidas)",
     "hint": "El agente puede leer todos los archivos que tu acceso de Google puede ver, en Mi unidad y en las unidades compartidas. Si lo desactivas, solo usa las carpetas de la lista.",
-    "warning": "Esto permite al agente leer todos los archivos a los que llega tu acceso de Google, no solo los de una carpeta. El modo de escritura de abajo sigue vigente y cada cambio sigue esperando tu confirmación.",
+    "warning": "Esto permite al agente leer todos los archivos a los que llega tu acceso de Google, no solo los de una carpeta. El modo de escritura de abajo sigue vigente.",
     "confirm": "Lo entiendo: permitir todas las carpetas",
     "row": "Todas las carpetas (Mi unidad y unidades compartidas)"
   },
@@ -51,7 +51,7 @@
     "hint": "Crear un archivo de texto, reemplazar el texto de un archivo, renombrar o mover un archivo y enviar un archivo a la papelera. Nunca comparte un archivo ni lo elimina de forma definitiva.",
     "off": "Solo lectura",
     "propose": "Te pregunta antes",
-    "auto": "Actúa sin preguntar",
+    "auto": "Permitir todo",
     "line": {
       "off": "No puede cambiar nada en Drive.",
       "propose": "Cada cambio espera tu confirmación.",
@@ -60,12 +60,12 @@
     "note": {
       "off": "El acceso de escritura está desactivado: esta conexión solo lee.",
       "propose": "Cada cambio espera en tus aprobaciones hasta que lo confirmes. También necesita el acceso de escritura opcional que permites al conectar.",
-      "auto": "Cada cambio sigue esperando en tus aprobaciones: este complemento nunca escribe sin la confirmación de una persona. También necesita el acceso de escritura opcional que permites al conectar."
+      "auto": "Un chat tuyo hace cada cambio al instante, sin preguntar, y LocalAI no puede deshacerlo. Las ejecuciones sin ti presente siguen esperando tu confirmación. También necesita el acceso de escritura opcional que permites al conectar."
     },
     "row": {
       "off": "Solo lectura",
       "propose": "Te pregunta antes",
-      "auto": "Te pregunta antes"
+      "auto": "Permitir todo"
     }
   },
   "approval": {

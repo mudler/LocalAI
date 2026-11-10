@@ -26,9 +26,12 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		}
 		return !(opts.DisableClientFiles && clientToolFiles[tool])
 	}
+	addClientTool(s, ToolListModels,
+		"List models you can use, by capability. Pick the model name for the other tools here.",
+		client.ListModels)
 	if keep(ToolGenerateImage) {
 		addClientTool(s, ToolGenerateImage,
-			"Make images from a prompt, or with image and mask repaint the masked area. Saves files.",
+			"Make images from a prompt. With image: img2img; with image and mask: repaint the white area. Saves files.",
 			func(ctx context.Context, in GenerateImageToolInput) (*ImageResult, error) {
 				return generateImage(ctx, client, in)
 			})
@@ -45,7 +48,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 	if keep(ToolDescribeImage) {
 		addClientTool(s, ToolDescribeImage,
-			"Describe an image or answer a question about it, including text in it.",
+			"Describe an image or answer a question about it.",
 			client.DescribeImage)
 	}
 	if keep(ToolEmbed) {
@@ -65,13 +68,23 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	}
 	if keep(ToolGenerateVideo) {
 		addClientTool(s, ToolGenerateVideo,
-			"Generate a video from a prompt, optionally from an image. Can take minutes. Saves a file.",
+			"Video from a prompt, optional start/end images, audio, references. Can take minutes. Saves a file.",
 			client.GenerateVideo)
 	}
 	if keep(ToolGenerateSound) {
 		addClientTool(s, ToolGenerateSound,
-			"Generate a sound effect or music from a description. Saves an audio file.",
+			"Sound effect or music from a description. Saves a file.",
 			client.GenerateSound)
+	}
+	if keep(ToolUpscaleImage) {
+		addClientTool(s, ToolUpscaleImage,
+			"Enlarge an image with an upscaler model. Saves a file.",
+			client.UpscaleImage)
+	}
+	if keep(ToolTransformAudio) {
+		addClientTool(s, ToolTransformAudio,
+			"Cancel echo or noise, split stems, convert a voice. reference: echo loopback or target voice. Saves files.",
+			client.TransformAudio)
 	}
 	if keep(ToolVoice) {
 		addActionTool(s, ToolVoice,
@@ -109,6 +122,7 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 // write a file or spend compute to make new content.
 var clientToolWrites = map[string]bool{
 	ToolGenerateImage: true, ToolSpeak: true, ToolEmbed: true, ToolGenerateVideo: true, ToolGenerateSound: true,
+	ToolUpscaleImage: true, ToolTransformAudio: true,
 }
 
 // clientToolFiles lists the client tools that read or write files, so they need
@@ -116,25 +130,30 @@ var clientToolWrites = map[string]bool{
 var clientToolFiles = map[string]bool{
 	ToolGenerateImage: true, ToolSpeak: true, ToolTranscribeAudio: true, ToolDescribeImage: true, ToolEmbed: true,
 	ToolDetect: true, ToolGenerateVideo: true, ToolGenerateSound: true, ToolVoice: true, ToolFace: true,
+	ToolUpscaleImage: true, ToolTransformAudio: true,
 }
 
 // generateImage serves generate_image: the inpainting route when the call
 // names an image, the generations route otherwise.
 func generateImage(ctx context.Context, client LocalAIClient, in GenerateImageToolInput) (*ImageResult, error) {
-	if in.Image == "" {
-		if in.Mask != "" {
+	if in.Mask != "" {
+		if in.Image == "" {
 			return nil, errors.New("generate_image: mask needs image; give both to edit an image, or neither to make a new one")
 		}
-		return client.GenerateImage(ctx, GenerateImageRequest{
-			Prompt: in.Prompt, Model: in.Model, Size: in.Size,
-			NegativePrompt: in.NegativePrompt, Steps: in.Steps, N: in.N,
+		// The inpainting route takes only the image, the mask, the prompt and
+		// the steps. Refuse what it would drop, so the model is not told that
+		// a seed or a reference was used.
+		if in.Seed != nil || len(in.RefImages) > 0 {
+			return nil, errors.New("generate_image: seed and ref_images do not work with mask; drop them, or drop the mask")
+		}
+		return client.EditImage(ctx, EditImageRequest{
+			Prompt: in.Prompt, Image: in.Image, Mask: in.Mask, Model: in.Model, Steps: in.Steps,
 		})
 	}
-	if in.Mask == "" {
-		return nil, errors.New("generate_image: mask is required when image is set")
-	}
-	return client.EditImage(ctx, EditImageRequest{
-		Prompt: in.Prompt, Image: in.Image, Mask: in.Mask, Model: in.Model, Steps: in.Steps,
+	return client.GenerateImage(ctx, GenerateImageRequest{
+		Prompt: in.Prompt, Model: in.Model, Size: in.Size,
+		NegativePrompt: in.NegativePrompt, Steps: in.Steps, N: in.N,
+		Seed: in.Seed, Image: in.Image, RefImages: in.RefImages,
 	})
 }
 
@@ -155,7 +174,7 @@ func voiceAction(ctx context.Context, client LocalAIClient, in VoiceToolInput) (
 		if err := need(ToolVoice, in.Action, [2]string{"audio", in.Audio}, [2]string{"audio2", in.Audio2}); err != nil {
 			return nil, err
 		}
-		return client.VerifyVoice(ctx, VoiceVerifyRequest{Audio1: in.Audio, Audio2: in.Audio2, Model: in.Model, Threshold: in.Threshold})
+		return client.VerifyVoice(ctx, VoiceVerifyRequest{Audio1: in.Audio, Audio2: in.Audio2, Model: in.Model, Threshold: in.Threshold, AntiSpoofing: in.AntiSpoofing})
 	case ActionIdentify:
 		if err := need(ToolVoice, in.Action, [2]string{"audio", in.Audio}); err != nil {
 			return nil, err
@@ -171,7 +190,7 @@ func faceAction(ctx context.Context, client LocalAIClient, in FaceToolInput) (an
 		if err := need(ToolFace, in.Action, [2]string{"image", in.Image}, [2]string{"image2", in.Image2}); err != nil {
 			return nil, err
 		}
-		return client.VerifyFace(ctx, VerifyFaceRequest{Image1: in.Image, Image2: in.Image2, Model: in.Model, Threshold: in.Threshold})
+		return client.VerifyFace(ctx, VerifyFaceRequest{Image1: in.Image, Image2: in.Image2, Model: in.Model, Threshold: in.Threshold, AntiSpoofing: in.AntiSpoofing})
 	case ActionIdentify:
 		if err := need(ToolFace, in.Action, [2]string{"image", in.Image}); err != nil {
 			return nil, err

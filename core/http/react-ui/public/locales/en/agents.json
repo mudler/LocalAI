@@ -570,7 +570,10 @@
       "off": "It reads and saves no notes, and the right to remember things is off. Nothing is saved until you save.",
       "reads": "The right to remember things is off, so it reads notes but cannot save any. Nothing is saved until you save.",
       "saves": "The right to remember things is on. Nothing is saved until you save."
-    }
+    },
+    "sandboxProfile": "Sandbox profile",
+    "sandboxProfileDefault": "Default",
+    "sandboxProfileHelp": "Used by unattended runs and as the starting profile of its chats."
   },
   "status": {
     "title": "Status",

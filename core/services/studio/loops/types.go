@@ -72,6 +72,14 @@ const (
 	DefaultDailyRuns = 200
 	// MaxDailyRuns bounds the daily budget an operator can set.
 	MaxDailyRuns = 100000
+	// DefaultDailyScriptChecks is the number of checks of waits on a script
+	// that one owner may spend in one day (UTC), over all their waits. It is
+	// separate from DefaultDailyRuns: a check starts a process and calls no
+	// model. One wait that checks every minute for a whole day takes 1440, so
+	// the default leaves room for about one such wait and some short ones.
+	DefaultDailyScriptChecks = 1500
+	// MaxDailyScriptChecks bounds the daily budget of script checks.
+	MaxDailyScriptChecks = 100000
 	// MaxFailures is the number of failed runs in a row that pauses a loop.
 	MaxFailures = 3
 	// MaxPromptBytes bounds the prompt of a loop.
@@ -127,6 +135,9 @@ const (
 	UntilMatch = "match"
 	// UntilJSONEquals waits for the JSON field Field of the output to equal Equals.
 	UntilJSONEquals = "json_equals"
+	// UntilExitZero waits for the script to exit with status 0. It needs a
+	// script.
+	UntilExitZero = "exit_zero"
 )
 
 // What the last check of a wait found.
@@ -158,6 +169,8 @@ const (
 	MaxWatchChecks = 2000
 	// MaxWatchOutput bounds the output kept as the baseline of a wait.
 	MaxWatchOutput = 8000
+	// MaxScriptBytes bounds the command of a wait on a script.
+	MaxScriptBytes = 8000
 )
 
 // Watch is the state of a wait: what it checks, the condition, and what the
@@ -165,10 +178,16 @@ const (
 // cluster goes on from the baseline of the last one.
 type Watch struct {
 	// Tool and Args name a read-only tool of the chat that is polled; URL is
-	// fetched with web_fetch. Exactly one of Tool and URL is set.
+	// fetched with web_fetch.
 	Tool string          `json:"tool,omitempty"`
 	Args json.RawMessage `json:"args,omitempty"`
 	URL  string          `json:"url,omitempty"`
+	// Script is a shell command that is run for each check, with no model
+	// call; it is the third source. It is kept here, which only the owner
+	// reads, and never in a label or in a list that is shown: Describe and
+	// the API name a script, not its text. Exactly one of Tool, URL and
+	// Script is set.
+	Script string `json:"script,omitempty"`
 	// Mode is UntilChange, UntilMatch or UntilJSONEquals; Pattern, Field and
 	// Equals are its arguments.
 	Mode    string `json:"mode"`
@@ -186,6 +205,9 @@ type Watch struct {
 	Checks  int    `json:"checks"`
 	Errors  int    `json:"errors"`
 	LastErr string `json:"last_err,omitempty"`
+	// LastExit is the exit status of the last check of a script. A non-zero
+	// status is a value of the check, not a failure of it.
+	LastExit int `json:"last_exit,omitempty"`
 	// FieldSeen is set once a json_equals check has read Field, whatever its
 	// value. An older stored wait without it reads as "not seen".
 	FieldSeen bool `json:"field_seen,omitempty"`
@@ -217,12 +239,20 @@ func (w *Watch) Clone() *Watch {
 }
 
 // Describe is one short line about what the wait waits for.
+//
+// A script is never named by its text: the line goes to lists that other
+// people read.
 func (w *Watch) Describe() string {
 	src := "the URL " + w.URL
-	if w.Tool != "" {
+	switch {
+	case w.Script != "":
+		src = "the script"
+	case w.Tool != "":
 		src = "the tool " + w.Tool
 	}
 	switch w.Mode {
+	case UntilExitZero:
+		return "the script to exit with status 0"
 	case UntilMatch:
 		return fmt.Sprintf("%s to match %q", src, w.Pattern)
 	case UntilJSONEquals:

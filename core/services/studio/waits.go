@@ -41,8 +41,8 @@ const waitForName = "wait_for"
 
 const waitForDescription = "Wait for something to happen without spending a model call on each check: the server checks for you and wakes you once. " +
 	"Use it when you tell the person that you will wait until a download or a job is done, or until a page or a tool's output changes. " +
-	"The source is one of: tool (a read-only tool of this chat, for example one that lists downloads, with fixed arguments) or url (a page, read like web_fetch). " +
-	"until is change (the output differs from the first check; the default), match (the output matches the regular expression pattern) or json_equals (the JSON field of the output equals the value). " +
+	"The source is one of: tool (a read-only tool of this chat, for example one that lists downloads, with fixed arguments), url (a page, read like web_fetch) or script (a shell command that the server runs for each check, in the same place as bash and with no model call; it changes no file, and a command that exits with a non-zero status is a result, not a failure). " +
+	"until is change (the output differs from the first check; the default), match (the output matches the regular expression pattern), json_equals (the JSON field of the output equals the value) or exit_zero (a script exits with status 0). " +
 	"You are woken when the condition holds, when the source fails max_errors checks in a row, or when timeout passes; the wake-up text says plainly when the condition was NOT met. " +
 	"then is what to do when you are woken. The person sees the wait and can stop it."
 
@@ -50,7 +50,8 @@ const waitForSchema = `{"type":"object","properties":{` +
 	`"tool":{"type":"string","description":"Name of a read-only tool of this chat to poll, such as one that lists downloads."},` +
 	`"arguments":{"type":"object","description":"The fixed arguments of that tool."},` +
 	`"url":{"type":"string","description":"An http or https address to poll instead of a tool."},` +
-	`"until":{"type":"string","enum":["change","match","json_equals"],"description":"change (default), match or json_equals."},` +
+	`"script":{"type":"string","maxLength":8000,"description":"A shell command to run for each check instead of a tool or a URL. It runs where bash runs, changes no file, and its output and exit status are the observation. In the person's ask mode they allow this command once, when you arm the wait."},` +
+	`"until":{"type":"string","enum":["change","match","json_equals","exit_zero"],"description":"change (default), match, json_equals or exit_zero (a script exits with status 0)."},` +
 	`"pattern":{"type":"string","description":"For match: a regular expression the output must match."},` +
 	`"field":{"type":"string","description":"For json_equals: the field of the JSON output, with dots for depth and numbers for list items, such as items.0.status."},` +
 	`"equals":{"description":"For json_equals: the value the field must equal, such as \"done\"."},` +
@@ -216,6 +217,10 @@ func (h *Loops) probe(ctx context.Context, l loops.Loop) watch.Result {
 		out string
 		err error
 	)
+	if w.Script != "" {
+		// Checks of a script are made by checkScript, which charges the budget.
+		return watch.Result{Err: errors.New("a check of a script went through the wrong path")}
+	}
 	if w.URL != "" {
 		out, err = h.svc.pollURL(ctx, l.Owner, l.ChatID, w.URL, w.Mode == loops.UntilJSONEquals)
 	} else {
@@ -296,6 +301,9 @@ func jsonField(text, path string) (string, error) {
 func step(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, string) {
 	v, why := judge(w, res, now)
 	w.LastCheck = now.UTC()
+	if w.Script != "" && res.Err == nil {
+		w.LastExit = res.ExitCode
+	}
 	switch {
 	case res.Err != nil || (w.LastErr != "" && !v.Done):
 		w.Outcome = loops.OutcomeError
@@ -338,6 +346,10 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 			w.FieldSeen = true
 		case errors.As(err, &absent) && !w.FieldSeen:
 			notYet = true
+		case w.Script != "" && res.ExitCode != 0:
+			// A script that failed has no JSON to give. Its status is a value
+			// of the check, not a failed check.
+			notYet = true
 		default:
 			res.Err = err
 		}
@@ -352,6 +364,14 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 	} else {
 		w.Errors, w.LastErr = 0, ""
 		switch w.Mode {
+		case loops.UntilExitZero:
+			if res.ExitCode == 0 {
+				d := "the script exited with status 0"
+				if out := strings.Join(strings.Fields(res.Output), " "); out != "" {
+					d += "; output: " + watch.Cap(out, 300)
+				}
+				return watch.Verdict{Done: true, Reason: watch.ReasonExitedZero, Detail: d}, "the script exited with status 0"
+			}
 		case loops.UntilMatch:
 			re, err := regexp.Compile(w.Pattern)
 			if err == nil {
@@ -391,6 +411,9 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 		if w.Mode == loops.UntilJSONEquals && !w.FieldSeen {
 			d += fmt.Sprintf("; the field %s was never present", w.Field)
 		}
+		if w.Script != "" && res.Err == nil {
+			d += fmt.Sprintf("; the last exit status was %d", res.ExitCode)
+		}
 		return watch.Verdict{Done: true, Reason: watch.ReasonTimedOut, Detail: d}, "timed out"
 	}
 	return watch.Verdict{}, ""
@@ -426,6 +449,7 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		Tool      string          `json:"tool"`
 		Arguments json.RawMessage `json:"arguments"`
 		URL       string          `json:"url"`
+		Script    string          `json:"script"`
 		Until     string          `json:"until"`
 		Pattern   string          `json:"pattern"`
 		Field     string          `json:"field"`
@@ -440,14 +464,17 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
 	lim := h.Limits()
-	w := &loops.Watch{Tool: strings.TrimSpace(args.Tool), URL: strings.TrimSpace(args.URL), Mode: strings.TrimSpace(args.Until),
+	w := &loops.Watch{Tool: strings.TrimSpace(args.Tool), URL: strings.TrimSpace(args.URL), Script: strings.TrimSpace(args.Script), Mode: strings.TrimSpace(args.Until),
 		Pattern: args.Pattern, Field: strings.TrimSpace(args.Field), Then: strings.TrimSpace(args.Then), MaxErrors: args.MaxErrors}
 	if w.Then == "" {
 		return "", errors.New("then is empty: say what to do when the wait ends")
 	}
 	switch {
-	case (w.Tool == "") == (w.URL == ""):
-		return "", errors.New("name exactly one source: tool (a read-only tool of this chat) or url")
+	case sourceCount(w) != 1:
+		return "", errors.New("name exactly one source: tool (a read-only tool of this chat), url or script")
+	case w.Script != "":
+		// Whether this chat can run it is checked after the other arguments
+		// and the repeat of a wait (armScript).
 	case w.Tool != "":
 		if len(args.Arguments) > 0 && string(args.Arguments) != "null" {
 			if !json.Valid(args.Arguments) || args.Arguments[0] != '{' {
@@ -480,6 +507,10 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		if _, err := regexp.Compile(w.Pattern); err != nil || w.Pattern == "" {
 			return "", fmt.Errorf("pattern is not a regular expression: %q", w.Pattern)
 		}
+	case loops.UntilExitZero:
+		if w.Script == "" {
+			return "", errors.New("exit_zero needs a script")
+		}
 	case loops.UntilJSONEquals:
 		if w.Field == "" || len(args.Equals) == 0 {
 			return "", errors.New("json_equals needs field and equals")
@@ -491,7 +522,7 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 			w.Equals = strings.TrimSpace(string(args.Equals))
 		}
 	default:
-		return "", fmt.Errorf("until must be change, match or json_equals, not %q", w.Mode)
+		return "", fmt.Errorf("until must be change, match, json_equals or exit_zero, not %q", w.Mode)
 	}
 	every := lim.MinInterval
 	if s := strings.TrimSpace(args.Every); s != "" {
@@ -527,6 +558,14 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 			" This wait already exists, so no second one was made. It wakes you once."), nil
 	}
 
+	if w.Script != "" {
+		// The refusals come now, not at the first check, and the mode ask
+		// gets its one approval of the whole command.
+		if err := h.armScript(ctx, a, w.Script); err != nil {
+			return "", fmt.Errorf("no wait was started: %w", err)
+		}
+	}
+
 	_, err := h.begin(ctx, a.Principal, a.ChatID, LoopInput{Prompt: "Wait for " + loops.Cut(w.Describe())}, &modelStart{wait: every, reason: w.Note, watch: w})
 	switch {
 	case errors.Is(err, loops.ErrTooManyInChat):
@@ -539,6 +578,17 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 	return h.waitStarted(w, every, timeout, args.Every, lim, ""), nil
 }
 
+// sourceCount is the number of sources that w names; a wait has exactly one.
+func sourceCount(w *loops.Watch) int {
+	n := 0
+	for _, s := range []string{w.Tool, w.URL, w.Script} {
+		if s != "" {
+			n++
+		}
+	}
+	return n
+}
+
 // waitStarted is the answer of wait_for for a wait that runs: new, or one that
 // the same call had made before (note says so).
 func (h *Loops) waitStarted(w *loops.Watch, every, timeout time.Duration, asked string, lim LoopLimits, note string) string {
@@ -548,6 +598,13 @@ func (h *Loops) waitStarted(w *loops.Watch, every, timeout time.Duration, asked 
 		w.Describe(), loops.ShortDuration(every), loops.ShortDuration(timeout), w.MaxErrors)
 	if d, err := time.ParseDuration(strings.TrimSpace(asked)); err == nil && d != every {
 		out += fmt.Sprintf(" The interval was set to %s: it must be from %s to 24h.", loops.ShortDuration(every), loops.ShortDuration(lim.MinInterval))
+	}
+	if w.Script != "" {
+		// The person sees the command here, in the turn where it was armed:
+		// the wait list and its label never name it.
+		out += fmt.Sprintf(" It runs this command for each check, read-only and with no model call, where bash runs: %s. "+
+			"A non-zero exit status is a result, not a failure; only a command that does not finish in time or cannot run counts as a failed check. "+
+			"Show the person this command in your reply, so they know what the server will run.", "```\n"+w.Script+"\n```")
 	}
 	return out + note
 }
@@ -575,7 +632,7 @@ func (h *Loops) sameWait(ctx context.Context, a workspace.Actor, w *loops.Watch)
 		if o == nil || !l.State.Live() || o.Wake != "" {
 			continue
 		}
-		if o.Tool == w.Tool && o.URL == w.URL && o.Mode == w.Mode && o.Pattern == w.Pattern &&
+		if o.Tool == w.Tool && o.URL == w.URL && o.Script == w.Script && o.Mode == w.Mode && o.Pattern == w.Pattern &&
 			o.Field == w.Field && o.Equals == w.Equals && same(o.Args, w.Args) {
 			return &l, nil
 		}
@@ -602,7 +659,7 @@ func (h *Loops) checkWatches(ctx context.Context, due []loops.Loop, lim LoopLimi
 // checkWatch makes one check of a due wait and records it. The check is code;
 // the model is called only when the verdict is done (the loop is then due at
 // once, with the wake-up text, and the next pass runs it).
-func (h *Loops) checkWatch(ctx context.Context, l loops.Loop, _ LoopLimits) {
+func (h *Loops) checkWatch(ctx context.Context, l loops.Loop, lim LoopLimits) {
 	if !h.ready(ctx, l) {
 		return
 	}
@@ -622,14 +679,30 @@ func (h *Loops) checkWatch(ctx context.Context, l loops.Loop, _ LoopLimits) {
 		}
 		return
 	}
-	res := h.probe(ctx, claimed)
+	var (
+		res watch.Result
+		end *scriptEnd
+	)
+	if claimed.Watch.Script != "" {
+		res, end = h.checkScript(ctx, claimed, lim)
+	} else {
+		res = h.probe(ctx, claimed)
+	}
 	done := false
 	updated, err := h.o.Store.Update(context.WithoutCancel(ctx), l.ID, func(c *loops.Loop) error {
 		if c.State != loops.StateActive || c.Watch == nil || c.Watch.Wake != "" {
 			return errLoopSkip
 		}
 		w := c.Watch.Clone()
-		v, why := step(w, res, h.o.Clock().UTC())
+		var (
+			v   watch.Verdict
+			why string
+		)
+		if end != nil {
+			v, why = endAtOnce(w, end.detail, h.o.Clock().UTC()), end.why
+		} else {
+			v, why = step(w, res, h.o.Clock().UTC())
+		}
 		c.Updated = h.o.Clock().UTC()
 		if v.Done {
 			w.Wake, w.Why = wakeText(w, v, w.Checks), loops.Cut(why)
@@ -654,6 +727,13 @@ func (h *Loops) checkWatch(ctx context.Context, l loops.Loop, _ LoopLimits) {
 	}
 }
 
+// endAtOnce ends a wait that cannot go on and is not a verdict of its
+// condition: the wake-up says plainly that the condition was not checked.
+func endAtOnce(w *loops.Watch, detail string, now time.Time) watch.Verdict {
+	w.LastCheck, w.Outcome, w.End = now.UTC(), loops.OutcomeError, loops.EndSourceFailing
+	return watch.Verdict{Done: true, Reason: watch.ReasonSourceFailing, Detail: detail}
+}
+
 // progressLine is what the person reads about a wait that goes on.
 func progressLine(w *loops.Watch, at time.Time) string {
 	s := fmt.Sprintf("Checked %d times, the last at %s UTC.", w.Checks, at.Format("15:04"))
@@ -662,6 +742,8 @@ func progressLine(w *loops.Watch, at time.Time) string {
 		s += fmt.Sprintf(" The last %d failed: %s", w.Errors, w.LastErr)
 	case w.Checks == 1 && w.Mode == loops.UntilChange:
 		s += " The first output is the baseline."
+	case w.Script != "":
+		s += fmt.Sprintf(" The last exit status was %d.", w.LastExit)
 	}
 	return loops.Cut(s)
 }

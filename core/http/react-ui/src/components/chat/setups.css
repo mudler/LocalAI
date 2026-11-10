@@ -30,4 +30,5 @@
 .setup-manage__meta { font-size: var(--fs-meta); color: var(--color-text-muted); overflow-wrap: anywhere; }
 .setup-manage__tools { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--sp-1); flex: none; min-width: 15rem; }
 .setup-manage__confirm { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; font-size: var(--fs-small); }
-.setup-reason { align-items: flex-start; }
+.setup-reason { align-items: flex-start; flex-wrap: wrap; row-gap: var(--sp-1); }
+.setup-reason__manage { align-self: center; }

@@ -463,7 +463,10 @@
       "off": "Non legge e non salva note, e il permesso di ricordare è disattivato. Nulla viene salvato finché non salvi.",
       "reads": "Il permesso di ricordare è disattivato, quindi legge le note ma non può salvarne. Nulla viene salvato finché non salvi.",
       "saves": "Il permesso di ricordare è attivo. Nulla viene salvato finché non salvi."
-    }
+    },
+    "sandboxProfile": "Profilo sandbox",
+    "sandboxProfileDefault": "Predefinito",
+    "sandboxProfileHelp": "Usato dalle esecuzioni non presidiate e come profilo iniziale delle sue chat."
   },
   "run": {
     "workingLine": "Working"

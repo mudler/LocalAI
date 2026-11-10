@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
+import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 // eslint-disable-next-line no-unused-vars
 import { SlashHelpCard } from '../components/chat/CommandCards'
 import { parseInvocation } from '../utils/slashCommands'
@@ -97,7 +98,10 @@ export default function Home() {
   const [modelsFailed, setModelsFailed] = useState(false)
   const configuredModelsRef = useRef(configuredModels)
   configuredModelsRef.current = configuredModels
-  const [loadedModels, setLoadedModels] = useState([])
+  // The models in memory, or null while the server has not said: GET /system
+  // is for administrators, and nobody else may read it.
+  const [loadedModels, setLoadedModels] = useState(null)
+  const loadedList = useMemo(() => loadedModels || [], [loadedModels])
   // An old chat address names a model (/app/chats?model=…, /app/chat/<model>)
   // and lands here: the picker starts on it.
   const [searchParams] = useSearchParams()
@@ -106,6 +110,8 @@ export default function Home() {
   const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '' })
   // The composer is the chat page's (useChatComposer): the draft is Home's,
   // the switches are a draft that goes with the new chat.
+  // A new chat shows the default sandbox profile; the choice is made in the chat.
+  const sandboxProfile = useChatSandboxProfile(null, 0)
   const composer = useChatComposer({
     draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
@@ -361,7 +367,7 @@ export default function Home() {
   const fetchSystemInfo = useCallback(async () => {
     try {
       const [sysInfo, v1Models] = await Promise.all([
-        systemApi.info().catch(() => null),
+        isAdmin ? systemApi.info().catch(() => null) : null,
         modelsApi.listV1().catch(() => null),
       ])
       if (sysInfo?.loaded_models) {
@@ -379,7 +385,7 @@ export default function Home() {
     } catch {
       if (configuredModelsRef.current === null) setModelsFailed(true)
     }
-  }, [])
+  }, [isAdmin])
 
   usePolling(fetchSystemInfo, 5000)
 
@@ -539,13 +545,13 @@ export default function Home() {
   const handleStopAll = async () => {
     setConfirmDialog({
       title: t('stopDialog.stopAllTitle'),
-      message: t('stopDialog.stopAllMessage', { count: loadedModels.length }),
+      message: t('stopDialog.stopAllMessage', { count: loadedList.length }),
       confirmLabel: t('stopDialog.stopAllConfirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
-          await Promise.all(loadedModels.map(m => backendControlApi.shutdown({ model: m.id })))
+          await Promise.all(loadedList.map(m => backendControlApi.shutdown({ model: m.id })))
           addToast(t('stopDialog.allStoppedToast'), 'success')
           setTimeout(fetchSystemInfo, 1000)
         } catch (err) {
@@ -613,8 +619,8 @@ export default function Home() {
   const setupsShown = setupsOn && !firstRun && setups.available
   const examplesOn = chatsOn && configuredModels !== null && !firstRun
   const examplesGone = useExamplesGone(examplesOn)
-  const loadedCount = loadedModels.length
-  const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
+  const loadedCount = loadedList.length
+  const loadedIds = useMemo(() => new Set(loadedList.map(m => m.id)), [loadedList])
 
   // Staging a model onto a worker is the one load this page can see: the
   // operations list reports it. An OOM on a single host surfaces in the chat.
@@ -739,6 +745,7 @@ export default function Home() {
           {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
           <ChatComposer
             composer={composer}
+            sandboxProfile={sandboxProfile}
             filesOn={chatServer.files}
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
@@ -798,7 +805,13 @@ export default function Home() {
               onReset={() => activeSetup && applySetup(activeSetup)}
             />
           ) : (!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />)}
-          {setupsShown && agentPicked && <SetupReason id="setup-chip-reason" text={tch('setup.agentReason')} />}
+          {setupsShown && agentPicked && (
+            <SetupReason
+              id="setup-chip-reason"
+              text={tch('setup.agentReason')}
+              onManage={setups.list.length > 0 ? () => setManageOpen(true) : undefined}
+            />
+          )}
           {manageOpen && setupsShown && (
             <ManageSetups
               list={setups.list}

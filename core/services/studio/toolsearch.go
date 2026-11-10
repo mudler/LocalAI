@@ -25,6 +25,9 @@ import (
 // says on), the chat sends three small tools in their place: tool_search finds
 // a tool by words, tool_describe shows its schema, tool_call runs it.
 //
+// With the setting on, the tools of the user's MCP connectors go behind the
+// same three tools (connectorsDeferred); auto and off send them in full.
+//
 // tool_call runs the very tool the chat would have offered. The deferred tools
 // are built by localaiTurn, so the setting, the chat's switches, the role, the
 // agent's ceiling and the acting user are already applied, and
@@ -38,6 +41,10 @@ const (
 	toolDescribeName = "tool_describe"
 	toolCallName     = "tool_call"
 )
+
+// toolSearchConnectors names the tools of the user's MCP connectors among the
+// groups behind the tool search.
+const toolSearchConnectors = "connectors"
 
 // toolSearchShare is the share of the context window, in percent, at which the
 // auto mode defers the groups.
@@ -99,6 +106,16 @@ func schemaTokens(tools []session.Tool) int {
 	return (bytes + 3) / 4
 }
 
+// connectorsDeferred decides whether the tools of the user's MCP connectors go
+// behind the tool search: only when the setting is on. auto keeps sending them
+// in full, as it did before connectors could be deferred: its threshold was set
+// for the LocalAI groups, whose size LocalAI knows. Like shouldDefer, the
+// answer depends only on its inputs, so the tool list stays the same from turn
+// to turn.
+func connectorsDeferred(mode string, tools []session.Tool) bool {
+	return mode == config.ToolSearchOn && len(tools) > 0
+}
+
 // shouldDefer decides whether the deferrable tools go behind the tool search.
 // The answer depends only on its inputs, so a chat gets the same answer at
 // every turn while the tools it is offered and its window stay the same: the
@@ -144,6 +161,9 @@ func toolSearchTools(deferred []session.Tool, groups []string) []session.Tool {
 	}
 	if slices.Contains(groups, builtins.GroupLocalAIAdmin) {
 		what = append(what, "manage models, backends, settings and server state")
+	}
+	if slices.Contains(groups, toolSearchConnectors) {
+		what = append(what, "use the user's MCP connectors")
 	}
 	if len(what) > 0 {
 		hint = " It has tools to " + strings.Join(what, "; ") + "."

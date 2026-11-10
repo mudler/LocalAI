@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
@@ -73,6 +74,18 @@ type Settings interface {
 	Reset()
 }
 
+// ProfileInfo is what the status tool tells about the profile images. The
+// settings the add-on's main passes to New implement it when the add-on has
+// profiles.
+type ProfileInfo interface {
+	// ProfileStates is the state of the image of each profile.
+	ProfileStates(ctx context.Context) []profiles.State
+	// ChatSandbox is the profile and the image the sandbox of a chat runs.
+	ChatSandbox(user, conversation string) (profile, image string, ok bool)
+	// CurrentImage is the image of this release for a profile.
+	CurrentImage(profile string) string
+}
+
 // Admin tells whether the user of a request is an administrator. The host
 // answers; the add-on never decides it.
 type Admin interface {
@@ -123,8 +136,9 @@ func Execution() *contract.ExecutionDescriptor {
 	return &contract.ExecutionDescriptor{
 		Class:  contract.ExecutionClassCommands,
 		Title:  "Sandbox",
-		Note:   sandbox.GuestToolsNote,
 		Skills: &contract.ExecutionSkills{ProvidesRuntimeFor: []string{contract.SkillKindDocuments}},
+		// The note of the programs is built from the profile of the chat.
+		Profiles: profiles.Declared(),
 	}
 }
 
@@ -160,8 +174,8 @@ func Definitions() []contract.ToolDefinition {
 		InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
 	}, contract.ToolDefinition{
 		Name: ToolStatus, Kind: contract.ToolKindRead,
-		Description: "Say whether this host can run commands in a sandbox now, and which backend runs them.",
-		InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+		Description: "Say whether this host can run commands in a sandbox now, which backend runs them, and the state of the image of each sandbox profile.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"conversation":{"type":"string","maxLength":128}},"additionalProperties":false}`),
 	}, contract.ToolDefinition{
 		Name: ToolSetBackend, Kind: contract.ToolKindRead, UIOnly: true,
 		Description: "Choose the backend that runs commands. Administrators only. The Settings page calls it; no model does.",
@@ -176,9 +190,10 @@ func Definitions() []contract.ToolDefinition {
 // Read serves the settings tools.
 func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
 	var a struct {
-		Tool    string `json:"tool"`
-		Backend string `json:"backend"`
-		Phrase  string `json:"phrase"`
+		Tool         string `json:"tool"`
+		Backend      string `json:"backend"`
+		Phrase       string `json:"phrase"`
+		Conversation string `json:"conversation"`
 	}
 	if json.Unmarshal(env.Request.Arguments, &a) != nil {
 		return contract.Result{}, protocol.ErrBadRequest
@@ -230,6 +245,16 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		out := map[string]any{"ok": true, "canRun": st.Active != "", "setting": st.Setting, "active": st.Active, "hostNotice": st.HostNotice, "admin": admin}
 		if admin {
 			out["backends"], out["hostConfirmed"], out["note"] = st.Backends, st.HostConfirmed, st.Note
+		}
+		if pi, ok := r.settings.(ProfileInfo); ok {
+			out["profiles"] = pi.ProfileStates(ctx)
+			// The sandbox of the caller's own chat: the user is the actor of
+			// the request, so a chat of somebody else is not found.
+			if a.Conversation != "" {
+				if prof, img, found := pi.ChatSandbox(env.Authority.Actor.UserID, a.Conversation); found {
+					out["chat"] = map[string]any{"profile": prof, "newerImage": img != "" && pi.CurrentImage(prof) != "" && pi.CurrentImage(prof) != img}
+				}
+			}
 		}
 		return contract.Result{Payload: protocol.Payload(out)}, nil
 	case ToolSetBackend, ToolConfirmHost:
@@ -294,8 +319,18 @@ func (r *runtime) Act(ctx context.Context, env contract.Envelope) (contract.Resu
 		return contract.Result{}, protocol.ErrBadRequest
 	}
 	delete(a, "tool")
+	// What the host decided for this call (the profile, the pin and the caps)
+	// is not an argument of the tool. A malformed value is refused rather than
+	// ignored: the call would run in an environment nobody chose.
+	var call sandbox.CallOptions
+	if raw, ok := a[sandbox.CallArgKey]; ok {
+		if json.Unmarshal(raw, &call) != nil {
+			return contract.Result{}, protocol.ErrBadRequest
+		}
+		delete(a, sandbox.CallArgKey)
+	}
 	args, _ := json.Marshal(a)
-	out, err := r.run.Run(ctx, runner.Request{User: user, Conversation: conv, Operation: op, Tool: tool, Args: bytes.TrimSpace(args)})
+	out, err := r.run.Run(ctx, runner.Request{User: user, Conversation: conv, Operation: op, Tool: tool, Args: bytes.TrimSpace(args), Call: call})
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return contract.Result{}, err // the turn was stopped: the owner reads it as uncertain

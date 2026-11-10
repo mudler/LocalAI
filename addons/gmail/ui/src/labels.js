@@ -44,13 +44,11 @@ export const hasAll = (list) => (list || []).some((l) => String(l).toLowerCase()
 
 // What the agent may change in Gmail with this connection. The host keeps it
 // on the binding and enforces it: off runs no write tool, propose stores each
-// draft and each send for you to confirm. Every change also needs the
-// optional access that was allowed at login.
+// draft and each send for you to confirm, auto (shown as Allow all) lets a chat
+// of yours make them at once. A new connection starts at off, and Allow all is
+// never chosen for the person. Every change also needs the optional access that
+// was allowed at login.
 export const WRITE_MODES = ['off', 'propose', 'auto']
-// The modes the page offers. Every write tool of this add-on waits for a
-// person (the tools set approval always), so auto would be the same as
-// propose; a connection that has it keeps it and reads as asking first.
-export const OFFERED_MODES = ['off', 'propose']
 export const writeModeOf = (m) => (WRITE_MODES.includes(m) ? m : 'off')
 
 // The fields this page adds to a binding: its form values, the request body

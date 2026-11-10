@@ -43,7 +43,8 @@ func voiceProfileAction(ctx context.Context, client LocalAIClient, in VoiceProfi
 			return nil, err
 		}
 		p, err := client.CreateVoiceProfile(ctx, CreateVoiceProfileRequest{
-			Name: in.Name, Language: in.Language, Transcript: in.Transcript, Audio: in.Audio,
+			Name: in.Name, Description: in.Description, Language: in.Language, Transcript: in.Transcript, Audio: in.Audio,
+			ExtraClips: in.ExtraClips,
 		})
 		if err != nil {
 			return nil, err
@@ -77,6 +78,21 @@ func voiceProfileAction(ctx context.Context, client LocalAIClient, in VoiceProfi
 		return nil, errors.New("voice_profile: action is required (create, list or delete)")
 	}
 	return nil, fmt.Errorf("voice_profile: unknown action %q (use create, list or delete)", in.Action)
+}
+
+// ClipsPin returns the pin of the clips of one create call, from the
+// lowercase hex SHA-256 of each clip in order. One clip pins as its own
+// digest. Several pin as the digest of their digests, one per line, so a
+// change of any clip, or of their order, changes the pin.
+func ClipsPin(digests []string) string {
+	if len(digests) == 1 {
+		return digests[0]
+	}
+	h := sha256.New()
+	for _, d := range digests {
+		h.Write([]byte(d + "\n"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // isWAV reports whether data starts like a RIFF/WAVE file.
@@ -116,35 +132,64 @@ func (i *Inference) CreateVoiceProfile(ctx context.Context, req CreateVoiceProfi
 			return nil, fmt.Errorf("voice_profile: action \"create\" needs %s", f[0])
 		}
 	}
-	clip, err := i.read(ctx, req.Audio, int64(voiceprofile.MaxAudioBytes), "audio")
-	if err != nil {
-		return nil, err
+	clips := append([]VoiceClip{{Audio: req.Audio, Transcript: req.Transcript}}, req.ExtraClips...)
+	if len(clips) > voiceprofile.MaxReferences {
+		return nil, fmt.Errorf("voice_profile: at most %d clips per profile (audio and extra_clips together)", voiceprofile.MaxReferences)
 	}
-	if !isWAV(clip.Data) {
-		return nil, ErrNotWAV
+	var (
+		files   []File
+		digests []string
+		total   int64
+	)
+	for k, c := range clips {
+		what := "audio"
+		if k > 0 {
+			what = fmt.Sprintf("extra_clips[%d].audio", k-1)
+			if strings.TrimSpace(c.Transcript) == "" {
+				return nil, fmt.Errorf("voice_profile: extra_clips[%d] needs a transcript", k-1)
+			}
+		}
+		clip, err := i.read(ctx, c.Audio, int64(voiceprofile.MaxAudioBytes), what)
+		if err != nil {
+			return nil, err
+		}
+		if !isWAV(clip.Data) {
+			return nil, ErrNotWAV
+		}
+		sum := sha256.Sum256(clip.Data)
+		digests = append(digests, hex.EncodeToString(sum[:]))
+		total += int64(len(clip.Data))
+		clip.MIME = "audio/wav"
+		files = append(files, clip)
 	}
-	sum := sha256.Sum256(clip.Data)
-	digest := hex.EncodeToString(sum[:])
-	if g.pinSHA256 != "" && (digest != g.pinSHA256 || int64(len(clip.Data)) != g.pinBytes) {
+	pin := ClipsPin(digests)
+	if g.pinSHA256 != "" && (pin != g.pinSHA256 || total != g.pinBytes) {
 		return nil, ErrClipChanged
 	}
 	if g.checkOnly && !g.consent {
-		meta, err := voiceprofile.InspectWAV(clip.Data)
-		if err != nil {
-			return nil, fmt.Errorf("voice_profile: the clip is not usable: %w", err)
+		meta := voiceprofile.AudioMetadata{SHA256: pin, SizeBytes: total}
+		for _, f := range files {
+			m, err := voiceprofile.InspectWAV(f.Data)
+			if err != nil {
+				return nil, fmt.Errorf("voice_profile: the clip is not usable: %w", err)
+			}
+			meta.DurationMilliseconds += m.DurationMilliseconds
 		}
-		meta.SHA256 = digest
 		return &VoiceProfile{Audio: meta}, nil
 	}
 	m := newMultipart()
 	m.field("name", req.Name)
 	m.field("description", req.Description)
 	m.field("language", req.Language)
-	m.field("transcript", req.Transcript)
 	m.field("consent_confirmed", "true")
-	clip.MIME = "audio/wav"
-	if err := m.file("audio", clip, "reference.wav"); err != nil {
-		return nil, err
+	// The API pairs the n-th audio with the n-th transcript.
+	for _, c := range clips {
+		m.field("transcript", c.Transcript)
+	}
+	for _, f := range files {
+		if err := m.file("audio", f, "reference.wav"); err != nil {
+			return nil, err
+		}
 	}
 	body, contentType, err := m.finish()
 	if err != nil {

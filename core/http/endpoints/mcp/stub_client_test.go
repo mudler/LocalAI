@@ -48,6 +48,14 @@ func (stubClient) GenerateSound(context.Context, localaitools.GenerateSoundReque
 	return &localaitools.AudioResult{}, nil
 }
 
+func (stubClient) UpscaleImage(context.Context, localaitools.UpscaleImageRequest) (*localaitools.ImageResult, error) {
+	return &localaitools.ImageResult{}, nil
+}
+
+func (stubClient) TransformAudio(context.Context, localaitools.TransformAudioRequest) (*localaitools.TransformAudioResult, error) {
+	return &localaitools.TransformAudioResult{}, nil
+}
+
 func (stubClient) VerifyVoice(context.Context, localaitools.VoiceVerifyRequest) (*localaitools.VerifyResult, error) {
 	return &localaitools.VerifyResult{}, nil
 }

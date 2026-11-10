@@ -1,15 +1,13 @@
 package openai
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +20,19 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
 )
+
+// enableParametersWithMask returns the enable_parameters option with the mask
+// of this request. Any mask the model configuration names is replaced: the
+// request decides which area is repainted.
+func enableParametersWithMask(existing, maskPath string) string {
+	var kept []string
+	for _, p := range strings.Split(existing, ",") {
+		if p = strings.TrimSpace(p); p != "" && !strings.HasPrefix(p, "mask:") {
+			kept = append(kept, p)
+		}
+	}
+	return strings.Join(append(kept, "mask:"+maskPath), ",")
+}
 
 // InpaintingEndpoint handles POST /v1/images/inpainting
 //
@@ -93,10 +104,6 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return err
 		}
 
-		// Create JSON with base64 fields expected by backend
-		b64Image := base64.StdEncoding.EncodeToString(imgBytes)
-		b64Mask := base64.StdEncoding.EncodeToString(maskBytes)
-
 		// get model config from context (middleware set it)
 		cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
@@ -113,52 +120,24 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to prepare storage")
 		}
 		id := uuid.New().String()
-		jsonPath := filepath.Join(tmpDir, fmt.Sprintf("inpaint_%s.json", id))
-		jsonFile := map[string]string{
-			"image":      b64Image,
-			"mask_image": b64Mask,
-		}
-		jf, err := os.CreateTemp(tmpDir, "inpaint_")
-		if err != nil {
-			return err
-		}
 		// setup cleanup on error; if everything succeeds we set success = true
 		success := false
 		var dst string
 		var origRef string
 		var maskRef string
 		defer func() {
-			if !success {
-				// Best-effort cleanup; log any failures
-				if jf != nil {
-					if cerr := jf.Close(); cerr != nil {
-						xlog.Warn("Inpainting Endpoint - failed to close temp json file in cleanup", "error", cerr)
-					}
-					if name := jf.Name(); name != "" {
-						if rerr := os.Remove(name); rerr != nil && !os.IsNotExist(rerr) {
-							xlog.Warn("Inpainting Endpoint - failed to remove temp json file in cleanup", "error", rerr, "file", name)
-						}
+			// The input files are of no use once the call is over, whether it
+			// worked or not. The result stays only on success.
+			for _, name := range []string{origRef, maskRef} {
+				if name != "" {
+					if rerr := os.Remove(name); rerr != nil && !os.IsNotExist(rerr) {
+						xlog.Warn("Inpainting Endpoint - failed to remove input file", "error", rerr, "file", name)
 					}
 				}
-				if jsonPath != "" {
-					if rerr := os.Remove(jsonPath); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove json file in cleanup", "error", rerr, "file", jsonPath)
-					}
-				}
-				if dst != "" {
-					if rerr := os.Remove(dst); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove dst file in cleanup", "error", rerr, "file", dst)
-					}
-				}
-				if origRef != "" {
-					if rerr := os.Remove(origRef); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove orig ref file in cleanup", "error", rerr, "file", origRef)
-					}
-				}
-				if maskRef != "" {
-					if rerr := os.Remove(maskRef); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove mask ref file in cleanup", "error", rerr, "file", maskRef)
-					}
+			}
+			if !success && dst != "" {
+				if rerr := os.Remove(dst); rerr != nil && !os.IsNotExist(rerr) {
+					xlog.Warn("Inpainting Endpoint - failed to remove dst file in cleanup", "error", rerr, "file", dst)
 				}
 			}
 		}()
@@ -195,21 +174,6 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			xlog.Warn("Inpainting Endpoint - failed to close mask temp file", "error", cerr)
 		}
 		maskRef = maskTmp.Name()
-		// write JSON
-		enc := json.NewEncoder(jf)
-		if err := enc.Encode(jsonFile); err != nil {
-			if cerr := jf.Close(); cerr != nil {
-				xlog.Warn("Inpainting Endpoint - failed to close temp json file after encode error", "error", cerr)
-			}
-			return err
-		}
-		if cerr := jf.Close(); cerr != nil {
-			xlog.Warn("Inpainting Endpoint - failed to close temp json file", "error", cerr)
-		}
-		// rename to desired name
-		if err := os.Rename(jf.Name(), jsonPath); err != nil {
-			return err
-		}
 		// prepare dst
 		outTmp, err := os.CreateTemp(tmpDir, "out_")
 		if err != nil {
@@ -227,11 +191,17 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		width := 512
 		height := 512
 
-		// Call backend image generation via indirection so tests can stub it
-		// Note: ImageGenerationFunc will call into the loaded model's GenerateImage which expects src JSON
-		// Also pass ref images (orig + mask) so backends that support ref images can use them.
+		// Call backend image generation via indirection so tests can stub it.
+		// The source is the plain image file: the backends load src as an
+		// image, and none of them reads the JSON file this handler used to
+		// write, so stablediffusion-ggml failed to load it. The mask reaches
+		// stablediffusion-ggml through the enable_parameters option, the only
+		// channel that backend reads a mask from. Both files also go as ref
+		// images, so backends that take references can use them.
 		refImages := []string{origRef, maskRef}
-		fn, err := backend.ImageGenerationFunc(c.Request().Context(), height, width, steps, 0, prompt, "", jsonPath, dst, ml, *cfg, appConfig, refImages)
+		withMask := *cfg
+		withMask.Diffusers.EnableParameters = enableParametersWithMask(cfg.Diffusers.EnableParameters, maskRef)
+		fn, err := backend.ImageGenerationFunc(c.Request().Context(), height, width, steps, 0, prompt, "", origRef, dst, ml, withMask, appConfig, refImages)
 		if err != nil {
 			return err
 		}

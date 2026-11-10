@@ -107,6 +107,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	// The network of the Sandbox commands, and its audit.
 	e.GET(base+"/admin/egress", h.AdminEgress, adminMw)
 	e.GET(base+"/admin/egress/events", h.AdminEgressEvents, adminMw)
+	// The sandbox profiles and their images, for the policy page.
+	e.GET(base+"/admin/sandbox-profiles", h.AdminSandboxProfiles, adminMw)
 	e.GET(base+"/admin/shared-folders/:id", h.AdminGetSharedFolder, adminMw)
 	e.PATCH(base+"/admin/shared-folders/:id", h.AdminRenameSharedFolder, adminMw)
 	e.DELETE(base+"/admin/shared-folders/:id", h.AdminDeleteSharedFolder, adminMw)
@@ -167,6 +169,9 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
 	e.PUT(base+"/:id/connections", h.SetChatConnection)
 	e.POST(base+"/:id/host-exec/consent", h.HostExecConsent)
+	e.GET(base+"/sandbox-profiles", h.SandboxProfileChoices)
+	e.GET(base+"/:id/sandbox-profile", h.GetSandboxProfile)
+	e.PUT(base+"/:id/sandbox-profile", h.PutSandboxProfile)
 	e.GET(base+"/:id/egress", h.GetEgress)
 	e.PUT(base+"/:id/egress", h.PutEgress)
 	e.DELETE(base+"/:id/egress/rules/:host/:port", h.DeleteEgressRule)

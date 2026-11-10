@@ -193,16 +193,16 @@ var _ = Describe("triggertools", func() {
 })
 
 var _ = Describe("triggertools: cadence and plan", func() {
-	It("a schedule proposed in a chat runs at most once an hour", func() {
-		r := newTrigRig(proposeScript(`{"name":"Every quarter","prompt":"p","when":"*/15 * * * *"}`))
+	It("a schedule proposed in a chat runs at most once every 5 minutes", func() {
+		r := newTrigRig(proposeScript(`{"name":"Every two","prompt":"p","when":"*/2 * * * *"}`))
 		id := create(r.svc, alice)
 		sent(r.svc, alice, id, "propose")
 		idle(r.svc, alice, id)
 		res := r.h.ResultsFor("propose_trigger")
 		Expect(res).To(HaveLen(1), "result = %+v", res)
 		Expect(res[0].Err).NotTo(BeNil(), "result = %+v", res)
-		Expect(res[0].Err.Error()).To(ContainSubstring("runs at most once an hour"), "result = %+v", res)
-		Expect(res[0].Err.Error()).To(ContainSubstring("every 15 minutes"), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("runs at most once every 5 minutes"), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("every 2 minutes"), "result = %+v", res)
 		props, _ := r.host.Proposals(context.Background(), alice)
 		Expect(props).To(BeEmpty(), "stored %+v", props)
 	})
@@ -224,9 +224,9 @@ var _ = Describe("triggertools: cadence and plan", func() {
 		Expect(p.EstTokens).To(Equal(1500))
 		Expect(r.host.MaxRunsPerDay(p)).To(Equal(24))
 
-		// An edit of the proposal keeps the plan and the hourly floor.
-		_, err = r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "*/30 * * * *", Model: p.Model})
-		Expect(err).To(MatchError(ContainSubstring("runs at most once an hour")))
+		// An edit of the proposal keeps the plan and the floor.
+		_, err = r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "*/2 * * * *", Model: p.Model})
+		Expect(err).To(MatchError(ContainSubstring("runs at most once every 5 minutes")))
 		got, err := r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox daily", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "daily 08:00", Model: p.Model})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Writes).To(Equal("data/inbox.json"), "an edit dropped the plan: %+v", got)

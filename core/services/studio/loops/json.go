@@ -29,8 +29,9 @@ type jsonData struct {
 }
 
 type jsonDay struct {
-	Day  string `json:"day"`
-	Runs int    `json:"runs"`
+	Day    string `json:"day"`
+	Runs   int    `json:"runs"`
+	Checks int    `json:"checks,omitempty"`
 }
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
@@ -238,6 +239,21 @@ func (s *jsonStore) TakeRun(_ context.Context, owner, day string, budget int) (b
 		return false, nil
 	}
 	cur.Runs++
+	s.d.Days[owner] = cur
+	return true, s.save()
+}
+
+func (s *jsonStore) TakeCheck(_ context.Context, owner, day string, budget int) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cur := s.d.Days[owner]
+	if cur.Day != day {
+		cur = jsonDay{Day: day}
+	}
+	if budget > 0 && cur.Checks >= budget {
+		return false, nil
+	}
+	cur.Checks++
 	s.d.Days[owner] = cur
 	return true, s.save()
 }

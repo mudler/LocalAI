@@ -1024,7 +1024,7 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			rec.Credentialed = true
 			rec.ConnectionID, rec.ConnectionName = grant.BindingID, grant.BindingName
 			rec.Relaxed = b.relaxed(ctx, actor, request.AddonID, ct.def)
-			rec.Await = !rec.Relaxed && (grant.WriteMode != gateway.WriteAuto || ct.def.Approval == contract.ApprovalAlways)
+			rec.Await = !rec.Relaxed && (grant.WriteMode != gateway.WriteAuto || ct.def.HardApproval())
 			if rec.Await && grant.WriteMode != gateway.WriteAuto {
 				rec.Hold = "write_mode_propose"
 			} else if rec.Await {

@@ -118,5 +118,46 @@ int main(int argc, char** argv) {
         assert(rc == expected[mode]);
         assert(image_frees - before == (mode == 1 ? 0 : 1));
     }
+    // Audio layout: sd.cpp hands out interleaved samples (data[frame * channels
+    // + channel]). A stereo ramp with distinct channels must reach the WAV file
+    // unchanged, and reading that WAV back must give the same buffer.
+    {
+        const uint64_t frames = 5;
+        float ramp[10];
+        for (uint64_t i = 0; i < frames; ++i) {
+            ramp[i * 2] = 0.1f * (i + 1);       // left rises
+            ramp[i * 2 + 1] = -0.1f * (i + 1);  // right falls
+        }
+        sd_audio_t audio{32000, 2, frames, ramp};
+        char wav[4096] = {0};
+        snprintf(wav, sizeof(wav), "%s/audio-layout.wav", root.c_str());
+        // write_interleaved_float_wav stages into TMPDIR; use it, then inspect.
+        setenv("TMPDIR", root.c_str(), 1);
+        assert(write_interleaved_float_wav(&audio, wav, sizeof(wav)) == 0);
+        FILE* f = fopen(wav, "rb");
+        assert(f);
+        uint8_t header[44];
+        float body[10];
+        assert(fread(header, 1, 44, f) == 44);
+        assert(fread(body, sizeof(float), 10, f) == 10);
+        fclose(f);
+        assert(memcmp(body, ramp, sizeof(ramp)) == 0);
+        sd_audio_t back{};
+        assert(load_wav_audio(wav, &back));
+        assert(back.channels == 2 && back.sample_rate == 32000 && back.sample_count == frames);
+        assert(memcmp(back.data, ramp, sizeof(ramp)) == 0);
+        free(back.data);
+        unlink(wav);
+    }
+    // Mux length: 56 frames at 24 fps must give the exact video duration and an
+    // apad filter for the same value, so the audio is padded and not cut short.
+    {
+        char dur[32], apad[48];
+        format_mux_duration(56, 24, dur, sizeof(dur), apad, sizeof(apad));
+        assert(strcmp(dur, "2.333333") == 0);
+        assert(strcmp(apad, "apad=whole_dur=2.333333") == 0);
+        format_mux_duration(24, 24, dur, sizeof(dur), apad, sizeof(apad));
+        assert(strcmp(dur, "1.000000") == 0);
+    }
     puts("result API binding checks passed");
 }

@@ -5,6 +5,7 @@ import AgentUses from './AgentUses'
 import AgentMcpPicker from './AgentMcpPicker'
 import { AppliedNotice } from './AgentPresets'
 import { skillKey } from '../../utils/chatSkills'
+import { useSandboxProfileChoices } from '../../hooks/useSandboxProfileChoices'
 
 // The tool switches of an agent: built-in groups, add-ons and MCP servers, with
 // the handlers of useAgentAbilities. The full editor draws it under the levels;
@@ -15,6 +16,7 @@ import { skillKey } from '../../utils/chatSkills'
 //   presets, presetNote, notices   optional nodes above the switches
 export default function AgentUsesPanel({ abilities: ab, tools, toolGroups, form, updateField, presets, presetNote, notices }) {
   const { t } = useTranslation('agents')
+  const profiles = useSandboxProfileChoices()
   const appliedFor = (id) => (ab.applied?.kind === 'addon' && ab.applied.id === id
     ? <AppliedNotice applied={ab.applied} onUndo={ab.undoApplied} onKeep={() => ab.setApplied(null)} testId="agent-addon-applied" />
     : null)
@@ -32,6 +34,16 @@ export default function AgentUsesPanel({ abilities: ab, tools, toolGroups, form,
             {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
           </select>
           <p className="ag-note">{t('create.networkHelp')}</p>
+          {profiles.length > 0 && (
+            <>
+              <label className="form-label" htmlFor="ag-sandbox-profile">{t('create.sandboxProfile')}</label>
+              <select id="ag-sandbox-profile" className="input" value={form.sandbox_profile || ''} onChange={(e) => updateField('sandbox_profile', e.target.value)} data-testid="agent-sandbox-profile">
+                <option value="">{t('create.sandboxProfileDefault')}</option>
+                {profiles.map(p => <option key={p.id} value={p.id} disabled={p.allowed === false}>{p.title}</option>)}
+              </select>
+              <p className="ag-note">{t('create.sandboxProfileHelp')}</p>
+            </>
+          )}
         </div>
       )}
       mcpNode={(

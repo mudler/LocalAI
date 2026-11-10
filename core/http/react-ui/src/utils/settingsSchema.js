@@ -221,7 +221,7 @@ export const FIELDS = [
     desc: 'Offer the chats of administrators the LocalAI admin tools, which manage this server: models, backends, settings and the state. Each chat, or saved agent, must switch the group on; a sub-agent and a run that starts by itself never has it.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
   { key: 'chats_tool_search', group: 'tools', was: 'chats', kind: 'select', options: ['auto', 'on', 'off'], label: 'Load LocalAI tools on demand',
-    desc: 'The LocalAI client and admin tool groups are large, and their schemas are sent to the model on every turn. auto: the chat sends three small tools (tool_search, tool_describe and tool_call) in their place when the schemas would take a tenth or more of the model\'s context window. on: always. off: never, the tools are always sent in full. The model finds and runs the tools with the same permissions as before.',
+    desc: 'The LocalAI client and admin tool groups are large, and their schemas are sent to the model on every turn. auto: the chat sends three small tools (tool_search, tool_describe and tool_call) in their place when the schemas would take a tenth or more of the model\'s context window. on: always, and the tools of the user\'s MCP connectors load on demand too. off: never, the tools are always sent in full. The model finds and runs the tools with the same permissions as before.',
     default: 'auto', fallback: 'auto', emptyIsDefault: true, apply: 'live' },
   // The Tools tab draws this switch on the list_agents row.
   { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',

@@ -206,8 +206,16 @@ type LocalAIClient interface {
 	Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, error)
 	Detect(ctx context.Context, req DetectRequest) (*DetectResult, error)
 	Rerank(ctx context.Context, req RerankRequest) (*RerankResult, error)
+	// ListModels lists the models the acting user may use, with their
+	// capabilities. It goes through the API as that user, so the model
+	// allow-list applies, and it carries no paths or settings. Unlike
+	// ListInstalledModels (an administrator's view of the config), it works for
+	// every user.
+	ListModels(ctx context.Context, req ListModelsRequest) (*ModelList, error)
 	GenerateVideo(ctx context.Context, req GenerateVideoRequest) (*VideoResult, error)
 	GenerateSound(ctx context.Context, req GenerateSoundRequest) (*AudioResult, error)
+	UpscaleImage(ctx context.Context, req UpscaleImageRequest) (*ImageResult, error)
+	TransformAudio(ctx context.Context, req TransformAudioRequest) (*TransformAudioResult, error)
 	VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*VerifyResult, error)
 	IdentifyVoice(ctx context.Context, req IdentifyVoiceRequest) (*IdentifyResult, error)
 	VerifyFace(ctx context.Context, req VerifyFaceRequest) (*VerifyResult, error)

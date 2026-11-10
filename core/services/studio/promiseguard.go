@@ -95,7 +95,7 @@ func (s *Service) guardTools(ctx context.Context, rec session.ChatRecord) []stri
 			out = append(out, startLoopName+" (a check that needs your judgement each time)")
 		}
 		if s.loopAllowed(rec, contract.CapLoopsWait) {
-			out = append(out, waitForName+" (watch a tool or a URL with no model call until it changes)")
+			out = append(out, waitForName+" (watch a tool, a URL or a command with no model call until it changes)")
 		}
 	}
 	if rec.Origin == session.OriginConnector {

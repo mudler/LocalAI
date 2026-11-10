@@ -904,7 +904,8 @@
       "lastError": "Letzter Fehler: {{message}}",
       "sources": {
         "tool": "Tool {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "ein Skript"
       },
       "end": {
         "met": "Fertig: Die Bedingung ist erfüllt",
@@ -1348,5 +1349,57 @@
   },
   "triggersPage": {
     "runLimit": "Zeitlimit eines Laufs"
+  },
+  "sandboxProfile": {
+    "label": "Sandbox-Profil",
+    "tools": "Programme: {{tools}}",
+    "notAllowed": "Dein Administrator hat dir dieses Profil nicht freigegeben",
+    "absent": "Diese Version hat kein Image dafür",
+    "unavailable": "{{title}} ist nicht verfügbar: {{reason}}.",
+    "draft": "Ein neuer Chat startet in {{title}}. Du kannst das Profil im Chat ändern.",
+    "source": {
+      "chat": "Dieser Chat läuft in {{title}}, nach deiner Wahl.",
+      "agent": "Dieser Chat läuft in {{title}}, vom Agenten festgelegt.",
+      "default": "Dieser Chat läuft in {{title}}, dem Standard."
+    },
+    "switchWarning": "Beim Wechsel startet die Sandbox neu. Deine Dateien bleiben. Laufende Prozesse und installierte Pakete gehen verloren.",
+    "switchTo": "Zu {{title}} wechseln",
+    "cancel": "Abbrechen",
+    "preparing": "Das Image {{title}} wird vorbereitet, {{percent}} %",
+    "failed": "Das Image {{title}} konnte nicht vorbereitet werden: {{error}}",
+    "fallback": "{{title}} konnte nicht verwendet werden, daher laufen Befehle in {{base}}.",
+    "newerImage": "Ein neueres Image ist verfügbar. Es gilt, wenn die Sandbox neu startet.",
+    "notAllowedError": "Du darfst dieses Profil nicht verwenden.",
+    "unknownError": "Dieses Profil gibt es nicht.",
+    "saveError": "Das Profil konnte nicht geändert werden.",
+    "admin": {
+      "title": "Sandbox-Profile",
+      "intro": "Ein Profil ist eine Umgebung mit eigenen Programmen. Alle dürfen jedes Profil nutzen, bis du eines einschränkst.",
+      "default": "Standardprofil",
+      "defaultBase": "Base",
+      "profiles": "Profile",
+      "limits": "{{cpus}} CPUs, {{memory}} MiB Speicher, {{disk}} MiB Festplatte",
+      "baseAlways": "Alle Nutzer dürfen Base verwenden. Es läuft, wenn ein anderes Profil nicht möglich ist.",
+      "who": "Wer es nutzen darf",
+      "everyone": "Alle",
+      "restricted": "Nur die Rollen und Nutzer unten",
+      "role": {
+        "admin": "Administratoren",
+        "user": "Normale Nutzer"
+      },
+      "users": "Nutzer mit Namen",
+      "usersPlaceholder": "Namen, durch Kommas getrennt",
+      "pin": "Auf das vorherige Image festlegen",
+      "noPrevious": "Es gibt noch kein vorheriges Image",
+      "memory": "Speicherlimit einer Sandbox in MiB",
+      "disk": "Festplattenlimit einer Sandbox in MiB",
+      "noLimit": "Kein Limit",
+      "quotaHelp": "Ein Limit senkt die Grenze eines Profils, hebt sie aber nie an. Lass ein Feld leer für kein Limit.",
+      "badQuota": "Gib eine ganze Zahl in MiB an oder lass das Feld leer.",
+      "reload": "Neu laden",
+      "ownerError": "Die Einstellungen des Besitzers sind nicht verfügbar oder haben sich geändert: {{message}}",
+      "save": "Speichern",
+      "loadError": "Die Sandbox-Profile konnten nicht gelesen werden."
+    }
   }
 }

@@ -44,6 +44,8 @@ type ownerRow struct {
 	Rev     int64
 	Day     string `gorm:"size:16"`
 	DayRuns int
+	// DayChecks counts the checks of waits on a script taken on Day.
+	DayChecks int
 }
 
 func (ownerRow) TableName() string { return "studio_chat_loop_owners" }
@@ -250,14 +252,34 @@ func (s *gormStore) TakeRun(ctx context.Context, owner, day string, budget int) 
 			return err
 		}
 		if r.Day != day {
-			r.Day, r.DayRuns = day, 0
+			r.Day, r.DayRuns, r.DayChecks = day, 0, 0
 		}
 		if budget > 0 && r.DayRuns >= budget {
 			return nil
 		}
 		took = true
 		return tx.Model(&ownerRow{}).Where("owner = ?", owner).
-			Updates(map[string]any{"day": r.Day, "day_runs": r.DayRuns + 1}).Error
+			Updates(map[string]any{"day": r.Day, "day_runs": r.DayRuns + 1, "day_checks": r.DayChecks}).Error
+	})
+	return took, err
+}
+
+func (s *gormStore) TakeCheck(ctx context.Context, owner, day string, budget int) (bool, error) {
+	took := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		r, err := lockOwner(tx, owner)
+		if err != nil {
+			return err
+		}
+		if r.Day != day {
+			r.Day, r.DayRuns, r.DayChecks = day, 0, 0
+		}
+		if budget > 0 && r.DayChecks >= budget {
+			return nil
+		}
+		took = true
+		return tx.Model(&ownerRow{}).Where("owner = ?", owner).
+			Updates(map[string]any{"day": r.Day, "day_runs": r.DayRuns, "day_checks": r.DayChecks + 1}).Error
 	})
 	return took, err
 }

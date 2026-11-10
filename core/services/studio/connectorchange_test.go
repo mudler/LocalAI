@@ -95,7 +95,7 @@ var _ = Describe("change proposals in a connector chat", func() {
 		r.bot, r.untrusted = bot, true
 		r.svc.SetCapabilityGate(r.conns.CapabilityGate())
 		r.grantBuiltins(contract.CapMemoryWrite, contract.CapProfileWrite, contract.CapSkillsWrite, contract.CapPagesWrite, contract.CapDashboardWrite)
-		b = r.bind(studio.ConnectorInput{Allow: []string{listed, paired, "-100"}, Caps: caps})
+		b = r.bind(studio.ConnectorInput{Allow: []string{listed, paired, "-100"}, Caps: caps, ReplyLanguage: englishReplies()})
 		got, err := r.store.GetBinding(ctx, b.ID)
 		Expect(err).NotTo(HaveOccurred())
 		got.Paired = append(got.Paired, connectors.PairedSender{SenderID: paired, At: sh.clock.Now()})

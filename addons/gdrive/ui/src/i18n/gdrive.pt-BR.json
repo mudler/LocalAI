@@ -51,21 +51,21 @@
     "hint": "Criar um arquivo de texto, substituir o texto de um arquivo, renomear ou mover um arquivo e enviar um arquivo para a lixeira. Ele nunca compartilha um arquivo nem exclui um de vez.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
-    "auto": "Age sem perguntar",
+    "auto": "Permitir tudo",
     "line": {
       "off": "Ele não pode alterar nada no Drive.",
       "propose": "Cada alteração espera o seu OK.",
-      "auto": "Seus chats fazem a mudança na hora."
+      "auto": "Seus chats fazem a alteração na hora."
     },
     "note": {
       "off": "O acesso de escrita está desligado: esta conexão só lê.",
       "propose": "Cada alteração espera nas suas aprovações até você confirmar. Também precisa do acesso de escrita opcional que você permite ao conectar.",
-      "auto": "Cada alteração ainda espera nas suas aprovações: este complemento nunca escreve sem o OK de uma pessoa. Também precisa do acesso de escrita opcional que você permite ao conectar."
+      "auto": "Um chat seu faz cada alteração na hora, sem perguntar, e o LocalAI não pode desfazê-la. Execuções sem você presente ainda esperam a sua confirmação."
     },
     "row": {
       "off": "Somente leitura",
       "propose": "Pergunta antes",
-      "auto": "Pergunta antes"
+      "auto": "Permitir tudo"
     }
   },
   "approval": {

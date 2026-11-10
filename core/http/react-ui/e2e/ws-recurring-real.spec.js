@@ -75,9 +75,9 @@ test('a chat proposes a trigger for a widget: the card lists when, as whom, what
   await expect(foot.getByTestId('widget-open-chat')).toHaveAttribute('href', `/app/chats/${id}`)
 })
 
-test('a schedule more often than hourly from a chat is refused and nothing is stored', async ({ page }) => {
+test('a schedule more often than every 5 minutes from a chat is refused and nothing is stored', async ({ page }) => {
   const before = (await api(page.request, '/api/chats/triggers/proposals')).triggers.length
-  await startChat(page, `ADDON_TOOL_CALL:propose_trigger:${b64({ name: 'Morning inbox fast', prompt: 'p', when: '*/15 * * * *' })}`)
+  await startChat(page, `ADDON_TOOL_CALL:propose_trigger:${b64({ name: 'Morning inbox fast', prompt: 'p', when: '*/2 * * * *' })}`)
   await expect.poll(async () => {
     const chats = await api(page.request, '/api/chats?limit=5')
     return chats.conversations?.[0]?.running

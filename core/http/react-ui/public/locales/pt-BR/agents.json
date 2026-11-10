@@ -463,7 +463,10 @@
       "off": "Não lê nem salva notas, e a permissão de lembrar coisas fica desligada. Nada é salvo até você salvar.",
       "reads": "A permissão de lembrar coisas está desligada, então ele lê notas, mas não pode salvar nenhuma. Nada é salvo até você salvar.",
       "saves": "A permissão de lembrar coisas está ligada. Nada é salvo até você salvar."
-    }
+    },
+    "sandboxProfile": "Perfil de sandbox",
+    "sandboxProfileDefault": "Padrão",
+    "sandboxProfileHelp": "Usado pelas execuções sem supervisão e como perfil inicial dos seus chats."
   },
   "run": {
     "workingLine": "Working"

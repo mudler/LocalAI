@@ -13,5 +13,13 @@
   "pages:subtitle": "a sandbox as the isolated frame a page runs in; not the Sandbox add-on",
   "pages:viewer.sandboxShared": "a sandbox as the isolated frame a page runs in; not the Sandbox add-on",
   "settings:chats_web_allow_private.label": "the web (the internet) as a noun: web pages the built-in fetch tool may read",
-  "settings:chats_web_search.label": "the web (the internet) as a noun: the label of the built-in search switch"
+  "settings:chats_web_search.label": "the web (the internet) as a noun: the label of the built-in search switch",
+  "agents:create.sandboxProfile": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "chats:sandboxProfile.admin.disk": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "chats:sandboxProfile.admin.loadError": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "chats:sandboxProfile.admin.memory": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "chats:sandboxProfile.admin.title": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "chats:sandboxProfile.label": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "chats:sandboxProfile.newerImage": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on",
+  "chats:sandboxProfile.switchWarning": "a sandbox profile is the host's name for the environment of isolated commands, declared by any provider that lists profiles; the feature name, not the Sandbox add-on"
 }

@@ -69,6 +69,9 @@ func Index(skills []Skill) string {
 		if why := Clean(s.Unavailable); why != "" {
 			line += " (unavailable here: " + why + ")"
 		}
+		if s.Sandbox != "" {
+			line += " (prefers sandbox profile " + s.Sandbox + ")"
+		}
 		if listed >= MaxIndexEntries || b.Len()+len(line)+moreReserve > MaxIndexBytes {
 			break
 		}

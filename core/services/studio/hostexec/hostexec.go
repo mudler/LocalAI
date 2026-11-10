@@ -181,6 +181,18 @@ const ScopedText = "Not run: this agent works in one folder, and a command on th
 
 // Run runs one call of bash for a in its chat's scratch folder.
 func (r *Runner) Run(ctx context.Context, a workspace.Actor, args json.RawMessage) (string, error) {
+	return r.run(ctx, a, args, false)
+}
+
+// RunReadOnly runs one call of bash that must not change the user's files: it
+// runs in a scratch folder of its own whose folders are read-only, so what the
+// command writes is refused and no change set is made. A wait uses it for its
+// checks.
+func (r *Runner) RunReadOnly(ctx context.Context, a workspace.Actor, args json.RawMessage) (string, error) {
+	return r.run(ctx, a, args, true)
+}
+
+func (r *Runner) run(ctx context.Context, a workspace.Actor, args json.RawMessage, readOnly bool) (string, error) {
 	if r.Unavailable() != "" {
 		return "This server cannot run commands: " + r.Unavailable() + ".", nil
 	}
@@ -189,7 +201,7 @@ func (r *Runner) Run(ctx context.Context, a workspace.Actor, args json.RawMessag
 	}
 	op := make([]byte, 8)
 	_, _ = rand.Read(op)
-	out, err := r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args})
+	out, err := r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args, Call: sandbox.CallOptions{ReadOnly: readOnly}})
 	if errors.Is(err, ErrScoped) {
 		return ScopedText, nil
 	}

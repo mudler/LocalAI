@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -459,6 +460,12 @@ poll:
 			if ctx.Err() != nil {
 				return
 			}
+			// This frontend may have lost the lead while the poll was in
+			// flight: the new leader reads the update again from the stored
+			// offset, so handing it over here would answer it twice.
+			if c.o.Lead != nil && !c.o.Lead(ctx) {
+				return
+			}
 			// The same function as the host operation: it reads the binding
 			// again, so a changed allowlist, agent or token applies, and a
 			// binding that was switched off ends the loop.
@@ -620,7 +627,7 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 		return nil
 	}
 	if m.Chat == "" || m.SenderID == "" || len(m.SenderID) > contract.MaxConnectorSender || len(m.Chat) > contract.MaxConnectorSender ||
-		len(m.Thread) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia {
+		len(m.Thread) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia || len(m.MediaKinds) > contract.MaxConnectorMedia {
 		return connectors.ErrInvalid
 	}
 	// The sender log keeps the name in a column of 255 characters.
@@ -947,9 +954,15 @@ var hostNoteCodes = map[string]string{
 // in the text under voiceMark; the recording is not kept. The sender is told
 // about a file that could not be read or was too large. It reports false when
 // the message must not start a turn: nothing is left to send, or a voice
-// message cannot be transcribed.
+// message cannot be transcribed. A file of a kind that the binding does not
+// take (see connectors.Binding.InboundMedia) is never read: the sender is
+// told, and the text still goes.
 func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, say func(string), v hostmsg.Voice) (string, []session.Upload, bool) {
-	got, note := c.media(ctx, b, token, m.Media, v)
+	refs, refused := c.accepted(b, m)
+	if len(refused) > 0 {
+		say(v.T("media.refused", "kinds", refusedKinds(v, refused)))
+	}
+	got, note := c.media(ctx, b, token, refs, v)
 	if note != "" {
 		say(note)
 	}
@@ -989,6 +1002,44 @@ func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token str
 		text = strings.Join(parts, "\n\n")
 	}
 	return text, up, len(up) > 0 || strings.TrimSpace(text) != ""
+}
+
+// accepted splits the files of a message into the references that the
+// binding takes and the kinds it refused, before any file is read. A
+// message whose add-on names no kind for a file (MediaKinds missing or not
+// one per file) has files of an unknown kind, which only a binding that
+// takes every kind reads.
+func (c *Connectors) accepted(b connectors.Binding, m contract.ConnectorMessage) ([]string, []string) {
+	var refs, refused []string
+	for i, ref := range m.Media {
+		kind := ""
+		if len(m.MediaKinds) == len(m.Media) {
+			kind = m.MediaKinds[i]
+		}
+		if !b.Accepts(kind) {
+			c.log.Info("studio: a connector message carried a file of a kind the binding does not take", "binding", b.ID, "kind", b.Kind, "media", kind)
+			refused = append(refused, kind)
+			continue
+		}
+		refs = append(refs, ref)
+	}
+	return refs, refused
+}
+
+// refusedKinds names the media kinds of the files that a binding did not
+// take, for the sentence "This bot does not accept photos." Each kind is
+// named once; a file of an unknown kind is one of "other files".
+func refusedKinds(v hostmsg.Voice, kinds []string) string {
+	var nouns []string
+	for _, k := range kinds {
+		if k == "" || !hostmsg.Has("media.kind."+k) {
+			k = "other"
+		}
+		if n := v.T("media.kind." + k); !slices.Contains(nouns, n) {
+			nouns = append(nouns, n)
+		}
+	}
+	return v.Join(nouns)
 }
 
 // transcribe makes a voice message text, through the same media service and

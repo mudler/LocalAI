@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
@@ -94,5 +95,53 @@ var _ = Describe("Inpainting", func() {
 		fname := string(rest[len("generated-images/"):end])
 		_, err = os.Stat(filepath.Join(tmpDir, fname))
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("gives the backend the plain image as src and the mask through enable_parameters", func() {
+		tmpDir, err := os.MkdirTemp("", "gencontent")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { os.RemoveAll(tmpDir) })
+		appConf := config.NewApplicationConfig(config.WithGeneratedContentDir(tmpDir))
+
+		var (
+			gotSrc, gotParams string
+			srcData, maskData []byte
+			refs              []string
+		)
+		orig := backend.ImageGenerationFunc
+		backend.ImageGenerationFunc = func(ctx context.Context, height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
+			gotSrc, gotParams, refs = src, modelConfig.Diffusers.EnableParameters, refImages
+			return func() error {
+				// The files exist while the backend runs.
+				srcData, _ = os.ReadFile(src)
+				if _, after, ok := strings.Cut(modelConfig.Diffusers.EnableParameters, "mask:"); ok {
+					maskData, _ = os.ReadFile(after)
+				}
+				return os.WriteFile(dst, []byte("PNGDATA"), 0644)
+			}, nil
+		}
+		DeferCleanup(func() { backend.ImageGenerationFunc = orig })
+
+		reqBuf, _ := makeMultipartRequest(map[string]string{"model": "m", "prompt": "A test"},
+			map[string][]byte{"image": []byte("IMAGEDATA"), "mask": []byte("MASKDATA")})
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(reqBuf, rec)
+		cfg := &config.ModelConfig{Backend: "stablediffusion-ggml"}
+		cfg.Diffusers.EnableParameters = "negative_prompt,mask:/operator/mask.png"
+		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
+
+		Expect(InpaintingEndpoint(nil, nil, appConf)(c)).To(Succeed())
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(string(srcData)).To(Equal("IMAGEDATA"), "src is the image itself, not a JSON file")
+		Expect(string(maskData)).To(Equal("MASKDATA"))
+		Expect(gotParams).To(HavePrefix("negative_prompt,mask:"))
+		Expect(gotParams).ToNot(ContainSubstring("/operator/mask.png"), "the request's mask replaces the configured one")
+		Expect(refs).To(HaveLen(2))
+		Expect(refs[0]).To(Equal(gotSrc))
+		Expect(cfg.Diffusers.EnableParameters).To(Equal("negative_prompt,mask:/operator/mask.png"), "the shared model configuration is not changed")
+
+		// The input files are gone after the call; only the result stays.
+		left, _ := filepath.Glob(filepath.Join(tmpDir, "ref*"))
+		Expect(left).To(BeEmpty())
 	})
 })

@@ -104,7 +104,7 @@ func buildOpenAIRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream bool) 
 		Model:      modelName(cfg, opts),
 		Stream:     stream,
 		Stop:       opts.GetStopPrompts(),
-		Tools:      parseRawJSON(opts.GetTools()),
+		Tools:      collapseNullableTypes(parseRawJSON(opts.GetTools())),
 		ToolChoice: parseRawJSON(opts.GetToolChoice()),
 	}
 	// Do not forward temperature/top_p. Newer OpenAI reasoning models reject
@@ -157,6 +157,82 @@ func modelName(cfg *proxyConfig, _ *pb.PredictOptions) string {
 		return cfg.upstreamModel
 	}
 	return cfg.localModel
+}
+
+// collapseNullableTypes rewrites `"type": [<T>, "null"]` in tool schemas to
+// `"type": <T>`. LocalAI's built-in tools get their schemas from
+// github.com/google/jsonschema-go, which marks every Go slice and pointer as
+// nullable. That is valid JSON Schema, but some OpenAI-compatible upstreams
+// validate tool schemas against a narrower dialect and reject the whole
+// request: Mistral answers 400 "Invalid tool schema: None is not of type
+// 'array'" (code 3260), so an agent with any slice parameter cannot run there.
+// Optional parameters stay optional through `required`, so dropping "null"
+// does not change what a model may send. Unions with more than one non-null
+// type are kept, only without "null". A "required" or "enum" that is null (a
+// nil Go slice) is dropped for the same reason. Invalid JSON passes through
+// unchanged.
+func collapseNullableTypes(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return raw
+	}
+	if !dropNullTypes(v) {
+		return raw
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+// dropNullTypes walks v and rewrites nullable type unions in place. It
+// reports whether anything changed.
+func dropNullTypes(v any) bool {
+	changed := false
+	switch t := v.(type) {
+	case map[string]any:
+		// A Go nil slice marshals to null: "required": null (seen on the
+		// built-in list_files tool). Mistral rejects it like the type unions
+		// ("None is not of type 'array'"); a missing list means the same.
+		for _, key := range []string{"required", "enum"} {
+			if v, ok := t[key]; ok && v == nil {
+				delete(t, key)
+				changed = true
+			}
+		}
+		if types, ok := t["type"].([]any); ok {
+			kept := make([]any, 0, len(types))
+			for _, ty := range types {
+				if ty != "null" {
+					kept = append(kept, ty)
+				}
+			}
+			if len(kept) != len(types) && len(kept) > 0 {
+				changed = true
+				if len(kept) == 1 {
+					t["type"] = kept[0]
+				} else {
+					t["type"] = kept
+				}
+			}
+		}
+		for _, child := range t {
+			if dropNullTypes(child) {
+				changed = true
+			}
+		}
+	case []any:
+		for _, child := range t {
+			if dropNullTypes(child) {
+				changed = true
+			}
+		}
+	}
+	return changed
 }
 
 // parseRawJSON parses a JSON string into a RawMessage so it round-trips

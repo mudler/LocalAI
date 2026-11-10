@@ -50,6 +50,27 @@ var _ = Describe("a wait in the loops list", func() {
 		}
 	})
 
+	It("names a script by its kind and never shows its command", func() {
+		l := base()
+		l.Prompt = "Wait for " + (&loops.Watch{Script: "x", Mode: loops.UntilExitZero}).Describe()
+		l.Watch.Tool, l.Watch.Args = "", nil
+		l.Watch.Script = "curl -H 'Authorization: Bearer s3cret' https://internal.example/health"
+		l.Watch.Mode = loops.UntilExitZero
+		l.Watch.Errors, l.Watch.LastErr = 1, "the command did not finish in time"
+		out := loopJSON(l)
+		Expect(out.Watch.SourceKind).To(Equal("script"))
+		Expect(out.Watch.Source).To(Equal("a script"))
+		Expect(out.Watch.Condition).To(Equal("the script exits with status 0"))
+		Expect(out.Prompt).To(Equal("Wait for the script to exit with status 0"))
+		raw, err := json.Marshal(out)
+		Expect(err).NotTo(HaveOccurred())
+		for _, leak := range []string{"s3cret", "curl", "internal.example", "Authorization"} {
+			Expect(string(raw)).NotTo(ContainSubstring(leak))
+		}
+		l.Watch.Mode = loops.UntilChange
+		Expect(loopJSON(l).Watch.Condition).To(Equal("the output changes"))
+	})
+
 	It("cuts URLs in the last error to host and path", func() {
 		l := base()
 		l.Watch.Errors, l.Watch.LastErr, l.Watch.Outcome = 2, `Get "https://status.example.com/api?token=abc123": connection refused`, loops.OutcomeError

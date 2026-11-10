@@ -34,8 +34,15 @@ type voiceProfileContent struct {
 	Audio      string `json:"audio"`
 	Transcript string `json:"transcript"`
 	Language   string `json:"language,omitempty"`
-	// AudioSHA256, AudioBytes and AudioMS pin the clip the person was shown at
-	// proposal time. The confirmation refuses a clip that differs.
+	// Description is a free-text label the person did not have to read to
+	// consent: it names nothing that is cloned.
+	Description string `json:"description,omitempty"`
+	// ExtraClips are more clips of the same voice. The card lists them.
+	ExtraClips []localaitools.VoiceClip `json:"extra_clips,omitempty"`
+	// AudioSHA256, AudioBytes and AudioMS pin the clips the person was shown at
+	// proposal time: for several clips the pin is localaitools.ClipsPin of
+	// their digests, and the size and duration are the totals. The
+	// confirmation refuses clips that differ.
 	AudioSHA256 string `json:"audio_sha256,omitempty"`
 	AudioBytes  int64  `json:"audio_bytes,omitempty"`
 	AudioMS     int64  `json:"audio_ms,omitempty"`
@@ -45,9 +52,10 @@ type voiceProfileContent struct {
 // file, as the profile goes to the voice library.
 const voiceProfileTarget = "voice-profiles"
 
-// maxVoiceProfileContent bounds the content: a name, a path, a transcript of
-// at most 4000 characters and the pin of the clip.
-const maxVoiceProfileContent = 24 << 10
+// maxVoiceProfileContent bounds the content: a name, a description, up to ten
+// paths and transcripts of at most 4000 characters each, and the pin of the
+// clips.
+const maxVoiceProfileContent = 64 << 10
 
 func (c *Changes) voiceProfileKind() proposals.Kind {
 	s := c.s
@@ -91,6 +99,8 @@ func parseVoiceProfileContent(content string) (voiceProfileContent, error) {
 	switch {
 	case strings.TrimSpace(in.Name) == "" || strings.TrimSpace(in.Audio) == "" || strings.TrimSpace(in.Transcript) == "":
 		return in, errors.New("a voice profile needs name, audio and transcript")
+	case len(in.ExtraClips) > 0 && hasBlankClip(in.ExtraClips):
+		return in, errors.New("every extra clip needs an audio file and a transcript")
 	case !utf8.ValidString(content):
 		return in, errors.New("the content must be text")
 	}
@@ -126,7 +136,8 @@ func (s *Service) applyVoiceProfile(ctx context.Context, in proposals.ApplyInput
 	if exec == nil {
 		return errors.New("the LocalAI client tools are not available on this server")
 	}
-	args, _ := json.Marshal(map[string]string{"action": localaitools.ActionCreate, "name": c.Name, "audio": c.Audio, "transcript": c.Transcript, "language": c.Language})
+	args, _ := json.Marshal(localaitools.VoiceProfileToolInput{Action: localaitools.ActionCreate, Name: c.Name, Audio: c.Audio,
+		Transcript: c.Transcript, Language: c.Language, Description: c.Description, ExtraClips: c.ExtraClips})
 	out, err := exec.ExecuteTool(localaitools.WithVoiceClipPin(localaitools.WithVoiceConsent(ctx), c.AudioSHA256, c.AudioBytes), localaitools.ToolVoiceProfile, string(args))
 	if err != nil {
 		return err
@@ -195,6 +206,19 @@ func (s *Service) guardVoiceProfile(tools []session.Tool, chat builtins.Chat, ex
 	return tools
 }
 
+// voiceProfileSummary names every clip, so the line of a proposal does not
+// hide the extra ones.
+func voiceProfileSummary(in localaitools.VoiceProfileToolInput) string {
+	if len(in.ExtraClips) == 0 {
+		return fmt.Sprintf("Clone a voice as %q from %s", in.Name, in.Audio)
+	}
+	files := []string{in.Audio}
+	for _, c := range in.ExtraClips {
+		files = append(files, c.Audio)
+	}
+	return fmt.Sprintf("Clone a voice as %q from %d clips: %s", in.Name, len(files), strings.Join(files, ", "))
+}
+
 // proposeVoiceProfile turns a create call into a proposal. Nothing is created.
 func (s *Service) proposeVoiceProfile(ctx context.Context, chat builtins.Chat, exec mcpendpoint.ToolExecutor, in localaitools.VoiceProfileToolInput, args json.RawMessage) (string, error) {
 	switch {
@@ -216,14 +240,24 @@ func (s *Service) proposeVoiceProfile(ctx context.Context, chat builtins.Chat, e
 	}
 	content, _ := json.Marshal(voiceProfileContent{Name: strings.TrimSpace(in.Name), Audio: strings.TrimSpace(in.Audio),
 		Transcript: strings.TrimSpace(in.Transcript), Language: strings.TrimSpace(in.Language),
+		Description: strings.TrimSpace(in.Description), ExtraClips: in.ExtraClips,
 		AudioSHA256: ok.SHA256, AudioBytes: ok.Bytes, AudioMS: ok.DurationMS})
 	p, err := s.changes.Propose(ctx, ProposeInput{User: chat.Actor.Principal, Agent: chat.AgentID,
 		Source: contract.ChangeSource{Chat: chat.Actor.ChatID}, Kind: string(contract.ChangeVoiceProfile), Scope: string(contract.ScopeUser),
-		Content: string(content), Summary: fmt.Sprintf("Clone a voice as %q from %s", in.Name, in.Audio)})
+		Content: string(content), Summary: voiceProfileSummary(in)})
 	if err != nil {
 		return "", changeErr(err)
 	}
 	session.SetToolCard(ctx, session.ToolCard{Kind: ChangeProposalCardKind, ID: p.ID})
 	return fmt.Sprintf("Proposal %s stored. Nothing is created yet: the person must confirm in Studio that the speaker agreed to the cloning of their voice, and it expires in 24 hours. "+
 		"Do not say the voice exists. After they confirm, call voice_profile with action list to get the voice to give to speak.", p.ID), nil
+}
+
+func hasBlankClip(clips []localaitools.VoiceClip) bool {
+	for _, c := range clips {
+		if strings.TrimSpace(c.Audio) == "" || strings.TrimSpace(c.Transcript) == "" {
+			return true
+		}
+	}
+	return false
 }

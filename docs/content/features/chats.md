@@ -368,19 +368,61 @@ stop it. Type `/loop` in the message box, or use the API.
   read-only tool of the same chat with fixed arguments (for example a tool that
   lists downloads; the chat must be allowed to call it, and only tools whose
   name says they read, such as `list_*`, `get_*`, `search_*` or `*_status`, can
-  be polled), or a URL, which is read like `web_fetch` and so passes the same
-  checks. The condition is `change` (the output differs from the first check),
-  `match` (a regular expression) or `json_equals` (a JSON field equals a
-  value). The first check sets a baseline and never wakes the model; an error
+  be polled), a URL, which is read like `web_fetch` and so passes the same
+  checks, or a `script`, a shell command that the server runs for each check
+  (see below). The condition is `change` (the output differs from the first
+  check), `match` (a regular expression), `json_equals` (a JSON field equals a
+  value) or, for a script only, `exit_zero` (the command exits with status 0).
+  The first check sets a baseline and never wakes the model; an error
   is not a change. The model wakes when the condition holds, when the source
   fails `max_errors` checks in a row (3 by default), or at the timeout (`timeout_seconds`; 1
   hour by default, 24 hours at most). Failure and timeout wake it too, and the
   wake-up text says plainly that the condition was *not* met. The check
   interval (`interval_seconds`) is at least the loop minimum. The tool is nib's
-  own `wait_for`, answered by the server; it takes no `script`. A wait is listed with the loops (the
+  own `wait_for`, answered by the server. A wait is listed with the loops (the
   API gives it `kind: "wait"`), counts against the same limits, and you stop it
   like a loop. A sub-agent that arms a wait stays running until it ends, as with
   a loop.
+- **Waits on a script.** With `script`, the server runs the command for each
+  check and the model is not called. The command runs where the chat's `bash`
+  runs: in the Sandbox add-on when one serves the chat, otherwise in the
+  built-in bash on the server. It has the same fixed environment, the same
+  120 second timeout and about the same 64 KiB output limit as `bash`, and its output
+  is the standard output and standard error together. The rules:
+  - **A non-zero exit status is a result, not a failure.** The exit status and
+    the output feed `change`, `match`, `json_equals` and `exit_zero`; a status
+    that changes is a change even when the output does not. Only a command that
+    does not finish in time, or that cannot be run, counts toward
+    `max_errors`. For `json_equals`, the output of a command that failed is
+    read as "not there yet", not as a failed check.
+  - **A check changes no file.** It runs read-only: what the command writes is
+    not saved to your files and makes no change set. It can read your files.
+  - **Arming it needs a chat that can run commands.** `wait_for` refuses a
+    script when the chat has no `bash`: bash is switched off for the chat or by
+    an administrator, the Shell tool group is off, the server cannot run
+    commands and no Sandbox serves the chat, the files are off, the agent works
+    in one folder (only the Sandbox can serve that), or the chat is an
+    unattended run without an agent. A sub-agent cannot arm a wait on a script.
+    In a connector chat the sender needs the `loops.wait` capability, as for
+    other waits.
+  - **In the mode `ask` for the built-in bash**, only an administrator can arm
+    a script wait. The administrator allows the whole command once, in a card,
+    when the wait is armed; a command over 2000 bytes is refused. The checks
+    then run with no card. A command that the Sandbox runs needs no card.
+  - **The command is shown to you in the chat, not in the list.** The answer of
+    `wait_for` contains the command, and the model is told to show it to you.
+    The loops list, its API and the interface name the source `script` and show
+    a generic line; the command is kept only in the store of the owner.
+  - **Budget.** Checks of scripts have their own daily budget per user, apart
+    from the 200 model runs: 1500 checks a day (UTC), over all the user's waits.
+    A check is charged before it runs. When the budget is used up, the wait ends
+    and the model is woken with a text that says the condition is not known. A
+    wait still ends after 2000 checks, and the limits per chat and per user
+    still apply.
+  - **If the server cannot run the script** at a check (the server lost its
+    host exec, or the Sandbox no longer serves the chat), the wait ends at once
+    and the model is woken with a text that says plainly that the script cannot
+    run on this node and was not run. The wait is not pinned to a node.
 - **Tools of a sub-agent.** The names of the tools the parent gave a sub-agent
   are stored with its chat. After a restart, or when another frontend runs its
   next loop run, the sub-agent gets back those tools, limited to what the
@@ -428,7 +470,8 @@ stop it. Type `/loop` in the message box, or use the API.
   (`chats_loop_max_per_chat`, `chats_loop_max_per_user`; ended loops do not
   count). A loop ends after 100 runs (`chats_loop_max_runs`). One user starts
   at most 200 loop runs a day, over all loops (`chats_loop_daily_runs`, UTC
-  days); after that the loops wait for the next day. A loop pauses itself
+  days); after that the loops wait for the next day. Checks of waits on a
+  script have a separate budget of 1500 a day per user. A loop pauses itself
   after 3 failed runs in a row; **Resume** starts it again. A run has a time
   limit of 15 minutes.
 - **Stop** removes a loop. It does not stop a run that goes on; the chat's
@@ -465,7 +508,7 @@ and how often:
 | | Loop | [Trigger](/features/chats-agents/) |
 |---|---|---|
 | Where it runs | In the chat where you started it, which keeps its history | A new chat for each run |
-| How often | From every minute (or as the model decides) | At most once an hour, on a schedule, or when a file arrives |
+| How often | From every minute (or as the model decides) | At most once every 5 minutes, on a schedule, or when a file arrives |
 | How long | Until you stop it, it reaches its run limit, or the model says it is done | Until you switch it off |
 | Good for | Watching something now: a build, a deploy, a long job | Routine work: a morning summary, filing new documents |
 
@@ -1146,6 +1189,34 @@ the one chosen in `chats_tool_providers` or the one installed first, and none
 when the chosen one is stopped. It is read from the add-on host each time, so
 it is right after a restart and the same on every frontend of a cluster.
 
+### Sandbox profile
+
+A Sandbox add-on that declares profiles (the Sandbox does: `base`, `media` and
+`video`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
+gives the Tools menu a **Profile** row next to the Network row. It shows the
+profile the next command runs and lets you pick another one. A new chat gets the
+default of the administrator, or the profile of its saved agent. Switching
+restarts the sandbox at the next command: your files stay, running processes and
+installed packages are lost, and the row says so before you switch. While the
+image of a profile is pulled for the first time, the row shows the progress. If
+the profile cannot be used, commands run in `base` and the row says so. A
+running chat keeps its sandbox until it restarts, and the row shows when a newer
+image is available. A profile the administrator did not give you is shown but
+cannot be picked.
+
+The model has one tool for this in the **Run commands** group, `sandbox_profile`:
+the action `list` gives the profiles, their programs and whether you may use
+each one, and the action `use` switches. It follows the rules of the row.
+A saved agent has a `sandbox_profile` field, for its unattended runs and as the
+starting profile of its chats.
+
+| Route | What it does |
+|---|---|
+| `GET /api/chats/{id}/sandbox-profile` | `{applies, addon, profile, selected, source, default, fallback, fallback_reason, newer_image, profiles}`. `source` is `chat`, `agent` or `default`. Each profile has `id`, `title`, `description`, `tools`, the limits, `allowed` and `state` (`phase` `idle`, `pulling` with `percent`, `ready`, `failed` with `error`, or `absent`). `applies` is false when commands run in no sandbox with profiles. |
+| `PUT /api/chats/{id}/sandbox-profile {profile}` | Sets the profile, or goes back to the agent's or the default with an empty one. 400 `sandbox_profile_unknown`, 403 `sandbox_profile_not_allowed`, 409 for a sub-agent. |
+| `GET /api/chats/sandbox-profiles` | The profiles you may pick for a saved agent, and the default. |
+| `GET /api/chats/admin/sandbox-profiles` | Administrators: the profiles with their limits and the state of their images. |
+
 ### Commands on this machine
 
 The built-in `bash` is for a server that cannot run the Sandbox. Read this
@@ -1534,7 +1605,7 @@ it off, so a chat that never touches the menu works as before:
 
 | Row | Group | Tools |
 |-----|-------|-------|
-| **Run commands** | `shell` | `bash`, whoever serves it: the Sandbox add-on (isolated) or the built-in bash on this machine |
+| **Run commands** | `shell` | `bash`, whoever serves it: the Sandbox add-on (isolated) or the built-in bash on this machine; `sandbox_profile` when the add-on has profiles |
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
@@ -1555,7 +1626,8 @@ curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}
 The two LocalAI groups are large, so on a small context window a chat may not send
 them in full: it sends `tool_search`, `tool_describe` and `tool_call` instead, and the
 model finds and runs their tools through them, under the same permissions. The setting
-`chats_tool_search` (`auto`, `on` or `off`) decides; see
+`chats_tool_search` (`auto`, `on` or `off`) decides; with `on`, the tools of the user's MCP
+connectors load on demand in the same way. See
 [Tool search]({{% relref "features/localai-assistant#tool-search" %}}). The tools panel marks
 such a group with `"deferred":true`.
 
@@ -1684,6 +1756,17 @@ In the web UI, the **Skills** item in the sidebar, right after Knowledge, opens 
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, by name and description only, and tells the model to call the `load_skill` tool with a skill's name before a task that matches it. `load_skill` returns the instructions of the skill, the text after its frontmatter. It offers exactly the skills of that list: for each name the nearest skill, not switched off, and the skills of the add-ons the chat can use now. Any other name is refused with the names of the chat's skills and the near ones first (for example `Did you mean pdf?` for `PDF`).
 
+An optional `sandbox` key names the sandbox profile the skill works best in, for example `sandbox: media` for a skill that cuts video with ffmpeg. It is a hint and nothing more. The index marks the skill as preferring that profile. When the chat runs another profile, `load_skill` adds a line that tells the model the skill wants the named profile, and the model may offer to switch with `sandbox_profile` (action `use`). It never switches by itself and nothing restarts the sandbox. If a tool is missing, the model says which profile has it. A value that is not a profile ID is ignored.
+
+```yaml
+---
+name: cut-clips
+description: Cut a video into clips with ffmpeg.
+sandbox: media
+---
+```
+
+
 When the folder of a skill holds other files, such as references and scripts, the answer starts with `Base directory for this skill:` and the folder, and names up to 20 of the files, relative to it, so the model reads them with `read_file`. A sub-agent that has no `read_file` gets the instructions only. A skill with `requires: [exec]` in a chat that cannot run commands answers that it cannot be used there. Every chat with at least one skill has `load_skill`, and a sub-agent gets it with its parent's other tools. It has no switch and Settings > Tools does not list it; the Skills menu chooses what it offers. The Sandbox does not see the skill folders (the built-in `bash` does, see [Commands on this machine](#commands-on-this-machine)). When the model reads a `SKILL.md` with `read_file` at a wrong path, the error names the right path and `load_skill`. A `SKILL.md` over 64 KiB is refused.
 
 Skills come from six places, nearest first, and the nearest wins when two have the same name:
@@ -1719,12 +1802,13 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps` and `localai`.
+The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps`, `localai`, `assemble-media` and `fframes-video`.
 `localai` teaches the model the [LocalAI client tools]({{% relref "features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
 An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "features/localai-assistant#the-prompt-and-the-recipes" %}}).
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours](/features/make-localai-yours/).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
+`assemble-media` and `fframes-video` are for the sandbox. `assemble-media` has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. `fframes-video` shows how to make a video in code with fframes on the CPU. Both carry a hint for the `media` and `video` sandbox profiles.
 
 ### Import and export skills
 

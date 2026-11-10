@@ -208,7 +208,7 @@ var _ = Describe("the acts of a trigger proposed in a connector chat", func() {
 		r.svc.SetCapabilityGate(gate)
 		gate.set(studio.CapTriggersPropose, true)
 		gate.set(studio.CapProposalsConfirm, true)
-		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, Approval: approval})
+		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, Approval: approval, ReplyLanguage: englishReplies()})
 		seq = 0
 	}
 	say := func(text string) {

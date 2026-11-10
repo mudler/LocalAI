@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/chv"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/gvisor"
@@ -28,9 +29,26 @@ import (
 // The release sets this with -ldflags "-X main.guestImage=...". A build that
 // does not has no guest image, and the isolated backends then say so.
 var (
-	// guestImage is the OCI reference, by digest, of the image the guest runs.
+	// guestImage is the OCI reference, by digest, of the image of the base
+	// profile.
 	guestImage string
+	// profileImages lists the images of the other profiles, as
+	// "media=<ref>,video=<ref>". A profile that is not listed has no image in
+	// this release, and a chat that asks for it runs in base.
+	profileImages string
 )
+
+// releaseImages is the image of each profile of this build.
+func releaseImages() (profiles.Images, error) {
+	imgs, err := profiles.ParseImages(profileImages)
+	if err != nil {
+		return nil, err
+	}
+	if guestImage != "" {
+		imgs[profiles.Base] = guestImage
+	}
+	return imgs, nil
+}
 
 // unsupported builds the error a constructor returns when the host cannot run
 // a backend.
@@ -229,6 +247,25 @@ func newSelector(dataDir string) (*backends.Selector, error) {
 type settingsAdapter struct {
 	*backends.Selector
 	m *runner.Manager
+	d *profiles.Delivery
+}
+
+func (s settingsAdapter) ProfileStates(ctx context.Context) []profiles.State {
+	if s.d == nil {
+		return nil
+	}
+	return s.d.Status(ctx)
+}
+
+func (s settingsAdapter) ChatSandbox(user, conv string) (string, string, bool) {
+	return s.m.Info(user, conv)
+}
+
+func (s settingsAdapter) CurrentImage(profile string) string {
+	if s.d == nil {
+		return ""
+	}
+	return s.d.Current(profile)
 }
 
 func (s settingsAdapter) Reset() { s.m.Reset(context.Background()) }

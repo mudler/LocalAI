@@ -904,7 +904,8 @@
       "lastError": "最近的错误：{{message}}",
       "sources": {
         "tool": "工具 {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "一个脚本"
       },
       "end": {
         "met": "完成：条件已满足",
@@ -1348,5 +1349,57 @@
   },
   "triggersPage": {
     "runLimit": "单次运行的时间限制"
+  },
+  "sandboxProfile": {
+    "label": "沙箱配置",
+    "tools": "程序：{{tools}}",
+    "notAllowed": "管理员没有授权你使用此配置",
+    "absent": "此版本没有该配置的镜像",
+    "unavailable": "{{title}} 不可用：{{reason}}。",
+    "draft": "新聊天从 {{title}} 开始。你可以在聊天中更改配置。",
+    "source": {
+      "chat": "此聊天使用 {{title}}，由你选择。",
+      "agent": "此聊天使用 {{title}}，由其智能体设定。",
+      "default": "此聊天使用 {{title}}，即默认配置。"
+    },
+    "switchWarning": "切换会重启沙箱。你的文件会保留，正在运行的进程和已安装的软件包会丢失。",
+    "switchTo": "切换到 {{title}}",
+    "cancel": "取消",
+    "preparing": "正在准备 {{title}} 镜像，{{percent}}%",
+    "failed": "无法准备 {{title}} 镜像：{{error}}",
+    "fallback": "无法使用 {{title}}，因此命令在 {{base}} 中运行。",
+    "newerImage": "有更新的镜像。沙箱重启后生效。",
+    "notAllowedError": "你不能使用此配置。",
+    "unknownError": "此配置不存在。",
+    "saveError": "无法更改配置。",
+    "admin": {
+      "title": "沙箱配置",
+      "intro": "配置是带有自己程序的环境。在你限制之前，所有人都可以使用每个配置。",
+      "default": "默认配置",
+      "defaultBase": "基础",
+      "profiles": "配置",
+      "limits": "{{cpus}} 个 CPU，{{memory}} MiB 内存，{{disk}} MiB 磁盘",
+      "baseAlways": "所有用户都可以使用基础配置。其他配置无法使用时，会改用它。",
+      "who": "谁可以使用",
+      "everyone": "所有人",
+      "restricted": "仅限下方的角色和用户",
+      "role": {
+        "admin": "管理员",
+        "user": "普通用户"
+      },
+      "users": "指定用户",
+      "usersPlaceholder": "用逗号分隔的名称",
+      "pin": "固定到上一个镜像",
+      "noPrevious": "还没有上一个镜像",
+      "memory": "单个沙箱的内存上限，单位 MiB",
+      "disk": "单个沙箱的磁盘上限，单位 MiB",
+      "noLimit": "不限制",
+      "quotaHelp": "上限只会降低配置的限制，不会提高。留空表示不设上限。",
+      "badQuota": "请输入整数 MiB，或留空。",
+      "reload": "重新加载",
+      "ownerError": "所有者设置不可用或已更改：{{message}}",
+      "save": "保存",
+      "loadError": "无法读取沙箱配置。"
+    }
   }
 }

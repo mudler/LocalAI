@@ -87,10 +87,12 @@ export function followName(name, oldText, newText) {
   return defaultName(newText)
 }
 
-// The write mode of the host. A PiKVM write tool is confirmed by a person on
-// every call whatever the mode is; the mode only decides whether the write
-// tools are refused at once (off) or wait for the person (propose).
-export const WRITE_MODES = ['off', 'propose']
+// The write mode of the host: off refuses every write tool, propose stores
+// each call for a person to confirm, auto (shown as Allow all) lets a chat of
+// the person run every write tool at once. The switches of the settings below
+// (typing, hard power actions) are administrator policy and still apply: Allow
+// all drops the card, not the switch. A new connection starts at off.
+export const WRITE_MODES = ['off', 'propose', 'auto']
 export const writeModeOf = (m) => (WRITE_MODES.includes(m) ? m : 'off')
 
 export const extraForm = (c) => ({ address_text: (c.resources || [])[0] || '', write_mode: writeModeOf(c.write_mode) })

@@ -112,7 +112,11 @@ var _ = Describe("the localai skill", func() {
 	})
 
 	It("stays compact and in plain English", func() {
-		Expect(len(text)).To(BeNumerically("<=", 4800), "about 1,200 tokens")
+		// 5,900 to 6,400: the upscale_image and transform_audio lines (about
+		// 450 bytes) and the capability names they add to list_models.
+		// 6,400 to 6,600: two lines that point to the assemble-media and
+		// fframes-video skills; sandbox chats have no other way to find them.
+		Expect(len(text)).To(BeNumerically("<=", 6600), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
 		Expect(strings.Count(text, "—")).To(BeZero(), "no em dashes")
 	})
 })

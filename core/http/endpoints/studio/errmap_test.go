@@ -55,6 +55,9 @@ var _ = Describe("the studio endpoint helpers", func() {
 			typ    string
 			msg    string
 		}{
+			{"an unknown sandbox profile", failFor, studiosvc.ErrSandboxProfileUnknown, 400, "sandbox_profile_unknown", "the sandbox has no such profile"},
+			{"a sandbox profile the policy closed", failFor, studiosvc.ErrSandboxProfileNotAllowed, 403, "sandbox_profile_not_allowed", "an administrator did not give you this sandbox profile"},
+			{"no sandbox with profiles", failFor, studiosvc.ErrNoSandboxProfiles, 409, "no_sandbox_profiles", "the commands of this chat do not run in a sandbox with profiles"},
 			{"a missing conversation", failFor, session.ErrNotFound, 404, "not_found", "conversation not found"},
 			{"a wrapped sentinel still matches", failFor, fmt.Errorf("opening: %w", session.ErrNotFound), 404, "not_found", "conversation not found"},
 			{"a busy chat", failFor, studiosvc.ErrChatBusy, 409, "conflict", "a turn is running; stop it first"},

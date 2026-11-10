@@ -102,12 +102,12 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListFailoverChains,
 	// The read-only flavour keeps the client tools that only analyse or list.
 	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
-	ToolVoice, ToolFace, ToolVoiceProfile,
+	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels,
 )
 
 // clientWriterTools are the client tools the read-only flavour leaves out: they
 // write files or make new content.
-var clientWriterTools = []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound}
+var clientWriterTools = []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound, ToolUpscaleImage, ToolTransformAudio}
 
 // expectedFullCatalog derives from the read-only catalog plus the canonical
 // mutating list used by the safety-prompt coverage test. Registering a new
@@ -146,6 +146,7 @@ var _ = Describe("Tool dispatch", func() {
 	cases := []dispatchCase{
 		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
 		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
+		{ToolListModels, ListModelsRequest{Capability: "image"}, "ListModels"},
 		{ToolListGalleries, struct{}{}, "ListGalleries"},
 		{ToolListBackends, struct{}{}, "ListBackends"},
 		{ToolListKnownBackends, struct{}{}, "ListKnownBackends"},
@@ -198,6 +199,8 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolRerank, RerankRequest{Query: "q", Documents: []string{"d"}}, "Rerank"},
 		{ToolGenerateVideo, GenerateVideoRequest{Prompt: "waves"}, "GenerateVideo"},
 		{ToolGenerateSound, GenerateSoundRequest{Text: "rain"}, "GenerateSound"},
+		{ToolUpscaleImage, UpscaleImageRequest{Image: "a.png", Scale: 4}, "UpscaleImage"},
+		{ToolTransformAudio, TransformAudioRequest{Audio: "a.wav"}, "TransformAudio"},
 		{ToolVoice, VoiceToolInput{Action: "verify", Audio: "a.wav", Audio2: "b.wav"}, "VerifyVoice"},
 		{ToolVoice, VoiceToolInput{Action: "identify", Audio: "a.wav"}, "IdentifyVoice"},
 		{ToolFace, FaceToolInput{Action: "verify", Image: "a.png", Image2: "b.png"}, "VerifyFace"},

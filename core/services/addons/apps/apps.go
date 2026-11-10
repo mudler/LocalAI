@@ -309,7 +309,7 @@ type UIView struct {
 	// Controls are the host controls the host draws for the addon: the ones
 	// its manifest declares that its grants and tools entitle it to now. The
 	// host draws them with its own components; the addon supplies nothing.
-	Controls []string `json:"controls,omitempty" enums:"network-policy,tool-providers" example:"network-policy"`
+	Controls []string `json:"controls,omitempty" enums:"network-policy,tool-providers,sandbox-profiles" example:"network-policy"`
 }
 
 // HomeCommandView is a navigation declaration resolved against this installed

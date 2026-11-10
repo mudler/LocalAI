@@ -40,7 +40,7 @@ type SkillDefinition struct {
 // ship under their name: they describe LocalAI itself. A test derives the
 // built-in names from the embedded tree and fails when one is neither here
 // nor a reserved document slot.
-var protectedSkills = []string{"localai-workspace", "localai-apps", "localai", "writing-skills", "memory", "memory-check-own-files"}
+var protectedSkills = []string{"localai-workspace", "localai-apps", "localai", "writing-skills", "memory", "memory-check-own-files", "assemble-media", "fframes-video"}
 
 // AdminSkillPrefix starts the name of every skill that teaches the LocalAI
 // admin tools (localaitools.SkillPrefix). They are protected like the other

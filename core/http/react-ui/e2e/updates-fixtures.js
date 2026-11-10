@@ -48,7 +48,7 @@ export const failedOp = (name, error = 'download interrupted', extra = {}) => ({
 const POLICY = {
   chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false,
   chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '',
-  chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0,
+  chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0, sandbox_profiles: { default: '', access: {}, memory_mib: 0, disk_mib: 0, pin_previous: [] },
 }
 
 // Routes the calls of the Updates page and the shell provider. Install it after

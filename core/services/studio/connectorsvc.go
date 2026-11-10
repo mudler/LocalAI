@@ -91,6 +91,9 @@ type ConnectorInput struct {
 	// ConfirmDuplicate must be DuplicateConfirmation to save an enabled
 	// connection that is the same bot as another enabled one. Not stored.
 	ConfirmDuplicate string
+	// InboundMedia is connectors.Binding.InboundMedia. Nil means none (every
+	// kind) for a new binding and unchanged for an update.
+	InboundMedia *[]string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -152,6 +155,12 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.Approval != nil {
 		b.Approval = in.Approval.Cleaned()
+	}
+	if in.InboundMedia != nil {
+		b.InboundMedia = nil
+		if len(*in.InboundMedia) > 0 {
+			b.InboundMedia = slices.Clone(*in.InboundMedia)
+		}
 	}
 }
 

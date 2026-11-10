@@ -26,7 +26,7 @@ import (
 
 // The write tools of the manifest. Both are write tools: the host decides,
 // from the write mode of the person's binding, whether each one is refused or
-// stored as a proposal for a person, and the manifest sets approval always.
+// stored as a proposal for a person, or run at once in the Allow all mode.
 // Mail is sent in two steps a person sees: create-draft saves a draft, and
 // send-draft sends a draft that exists, after the person read its recipients
 // and text in the approval. The add-on cannot delete, trash, label, forward

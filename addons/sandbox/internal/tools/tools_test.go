@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
@@ -39,6 +40,20 @@ func env(tool, user, conv string, args map[string]any) contract.Envelope {
 		Authority: contract.Authority{Actor: contract.Actor{UserID: user, CredentialID: "chats", Mode: "named-user"}, Scope: "act", ExpiresAt: time.Now().Add(time.Minute)},
 	}
 }
+
+type fakeProfileSettings struct {
+	fakeSettings
+	states  []profiles.State
+	chats   map[string][2]string
+	current map[string]string
+}
+
+func (f *fakeProfileSettings) ProfileStates(context.Context) []profiles.State { return f.states }
+func (f *fakeProfileSettings) ChatSandbox(user, conv string) (string, string, bool) {
+	c, ok := f.chats[user+"/"+conv]
+	return c[0], c[1], ok
+}
+func (f *fakeProfileSettings) CurrentImage(p string) string { return f.current[p] }
 
 func TestTools(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -113,6 +128,46 @@ var _ = Describe("Sandbox tools", func() {
 		_ = json.Unmarshal(r.Args, &args)
 		Expect(args).NotTo(HaveKey("tool"), "want the model's arguments without the tool name")
 		Expect(args["command"]).To(Equal("echo hello"))
+	})
+
+	It("passes what the host decided for the call, and keeps it out of the arguments", func() {
+		f := &fakeRunner{out: "ok"}
+		_, err := act(f, env("bash", "alice", "conv1", map[string]any{"command": "ffmpeg -version",
+			"execution": map[string]any{"profile": "media", "pin": true, "memoryMiB": 1024, "diskMiB": 2048}}))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.got).To(HaveLen(1))
+		Expect(f.got[0].Call).To(Equal(sandbox.CallOptions{Profile: "media", Pin: true, MemoryMiB: 1024, DiskMiB: 2048}))
+		Expect(string(f.got[0].Args)).NotTo(ContainSubstring("execution"))
+		Expect(string(f.got[0].Args)).To(ContainSubstring("ffmpeg"))
+	})
+
+	It("runs with no options when the host sent none, and refuses options it cannot read", func() {
+		f := &fakeRunner{}
+		_, err := act(f, env("bash", "alice", "conv1", map[string]any{"command": "x"}))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.got[0].Call).To(Equal(sandbox.CallOptions{}))
+		_, err = act(f, env("bash", "alice", "conv1", map[string]any{"command": "x", "execution": "media"}))
+		Expect(err).To(HaveOccurred())
+		Expect(f.got).To(HaveLen(1), "a call with unreadable options ran")
+	})
+
+	It("tells in the status the image of each profile and whether the chat can restart on a newer one", func() {
+		set := &fakeProfileSettings{
+			fakeSettings: fakeSettings{st: backends.Status{Active: "kvm"}},
+			states:       []profiles.State{{ID: "base", Phase: profiles.PhaseReady}, {ID: "media", Phase: profiles.PhasePulling, Percent: 40}},
+			chats:        map[string][2]string{"alice/c1": {"media", "reg/media@sha256:old"}},
+			current:      map[string]string{"media": "reg/media@sha256:new"},
+		}
+		rt := tools.New(&fakeRunner{}, set, fakeAdmin{})
+		out := read(rt, "status", "alice", map[string]any{"conversation": "c1"}, "opstatus0001")
+		ps, _ := out["profiles"].([]any)
+		Expect(ps).To(HaveLen(2))
+		Expect(ps[1].(map[string]any)["percent"]).To(BeEquivalentTo(40))
+		Expect(out["chat"]).To(Equal(map[string]any{"profile": "media", "newerImage": true}))
+		other := read(rt, "status", "bob", map[string]any{"conversation": "c1"}, "opstatus0002")
+		Expect(other).NotTo(HaveKey("chat"), "the sandbox of another user's chat is not shown")
+		none := read(rt, "status", "alice", map[string]any{}, "opstatus0003")
+		Expect(none).NotTo(HaveKey("chat"))
 	})
 
 	It("refuses a call without a conversation and runs nothing", func() {
@@ -194,36 +249,6 @@ var _ = Describe("Sandbox tools", func() {
 		for _, d := range tools.Definitions() {
 			Expect(len(d.Description)).To(BeNumerically("<=", contract.MaxToolDescriptionLen), "%s", d.Name)
 		}
-		Expect(sandbox.GuestToolsNote).To(ContainSubstring(sandbox.GuestTools))
-	})
-
-	// The guest user cannot install packages, so the image, its build check and
-	// the documentation must all name the programs the note promises.
-	It("installs and checks in the guest image what the note names", func() {
-		dockerfile, err := os.ReadFile("../../images/guest/Dockerfile")
-		Expect(err).NotTo(HaveOccurred())
-		check, err := os.ReadFile("../../images/guest/check-tools.sh")
-		Expect(err).NotTo(HaveOccurred())
-		// The apt list of the final stage: from its last "apt-get install" to the cleanup.
-		text := string(dockerfile)
-		from := strings.LastIndex(text, "apt-get install")
-		Expect(from).To(BeNumerically(">", 0))
-		list := text[from:]
-		list = list[:strings.Index(list, "rm -rf")]
-		have := strings.Fields(strings.NewReplacer("\\", " ", ";", " ").Replace(list))
-		for _, pkg := range []string{"jq", "zip", "unzip", "file", "sqlite3", "ripgrep", "tree", "poppler-utils", "git", "curl"} {
-			Expect(have).To(ContainElement(pkg))
-		}
-		for _, no := range []string{"nodejs", "npm", "imagemagick", "ffmpeg", "tesseract-ocr"} {
-			Expect(have).NotTo(ContainElement(no))
-		}
-		for _, cmd := range []string{"jq --version", "zip -v", "unzip -v", "file --version", "sqlite3 --version", "rg --version", "tree --version", "pdftotext -v"} {
-			Expect(string(check)).To(ContainSubstring(cmd))
-		}
-		Expect(text).To(ContainSubstring("check-tools.sh"))
-		doc, err := os.ReadFile("../../../../docs/content/features/addons.md")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(doc)).To(ContainSubstring(sandbox.GuestTools))
 	})
 
 	It("tells the model where helper files go in a bash description that fits the manifest", func() {
@@ -259,7 +284,7 @@ var _ = Describe("Sandbox tools", func() {
 		Expect(m.Capabilities.Actions).To(BeTrue())
 		// The host draws the network of the commands and the bash row on the
 		// add-on's own page, with the default grant of egress.check.
-		Expect(m.Capabilities.UI.Controls).To(Equal([]string{contract.ControlNetworkPolicy, contract.ControlToolProviders}))
+		Expect(m.Capabilities.UI.Controls).To(Equal([]string{contract.ControlNetworkPolicy, contract.ControlToolProviders, contract.ControlSandboxProfiles}))
 		Expect(contract.EntitledControls(m, []string{"workspace.", "egress."})).To(Equal(m.Capabilities.UI.Controls))
 		want := tools.Definitions()
 		Expect(m.Capabilities.ToolDefinitions).To(HaveLen(len(want)))

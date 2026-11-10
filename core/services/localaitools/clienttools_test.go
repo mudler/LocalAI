@@ -25,15 +25,15 @@ var _ = Describe("Client tool table", func() {
 	It("has an entry with a route, a feature and a model flag for every client tool", func() {
 		want := []string{
 			ToolGenerateImage, ToolSpeak, ToolTranscribeAudio, ToolDescribeImage, ToolEmbed,
-			ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound,
-			ToolVoice, ToolFace, ToolVoiceProfile,
+			ToolDetect, ToolRerank, ToolGenerateVideo, ToolGenerateSound, ToolUpscaleImage, ToolTransformAudio,
+			ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels,
 		}
 		Expect(clientToolNames()).To(ConsistOf(want))
 		for _, s := range ClientTools {
 			Expect(s.Route).To(HavePrefix("/"), s.Tool)
 			Expect(s.Method).To(BeElementOf("GET", "POST", "DELETE"), s.Tool)
-			if s.Tool != ToolVoiceProfile {
-				// voice_profile manages data and needs no model.
+			if s.Tool != ToolVoiceProfile && s.Tool != ToolListModels {
+				// voice_profile and list_models manage or read data and need no model.
 				Expect(s.Method).To(Equal("POST"), s.Tool)
 				Expect(s.Flag).ToNot(BeZero(), s.Tool)
 			}
@@ -43,6 +43,12 @@ var _ = Describe("Client tool table", func() {
 
 	It("names a feature that exists, and the API route checks that same feature", func() {
 		for _, s := range ClientTools {
+			if s.Feature == NoFeature {
+				// list_models: the route checks no feature (the model
+				// allow-list filters its answer).
+				Expect(s.Tool).To(Equal(ToolListModels))
+				continue
+			}
 			Expect(auth.AllFeatures).To(ContainElement(s.Feature), "%s: unknown feature %q", s.Tool, s.Feature)
 			found := false
 			for _, r := range auth.RouteFeatureRegistry {
@@ -79,10 +85,10 @@ var _ = Describe("Client tool table", func() {
 		ctx, sess, done := connectInMemory(&fakeClient{}, Options{DisableMutating: true})
 		defer done()
 		names := listToolNames(ctx, sess)
-		for _, n := range []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound} {
+		for _, n := range []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound, ToolUpscaleImage, ToolTransformAudio} {
 			Expect(names).NotTo(ContainElement(n))
 		}
-		Expect(names).To(ContainElements(ToolTranscribeAudio, ToolDescribeImage, ToolRerank, ToolVoiceProfile))
+		Expect(names).To(ContainElements(ToolTranscribeAudio, ToolDescribeImage, ToolRerank, ToolVoiceProfile, ToolListModels))
 		// voice_profile keeps only list.
 		res, err := sess.ListTools(ctx, nil)
 		Expect(err).NotTo(HaveOccurred())
@@ -103,6 +109,11 @@ var _ = Describe("Client tool table", func() {
 		for n := range clientToolFiles {
 			Expect(names).NotTo(ContainElement(n))
 		}
-		Expect(names).To(ContainElements(ToolRerank, ToolVoiceProfile))
+		Expect(names).To(ContainElements(ToolRerank, ToolVoiceProfile, ToolListModels))
+	})
+
+	It("keeps list_models in the client group, and list_installed_models in the manage group", func() {
+		Expect(ToolGroupOf(ToolListModels)).To(Equal(GroupClient))
+		Expect(ToolGroupOf(ToolListInstalledModels)).To(Equal(GroupManage))
 	})
 })
