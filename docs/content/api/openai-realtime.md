@@ -240,7 +240,7 @@ A client `session.update` still overrides `type` and `eagerness` per session.
 
 ### Live speaker and sound events (parakeet-cpp)
 
-When the `semantic_vad` transcription model is a parakeet-cpp model loaded with a `diarization_model` and/or `sound_model` companion (see [Audio to Text]({{% relref "/features/audio-to-text" %}})), the realtime session also streams speaker and sound events while a turn is live, alongside the transcript deltas. Nothing needs to change on the client: unrecognized event types are ignored by standard OpenAI Realtime clients.
+When the `semantic_vad` transcription model is a parakeet-cpp model loaded with a `diarization_model` and/or `sound_model` companion (see [Audio to Text]({{% relref "/features/audio/audio-to-text" %}})), the realtime session also streams speaker and sound events while a turn is live, alongside the transcript deltas. Nothing needs to change on the client: unrecognized event types are ignored by standard OpenAI Realtime clients.
 
 The transcription model, with its companions:
 
@@ -282,7 +282,7 @@ Each closed speaker segment emits a `conversation.item.input_audio_transcription
 }
 ```
 
-`speaker_name` is the name of a voice registered through `/v1/voice/register`, and is present only when the model has a `speaker_model:` (or, for a parakeet-cpp bundle file, a `speaker_component:`) and the speaker was identified. A segment that closes before its speaker is identified has none, and later segments of the same speaker do. See [Voice Recognition]({{% relref "/features/voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription). The segments of the offline path below carry no `speaker_name`.
+`speaker_name` is the name of a voice registered through `/v1/voice/register`, and is present only when the model has a `speaker_model:` (or, for a parakeet-cpp bundle file, a `speaker_component:`) and the speaker was identified. A segment that closes before its speaker is identified has none, and later segments of the same speaker do. See [Voice Recognition]({{% relref "/features/audio/voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription). The segments of the offline path below carry no `speaker_name`.
 
 Each sound event emits a `conversation.item.sound_detection` event with one tag and the detection window's `start`/`end`:
 
@@ -303,7 +303,7 @@ The companion stream is opened fresh for each speech turn, alongside that turn's
 
 `score` is the peak score seen for that tag while the sound was live, not an average.
 
-**Limitation**: under `semantic_vad`, live transcription (and so this companion stream) only runs during speech turns - it does not see audio between turns. A sound that happens while nobody is speaking is not detected this way. If you need sound events independent of speech turns, use the pipeline's `sound_detection` model instead (see [Sound Classification]({{% relref "/features/audio-classification" %}})), which classifies each VAD-committed utterance on its own. Use one or the other, not both, on the same session - they overlap in purpose and would emit sound detections twice.
+**Limitation**: under `semantic_vad`, live transcription (and so this companion stream) only runs during speech turns - it does not see audio between turns. A sound that happens while nobody is speaking is not detected this way. If you need sound events independent of speech turns, use the pipeline's `sound_detection` model instead (see [Sound Classification]({{% relref "/features/audio/audio-classification" %}})), which classifies each VAD-committed utterance on its own. Use one or the other, not both, on the same session - they overlap in purpose and would emit sound detections twice.
 
 ### Speaker and sound events with an offline model (Parakeet TDT v3)
 
@@ -335,11 +335,11 @@ pipeline:
 }
 ```
 
-`sound_detection` classifies the same committed audio and emits one `conversation.item.sound_detection` event per turn (see [Sound Classification]({{% relref "/features/audio-classification" %}})). As on the live path, times are relative to the turn's audio and speaker labels are only consistent within a turn. `pipeline.diarization` is off by default: it needs a transcription model that diarizes (parakeet-cpp with a `diarization_model` companion), and some other backends fail a diarization request they cannot serve.
+`sound_detection` classifies the same committed audio and emits one `conversation.item.sound_detection` event per turn (see [Sound Classification]({{% relref "/features/audio/audio-classification" %}})). As on the live path, times are relative to the turn's audio and speaker labels are only consistent within a turn. `pipeline.diarization` is off by default: it needs a transcription model that diarizes (parakeet-cpp with a `diarization_model` companion), and some other backends fail a diarization request they cannot serve.
 
 #### Choosing the sound model
 
-Both scene models ship with CED-Tiny, the cheapest to run all the time. `parakeet-cpp-realtime-scene-base` and `parakeet-cpp-realtime-scene-tdt-base` are the same pipelines with CED-Base (86M, the largest CED), which tags sounds more confidently. `parakeet-cpp-multilingual-diarization-speakers-sounds` loads the same TDT, Nemotron-3-Diarization and CED-Tiny trio plus the WeSpeaker encoder, and is meant for offline `/v1/audio/diarization` calls with `include_sounds=true` (see [Speaker Diarization]({{% relref "/features/audio-diarization" %}}#sound-events)). Any CED GGUF from [`mudler/ced-gguf`](https://huggingface.co/mudler/ced-gguf) (tiny, mini, small, base) works as `sound_model`. Measured on CPU (Ryzen 9 9950X3D) over a 37 s clip with two speakers and a rooster, as a fraction of real time:
+Both scene models ship with CED-Tiny, the cheapest to run all the time. `parakeet-cpp-realtime-scene-base` and `parakeet-cpp-realtime-scene-tdt-base` are the same pipelines with CED-Base (86M, the largest CED), which tags sounds more confidently. `parakeet-cpp-multilingual-diarization-speakers-sounds` loads the same TDT, Nemotron-3-Diarization and CED-Tiny trio plus the WeSpeaker encoder, and is meant for offline `/v1/audio/diarization` calls with `include_sounds=true` (see [Speaker Diarization]({{% relref "/features/audio/audio-diarization" %}}#sound-events)). Any CED GGUF from [`mudler/ced-gguf`](https://huggingface.co/mudler/ced-gguf) (tiny, mini, small, base) works as `sound_model`. Measured on CPU (Ryzen 9 9950X3D) over a 37 s clip with two speakers and a rooster, as a fraction of real time:
 
 | | CED-Tiny | CED-Base |
 |---|---|---|
@@ -381,9 +381,9 @@ pipeline:
     max_summary_tokens: 512
 ```
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 On CPU, set `summary_model` to a small, fast model so compaction never competes with the conversation LLM for compute. Left empty, the pipeline's own LLM produces the summary.
-{{% /notice %}}
+{{% /callout %}}
 
 Clients can also manage history directly via the now-supported `conversation.item.delete`, `conversation.item.truncate`, and `input_audio_buffer.clear` realtime events.
 
@@ -475,9 +475,9 @@ The concrete scoring model must declare `score` in `known_usecases`. A single ll
 
 A speech-to-speech (S2S) model takes audio in and answers with audio, text or both, in one model. Instead of chaining VAD, transcription, an LLM and TTS, the session sends audio to the model and gets the reply back from it. The llama-cpp backend serves these models.
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 Speech-to-speech over the Realtime API is experimental. It needs a llama.cpp build with LFM3-Audio and realtime support, which the LocalAI llama.cpp pin must include. It has not been measured on real hardware, and its behaviour may change.
-{{% /notice %}}
+{{% /callout %}}
 
 ### Configuration
 
@@ -569,7 +569,7 @@ Interruption works as described in [Controlling response interruption](#controll
 ### Limits
 
 - **Audio format.** The model listens to 16 kHz mono audio. LocalAI resamples the session input to 16 kHz. Output audio is 24 kHz mono PCM.
-- **Voice.** The `voice` setting is not applied to speech-to-speech output. llama.cpp's realtime slot has no voice selection. The `voice` setting still applies to the [text-to-speech endpoint]({{%relref "/features/text-to-audio" %}}).
+- **Voice.** The `voice` setting is not applied to speech-to-speech output. llama.cpp's realtime slot has no voice selection. The `voice` setting still applies to the [text-to-speech endpoint]({{%relref "/features/audio/text-to-audio" %}}).
 - **Context.** A session holds one slot for its whole life, and all its audio stays in the context. A long session reaches `context_size`. The session then sends an error and closes. There is no compaction for speech-to-speech sessions.
 - **Session updates after the first turn.** Once the first audio or message has been added, `instructions`, `tools` and `voice` cannot change. A `session.update` that tries to change them gets an `error`. `output_modalities` and `max_output_tokens` can still change.
 - **Not supported.** `conversation.item.truncate` and `conversation.item.delete` return an `error`, because the context cannot be cut by audio time. `input_audio_buffer.clear` drops audio that has not been committed. Without a VAD model, the server keeps appended audio in its buffer and sends it to the model only at `input_audio_buffer.commit` (or at a `response.create` that finds uncommitted audio), so a clear discards it for good. With server VAD, audio is streamed to the model during a turn, and what was already sent stays in the context.
@@ -655,11 +655,11 @@ LOCALAI_WEBRTC_NAT_1TO1_IPS=192.168.1.10
 LOCALAI_WEBRTC_ICE_INTERFACES=eth0
 ```
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 For a browser on another LAN machine talking to LocalAI in a host-networked
 container, set `LOCALAI_WEBRTC_NAT_1TO1_IPS` to the host's LAN IP. This is the
 most reliable fix for WebRTC connections that establish and then drop.
-{{% /notice %}}
+{{% /callout %}}
 
 LocalAI never offers **deprecated IPv6 addresses** as candidates. After an
 IPv6 prefix change (many routers rotate the prefix, often daily) the old
@@ -795,7 +795,7 @@ The bundle's encoder has the same weights as `voice-detect-wespeaker-resnet34`, 
 registered with that model are matched. Embedding an utterance uses the same engine lock as
 transcription, so it adds to the turn latency. Voices from a 192-dimension model (ECAPA-TDNN,
 for example) cannot be matched by a bundle; see
-[Voice Recognition]({{% relref "/features/voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}).
+[Voice Recognition]({{% relref "/features/audio/voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}).
 
 ### Identifying speakers without gating
 

@@ -7,9 +7,9 @@ weight = 20
 
 This tutorial builds an add-on called `hello`. It has one tool, `greet`, and one skill. You test it, pack it as a zip file and install it from the file. It does not need a UI, a database or a network.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 The Go helper package that the first-party add-ons use is `internal` to the LocalAI repository. This tutorial puts the add-on inside a checkout of the repository, like the first-party add-ons. An add-on made outside the repository must speak the same wire protocol itself. The [contract reference]({{% relref "/addons/contract-reference#managed-runtime" %}}) describes it.
-{{% /notice %}}
+{{% /callout %}}
 
 ## What you need
 

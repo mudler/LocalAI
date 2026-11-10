@@ -17,7 +17,7 @@ An agent that uses tools needs a model that can call them. Open **Models**, inst
 1. Open **Agents** in the sidebar.
 2. Choose **New agent**. A short wizard opens with four steps: **Purpose**, **Abilities**, **Where it works** and **Review**. The bar at the top takes you back to an earlier step, and the summary beside it shows what the agent will be.
 3. In **Purpose**, start from a template or write your own. Give it a name and the instructions it should always follow, for example: `Answer in French. Cite the file you used.` Only the name and the instructions are required. The model is the one you pick in each chat, unless you choose a fixed one.
-4. Optional: in **Abilities**, pick a level (Look only, Assistant or Full) or leave it: the agent then starts with the default tools. Under **Files**, choose **No files**, **All my files** (the default), or **Only these folders** and pick a folder, for example `/Projects/Acme`, with **Can read** or **Can read and change**. You can add up to eight folders, each with its own access. Chats with the agent then see only those folders and their own chat folder, not the rest of your files. See [Folders of an agent]({{% relref "/features/chats-agents" %}}#folders-of-an-agent). **Fine-tune individual tools** holds every tool switch.
+4. Optional: in **Abilities**, pick a level (Look only, Assistant or Full) or leave it: the agent then starts with the default tools. Under **Files**, choose **No files**, **All my files** (the default), or **Only these folders** and pick a folder, for example `/Projects/Acme`, with **Can read** or **Can read and change**. You can add up to eight folders, each with its own access. Chats with the agent then see only those folders and their own chat folder, not the rest of your files. See [Folders of an agent]({{% relref "/features/chats-and-agents/chats-agents" %}}#folders-of-an-agent). **Fine-tune individual tools** holds every tool switch.
 5. Optional: in **Where it works**, mark the chat apps and the tools and services you want. The step lists what your add-ons declare, and the add-ons you can still install. Marking an app does not connect it.
 6. In **Review**, check the summary and choose **Create agent**. If you marked apps, the agent's page opens with a **Finish setup** card: one row for each app with what it needs and one button. A row is done when the server has the connection. **Hide** removes the card.
 
@@ -29,7 +29,7 @@ On the Agents page, choose **Chat** on the agent's row and write a message. The 
 
 ## Let it work by itself
 
-Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Telegram connector]({{% relref "/features/chats-connectors" %}}) to talk to the agent from your phone.
+Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Telegram connector]({{% relref "/features/chats-and-agents/chats-connectors" %}}) to talk to the agent from your phone.
 
 ## If your agent will not run
 
@@ -41,6 +41,6 @@ Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the ag
 
 ## Next steps
 
-- [Saved agents, triggers and inbox]({{% relref "/features/chats-agents" %}})
-- [Telegram connector]({{% relref "/features/chats-connectors" %}})
-- [Moving from the old chat and agents]({{% relref "/features/chats-migration" %}})
+- [Saved agents, triggers and inbox]({{% relref "/features/chats-and-agents/chats-agents" %}})
+- [Telegram connector]({{% relref "/features/chats-and-agents/chats-connectors" %}})
+- [Moving from the old chat and agents]({{% relref "/features/chats-and-agents/chats-migration" %}})

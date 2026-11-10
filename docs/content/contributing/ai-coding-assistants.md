@@ -94,6 +94,6 @@ Using an AI assistant does not reduce the contributor's responsibility. The huma
 
 Reviewers may ask for clarification on any change regardless of how it was produced. "An AI wrote it" is not an acceptable answer to a design question.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 This policy is a living document. If you're unsure how to apply it to a specific contribution, open an issue or ask in the [Discord channel](https://discord.gg/uJAeKSAGDy) before submitting.
-{{% /notice %}}
+{{% /callout %}}

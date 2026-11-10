@@ -7,9 +7,9 @@ aliases = ["/reference/api-errors/"]
 
 This page documents the error responses returned by the LocalAI API. LocalAI supports multiple API formats (OpenAI, Anthropic, Open Responses), each with its own error structure.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 For backend and runtime failure messages (a model that will not load, `could not load model`, `grpc service not ready`, `SIGILL`, VRAM out of memory, the model-load cooldown `503`), rather than API-envelope errors, see {{% relref "/reference/runtime-errors" %}}.
-{{% /notice %}}
+{{% /callout %}}
 
 ## Error Response Formats
 
@@ -177,7 +177,7 @@ curl http://localhost:8080/v1/chat/completions \
   -d '{"messages": [{"role": "user", "content": "hello"}]}'
 ```
 
-See also: [Text Generation]({{%relref "/features/text-generation" %}})
+See also: [Text Generation]({{%relref "/features/text/text-generation" %}})
 
 ### Completions - `POST /v1/completions`
 
@@ -195,7 +195,7 @@ See also: [Text Generation]({{%relref "/features/text-generation" %}})
 | 400    | No `model` in the body and no embeddings model configured | `Bad Request` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Embeddings]({{%relref "/features/embeddings" %}})
+See also: [Embeddings]({{%relref "/features/text/embeddings" %}})
 
 ### Image Generation - `POST /v1/images/generations`
 
@@ -205,7 +205,7 @@ See also: [Embeddings]({{%relref "/features/embeddings" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Image Generation]({{%relref "/features/image-generation" %}})
+See also: [Image Generation]({{%relref "/features/vision/image-generation" %}})
 
 ### Image Editing (Inpainting) - `POST /v1/images/edits`
 
@@ -224,7 +224,7 @@ See also: [Image Generation]({{%relref "/features/image-generation" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Audio to Text]({{%relref "/features/audio-to-text" %}})
+See also: [Audio to Text]({{%relref "/features/audio/audio-to-text" %}})
 
 ### Text to Speech - `POST /v1/audio/speech`, `POST /tts`
 
@@ -234,7 +234,7 @@ See also: [Audio to Text]({{%relref "/features/audio-to-text" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Text to Audio]({{%relref "/features/text-to-audio" %}})
+See also: [Text to Audio]({{%relref "/features/audio/text-to-audio" %}})
 
 ### ElevenLabs TTS - `POST /v1/text-to-speech/:voice-id`
 
@@ -260,7 +260,7 @@ See also: [Text to Audio]({{%relref "/features/text-to-audio" %}})
 | 422    | `top_n` less than 1            | `top_n - should be greater than or equal to 1` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Reranker]({{%relref "/features/reranker" %}})
+See also: [Reranker]({{%relref "/features/text/reranker" %}})
 
 ### Anthropic Messages - `POST /v1/messages`
 
@@ -347,7 +347,7 @@ curl http://localhost:8080/v1/responses \
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Object Detection]({{%relref "/features/object-detection" %}})
+See also: [Object Detection]({{%relref "/features/vision/object-detection" %}})
 
 ### Video Generation - `POST /v1/video/generations`
 

@@ -213,7 +213,7 @@ shows the count above, so the two numbers differ while an operation has failed.
 
 ## Updates in the inbox
 
-Administrators get updates in the [inbox]({{% relref "/features/chats-agents#inbox" %}}) (the **Notifications** entry in the sidebar), so they see them on any page and, through browser push and a Telegram chat, away from the browser. Three kinds of item exist. Every one has a `code` and `params`, so the app words it in your language. Every one is for administrators only (when authentication is off, for the one local user). With the chats off there are none.
+Administrators get updates in the [inbox]({{% relref "/features/chats-and-agents/chats-agents#inbox" %}}) (the **Notifications** entry in the sidebar), so they see them on any page and, through browser push and a Telegram chat, away from the browser. Three kinds of item exist. Every one has a `code` and `params`, so the app words it in your language. Every one is for administrators only (when authentication is off, for the one local user). With the chats off there are none.
 
 - **The digest**, "N backend updates available". It counts the backend updates (gallery and library) that need a person: the same updates the badge of the Updates tab counts for backends. It does not count a backend that **Update backends automatically** covers, so with that setting on there is no digest, and a stored digest is removed. With the setting off, every update that the last check found is counted, and a server that refuses backend installs counts none. There is one digest for each administrator, kept up to date in place:
   - the first update creates it;
@@ -572,13 +572,13 @@ Your backend container should:
 5. Have a top level `run.sh` file that will be used to run the backend
 6. Pushed to a registry so can be used in a gallery
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 An already-installed Python backend that was built with an editable install
 (for example vllm-omni from v4.0.0) keeps that broken finder until it is
 replaced with a rebuilt artifact. Reusing or renaming the unpacked directory
 does not rewrite the stale path; delete or upgrade the backend so the new
 site-packages copy is what runs.
-{{% /notice %}}
+{{% /callout %}}
 
 ### Getting started
 
@@ -609,17 +609,17 @@ For getting started, see the available backends in LocalAI here: https://github.
 
 LocalAI supports various types of backends:
 
-- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX, the experimental [Strata engine]({{% relref "/features/strata" %}}) (NVIDIA CUDA, AMD ROCm, Intel SYCL, Apple Metal, prebuilt engine packages), and [RKLLM on Rockchip NPUs]({{% relref "/features/rkllm" %}}) through the cloud-proxy backend)
-- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "/features/nemo-speech-cpp" %}}), faster-whisper, [Whisper-Medusa]({{%relref "/features/whisper-medusa" %}}), FunASR/SenseVoice, NeMo, [audio.cpp]({{%relref "/features/audio-cpp" %}}))
-- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "/features/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "/features/audio-cpp" %}}))
-- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "/features/audio-cpp" %}}))
+- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX, the experimental [Strata engine]({{% relref "/features/engines/strata" %}}) (NVIDIA CUDA, AMD ROCm, Intel SYCL, Apple Metal, prebuilt engine packages), and [RKLLM on Rockchip NPUs]({{% relref "/features/engines/rkllm" %}}) through the cloud-proxy backend)
+- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "/features/engines/nemo-speech-cpp" %}}), faster-whisper, [Whisper-Medusa]({{%relref "/features/engines/whisper-medusa" %}}), FunASR/SenseVoice, NeMo, [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
+- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "/features/engines/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
+- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
-- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "/features/video-generation" %}}), [LongCat-Video]({{%relref "/features/video-generation" %}}), [MiniMax-H3 on stable-diffusion.cpp]({{%relref "/features/video-generation" %}}))
-- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "/features/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
+- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "/features/vision/video-generation" %}}), [LongCat-Video]({{%relref "/features/vision/video-generation" %}}), [MiniMax-H3 on stable-diffusion.cpp]({{%relref "/features/vision/video-generation" %}}))
+- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "/features/vision/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
-- **Time-Series Backends**: For quantile forecasting of numeric series ([timestral.cpp]({{%relref "/features/forecast" %}}), Mistral's Timestral models)
-- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "/features/audio-cpp" %}}))
-- **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "/features/audio-cpp" %}}))
+- **Time-Series Backends**: For quantile forecasting of numeric series ([timestral.cpp]({{%relref "/features/text/forecast" %}}), Mistral's Timestral models)
+- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
+- **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
 - **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store, qdrant-store)
 
 See the [Backend & Model Compatibility Table]({{%relref "/models/compatibility-table" %}}) for the full catalog.
@@ -649,16 +649,16 @@ couple of abandoned requests is enough to make a healthy node look wedged.
 Cancellation is cooperative and checked between decoded results, so a batch
 already in flight may finish before the request stops.
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 A generation cap is still worth setting. Cancellation only helps once a client
 has actually gone away; a client that waits receives the full context worth of
 tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
 `1` so a repetition loop terminates on its own.
-{{% /notice %}}
+{{% /callout %}}
 
 ### Motion capture
 
-- [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture]({{% relref "/features/motion" %}}).
+- [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture]({{% relref "/features/vision/motion" %}}).
 
 ### Remove an installed backend from one node
 
