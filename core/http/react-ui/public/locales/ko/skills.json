@@ -84,7 +84,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "이 스킬은 여기서 읽기 전용입니다. 기본 제공 스킬은 서버에 포함되어 있고, 내 파일의 스킬은 파일에서 바꿉니다."
+    "readOnly": "이 스킬은 여기서 읽기 전용입니다. 기본 제공 스킬은 서버에 포함되어 있고, 내 파일의 스킬은 파일에서 바꿉니다.",
+    "counter": "{{max}}자 중 {{count}}자",
+    "nameInvalid": "소문자, 숫자, 하이픈 하나만 사용하세요.",
+    "bodyHelp": "마크다운으로 작성합니다. 작업이 설명과 맞을 때 채팅이 읽습니다."
   },
   "load": {
     "title": "스킬을 불러올 수 없습니다."
@@ -97,5 +100,22 @@
     "done_other": "스킬 {{count}}개를 가져왔습니다",
     "scriptsStored": "스크립트와 다른 파일은 그대로 저장됩니다. 스크립트는 저장만 되며 가져오기에서 실행되지 않습니다.",
     "newNote": "채팅에서 사용할 때까지 새 스킬로 표시됩니다."
+  },
+  "sort": {
+    "label": "스킬 정렬",
+    "name": "이름, 가나다순",
+    "name-desc": "이름, 가나다 역순",
+    "used": "많이 사용한 순",
+    "source": "출처별 그룹"
+  },
+  "source": {
+    "label": "스킬 출처",
+    "all": "모든 출처 ({{count}})"
+  },
+  "list": {
+    "countAll_one": "스킬 {{count}}개",
+    "countAll_other": "스킬 {{count}}개",
+    "countOf": "스킬 {{total}}개 중 {{shown}}개",
+    "menu": "{{name}} 작업"
   }
 }

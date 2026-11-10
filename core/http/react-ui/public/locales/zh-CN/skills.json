@@ -84,7 +84,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "此技能在这里是只读的。内置技能随服务器提供，来自你文件的技能请在“文件”中修改。"
+    "readOnly": "此技能在这里是只读的。内置技能随服务器提供，来自你文件的技能请在“文件”中修改。",
+    "counter": "{{count}} / {{max}}",
+    "nameInvalid": "请使用小写字母、数字和单个连字符。",
+    "bodyHelp": "使用 Markdown 编写。当任务与描述相符时，聊天会读取它。"
   },
   "load": {
     "title": "无法加载你的技能。"
@@ -97,5 +100,22 @@
     "done_other": "已导入 {{count}} 个技能",
     "scriptsStored": "脚本和其他文件按原样保存。脚本只保存，导入时绝不会运行。",
     "newNote": "在聊天使用它之前，它会标记为新。"
+  },
+  "sort": {
+    "label": "技能排序",
+    "name": "名称，A 到 Z",
+    "name-desc": "名称，Z 到 A",
+    "used": "使用最多",
+    "source": "按来源分组"
+  },
+  "source": {
+    "label": "显示来源",
+    "all": "所有来源（{{count}}）"
+  },
+  "list": {
+    "countAll_one": "{{count}} 个技能",
+    "countAll_other": "{{count}} 个技能",
+    "countOf": "共 {{total}} 个技能中的 {{shown}} 个",
+    "menu": "{{name}} 的操作"
   }
 }

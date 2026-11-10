@@ -33,7 +33,7 @@ var (
 	// profile.
 	guestImage string
 	// profileImages lists the images of the other profiles, as
-	// "media=<ref>,video=<ref>". A profile that is not listed has no image in
+	// "media=<ref>". A profile that is not listed has no image in
 	// this release, and a chat that asks for it runs in base.
 	profileImages string
 )

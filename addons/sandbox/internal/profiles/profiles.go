@@ -22,8 +22,6 @@ const (
 	Base = contract.FallbackProfile
 	// Media is Base with the tools to cut and convert audio, video and images.
 	Media = "media"
-	// Video is Media with a Rust toolchain and the fframes video renderer.
-	Video = "video"
 )
 
 func tool(name, detail string, check ...string) contract.ProfileTool {
@@ -54,13 +52,7 @@ func mediaTools() []contract.ProfileTool {
 		tool("ffmpeg", "with ffprobe", "ffmpeg -version", "ffprobe -version"),
 		tool("sox", "", "sox --version"),
 		tool("ImageMagick", "magick, convert", "magick -version", "convert -version"),
-	)
-}
-
-func videoTools() []contract.ProfileTool {
-	return append(mediaTools(),
-		tool("Rust", "rustc and cargo, 1.88 or newer", "rustc --version", "cargo --version"),
-		tool("fframes", "cargo fframes, renders video from code", "cargo-fframes --help"),
+		tool("rsvg-convert", "renders SVG to PNG, also the SVG reader of ImageMagick", "rsvg-convert --version"),
 	)
 }
 
@@ -72,8 +64,6 @@ func Declared() []contract.ExecutionProfile {
 			CPUs: 2, MemoryMiB: 2048, DiskMiB: 10240, Tools: baseTools()},
 		{ID: Media, Title: "Media", Description: "Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images.",
 			CPUs: 2, MemoryMiB: 4096, DiskMiB: 20480, Tools: mediaTools()},
-		{ID: Video, Title: "Video", Description: "Media plus a Rust toolchain and the fframes renderer to make videos from code.",
-			CPUs: 4, MemoryMiB: 8192, DiskMiB: 30720, Tools: videoTools()},
 	}
 }
 
@@ -85,7 +75,7 @@ func ValidImage(ref string) bool { return imageShape.MatchString(ref) }
 // Images maps a profile ID to the OCI reference, by digest, of its image.
 type Images map[string]string
 
-// ParseImages reads the build-time list "media=ref,video=ref". The base image
+// ParseImages reads the build-time list "media=ref". The base image
 // has its own variable and is added by the caller.
 func ParseImages(list string) (Images, error) {
 	out := Images{}

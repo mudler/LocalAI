@@ -11,7 +11,8 @@
     "resetCollection": "Remove every entry, keep the collection",
     "deleteCollection": "Delete collection",
     "newCollection": "New collection",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "save": "Save"
   },
   "sections": {
     "yourCollections": "Your collections",
@@ -64,7 +65,11 @@
     "none": "No collection matches."
   },
   "list": {
-    "label": "Collections"
+    "label": "Collections",
+    "countAll_one": "{{count}} collection",
+    "countAll_other": "{{count}} collections",
+    "countOf": "{{shown}} of {{total}} collections",
+    "menu": "Actions for {{name}}"
   },
   "pane": {
     "back": "All collections",
@@ -121,7 +126,12 @@
     "empty": "(empty)",
     "noContent": "No content available.",
     "adding": "Adding files",
-    "loadFailed": "Could not load the files."
+    "loadFailed": "Could not load the files.",
+    "filter": "Filter files",
+    "countAll_one": "{{count}} file",
+    "countAll_other": "{{count}} files",
+    "countOf": "{{shown}} of {{total}} files",
+    "noMatch": "No file matches."
   },
   "removeSource": {
     "title": "Remove Source",
@@ -170,5 +180,19 @@
     },
     "noteViewer": "You can search it and read its files.",
     "noteEditor": "You can search it and add or remove files."
+  },
+  "create": {
+    "title": "New collection",
+    "hint": "Give it a name you will recognise. You add files and web pages once it exists."
+  },
+  "sort": {
+    "label": "Sort collections",
+    "name": "Name, A to Z",
+    "name-desc": "Name, Z to A",
+    "used": "Most used",
+    "unused": "Not used first"
+  },
+  "menu": {
+    "try": "Try a question"
   }
 }

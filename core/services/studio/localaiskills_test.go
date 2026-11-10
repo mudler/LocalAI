@@ -161,8 +161,8 @@ func recipeNames() []string {
 // chat that has the admin group: the compact assistant prompt, the skills
 // index and the lines every chat gets. Every turn pays it. It is the measured
 // size (8,656 bytes) plus about 10%.
-// 9,500 to 9,700: the index lists the two media skills (assemble-media and
-// fframes-video), about 350 bytes, so the measured size is 9,523.
+// 9,500 to 9,700: the index lists the media skill assemble-media, so the
+// measured size is below the budget.
 const adminTurnPromptBudget = 9700
 
 var _ = Describe("the admin recipes as skills", func() {

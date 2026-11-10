@@ -1,7 +1,7 @@
 // A segmented filter: one choice of a few, as pressed buttons in a tray. Use it
 // for a list filter ("All", "On", "Off"); use tabs for views.
 //
-//   options     [{ id, label, count }]  count is drawn after the label
+//   options     [{ id, label, count, disabled }]  count is drawn after the label
 //   value       the id of the pressed option
 //   onChange    called with the id of the option pressed
 //   label       accessible name of the group
@@ -17,6 +17,7 @@ export default function Segmented({ options, value, onChange, label, className =
           type="button"
           className="ui-seg__item"
           aria-pressed={value === o.id}
+          disabled={o.disabled}
           data-filter={o.id}
           data-testid={itemTestId ? `${itemTestId}${o.id}` : undefined}
           onClick={() => onChange?.(o.id)}

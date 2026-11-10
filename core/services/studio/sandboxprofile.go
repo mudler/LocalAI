@@ -37,7 +37,7 @@ var (
 const (
 	ProfileFromChat    = "chat"    // the person picked it
 	ProfileFromAgent   = "agent"   // the saved agent of the chat names it
-	ProfileFromDefault = "default" // the administrator's default, or base
+	ProfileFromDefault = "default" // the administrator's default, or media, or base
 )
 
 // ProfileImageState is where the image of a profile is on the host.
@@ -163,7 +163,17 @@ func (s *Service) resolveProfile(ctx context.Context, rec session.ChatRecord, ca
 	if d := pol.DefaultProfile(); usable(d) {
 		return d, ProfileFromDefault
 	}
+	// The default is not declared by the add-on or the user may not use it.
 	return contract.FallbackProfile, ProfileFromDefault
+}
+
+// effectiveDefault is the default profile of the policy when the add-on has
+// it, else the fallback: the pickers must not name a profile that is not there.
+func effectiveDefault(cat profileCatalog, pol sandboxpolicy.Policy) string {
+	if _, ok := cat.Exec.ProfileByID(pol.DefaultProfile()); ok {
+		return pol.DefaultProfile()
+	}
+	return contract.FallbackProfile
 }
 
 // profileExecution is the descriptor the model sees for a chat: the one the
@@ -297,7 +307,7 @@ func (s *Service) SandboxProfiles(ctx context.Context, user, conv string) (Sandb
 	st := s.imageStatus(ctx, p, conv, cat)
 	id, source := s.resolveProfile(ctx, rec, cat, pol)
 	role := s.profileRole(ctx, p)
-	v := SandboxProfileView{Applies: true, Addon: cat.Addon, Profile: id, Source: source, Default: pol.DefaultProfile(),
+	v := SandboxProfileView{Applies: true, Addon: cat.Addon, Profile: id, Source: source, Default: effectiveDefault(cat, pol),
 		Selected: s.chatForProfile(ctx, rec).Egress.Profile, Profiles: infoOf(cat, pol, p, role, st)}
 	if i := slices.IndexFunc(v.Profiles, func(i SandboxProfileInfo) bool { return i.ID == id }); i >= 0 {
 		switch ph := v.Profiles[i].State; ph.Phase {
@@ -363,7 +373,7 @@ func (s *Service) SandboxProfileChoices(ctx context.Context, user string) (addon
 	if err != nil {
 		return "", nil, "", err
 	}
-	return cat.Addon, infoOf(cat, pol, p, s.profileRole(ctx, p), addonImageStatus{}), pol.DefaultProfile(), nil
+	return cat.Addon, infoOf(cat, pol, p, s.profileRole(ctx, p), addonImageStatus{}), effectiveDefault(cat, pol), nil
 }
 
 // AdminSandboxProfiles is the administrator's view: the profiles with their

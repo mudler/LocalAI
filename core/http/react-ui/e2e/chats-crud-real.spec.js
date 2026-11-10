@@ -25,7 +25,6 @@ test.describe('Skills, agents, triggers and connectors against the real server',
     await page.goto('/app/skills/new')
     await page.getByLabel(/^Name/).fill(name)
     await page.getByLabel(/^Description/).fill('Check things')
-    await page.locator('.skilledit-sidebar-item', { hasText: 'Content' }).click()
     await page.getByLabel('Skill content (markdown)').fill('Read first.')
     await page.getByRole('button', { name: 'Create skill' }).click()
     await expect(page).toHaveURL(/\/app\/skills$/)
@@ -35,7 +34,7 @@ test.describe('Skills, agents, triggers and connectors against the real server',
     expect(stored.skills.find(s => s.name === name)?.layer).toBe('personal')
 
     await page.getByTestId(`skill-row-${name}`).click()
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await page.getByTestId('skill-pane').getByRole('button', { name: 'Edit' }).click()
     await expect(page).toHaveURL(new RegExp(`/app/skills/edit/personal/${name}$`))
     await page.getByLabel(/^Description/).fill('Check things twice')
     await page.getByRole('button', { name: /^Save/ }).click()

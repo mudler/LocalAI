@@ -94,7 +94,7 @@ var _ = Describe("Sandbox", func() {
 	DescribeTable("reads the optional sandbox hint",
 		func(in, want string) { Expect(Sandbox([]byte(in))).To(Equal(want)) },
 		Entry("a profile", "---\nname: a\ndescription: D.\nsandbox: media\n---\n", "media"),
-		Entry("quoted and upper case", "---\nname: a\ndescription: D.\nsandbox: \"Video\"\n---\n", "video"),
+		Entry("quoted and upper case", "---\nname: a\ndescription: D.\nsandbox: \"Heavy\"\n---\n", "heavy"),
 		Entry("absent", "---\nname: a\ndescription: D.\n---\n", ""),
 		Entry("not a profile ID", "---\nname: a\ndescription: D.\nsandbox: media pro!\n---\n", ""),
 		Entry("a list is not a profile", "---\nname: a\ndescription: D.\nsandbox: [media]\n---\n", ""),
@@ -113,7 +113,7 @@ var _ = Describe("SandboxHint", func() {
 	It("says nothing when there is nothing to say", func() {
 		Expect(SandboxHint("", "base", known)).To(BeEmpty())
 		Expect(SandboxHint("media", "media", known)).To(BeEmpty())
-		Expect(SandboxHint("video", "base", known)).To(BeEmpty())
+		Expect(SandboxHint("heavy", "base", known)).To(BeEmpty())
 	})
 	It("marks the preference in the index", func() {
 		Expect(Index([]Skill{{Name: "cut", Description: "Cut video.", Sandbox: "media"}})).To(ContainSubstring("cut: Cut video. (prefers sandbox profile media)"))

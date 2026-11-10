@@ -39,21 +39,21 @@ var _ = Describe("The sandbox profile policy", func() {
 		snap, err := s.Snapshot(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		p := snap.Policy.SandboxPolicy()
-		Expect(p.Allows("video", "alice", "user")).To(BeTrue())
-		Expect(p.DefaultProfile()).To(Equal("base"))
+		Expect(p.Allows("heavy", "alice", "user")).To(BeTrue())
+		Expect(p.DefaultProfile()).To(Equal("media"))
 		raw, _ := json.Marshal(snap.Policy)
 		Expect(string(raw)).To(ContainSubstring(`"sandbox_profiles":{"default":"","access":{},"memory_mib":0,"disk_mib":0,"pin_previous":[]}`))
 	})
 
 	It("is set as a whole, survives a reopen and is cleared by an empty object", func() {
-		body := `{"sandbox_profiles":{"default":"media","access":{"video":{"roles":["admin"],"users":["carol"]}},"memory_mib":4096,"disk_mib":20480,"pin_previous":["media"]}}`
+		body := `{"sandbox_profiles":{"default":"media","access":{"heavy":{"roles":["admin"],"users":["carol"]}},"memory_mib":4096,"disk_mib":20480,"pin_previous":["media"]}}`
 		snap, err := s.Update(ctx, patch(body), 1, "set-profiles")
 		Expect(err).NotTo(HaveOccurred())
 		p := snap.Policy.SandboxPolicy()
 		Expect(p.DefaultProfile()).To(Equal("media"))
-		Expect(p.Allows("video", "alice", "user")).To(BeFalse())
-		Expect(p.Allows("video", "carol", "user")).To(BeTrue())
-		Expect(p.Allows("video", "root", "admin")).To(BeTrue())
+		Expect(p.Allows("heavy", "alice", "user")).To(BeFalse())
+		Expect(p.Allows("heavy", "carol", "user")).To(BeTrue())
+		Expect(p.Allows("heavy", "root", "admin")).To(BeTrue())
 		Expect(p.MemoryMiB).To(Equal(4096))
 		Expect(p.Pinned("media")).To(BeTrue())
 		Expect(s.Close()).To(Succeed())
@@ -64,7 +64,7 @@ var _ = Describe("The sandbox profile policy", func() {
 		Expect(snap.Policy.SandboxPolicy()).To(Equal(p))
 		snap, err = s.Update(ctx, patch(`{"sandbox_profiles":{}}`), 2, "clear-profiles")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(snap.Policy.SandboxPolicy().Allows("video", "alice", "user")).To(BeTrue())
+		Expect(snap.Policy.SandboxPolicy().Allows("heavy", "alice", "user")).To(BeTrue())
 	})
 
 	It("leaves the policy alone when a patch names other keys", func() {

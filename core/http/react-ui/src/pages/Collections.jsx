@@ -14,20 +14,26 @@ import { useWideLayout } from '../hooks/useWideLayout'
 // eslint-disable-next-line no-unused-vars
 import UserGroupSection from '../components/UserGroupSection'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, Segmented } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
-import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { AddToMenu, PassageList, UsedByStrip } from '../components/library/LibraryBits'
+import SideSheet from '../components/SideSheet'
+// eslint-disable-next-line no-unused-vars
+import CollectionPane from '../components/library/CollectionPane'
+// eslint-disable-next-line no-unused-vars
+import { CountLine, DensityToggle, NoMatch, RailHeading, RailRow, RailSkeleton, ShowMore, SortMenu } from '../components/library/RailBits'
+import { useRevealSelected, useRovingRows, useSlashToFocus } from '../hooks/useRail'
 // eslint-disable-next-line no-unused-vars
 import SimulateSheet from '../components/library/SimulateSheet'
+import Icon from '../components/Icon'
 import { usedByLine } from '../utils/libraryText'
-import { collectionUsers, entryName, normaliseSource, withCollection, withoutCollection } from '../utils/library'
+import { collectionUsers, withCollection, withoutCollection } from '../utils/library'
+import { matchesQuery, rowLimit, sortItems } from '../utils/libraryList'
+import { useStoredChoice } from '../hooks/useStoredChoice'
 import { chatSkillsApi } from '../utils/api'
 import './library.css'
 
-const DEFAULT_PASSAGES = 10
 const DOCS = 'https://localai.io/features/collections/'
 const STARTING_EVERY = 5000
 const STARTING_TRIES = 12
@@ -36,9 +42,10 @@ const nameOf = c => (typeof c === 'string' ? c : c?.name)
 // The kind of a collection in the sharing API.
 const SHARE_KIND = 'collection'
 
-function when(ts) {
-  try { return new Date(ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) } catch { return '' }
-}
+// The orders the list offers and how many rows it draws at a time.
+const SORTS = ['name', 'name-desc', 'used', 'unused']
+const DENSITIES = ['comfortable', 'compact']
+const ROWS_PAGE = 60
 
 export default function Collections() {
   const { addToast } = useOutletContext()
@@ -54,8 +61,16 @@ export default function Collections() {
   const [collections, setCollections] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
-  const [filter, setFilter] = useState('')
-  const [usage, setUsage] = useState('all')
+  const [filter, setFilterNow] = useState('')
+  const [usage, setUsageNow] = useState('all')
+  // The order and the row density are the person's habit, so they are kept.
+  const [sort, setSort] = useStoredChoice('localai.library.collections.sort', 'name', SORTS)
+  const [density, setDensity] = useStoredChoice('localai.library.density', 'comfortable', DENSITIES)
+  const [shown, setShown] = useState(ROWS_PAGE)
+  // A reset empties the open collection: a new key makes the pane read it again.
+  const [paneNonce, setPaneNonce] = useState(0)
+  const searchRef = useRef(null)
+  const scrollRef = useRef(null)
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -132,15 +147,39 @@ export default function Collections() {
     return map
   }, [collections, facts.agents])
 
+  // A new search or filter starts the list from its top again.
+  const setFilter = (v) => { setFilterNow(v); setShown(ROWS_PAGE) }
+  const setUsage = (v) => { setUsageNow(v); setShown(ROWS_PAGE) }
+  const clearFilters = () => { setFilter(''); setUsage('all') }
+  useSlashToFocus(searchRef)
+
   const visible = useMemo(() => {
-    const q = filter.trim().toLowerCase()
-    return collections.filter(c => {
-      if (q && !c.toLowerCase().includes(q)) return false
+    const rows = collections.filter(c => {
+      if (!matchesQuery(filter, c)) return false
       if (known && usage === 'used' && usersOf.get(c).length === 0) return false
       if (known && usage === 'unused' && usersOf.get(c).length > 0) return false
       return true
     })
-  }, [collections, filter, usage, known, usersOf])
+    return sortItems(rows, known ? sort : (sort === 'used' || sort === 'unused' ? 'name' : sort), c => ({ name: c, used: usersOf.get(c).length, group: '' }))
+  }, [collections, filter, usage, sort, known, usersOf])
+  // What other people shared, and what other users own, follow the same search.
+  const sharedRows = useMemo(
+    () => sortItems(shared.filter(x => matchesQuery(filter, x.name, x.title)), 'name', x => ({ name: x.title || x.name, used: 0, group: '' })),
+    [shared, filter],
+  )
+  const othersGroups = useMemo(() => {
+    if (!userGroups || !filter.trim()) return userGroups
+    const out = {}
+    for (const [uid, group] of Object.entries(userGroups)) {
+      const keep = (group.collections || []).filter(c => matchesQuery(filter, nameOf(c)))
+      if (keep.length > 0) out[uid] = { ...group, collections: keep }
+    }
+    return out
+  }, [userGroups, filter])
+  const counts = useMemo(() => {
+    const used = collections.filter(c => usersOf.get(c).length > 0).length
+    return { all: collections.length, used, unused: collections.length - used }
+  }, [collections, usersOf])
 
   const handleCreate = async (e) => {
     e?.preventDefault?.()
@@ -253,6 +292,24 @@ export default function Collections() {
     <LoadError title={t('collections:loadFailed')} error={loadError} onRetry={fetchCollections} />
   )
 
+  // The rows drawn: a page of them, widened when the open one lies further down.
+  const openIndex = visible.indexOf(selectedName)
+  const drawn = visible.slice(0, rowLimit(shown, visible.length, !selectedUser ? openIndex : -1))
+  const rowKeys = [...drawn, ...sharedRows.map(x => `shared:${x.name}`)]
+  const roving = useRovingRows(rowKeys, selectedUser ? '' : (sharedEntry ? `shared:${selectedName}` : selectedName))
+  useRevealSelected(scrollRef, `${selectedUser || ''}/${selectedName}`)
+  const filtered = filter.trim() !== '' || usage !== 'all'
+  const closeCreate = () => { setShowCreate(false); setNewName('') }
+  // The quiet menu of a row: what a person does to a collection without opening it first.
+  const menuFor = (c) => [
+    { key: 'try', icon: 'flask', label: t('collections:menu.try'), onClick: () => setSim({ seed: { kind: 'collection', name: c } }) },
+    ...(sharing ? [{ key: 'share', icon: 'share', label: t('collections:share.label'), onClick: () => openShare(c) }] : []),
+    { divider: true },
+    { key: 'reset', icon: 'eraser', danger: true, label: t('collections:actions.reset'), onClick: () => handleReset(c, undefined, () => setPaneNonce(n => n + 1)) },
+  ]
+  const sortOptions = SORTS.map(id => ({ id, label: t(`collections:sort.${id}`), disabled: !known && (id === 'used' || id === 'unused') })).filter(o => !o.disabled)
+  const usageOptions = ['all', 'used', 'unused'].map(f => ({ id: f, label: t(`collections:filter.${f}`), count: known ? counts[f] : undefined, disabled: f !== 'all' && !known }))
+
   return (
     <Page width="full" className="lib-page" data-testid="memory-page">
       <PageHeader
@@ -264,7 +321,7 @@ export default function Collections() {
               {t('library:simulate.button')}
             </Button>
             {!empty && (
-              <Button variant="primary" icon="plus" aria-expanded={showCreate} onClick={() => setShowCreate(v => !v)} data-testid="new-collection">
+              <Button variant="primary" icon="plus" aria-haspopup="dialog" onClick={() => setShowCreate(true)} data-testid="new-collection">
                 {t('collections:actions.newCollection')}
               </Button>
             )}
@@ -273,21 +330,38 @@ export default function Collections() {
       />
 
       {showCreate && (
-        <form className="lib-create lib-create--page" onSubmit={handleCreate} data-testid="create-form">
-          <input
-            className="dk-input"
-            type="text"
-            aria-label={t('collections:newLabel')}
-            placeholder={t('collections:newPlaceholder')}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            autoFocus
-          />
-          <Button type="submit" variant="primary" icon="plus" busy={creating} disabled={!newName.trim()}>
-            {t('collections:actions.create')}
-          </Button>
-          <Button variant="ghost" onClick={() => { setShowCreate(false); setNewName('') }}>{t('collections:actions.cancel')}</Button>
-        </form>
+        <SideSheet
+          title={t('collections:create.title')}
+          description={t('collections:create.hint')}
+          onClose={closeCreate}
+          closeLabel={t('collections:entries.close')}
+          testId="create-form"
+          labelId="create-collection-title"
+          footer={(
+            <>
+              <Button variant="ghost" onClick={closeCreate}>{t('collections:actions.cancel')}</Button>
+              <Button type="submit" form="create-collection-form" variant="primary" busy={creating} disabled={!newName.trim()}>
+                {t('collections:actions.save')}
+              </Button>
+            </>
+          )}
+        >
+          <form id="create-collection-form" onSubmit={handleCreate}>
+            <div className="dk-field">
+              <label className="dk-label" htmlFor="new-collection-name">{t('collections:newLabel')}</label>
+              <input
+                id="new-collection-name"
+                className="dk-input"
+                type="text"
+                placeholder={t('collections:newPlaceholder')}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          </form>
+        </SideSheet>
       )}
 
       {!loading && !loadError && searchMode && (
@@ -314,7 +388,7 @@ export default function Collections() {
       )}
 
       {loading ? (
-        <SkeletonRows count={3} />
+        <RailSkeleton />
       ) : listError && !open ? (
         listError
       ) : empty ? (
@@ -325,7 +399,7 @@ export default function Collections() {
           steps={[t('collections:empty.stepCreate'), t('collections:empty.stepFill'), t('collections:empty.stepAsk')]}
           actions={(
             <>
-              <Button variant="primary" icon="plus" aria-expanded={showCreate} onClick={() => setShowCreate(true)} data-testid="new-collection">
+              <Button variant="primary" icon="plus" aria-haspopup="dialog" onClick={() => setShowCreate(true)} data-testid="new-collection">
                 {t('collections:actions.newCollection')}
               </Button>
               <Button variant="ghost" icon="book" href={DOCS} target="_blank" rel="noopener noreferrer">{t('collections:empty.learn')}</Button>
@@ -335,114 +409,120 @@ export default function Collections() {
         />
       ) : (
         <div className="dk-split lib-split" data-view={open ? 'pane' : 'list'}>
-          <div className="dk-split-rail lib-rail">
+          <div className="dk-split-rail lib-rail" data-density={density}>
             {listError || (
               <>
-                <span className="dk-input-icon lib-find">
-                  <Icon name="search" className="dk-icon" />
-                  <input
-                    type="search"
-                    className="dk-input"
-                    placeholder={t('collections:filter.placeholder')}
-                    aria-label={t('collections:filter.label')}
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    data-testid="collections-filter"
-                  />
-                </span>
-                <div className="lib-filters" role="group" aria-label={t('collections:filter.show')}>
-                  {['all', 'used', 'unused'].map(f => (
-                    <button
-                      key={f}
-                      type="button"
-                      className="dk-chip dk-chip--sm"
-                      aria-pressed={usage === f}
-                      disabled={f !== 'all' && !known}
-                      onClick={() => setUsage(f)}
-                      data-testid={`collections-filter-${f}`}
-                    >
-                      {t(`collections:filter.${f}`)}
-                    </button>
-                  ))}
-                </div>
-
-                {collections.length === 0 ? (
-                  <p className="lib-rail__none">{t('collections:empty.noPersonal')}</p>
-                ) : visible.length === 0 ? (
-                  <p className="lib-rail__none" data-testid="collections-none">{t('collections:filter.none')}</p>
-                ) : (
-                  <div className="dk-list lib-rows" role="list" aria-label={t('collections:list.label')}>
-                    {visible.map(c => (
-                      <button
-                        key={c}
-                        type="button"
-                        role="listitem"
-                        className="dk-row"
-                        aria-selected={!selectedUser && selectedName === c}
-                        onClick={() => go(c)}
-                        data-testid={`collection-row-${c}`}
-                      >
-                        <span className="dk-row-lead"><Icon name="database" /></span>
-                        <span className="dk-row-main">
-                          <span className="dk-row-title">{c}</span>
-                          <span className="dk-row-meta" data-testid={`collection-used-${c}`}>{usedByLine(t, usersOf.get(c), facts.status)}</span>
-                          {sharing && shares[c] && <SharedByBadge entry={{ role: 'owner', sharedWith: shares[c].shared_with }} hideRole testId={`collection-shared-with-${c}`} />}
-                        </span>
-                      </button>
-                    ))}
+                <div className="lib-bar">
+                  <div className="lib-bar__row">
+                    <SearchField
+                      ref={searchRef}
+                      value={filter}
+                      onChange={setFilter}
+                      label={t('collections:filter.label')}
+                      placeholder={t('collections:filter.placeholder')}
+                      testId="collections-filter"
+                      onKeyDown={(e) => { if (e.key === 'Escape' && filter) { e.stopPropagation(); setFilter('') } }}
+                    />
+                    <DensityToggle value={density} onChange={setDensity} testId="collections-density" />
                   </div>
-                )}
-
-                {sharing && shared.length > 0 && (
-                  <section className="lib-shared" aria-labelledby="collections-shared-h" data-testid="collections-shared">
-                    <h3 className="lib-section__title" id="collections-shared-h">{t('collections:sections.sharedWithYou')}</h3>
-                    <div className="dk-list lib-rows" role="list" aria-label={t('collections:sections.sharedWithYou')}>
-                      {shared.map(x => (
-                        <button
-                          key={x.name}
-                          type="button"
-                          role="listitem"
-                          className="dk-row"
-                          aria-selected={!selectedUser && selectedName === x.name}
-                          onClick={() => go(x.name)}
-                          data-testid={`collection-shared-row-${x.name}`}
-                        >
-                          <span className="dk-row-lead"><Icon name="users" /></span>
-                          <span className="dk-row-main">
-                            <span className="dk-row-title">{x.title || x.name}</span>
-                            <SharedByBadge entry={{ role: x.role, owner: x.owner, everyone: x.everyone }} roleLabel={t(`collections:share.roles.${x.role === 'editor' ? 'editor' : 'viewer'}`)} />
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {userGroups && (
-                  <UserGroupSection
-                    title={t('collections:sections.otherUsersCollections')}
-                    userGroups={userGroups}
-                    userMap={userMap}
-                    currentUserId={user?.id}
-                    itemKey="collections"
-                    renderGroup={(items, userId) => (
-                      <div className="dk-list lib-others">
-                        {(items || []).map(nameOf).map(c => (
-                          <button
-                            key={c}
-                            type="button"
-                            className="dk-row"
-                            aria-selected={selectedUser === userId && selectedName === c}
-                            onClick={() => go(c, userId)}
-                          >
-                            <span className="dk-row-lead"><Icon name="database" /></span>
-                            <span className="dk-row-main"><span className="dk-row-title">{c}</span></span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                  <div className="lib-bar__row">
+                    <Segmented
+                      options={usageOptions}
+                      value={usage}
+                      onChange={setUsage}
+                      label={t('collections:filter.show')}
+                      itemTestId="collections-filter-"
+                    />
+                    <SortMenu label={t('collections:sort.label')} value={sort} onChange={setSort} options={sortOptions} testId="collections-sort" />
+                  </div>
+                </div>
+                {collections.length > 0 && (
+                  <CountLine
+                    text={filtered ? t('collections:list.countOf', { shown: visible.length, total: collections.length }) : t('collections:list.countAll', { count: collections.length })}
+                    filtered={filtered}
+                    onClear={clearFilters}
+                    testId="collections-count"
                   />
                 )}
+
+                <div className="lib-scroll" ref={scrollRef} onKeyDown={roving.onKeyDown}>
+                  {collections.length === 0 ? (
+                    <p className="lib-rail__none">{t('collections:empty.noPersonal')}</p>
+                  ) : visible.length === 0 ? (
+                    sharedRows.length === 0 && !(othersGroups && Object.keys(othersGroups).length) && (
+                      <NoMatch text={t('collections:filter.none')} onClear={clearFilters} testId="collections-none" />
+                    )
+                  ) : (
+                    <ul className="lib-rows" role="list" aria-label={t('collections:list.label')}>
+                      {sharing && sharedRows.length > 0 && <RailHeading count={visible.length}>{t('collections:sections.yourCollections')}</RailHeading>}
+                      {drawn.map(c => (
+                        <RailRow
+                          key={c}
+                          rowKey={c}
+                          testId={`collection-row-${c}`}
+                          selected={!selectedUser && selectedName === c}
+                          stop={roving.stopKey === c}
+                          onOpen={() => go(c)}
+                          onFocus={() => roving.onRowFocus(c)}
+                          icon="database"
+                          title={c}
+                          meta={usedByLine(t, usersOf.get(c), facts.status)}
+                          metaTestId={`collection-used-${c}`}
+                          extra={sharing && shares[c] ? <SharedByBadge entry={{ role: 'owner', sharedWith: shares[c].shared_with }} hideRole testId={`collection-shared-with-${c}`} /> : null}
+                          menu={menuFor(c)}
+                          menuLabel={t('collections:list.menu', { name: c })}
+                        />
+                      ))}
+                      <ShowMore remaining={visible.length - drawn.length} step={ROWS_PAGE} onMore={() => setShown(n => n + ROWS_PAGE)} testId="collections-more" />
+                    </ul>
+                  )}
+
+                  {sharing && sharedRows.length > 0 && (
+                    <ul className="lib-rows lib-shared" role="list" aria-label={t('collections:sections.sharedWithYou')} data-testid="collections-shared">
+                      <RailHeading count={sharedRows.length}>{t('collections:sections.sharedWithYou')}</RailHeading>
+                      {sharedRows.map(x => (
+                        <RailRow
+                          key={x.name}
+                          rowKey={`shared:${x.name}`}
+                          testId={`collection-shared-row-${x.name}`}
+                          selected={!selectedUser && selectedName === x.name}
+                          stop={roving.stopKey === `shared:${x.name}`}
+                          onOpen={() => go(x.name)}
+                          onFocus={() => roving.onRowFocus(`shared:${x.name}`)}
+                          icon="users"
+                          title={x.title || x.name}
+                          extra={<SharedByBadge entry={{ role: x.role, owner: x.owner, everyone: x.everyone }} roleLabel={t(`collections:share.roles.${x.role === 'editor' ? 'editor' : 'viewer'}`)} />}
+                        />
+                      ))}
+                    </ul>
+                  )}
+
+                  {othersGroups && (
+                    <UserGroupSection
+                      title={t('collections:sections.otherUsersCollections')}
+                      userGroups={othersGroups}
+                      userMap={userMap}
+                      currentUserId={user?.id}
+                      itemKey="collections"
+                      renderGroup={(items, userId) => (
+                        <div className="dk-list lib-others">
+                          {(items || []).map(nameOf).map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              className="dk-row"
+                              aria-current={selectedUser === userId && selectedName === c ? 'true' : undefined}
+                              onClick={() => go(c, userId)}
+                            >
+                              <span className="dk-row-lead"><Icon name="database" /></span>
+                              <span className="dk-row-main"><span className="dk-row-title">{c}</span></span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    />
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -450,7 +530,7 @@ export default function Collections() {
           <section className="dk-card lib-pane" aria-live="polite" data-testid="collection-pane">
             {open ? (
               <CollectionPane
-                key={`${selectedUser || ''}/${selectedName}`}
+                key={`${selectedUser || ''}/${selectedName}/${paneNonce}`}
                 t={t}
                 name={selectedName}
                 userId={selectedUser}
@@ -516,446 +596,5 @@ export default function Collections() {
         onCancel={() => setConfirmDialog(null)}
       />
     </Page>
-  )
-}
-
-const PATHS = [
-  ['POST', '/api/collections/{name}/upload', 'upload'],
-  ['GET', '/api/collections/{name}/entries', 'entries'],
-  ['POST', '/api/collections/{name}/search', 'search'],
-  ['GET', '/api/collections/{name}/sources', 'sources'],
-  ['POST', '/api/collections/{name}/reset', 'reset'],
-]
-
-// eslint-disable-next-line no-unused-vars
-function CollectionPane({ t, name, userId, users, status, agents, busy, addToast, onBack, onReset, onAdd, onRemove, onTry, setConfirmDialog, shared, onShare, shareLine }) {
-  // A collection shared with the user is read only, except that an editor
-  // adds and removes files. Sources, reset and sharing stay the owner's.
-  const own = !userId && !shared
-  const canWrite = !shared || shared.role === 'editor'
-  const ownerOnly = !shared
-  const [entries, setEntries] = useState([])
-  const [sources, setSources] = useState([])
-  const [loaded, setLoaded] = useState(false)
-  const [entriesError, setEntriesError] = useState(null)
-  const [sourcesError, setSourcesError] = useState(null)
-  const [addOpen, setAddOpen] = useState(false)
-  const [uploadFile, setUploadFile] = useState(null)
-  const [attempts, setAttempts] = useState([])
-  const [newSourceUrl, setNewSourceUrl] = useState('')
-  const [newSourceInterval, setNewSourceInterval] = useState('')
-  const [addingSource, setAddingSource] = useState(false)
-  const [query, setQuery] = useState('')
-  const [maxResults, setMaxResults] = useState(DEFAULT_PASSAGES)
-  const [searching, setSearching] = useState(false)
-  const [answer, setAnswer] = useState(null)
-  const [view, setView] = useState(null)
-  const nextId = useRef(0)
-  const fileInput = useRef(null)
-  const unused = own && status === 'ready' && users.length === 0
-
-  const fetchEntries = useCallback(async () => {
-    try {
-      const data = await agentCollectionsApi.entries(name, userId)
-      setEntries(Array.isArray(data.entries) ? data.entries : [])
-      setEntriesError(null)
-      return true
-    } catch (err) {
-      setEntriesError(err)
-      return false
-    }
-  }, [name, userId])
-
-  const fetchSources = useCallback(async () => {
-    try {
-      const data = await agentCollectionsApi.sources(name, userId)
-      setSources((Array.isArray(data.sources) ? data.sources : []).map(normaliseSource))
-      setSourcesError(null)
-      return true
-    } catch (err) {
-      setSourcesError(err)
-      return false
-    }
-  }, [name, userId])
-
-  useEffect(() => {
-    let live = true
-    Promise.all([fetchEntries(), fetchSources()]).then(() => {
-      if (live) setLoaded(true)
-    })
-    return () => { live = false }
-  }, [fetchEntries, fetchSources])
-
-  const upload = async (file, existingId) => {
-    const id = existingId ?? ++nextId.current
-    setAttempts(prev => [...prev.filter(a => a.id !== id), { id, name: file.name, file, phase: 'uploading' }])
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      await agentCollectionsApi.upload(name, formData, userId)
-      setAttempts(prev => prev.filter(a => a.id !== id))
-      addToast(t('collections:toasts.uploaded', { file: file.name }), 'success')
-      fetchEntries()
-    } catch (err) {
-      setAttempts(prev => prev.map(a => (a.id === id ? { ...a, phase: 'failed', message: err.message } : a)))
-    }
-  }
-
-  const handleUpload = (e) => {
-    e.preventDefault()
-    if (!uploadFile) return
-    const file = uploadFile
-    setUploadFile(null)
-    if (fileInput.current) fileInput.current.value = ''
-    upload(file)
-  }
-
-  const handleSearch = async (e) => {
-    e.preventDefault()
-    const q = query.trim()
-    if (!q) return
-    setSearching(true)
-    try {
-      const data = await agentCollectionsApi.search(name, q, maxResults, userId)
-      setAnswer({ query: q, results: Array.isArray(data.results) ? data.results : [], error: null })
-    } catch (err) {
-      setAnswer({ query: q, results: [], error: err.message })
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  const handleAddSource = async (e) => {
-    e.preventDefault()
-    if (!newSourceUrl.trim()) return
-    setAddingSource(true)
-    try {
-      await agentCollectionsApi.addSource(name, newSourceUrl, newSourceInterval || undefined, userId)
-      addToast(t('collections:toasts.sourceAdded'), 'success')
-      setNewSourceUrl('')
-      setNewSourceInterval('')
-      fetchSources()
-    } catch (err) {
-      addToast(t('collections:toasts.sourceFailed', { message: err.message }), 'error')
-    } finally {
-      setAddingSource(false)
-    }
-  }
-
-  const removeSource = (url) => {
-    setConfirmDialog({
-      title: t('collections:removeSource.title'),
-      message: t('collections:removeSource.message'),
-      confirmLabel: t('collections:removeSource.confirm'),
-      danger: true,
-      onConfirm: async () => {
-        setConfirmDialog(null)
-        try {
-          await agentCollectionsApi.removeSource(name, url, userId)
-          addToast(t('collections:toasts.sourceRemoved'), 'success')
-          fetchSources()
-        } catch (err) {
-          addToast(t('collections:toasts.sourceRemoveFailed', { message: err.message }), 'error')
-        }
-      },
-    })
-  }
-
-  const openEntry = async (entry) => {
-    setView({ entry, loading: true, data: null })
-    try {
-      const data = await agentCollectionsApi.entryContent(name, entry, userId)
-      setView({ entry, loading: false, data })
-    } catch (err) {
-      addToast(t('collections:toasts.contentFailed', { message: err.message }), 'error')
-      setView(null)
-    }
-  }
-
-  const deleteEntry = (entry) => {
-    setConfirmDialog({
-      title: t('collections:deleteEntry.title'),
-      message: t('collections:deleteEntry.message'),
-      confirmLabel: t('collections:deleteEntry.confirm'),
-      danger: true,
-      onConfirm: async () => {
-        setConfirmDialog(null)
-        try {
-          await agentCollectionsApi.deleteEntry(name, entry, userId)
-          addToast(t('collections:toasts.entryDeleted'), 'success')
-          fetchEntries()
-        } catch (err) {
-          addToast(t('collections:toasts.entryDeleteFailed', { message: err.message }), 'error')
-        }
-      },
-    })
-  }
-
-  useEffect(() => {
-    if (!view) return undefined
-    const onKey = e => { if (e.key === 'Escape') setView(null) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [view])
-
-  const failed = attempts.filter(a => a.phase === 'failed').length
-  const sub = loaded && !entriesError && !sourcesError
-    ? t('collections:pane.counts', { files: entries.length, sources: sources.length })
-    : ''
-
-  return (
-    <>
-      <Button variant="ghost" size="sm" icon="arrow-left" className="lib-back" onClick={onBack}>
-        {t('collections:pane.back')}
-      </Button>
-
-      <div className="lib-pane__head">
-        <div className="lib-pane__title">
-          <h2 data-testid="collection-title">{shared?.title || name}</h2>
-          <p className="lib-pane__sub" data-testid="collection-counts">{sub}</p>
-          {shared && <SharedByBadge entry={{ role: shared.role, owner: shared.owner, everyone: shared.everyone }} roleLabel={t(`collections:share.roles.${shared.role === 'editor' ? 'editor' : 'viewer'}`)} testId="collection-shared-by" />}
-          {shareLine && <SharedByBadge entry={{ role: 'owner', sharedWith: shareLine.shared_with }} hideRole testId="collection-share-line" />}
-        </div>
-        <div className="lib-pane__acts">
-          {failed > 0 && <StatusChip tone="error" testId="collection-failed-badge">{t('collections:pane.failed', { count: failed })}</StatusChip>}
-          {onShare && (
-            <Button size="sm" icon="share" onClick={onShare} aria-label={t('collections:share.button', { name })} data-testid="collection-share">
-              {t('collections:share.label')}
-            </Button>
-          )}
-          {canWrite && (
-            <Button variant="primary" size="sm" icon="plus" aria-expanded={addOpen} onClick={() => setAddOpen(v => !v)} data-testid="add-source-toggle">
-              {t(ownerOnly ? 'collections:pane.addSource' : 'collections:pane.addFile')}
-            </Button>
-          )}
-          {ownerOnly && (
-            <Button variant="danger-ghost" size="sm" icon="eraser" onClick={onReset} title={t('collections:actions.resetCollection')}>
-              {t('collections:actions.reset')}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {own && (
-        <>
-          <UsedByStrip users={users} status={status} onRemove={onRemove} busy={busy}>
-            <AddToMenu name={name} agents={agents} status={status} onAdd={onAdd} busy={busy} />
-          </UsedByStrip>
-          {unused && (
-            <Callout
-              icon="info"
-              testId="collection-not-used"
-              actions={(
-                <Button size="sm" icon="flask" onClick={onTry} data-testid="collection-try">
-                  {t('library:tryInContext')}
-                </Button>
-              )}
-            >
-              {t('library:notUsed.collection')}
-            </Callout>
-          )}
-        </>
-      )}
-
-      {shared && (
-        <p className="lib-muted lib-fine" data-testid="collection-shared-note">
-          {t(canWrite ? 'collections:share.noteEditor' : 'collections:share.noteViewer')}
-        </p>
-      )}
-
-      {addOpen && canWrite && (
-        <div className="lib-adding" data-testid="add-source-panel">
-          <form className="lib-adding__row" onSubmit={handleUpload}>
-            <div className="dk-field">
-              <label className="dk-label" htmlFor="upload-file">{t('collections:add.file')}</label>
-              <input id="upload-file" ref={fileInput} className="dk-input" type="file" onChange={(e) => setUploadFile(e.target.files[0] || null)} />
-            </div>
-            <Button type="submit" icon="upload" disabled={!uploadFile}>
-              {t('collections:add.upload')}
-            </Button>
-          </form>
-          {ownerOnly && <form className="lib-adding__row" onSubmit={handleAddSource}>
-            <div className="dk-field">
-              <label className="dk-label" htmlFor="source-url">{t('collections:add.url')}</label>
-              <input id="source-url" className="dk-input" type="text" value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} placeholder="https://example.com/data" />
-            </div>
-            <div className="dk-field lib-narrow">
-              <label className="dk-label" htmlFor="source-interval">{t('collections:add.interval')}</label>
-              <input id="source-interval" className="dk-input" type="number" min="1" step="1" value={newSourceInterval} onChange={(e) => setNewSourceInterval(e.target.value)} placeholder={t('collections:add.intervalPlaceholder')} />
-            </div>
-            <Button type="submit" icon="plus" busy={addingSource} disabled={!newSourceUrl.trim()}>
-              {t('collections:add.addUrl')}
-            </Button>
-          </form>}
-        </div>
-      )}
-
-      {attempts.length > 0 && (
-        <section className="lib-section" aria-labelledby="adding-h">
-          <h3 className="lib-section__title" id="adding-h">{t('collections:entries.adding')}</h3>
-          <ul className="lib-ledger" data-testid="uploads-list">
-              {attempts.map(a => (
-                <li key={a.id} className="lib-line" data-state={a.phase}>
-                  <span className="lib-line__lead"><Icon name={a.phase === 'failed' ? 'alert-circle' : 'cloud-upload'} /></span>
-                  <span className="lib-line__main">
-                    <span className="lib-line__name">{a.name}</span>
-                    <span className="lib-line__meta">{a.phase === 'failed' ? t('collections:entries.uploadFailed') : t('collections:entries.indexing')}</span>
-                  </span>
-                  <span className="lib-line__acts">
-                    {a.phase === 'failed' && (
-                      <>
-                        <Button size="sm" icon="refresh" onClick={() => upload(a.file, a.id)}>
-                          {t('collections:entries.retry')}
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setAttempts(prev => prev.filter(x => x.id !== a.id))}>
-                          {t('collections:entries.dismiss')}
-                        </Button>
-                      </>
-                    )}
-                  </span>
-                  {a.phase === 'failed' && <p className="lib-line__err" role="alert" data-testid="upload-error">{a.message}</p>}
-                  {a.phase === 'uploading' && (
-                    <div className="dk-progress lib-line__prog" role="progressbar" aria-label={t('collections:entries.indexing')} data-indeterminate><span className="dk-progress-bar" /></div>
-                  )}
-                </li>
-              ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="lib-section" aria-labelledby="ask-h">
-        <h3 className="lib-section__title" id="ask-h">{t('collections:ask.title')}</h3>
-        <form className="lib-ask" onSubmit={handleSearch}>
-          <span className="dk-input-icon">
-            <Icon name="search" className="dk-icon" />
-            <input
-              id="search-query"
-              className="dk-input"
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('collections:ask.placeholder')}
-              aria-label={t('collections:ask.label')}
-            />
-          </span>
-          <Button type="submit" variant="primary" busy={searching} disabled={!query.trim()}>
-            {t('collections:ask.search')}
-          </Button>
-        </form>
-        <p className="lib-muted lib-fine">{t('collections:ask.alone')}</p>
-        <details className="lib-disc">
-          <summary><Icon name="chevron-right" />{t('collections:ask.tune')}</summary>
-          <div className="lib-disc__body lib-ask__tune">
-            <label htmlFor="search-max">{t('collections:ask.max')}</label>
-            <input id="search-max" className="dk-input" type="number" min={1} max={100} value={maxResults} onChange={(e) => setMaxResults(parseInt(e.target.value, 10) || DEFAULT_PASSAGES)} />
-          </div>
-        </details>
-        <div aria-live="polite">
-          {answer && (
-            answer.error ? (
-              <Callout tone="error" role="alert">{t('library:search.failed', { message: answer.error })}</Callout>
-            ) : answer.results.length === 0 ? (
-              <p className="lib-note" data-testid="ask-none">{t('collections:ask.none')}</p>
-            ) : (
-              <div data-testid="ask-results">
-                <p className="lib-muted lib-fine">{t('collections:ask.ranked', { count: answer.results.length })}</p>
-                <PassageList results={answer.results} />
-              </div>
-            )
-          )}
-        </div>
-      </section>
-
-      <section className="lib-section" aria-labelledby="sources-h">
-        <h3 className="lib-section__title" id="sources-h">{t('collections:sources.title')} {loaded && !sourcesError && <span className="lib-count">{sources.length}</span>}</h3>
-        {!loaded ? (
-          <SkeletonRows count={1} />
-        ) : sourcesError ? (
-          <LoadError title={t('collections:sources.loadFailed')} error={sourcesError} onRetry={fetchSources} />
-        ) : sources.length === 0 ? (
-          <p className="lib-muted" data-testid="sources-none">{t(ownerOnly ? 'collections:sources.none' : 'collections:sources.noneShared')}</p>
-        ) : (
-          <ul className="lib-ledger" data-testid="sources-list">
-            {sources.map(s => (
-              <li key={s.url} className="lib-line">
-                <span className="lib-line__lead"><Icon name="globe" /></span>
-                <span className="lib-line__main">
-                  <span className="lib-line__name">{s.url}</span>
-                  <span className="lib-line__meta">
-                    {s.interval > 0 ? t('collections:sources.every', { count: s.interval }) : t('collections:sources.manual')}
-                    {' · '}
-                    {s.lastUpdate ? t('collections:sources.updated', { when: when(s.lastUpdate) }) : t('collections:sources.never')}
-                  </span>
-                </span>
-                {ownerOnly && (
-                  <span className="lib-line__acts">
-                    <Button variant="ghost" size="sm" icon="trash" onClick={() => removeSource(s.url)} aria-label={t('collections:sources.remove', { url: s.url })} title={t('collections:sources.removeTitle')} />
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="lib-section" aria-labelledby="entries-h">
-        <h3 className="lib-section__title" id="entries-h">{t('collections:entries.title')} {loaded && !entriesError && <span className="lib-count">{entries.length}</span>}</h3>
-        {!loaded ? (
-          <SkeletonRows count={2} />
-        ) : entriesError ? (
-          <LoadError title={t('collections:entries.loadFailed')} error={entriesError} onRetry={fetchEntries} />
-        ) : entries.length === 0 && attempts.length === 0 ? (
-          <p className="lib-muted" data-testid="entries-none">{t('collections:entries.none')}</p>
-        ) : entries.length > 0 && (
-          <ul className="lib-ledger" data-testid="entries-list">
-            {entries.map((entry, i) => {
-              const label = entryName(entry)
-              return (
-                <li key={`${label}-${i}`} className="lib-line">
-                  <span className="lib-line__lead"><Icon name="file-text" /></span>
-                  <span className="lib-line__main"><span className="lib-line__name" title={label}>{label}</span></span>
-                  <span className="lib-line__acts">
-                    <Button variant="ghost" size="sm" icon="eye" onClick={() => openEntry(entry)} aria-label={t('collections:entries.view', { name: label })} title={t('collections:entries.viewTitle')} />
-                    {canWrite && <Button variant="ghost" size="sm" icon="trash" onClick={() => deleteEntry(entry)} aria-label={t('collections:entries.delete', { name: label })} title={t('collections:entries.deleteTitle')} />}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-
-      <details className="lib-disc" data-testid="collection-api">
-        <summary><Icon name="chevron-right" />{t('collections:api.title')}</summary>
-        <div className="lib-disc__body">
-          <p>{t('collections:api.index')}</p>
-          <ul className="lib-paths">
-            {PATHS.map(([verb, path, key]) => (
-              <li key={key}><span className="lib-verb">{verb}</span><code>{path.replace('{name}', encodeURIComponent(name))}</code></li>
-            ))}
-          </ul>
-          <p>{t('collections:api.privacy')}</p>
-        </div>
-      </details>
-
-      {view && (
-        <div className="dk-veil" onClick={() => setView(null)}>
-          <div className="dk-dialog dk-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="entry-title" onClick={e => e.stopPropagation()} data-testid="entry-dialog">
-            <div className="dk-dialog-head">
-              <div>
-                <h3 className="dk-dialog-title lib-mono" id="entry-title">{entryName(view.entry)}</h3>
-                {view.data && <p className="dk-dialog-desc">{t('collections:entries.chunks', { count: view.data.chunk_count ?? 0 })}</p>}
-              </div>
-              <Button variant="ghost" size="sm" icon="close" aria-label={t('collections:entries.close')} onClick={() => setView(null)} />
-            </div>
-            <div className="dk-dialog-body">
-              {view.loading ? <SkeletonRows count={3} />
-                : view.data ? <pre className="lib-pre">{view.data.content || t('collections:entries.empty')}</pre>
-                  : <p className="lib-muted">{t('collections:entries.noContent')}</p>}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   )
 }

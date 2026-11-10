@@ -1796,7 +1796,8 @@
           "reports a lost answer to a change as an unknown outcome and to a read as unavailable",
           "bounds a reply",
           "needs exactly one of data and error in an OAuth reply",
-          "writes a decided refusal into the envelope and any other error as a typed error"
+          "writes a decided refusal into the envelope and any other error as a typed error",
+          "answers an unknown lifecycle operation with its own type, not as a denial"
         ]
       },
       {
@@ -3290,7 +3291,8 @@
           "reports a lost answer to a change as an unknown outcome and to a read as unavailable",
           "bounds a reply",
           "needs exactly one of data and error in an OAuth reply",
-          "writes a decided refusal into the envelope and any other error as a typed error"
+          "writes a decided refusal into the envelope and any other error as a typed error",
+          "answers an unknown lifecycle operation with its own type, not as a denial"
         ]
       },
       {

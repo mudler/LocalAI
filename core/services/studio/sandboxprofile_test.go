@@ -57,7 +57,7 @@ func tool(name, detail string) contract.ProfileTool {
 var testProfiles = []contract.ExecutionProfile{
 	{ID: "base", Title: "Base", Description: "The usual tools.", MemoryMiB: 2048, Tools: []contract.ProfileTool{tool("python3", "pandas"), tool("jq", "")}},
 	{ID: "media", Title: "Media", Description: "Base plus ffmpeg.", MemoryMiB: 4096, Tools: []contract.ProfileTool{tool("python3", "pandas"), tool("jq", ""), tool("ffmpeg", "")}},
-	{ID: "video", Title: "Video", Description: "Media plus Rust.", MemoryMiB: 8192, Tools: []contract.ProfileTool{tool("python3", "pandas"), tool("jq", ""), tool("ffmpeg", ""), tool("Rust", "")}},
+	{ID: "heavy", Title: "Heavy", Description: "Media plus a compiler.", MemoryMiB: 8192, Tools: []contract.ProfileTool{tool("python3", "pandas"), tool("jq", ""), tool("ffmpeg", ""), tool("gcc", "")}},
 }
 
 func newProfileAddons(users ...string) *profileAddons {
@@ -70,7 +70,7 @@ func newProfileAddons(users ...string) *profileAddons {
 		tools[u] = []studio.AddonTool{bash, status}
 	}
 	return &profileAddons{isolatedAddons: isolatedAddons{fakeAddons: &fakeAddons{tools: tools}, mode: "isolated"},
-		status: `{"ok":true,"profiles":[{"id":"base","phase":"ready"},{"id":"media","phase":"pulling","percent":40,"hasPrevious":true},{"id":"video","phase":"failed","error":"registry unreachable"}],"chat":{"profile":"base","newerImage":true}}`}
+		status: `{"ok":true,"profiles":[{"id":"base","phase":"ready"},{"id":"media","phase":"pulling","percent":40,"hasPrevious":true},{"id":"heavy","phase":"failed","error":"registry unreachable"}],"chat":{"profile":"base","newerImage":true}}`}
 }
 
 type profileRig struct {
@@ -128,26 +128,26 @@ var _ = Describe("sandbox profiles", func() {
 		r := newProfileRig(nil)
 		id := create(r.svc, alice)
 		prompt := turnPrompt(r.svc, r.h, id)
-		Expect(prompt).To(ContainSubstring("The sandbox profile is base. It has: python3 (pandas), jq."))
-		Expect(prompt).To(ContainSubstring("Other profiles: media (adds ffmpeg); video (adds ffmpeg, Rust)."))
-		Expect(r.h.LastToolDescription("bash")).To(ContainSubstring("Sandbox profile base: python3 (pandas), jq."))
-		Expect(r.fa.lastOpts()).To(Equal(contract.ExecutionCall{Profile: "base"}))
+		Expect(prompt).To(ContainSubstring("The sandbox profile is media. It has: python3 (pandas), jq, ffmpeg."))
+		Expect(prompt).To(ContainSubstring("heavy (adds gcc)"))
+		Expect(r.h.LastToolDescription("bash")).To(ContainSubstring("Sandbox profile media: python3 (pandas), jq, ffmpeg."))
+		Expect(r.fa.lastOpts()).To(Equal(contract.ExecutionCall{Profile: "media"}))
 	})
 
 	It("lets the person switch the profile, and the next call and the prompt follow", func() {
 		r := newProfileRig(nil)
 		id := create(r.svc, alice)
-		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "media")).To(Succeed())
+		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "base")).To(Succeed())
 		prompt := turnPrompt(r.svc, r.h, id)
-		Expect(prompt).To(ContainSubstring("The sandbox profile is media. It has: python3 (pandas), jq, ffmpeg."))
-		Expect(r.fa.lastOpts().Profile).To(Equal("media"))
+		Expect(prompt).To(ContainSubstring("The sandbox profile is base. It has: python3 (pandas), jq."))
+		Expect(r.fa.lastOpts().Profile).To(Equal("base"))
 		v, err := r.svc.SandboxProfiles(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(v.Selected).To(Equal("media"))
+		Expect(v.Selected).To(Equal("base"))
 		Expect(v.Source).To(Equal(studio.ProfileFromChat))
 		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "")).To(Succeed())
 		v, _ = r.svc.SandboxProfiles(context.Background(), alice, id)
-		Expect(v.Profile).To(Equal("base"))
+		Expect(v.Profile).To(Equal("media"))
 		Expect(v.Source).To(Equal(studio.ProfileFromDefault))
 	})
 
@@ -161,21 +161,45 @@ var _ = Describe("sandbox profiles", func() {
 	It("is open to everyone by default and follows the administrator's policy when there is one", func() {
 		r := newProfileRig(nil)
 		id := create(r.svc, alice)
-		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "video")).To(Succeed(), "no policy: everyone may use every profile")
-		r.setPolicy(sandboxpolicy.Policy{Default: "media", Access: map[string]sandboxpolicy.Access{"video": {Roles: []string{"admin"}}}, MemoryMiB: 1024, DiskMiB: 5000, PinPrevious: []string{"media"}})
+		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "heavy")).To(Succeed(), "no policy: everyone may use every profile")
+		r.setPolicy(sandboxpolicy.Policy{Default: "media", Access: map[string]sandboxpolicy.Access{"heavy": {Roles: []string{"admin"}}}, MemoryMiB: 1024, DiskMiB: 5000, PinPrevious: []string{"media"}})
 		// The profile alice picked is closed now: the default applies.
 		Expect(turnPrompt(r.svc, r.h, id)).To(ContainSubstring("The sandbox profile is media."))
 		Expect(r.fa.lastOpts()).To(Equal(contract.ExecutionCall{Profile: "media", Pin: true, MemoryMiB: 1024, DiskMiB: 5000}))
-		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "video")).To(MatchError(studio.ErrSandboxProfileNotAllowed))
+		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "heavy")).To(MatchError(studio.ErrSandboxProfileNotAllowed))
 		root := create(r.svc, "root")
-		Expect(r.svc.SetSandboxProfile(context.Background(), "root", root, "video")).To(Succeed(), "an administrator is named by the role")
+		Expect(r.svc.SetSandboxProfile(context.Background(), "root", root, "heavy")).To(Succeed(), "an administrator is named by the role")
 		v, err := r.svc.SandboxProfiles(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
 		allowed := map[string]bool{}
 		for _, p := range v.Profiles {
 			allowed[p.ID] = p.Allowed
 		}
-		Expect(allowed).To(Equal(map[string]bool{"base": true, "media": true, "video": false}))
+		Expect(allowed).To(Equal(map[string]bool{"base": true, "media": true, "heavy": false}))
+	})
+
+	It("starts a chat in media when the administrator sets no default, and base when the policy says so", func() {
+		r := newProfileRig(nil)
+		id := create(r.svc, alice)
+		v, err := r.svc.SandboxProfiles(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Profile).To(Equal("media"))
+		Expect(v.Default).To(Equal("media"))
+		Expect(v.Source).To(Equal(studio.ProfileFromDefault))
+		r.setPolicy(sandboxpolicy.Policy{Default: "base"})
+		Expect(turnPrompt(r.svc, r.h, id)).To(ContainSubstring("The sandbox profile is base."))
+		v, _ = r.svc.SandboxProfiles(context.Background(), alice, id)
+		Expect(v.Default).To(Equal("base"))
+		_, _, def, err := r.svc.SandboxProfileChoices(context.Background(), alice)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(def).To(Equal("base"))
+	})
+
+	It("falls back to base when media is not allowed to the user and no default is set", func() {
+		r := newProfileRig(nil)
+		r.setPolicy(sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"media": {Users: []string{"carol"}}}})
+		id := create(r.svc, alice)
+		Expect(turnPrompt(r.svc, r.h, id)).To(ContainSubstring("The sandbox profile is base."))
 	})
 
 	It("falls back to base when the default is not allowed or not there", func() {
@@ -205,6 +229,7 @@ var _ = Describe("sandbox profiles", func() {
 	It("shows the state of the images, the fallback and a newer image to the picker", func() {
 		r := newProfileRig(nil)
 		id := create(r.svc, alice)
+		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "base")).To(Succeed())
 		v, err := r.svc.SandboxProfiles(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(v.Applies).To(BeTrue())
@@ -215,7 +240,7 @@ var _ = Describe("sandbox profiles", func() {
 			states[p.ID] = p.State
 		}
 		Expect(states["media"]).To(Equal(studio.ProfileImageState{Phase: "pulling", Percent: 40}))
-		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "video")).To(Succeed())
+		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "heavy")).To(Succeed())
 		v, _ = r.svc.SandboxProfiles(context.Background(), alice, id)
 		Expect(v.Fallback).To(BeTrue())
 		Expect(v.FallbackReason).To(Equal("registry unreachable"))
@@ -237,7 +262,7 @@ var _ = Describe("sandbox profiles", func() {
 		addon, list, def, err := r.svc.SandboxProfileChoices(context.Background(), alice)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(addon).To(Equal("sandbox"))
-		Expect(def).To(Equal("base"))
+		Expect(def).To(Equal("media"))
 		Expect(list).To(HaveLen(3))
 		addon, list, err = r.svc.AdminSandboxProfiles(context.Background(), "root")
 		Expect(err).NotTo(HaveOccurred())
@@ -268,14 +293,14 @@ var _ = Describe("sandbox profiles", func() {
 
 		It("lists the profiles with their programs, the policy and the state of the images", func() {
 			r := newProfileRig(script(studiotest.ToolStep{Tool: "sandbox_profile", Args: `{"action":"list"}`}))
-			r.setPolicy(sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"video": {Roles: []string{"admin"}}}})
+			r.setPolicy(sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"heavy": {Roles: []string{"admin"}}}})
 			id := create(r.svc, alice)
 			r.run(alice, id)
 			out := r.h.ResultsFor("sandbox_profile")
 			Expect(out).To(HaveLen(1))
-			Expect(out[0].Out).To(ContainSubstring("This chat runs the base profile."))
+			Expect(out[0].Out).To(ContainSubstring("This chat runs the media profile."))
 			Expect(out[0].Out).To(ContainSubstring("- media: Base plus ffmpeg. Programs: python3 (pandas), jq, ffmpeg. Its image is being prepared (40%)"))
-			Expect(out[0].Out).To(ContainSubstring("- video: Media plus Rust."))
+			Expect(out[0].Out).To(ContainSubstring("- heavy: Media plus a compiler."))
 			Expect(out[0].Out).To(ContainSubstring("Not allowed for this user."))
 		})
 
@@ -294,8 +319,8 @@ var _ = Describe("sandbox profiles", func() {
 		})
 
 		It("refuses a profile the policy closed, and says so to the model", func() {
-			r := newProfileRig(script(studiotest.ToolStep{Tool: "sandbox_profile", Args: `{"action":"use","profile":"video"}`}))
-			r.setPolicy(sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"video": {Roles: []string{"admin"}}}})
+			r := newProfileRig(script(studiotest.ToolStep{Tool: "sandbox_profile", Args: `{"action":"use","profile":"heavy"}`}))
+			r.setPolicy(sandboxpolicy.Policy{Access: map[string]sandboxpolicy.Access{"heavy": {Roles: []string{"admin"}}}})
 			id := create(r.svc, alice)
 			r.run(alice, id)
 			Expect(r.h.ResultsFor("sandbox_profile")[0].Out).To(ContainSubstring("Not permitted"))
@@ -331,13 +356,13 @@ var _ = Describe("sandbox profiles", func() {
 			r := newProfileRig(func(workspace.Actor, string) []studiotest.ToolStep {
 				return []studiotest.ToolStep{{Tool: "load_skill", Args: `{"name":"cut"}`}, {Say: "ok"}}
 			})
-			writeSkill(r.f, "cut", "media")
+			writeSkill(r.f, "cut", "heavy")
 			id := create(r.svc, alice)
 			out := load(r, id)
-			Expect(out).To(ContainSubstring("This skill wants the sandbox profile media; this chat runs base."))
+			Expect(out).To(ContainSubstring("This skill wants the sandbox profile heavy; this chat runs media."))
 			Expect(out).To(ContainSubstring("Run ffmpeg."))
 			v, _ := r.svc.SandboxProfiles(context.Background(), alice, id)
-			Expect(v.Profile).To(Equal("base"), "a hint never switches the profile")
+			Expect(v.Profile).To(Equal("media"), "a hint never switches the profile")
 			Expect(v.Selected).To(BeEmpty())
 		})
 		It("adds nothing when the chat runs the profile the skill wants", func() {

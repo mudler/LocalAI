@@ -132,7 +132,7 @@ func TestMissingOrFailedProfileFallsBackToBaseWithANotice(t *testing.T) {
 	c.cached[ref("base1")] = true
 	c.failing[ref("media1")] = errors.New("registry unreachable")
 	d := newDelivery(t, c, profiles.Images{"base": ref("base1"), "media": ref("media1")}, nil)
-	for _, id := range []string{"media", "video", "nope"} {
+	for _, id := range []string{"media", "nope"} {
 		got, err := d.Resolve(context.Background(), id, false, profiles.Caps{})
 		if err != nil || got.ID != "base" || !got.Fallback || !strings.Contains(got.Notice, id) {
 			t.Fatalf("%s: choice = %+v, %v", id, got, err)
@@ -149,7 +149,7 @@ func TestMissingOrFailedProfileFallsBackToBaseWithANotice(t *testing.T) {
 	for _, s := range d.Status(context.Background()) {
 		st[s.ID] = s
 	}
-	if st["media"].Phase != profiles.PhaseFailed || st["video"].Phase != profiles.PhaseAbsent || st["base"].Phase != profiles.PhaseReady {
+	if st["media"].Phase != profiles.PhaseFailed || st["base"].Phase != profiles.PhaseReady {
 		t.Fatalf("states = %+v", st)
 	}
 }
@@ -232,7 +232,7 @@ func TestAdminPinRunsThePreviousImage(t *testing.T) {
 		t.Fatalf("pinned = %+v, %v", got, err)
 	}
 	// Nothing previous: the pin has nothing to hold, the current image runs.
-	got, _ = mk("base9").Resolve(context.Background(), "video", true, profiles.Caps{})
+	got, _ = mk("base9").Resolve(context.Background(), "nope", true, profiles.Caps{})
 	if got.ID != "base" {
 		t.Fatalf("got %+v", got)
 	}
@@ -242,7 +242,7 @@ func TestPrepullPullsOnlyProfilesUsedBefore(t *testing.T) {
 	dir := t.TempDir()
 	c := newCache()
 	old := newDelivery(t, c, profiles.Images{"base": ref("base1"), "media": ref("media1")}, func(o *profiles.Options) { o.DataDir = dir })
-	mustResolve(t, old, "base") // media was never used, video has no image
+	mustResolve(t, old, "base") // media was never used
 	d := newDelivery(t, c, profiles.Images{"base": ref("base2"), "media": ref("media2")}, func(o *profiles.Options) { o.DataDir = dir })
 	d.Prepull(context.Background())
 	if !c.cached[ref("base2")] {

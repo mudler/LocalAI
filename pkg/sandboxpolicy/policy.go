@@ -50,7 +50,7 @@ func (a Access) Open() bool { return len(a.Roles) == 0 && len(a.Users) == 0 }
 
 // Policy is the policy of the profiles.
 type Policy struct {
-	// Default is the profile a new chat gets. Empty: base.
+	// Default is the profile a new chat gets. Empty: InitialProfile.
 	Default string `json:"default,omitempty"`
 	// Access restricts who may use a profile. A profile that is not listed is
 	// open.
@@ -198,10 +198,15 @@ func (p Policy) Allows(profile, user, role string) bool {
 	return (role != "" && slices.Contains(a.Roles, role)) || (user != "" && slices.Contains(a.Users, user))
 }
 
+// InitialProfile is the profile of a new chat when the administrator has set
+// no default. A provider that does not declare it, or whose image is missing,
+// runs the fallback profile instead; the fallback stays contract.FallbackProfile.
+const InitialProfile = "media"
+
 // DefaultProfile is the profile of a new chat.
 func (p Policy) DefaultProfile() string {
 	if p.Default == "" {
-		return contract.FallbackProfile
+		return InitialProfile
 	}
 	return p.Default
 }
