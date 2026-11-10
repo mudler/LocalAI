@@ -104,7 +104,7 @@ func (s *Service) agentJobCheck(ctx context.Context, in bgjob.Info) bgjob.EndRea
 		return ""
 	}
 	if _, err := s.d.Store.GetChat(ctx, in.Owner, in.Parent); err != nil {
-		if isNotFound(err) {
+		if errors.Is(err, session.ErrNotFound) {
 			return bgjob.EndAgentEnded
 		}
 		return ""
@@ -118,8 +118,6 @@ func (s *Service) agentJobCheck(ctx context.Context, in bgjob.Info) bgjob.EndRea
 	}
 	return bgjob.EndAgentEnded
 }
-
-func isNotFound(err error) bool { return errors.Is(err, session.ErrNotFound) }
 
 // endAgentJobs ends the live jobs of a sub-agent chat, on the nodes its stubs
 // name, for the reason. The sweep of each node is the backstop.
