@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // The person's view of the background jobs of a chat, and the person's Stop.
@@ -44,14 +45,14 @@ func (s *Service) BgJobs(ctx context.Context, user, chat string) ([]JobView, err
 		return nil, err
 	}
 	var out []JobView
-	for _, st := range rec.Jobs {
+	for _, st := range withoutReservations(rec.Jobs) {
 		out = append(out, JobView{JobStub: st, Chat: chat})
 	}
 	if rec.Kind != session.KindSubAgent {
 		kids, err := s.d.Store.ListChildren(ctx, p, chat)
 		if err == nil {
 			for _, k := range kids {
-				for _, st := range k.Jobs {
+				for _, st := range withoutReservations(k.Jobs) {
 					out = append(out, JobView{JobStub: st, Chat: k.ID})
 				}
 			}
@@ -61,6 +62,7 @@ func (s *Service) BgJobs(ctx context.Context, user, chat string) ([]JobView, err
 		return out, nil
 	}
 	s.liveJobs(ctx, p, chat, out)
+	s.liveAddonJobs(ctx, p, out)
 	slices.SortStableFunc(out, func(x, y JobView) int {
 		switch rx, ry := x.State.Finished(), y.State.Finished(); {
 		case rx != ry && !rx:
@@ -74,8 +76,9 @@ func (s *Service) BgJobs(ctx context.Context, user, chat string) ([]JobView, err
 }
 
 // liveJobs fills the live numbers of the running jobs of the built-in bash:
-// one ask per node, which answers for the chat and its sub-agents. A node that
-// does not answer changes nothing.
+// one ask per node, which answers for the chat and its sub-agents. A node
+// that answers and does not know a job its stub calls live has lost it; one
+// that cannot be reached is a doubt until jobGone says the job is gone.
 func (s *Service) liveJobs(ctx context.Context, owner, chat string, jobs []JobView) {
 	if s.bgJobs == nil {
 		return
@@ -88,15 +91,74 @@ func (s *Service) liveJobs(ctx context.Context, owner, chat string, jobs []JobVi
 		asked[j.Instance] = true
 		rep, err := s.bgJobs.Do(ctx, j.Instance, bgjob.Request{Action: bgjob.ActionList, Owner: owner, Chat: chat})
 		if err != nil {
+			if !bgjob.Gone(err) {
+				continue
+			}
+			for i := range jobs {
+				if jobs[i].Instance == j.Instance && builtinStub(jobs[i].JobStub) && !jobs[i].State.Finished() &&
+					s.jobGone(ctx, owner, jobs[i].Chat, jobs[i].ID, err) {
+					jobs[i].State, jobs[i].Exit = bgjob.StateLost, bgjob.ExitUnknown
+				}
+			}
 			continue
 		}
+		known := map[string]bool{}
 		for _, in := range rep.List {
+			known[in.ID] = true
 			for i := range jobs {
 				if jobs[i].ID == in.ID {
 					jobs[i].LastOutput, jobs[i].Total = in.LastOutput, in.Total
 					// The node knows better than a stub written before.
 					jobs[i].State, jobs[i].End, jobs[i].Exit, jobs[i].Ended = in.State, in.End, in.Exit, in.Ended
+					s.jobAnswered(owner, jobs[i].Chat, in.ID)
 				}
+			}
+		}
+		for i := range jobs {
+			if jobs[i].Instance == j.Instance && builtinStub(jobs[i].JobStub) && !jobs[i].State.Finished() && !known[jobs[i].ID] {
+				s.markJobLost(ctx, owner, jobs[i].Chat, jobs[i].ID)
+				jobs[i].State, jobs[i].Exit = bgjob.StateLost, bgjob.ExitUnknown
+			}
+		}
+	}
+}
+
+func builtinStub(st session.JobStub) bool { return st.Provider == "" || st.Provider == BuiltinProvider }
+
+// liveAddonJobs fills the live numbers of the running jobs of add-ons and
+// brings their stubs in step: one list of the add-on for each chat (the chat
+// and each sub-agent) that has a live job of it. The add-on never reports an
+// end by itself, so without this the view would show an ended job running.
+func (s *Service) liveAddonJobs(ctx context.Context, owner string, jobs []JobView) {
+	type scope struct{ chat, addon string }
+	asked := map[scope]bool{}
+	for _, j := range jobs {
+		k := scope{j.Chat, j.Provider}
+		if j.State.Finished() || builtinStub(j.JobStub) || asked[k] {
+			continue
+		}
+		asked[k] = true
+		var stubs []session.JobStub
+		for _, o := range jobs {
+			if o.Chat == j.Chat && o.Provider == j.Provider {
+				stubs = append(stubs, o.JobStub)
+			}
+		}
+		got, answered := s.refreshAddonJobs(ctx, owner, j.Chat, j.Provider, stubs)
+		if !answered {
+			continue
+		}
+		for i := range jobs {
+			if jobs[i].Chat != j.Chat || jobs[i].Provider != j.Provider {
+				continue
+			}
+			in, ok := got[jobs[i].ID]
+			switch {
+			case ok:
+				jobs[i].LastOutput, jobs[i].Total = in.LastOutput, in.Total
+				jobs[i].State, jobs[i].End, jobs[i].Exit, jobs[i].Ended = in.State, in.End, in.Exit, in.Ended
+			case !jobs[i].State.Finished():
+				jobs[i].State, jobs[i].Exit = bgjob.StateLost, bgjob.ExitUnknown
 			}
 		}
 	}
@@ -141,20 +203,34 @@ func (s *Service) StopJob(ctx context.Context, user, chat, id string) (JobView, 
 		case errors.As(err, &ended):
 			return view, ErrBgJobEnded
 		case bgjob.Gone(err):
-			s.markJobLost(ctx, p, owner, id)
+			if !s.jobGone(ctx, p, owner, id, err) {
+				return view, err
+			}
 			view.State, view.Exit = bgjob.StateLost, bgjob.ExitUnknown
 			return view, nil
 		case err != nil:
 			return view, err
 		}
+		s.jobAnswered(p, owner, id)
 		view.State = bgjob.StateEnding
 		return view, nil
 	}
-	// A job of an add-on: its backend sends the signal.
-	_, err = s.backendOf(ctx, st.Provider).Do(ctx, userChatActor(p, owner), JobCall{Action: JobKill, ID: id, Stub: st, Signal: "term"})
-	if err != nil {
+	// A job of an add-on: the add-on records the end as "stopped". Its answer
+	// says how the job stands now; an ended job is recorded, not left ending.
+	b := &addonJobs{s: s, j: s.d.SandboxJobs, addon: st.Provider}
+	in, err := b.end(ctx, userChatActor(p, owner), st, bgjob.EndStopped)
+	var r *SandboxJobRefusal
+	switch {
+	case err == nil:
+	case errors.As(err, &r) && r.Code == contract.JobCodeEnded:
+		return view, ErrBgJobEnded
+	case errors.As(err, &r) && r.Code == contract.JobCodeUnknown:
+		view.State, view.Exit = bgjob.StateLost, bgjob.ExitUnknown
+		return view, nil
+	default:
 		return view, err
 	}
-	view.State = bgjob.StateEnding
+	view.State, view.End, view.Exit, view.Ended = in.State, in.End, in.Exit, in.Ended
+	view.LastOutput, view.Total = in.LastOutput, in.Total
 	return view, nil
 }

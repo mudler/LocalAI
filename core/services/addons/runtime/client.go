@@ -302,9 +302,14 @@ func (c *Client) Act(ctx context.Context, v contract.Envelope) (contract.Result,
 	if e := c.valid(v, "act"); e != nil {
 		return r, e
 	}
+	slot, refusal := c.reserveJobLease(v)
+	if refusal != nil {
+		return *refusal, nil
+	}
+	defer slot.Release()
 	e := c.callThen(false, ctx, "/act", &v, v, &r, contract.ActTimeout, func() {
 		if r.Validate(c.limits) == nil {
-			c.leaseJobs(v, r)
+			c.leaseJobs(v, r, slot)
 		}
 	})
 	if e == nil {

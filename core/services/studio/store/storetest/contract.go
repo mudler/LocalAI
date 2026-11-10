@@ -335,6 +335,42 @@ func Run(newStore New) {
 		Expect(again.Jobs).To(BeEmpty())
 	})
 
+	It("lets a change count the jobs and hold a place in one step, so parallel holds never pass a limit", func() {
+		s := newStore()
+		chat(s, "j2", "alice")
+		full := errors.New("full")
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		held, refused := 0, 0
+		for i := range 12 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				err := s.UpdateJobs(ctx(), "alice", "j2", func(c []session.JobStub) ([]session.JobStub, error) {
+					if len(c) >= 4 {
+						return nil, full
+					}
+					return append(c, session.JobStub{ID: fmt.Sprintf("starting-%02d", i), State: bgjob.StateStarting}), nil
+				})
+				mu.Lock()
+				defer mu.Unlock()
+				if errors.Is(err, full) {
+					refused++
+					return
+				}
+				Expect(err).NotTo(HaveOccurred())
+				held++
+			}()
+		}
+		wg.Wait()
+		Expect(held).To(Equal(4))
+		Expect(refused).To(Equal(8))
+		rec, err := s.GetChat(ctx(), "alice", "j2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Jobs).To(HaveLen(4))
+	})
+
 	It("keeps the goal, survives a chat update, belongs to the owner and loses no concurrent change", func() {
 		s := newStore()
 		chat(s, "c1", "alice")

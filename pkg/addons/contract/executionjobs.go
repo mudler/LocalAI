@@ -66,9 +66,15 @@ const (
 // The states and the end reasons the job tool reports. They match the job
 // registry of the host (core/services/studio/bgjob).
 var (
-	jobStates  = map[string]bool{"starting": true, "running": true, "ending": true, "exited": true, "killed": true, "failed": true}
-	jobEnds    = map[string]bool{"": true, "exit": true, "killed": true, "stopped": true, "lifetime": true, "sandbox_remade": true, "shutdown": true, "start_failed": true}
-	jobSignals = map[string]bool{"": true, "term": true, "int": true, "kill": true}
+	jobStates = map[string]bool{"starting": true, "running": true, "ending": true, "exited": true, "killed": true, "failed": true}
+	jobEnds   = map[string]bool{"": true, "exit": true, "killed": true, "stopped": true, "lifetime": true, "sandbox_remade": true, "shutdown": true, "start_failed": true,
+		"chat_deleted": true, "agent_ended": true, "shell_off": true, "group_off": true, "fenced": true}
+	// jobKillReasons are the end reasons the host may give with a kill. The
+	// add-on records the reason as the job's end; with none it records
+	// "killed". The reasons of the add-on's own ends (lifetime, shutdown,
+	// sandbox_remade) are not the host's to give.
+	jobKillReasons = map[string]bool{"": true, "stopped": true, "chat_deleted": true, "agent_ended": true, "shell_off": true, "group_off": true, "fenced": true}
+	jobSignals     = map[string]bool{"": true, "term": true, "int": true, "kill": true}
 )
 
 // The refusal codes of the job tool. The text in JobReply.Error is for the
@@ -119,6 +125,10 @@ type JobArgs struct {
 	CloseInput bool   `json:"closeInput,omitempty"`
 	// Signal is for kill: term (default), int or kill.
 	Signal string `json:"signal,omitempty"`
+	// Reason is for kill: why the host ends the job (stopped, chat_deleted,
+	// agent_ended, shell_off, group_off, fenced). The add-on records it as the
+	// job's end. Empty is a kill of the model: the end is "killed".
+	Reason string `json:"reason,omitempty"`
 }
 
 // ErrJobArgs marks arguments of the job tool that are not valid.
@@ -144,8 +154,8 @@ func (a JobArgs) Validate() error {
 	if a.Verb != JobInput && (a.Input != "" || a.CloseInput) {
 		return bad("input is for input")
 	}
-	if a.Verb != JobKill && a.Signal != "" {
-		return bad("signal is for kill")
+	if a.Verb != JobKill && (a.Signal != "" || a.Reason != "") {
+		return bad("signal and reason are for kill")
 	}
 	switch a.Verb {
 	case JobStart:
@@ -173,6 +183,9 @@ func (a JobArgs) Validate() error {
 	case JobKill:
 		if !jobSignals[a.Signal] {
 			return bad("signal")
+		}
+		if !jobKillReasons[a.Reason] {
+			return bad("reason")
 		}
 	default:
 		return bad("verb")

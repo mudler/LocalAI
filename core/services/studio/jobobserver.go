@@ -39,6 +39,10 @@ func (o jobObserver) stub(ctx context.Context, owner, chat, id string) (session.
 	return rec.Jobs[i], nil
 }
 
+// errNodeQuiet says no node answered for a job, but not often enough yet to
+// call it gone (jobGone): the check failed and the wait goes on.
+var errNodeQuiet = errors.New("no answer from the node")
+
 // of returns the observer of the place that runs the job of a stub.
 func (o jobObserver) of(st session.JobStub) bgjob.Observer {
 	if st.Provider == "" || st.Provider == BuiltinProvider {
@@ -58,20 +62,25 @@ func (o jobObserver) Observe(ctx context.Context, req bgjob.ObserveRequest) (bgj
 	if err != nil {
 		return bgjob.Observation{}, err
 	}
-	if st.State == bgjob.StateLost {
-		return bgjob.Observation{}, bgjob.ErrUnknown
-	}
 	ob := o.of(st)
 	if ob == nil {
 		return bgjob.Observation{}, bgjob.ErrUnknown
 	}
+	// A lost stub is asked too: a node that missed some answers may hold the
+	// job still, and then the stub is live again.
 	got, err := ob.Observe(ctx, req)
 	switch {
 	case bgjob.Gone(err):
-		// Nobody there knows the job: its node or add-on restarted.
+		lost := st.State == bgjob.StateLost
 		if !st.State.Finished() {
-			o.s.markJobLost(ctx, req.Owner, req.Chat, req.ID)
+			lost = o.s.jobGone(ctx, req.Owner, req.Chat, req.ID, err)
 		}
+		if !lost && !st.State.Finished() {
+			// No node listened, but not yet often enough to call the job
+			// gone: a failed check, not the end of the wait.
+			return bgjob.Observation{}, fmt.Errorf("could not reach the node that runs %s: %w", req.ID, errNodeQuiet)
+		}
+		// Nobody there knows the job: its node or add-on restarted.
 		if !errors.Is(err, bgjob.ErrUnknown) {
 			err = fmt.Errorf("%w: %v", bgjob.ErrUnknown, err)
 		}
@@ -79,13 +88,18 @@ func (o jobObserver) Observe(ctx context.Context, req bgjob.ObserveRequest) (bgj
 	case err != nil:
 		return bgjob.Observation{}, err
 	}
+	o.s.jobAnswered(req.Owner, req.Chat, req.ID)
 	if sandboxProvider(st) && !got.State.Finished() {
 		o.s.watchSandboxJob(req.Owner, req.Chat, req.ID)
+		o.s.followSandboxChat(req.Owner, req.Chat, st.Provider)
 	}
-	if got.State.Finished() && !st.State.Finished() && st.Provider != BuiltinProvider && st.Provider != "" {
+	switch {
+	case st.State == bgjob.StateLost && !got.State.Finished():
+		o.s.RecordJob(ctx, got.Info)
+	case got.State.Finished() && !st.State.Finished() && sandboxProvider(st):
 		// The add-on tells the host of an end only in its answers: keep the
 		// stub in step. The built-in writes its own at the end.
-		o.s.RecordJob(ctx, got.Info)
+		o.s.sandboxJobEnded(ctx, got.Info)
 	}
 	return got, nil
 }
@@ -158,6 +172,12 @@ type sandboxWatch struct {
 	mu      sync.Mutex
 	jobs    map[string]watchedJob
 	running bool
+	// chats are the chats with live Sandbox jobs that the sweep of this
+	// process follows, and sweeping whether it runs (sandboxsweep.go).
+	chats    map[string]*sweptChat
+	sweeping bool
+	// misses counts the asks of a job that found no node (jobGone).
+	misses map[string]jobMiss
 }
 
 type watchedJob struct {

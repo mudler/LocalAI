@@ -33,9 +33,11 @@ test('job view: a running job that wrote nothing for ten minutes is stalled, in 
   assert.equal(v.live, true)
 })
 
-test('job view: a job with no output yet counts quiet from its start', () => {
-  const v = jobView(t, job({ last_output: undefined, started: at(-1200) }), NOW)
-  assert.equal(v.kind, 'stalled')
+test('job view: a job whose last output is not known is never shown stalled', () => {
+  const v = jobView(t, job({ last_output: undefined, started: at(-7200) }), NOW)
+  assert.equal(v.kind, 'running')
+  assert.equal(v.status, 'Running')
+  assert.ok(!v.facts.some(f => f.key === 'output'))
 })
 
 test('job view: exit 0 is ok, a code is an error and states its code', () => {

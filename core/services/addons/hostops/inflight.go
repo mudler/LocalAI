@@ -18,6 +18,9 @@ import (
 type InFlight struct {
 	mu           sync.Mutex
 	entries      map[string]*live
+	// reserved counts, per add-on, the places of the leases that starts
+	// in flight may make (ReserveLease).
+	reserved map[string]int
 	observations map[string]*observation
 }
 
@@ -54,7 +57,7 @@ const MaxLeasesPerAddon = 64
 var LeaseOps = map[string]bool{"workspace.commit": true, "workspace.changes": true, "egress.check": true, "egress.audit": true}
 
 func NewInFlight() *InFlight {
-	return &InFlight{entries: map[string]*live{}, observations: map[string]*observation{}}
+	return &InFlight{entries: map[string]*live{}, observations: map[string]*observation{}, reserved: map[string]int{}}
 }
 
 func key(addonID, operationID string) string { return addonID + "/" + operationID }
@@ -145,7 +148,15 @@ func (f *InFlight) LookupLive(addonID, operationID string) (env contract.Envelop
 func (f *InFlight) Lease(addonID, operationID, incarnation, job string, until time.Time) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	now := time.Now()
+	return f.leaseLocked(addonID, operationID, incarnation, job, until, false)
+}
+
+// ErrLeasesFull says the add-on holds as many job leases as it may.
+var ErrLeasesFull = errors.New("too many job leases")
+
+// liveLeasesLocked drops the expired leases nobody ended and counts the live
+// ones of the add-on.
+func (f *InFlight) liveLeasesLocked(addonID string, now time.Time) int {
 	n := 0
 	for k, e := range f.entries {
 		if e.lease == nil {
@@ -159,6 +170,12 @@ func (f *InFlight) Lease(addonID, operationID, incarnation, job string, until ti
 			n++
 		}
 	}
+	return n
+}
+
+func (f *InFlight) leaseLocked(addonID, operationID, incarnation, job string, until time.Time, slot bool) error {
+	now := time.Now()
+	n := f.liveLeasesLocked(addonID, now) + f.reserved[addonID]
 	e := f.entries[key(addonID, operationID)]
 	switch {
 	case e == nil || e.n <= 0 || e.mixed || e.observation != nil:
@@ -169,11 +186,58 @@ func (f *InFlight) Lease(addonID, operationID, incarnation, job string, until ti
 		return errors.New("the request already holds a lease")
 	case job == "" || !until.After(now):
 		return errors.New("a lease needs a job and an end")
-	case n >= MaxLeasesPerAddon:
-		return errors.New("too many job leases")
+	case !slot && n >= MaxLeasesPerAddon:
+		return ErrLeasesFull
 	}
 	e.lease = &jobLease{job: job, until: until}
 	return nil
+}
+
+// LeaseSlot is the place of a job lease, taken before the start of a job is
+// sent: the add-on starts no job whose lease the host would refuse. Exactly
+// one of Lease and Release frees the place; later calls do nothing.
+type LeaseSlot struct {
+	f     *InFlight
+	addon string
+	used  bool
+}
+
+// ReserveLease takes the place of the lease of a job that a start call may
+// make. With every place of the add-on taken or reserved it is ErrLeasesFull,
+// and the start must not be sent.
+func (f *InFlight) ReserveLease(addonID string) (*LeaseSlot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.liveLeasesLocked(addonID, time.Now())+f.reserved[addonID] >= MaxLeasesPerAddon {
+		return nil, ErrLeasesFull
+	}
+	f.reserved[addonID]++
+	return &LeaseSlot{f: f, addon: addonID}, nil
+}
+
+// Lease is InFlight.Lease within the reserved place.
+func (s *LeaseSlot) Lease(operationID, incarnation, job string, until time.Time) error {
+	s.f.mu.Lock()
+	defer s.f.mu.Unlock()
+	if s.used {
+		return errors.New("the place of the lease was given back")
+	}
+	s.used = true
+	s.f.reserved[s.addon]--
+	return s.f.leaseLocked(s.addon, operationID, incarnation, job, until, true)
+}
+
+// Release gives the place back: the start was refused or made no job.
+func (s *LeaseSlot) Release() {
+	if s == nil {
+		return
+	}
+	s.f.mu.Lock()
+	defer s.f.mu.Unlock()
+	if !s.used {
+		s.used = true
+		s.f.reserved[s.addon]--
+	}
 }
 
 // EndLease ends the lease of a job of an add-on incarnation. It is safe to

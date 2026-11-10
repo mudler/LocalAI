@@ -524,7 +524,13 @@ func (t *jobTable) killJob(user, conv string, a contract.JobArgs) contract.JobRe
 	case "kill":
 		sig = syscall.SIGKILL
 	}
-	t.endJob(j, endKilled, sig)
+	reason := endKilled
+	if a.Reason != "" {
+		// The host ends the job for a reason of its own (the person's Stop, a
+		// deleted chat, commands switched off): the end says so.
+		reason = runner.EndReason(a.Reason)
+	}
+	t.endJob(j, reason, sig)
 	return contract.JobReply{OK: true, Job: j.info(t.now())}
 }
 

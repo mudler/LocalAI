@@ -227,6 +227,21 @@ var _ = Describe("background jobs in the add-on", func() {
 		Expect(again.Code).To(Equal(contract.JobCodeEnded))
 	})
 
+	It("records the end reason the host gives with a kill", func() {
+		r := newJobsRig(time.Hour, 300*time.Millisecond)
+		id := r.start("alice", "c1", "sleep 30")
+		Expect(r.job("alice", "c1", contract.JobArgs{Verb: contract.JobKill, ID: id, Reason: "group_off"}).OK).To(BeTrue())
+		in := r.finished("alice", "c1", id)
+		Expect(in.End).To(Equal("group_off"))
+		Expect(in.State).To(Equal("exited"))
+
+		id = r.start("alice", "c1", "sleep 30")
+		Expect(r.job("alice", "c1", contract.JobArgs{Verb: contract.JobKill, ID: id, Reason: "stopped"}).OK).To(BeTrue())
+		in = r.finished("alice", "c1", id)
+		Expect(in.End).To(Equal("stopped"))
+		Expect(in.State).To(Equal("killed"))
+	})
+
 	It("ends a job at its lifetime", func() {
 		r := newJobsRig(300*time.Millisecond, 200*time.Millisecond)
 		id := r.start("alice", "c1", "sleep 30")

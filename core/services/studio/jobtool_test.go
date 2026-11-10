@@ -363,8 +363,9 @@ var _ = Describe("the job tool", func() {
 			Expect(c.say(bob, id, "start t run")).To(Equal("Not started: this chat runs 4 jobs, the most it may."))
 		})
 
-		It("marks a job lost, and says so, when its node does not know it", func() {
-			c := newJobChat("on", nil)
+		It("marks a job lost, and says so, when no node answers for it over a sweep period", func() {
+			clk := &tclock{t: time.Now()}
+			c := newJobChat("on", nil, func(d *studio.Deps) { d.Clock = clk.Now })
 			id := create(c.svc, bob)
 			c.say(bob, id, "start t run")
 			job := c.stubs(bob, id)[0].ID
@@ -373,6 +374,12 @@ var _ = Describe("the job tool", func() {
 			c.svc.RecordJob(context.Background(), bgjob.Info{ID: "job-gh0st1", Owner: bob, Chat: id, Instance: "ghost", Provider: "builtin", Label: "g",
 				State: bgjob.StateRunning, Started: time.Now()})
 			job = "job-gh0st1"
+			// One missed answer is a doubt, not the end of the job.
+			for range 2 {
+				Expect(c.say(bob, id, "read "+job)).To(Equal("Could not reach the node that runs " + job + "; try again."))
+				Expect(c.stubs(bob, id)[1].State).To(Equal(bgjob.StateRunning))
+			}
+			clk.Advance(bgjob.SweepEvery)
 			Expect(c.say(bob, id, "read "+job)).To(Equal(job + " is gone: it ran on a node that restarted or left the cluster. Its output and exit status are lost."))
 			stubs := c.stubs(bob, id)
 			Expect(stubs[slices.IndexFunc(stubs, func(s session.JobStub) bool { return s.ID == job })].State).To(Equal(bgjob.StateLost))
@@ -472,6 +479,7 @@ var _ = Describe("the job tool", func() {
 		var (
 			st     store.Store
 			a, b   jobChat
+			clk    *tclock
 			stopA  func()
 			closeA = func() { stopA() }
 		)
@@ -482,6 +490,7 @@ var _ = Describe("the job tool", func() {
 			net := natsReplier{testutil.NewFakeBus()}
 			carrier := studio.NewJobCarrier(net, nil)
 			files := newFiles()
+			clk = &tclock{t: time.Now()}
 			mk := func(instance string) jobChat {
 				host := newFakeJobHost(instance)
 				m := "on"
@@ -489,6 +498,7 @@ var _ = Describe("the job tool", func() {
 					d.Store, d.Files, d.HostExec = st, files, host
 					d.HostExecMode = func() string { return m }
 					d.Instance, d.JobCarrier = instance, carrier
+					d.Clock = clk.Now
 				})
 				return jobChat{svc: svc, h: h, host: host, mode: &m}
 			}
@@ -521,6 +531,10 @@ var _ = Describe("the job tool", func() {
 			stubs := a.stubs(bob, id)
 			second := stubs[slices.IndexFunc(stubs, func(s session.JobStub) bool { return !s.State.Finished() })].ID
 			closeA()
+			// Nobody listens for A: a doubt until it lasts a sweep period.
+			Expect(b.say(bob, id, "read "+second)).To(Equal("Could not reach the node that runs " + second + "; try again."))
+			Expect(b.say(bob, id, "read "+second)).To(Equal("Could not reach the node that runs " + second + "; try again."))
+			clk.Advance(bgjob.SweepEvery)
 			Expect(b.say(bob, id, "read "+second)).To(ContainSubstring("is gone: it ran on a node that restarted or left the cluster"))
 			stubs = b.stubs(bob, id)
 			Expect(stubs[slices.IndexFunc(stubs, func(s session.JobStub) bool { return s.ID == second })].State).To(Equal(bgjob.StateLost))

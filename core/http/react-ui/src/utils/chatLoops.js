@@ -280,7 +280,10 @@ export function jobView(t, job, now = Date.now()) {
   let kind; let tone; let icon; let status
   const live = ['starting', 'running', 'ending'].includes(job.state)
   if (live) {
-    const quiet = jobAge(job.last_output || job.started, now)
+    // The node gives the last output whenever it answers (the start counts
+    // as the first output). Without it the server could not ask the node, so
+    // how long the job has been quiet is not known: never call it stalled.
+    const quiet = job.last_output ? jobAge(job.last_output, now) : 0
     if (job.state === 'starting') { kind = 'starting'; tone = 'run'; icon = 'terminal'; status = t('loops.job.status.starting') }
     else if (job.state === 'ending') { kind = 'ending'; tone = 'warn'; icon = 'stop'; status = t('loops.job.status.ending') }
     else if (quiet >= JOB_STALL_MS) {

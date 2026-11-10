@@ -288,8 +288,9 @@ func (s *Service) parentReadError(ctx context.Context, a workspace.Actor, k sess
 		if st.State.Finished() {
 			return fmt.Sprintf("%s %q: %s. Its output is no longer kept.", st.ID, st.Label, endText(st))
 		}
-		s.markJobLost(ctx, a.Principal, k.ID, st.ID)
-		return lostText(st.ID)
+		if s.jobGone(ctx, a.Principal, k.ID, st.ID, err) {
+			return lostText(st.ID)
+		}
 	}
 	return fmt.Sprintf("Could not reach the node that runs %s; try again.", st.ID)
 }
