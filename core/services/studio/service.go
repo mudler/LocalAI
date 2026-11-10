@@ -427,6 +427,8 @@ type Service struct {
 	// jobListeners are told of each job that starts or ends here (OnJobChange).
 	jobMu        sync.Mutex
 	jobListeners []func(bgjob.Info)
+	// sandboxWatch polls the live Sandbox jobs that a wait watches (jobobserver.go).
+	sandboxWatch sandboxWatch
 	locks        map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector

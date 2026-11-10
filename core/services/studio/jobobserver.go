@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -77,6 +79,9 @@ func (o jobObserver) Observe(ctx context.Context, req bgjob.ObserveRequest) (bgj
 	case err != nil:
 		return bgjob.Observation{}, err
 	}
+	if sandboxProvider(st) && !got.State.Finished() {
+		o.s.watchSandboxJob(req.Owner, req.Chat, req.ID)
+	}
 	if got.State.Finished() && !st.State.Finished() && st.Provider != BuiltinProvider && st.Provider != "" {
 		// The add-on tells the host of an end only in its answers: keep the
 		// stub in step. The built-in writes its own at the end.
@@ -130,4 +135,118 @@ func (s *Service) jobsEnded(in bgjob.Info) {
 	if l := s.loops; l != nil {
 		l.JobEnded(context.Background(), in.Owner, in.Chat, in.ID)
 	}
+}
+
+// sandboxWatchEvery is how often the host asks the add-on about the Sandbox
+// jobs that a wait watches. The add-on does not tell the host of an end, so a
+// wait would otherwise learn of it only at its own interval. A test shortens
+// it.
+var sandboxWatchEvery = newWaitKnob(5 * time.Second)
+
+// sandboxWatchLife bounds how long a job stays watched: the add-on ends every
+// job after 2 h.
+const sandboxWatchLife = 2*time.Hour + 30*time.Minute
+
+func sandboxProvider(st session.JobStub) bool {
+	return st.Provider != "" && st.Provider != BuiltinProvider
+}
+
+// sandboxWatch is the set of live Sandbox jobs that a wait has checked, and
+// whether the goroutine that polls them runs. The goroutine runs only while
+// the set is not empty, and asks once per job per tick.
+type sandboxWatch struct {
+	mu      sync.Mutex
+	jobs    map[string]watchedJob
+	running bool
+}
+
+type watchedJob struct {
+	owner, chat, id string
+	until           time.Time
+}
+
+// watchSandboxJob adds a live Sandbox job to the set that is polled, and
+// starts the poll when it is not running. A wait on the job calls it at each
+// check, so a job that no wait looks at costs nothing.
+func (s *Service) watchSandboxJob(owner, chat, id string) {
+	w := &s.sandboxWatch
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.jobs == nil {
+		w.jobs = map[string]watchedJob{}
+	}
+	k := owner + "\x00" + chat + "\x00" + id
+	if _, ok := w.jobs[k]; !ok {
+		w.jobs[k] = watchedJob{owner: owner, chat: chat, id: id, until: s.now().Add(sandboxWatchLife)}
+	}
+	if w.running {
+		return
+	}
+	select {
+	case <-s.closed:
+		return
+	default:
+	}
+	w.running = true
+	go s.pollSandboxJobs(sandboxWatchEvery.get())
+}
+
+func (s *Service) pollSandboxJobs(every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-s.closed:
+			s.sandboxWatch.mu.Lock()
+			s.sandboxWatch.running = false
+			s.sandboxWatch.mu.Unlock()
+			return
+		case <-t.C:
+		}
+		w := &s.sandboxWatch
+		w.mu.Lock()
+		now := s.now()
+		var batch []watchedJob
+		for k, j := range w.jobs {
+			if now.After(j.until) {
+				delete(w.jobs, k)
+				continue
+			}
+			batch = append(batch, j)
+		}
+		if len(batch) == 0 {
+			w.running = false
+			w.mu.Unlock()
+			return
+		}
+		w.mu.Unlock()
+		for _, j := range batch {
+			s.pollSandboxJob(j)
+		}
+	}
+}
+
+// pollSandboxJob asks the add-on about one watched job, as a wait check does,
+// and makes the waits on it due when it has ended or is gone. A failure to
+// reach the add-on keeps the job watched.
+func (s *Service) pollSandboxJob(j watchedJob) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	got, err := jobObserver{s: s}.Observe(ctx, bgjob.ObserveRequest{Owner: j.owner, Chat: j.chat, ID: j.id, MaxBytes: 1, TailBytes: 1})
+	switch {
+	case err == nil && !got.State.Finished():
+		return
+	case err == nil:
+		s.jobsEnded(got.Info)
+	case bgjob.Gone(err):
+		if l := s.loops; l != nil {
+			l.JobEnded(context.Background(), j.owner, j.chat, j.id)
+		}
+	default:
+		return
+	}
+	k := j.owner + "\x00" + j.chat + "\x00" + j.id
+	s.sandboxWatch.mu.Lock()
+	delete(s.sandboxWatch.jobs, k)
+	s.sandboxWatch.mu.Unlock()
 }
