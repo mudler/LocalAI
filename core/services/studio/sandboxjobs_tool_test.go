@@ -139,6 +139,20 @@ var _ = Describe("the job tool of a Sandbox chat", func() {
 		Expect(c.say(alice, id, "start again true")).To(HavePrefix("Started job"), "lost jobs free their places")
 	})
 
+	It("keeps the limit of 8 live jobs per user across chats, counted from the stubs", func() {
+		c, table := newSandboxJobChat()
+		a, b, third := create(c.svc, alice), create(c.svc, alice), create(c.svc, alice)
+		for range bgjob.PerChat {
+			Expect(c.say(alice, a, "start loop sleep 99")).To(HavePrefix("Started job"))
+			Expect(c.say(alice, b, "start loop sleep 99")).To(HavePrefix("Started job"))
+		}
+		Expect(c.say(alice, third, "start one-more true")).To(Equal("Not started: you run 8 jobs, the most you may."))
+		// A finished job frees a place.
+		table.exit("job-aaaaab", 0, "")
+		Expect(c.say(alice, a, "read job-aaaaab")).To(ContainSubstring("exited"))
+		Expect(c.say(alice, third, "start again true")).To(HavePrefix("Started job"))
+	})
+
 	It("wakes a wait on a Sandbox job through the routing observer when the add-on reports its end", func() {
 		table := newAddonJobTable()
 		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: shadowingSandbox()}}
