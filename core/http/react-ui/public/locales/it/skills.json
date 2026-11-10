@@ -84,7 +84,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "Questa competenza qui è di sola lettura. Una competenza integrata viene con il server, e una competenza dei tuoi file si modifica in File."
+    "readOnly": "Questa competenza qui è di sola lettura. Una competenza integrata viene con il server, e una competenza dei tuoi file si modifica in File.",
+    "counter": "{{count}} di {{max}}",
+    "nameInvalid": "Usa lettere minuscole, cifre e trattini singoli.",
+    "bodyHelp": "Scritta in markdown. Una chat la legge quando un compito corrisponde alla descrizione."
   },
   "load": {
     "title": "Impossibile caricare le tue skill."
@@ -97,5 +100,22 @@
     "done_other": "{{count}} skill importate",
     "scriptsStored": "Gli script e gli altri file sono salvati così come sono. Gli script sono solo salvati, mai eseguiti dall'importazione.",
     "newNote": "Resta segnata Nuova finché una chat non la usa."
+  },
+  "sort": {
+    "label": "Ordina le skill",
+    "name": "Nome, dalla A alla Z",
+    "name-desc": "Nome, dalla Z alla A",
+    "used": "Più usate",
+    "source": "Raggruppa per origine"
+  },
+  "source": {
+    "label": "Mostra le skill da",
+    "all": "Tutte le origini ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} skill",
+    "countAll_other": "{{count}} skill",
+    "countOf": "{{shown}} di {{total}} skill",
+    "menu": "Azioni per {{name}}"
   }
 }

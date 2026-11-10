@@ -84,7 +84,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "Diese Fähigkeit ist hier schreibgeschützt. Eine eingebaute Fähigkeit gehört zum Server, und eine Fähigkeit aus deinen Dateien änderst du unter Dateien."
+    "readOnly": "Diese Fähigkeit ist hier schreibgeschützt. Eine eingebaute Fähigkeit gehört zum Server, und eine Fähigkeit aus deinen Dateien änderst du unter Dateien.",
+    "counter": "{{count}} von {{max}}",
+    "nameInvalid": "Verwende Kleinbuchstaben, Ziffern und einzelne Bindestriche.",
+    "bodyHelp": "In Markdown geschrieben. Ein Chat liest sie, wenn eine Aufgabe zur Beschreibung passt."
   },
   "load": {
     "title": "Ihre Skills konnten nicht geladen werden."
@@ -97,5 +100,22 @@
     "done_other": "{{count}} Skills importiert",
     "scriptsStored": "Skripte und andere Dateien werden unverändert gespeichert. Skripte werden nur gespeichert, der Import führt sie nie aus.",
     "newNote": "Er ist als Neu markiert, bis ein Chat ihn benutzt."
+  },
+  "sort": {
+    "label": "Fähigkeiten sortieren",
+    "name": "Name, A bis Z",
+    "name-desc": "Name, Z bis A",
+    "used": "Am meisten genutzt",
+    "source": "Nach Quelle gruppieren"
+  },
+  "source": {
+    "label": "Fähigkeiten anzeigen aus",
+    "all": "Alle Quellen ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} Fähigkeit",
+    "countAll_other": "{{count}} Fähigkeiten",
+    "countOf": "{{shown}} von {{total}} Fähigkeiten",
+    "menu": "Aktionen für {{name}}"
   }
 }

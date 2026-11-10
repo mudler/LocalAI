@@ -207,7 +207,7 @@ test.describe('Knowledge library', () => {
     await page.goto('/app/collections')
     await page.getByTestId('new-collection').click()
     await page.getByLabel('New collection name').fill('field-notes')
-    await page.getByTestId('create-form').getByRole('button', { name: 'Create' }).click()
+    await page.getByTestId('create-form').getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => seen.creates).toEqual(['field-notes'])
     await expect(page).toHaveURL(/\/app\/collections\/field-notes$/)
   })

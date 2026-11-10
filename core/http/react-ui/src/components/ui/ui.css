@@ -840,6 +840,8 @@
   transition: background-color var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
 }
 .ui-seg__item:hover { color: var(--dk-text); }
+.ui-seg__item:disabled { opacity: .45; cursor: not-allowed; }
+.ui-seg__item:disabled:hover { color: inherit; }
 .ui-seg__item[aria-pressed="true"] { background: var(--dk-card); color: var(--dk-text); box-shadow: var(--shadow-subtle); }
 .ui-seg__item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .ui-seg__count { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dk-muted); }

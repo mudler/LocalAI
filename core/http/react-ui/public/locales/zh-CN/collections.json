@@ -10,7 +10,8 @@
     "viewDetails": "查看详情",
     "resetCollection": "重置集合",
     "deleteCollection": "删除集合",
-    "cancel": "取消"
+    "cancel": "取消",
+    "save": "保存"
   },
   "sections": {
     "yourCollections": "您的集合",
@@ -47,7 +48,12 @@
     "noneShared": "没有网页来源。"
   },
   "entries": {
-    "loadFailed": "无法加载文件。"
+    "loadFailed": "无法加载文件。",
+    "filter": "筛选文件",
+    "countAll_one": "{{count}} 个文件",
+    "countAll_other": "{{count}} 个文件",
+    "countOf": "共 {{total}} 个文件中的 {{shown}} 个",
+    "noMatch": "没有匹配的文件。"
   },
   "starting": {
     "title": "知识库服务正在启动。",
@@ -83,5 +89,25 @@
     },
     "noteViewer": "你可以搜索并阅读其中的文件。",
     "noteEditor": "你可以搜索并添加或删除文件。"
+  },
+  "create": {
+    "title": "新建集合",
+    "hint": "起一个便于识别的名称。创建后即可添加文件和网页。"
+  },
+  "sort": {
+    "label": "集合排序",
+    "name": "名称，A 到 Z",
+    "name-desc": "名称，Z 到 A",
+    "used": "使用最多",
+    "unused": "未使用优先"
+  },
+  "list": {
+    "countAll_one": "{{count}} 个集合",
+    "countAll_other": "{{count}} 个集合",
+    "countOf": "共 {{total}} 个集合中的 {{shown}} 个",
+    "menu": "{{name}} 的操作"
+  },
+  "menu": {
+    "try": "试问一个问题"
   }
 }

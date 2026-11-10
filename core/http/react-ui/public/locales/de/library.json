@@ -110,5 +110,11 @@
     "reads": "Dieser Agent liest die Sammlung namens {{name}}.",
     "exists": "Dieser Agent liest die Sammlung namens {{name}}. Sie können sie unter Wissen befüllen und durchsuchen.",
     "created": "Dieser Agent liest die Sammlung namens {{name}}. Sie wird beim Speichern erstellt."
+  },
+  "rail": {
+    "compact": "Kompakte Zeilen",
+    "clear": "Filter zurücksetzen",
+    "more": "{{count}} weitere anzeigen",
+    "loading": "Wird geladen"
   }
 }
