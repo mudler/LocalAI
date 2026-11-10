@@ -19,7 +19,7 @@
 
 **LocalAI** is your own AI, on your own hardware, ready to work for you. It is open source. Chat with open models, run agents that use your files, and work on documents with your team. It also does voice, images, video and more. No GPU required.
 
-- **Agents, documents and a team**: chats and saved agents that use tools, files, collections and skills. Users, roles, quotas and shared folders for a team.
+- **Agents, documents and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, collections and skills. Users, roles, quotas and shared folders for a team.
 - **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps (Telegram, Slack, Discord), mail, calendar and more.
 - **Every kind of model, one API**: text, vision, voice, images, video and embeddings, in the OpenAI, Anthropic and ElevenLabs formats, with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
 - **Your hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, NVIDIA Jetson or CPU only. The server, the models and your files stay on your own machines.
