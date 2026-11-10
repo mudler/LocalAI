@@ -4663,7 +4663,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/host-exec/events": {
             "get": {
-                "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
+                "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the kind of line (run, or job_start, job_input, job_kill and job_end for a background job, with its job id), the command or the input (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
                 "tags": [
                     "chats"
                 ],
@@ -11201,6 +11201,51 @@ const docTemplate = `{
                     },
                     "410": {
                         "description": "The card expired (consent_expired): the turn that asked has ended, its frontend stopped, or a newer card replaced it; the command did not run",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/jobs/{job}/kill": {
+            "post": {
+                "description": "Stops a job that the model started with the job tool (a build, a server): the process gets term, and kill after 10 seconds. The job ends with the reason \"stopped\". Only the owner of the chat may stop it. The job may belong to a sub-agent of the chat.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop a background job.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "job id",
+                        "name": "job",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The job after the signal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsJob"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation or job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The job has ended already",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -19743,6 +19788,10 @@ const docTemplate = `{
                 },
                 "total_bytes": {
                     "type": "integer"
+                },
+                "upgrade": {
+                    "description": "Upgrade is true if the operation re-installs a backend to move it to a\nnewer build. Without it an upgrade reads as an install: the UI needs the\ndifference for its wording and for what Retry has to call.",
+                    "type": "boolean"
                 }
             }
         },
@@ -25534,6 +25583,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "jobs": {
+                    "description": "Jobs are the background jobs of the chat and of its sub-agents, running\nones first (POST /api/chats/{id}/jobs/{job}/kill stops one).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsJob"
+                    }
+                },
                 "kind": {
                     "description": "chat or subagent",
                     "type": "string"
@@ -26628,6 +26684,13 @@ const docTemplate = `{
                 "exit": {
                     "type": "integer"
                 },
+                "job": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is run (a command of bash, also when empty), job_start, job_input,\njob_kill or job_end. Job is the job id on the lines of a background job.",
+                    "type": "string"
+                },
                 "timed_out": {
                     "type": "boolean"
                 },
@@ -26683,6 +26746,53 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsJob": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "boolean"
+                },
+                "bytes": {
+                    "type": "integer"
+                },
+                "chat": {
+                    "description": "Chat is the chat that started the job: this chat, or one of its\nsub-agents. Agent is set for a sub-agent's job.",
+                    "type": "string"
+                },
+                "end": {
+                    "description": "End says why a finished job ended: exit, killed, stopped, lifetime,\nchat_deleted, shell_off, group_off, fenced, sandbox_remade, agent_ended,\nshutdown or start_failed.",
+                    "type": "string"
+                },
+                "ended": {
+                    "type": "string"
+                },
+                "exit": {
+                    "description": "Exit is the exit status of a finished job (128 plus n for signal n);\n-1 when it is not known.",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_output": {
+                    "description": "LastOutput is when a running job last wrote output; Bytes is how much it\nwrote. Both are absent when the node that runs it did not answer.",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider is \"builtin\" (this machine) or the id of the add-on that runs it.",
+                    "type": "string"
+                },
+                "started": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is starting, running, ending, exited, killed, failed or lost (the\nnode that ran it is gone).",
                     "type": "string"
                 }
             }
@@ -26754,6 +26864,13 @@ const docTemplate = `{
         "schema.ChatsLoopList": {
             "type": "object",
             "properties": {
+                "jobs": {
+                    "description": "Jobs are the background jobs of the chat and of its sub-agents.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsJob"
+                    }
+                },
                 "loops": {
                     "type": "array",
                     "items": {
