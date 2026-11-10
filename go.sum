@@ -989,8 +989,8 @@ github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488 h1:GJaZ5gmSuR
 github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488/go.mod h1:MRyhZMDZOBn1zmTmpVNB0F4Qjjx1tn9fK5CIWH6PyEA=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7dPmjRsBrnHOnPeOOj2LhCgyjQu0=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
-github.com/mudler/nib v0.15.3-0.20261106212148-c41fec8c69b8 h1:xU2dtGIT4/RfqW21lZixhK21b8k2ERAnxawcj+xCu8Y=
-github.com/mudler/nib v0.15.3-0.20261106212148-c41fec8c69b8/go.mod h1:2uI8jTciHysI7SyJLITnCxC101dffJFeZwxJzV1JBBo=
+github.com/mudler/nib v0.15.3-0.20261109233850-1fe2571bb959 h1:ZwZoJ6kfsDz+ShmFt5Qu3ocOChvwZxOxjF3jfz5o8d0=
+github.com/mudler/nib v0.15.3-0.20261109233850-1fe2571bb959/go.mod h1:2uI8jTciHysI7SyJLITnCxC101dffJFeZwxJzV1JBBo=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025 h1:WFLP5FHInarYGXi6B/Ze204x7Xy6q/I4nCZnWEyPHK0=
 github.com/mudler/water v0.0.0-20250808092830-dd90dcf09025/go.mod h1:QuIFdRstyGJt+MTTkWY+mtD7U6xwjOR6SwKUjmLZtR4=
 github.com/mudler/xlog v0.0.6 h1:3nBV4THK8kY0Y8FDXXvWAnuAJoOyO7EAXteJeAoHUC0=
