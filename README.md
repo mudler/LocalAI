@@ -24,7 +24,7 @@
 - **Every kind of model, one API**: text, vision, voice, images, video and embeddings, in the OpenAI, Anthropic and ElevenLabs formats, with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
 - **Your hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, NVIDIA Jetson or CPU only. The server, the models and your files stay on your own machines.
 
-![LocalAI is a small core with an API, chats and agents, files, collections, team sharing and a model gallery. Backends such as llama.cpp, vLLM, MLX and whisper.cpp plug in on one side, add-ons such as Office, Sandbox, Tables and chat apps on the other. It runs on CPU, NVIDIA, AMD, Intel, Apple Silicon and Vulkan.](docs/static/images/diagrams/composable-core.png)
+![LocalAI is a small core with an API, chats and agents, files, collections, team sharing, a model gallery and an MCP client and server for agent tools. Backends such as llama.cpp, vLLM, MLX and whisper.cpp plug in on one side, add-ons such as Office, Sandbox, Tables and chat apps on the other. It runs on CPU, NVIDIA, AMD, Intel, Apple Silicon and Vulkan.](docs/static/images/diagrams/composable-core.png)
 
 Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the [LocalAI team](#team).
 
