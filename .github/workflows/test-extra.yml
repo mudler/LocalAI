@@ -111,7 +111,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
 
       - name: Test transformers
         run: |
@@ -134,7 +134,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
 
       - name: Test rerankers
         run: |
@@ -158,7 +158,7 @@ jobs:
           sudo apt-get install -y libopencv-dev
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test diffusers
         run: |
           make --jobs=5 --output-sync=target -C backend/python/diffusers
@@ -308,7 +308,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test coqui
         run: |
           make --jobs=5 --output-sync=target -C backend/python/coqui
@@ -329,7 +329,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test moonshine
         run: |
           make --jobs=5 --output-sync=target -C backend/python/moonshine
@@ -350,7 +350,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test pocket-tts
         run: |
           make --jobs=5 --output-sync=target -C backend/python/pocket-tts
@@ -371,7 +371,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test qwen-tts
         run: |
           make --jobs=5 --output-sync=target -C backend/python/qwen-tts
@@ -414,7 +414,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test qwen-asr
         run: |
           make --jobs=5 --output-sync=target -C backend/python/qwen-asr
@@ -435,7 +435,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test nemo
         run: |
           make --jobs=5 --output-sync=target -C backend/python/nemo
@@ -456,7 +456,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Test voxcpm
         run: |
           make --jobs=5 --output-sync=target -C backend/python/voxcpm
@@ -477,7 +477,7 @@ jobs:
           sudo apt-get install -y build-essential cmake curl git python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir --only-binary=:all: grpcio-tools
       - name: Build llama-quantize from llama.cpp
         run: |
           git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp
