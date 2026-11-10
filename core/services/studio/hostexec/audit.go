@@ -52,6 +52,16 @@ const (
 	KindJobEnd   = "job_end"
 )
 
+// The kinds of the lines of a background job that runs in the Sandbox add-on,
+// not on this machine. They are kept apart from the kinds above so that a line
+// never claims a command ran on this machine when it ran in a sandbox. Each
+// fits the width of the Kind column.
+const (
+	KindSandboxJobStart = "sbx_job_start"
+	KindSandboxJobInput = "sbx_job_input"
+	KindSandboxJobKill  = "sbx_job_kill"
+)
+
 // AuditStore keeps the audit of the commands.
 type AuditStore interface {
 	Add(ctx context.Context, ev Event) error
