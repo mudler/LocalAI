@@ -1,4 +1,4 @@
 ---
 title: "LocalAI"
-description: "LocalAI runs open models on your own hardware. Chat, work with your files and connect your chat apps. Free and open source."
+description: "Your own AI, on your own hardware. LocalAI runs open models, works on your files, makes Office documents and answers in your chat apps. Free and open source."
 ---
