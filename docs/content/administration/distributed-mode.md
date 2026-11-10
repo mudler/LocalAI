@@ -69,7 +69,7 @@ You can start on one and change to the other later.
 
 ## Prerequisites
 
-- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the carrier row, and the shared state. On the `tunnel` carrier it is also the message bus and the job queue, so size it for that (see [Operational limits](#operational-limits)).
+- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the carrier row, and the shared state. On the `tunnel` carrier it is also the message bus, so size it for that (see [Operational limits](#operational-limits)).
 - A **NATS** server, only if you want the `nats` carrier. A deployment can start without one and add it later.
 - All services must be reachable from each other, through the network or the configured URLs.
 - On the `tunnel` carrier, a session-level `LISTEN` connection to PostgreSQL. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`. Point the frontends directly at PostgreSQL, or use a session-mode pool.
@@ -1565,7 +1565,7 @@ A change goes through these states:
 | State | What happens |
 |-------|--------------|
 | `stable` | One carrier is active. |
-| `prepare` | Every frontend builds the target carrier and listens on it. Publishing, queues, and new calls still use the old carrier. The leader waits until every live frontend reports ready. |
+| `prepare` | Every frontend builds the target carrier and listens on it. Publishing and new calls still use the old carrier. The leader waits until every live frontend reports ready. |
 | `commit` | The target is the active carrier. Every frontend publishes and sends new calls on it and confirms. |
 | `stable` (draining) | The old carrier stays attached for the **drain time**. Then it is released. |
 

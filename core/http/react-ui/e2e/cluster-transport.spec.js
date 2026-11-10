@@ -14,7 +14,7 @@ const stableReport = {
     { id: 'w2', name: 'tunnel-worker', type: 'backend', attached: ['tunnel'], follow: ['tunnel'], follow_error: 'no routable address: it cannot follow a change to NATS', can_follow: false },
     { id: 'w3', name: 'old-worker', type: 'backend', attached: [], can_follow: false },
   ],
-  in_flight: { loads: 0, jobs: 1, pending_claims: 2, claimed_claims: 0 },
+  in_flight: { loads: 0 },
   timings: {},
   settings: { nats_url: 'nats://nats:4222', nats_worker_url: '', prepare_timeout: '', transition_window: '', max_drain: '' },
 }
