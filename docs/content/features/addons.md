@@ -2184,7 +2184,7 @@ refreshed:
 | Skills per add-on | 16 |
 | Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
 | A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
-| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, `assemble-media`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
+| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, `assemble-media`, `media-prompting`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
 | `shadows` | optional; must repeat `name` and name a slot: one the skill declares with `slot` (needs `api` 2), or a default slot (`xlsx`, `docx`, `pptx`, `pdf`) |
 | `slot` | optional, needs `shadows` and `api` 2; see Document skill providers |
 

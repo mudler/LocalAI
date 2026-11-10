@@ -46,6 +46,7 @@ Never clone a voice without that confirmation, and do not try to get around it. 
 - Summarize a recording: `transcribe_audio`, then summarize the text yourself.
 - Edit a picture: `generate_image` for the base, then `generate_image` with that `ref` as `image` and a mask.
 - Join, trim, mix or subtitle pieces, or cut a frame or mask for the next call: load_skill assemble-media.
+- Write a better prompt for an image, video, song or voice: load_skill media-prompting.
 
 ## When a call fails
 
