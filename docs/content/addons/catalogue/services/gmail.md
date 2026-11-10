@@ -10,7 +10,7 @@ The Gmail add-on lets your saved agents read the mail of your Google account. If
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | Search mail, read a message or a thread, list labels and read the text of an attachment. Drafts and sends wait for your OK by default. It never deletes, trashes, labels or forwards mail. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. An administrator also saves a Google OAuth client once. LocalAI ships no client. |

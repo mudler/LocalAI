@@ -10,7 +10,7 @@ In the current development builds, this add-on is in the development channel of 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | A `bash` tool that runs commands and code in an isolated sandbox with your files mounted. It makes charts, converts files and runs scripts. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

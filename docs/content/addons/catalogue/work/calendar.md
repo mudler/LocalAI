@@ -9,7 +9,7 @@ In the current development builds, this add-on is in the development channel of 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | One calendar for each user, inside LocalAI. A chat or a saved agent reads and changes events. There is no account to connect. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

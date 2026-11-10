@@ -9,7 +9,7 @@ In the current development builds, this add-on is in the development channel of 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | Tools to read a smart home: find entities, read a state, look at a history. If you allow it, switch things such as a light or a thermostat, within limits you set. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

@@ -10,7 +10,7 @@ The Google Drive add-on lets your saved agents read the files in the Drive folde
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | Search, list a folder, read the details of a file and read its text. If you allow it, create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. An administrator also saves a Google OAuth client once. LocalAI ships no client. |

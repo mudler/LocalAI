@@ -10,7 +10,7 @@ The Jellyfin add-on lets your chats and saved agents look into a Jellyfin media 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | Search and browse libraries, read the details of an item, see what was added lately and what plays now. If you allow it, control a player, mark an item watched, set a favourite and add items to a playlist. It cannot delete anything, scan or edit the library, or manage users. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
