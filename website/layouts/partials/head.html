@@ -1,19 +1,54 @@
+{{- /* One head for every page: title, description, canonical, one Open Graph and
+       Twitter set, icons, theme and the structured data of the home page.
+       A page can set title (page title), description, image (a path under
+       static/, for the share card) and noindex in its front matter. */ -}}
+{{- $site := .Site -}}
+{{- $headline := "Your own AI, on your own hardware" -}}
+{{- $title := $site.Title -}}
+{{- if .IsHome -}}
+  {{- $title = "LocalAI: your own AI, on your own hardware" -}}
+{{- else if eq .Section "features" -}}
+  {{- $title = cond (eq .Kind "section") "What LocalAI does · LocalAI" (printf "%s · LocalAI features" .Title) -}}
+{{- else if eq .Kind "taxonomy" -}}
+  {{- $title = "Blog tags · LocalAI" -}}
+{{- else if eq .Kind "term" -}}
+  {{- $title = printf "Posts tagged %s · LocalAI" .Title -}}
+{{- else if eq .Kind "404" -}}
+  {{- $title = "Page not found · LocalAI" -}}
+{{- else -}}
+  {{- $title = printf "%s · LocalAI" .Title -}}
+{{- end -}}
+{{- $desc := "" -}}
+{{- if .Description }}{{ $desc = .Description }}
+{{- else if .Params.summary }}{{ $desc = .Params.summary }}
+{{- else if .Params.lede }}{{ $desc = .Params.lede }}
+{{- else if and (eq .Section "blog") (eq .Kind "page") }}{{ $desc = .Summary | plainify | truncate 170 }}
+{{- else }}{{ $desc = $site.Params.description }}{{ end -}}
+{{- $imgPath := "img/brand/og-card-1200x630.jpg" -}}
+{{- $imgAlt := "The LocalAI llama mascot with the LocalAI logo." -}}
+{{- with .Params.image }}{{ $imgPath = . }}{{ end -}}
+{{- if and (eq .Section "features") (eq .Kind "page") (fileExists (printf "static/img/share/%s.jpg" .File.ContentBaseName)) -}}
+  {{- $imgPath = printf "img/share/%s.jpg" .File.ContentBaseName -}}
+  {{- $imgAlt = printf "%s in LocalAI. %s" .Title (plainify .Params.card) -}}
+{{- end -}}
+{{- $isPost := and (eq .Section "blog") (eq .Kind "page") -}}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ if .IsHome }}LocalAI: run open models on your own hardware{{ else }}{{ .Title }} · LocalAI{{ end }}</title>
-  {{ $desc := or .Description .Site.Params.description }}
+  <title>{{ $title }}</title>
   <meta name="description" content="{{ $desc }}">
-  <meta name="author" content="{{ .Site.Params.author }}">
-  {{ if not hugo.IsProduction }}<meta name="robots" content="noindex">{{ end }}
+  <meta name="author" content="{{ $site.Params.author }}">
+  {{ if or (not hugo.IsProduction) .Params.noindex (eq .Kind "404") }}<meta name="robots" content="noindex">{{ end }}
   <link rel="canonical" href="{{ .Permalink }}">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="{{ if $isPost }}article{{ else }}website{{ end }}">
   <meta property="og:site_name" content="LocalAI">
-  <meta property="og:title" content="{{ if .IsHome }}LocalAI: run open models on your own hardware{{ else }}{{ .Title }}{{ end }}">
+  <meta property="og:title" content="{{ if .IsHome }}{{ $headline }}{{ else }}{{ .Title }}{{ end }}">
   <meta property="og:description" content="{{ $desc }}">
   <meta property="og:url" content="{{ .Permalink }}">
-  <meta property="og:image" content="{{ "img/brand/og-card-1200x630.jpg" | absURL }}">
-  <meta property="og:image:alt" content="The LocalAI llama mascot with the LocalAI logo.">
+  <meta property="og:image" content="{{ $imgPath | absURL }}">
+  <meta property="og:image:alt" content="{{ $imgAlt }}">
+  {{ if $isPost }}<meta property="article:published_time" content="{{ .Date.Format "2006-01-02" }}">
+  <meta property="article:author" content="{{ $site.Params.author }}">{{ end }}
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@LocalAI_API">
   <meta name="theme-color" content="#fff4dc" media="(prefers-color-scheme: light)">
@@ -22,12 +57,19 @@
   <link rel="icon" href="{{ "img/brand/favicon.ico" | relURL }}" sizes="48x48">
   <link rel="apple-touch-icon" href="{{ "img/brand/apple-touch-icon.png" | relURL }}">
   <link rel="manifest" href="{{ "img/brand/site.webmanifest" | relURL }}">
+  {{ with .OutputFormats.Get "rss" }}<link rel="alternate" type="application/rss+xml" title="LocalAI blog" href="{{ .Permalink }}">{{ end }}
   <script>
     document.documentElement.classList.add('js');
     try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
   </script>
-  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/fredoka-700.woff2" | relURL }}" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/geist-700.woff2" | relURL }}" crossorigin>
   <link rel="preload" as="font" type="font/woff2" href="{{ "fonts/geist-500.woff2" | relURL }}" crossorigin>
   <link rel="stylesheet" href="{{ "css/theme-localai.css" | relURL }}">
   <link rel="stylesheet" href="{{ "css/localai.css" | relURL }}">
+  <link rel="stylesheet" href="{{ "css/illus.css" | relURL }}">
+  {{ range .Params.extracss }}<link rel="stylesheet" href="{{ printf "css/%s" . | relURL }}">
+  {{ end }}
+  {{ if .IsHome }}
+  <script type="application/ld+json">{{ dict "@context" "https://schema.org" "@type" "SoftwareApplication" "name" "LocalAI" "url" $site.Home.Permalink "description" $site.Params.description "applicationCategory" "DeveloperApplication" "operatingSystem" "Linux, macOS, Docker, Kubernetes" "license" "https://opensource.org/license/mit" "isAccessibleForFree" true "image" ("img/brand/og-card-1200x630.jpg" | absURL) "downloadUrl" (printf "%s/releases" $site.Params.github) "codeRepository" $site.Params.github "author" (dict "@type" "Person" "name" $site.Params.author) "offers" (dict "@type" "Offer" "price" "0" "priceCurrency" "USD") | jsonify | safeJS }}</script>
+  {{ end }}
 </head>
