@@ -380,6 +380,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Custom logger middleware using xlog
 	e.Use(accessLog(application.ApplicationConfig().LogClient, clientAddrs))
 
+	// Trace export. Registered before Recover so a panicking handler unwinds
+	// through this middleware and still ends its span with an error status;
+	// registered after the access logger so the span covers the whole request
+	// including auth and routing. No-op unless OTEL_TRACES_EXPORTER asks for
+	// OTLP.
+	e.Use(httpMiddleware.OTelTracing())
+
 	// Recover middleware
 	if !application.ApplicationConfig().Debug {
 		e.Use(middleware.Recover())

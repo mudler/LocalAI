@@ -83,6 +83,61 @@ requests push it out; its page then says it is no longer there.
 With tracing off, the page explains what is lost and offers **Turn on tracing**.
 You can also start LocalAI with `LOCALAI_ENABLE_TRACING=true`.
 
+## OpenTelemetry export
+
+The trace buffer above is local to the process. To ship traces to an
+OpenTelemetry collector, set `OTEL_TRACES_EXPORTER=otlp`:
+
+```bash
+export OTEL_TRACES_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.example.com:4318
+export OTEL_EXPORTER_OTLP_CERTIFICATE=/etc/ssl/certs/example-ca.pem
+export OTEL_SERVICE_NAME=localai
+```
+
+Export is off unless the variable asks for `otlp`, so a stock install makes no
+outbound connection. `OTEL_SDK_DISABLED=true` turns it off again. The usual
+OTLP variables apply: `OTEL_EXPORTER_OTLP_PROTOCOL` (`http/protobuf` by
+default, or `grpc`), `OTEL_EXPORTER_OTLP_HEADERS`,
+`OTEL_RESOURCE_ATTRIBUTES`, `OTEL_TRACES_SAMPLER` and
+`OTEL_TRACES_SAMPLER_ARG`.
+
+The protocol and the port must agree. The default is HTTP on port `4318`; a
+gRPC collector on `4317` needs `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`.
+
+For HTTP, a generic `OTEL_EXPORTER_OTLP_ENDPOINT` is a base URL and `/v1/traces`
+is appended to its path (`https://host/otel` posts to `/otel/v1/traces`). An
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is the complete URL and is used as given.
+
+TLS is the default. An endpoint without a scheme is treated as `https`, and
+`OTEL_EXPORTER_OTLP_INSECURE=true` is only accepted for a loopback collector:
+LocalAI refuses to send traces in cleartext to another host rather than
+downgrade silently.
+
+Two kinds of span are produced:
+
+- a server span for each API request, named `METHOD /route`, with the HTTP
+  method, route, URL path, client address, user agent and response status;
+- a `gen_ai.chat <model>` client span for each backend call, with
+  `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, the
+  sampling parameters, `gen_ai.usage.input_tokens` and
+  `gen_ai.usage.output_tokens`, the duration and, when streaming, the time to
+  first token. A prompt-only call made in the background — moderation, prompt
+  compression, title generation — is named `gen_ai.text_completion <model>`
+  instead, so it is not mistaken for a chat turn.
+
+An inbound W3C `traceparent` is continued, so LocalAI's spans join the trace a
+gateway already started. That is the direction out: LocalAI does not inject
+`traceparent` into calls to remote models.
+
+Prompts, completions, tool arguments and reasoning tokens are never exported,
+and neither are error messages: a failed span carries an error status and the
+error type, not the text, because a backend error can echo request content.
+The spans carry metadata only: the bodies stay in the local trace buffer, which
+is enabled separately by `LOCALAI_ENABLE_TRACING`. When it is on, the server
+and backend spans carry `localai.exchange_id`, the id that finds the matching
+entry under **Traces**; when it is off, the attribute is simply absent.
+
 ## Middleware
 
 The order a request passes through: Proxy, Admission, Filtering, Routing, Model.

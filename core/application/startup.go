@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
+	"github.com/mudler/LocalAI/core/telemetry"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/downloader"
@@ -234,6 +235,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 			// resolve via the OTel global and never reach /metrics.
 			billing.SetMeter(ms.Meter)
 		}
+	}
+
+	// Trace export is independent of metrics: an operator may want spans
+	// without Prometheus, or the other way round. Setup is a no-op unless
+	// OTEL_TRACES_EXPORTER enables OTLP. A broken exporter configuration is
+	// logged and skipped — telemetry must not keep LocalAI from serving.
+	if ts, terr := telemetry.Setup(options.Context); terr != nil {
+		xlog.Error("failed to initialize trace exporter", "error", terr)
+	} else {
+		application.telemetryService = ts
 	}
 
 	// Wire the routing-module billing recorder. The recorder runs in
