@@ -597,6 +597,10 @@ var _ = Describe("Worker tunnel client", func() {
 			start(func(c *TunnelConfig) {
 				c.Token = func() string { return fmt.Sprintf("token-%d", issued.Add(1)) }
 				c.sleep = func(ctx context.Context, _ time.Duration) error { return ctx.Err() }
+				// The bulk lane dials too and reads the credential for its own
+				// dial, so its dials would interleave with the redials of the
+				// inference lane that this spec counts.
+				c.noBulk = true
 			})
 			var first, second tunnelDial
 			Eventually(frontend.dials, "20s").Should(Receive(&first))
