@@ -9603,9 +9603,10 @@ definitions:
         type: string
       source_kind:
         description: |-
-          SourceKind is "tool", "url", "script" or "job". Source is the name of the
-          tool, the host and path of the URL without the query, "a script", or the
-          id and label of the job: the text of a command is never in this object.
+          SourceKind is "tool", "url", "script", "job" or "agent". Source is the
+          name of the tool, the host and path of the URL without the query, "a
+          script", the id and label of the job, or the id of the background
+          sub-agent: the text of a command is never in this object.
         type: string
     type: object
   schema.ChatsWebProviderTest:

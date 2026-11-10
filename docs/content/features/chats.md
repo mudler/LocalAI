@@ -1049,7 +1049,8 @@ curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
   sub-agent's transcript, read from the store, so the wait pins no node and
   works from any frontend. One long tool call counts as quiet until it ends.
   The wake-up gives the last row, or the state and the last answer of a
-  sub-agent that finished. `match` is refused.
+  sub-agent that finished. `match` is refused. The loops list and its API
+  name the source `agent` with the id of the sub-agent.
 - **Jobs of a sub-agent.** A sub-agent has the `job` tool exactly when it has
   `bash`, under the same rules: a host job only when commands on this machine
   run with no card (mode `on`), a Sandbox job always, and the act policy of an

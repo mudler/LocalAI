@@ -939,7 +939,8 @@
         "tool": "alat {{name}}",
         "url": "{{name}}",
         "script": "sebuah skrip",
-        "job": "{{name}}"
+        "job": "{{name}}",
+        "agent": "sub-agen {{name}}"
       },
       "end": {
         "met": "Selesai: kondisi terpenuhi",

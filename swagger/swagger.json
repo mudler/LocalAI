@@ -29447,7 +29447,7 @@
                     "type": "string"
                 },
                 "source_kind": {
-                    "description": "SourceKind is \"tool\", \"url\", \"script\" or \"job\". Source is the name of the\ntool, the host and path of the URL without the query, \"a script\", or the\nid and label of the job: the text of a command is never in this object.",
+                    "description": "SourceKind is \"tool\", \"url\", \"script\", \"job\" or \"agent\". Source is the\nname of the tool, the host and path of the URL without the query, \"a\nscript\", the id and label of the job, or the id of the background\nsub-agent: the text of a command is never in this object.",
                     "type": "string"
                 }
             }

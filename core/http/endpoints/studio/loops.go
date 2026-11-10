@@ -59,6 +59,9 @@ func waitJSON(l loops.Loop) *schema.ChatsWait {
 		// The command is not shown: this list reaches people who may not
 		// read it. It stays in the store of its owner.
 		out.SourceKind, out.Source = "script", "a script"
+	case w.Agent:
+		// A wait on a background sub-agent: Job holds its id, not a job's.
+		out.SourceKind, out.Source = "agent", w.Job
 	case w.Job != "":
 		// The id and the label the model gave; the command is never here.
 		out.SourceKind, out.Source = "job", w.Job
@@ -99,6 +102,12 @@ func waitCondition(w *loops.Watch) string {
 			return string(r[:79]) + "…"
 		}
 		return s
+	}
+	if w.Agent {
+		if w.Mode == loops.UntilStall {
+			return fmt.Sprintf("the sub-agent makes no progress for %s", loops.ShortDuration(w.Idle))
+		}
+		return "the sub-agent finishes"
 	}
 	switch w.Mode {
 	case loops.UntilExitZero:

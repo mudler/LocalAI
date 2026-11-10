@@ -1263,7 +1263,8 @@
         "tool": "tool {{name}}",
         "url": "{{name}}",
         "script": "a script",
-        "job": "{{name}}"
+        "job": "{{name}}",
+        "agent": "sub-agent {{name}}"
       },
       "end": {
         "met": "Done: the condition was met",

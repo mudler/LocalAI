@@ -939,7 +939,8 @@
         "tool": "ferramenta {{name}}",
         "url": "{{name}}",
         "script": "um script",
-        "job": "{{name}}"
+        "job": "{{name}}",
+        "agent": "subagente {{name}}"
       },
       "end": {
         "met": "Concluída: a condição foi atendida",

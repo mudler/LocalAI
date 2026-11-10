@@ -939,7 +939,8 @@
         "tool": "도구 {{name}}",
         "url": "{{name}}",
         "script": "스크립트",
-        "job": "{{name}}"
+        "job": "{{name}}",
+        "agent": "하위 에이전트 {{name}}"
       },
       "end": {
         "met": "완료: 조건이 충족되었습니다",

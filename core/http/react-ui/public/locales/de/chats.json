@@ -939,7 +939,8 @@
         "tool": "Tool {{name}}",
         "url": "{{name}}",
         "script": "ein Skript",
-        "job": "{{name}}"
+        "job": "{{name}}",
+        "agent": "Sub-Agent {{name}}"
       },
       "end": {
         "met": "Fertig: Die Bedingung ist erfüllt",

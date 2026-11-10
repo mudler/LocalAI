@@ -939,7 +939,8 @@
         "tool": "工具 {{name}}",
         "url": "{{name}}",
         "script": "一个脚本",
-        "job": "{{name}}"
+        "job": "{{name}}",
+        "agent": "子代理 {{name}}"
       },
       "end": {
         "met": "完成：条件已满足",

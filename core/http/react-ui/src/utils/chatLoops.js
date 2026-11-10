@@ -128,7 +128,7 @@ function hhmm(iso) {
 export function waitView(t, loop, now = Date.now()) {
   const w = loop.watch
   const phase = w.phase || 'waiting'
-  const source = t(`loops.wait.sources.${['url', 'script', 'job'].includes(w.source_kind) ? w.source_kind : 'tool'}`, { name: w.source })
+  const source = t(`loops.wait.sources.${['url', 'script', 'job', 'agent'].includes(w.source_kind) ? w.source_kind : 'tool'}`, { name: w.source })
   const facts = [
     { key: 'source', text: t('loops.wait.watching', { source }) },
     { key: 'until', text: t('loops.wait.until', { condition: w.condition }) },
