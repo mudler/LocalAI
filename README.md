@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/static/images/readme/hero.jpg" alt="LocalAI: run open models on your own hardware. The LocalAI llama mascot wears sunglasses." width="900">
+  <img src="docs/static/images/readme/hero.jpg" alt="LocalAI: your own AI, on your own hardware. Agents, documents and every kind of model, for you and your team. The LocalAI llama mascot wears sunglasses." width="900">
 </p>
 
 <p align="center">
