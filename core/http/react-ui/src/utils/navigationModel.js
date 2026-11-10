@@ -9,31 +9,40 @@
 // `match` lists other paths that light the item up: the pages that belong to it.
 export const primaryDestinations = Object.freeze([
   // The user's own files: a workspace of folders, with a Trash and history.
-  { path: '/app/files', icon: 'folder', labelKey: 'items.files', feature: 'chats' },
+  { id: 'files', path: '/app/files', icon: 'folder', labelKey: 'items.files', feature: 'chats' },
   // The user's pages (pages/<name>/index.html in the files). Shown only once
   // the user has a page; pinned pages are listed under it.
-  { path: '/app/pages', icon: 'file-code', labelKey: 'items.pages', feature: 'pages', pagesEntry: true },
+  { id: 'pages', path: '/app/pages', icon: 'file-code', labelKey: 'items.pages', feature: 'pages', pagesEntry: true },
   // Saved agents, with what runs them by itself: triggers.
   {
-    path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents',
+    id: 'agents', path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents',
     match: ['/app/triggers', '/app/agent-tasks'],
   },
   // Everything the user connects: accounts (Gmail, Drive, GitHub, ...),
   // messaging bots and MCP servers. One item, three tabs; the tabs are two
   // routes (see connectionsTabs.js), so both light the item.
   {
-    path: '/app/chats/connectors', icon: 'plug', labelKey: 'items.connections', feature: 'chats',
+    id: 'connections', path: '/app/chats/connectors', icon: 'plug', labelKey: 'items.connections', feature: 'chats',
     match: ['/app/mcp-connectors'],
   },
   // Collections the chats search. Off when the server answers collections false.
-  { path: '/app/collections', icon: 'database', labelKey: 'items.memory', feature: 'collections', requiresCollections: true },
+  { id: 'memory', path: '/app/collections', icon: 'database', labelKey: 'items.memory', feature: 'collections', requiresCollections: true },
   // Skills: instructions every chat can use, and agents too. Not a part of
   // Agents, so Agents does not light up on the skills pages.
-  { path: '/app/skills', icon: 'sparkles', labelKey: 'items.skills', feature: 'chats' },
-  { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
+  { id: 'skills', path: '/app/skills', icon: 'sparkles', labelKey: 'items.skills', feature: 'chats' },
+  { id: 'models', path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
   // Shown to a viewer who holds the addons feature or sees a built-in tile.
-  { path: '/app/addons', icon: 'puzzle', labelKey: 'items.addons', addonsEntry: true },
+  { id: 'addons', path: '/app/addons', icon: 'puzzle', labelKey: 'items.addons', addonsEntry: true },
 ])
+
+// Home is the first entry of the sidebar and of nav.json. Its path is the one
+// of destinations.js; it is here so the ids of nav.json are all in one place.
+export const homeDestination = Object.freeze({ id: 'home', path: '/app', icon: 'home', labelKey: 'items.home' })
+
+// The entries nav.json can move, rename and hide, in the order the sidebar
+// shows them without a nav.json. Its ids are the ones the server lists
+// (NavBuiltinIDs in Go).
+export const navBuiltins = Object.freeze([homeDestination, ...primaryDestinations])
 
 // `features` is the /api/features map. An absent `addons` key (an older server)
 // counts as on; only an explicit false hides the Add-ons entry.

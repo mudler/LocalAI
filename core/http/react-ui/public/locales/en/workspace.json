@@ -354,6 +354,60 @@
       "pickFailed": "The folder could not be read.",
       "pickEmpty": "No pictures or folders here.",
       "pickClose": "Close"
+    },
+    "nav": {
+      "title": "Navigation",
+      "lede": "Reorder, rename, hide or group the sidebar. Drag a row, or use the arrows. Changes show on the right at once.",
+      "preview": "Live preview",
+      "discard": "Discard changes",
+      "saved": "Saved.",
+      "storedIn": "Stored in",
+      "reset": "Reset to default",
+      "fixed": "New chat, Chats, settings and the search are always shown.",
+      "homeFixed": "Home always stays.",
+      "hide": "Hide {{name}}",
+      "show": "Show {{name}}",
+      "drag": "Move {{name}} (drag, or use the arrow keys)",
+      "name": "Name of {{name}}",
+      "was": "was {{name}}",
+      "moveUp": "Move {{name}} up",
+      "moveDown": "Move {{name}} down",
+      "remove": "Remove {{name}}",
+      "addLink": "Add link",
+      "addGroup": "Add group",
+      "newGroup": "New group",
+      "missing": "missing",
+      "missingHint": "This {{kind}} no longer exists. The sidebar skips it.",
+      "unavailable": "not shown to you",
+      "unavailableHint": "Your account or this server does not show this entry yet.",
+      "tag": {
+        "builtin": "built in",
+        "group": "group",
+        "page": "page",
+        "chat": "chat",
+        "url": "link"
+      },
+      "add": {
+        "page": "Page",
+        "pageHint": "One of your pages",
+        "chat": "Chat",
+        "chatHint": "Pin a conversation",
+        "url": "URL",
+        "urlHint": "Opens in a new tab",
+        "address": "Address",
+        "name": "Name (optional)",
+        "confirm": "Add",
+        "back": "Back",
+        "urlInvalid": "Use an http or https address without a user name.",
+        "pick": {
+          "page": "Choose a page",
+          "chat": "Choose a chat"
+        },
+        "none": {
+          "page": "You have no pages to add.",
+          "chat": "There are no chats to add."
+        }
+      }
     }
   },
   "discovery": {

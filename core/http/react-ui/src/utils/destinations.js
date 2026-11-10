@@ -2,7 +2,7 @@
 // on what exists and who may see it. Each hub is one destination, opening on
 // its overview; it is listed only when the viewer can see a tab in it.
 import { hubs, hubEntryPath } from '../components/hub/hubConfig'
-import { allChatsDestination, primaryDestinations, visiblePrimary } from './navigationModel.js'
+import { allChatsDestination, homeDestination, primaryDestinations, visiblePrimary } from './navigationModel.js'
 
 // Studio and Talk are add-ons: they are listed in the Add-ons drawer when they
 // are installed, not here.
@@ -10,7 +10,7 @@ import { allChatsDestination, primaryDestinations, visiblePrimary } from './navi
 // that hub used to hold: agents, connections, memory and skills. The add-ons drawer
 // is the legacy Add-ons hub (hubConfig.js).
 export const topDestinations = [
-  { path: '/app', icon: 'home', labelKey: 'items.home' },
+  homeDestination,
   { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
   allChatsDestination,
   { path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents' },

@@ -256,6 +256,60 @@
       "pickFailed": "无法读取该文件夹。",
       "pickEmpty": "这里没有图片或文件夹。",
       "pickClose": "关闭"
+    },
+    "nav": {
+      "title": "导航",
+      "lede": "重新排序、重命名、隐藏或分组侧边栏。拖动一行，或使用箭头键。更改会立即显示在右侧。",
+      "preview": "实时预览",
+      "discard": "放弃更改",
+      "saved": "已保存。",
+      "storedIn": "存储于",
+      "reset": "恢复默认",
+      "fixed": "新建聊天、聊天、设置和搜索始终显示。",
+      "homeFixed": "首页始终保留。",
+      "hide": "隐藏 {{name}}",
+      "show": "显示 {{name}}",
+      "drag": "移动 {{name}}（拖动，或使用方向键）",
+      "name": "{{name}} 的名称",
+      "was": "原名 {{name}}",
+      "moveUp": "上移 {{name}}",
+      "moveDown": "下移 {{name}}",
+      "remove": "移除 {{name}}",
+      "addLink": "添加链接",
+      "addGroup": "添加分组",
+      "newGroup": "新分组",
+      "missing": "已失效",
+      "missingHint": "此{{kind}}已不存在，侧边栏会跳过它。",
+      "unavailable": "未向你显示",
+      "unavailableHint": "你的账户或此服务器尚未显示此条目。",
+      "tag": {
+        "builtin": "内置",
+        "group": "分组",
+        "page": "页面",
+        "chat": "聊天",
+        "url": "链接"
+      },
+      "add": {
+        "page": "页面",
+        "pageHint": "你的页面之一",
+        "chat": "聊天",
+        "chatHint": "固定一个对话",
+        "url": "网址",
+        "urlHint": "在新标签页中打开",
+        "address": "地址",
+        "name": "名称（可选）",
+        "confirm": "添加",
+        "back": "返回",
+        "urlInvalid": "请使用不含用户名的 http 或 https 地址。",
+        "pick": {
+          "page": "选择页面",
+          "chat": "选择聊天"
+        },
+        "none": {
+          "page": "没有可添加的页面。",
+          "chat": "没有可添加的聊天。"
+        }
+      }
     }
   },
   "discovery": {

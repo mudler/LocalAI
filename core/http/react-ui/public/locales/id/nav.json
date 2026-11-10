@@ -134,5 +134,7 @@
   "inboxOpsFailed_one": "{{count}} operasi gagal",
   "inboxOpsFailed_other": "{{count}} operasi gagal",
   "inboxOpsFailedAnnounce": "Sebuah operasi gagal. Lihat tab Aktivitas di Notifikasi.",
-  "activityEntry": "Aktivitas"
+  "activityEntry": "Aktivitas",
+  "navLinkExternal": "Membuka {{site}} di tab baru setelah Anda konfirmasi",
+  "navLinkAsk": "Buka tautan ini?"
 }

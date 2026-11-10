@@ -179,7 +179,7 @@ export default function App() {
                   content area isn't blank while a chunk arrives (hub pages get
                   their own boundary in HubLayout so the tab bar stays put). */}
               <Suspense fallback={<RouteFallback />}>
-                <Outlet context={{ addToast }} />
+                <Outlet context={{ addToast, features }} />
               </Suspense>
             </div>
           </div>

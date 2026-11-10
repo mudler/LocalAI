@@ -765,3 +765,176 @@ var _ = Describe("the chat background of ui.json", func() {
 		Expect(doc.Data).To(HaveKeyWithValue("chatBackground", map[string]any{"color": "#112233"}))
 	})
 })
+
+var _ = Describe("the sidebar order of nav.json", func() {
+	ctx := context.Background()
+	check := func(items ...any) []string {
+		if items == nil {
+			items = []any{}
+		}
+		data, err := json.Marshal(map[string]any{"items": items})
+		Expect(err).NotTo(HaveOccurred())
+		_, errs := wellknown.Validate(wellknown.Nav, data)
+		return errs
+	}
+	item := func(kv ...any) map[string]any {
+		m := map[string]any{}
+		for i := 0; i < len(kv); i += 2 {
+			m[kv[i].(string)] = kv[i+1]
+		}
+		return m
+	}
+
+	It("is a well-known file at LocalAI/nav.json", func() {
+		n, err := wellknown.Parse("nav")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(wellknown.Nav))
+		Expect(wellknown.File(wellknown.Nav)).To(Equal("/LocalAI/nav.json"))
+	})
+
+	It("lists the built-in ids in its schema, the same as the server", func() {
+		data, err := wellknown.Schema(wellknown.Nav)
+		Expect(err).NotTo(HaveOccurred())
+		var top struct {
+			IDs []string `json:"x-builtin-ids"`
+		}
+		Expect(json.Unmarshal(data, &top)).To(Succeed())
+		Expect(top.IDs).To(Equal(wellknown.NavBuiltinIDs))
+	})
+
+	It("has no way to name New chat, Chats, settings or the search", func() {
+		Expect(wellknown.NavBuiltinIDs).NotTo(ContainElements("new-chat", "chats", "settings", "palette", "search", "operate"))
+	})
+
+	It("accepts built-in entries, groups and the three kinds of link", func() {
+		Expect(check(
+			item("id", "home"),
+			item("id", "agents", "hidden", true),
+			item("id", "skills", "label", "Recipes"),
+			item("group", "Create"),
+			item("type", "page", "page", "task-board", "label", "Board", "icon", "file-code"),
+			item("type", "chat", "chat", "c_8f2a", "label", "Gate repair"),
+			item("type", "url", "url", "https://localai.io/docs", "label", "Docs"),
+		)).To(BeEmpty())
+		Expect(check()).To(BeEmpty())
+	})
+
+	It("keeps keys it does not know on an item", func() {
+		Expect(check(item("id", "files", "x_future", 1))).To(BeEmpty())
+	})
+
+	DescribeTable("refuses a bad list",
+		func(items []any, want string) {
+			Expect(check(items...)).To(ContainElement(ContainSubstring(want)))
+		},
+		Entry("an item with nothing in it", []any{item("label", "x")}, "exactly one of id"),
+		Entry("an item that is a built-in entry and a group", []any{item("id", "home", "group", "x")}, "exactly one of id"),
+		Entry("a page link without a page", []any{item("type", "page")}, "needs \"page\""),
+		Entry("a url link without an address", []any{item("type", "url")}, "needs \"url\""),
+		Entry("a page that is not a page name", []any{item("type", "page", "page", "../x")}, "is not a page name"),
+		Entry("a javascript address", []any{item("type", "url", "url", "javascript:alert(1)")}, "http or https"),
+		Entry("an address with a password", []any{item("type", "url", "url", "https://me:pw@example.com/")}, "http or https"),
+		Entry("a relative address", []any{item("type", "url", "url", "/app/models")}, "http or https"),
+		Entry("a link type that does not exist", []any{item("type", "file", "file", "a")}, "items"),
+		Entry("hidden that is not a boolean", []any{item("id", "files", "hidden", "yes")}, "items"),
+		Entry("a label of 41 characters", []any{item("id", "files", "label", strings.Repeat("l", 41))}, "items"),
+		Entry("an empty label", []any{item("id", "files", "label", "")}, "items"),
+		Entry("an id in capitals", []any{item("id", "Files")}, "items"),
+		Entry("a built-in entry twice", []any{item("id", "files"), item("id", "files", "hidden", true)}, "same entry as items[0]"),
+		Entry("a group title twice", []any{item("group", "A"), item("group", "A")}, "same entry as items[0]"),
+		Entry("the same link twice", []any{item("type", "chat", "chat", "c1"), item("type", "chat", "chat", "c1", "label", "x")}, "same entry as items[0]"),
+	)
+
+	It("allows the same title for a group and a label of a built-in entry", func() {
+		Expect(check(item("group", "files"), item("id", "files", "label", "files"))).To(BeEmpty())
+	})
+
+	It("refuses 61 items, 13 groups and 31 links, and accepts the limits", func() {
+		var many []any
+		for i := range 60 {
+			many = append(many, item("group", fmt.Sprintf("g%d", i)))
+		}
+		Expect(check(many...)).To(ContainElement(ContainSubstring("at most 12 groups")))
+		many = nil
+		for i := range 31 {
+			many = append(many, item("type", "chat", "chat", fmt.Sprintf("c%d", i)))
+		}
+		Expect(check(many...)).To(ContainElement(ContainSubstring("at most 30 custom links")))
+		many = nil
+		for i := range 61 {
+			many = append(many, item("type", "page", "page", fmt.Sprintf("p%d", i)))
+		}
+		Expect(check(many...)).To(ContainElement(ContainSubstring("at most 60 items")))
+		many = nil
+		for i := range 12 {
+			many = append(many, item("group", fmt.Sprintf("g%d", i)))
+		}
+		for i := range 30 {
+			many = append(many, item("type", "chat", "chat", fmt.Sprintf("c%d", i)))
+		}
+		for _, id := range wellknown.NavBuiltinIDs {
+			many = append(many, item("id", id))
+		}
+		Expect(check(many...)).To(BeEmpty())
+	})
+
+	DescribeTable("NavURLOK",
+		func(u string, want bool) { Expect(wellknown.NavURLOK(u)).To(Equal(want)) },
+		Entry("https", "https://localai.io/docs?a=1#b", true),
+		Entry("http with a port", "http://localhost:8080/", true),
+		Entry("an app path", "/app/files", false),
+		Entry("a data address", "data:text/html,x", false),
+		Entry("a user name", "https://a@b.com/", false),
+		Entry("no host", "https:///x", false),
+		Entry("a space", "https://a.com/a b", false),
+		Entry("a backslash", `https://a.com\b`, false),
+		Entry("empty", "", false),
+	)
+
+	It("saves from the editor, keeps the other keys and the order, and removes the list when cleared", func() {
+		s, f := newService()
+		raw(f, alice, "/LocalAI/nav.json", `{"items":[{"id":"files"}],"x_note":"kept"}`)
+		items := []any{map[string]any{"id": "skills", "label": "Recipes"}, map[string]any{"group": "Tools"}, map[string]any{"id": "files", "hidden": true}}
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Nav, Values: map[string]any{"items": items}})
+		Expect(err).NotTo(HaveOccurred())
+		on := readRaw(f, alice, "/LocalAI/nav.json")
+		Expect(on).To(HaveKeyWithValue("x_note", "kept"))
+		Expect(on["items"]).To(Equal(items))
+
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Nav, Values: map[string]any{"items": nil}})
+		Expect(err).To(HaveOccurred(), "items is required, so a save that removes it leaves an invalid file")
+	})
+
+	It("refuses a write with an address that is not http or https and leaves the file as it was", func() {
+		s, f := newService()
+		raw(f, alice, "/LocalAI/nav.json", `{"items":[{"id":"files"}]}`)
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Nav, Values: map[string]any{
+			"items": []any{map[string]any{"type": "url", "url": "javascript:alert(1)"}},
+		}})
+		var invalid *wellknown.InvalidError
+		Expect(errors.As(err, &invalid)).To(BeTrue())
+		Expect(readRaw(f, alice, "/LocalAI/nav.json")["items"]).To(Equal([]any{map[string]any{"id": "files"}}))
+	})
+
+	It("shows the last good version when the assistant writes a broken list", func() {
+		s, f := newService()
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Nav, Values: map[string]any{"items": []any{map[string]any{"id": "files"}}}})
+		Expect(err).NotTo(HaveOccurred())
+		raw(f, alice, "/LocalAI/nav.json", `{"items":[{"id":"files"},{"id":"files"}]}`)
+		doc, err := s.Read(ctx, alice, wellknown.Nav, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Valid).To(BeFalse())
+		Expect(doc.Fallback).To(BeTrue())
+		Expect(doc.Errors).To(ContainElement(ContainSubstring("same entry")))
+		Expect(doc.Data["items"]).To(Equal([]any{map[string]any{"id": "files"}}))
+	})
+
+	It("is not adopted from the top of the home: a file there belongs to the user", func() {
+		s, f := newService()
+		raw(f, alice, "/nav.json", `{"items":[{"id":"files"}]}`)
+		s.AdoptTopLevelFiles(ctx, alice)
+		doc, err := s.Read(ctx, alice, wellknown.Nav, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Exists).To(BeFalse())
+	})
+})

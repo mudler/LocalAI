@@ -1,7 +1,7 @@
 // Package wellknown reads and writes the files in a user's home that change how
 // LocalAI looks and behaves for that user: persona.json, user.json,
-// shortcuts.json, setups.json, defaults.json, home.json and ui.json in the
-// LocalAI/ folder,
+// shortcuts.json, setups.json, defaults.json, home.json, ui.json and nav.json
+// in the LocalAI/ folder,
 // and the data files that Home widgets read. Each has a JSON Schema. The
 // schemas live in the built-in skill localai-workspace, so the server
 // validates with the same text that the assistant reads.
@@ -37,6 +37,7 @@ const (
 	Defaults   Name = "defaults"
 	Home       Name = "home"
 	UI         Name = "ui"
+	Nav        Name = "nav"
 	WidgetData Name = "widget-data" // a data file a Home widget reads; it has no fixed path
 )
 
@@ -49,7 +50,7 @@ const MaxSize = 64 << 10
 // ErrUnknown means the name is not a well-known file.
 var ErrUnknown = errors.New("wellknown: not a well-known file")
 
-var names = []Name{Persona, User, Shortcuts, Setups, Defaults, Home, UI, WidgetData}
+var names = []Name{Persona, User, Shortcuts, Setups, Defaults, Home, UI, Nav, WidgetData}
 
 // Names lists the kinds of well-known files.
 func Names() []Name { return append([]Name(nil), names...) }
@@ -170,6 +171,11 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 	if n == Defaults {
 		errs = append(errs, defaultsErrors(obj)...)
 	}
+	if n == Nav {
+		// The schema types the fields; these say what is wrong with the
+		// list as a whole, in words that tell the writer what to change.
+		errs = append(errs, navErrors(obj)...)
+	}
 	if n == Setups {
 		// JSON Schema cannot say that ids are unique or that default names one.
 		errs = append(errs, setupErrors(obj)...)
@@ -256,6 +262,121 @@ func setupErrors(obj map[string]any) []string {
 		if _, ok := seen[d]; !ok {
 			out = append(out, fmt.Sprintf("default: %q is not the id of a setup; use one of the ids in setups, or leave default out", clip(d, 80)))
 		}
+	}
+	return out
+}
+
+// NavBuiltinIDs are the sidebar entries nav.json can move, rename and hide, in
+// the order the sidebar shows them without a nav.json. The server fixes the
+// list: an id that is not here is ignored by the sidebar, so a file written
+// for a newer or an older version still loads. New chat, Chats, the settings
+// entries and the search are not here on purpose: nav.json cannot touch them.
+var NavBuiltinIDs = []string{"home", "files", "pages", "agents", "connections", "memory", "skills", "models", "addons"}
+
+// The bounds of nav.json: the whole list, the groups in it and the custom links.
+const (
+	MaxNavItems  = 60
+	MaxNavGroups = 12
+	MaxNavLinks  = 30
+)
+
+// NavURLOK says whether u may be the address of a custom link: an http or
+// https address with a host and no user name or password. The sidebar asks the
+// person before it opens one.
+func NavURLOK(u string) bool {
+	if u == "" || len(u) > 2048 || strings.ContainsAny(u, " \t\n\r\f\v\\") {
+		return false
+	}
+	for _, scheme := range []string{"https://", "http://"} {
+		if rest, ok := strings.CutPrefix(u, scheme); ok {
+			host, _, _ := strings.Cut(rest, "/")
+			host, _, _ = strings.Cut(host, "?")
+			host, _, _ = strings.Cut(host, "#")
+			return host != "" && !strings.Contains(host, "@")
+		}
+	}
+	return false
+}
+
+// navKey names an item of nav.json the way the editor merges lists: a built-in
+// by its id, a group by its title, a link by what it points at. "" is an item
+// that is none of these.
+func navKey(m map[string]any) string {
+	if id, ok := m["id"].(string); ok && id != "" {
+		return "id:" + id
+	}
+	if g, ok := m["group"].(string); ok && g != "" {
+		return "group:" + g
+	}
+	if t, ok := m["type"].(string); ok {
+		if target, ok := m[t].(string); ok && target != "" {
+			return "link:" + t + ":" + target
+		}
+	}
+	return ""
+}
+
+// navErrors says, in words, what the schema cannot: an item must be exactly one
+// of a built-in entry, a group or a link; a link needs the field of its type;
+// no item may appear twice; the list has bounds.
+func navErrors(obj map[string]any) []string {
+	list, _ := obj["items"].([]any)
+	seen := make(map[string]int, len(list))
+	var out []string
+	groups, links := 0, 0
+	for i, it := range list {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		kinds := 0
+		for _, k := range []string{"id", "group", "type"} {
+			if _, has := m[k]; has {
+				kinds++
+			}
+		}
+		if kinds != 1 {
+			out = append(out, fmt.Sprintf("items[%d]: an item has exactly one of id (a built-in entry), group (a section title) or type (a link to a page, a chat or an address)", i))
+			continue
+		}
+		if g, has := m["group"]; has && g != "" {
+			groups++
+		}
+		if t, has := m["type"]; has {
+			links++
+			ts, _ := t.(string)
+			target, _ := m[ts].(string)
+			if ts == "page" || ts == "chat" || ts == "url" {
+				if target == "" {
+					out = append(out, fmt.Sprintf("items[%d]: a link of type %q needs %q, the %s it opens", i, ts, ts, map[string]string{"page": "name of a page", "chat": "id of a chat", "url": "http or https address"}[ts]))
+					continue
+				}
+			}
+			if ts == "page" && !pageNameRE.MatchString(target) {
+				out = append(out, fmt.Sprintf("items[%d].page: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", i, clip(target, 80)))
+			}
+			if ts == "url" && !NavURLOK(target) {
+				out = append(out, fmt.Sprintf("items[%d].url: %q is not an http or https address without a user name; a link that opens a site needs one, such as https://localai.io/docs", i, clip(target, 80)))
+			}
+		}
+		key := navKey(m)
+		if key == "" {
+			continue
+		}
+		if j, dup := seen[key]; dup {
+			out = append(out, fmt.Sprintf("items[%d]: the same entry as items[%d] (%s); list each entry once", i, j, key))
+			continue
+		}
+		seen[key] = i
+	}
+	if len(list) > MaxNavItems {
+		out = append(out, fmt.Sprintf("items: the sidebar takes at most %d items; this list has %d", MaxNavItems, len(list)))
+	}
+	if groups > MaxNavGroups {
+		out = append(out, fmt.Sprintf("items: at most %d groups; this list has %d", MaxNavGroups, groups))
+	}
+	if links > MaxNavLinks {
+		out = append(out, fmt.Sprintf("items: at most %d custom links; this list has %d", MaxNavLinks, links))
 	}
 	return out
 }

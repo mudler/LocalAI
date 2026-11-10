@@ -256,6 +256,60 @@
       "pickFailed": "Der Ordner konnte nicht gelesen werden.",
       "pickEmpty": "Hier sind keine Bilder oder Ordner.",
       "pickClose": "Schließen"
+    },
+    "nav": {
+      "title": "Navigation",
+      "lede": "Seitenleiste umsortieren, umbenennen, ausblenden oder gruppieren. Zeile ziehen oder die Pfeile benutzen. Änderungen erscheinen rechts sofort.",
+      "preview": "Live-Vorschau",
+      "discard": "Änderungen verwerfen",
+      "saved": "Gespeichert.",
+      "storedIn": "Gespeichert in",
+      "reset": "Auf Standard zurücksetzen",
+      "fixed": "Neuer Chat, Chats, Einstellungen und die Suche werden immer angezeigt.",
+      "homeFixed": "Start bleibt immer sichtbar.",
+      "hide": "{{name}} ausblenden",
+      "show": "{{name}} einblenden",
+      "drag": "{{name}} verschieben (ziehen oder Pfeiltasten)",
+      "name": "Name von {{name}}",
+      "was": "war {{name}}",
+      "moveUp": "{{name}} nach oben",
+      "moveDown": "{{name}} nach unten",
+      "remove": "{{name}} entfernen",
+      "addLink": "Link hinzufügen",
+      "addGroup": "Gruppe hinzufügen",
+      "newGroup": "Neue Gruppe",
+      "missing": "fehlt",
+      "missingHint": "Dieses Ziel ({{kind}}) gibt es nicht mehr. Die Seitenleiste überspringt es.",
+      "unavailable": "für dich nicht sichtbar",
+      "unavailableHint": "Dein Konto oder dieser Server zeigt diesen Eintrag noch nicht an.",
+      "tag": {
+        "builtin": "integriert",
+        "group": "Gruppe",
+        "page": "Seite",
+        "chat": "Chat",
+        "url": "Link"
+      },
+      "add": {
+        "page": "Seite",
+        "pageHint": "Eine deiner Seiten",
+        "chat": "Chat",
+        "chatHint": "Eine Unterhaltung anheften",
+        "url": "URL",
+        "urlHint": "Öffnet in einem neuen Tab",
+        "address": "Adresse",
+        "name": "Name (optional)",
+        "confirm": "Hinzufügen",
+        "back": "Zurück",
+        "urlInvalid": "Verwende eine http- oder https-Adresse ohne Benutzernamen.",
+        "pick": {
+          "page": "Seite wählen",
+          "chat": "Chat wählen"
+        },
+        "none": {
+          "page": "Du hast keine Seiten zum Hinzufügen.",
+          "chat": "Es gibt keine Chats zum Hinzufügen."
+        }
+      }
     }
   },
   "discovery": {

@@ -256,6 +256,60 @@
       "pickFailed": "Folder tidak dapat dibaca.",
       "pickEmpty": "Tidak ada gambar atau folder di sini.",
       "pickClose": "Tutup"
+    },
+    "nav": {
+      "title": "Navigasi",
+      "lede": "Urutkan ulang, ganti nama, sembunyikan, atau kelompokkan bilah samping. Seret baris atau pakai tombol panah. Perubahan langsung terlihat di kanan.",
+      "preview": "Pratinjau langsung",
+      "discard": "Buang perubahan",
+      "saved": "Tersimpan.",
+      "storedIn": "Disimpan di",
+      "reset": "Setel ulang ke bawaan",
+      "fixed": "Chat baru, Chat, pengaturan, dan pencarian selalu ditampilkan.",
+      "homeFixed": "Beranda selalu tetap ada.",
+      "hide": "Sembunyikan {{name}}",
+      "show": "Tampilkan {{name}}",
+      "drag": "Pindahkan {{name}} (seret, atau pakai tombol panah)",
+      "name": "Nama {{name}}",
+      "was": "sebelumnya {{name}}",
+      "moveUp": "Naikkan {{name}}",
+      "moveDown": "Turunkan {{name}}",
+      "remove": "Hapus {{name}}",
+      "addLink": "Tambah tautan",
+      "addGroup": "Tambah grup",
+      "newGroup": "Grup baru",
+      "missing": "hilang",
+      "missingHint": "{{kind}} ini sudah tidak ada. Bilah samping melewatinya.",
+      "unavailable": "tidak ditampilkan untuk Anda",
+      "unavailableHint": "Akun Anda atau server ini belum menampilkan entri ini.",
+      "tag": {
+        "builtin": "bawaan",
+        "group": "grup",
+        "page": "halaman",
+        "chat": "chat",
+        "url": "tautan"
+      },
+      "add": {
+        "page": "Halaman",
+        "pageHint": "Salah satu halaman Anda",
+        "chat": "Chat",
+        "chatHint": "Sematkan percakapan",
+        "url": "URL",
+        "urlHint": "Dibuka di tab baru",
+        "address": "Alamat",
+        "name": "Nama (opsional)",
+        "confirm": "Tambah",
+        "back": "Kembali",
+        "urlInvalid": "Gunakan alamat http atau https tanpa nama pengguna.",
+        "pick": {
+          "page": "Pilih halaman",
+          "chat": "Pilih chat"
+        },
+        "none": {
+          "page": "Anda tidak punya halaman untuk ditambahkan.",
+          "chat": "Tidak ada chat untuk ditambahkan."
+        }
+      }
     }
   },
   "discovery": {

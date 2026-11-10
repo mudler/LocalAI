@@ -256,6 +256,60 @@
       "pickFailed": "Non è stato possibile leggere la cartella.",
       "pickEmpty": "Qui non ci sono immagini né cartelle.",
       "pickClose": "Chiudi"
+    },
+    "nav": {
+      "title": "Navigazione",
+      "lede": "Riordina, rinomina, nascondi o raggruppa la barra laterale. Trascina una riga o usa le frecce. Le modifiche compaiono subito a destra.",
+      "preview": "Anteprima dal vivo",
+      "discard": "Annulla le modifiche",
+      "saved": "Salvato.",
+      "storedIn": "Salvato in",
+      "reset": "Ripristina predefiniti",
+      "fixed": "Nuova chat, Chat, impostazioni e la ricerca sono sempre visibili.",
+      "homeFixed": "Home resta sempre.",
+      "hide": "Nascondi {{name}}",
+      "show": "Mostra {{name}}",
+      "drag": "Sposta {{name}} (trascina o usa le frecce)",
+      "name": "Nome di {{name}}",
+      "was": "era {{name}}",
+      "moveUp": "Sposta {{name}} su",
+      "moveDown": "Sposta {{name}} giù",
+      "remove": "Rimuovi {{name}}",
+      "addLink": "Aggiungi collegamento",
+      "addGroup": "Aggiungi gruppo",
+      "newGroup": "Nuovo gruppo",
+      "missing": "mancante",
+      "missingHint": "Questo elemento ({{kind}}) non esiste più. La barra laterale lo salta.",
+      "unavailable": "non mostrato per te",
+      "unavailableHint": "Il tuo account o questo server non mostra ancora questa voce.",
+      "tag": {
+        "builtin": "integrata",
+        "group": "gruppo",
+        "page": "pagina",
+        "chat": "chat",
+        "url": "collegamento"
+      },
+      "add": {
+        "page": "Pagina",
+        "pageHint": "Una delle tue pagine",
+        "chat": "Chat",
+        "chatHint": "Fissa una conversazione",
+        "url": "URL",
+        "urlHint": "Si apre in una nuova scheda",
+        "address": "Indirizzo",
+        "name": "Nome (facoltativo)",
+        "confirm": "Aggiungi",
+        "back": "Indietro",
+        "urlInvalid": "Usa un indirizzo http o https senza nome utente.",
+        "pick": {
+          "page": "Scegli una pagina",
+          "chat": "Scegli una chat"
+        },
+        "none": {
+          "page": "Non hai pagine da aggiungere.",
+          "chat": "Non ci sono chat da aggiungere."
+        }
+      }
     }
   },
   "discovery": {

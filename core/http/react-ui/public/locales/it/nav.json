@@ -134,5 +134,7 @@
   "inboxOpsFailed_one": "{{count}} operazione non riuscita",
   "inboxOpsFailed_other": "{{count}} operazioni non riuscite",
   "inboxOpsFailedAnnounce": "Un'operazione non è riuscita. Guarda la scheda Attività nelle notifiche.",
-  "activityEntry": "Attività"
+  "activityEntry": "Attività",
+  "navLinkExternal": "Apre {{site}} in una nuova scheda dopo la conferma",
+  "navLinkAsk": "Aprire questo collegamento?"
 }

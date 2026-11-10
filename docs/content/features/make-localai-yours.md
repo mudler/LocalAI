@@ -27,6 +27,7 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | The model for pictures, speech and other work | "Use kokoro for speech from now on" | `LocalAI/defaults.json` |
 | The widgets on Home | "Show my open tasks on Home" | `LocalAI/home.json` and a data file |
 | The look | "Use the light theme and a compact layout" | `LocalAI/ui.json` |
+| The sidebar | "Hide Agents and rename Skills to Recipes" | `LocalAI/nav.json` |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
 | Updates on a schedule | "Every morning, update this widget" | a trigger you confirm |
 
@@ -429,9 +430,66 @@ theme, so they stay readable over any picture. Keys you add yourself stay in the
 Appearance tab. To remove a background, press **Remove the background** or
 delete its key.
 
+## Navigation
+
+`LocalAI/nav.json`, edited in **Account > Navigation**, sets the order of the
+sidebar: which built-in entries show and in what order, their names, groups with
+a title, and links of your own to one of your pages, to a chat or to a web
+address. Ask the assistant ("move Models under a group called Tools and hide
+Agents") or use the tab: drag a row or use the arrows, rename it in place, hide
+it with the eye, press **Add group** or **Add link**. A live copy of the sidebar
+on the right shows the result as you edit. **Reset to default** is always there.
+Without the file the sidebar is the default one.
+
+```json
+{
+  "items": [
+    { "id": "home" },
+    { "id": "files" },
+    { "type": "chat", "chat": "c_8f2a", "label": "Gate repair" },
+    { "group": "Create" },
+    { "id": "agents", "hidden": true },
+    { "id": "skills", "label": "Recipes" },
+    { "group": "Tools" },
+    { "id": "models" },
+    { "type": "url", "url": "https://localai.io/docs", "label": "Docs" }
+  ]
+}
+```
+
+An item is exactly one of three kinds:
+
+| Item | Meaning |
+|---|---|
+| `{ "id": "files" }` | A built-in entry. `label` renames it, `hidden: true` takes it out. The ids are `home`, `files`, `pages`, `agents`, `connections`, `memory`, `skills`, `models` and `addons`. LocalAI fixes this list: an id it does not know is ignored. |
+| `{ "group": "Create" }` | A section title. The items after it, up to the next group, are listed under it. A group with nothing to show is not drawn. |
+| `{ "type": "page", "page": "task-board" }` | A link of your own. `type` is `page` (a page in `pages/`), `chat` (the id of a chat) or `url` (an `http` or `https` address, with no user name or password). `label` and `icon` are optional. |
+
+Some things never change. New chat, Chats (the recent chats and All chats), the
+settings entries and the search are not items, so the file cannot move, rename
+or hide them. Home can be moved and renamed but not hidden. A built-in entry
+that the list does not name is added after the last item, in the default order,
+so a short list never loses an entry. An entry that your account or this server
+does not offer (for example Models for a user who is not an administrator, or
+Pages while you have no page) stays out of the sidebar whatever the file says.
+The pinned pages stay under **Pages**, and the pinned apps under **Add-ons**; if
+you hide the entry, they go with it.
+
+A link to a page or a chat that no longer exists shows dimmed with "missing" in
+the editor and is skipped in the sidebar; it comes back if the page or chat does.
+A link to a web address asks before it leaves LocalAI, with the same question as
+the links of a page, and opens in a new tab. The list holds at most 60 items, 12
+groups and 30 links. The legacy navigation (`features.addon_navigation` off)
+ignores this file.
+
+When the file has an error, the sidebar keeps the last good version and the
+editor says what is wrong, with **Revert**. A save from the tab merges your edit
+with the file as it is then, item by item, so a change that the assistant made
+while the tab was open is not lost. Keys you add yourself stay in the file.
+
 ## The LocalAI folder
 
-The five settings files live in one visible folder, `LocalAI/`, at the top of
+The settings files live in one visible folder, `LocalAI/`, at the top of
 your home. Your own files stay at the top; **Files** lists them first and puts
 `LocalAI/` and `Chats/` last, under **Managed by LocalAI**, with a short line
 on what each holds. Moving a managed folder or a settings file to the Trash,
@@ -559,7 +617,7 @@ a chat in the **Skills** menu.
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `defaults`, `home`, `ui`, or `widget-data` with `?path=` |
+| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `defaults`, `home`, `ui`, `nav`, or `widget-data` with `?path=` |
 | PUT | `/api/chats/wellknown/{name}` | Changes a file: `{"values": {...}, "replace": false}` |
 | POST | `/api/chats/wellknown/{name}/revert` | Writes the previous valid version back, or the version `{"rev": N}` |
 | GET | `/api/chats/wellknown/{name}/versions` | The versions of the file, newest first: `rev`, `at`, `kind` (`user` or `agent`), `chat` and `chat_title`, and `data` when valid |

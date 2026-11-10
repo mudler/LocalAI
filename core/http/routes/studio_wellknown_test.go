@@ -192,6 +192,17 @@ var _ = Describe("Chats well-known files endpoints", func() {
 		Expect(rec.Body.String()).To(ContainSubstring("own id"))
 	})
 
+	It("answers a sidebar list with a link that is not http or https, in words", func() {
+		bad := map[string]any{"values": map[string]any{"items": []any{
+			map[string]any{"type": "url", "url": "javascript:alert(1)"},
+		}}}
+		rec := put("alice", "nav", "", bad)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("http or https"))
+		ok := map[string]any{"values": map[string]any{"items": []any{map[string]any{"id": "files", "hidden": true}}}}
+		Expect(put("alice", "nav", "", ok).Code).To(Equal(http.StatusOK))
+	})
+
 	It("serves the schema of each file and 404 for an unknown one", func() {
 		for _, name := range wellknown.Names() {
 			n := string(name)

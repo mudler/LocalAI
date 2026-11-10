@@ -163,3 +163,29 @@
   .sidebar.collapsed .sidebar-chats__head { display: flex; }
   .sidebar.collapsed .nav-item--sub.nav-chat { display: flex; }
 }
+
+/* A link of nav.json to an address: a button that looks like an entry. */
+.nav-item--link {
+  /* The entries keep an 8px margin on each side (App.css); a button has to be told. */
+  width: calc(100% - 2 * var(--spacing-sm));
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-item--link .nav-external { margin-left: auto; }
+.sidebar.collapsed .nav-item--link .nav-external { display: none; }
+
+/* The question before an address of nav.json opens: over the page, at the
+   bottom left, so it fits whether the rail is open, collapsed or a drawer. */
+.nav-linkask {
+  position: fixed;
+  left: var(--spacing-md);
+  bottom: var(--spacing-md);
+  z-index: 1000;
+  width: min(440px, calc(100vw - 2 * var(--spacing-md)));
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+}

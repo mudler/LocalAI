@@ -137,5 +137,7 @@
   "inboxOpsFailed_one": "{{count}} opération a échoué",
   "inboxOpsFailed_other": "{{count}} opérations ont échoué",
   "inboxOpsFailedAnnounce": "Une opération a échoué. Voir l'onglet Activité dans les notifications.",
-  "activityEntry": "Activité"
+  "activityEntry": "Activité",
+  "navLinkExternal": "Ouvre {{site}} dans un nouvel onglet après confirmation",
+  "navLinkAsk": "Ouvrir ce lien ?"
 }

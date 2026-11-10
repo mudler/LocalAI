@@ -6,6 +6,7 @@ import { applyAppearance } from './AppearanceSync'
 import { useTheme } from '../../contexts/ThemeContext'
 import ShortcutsEditor from './ShortcutsEditor'
 import HelpCard from './HelpCard'
+import NavigationEditor from './NavigationEditor'
 import Icon from '../Icon'
 
 function browserLanguage() {
@@ -70,6 +71,15 @@ export function AppearanceTab() {
   return (
     <div className="wk-grid wk-grid--one" data-testid="account-appearance">
       <WellKnownCard name="ui" title={t('wellKnown.ui.title')} lede={t('wellKnown.ui.lede')} onChange={onChange} onSaved={onSaved} prefill={prefill} />
+    </div>
+  )
+}
+
+// The Account tab "Navigation": nav.json, the order and names of the sidebar.
+export function NavigationTab() {
+  return (
+    <div className="wk-grid wk-grid--wide" data-testid="account-navigation">
+      <NavigationEditor />
     </div>
   )
 }

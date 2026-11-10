@@ -133,5 +133,7 @@
   "inboxOpsFailed_one": "{{count}} operation failed",
   "inboxOpsFailed_other": "{{count}} operations failed",
   "inboxOpsFailedAnnounce": "An operation failed. See the Activity tab in Notifications.",
-  "activityEntry": "Activity"
+  "activityEntry": "Activity",
+  "navLinkExternal": "Opens {{site}} in a new tab after you confirm",
+  "navLinkAsk": "Open this link?"
 }

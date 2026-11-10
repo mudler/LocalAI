@@ -256,6 +256,60 @@
       "pickFailed": "폴더를 읽을 수 없습니다.",
       "pickEmpty": "이미지나 폴더가 없습니다.",
       "pickClose": "닫기"
+    },
+    "nav": {
+      "title": "탐색",
+      "lede": "사이드바의 순서를 바꾸고, 이름을 바꾸고, 숨기거나 묶을 수 있습니다. 행을 끌거나 화살표를 사용하세요. 변경 내용은 오른쪽에 바로 표시됩니다.",
+      "preview": "실시간 미리보기",
+      "discard": "변경 취소",
+      "saved": "저장했습니다.",
+      "storedIn": "저장 위치",
+      "reset": "기본값으로 되돌리기",
+      "fixed": "새 채팅, 채팅, 설정, 검색은 항상 표시됩니다.",
+      "homeFixed": "홈은 항상 유지됩니다.",
+      "hide": "{{name}} 숨기기",
+      "show": "{{name}} 표시",
+      "drag": "{{name}} 이동 (끌거나 화살표 키 사용)",
+      "name": "{{name}} 이름",
+      "was": "이전 이름: {{name}}",
+      "moveUp": "{{name}} 위로 이동",
+      "moveDown": "{{name}} 아래로 이동",
+      "remove": "{{name}} 제거",
+      "addLink": "링크 추가",
+      "addGroup": "그룹 추가",
+      "newGroup": "새 그룹",
+      "missing": "없음",
+      "missingHint": "이 {{kind}}은(는) 더 이상 없습니다. 사이드바에서 건너뜁니다.",
+      "unavailable": "내게 표시되지 않음",
+      "unavailableHint": "내 계정이나 이 서버에서는 아직 이 항목을 표시하지 않습니다.",
+      "tag": {
+        "builtin": "기본",
+        "group": "그룹",
+        "page": "페이지",
+        "chat": "채팅",
+        "url": "링크"
+      },
+      "add": {
+        "page": "페이지",
+        "pageHint": "내 페이지 중 하나",
+        "chat": "채팅",
+        "chatHint": "대화 고정",
+        "url": "URL",
+        "urlHint": "새 탭에서 열기",
+        "address": "주소",
+        "name": "이름(선택)",
+        "confirm": "추가",
+        "back": "뒤로",
+        "urlInvalid": "사용자 이름 없는 http 또는 https 주소를 사용하세요.",
+        "pick": {
+          "page": "페이지 선택",
+          "chat": "채팅 선택"
+        },
+        "none": {
+          "page": "추가할 페이지가 없습니다.",
+          "chat": "추가할 채팅이 없습니다."
+        }
+      }
     }
   },
   "discovery": {

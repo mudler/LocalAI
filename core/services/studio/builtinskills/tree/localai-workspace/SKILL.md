@@ -18,6 +18,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
 | `LocalAI/home.json` | `{"widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `type` is `list`, `metric`, `chats` or `page`. `trigger` is set by LocalAI when the user confirms the trigger that feeds the widget. A `page` widget names a page (`page`, its folder name; `folder` only for a page of a shared folder) and may leave out `title`; at most 3 page widgets. |
 | `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `defaultModel`, `homeBackground` (the background of the Home page only) and `chatBackground` (the background of the chat view only); see "Backgrounds" below. |
+| `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 
 Rules:
 
@@ -26,6 +27,10 @@ Rules:
 - A script, a draft or test data that you make on the way goes in the chat's work folder that the prompt or the note of the turn names (`/workspace/home/Chats/<chat>/work/`), not in `LocalAI/` or at the top of the home.
 - After a change, tell the user in one line what changed and where they see it ("I saved your shortcut. It shows above the message box.").
 - A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`, and reading files next to the page with `fetch('data.json')` works. To build one, use the `localai-apps` skill.
+
+## Sidebar
+
+`LocalAI/nav.json` lists items in order; each is one of `{"id": "files", "label"?: "Docs", "hidden"?: true}` (a built-in entry: `home`, `files`, `pages`, `agents`, `connections`, `memory`, `skills`, `models`, `addons`; Home cannot be hidden), `{"group": "Create"}` (a title for the items after it) or a link `{"type": "page", "page": "<name>"}`, `{"type": "chat", "chat": "<id>"}`, `{"type": "url", "url": "https://..."}` with optional `label`. New chat, Chats, settings and the search always show; do not try to move them. An entry left out is added at the end; a gone page or chat is skipped; an address asks the person first. Keep the other items and keys. `{"items": []}` is the default; see `schemas/nav.schema.json`.
 
 ## Backgrounds
 

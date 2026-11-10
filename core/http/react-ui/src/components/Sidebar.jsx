@@ -23,6 +23,9 @@ import { usePages } from '../hooks/usePages'
 import { useSharedPages } from '../hooks/useSharedPages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import { useNewLabel } from './wellknown/useNewLabel'
+import SidebarNavLink from './SidebarNavLinks'
+import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
+import { sections as navSections } from '../utils/nav'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -45,9 +48,9 @@ const sections = [
   { id: 'workspace', titleKey: 'sections.workspace', hubs: true },
 ]
 
-function NavItem({ item, onClose, collapsed, active, badge }) {
+function NavItem({ item, onClose, collapsed, active, badge, label: custom }) {
   const { t } = useTranslation('nav')
-  const label = t(item.labelKey)
+  const label = custom || t(item.labelKey)
   // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
   // before the synthetic click on mobile; mouseenter/focus cover desktop and
   // keyboard. The underlying import() is memoised so multiple triggers are free.
@@ -196,6 +199,15 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   const pagesNew = useNewLabel('pages', { enabled: hasPages, visiting: location.pathname.startsWith('/app/pages') })
   const navAuth = { isAdmin, hasFeature, hasBuiltin, features, hasPages }
   const primary = visiblePrimary(primaryDestinations, navAuth)
+  // nav.json: the order, names and hidden entries the user chose. With no file
+  // (or an empty list) the sidebar below is the default one, as before.
+  const { items: navItems } = useNavConfig(!legacy)
+  const customNav = !legacy && navItems.length > 0
+  const navLinks = useNavLinks(navItems, { pagesOn, enabled: customNav })
+  const topEntries = [...visibleTopItems.filter(i => i.path === '/app'), ...primary]
+  const navSectionList = customNav
+    ? navSections(navItems, { available: new Set(topEntries.map(i => i.id)), linkStatus: navLinks.status })
+    : null
 
   // One badge, on the always-visible sidebar entry. The Operate tab bar only
   // exists while the user is on an Operate route, so badging a tab instead
@@ -271,11 +283,12 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
         {/* Navigation */}
         <nav className="sidebar-nav">
           {/* Top-level items */}
-          <div className="sidebar-section">
-            {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
+          {/* One entry of the primary layout, as the default order and nav.json draw it. */}
+          {(() => {
+            const renderTop = (item, label) => (
               <Fragment key={item.path}>
                 <NavItem
-                  item={item} onClose={onClose} collapsed={collapsed}
+                  item={item} onClose={onClose} collapsed={collapsed} label={label}
                   active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)}
                   badge={item.pagesEntry && pagesNew && !collapsed ? <span className="nav-new" data-testid="nav-pages-new">{t('new')}</span> : undefined}
                 />
@@ -284,8 +297,32 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
                 {/* Pinned pages, in pin order, under the Pages entry. */}
                 {item.pagesEntry && !collapsed && <PagesPinnedLinks pages={pages} onClose={onClose} />}
               </Fragment>
-            ))}
-          </div>
+            )
+            if (!navSectionList) {
+              return (
+                <div className="sidebar-section">
+                  {(legacy ? visibleTopItems : topEntries).map(item => renderTop(item))}
+                </div>
+              )
+            }
+            const byId = new Map(topEntries.map(i => [i.id, i]))
+            return navSectionList.map(sec => (
+              <div
+                key={sec.key} className="sidebar-section" data-testid="nav-section"
+                {...(sec.group ? { role: 'group', 'aria-label': sec.group } : {})}
+              >
+                {sec.group && <div className="sidebar-section-title" data-testid="nav-group">{sec.group}</div>}
+                {sec.entries.map(e => e.kind === 'builtin'
+                  ? renderTop(byId.get(e.id), e.label)
+                  : (
+                    <SidebarNavLink
+                      key={e.key} item={e.item} collapsed={collapsed} onClose={onClose}
+                      label={navLinks.title(e.item)} icon={navLinks.icon(e.item)}
+                    />
+                  ))}
+              </div>
+            ))
+          })()}
 
           {/* Recent chats, New chat and All chats. */}
           {!legacy && hasFeature('chats') && features.chats !== false && (

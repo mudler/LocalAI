@@ -134,5 +134,7 @@
   "inboxOpsFailed_one": "작업 {{count}}개 실패",
   "inboxOpsFailed_other": "작업 {{count}}개 실패",
   "inboxOpsFailedAnnounce": "작업이 실패했습니다. 알림의 활동 탭을 확인하세요.",
-  "activityEntry": "활동"
+  "activityEntry": "활동",
+  "navLinkExternal": "확인하면 {{site}}을(를) 새 탭에서 엽니다",
+  "navLinkAsk": "이 링크를 열까요?"
 }

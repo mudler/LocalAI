@@ -106,9 +106,9 @@ func (h *Handlers) answerDoc(c echo.Context, d wellknown.Doc) error {
 
 // GetWellKnown reads a well-known file.
 // @Summary Read a well-known file of your home.
-// @Description name is persona, user, shortcuts, setups, defaults, home, ui or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.
+// @Description name is persona, user, shortcuts, setups, defaults, home, ui, nav or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Success 200 {object} schema.ChatsWellKnownFile "The file; the ETag header holds its version"
 // @Failure 404 {object} schema.ErrorResponse "Not a well-known file"
@@ -130,7 +130,7 @@ func (h *Handlers) GetWellKnown(c echo.Context) error {
 // @Summary Change a well-known file of your home.
 // @Description The keys of values replace the keys of the file and a null removes one; keys the request does not name stay as they are. With replace, values is the whole file. The result must match the JSON Schema of the file and be at most 64 KiB. Send the version you read in If-Match (0 when the file did not exist): when the file changed since, the answer is 409 with what it holds now. Without If-Match the write is not checked.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Param If-Match header string false "the version you read"
 // @Param request body schema.ChatsWellKnownWrite true "the keys to change"
@@ -168,7 +168,7 @@ func (h *Handlers) PutWellKnown(c echo.Context) error {
 // @Summary Revert a well-known file to an earlier valid version.
 // @Description Without a body, writes the newest earlier version that differs from the file and matches its schema. With {"rev"}, writes that version from GET .../versions. Either way it is a new change: the revert itself can be undone, and the newer version stays in the list.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Param request body schema.ChatsWellKnownRevert false "the version to write back"
 // @Success 200 {object} schema.ChatsWellKnownFile "The file as written"
@@ -204,7 +204,7 @@ func (h *Handlers) RevertWellKnown(c echo.Context) error {
 // @Summary List the versions of a well-known file.
 // @Description Newest first, from the history of your files: when, who (kind user or agent, and the chat that wrote it), and the content when it matches the schema. POST .../revert {rev} writes one back.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Param limit query int false "most versions to return (default 10, at most 50)"
 // @Success 200 {object} schema.ChatsWellKnownVersions "The versions, newest first"
@@ -243,7 +243,7 @@ func (h *Handlers) WellKnownVersions(c echo.Context) error {
 // @Summary Get the JSON Schema of a well-known file.
 // @Description The same schema is in the built-in skill localai-workspace, which the assistant reads. Properties may carry x-ui hints for the settings pages (widget, hidden).
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav or widget-data"
 // @Produce application/schema+json
 // @Success 200 {object} map[string]any "A JSON Schema, draft 2020-12"
 // @Failure 404 {object} schema.ErrorResponse "Not a well-known file"
