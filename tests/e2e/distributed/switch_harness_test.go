@@ -201,14 +201,18 @@ type switchFrontend struct {
 
 func (f *switchFrontend) url() string { return fmt.Sprintf("http://127.0.0.1:%d", f.port) }
 
-func (s *switchStack) frontend(name string, port int) *switchFrontend {
+// frontend starts a frontend. extraEnv is added to its environment: a chat
+// worker is a frontend with LOCALAI_CHAT_WORKER set.
+func (s *switchStack) frontend(name string, port int, extraEnv ...string) *switchFrontend {
 	GinkgoHelper()
 	dir := filepath.Join(s.root, name)
 	for _, d := range []string{"models", "backends", "cfg", "gen", "up"} {
 		Expect(os.MkdirAll(filepath.Join(dir, d), 0o755)).To(Succeed())
 	}
 	Expect(os.MkdirAll(filepath.Join(s.root, "shared-data"), 0o755)).To(Succeed())
-	cfg := "name: " + switchModel + "\nbackend: mock\nparameters:\n  model: " + switchModel + ".bin\n"
+	// The context is large enough for the tools of a chat turn, which an agent
+	// job on a chat worker runs.
+	cfg := "name: " + switchModel + "\nbackend: mock\ncontext_size: 32768\nparameters:\n  model: " + switchModel + ".bin\n"
 	Expect(os.WriteFile(filepath.Join(dir, "models", switchModel+".yaml"), []byte(cfg), 0o644)).To(Succeed())
 
 	fe := &switchFrontend{port: port, dir: dir}
@@ -222,7 +226,11 @@ func (s *switchStack) frontend(name string, port int) *switchFrontend {
 		"LOCALAI_AUTO_APPROVE_NODES=true",
 		"LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK=false",
 		"LOCALAI_PEER_ADDRESS=" + fmt.Sprintf("127.0.0.1:%d", port),
+		// Unattended turns go to a chat worker when one is live, and run on the
+		// frontend otherwise.
+		"LOCALAI_DISTRIBUTED_CHAT_WORKERS=true",
 	}
+	fe.env = append(fe.env, extraEnv...)
 	fe.args = []string{"run",
 		"--address", fmt.Sprintf("127.0.0.1:%d", port),
 		"--models-path", filepath.Join(dir, "models"),
@@ -448,9 +456,10 @@ func (s *switchStack) workerAttached(fe *switchFrontend, name, carrier string) b
 
 // nodeInfo is one row of the node list.
 type nodeInfo struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	ID     string            `json:"id"`
+	Name   string            `json:"name"`
+	Status string            `json:"status"`
+	Labels map[string]string `json:"labels"`
 }
 
 func (s *switchStack) nodes(fe *switchFrontend) ([]nodeInfo, error) {

@@ -5,6 +5,7 @@ package distributed_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -227,6 +228,69 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		n, ok := stack.node(feA, tunnelN)
 		Expect(ok).To(BeTrue())
 		Expect(n.Status).To(Equal("healthy"))
+	})
+
+	It("runs an agent job on a chat worker, which the frontend reaches over the peer link", func() {
+		cw := stack.frontend("chat-worker", switchFreePort(), "LOCALAI_CHAT_WORKER=true", "LOCALAI_INSTANCE_ID=chat-worker-1")
+		DeferCleanup(func() {
+			if cw.alive() {
+				cw.signal(syscall.SIGTERM)
+			}
+		})
+		Eventually(func() map[string]string {
+			n, _ := stack.node(feA, "chat-chat-worker-1")
+			return n.Labels
+		}, 120*time.Second, poll).Should(And(
+			HaveKeyWithValue("node.role", "chat-worker"),
+			HaveKeyWithValue("node.instance", "chat-worker-1"),
+		), "the chat worker names its replica on its node")
+		Eventually(func() int {
+			r, _ := stack.carrier(feA)
+			return len(r.Replicas)
+		}, settle, poll).Should(Equal(3), "the chat worker is a replica with a peer address")
+
+		task := fmt.Sprintf("switch-e2e-%d", time.Now().UnixNano())
+		code, body := stack.api(feA, http.MethodPost, "/api/agent/tasks", map[string]any{
+			"name": task, "model": switchModel, "prompt": "hello",
+		})
+		Expect(code).To(Equal(http.StatusCreated), string(body))
+		var job struct {
+			JobID string `json:"job_id"`
+		}
+		Eventually(func() int {
+			code, body = stack.api(feB, http.MethodPost, "/api/agent/tasks/"+task+"/execute", nil)
+			return code
+		}, settle, poll).Should(Equal(http.StatusCreated), "execute: %s", body)
+		Expect(json.Unmarshal(body, &job)).To(Succeed())
+		Eventually(func() string {
+			_, body := stack.api(feB, http.MethodGet, "/api/agent/jobs/"+job.JobID, nil)
+			var j struct {
+				Status string `json:"status"`
+				Error  string `json:"error"`
+			}
+			_ = json.Unmarshal(body, &j)
+			return j.Status + " " + j.Error
+		}, settle, poll).Should(Equal("completed "), func() string {
+			return "the job ran to its end; chat worker log:\n" + cw.logTail(8000)
+		})
+
+		// The frontend dialled the peer link of the chat worker, which holds no
+		// worker tunnel: only a request for the chat worker itself crosses it.
+		Expect(cw.logTail(1 << 30)).To(ContainSubstring(`"/api/cluster/peer"`))
+		// A start that reached no chat worker runs on the frontend and says so.
+		for _, fe := range []*switchFrontend{feA, feB} {
+			log, err := os.ReadFile(fe.log)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(log)).ToNot(ContainSubstring("no chat worker took the start"), "%s ran the turn itself", fe.name)
+		}
+
+		// The chat worker leaves, so that the replicas are the two frontends again.
+		cw.signal(syscall.SIGTERM)
+		Eventually(cw.alive, settle, poll).Should(BeFalse())
+		Eventually(func() int {
+			r, _ := stack.carrier(feA)
+			return len(r.Replicas)
+		}, settle, poll).Should(Equal(2))
 	})
 
 	It("refuses a change back to NATS because the tunnel-only worker cannot follow", func() {
