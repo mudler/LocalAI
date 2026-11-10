@@ -14,9 +14,9 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/persona.json` | `name`, `system_prompt`: your name and instructions in every chat of this user. They reach you at the next message. |
 | `LocalAI/user.json` | `name`, `bio`, `language`, `timezone`: a short "About the user" block in every chat. `seen` records hints (below). |
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
-| `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat, at most 50. `id` is lowercase letters, digits and dashes (at most 40). `effort` is `""`, `none`, `minimal`, `low`, `medium` or `high`. `tools` holds lists of names that are switched off or on: `builtins_off`, `builtins_on`, `addons_off`, `mcp_off`, `skills_off`. `default` is the `id` a new chat starts with. It stores no prompt and no files. |
+| `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat (`tools` lists names switched off or on); `default` is the `id` a new chat starts with. No prompt, no files. Limits and values: its schema. |
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
-| `LocalAI/home.json` | `{"widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `type` is `list`, `metric`, `chats` or `page`. `trigger` is set by LocalAI when the user confirms the trigger that feeds the widget. A `page` widget names a page (`page`, its folder name; `folder` only for a page of a shared folder) and may leave out `title`; at most 3 page widgets. |
+| `LocalAI/home.json` | `{"widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
 | `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `defaultModel`, `homeBackground` (the background of the Home page only) and `chatBackground` (the background of the chat view only); see "Backgrounds" below. |
 | `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 
@@ -26,11 +26,11 @@ Rules:
 - Keep files small (at most 64 KiB). Use 2-space indentation.
 - A script, a draft or test data that you make on the way goes in the chat's work folder that the prompt or the note of the turn names (`/workspace/home/Chats/<chat>/work/`), not in `LocalAI/` or at the top of the home.
 - After a change, tell the user in one line what changed and where they see it ("I saved your shortcut. It shows above the message box.").
-- A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`, and reading files next to the page with `fetch('data.json')` works. To build one, use the `localai-apps` skill.
+- A page is `pages/<name>/index.html` with an optional `page.json` and its data files; it runs sandboxed, as the user, with no network. To build one, use the `localai-apps` skill.
 
 ## Sidebar
 
-`LocalAI/nav.json` lists items in order; each is one of `{"id": "files", "label"?: "Docs", "hidden"?: true}` (a built-in entry: `home`, `files`, `pages`, `agents`, `connections`, `memory`, `skills`, `models`, `addons`; Home cannot be hidden), `{"group": "Create"}` (a title for the items after it) or a link `{"type": "page", "page": "<name>"}`, `{"type": "chat", "chat": "<id>"}`, `{"type": "url", "url": "https://..."}` with optional `label`. New chat, Chats, settings and the search always show; do not try to move them. An entry left out is added at the end; a gone page or chat is skipped; an address asks the person first. Keep the other items and keys. `{"items": []}` is the default; see `schemas/nav.schema.json`.
+`LocalAI/nav.json` `items`, in order: a built-in entry `{"id": "files", "label"?, "hidden"?}` (ids in `schemas/nav.schema.json`; Home cannot be hidden), a `{"group": "Create"}` title, or a link to a `page`, a `chat` or a `url`. New chat, Chats, settings and search always show. An entry left out goes at the end; a gone page or chat is skipped; an address asks the person first. Keep the other items and keys.
 
 ## Backgrounds
 
@@ -42,9 +42,9 @@ Rules:
 {"homeBackground": {"color": "#1e293b"}}
 ```
 
-- `color`: `#rrggbb`. `gradient`: `from` and `to` (`#rrggbb`) and an `angle` from 0 to 360 (180 is top to bottom). Write no CSS.
+- `color`, `gradient` (`from`, `to`, `angle`), `fit`, `opacity`, `blur`, `overlay`: values and ranges in `schemas/ui.schema.json`. Write no CSS.
 - `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`, not `/Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, no address (`https://`, `data:`), no backslash. The picture is read with the user's own rights, so a path they cannot read shows nothing. Check that the file exists first (list the folder).
-- `fit`: `cover` (default) or `contain`. `opacity`: 0 to 1 (default 1). `blur`: pixels, 0 to 40. `overlay`: 0 to 1, a veil in the colour of the theme that keeps the text readable. Raise `overlay` for a busy or bright picture. Default for `homeBackground`: 0.55 for a picture, 0.35 for a gradient, 0 for a colour. Default for `chatBackground`: 0.8 for a picture, 0.6 for a gradient, 0 for a colour, because a chat is long text. In the chat the messages also sit on a panel in the colour of the theme, so they stay readable whatever the overlay.
+- `overlay` (0 to 1) is a veil in the theme colour that keeps text readable; raise it for a busy or bright picture. In the chat the messages also sit on a panel, so they stay readable.
 - To remove a background, delete its key (a save with `null` does the same).
 - A file that breaks these rules is not used: the pages keep the last good version and the Appearance tab says the file has an error. Keep the other keys of `ui.json` when you change one.
 
@@ -103,15 +103,9 @@ The prompt of a run is all the run knows. Write it so it stands alone: what to r
 2. Add a widget that reads `data/inbox-summaries.json`.
 3. Propose with `"when": {"file_arrives_in": "/inbox"}` and a prompt that names the arrived file ("the file named in this message"), reads it, and rewrites `data/inbox-summaries.json` with one item per summary, newest first, at most 20. A file run starts after the file stays unchanged for 30 seconds, at most once a minute, and at most 24 runs a day; the run's own writes start nothing.
 
-**On Fridays show the week review first.**
-1. Add a `metric` or `list` widget `week` that reads `data/week.json`.
-2. Propose `"when": "weekly fri 08:00"` with a prompt that writes `data/week.json` and moves the widget `week` to the top of `widgets` in `LocalAI/home.json` (read the file, keep every other key and widget).
-3. Propose a second trigger `"weekly mon 08:00"` that moves it back to the end. Say that these are two triggers and why.
+**On Fridays show the week review first.** Add a widget `week` that reads `data/week.json`. Propose `"weekly fri 08:00"` with a prompt that writes it and moves `week` to the top of `widgets` in `LocalAI/home.json` (keep every other key and widget), and a second trigger `"weekly mon 08:00"` that moves it back. Say these are two triggers and why.
 
-**A page that starts a run.** A page can feed a file trigger: the page writes into its own folder, and a trigger watches a folder inside it.
-1. Create `pages/<name>/requests/README.md` (a trigger needs a folder that exists). Have the page write requests into `requests/`: `localai.files.write('requests/' + Date.now() + '.json', JSON.stringify({text}))`.
-2. Propose `{"when": {"file_arrives_in": "/pages/<name>/requests"}, "prompt": "Read the request file named in this message, do what it asks, and write the answer to pages/<name>/answers.json.", "writes": "pages/<name>/answers.json"}`.
-3. The page listens with `localai.on('files.changed', ...)` and reads `answers.json` again. Tell the user that each request is one run, so it costs tokens; the minimum time between runs and the daily limit stop a page from starting runs in a loop.
+**A page that starts a run.** Create `pages/<name>/requests/README.md` (the folder must exist); the page writes each request there (`localai.files.write('requests/' + Date.now() + '.json', ...)`). Propose `"when": {"file_arrives_in": "/pages/<name>/requests"}` with a prompt that reads the named request and writes `pages/<name>/answers.json`; the page reads it again on `localai.on('files.changed', ...)`. Each request is one run and costs tokens; the run limits stop a loop.
 
 ## Offers
 
