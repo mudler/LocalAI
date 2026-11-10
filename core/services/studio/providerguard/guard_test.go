@@ -93,6 +93,7 @@ var allowed = []entry{
 	{"docs/content/start/install/linux.md", "GitHub Releases", "release downloads: the service"},
 	{"docs/content/start/install/macos.md", "GitHub releases", "release downloads: the service"},
 	{"docs/content/models/setting-up-models.md", "GitHub", "release downloads: the service"},
+	{"docs/content/start/customize-model.md", "GitHub", "a gist on the service as an example of a URL for a configuration file"},
 	{"docs/content/administration/troubleshooting.md", "GitHub", "the issue tracker of the project: the service"},
 
 	// Chat platforms named as examples of what a connector carries. The
@@ -136,7 +137,6 @@ var allowed = []entry{
 	{ui + "utils/chatApps.js", "'web'", "the platform of a chat made in the web UI"},
 	{ui + "utils/settingsSchema.js", "Web ", "the labels of the built-in web tool settings"},
 	{"docs/content/administration/reverse-proxy-tls.md", "Web UI", "the web UI of LocalAI"},
-	{"docs/content/start/quickstart.md", "Web Interface", "the web UI of LocalAI"},
 	{"docs/content/administration/troubleshooting.md", "Web UI", "the web UI of LocalAI"},
 	{"docs/content/administration/troubleshooting.md", "Web ", "the web UI of LocalAI"},
 }
@@ -176,7 +176,6 @@ var coreDocs = []string{
 	"docs/content/start/first-agent.md",
 	"docs/content/start/install/_index.md",
 	"docs/content/start/install/containers.md",
-	"docs/content/start/install/docker.md",
 	"docs/content/start/install/kubernetes.md",
 	"docs/content/start/install/linux.md",
 	"docs/content/start/install/macos.md",
