@@ -47,6 +47,18 @@ type TunnelOptions struct {
 	// FileManager is the shared store, and it is required with S3Staging.
 	S3Staging   bool
 	FileManager *storage.FileManager
+
+	// Self, Peers and Replies give the set request and reply between replicas:
+	// Self is the id of this replica, Peers sends a request to another one, and
+	// Replies holds the handlers of this one, which the relay serves. Without
+	// them the set has none, and the holder answers every request with
+	// messaging.ErrNotDelivered.
+	Self    string
+	Peers   PeerRequester
+	Replies *tunnel.Replies
+	// Queues lists, for each subject that a queue group serves, the replicas
+	// that serve it now (the chat start).
+	Queues map[string]QueueMembers
 }
 
 // NewTunnelSet builds the set of seam implementations that reach workers through
@@ -118,6 +130,12 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 				o.Fanout.Close()
 			}
 		},
+	}
+	if o.Peers != nil && o.Replies != nil {
+		if o.Self == "" {
+			return nil, errors.New("tunnel set needs the id of this replica for request and reply")
+		}
+		set.Replies = &tunnelReplies{self: o.Self, peers: o.Peers, local: o.Replies, queues: o.Queues}
 	}
 	if err := set.Validate(); err != nil {
 		return nil, err
