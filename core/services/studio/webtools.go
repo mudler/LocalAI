@@ -229,6 +229,8 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		switch {
 		case t.Covers && provider != BuiltinProvider:
 			usable = true
+		case t.ID == jobTool:
+			// job follows bash: it says nothing of whether the group can serve.
 		case !t.On():
 			reason = builtins.ReasonOff
 		default:

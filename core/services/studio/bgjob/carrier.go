@@ -4,14 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"syscall"
 	"time"
-
-	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
 // A job lives in the memory of the node that started it, but the turns of its
@@ -209,71 +205,12 @@ type Carrier interface {
 	Serve(instance string, h func(Request) Reply) (cancel func(), err error)
 }
 
-// ReplyRequester is the request/reply part of the message bus
-// (messaging.MessagingClient has it).
-type ReplyRequester interface {
-	SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (messaging.Subscription, error)
-	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
-}
-
 // Subject is the subject a node serves its jobs on. The instance goes through
 // a hash, as for the other chat subjects: it may hold characters a subject
 // token cannot.
 func Subject(instance string) string {
 	sum := sha256.Sum256([]byte(instance))
 	return "chats.jobs." + hex.EncodeToString(sum[:])
-}
-
-// NewBusCarrier returns a Carrier on the cluster's message bus.
-func NewBusCarrier(mc ReplyRequester, log *slog.Logger) Carrier {
-	if log == nil {
-		log = slog.Default()
-	}
-	return &busCarrier{mc: mc, log: log}
-}
-
-type busCarrier struct {
-	mc  ReplyRequester
-	log *slog.Logger
-}
-
-func (b *busCarrier) Ask(instance string, req Request) (Reply, error) {
-	raw, err := json.Marshal(req)
-	if err != nil {
-		return Reply{}, err
-	}
-	data, err := b.mc.Request(Subject(instance), raw, AskTimeout)
-	if err != nil {
-		if messaging.IsNoResponders(err) {
-			return Reply{}, fmt.Errorf("%w: %v", ErrNoRoute, err)
-		}
-		return Reply{}, err
-	}
-	var rep Reply
-	if err := json.Unmarshal(data, &rep); err != nil {
-		return Reply{}, fmt.Errorf("bgjob: a job reply: %w", err)
-	}
-	return rep, nil
-}
-
-func (b *busCarrier) Serve(instance string, h func(Request) Reply) (func(), error) {
-	sub, err := b.mc.SubscribeReply(Subject(instance), func(data []byte, reply func([]byte)) {
-		var req Request
-		rep := Reply{Code: CodeBad, Message: "unreadable request"}
-		if err := json.Unmarshal(data, &req); err == nil {
-			rep = h(req)
-		}
-		raw, err := json.Marshal(rep)
-		if err != nil {
-			b.log.Warn("bgjob: could not encode a job reply", "error", err)
-			raw, _ = json.Marshal(Reply{Code: CodeBad, Message: "could not encode the reply"})
-		}
-		reply(raw)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return func() { _ = sub.Unsubscribe() }, nil
 }
 
 // Router sends a request to the registry of this process, or over the carrier

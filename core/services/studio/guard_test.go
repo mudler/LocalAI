@@ -86,12 +86,13 @@ var _ = Describe("guard", func() {
 			}
 		})
 		// The sandbox packages stay a narrow face: they use the workspace and
-		// nothing else of the core, so an add-on that imports them does not
-		// reach further.
+		// the vocabulary of background jobs (bgjob, which imports no other
+		// package of the core), so an add-on that imports them does not reach
+		// further.
 		goFiles([]string{"core/services/studio/sandbox"}, func(path string, src []byte) {
 			for _, p := range imports(path, src) {
 				if strings.HasPrefix(p, module+"core/") && !strings.HasPrefix(p, module+"core/services/studio/workspace") &&
-					!strings.HasPrefix(p, module+"core/services/studio/sandbox") {
+					!strings.HasPrefix(p, module+"core/services/studio/sandbox") && p != module+"core/services/studio/bgjob" {
 					Fail(fmt.Sprintf("%s imports %s: the sandbox packages may use only the workspace packages of the core", path, p))
 				}
 			}
@@ -99,7 +100,7 @@ var _ = Describe("guard", func() {
 		goFiles([]string{"addons"}, func(path string, src []byte) {
 			for _, p := range imports(path, src) {
 				if strings.HasPrefix(p, module+"core/") && !strings.HasPrefix(p, module+"core/services/studio/workspace") &&
-					!strings.HasPrefix(p, module+"core/services/studio/sandbox") {
+					!strings.HasPrefix(p, module+"core/services/studio/sandbox") && p != module+"core/services/studio/bgjob" {
 					Fail(fmt.Sprintf("%s imports %s: an add-on may use only the workspace and sandbox packages of the core", path, p))
 				}
 			}

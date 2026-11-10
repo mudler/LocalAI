@@ -433,7 +433,7 @@ var _ = Describe("the job tool", func() {
 			st, err = store.NewJSON("")
 			Expect(err).NotTo(HaveOccurred())
 			net := natsReplier{testutil.NewFakeBus()}
-			carrier := bgjob.NewBusCarrier(net, nil)
+			carrier := studio.NewJobCarrier(net, nil)
 			files := newFiles()
 			mk := func(instance string) jobChat {
 				host := newFakeJobHost(instance)

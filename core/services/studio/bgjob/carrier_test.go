@@ -2,43 +2,58 @@ package bgjob_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"sync"
 	"syscall"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/nats-io/nats.go"
-
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
-	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
-// natsBus makes the fake bus answer a missing subscriber as NATS does.
-type natsBus struct{ *testutil.FakeBus }
+// memCarrier is a carrier in memory: an instance without a handler has no
+// route, as on a bus with no subscriber.
+type memCarrier struct {
+	mu       sync.Mutex
+	handlers map[string]func(bgjob.Request) bgjob.Reply
+}
 
-func (b natsBus) Request(subject string, data []byte, d time.Duration) ([]byte, error) {
-	out, err := b.FakeBus.Request(subject, data, d)
-	if errors.Is(err, testutil.ErrNoResponders) {
-		return nil, nats.ErrNoResponders
+func (m *memCarrier) Ask(instance string, req bgjob.Request) (bgjob.Reply, error) {
+	m.mu.Lock()
+	h := m.handlers[instance]
+	m.mu.Unlock()
+	if h == nil {
+		return bgjob.Reply{}, bgjob.ErrNoRoute
 	}
-	return out, err
+	raw, _ := json.Marshal(req) // the wire format is JSON
+	var back bgjob.Request
+	_ = json.Unmarshal(raw, &back)
+	rep := h(back)
+	raw, _ = json.Marshal(rep)
+	var out bgjob.Reply
+	_ = json.Unmarshal(raw, &out)
+	return out, nil
+}
+
+func (m *memCarrier) Serve(instance string, h func(bgjob.Request) bgjob.Reply) (func(), error) {
+	m.mu.Lock()
+	m.handlers[instance] = h
+	m.mu.Unlock()
+	return func() { m.mu.Lock(); delete(m.handlers, instance); m.mu.Unlock() }, nil
 }
 
 var _ = Describe("Carrier", func() {
 	var (
-		bus        natsBus
 		regA, regB *bgjob.Registry
 		a, b       *bgjob.Router
 		ctx        = context.Background()
 	)
 	BeforeEach(func() {
-		bus = natsBus{testutil.NewFakeBus()}
 		regA = bgjob.New(bgjob.Options{Instance: "A"})
 		regB = bgjob.New(bgjob.Options{Instance: "B"})
-		c := bgjob.NewBusCarrier(bus, nil)
+		c := &memCarrier{handlers: map[string]func(bgjob.Request) bgjob.Reply{}}
 		a = &bgjob.Router{Local: regA, Self: "A", Carrier: c}
 		b = &bgjob.Router{Local: regB, Self: "B", Carrier: c}
 		stopA, err := a.Serve()
@@ -47,10 +62,6 @@ var _ = Describe("Carrier", func() {
 		stopB, err := b.Serve()
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(stopB)
-	})
-
-	It("uses a subject the bus serves", func() {
-		Expect(messaging.ValidateSubject(bgjob.Subject("node/1:x"))).To(Succeed())
 	})
 
 	It("reads, writes to and kills a job of A from B", func() {

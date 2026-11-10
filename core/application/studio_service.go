@@ -110,7 +110,7 @@ func (a *Application) initStudioService() {
 		replay = studio.NewReplayCarrier(d.Nats, nil)
 		// A turn that runs on another node reads, writes to and kills a
 		// background job on the node that runs it.
-		jobs = bgjob.NewBusCarrier(d.Nats, nil)
+		jobs = studio.NewJobCarrier(d.Nats, nil)
 		instance = a.applicationConfig.Distributed.InstanceID
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
