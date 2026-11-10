@@ -188,8 +188,8 @@ func (r *Registry) ReportReady(ctx context.Context, id string, epoch int64, reas
 
 // instanceIsLive is the one predicate that decides whether a replica is alive.
 // Its single bind parameter is the window in seconds. Every reader of that fact
-// is written with it: LiveInstanceIDsSQL lists the ids it selects, Owner
-// refuses an owner that it rejects, and ReapStale deletes its negation. Two spellings of one
+// is written with it: ListLive lists the replicas it selects, Owner refuses an
+// owner that it rejects, and ReapStale deletes its negation. Two spellings of one
 // fact drift apart, and the drift looks like a relay to a replica that one
 // query calls dead and another calls alive.
 //
@@ -199,20 +199,6 @@ func (r *Registry) ReportReady(ctx context.Context, id string, epoch int64, reas
 // The database computes the cutoff for the same reason it stamps last_seen: a
 // reader's own clock must not decide whether another replica is alive.
 const instanceIsLive = `instances.last_seen > now() - make_interval(secs => ?)`
-
-// LiveInstanceIDsSQL selects the ids of the replicas that the deployment
-// considers alive. Its single bind parameter is the window in seconds, as for
-// instanceIsLive.
-//
-// It exists for a caller that must decide liveness inside another statement,
-// such as the claim queue that releases work held by a replica that is gone and
-// must not release work held by a replica that is only slow. If the read and
-// the update were two statements, a replica could die or come back between
-// them.
-//
-// It is built from instanceIsLive and does not restate it, so the deployment
-// has one spelling of "alive".
-const LiveInstanceIDsSQL = `SELECT instances.id FROM instances WHERE ` + instanceIsLive
 
 // ReportAvailability records, for each carrier, why this replica cannot build it
 // (an empty reason when it can). A carrier that the map leaves out keeps what the
