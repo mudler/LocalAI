@@ -5,7 +5,7 @@ title = "See what changed in your files"
 weight = 40
 +++
 
-The change feed tells a client which of your files changed, as it happens. A
+The change feed shows which of your files changed, as it happens. A client reads it as an event stream. A
 change can come from anywhere: you in another tab, a chat that wrote a file
 with a tool, an upload, a trigger run, a connector, another API client, or
 another frontend of a cluster. The web UI uses it to refresh what it shows

@@ -2,12 +2,12 @@
 url = "/features/sharing/"
 disableToc = false
 title = "Share with your team"
-weight = 40
+weight = 4
 description = "Share folders, saved agents, collections and connections with other users, and choose what they may do."
 keywords = ["team","sharing","permissions","users"]
 +++
 
-LocalAI keeps one record of who may use a shared resource. Add-on resources,
+Share a folder, a saved agent, a collection or a connection with other people on your server, and choose what they may do. LocalAI keeps one record of who may use a shared resource. Add-on resources,
 such as a [Tables]({{%relref "/addons/catalogue/work/tables" %}}) database, are shared through
 the add-on routes. Other kinds of resources are shared through the routes on this
 page, with the same rules. A kind is a type of resource that a LocalAI service
