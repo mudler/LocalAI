@@ -68,6 +68,9 @@ type JobCall struct {
 	Action string
 	// Parent is the chat that started the chat when it is a sub-agent.
 	Parent string
+	// Via is the chat whose sandbox runs a job of a sub-agent: its parent's.
+	// Empty when the chat's own sandbox does.
+	Via string
 	// start
 	Command, Label string
 	// read, input, kill: the id and its stub in the chat record.
@@ -159,6 +162,9 @@ func (s *Service) jobCheck(ctx context.Context, in bgjob.Info) bgjob.EndReason {
 	}
 	if err != nil {
 		return ""
+	}
+	if r := s.agentJobCheck(ctx, in); r != "" {
+		return r
 	}
 	if s.hostExecMode() == hostexec.ModeOff {
 		return bgjob.EndShellOff
@@ -297,6 +303,12 @@ func (s *Service) OnJobChange(f func(bgjob.Info)) {
 // stubs read before the delete, each owning node is told at once. The sweep of
 // that node is the backstop.
 func (s *Service) endChatJobs(ctx context.Context, rec session.ChatRecord) {
+	reason := bgjob.EndChatDeleted
+	if rec.Kind == session.KindSubAgent {
+		reason = bgjob.EndAgentEnded
+	} else {
+		s.endChildrenJobs(ctx, rec)
+	}
 	if len(rec.Jobs) == 0 {
 		return
 	}
@@ -307,7 +319,7 @@ func (s *Service) endChatJobs(ctx context.Context, rec session.ChatRecord) {
 			continue
 		}
 		seen[st.Provider+"\x00"+st.Instance] = true
-		if err := s.backendOf(ctx, st.Provider).EndChat(ctx, a, bgjob.EndChatDeleted); err != nil {
+		if err := s.backendOf(ctx, st.Provider).EndChat(ctx, a, reason); err != nil {
 			s.log.Debug("Chats: could not end the jobs of a deleted chat", "chat", rec.ID, "error", err)
 		}
 	}
@@ -353,11 +365,24 @@ func (s *Service) runJob(ctx context.Context, a workspace.Actor, args json.RawMe
 	if err := json.Unmarshal(args, &in); err != nil {
 		return "", errors.New("job needs an action: start, list, read, input or kill")
 	}
+	// A sub-agent's tool is built for its parent chat; the call acts for the
+	// sub-agent, and the parent's tools and sandbox serve it.
+	via, viaRec := workspace.Actor{}, session.ChatRecord{}
+	sub := false
+	if sj, ok := jobSubjectFrom(ctx); ok {
+		a, via, sub = sj.child, sj.via, true
+	}
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return "", err
 	}
 	call := JobCall{Action: in.Action, Parent: rec.ParentID, ID: in.ID, Since: in.Since, MaxBytes: in.MaxBytes}
+	if sub {
+		if viaRec, err = s.d.Store.GetChat(ctx, via.Principal, via.ChatID); err != nil {
+			return "", err
+		}
+		call.Via = via.ChatID
+	}
 	switch in.Action {
 	case JobStart:
 		switch {
@@ -372,7 +397,15 @@ func (s *Service) runJob(ctx context.Context, a workspace.Actor, args json.RawMe
 		if call.Label == "" {
 			call.Label = "job"
 		}
-		b := s.jobBackendFor(ctx, a, rec)
+		var b JobBackend
+		if sub {
+			b = s.jobBackendFor(ctx, via, viaRec)
+			if why := s.childStartRefusal(b); why != "" {
+				return why, nil
+			}
+		} else {
+			b = s.jobBackendFor(ctx, a, rec)
+		}
 		res, err := b.Do(ctx, a, call)
 		if err != nil {
 			return "", err
@@ -388,6 +421,12 @@ func (s *Service) runJob(ctx context.Context, a workspace.Actor, args json.RawMe
 			return "Not done: id is empty. Your jobs:\n" + s.listJobs(ctx, a, rec), nil
 		}
 		i := slices.IndexFunc(rec.Jobs, func(st session.JobStub) bool { return st.ID == in.ID })
+		if i < 0 && !sub {
+			// A parent reads and kills the jobs of its sub-agents.
+			if text, ok, err := s.childJobAction(ctx, a, childJobCall{Action: in.Action, ID: in.ID, Signal: in.Signal, Since: in.Since, MaxBytes: in.MaxBytes}); ok {
+				return text, err
+			}
+		}
 		if i < 0 {
 			return fmt.Sprintf("No job %q in this chat. Your jobs:\n%s", in.ID, s.listJobs(ctx, a, rec)), nil
 		}
@@ -416,7 +455,8 @@ func (s *Service) runJob(ctx context.Context, a workspace.Actor, args json.RawMe
 // listJobs is the result of list: one line per job, running first, never the
 // command. Each provider that owns a stub of the chat gives its lines.
 func (s *Service) listJobs(ctx context.Context, a workspace.Actor, rec session.ChatRecord) string {
-	if len(rec.Jobs) == 0 {
+	kidLines := s.childJobLines(ctx, rec)
+	if len(rec.Jobs) == 0 && len(kidLines) == 0 {
 		return "This chat has no jobs."
 	}
 	var providers []string
@@ -439,7 +479,7 @@ func (s *Service) listJobs(ctx context.Context, a workspace.Actor, rec session.C
 		}
 		lines = append(lines, res.Text)
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(append(lines, kidLines...), "\n")
 }
 
 // jobWhere says where a job of a provider runs, in the result of start.
@@ -662,7 +702,7 @@ func (b *hostJobBackend) start(ctx context.Context, a workspace.Actor, c JobCall
 	if refusal != "" {
 		return JobResult{Text: strings.Replace(refusal, "Not run:", "Not started:", 1)}, nil
 	}
-	in, err := b.hj.StartJob(ctx, hostexec.JobSpec{Actor: a, Parent: c.Parent, Label: c.Label, Command: c.Command})
+	in, err := b.hj.StartJob(ctx, hostexec.JobSpec{Actor: a, Parent: c.Parent, Sandbox: c.Via, Label: c.Label, Command: c.Command})
 	var le *bgjob.LimitError
 	var un *hostexec.ErrJobsUnavailable
 	switch {

@@ -1039,6 +1039,34 @@ curl .../api/chats/3f1c.../agents/9ab2.../messages     # one run's transcript
 curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
 ```
 
+### Jobs and stall waits of sub-agents
+
+- **Waiting for a quiet sub-agent.** `wait_for` takes the id of a background
+  sub-agent in `job`, with `until` `exit` (the default) or `stall` and `idle`
+  from 60 to 3600 seconds (default 600). Progress is a new row in the
+  sub-agent's transcript, read from the store, so the wait pins no node and
+  works from any frontend. One long tool call counts as quiet until it ends.
+  The wake-up gives the last row, or the state and the last answer of a
+  sub-agent that finished. `match` is refused.
+- **Jobs of a sub-agent.** A sub-agent has the `job` tool exactly when it has
+  `bash`, under the same rules: a host job only when commands on this machine
+  run with no card (mode `on`), a Sandbox job always, and the act policy of an
+  unattended parent applies. The limits are the usual ones: 4 jobs per chat, 8
+  per user (the jobs of sub-agents count), 32 per node. The job belongs to the
+  sub-agent's chat; a host job runs in the parent's sandbox.
+- **Jobs end with the sub-agent** (reason `agent_ended`): when its run reaches
+  the parent, when the parent or you stop it, and when the sub-agent's chat or
+  its parent is deleted. A sub-agent that ends its turn without a `wait_for`
+  on its job ends the job; the tool description says so.
+- **Job waits.** A sub-agent may arm `wait_for` on its own jobs (not on a
+  script). The wait keeps the sub-agent running, so it counts against the
+  limit of background sub-agents and the loop limits, and its wake-up is a turn
+  of the sub-agent, not of the parent. The parent can wait for the sub-agent,
+  not for its job.
+- **The parent's view.** `job list` of the parent also shows the jobs of its
+  sub-agents, marked `(sub-agent <id>)`. The parent can `read` and `kill` them,
+  not write input.
+
 ### Saved agents as sub-agents
 
 A chat can also start one of your [saved

@@ -41,16 +41,17 @@ type ToolHarness struct {
 	// the state {"compacted":true}. Nil: the sessions cannot compact.
 	Compact func(chat string) (before, after int, err error)
 
-	mu      sync.Mutex
-	results []ToolResult
-	sent    map[string][]string
-	raw     map[string][]string
-	tools   map[string][]string
-	schemas map[string]map[string]string
-	descs   map[string]string
-	prompts map[string]string
-	systems map[string]string
-	resumes map[string][]byte
+	mu        sync.Mutex
+	results   []ToolResult
+	sent      map[string][]string
+	raw       map[string][]string
+	tools     map[string][]string
+	schemas   map[string]map[string]string
+	descs     map[string]string
+	chatDescs map[string]map[string]string
+	prompts   map[string]string
+	systems   map[string]string
+	resumes   map[string][]byte
 }
 
 // SystemPrompt returns the system prompt the chat's session was last started
@@ -127,6 +128,14 @@ func (h *ToolHarness) ToolSchema(chat, tool string) string {
 	return h.schemas[chat][tool]
 }
 
+// ToolDescription returns the description a tool had when the chat's session
+// last started, or "".
+func (h *ToolHarness) ToolDescription(chat, tool string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.chatDescs[chat][tool]
+}
+
 // LastToolDescription returns the description a tool had when a session last
 // started with it, in any chat, or "".
 func (h *ToolHarness) LastToolDescription(tool string) string {
@@ -153,9 +162,14 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 	if h.descs == nil {
 		h.descs = map[string]string{}
 	}
+	if h.chatDescs == nil {
+		h.chatDescs = map[string]map[string]string{}
+	}
+	h.chatDescs[env.Actor.ChatID] = map[string]string{}
 	for _, t := range env.Tools {
 		h.schemas[env.Actor.ChatID][t.Name] = string(t.Schema)
 		h.descs[t.Name] = t.Description
+		h.chatDescs[env.Actor.ChatID][t.Name] = t.Description
 	}
 	if h.prompts == nil {
 		h.prompts = map[string]string{}

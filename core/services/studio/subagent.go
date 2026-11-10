@@ -70,6 +70,8 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			return session.TurnTools{}, err
 		}
 		tools := s.childAllowed(ctx, rec, &px)
+		// The job tool acts for the sub-agent, in the parent's sandbox.
+		tools = s.bindChildJobs(px.Actor(), a, tools)
 		var prompt, work, workNote string
 		cmds := s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools)
 		if cmds.State != CommandsAvailable {
@@ -480,7 +482,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 
 	if !wait {
 		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
-		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
+		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message. To be woken if it goes quiet, use wait_for with job %q and until \"stall\".", childID, childID), nil
 	}
 	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait.get())
 	if errors.Is(err, errChildHeld) {
@@ -585,7 +587,7 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 				kept = append(kept, t)
 			}
 		}
-		return kept, nil
+		return withoutOrphanJob(kept), nil
 	}
 	byName := make(map[string]session.Tool, len(have))
 	for _, t := range have {
@@ -599,7 +601,7 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 		}
 		out = append(out, t)
 	}
-	return out, nil
+	return withoutOrphanJob(out), nil
 }
 
 // registerChild records a running sub-agent, refusing a background one past
@@ -771,6 +773,8 @@ func (s *Service) notifyWaiters(k string, status store.TurnStatus) {
 	for _, w := range ws {
 		w <- status
 	}
+	// The run of a sub-agent reached its parent: its jobs end.
+	s.endAgentRun(k)
 }
 
 // childResult is what the parent's tool call returns for a finished sub-agent.

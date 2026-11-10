@@ -46,6 +46,8 @@ type jobResult struct {
 	// Next is the offset to read on from at the next check.
 	Next int64
 	Tail string
+	// Agent is set by a check of a wait on a sub-agent (waitagentjob.go).
+	Agent *agentObs
 }
 
 // jobArmError is the refusal of a wait on a job, ready for the model.
@@ -56,6 +58,10 @@ func (e *jobArmError) Error() string { return e.msg }
 // armJob resolves the job of a wait that is being armed: it must be a job of
 // this chat that runs. It fills Node and JobLabel.
 func (h *Loops) armJob(ctx context.Context, a workspace.Actor, w *loops.Watch, idle time.Duration) error {
+	// The id of a background sub-agent of this chat: a stall wait on it.
+	if handled, err := h.armAgent(ctx, a, w, idle); handled {
+		return err
+	}
 	switch w.Mode {
 	case "":
 		w.Mode = loops.UntilExit
@@ -85,6 +91,9 @@ func (h *Loops) armJob(ctx context.Context, a workspace.Actor, w *loops.Watch, i
 	ob, err := obs.Observe(ctx, bgjob.ObserveRequest{Owner: a.Principal, Chat: a.ChatID, ID: w.Job, MaxBytes: 1, TailBytes: 1})
 	switch {
 	case errors.Is(err, bgjob.ErrUnknown):
+		if msg := h.svc.childJobRefusal(ctx, a, w.Job); msg != "" {
+			return errors.New(msg)
+		}
 		return fmt.Errorf("No job %q in this chat. Start one with job start, or check the id with job list.", w.Job)
 	case err != nil:
 		return fmt.Errorf("could not reach the node that runs %s; try again", w.Job)
@@ -117,6 +126,9 @@ func endedText(in bgjob.Info) string {
 // here: it reads the sub-agent's transcript, not a job.
 func (h *Loops) checkJob(ctx context.Context, l loops.Loop) jobResult {
 	w := l.Watch
+	if w.Agent {
+		return h.checkAgent(ctx, l)
+	}
 	obs := h.svc.d.Jobs
 	if obs == nil {
 		return jobResult{Result: watch.Result{Err: errors.New("this server has no background jobs")}}
@@ -165,6 +177,9 @@ func (h *Loops) checkJob(ctx context.Context, l loops.Loop) jobResult {
 //	job unknown        gone      gone      gone
 //	node not reached   failed check (max_errors)
 func judgeJob(w *loops.Watch, jr jobResult, now time.Time) (watch.Verdict, string) {
+	if w.Agent {
+		return judgeAgent(w, jr, now)
+	}
 	w.Checks++
 	if errors.Is(jr.Err, errJobGone) {
 		w.JobGone = true
@@ -225,6 +240,9 @@ func judgeJob(w *loops.Watch, jr jobResult, now time.Time) (watch.Verdict, strin
 // text does not say: the job exited, went quiet, is gone, or exited without a
 // match. ok is false for the others.
 func jobWakeText(w *loops.Watch, v watch.Verdict) (string, bool) {
+	if w.Agent {
+		return agentWakeText(w, v)
+	}
 	name := w.Job
 	if w.JobLabel != "" {
 		name += fmt.Sprintf(" (%q)", w.JobLabel)

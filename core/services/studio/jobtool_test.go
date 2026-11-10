@@ -51,11 +51,13 @@ type fakeJobHost struct {
 	procs map[string]*jobProc
 	jobs  map[string]*bgjob.Job
 	cmds  map[string]string
-	hook  func(bgjob.Info)
+	// sandbox is the chat whose sandbox entry each job was asked to run in.
+	sandbox map[string]string
+	hook    func(bgjob.Info)
 }
 
 func newFakeJobHost(instance string) *fakeJobHost {
-	f := &fakeJobHost{fakeHostExec: &fakeHostExec{}, procs: map[string]*jobProc{}, jobs: map[string]*bgjob.Job{}, cmds: map[string]string{}}
+	f := &fakeJobHost{fakeHostExec: &fakeHostExec{}, procs: map[string]*jobProc{}, jobs: map[string]*bgjob.Job{}, cmds: map[string]string{}, sandbox: map[string]string{}}
 	f.reg = bgjob.New(bgjob.Options{Instance: instance, Changed: func(in bgjob.Info) {
 		f.mu.Lock()
 		h := f.hook
@@ -85,6 +87,7 @@ func (f *fakeJobHost) StartJob(_ context.Context, s hostexec.JobSpec) (bgjob.Inf
 	f.procs[j.ID()] = p
 	f.jobs[j.ID()] = j
 	f.cmds[j.ID()] = s.Command
+	f.sandbox[j.ID()] = s.Sandbox
 	f.mu.Unlock()
 	j.Run(p, func() {}, nil)
 	return j.Info(), nil
