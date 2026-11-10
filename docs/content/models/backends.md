@@ -609,17 +609,17 @@ For getting started, see the available backends in LocalAI here: https://github.
 
 LocalAI supports various types of backends:
 
-- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX, the experimental [Strata engine]({{% relref "/features/engines/strata" %}}) (NVIDIA CUDA, AMD ROCm, Intel SYCL, Apple Metal, prebuilt engine packages), and [RKLLM on Rockchip NPUs]({{% relref "/features/engines/rkllm" %}}) through the cloud-proxy backend)
-- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "/features/engines/nemo-speech-cpp" %}}), faster-whisper, [Whisper-Medusa]({{%relref "/features/engines/whisper-medusa" %}}), FunASR/SenseVoice, NeMo, [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
-- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "/features/engines/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
-- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
+- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX, the experimental [Strata engine]({{% relref "/models/engines/strata" %}}) (NVIDIA CUDA, AMD ROCm, Intel SYCL, Apple Metal, prebuilt engine packages), and [RKLLM on Rockchip NPUs]({{% relref "/models/engines/rkllm" %}}) through the cloud-proxy backend)
+- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "/models/engines/nemo-speech-cpp" %}}), faster-whisper, [Whisper-Medusa]({{%relref "/models/engines/whisper-medusa" %}}), FunASR/SenseVoice, NeMo, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "/models/engines/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
-- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "/features/vision/video-generation" %}}), [LongCat-Video]({{%relref "/features/vision/video-generation" %}}), [MiniMax-H3 on stable-diffusion.cpp]({{%relref "/features/vision/video-generation" %}}))
-- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "/features/vision/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
+- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "/models/capabilities/vision/video-generation" %}}), [LongCat-Video]({{%relref "/models/capabilities/vision/video-generation" %}}), [MiniMax-H3 on stable-diffusion.cpp]({{%relref "/models/capabilities/vision/video-generation" %}}))
+- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "/models/capabilities/vision/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
-- **Time-Series Backends**: For quantile forecasting of numeric series ([timestral.cpp]({{%relref "/features/text/forecast" %}}), Mistral's Timestral models)
-- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
-- **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "/features/engines/audio-cpp" %}}))
+- **Time-Series Backends**: For quantile forecasting of numeric series ([timestral.cpp]({{%relref "/models/capabilities/text/forecast" %}}), Mistral's Timestral models)
+- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
 - **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store, qdrant-store)
 
 See the [Backend & Model Compatibility Table]({{%relref "/models/compatibility-table" %}}) for the full catalog.
@@ -658,7 +658,7 @@ tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
 
 ### Motion capture
 
-- [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture]({{% relref "/features/vision/motion" %}}).
+- [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture]({{% relref "/models/capabilities/vision/motion" %}}).
 
 ### Remove an installed backend from one node
 

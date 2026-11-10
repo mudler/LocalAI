@@ -8,7 +8,7 @@ keywords = ["cli","flags","environment variables"]
 
 Complete reference for all LocalAI command-line interface (CLI) parameters and environment variables.
 
-For client-side text inference measurements, see [Benchmark text models]({{% relref "/features/text/benchmark" %}}).
+For client-side text inference measurements, see [Benchmark text models]({{% relref "/models/capabilities/text/benchmark" %}}).
 
 These options configure the LocalAI server process. To configure an individual
 model, see [Model Configuration]({{% relref "/models/model-configuration" %}}).

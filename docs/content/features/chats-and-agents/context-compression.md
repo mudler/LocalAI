@@ -2,6 +2,7 @@
 url: "/features/context-compression/"
 title: "Context compression"
 description: "Configure automatic compression for long chat histories"
+weight: 50
 ---
 
 Context compression is an opt-in, per-model policy for chat requests that approach

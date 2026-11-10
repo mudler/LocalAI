@@ -31,7 +31,7 @@ On the Agents page, choose **Chat** on the agent's row and write a message. The 
 
 ## Let it work by itself
 
-Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Telegram connector]({{% relref "/features/chats-and-agents/chats-connectors" %}}) to talk to the agent from your phone.
+Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Telegram connector]({{% relref "/features/chat-apps" %}}) to talk to the agent from your phone.
 
 ## If your agent will not run
 
@@ -44,5 +44,5 @@ Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the ag
 ## Next steps
 
 - [Saved agents, triggers and inbox]({{% relref "/features/chats-and-agents/chats-agents" %}})
-- [Telegram connector]({{% relref "/features/chats-and-agents/chats-connectors" %}})
+- [Telegram connector]({{% relref "/features/chat-apps" %}})
 - [Moving from the old chat and agents]({{% relref "/features/chats-and-agents/chats-migration" %}})

@@ -2,7 +2,7 @@
 url = "/features/terminal-agent/"
 disableToc = false
 title = "Terminal agent"
-weight = 24
+weight = 70
 description = "Use local-ai chat, an agent in your shell that reads files and runs commands behind an approval gate."
 keywords = ["terminal","cli","agent","chat"]
 +++

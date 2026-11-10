@@ -1,8 +1,8 @@
 +++
 url = "/features/chats-agents/"
 disableToc = false
-title = "Chats: saved agents, triggers and inbox"
-weight = 22
+title = "Saved agents, triggers and inbox"
+weight = 20
 +++
 
 A saved agent is a definition you can start a [chat]({{% relref "/features/chats-and-agents/chats" %}}) with.
@@ -20,7 +20,7 @@ An agent has:
 | `description` | A short note for you. |
 | `instructions` | Text added to the system prompt of every turn. At most 32 KiB. |
 | `model` | Optional. The chat uses this model. Chat-capable model aliases can also be selected; the agent saves the alias name, not its target name. Without it, the chat is created with the model you choose. |
-| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-servers) as `connector:<id>`. The form lists both as a picker; it does not take free text. A save that adds a `connector:<id>` you have not defined, or, for an agent with a fixed model, a name that is not one of that model's MCP servers, is a `400` ("... is not one of your MCP connectors"). A name the agent already holds is kept, so an older agent still loads and saves; the form shows it as **Not defined** with a remove button, the Effective view says it is ignored, and the agent's chats skip it. |
+| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors]({{% relref "/features/chat-apps" %}}#mcp-servers) as `connector:<id>`. The form lists both as a picker; it does not take free text. A save that adds a `connector:<id>` you have not defined, or, for an agent with a fixed model, a name that is not one of that model's MCP servers, is a `400` ("... is not one of your MCP connectors"). A name the agent already holds is kept, so an older agent still loads and saves; the form shows it as **Not defined** with a remove button, the Effective view says it is ignored, and the agent's chats skip it. |
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
@@ -162,7 +162,7 @@ the **Memory** section shows them once, without switches.
 ### Connections of an agent
 
 An add-on whose tools run with the token of one of your
-[connections]({{% relref "/features/chats-and-agents/chats-connectors" %}}#github) lets the agent name which
+[connections]({{% relref "/features/chat-apps" %}}#github) lets the agent name which
 accounts its chats may use. In the agent form, the add-on's row in **What it can
 use** has an **Account it uses** list with a checkbox for each connection. A chat
 of the agent uses that set, shows it read only, and cannot change it. With two or
@@ -222,7 +222,7 @@ after what you may use yourself (you own it, or it was shared with you):
 
 In a messaging chat the tools that change things need the `tools.write` permission of
 the connection, as for an add-on that holds a credential (see
-[Connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}})); paired people have them without the tick
+[Connectors]({{% relref "/features/chat-apps" %}})); paired people have them without the tick
 only for an add-on the agent is connected to. The access view and its preview say when
 an agent whose add-ons only change resources has none to change
 (`agent_resources_none`) or only read ones (`agent_resources_read_only`), and point at
@@ -327,14 +327,14 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folders": [
 - The folder limits what the chat reaches through your files only. The MCP
   servers, web tools and collections that the agent grants are separate
   grants and are not limited to the folder. The chat is not told to build
-  [Pages]({{%relref "/features/files-and-documents/pages" %}}) either: pages live in `pages/` of your home,
+  [Pages]({{%relref "/features/pages-and-home/pages" %}}) either: pages live in `pages/` of your home,
   outside the folder.
 - The folder limits the agent, not you. The Files page, its History, Undo and
   Trash still show all your files, and a chat's file list and attachments
   keep their paths in your home there.
 - Triggers and connectors that use the agent keep to its folder too. See
   [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
-  the [connectors page]({{% relref "/features/chats-and-agents/chats-connectors" %}}#what-a-message-gets).
+  the [connectors page]({{% relref "/features/chat-apps" %}}#what-a-message-gets).
 
 In the web interface, the **Files** section of the agent form is one choice in
 three words:
@@ -486,7 +486,7 @@ For an agent shared with you, the runs are your own chats with it.
 
 You can share a saved agent with other people on the server, or with everyone.
 Use **Share** in the row menu of the agent or in the header of its page. The
-[Share dialog]({{% relref "/features/files-and-documents/sharing" %}}#the-share-dialog) finds people by name and
+[Share dialog]({{% relref "/features/sharing" %}}#the-share-dialog) finds people by name and
 gives each one a role:
 
 | Role | What the person can do |
@@ -565,7 +565,7 @@ The API:
 | `GET /api/chats/agents/{id}/references` | What your agent uses, and how each thing can be shared: `share.kind`, `share.resource_id`, `share.options` and, for each option, the role it grants in `share.roles`. For a collection or a connection that you own, the call makes its record in the sharing API, as `POST /api/collections/{name}/share` and `POST /api/chats/connectors/{id}/share` do; nothing is granted. Owner only. |
 | `GET /api/chats/agents/{id}/needs` | What an agent you may use needs, and the state of each thing for you: `ok`, `missing`, `unavailable` or `ask`. Kind `network` is the agent's network preset and kind `tool-group` an opt-in group it turns on. |
 
-Share with the [sharing API]({{% relref "/features/files-and-documents/sharing" %}}#api), kind `agent`, the ID from
+Share with the [sharing API]({{% relref "/features/sharing" %}}#api), kind `agent`, the ID from
 `POST .../share`, roles `use` and `viewer`:
 
 ```bash
@@ -585,7 +585,7 @@ does not share agents.
 
 Sharing needs named accounts. In local-owner mode, with no accounts, the agents
 show no sharing. The grants live in the sharing policy of the add-on owner (see
-[Sharing resources]({{% relref "/features/files-and-documents/sharing" %}}#distributed-mode)). The agent keeps only
+[Share with your team]({{% relref "/features/sharing" %}}#distributed-mode)). The agent keeps only
 the ID of its sharing record, in the agents table, so every frontend reads the
 same one. A frontend that is not the add-on owner asks the owner for every
 sharing decision, so a shared agent works on every frontend, also when the
@@ -596,7 +596,7 @@ turn of a shared agent stops. With add-ons off, no agent is shared.
 
 ## Connectors
 
-A [connector]({{% relref "/features/chats-and-agents/chats-connectors" %}}) binds a Telegram bot or a Slack app to an agent, so a person can talk to it from Telegram or Slack. An [MCP connector]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.
+A [connector]({{% relref "/features/chat-apps" %}}) binds a Telegram bot or a Slack app to an agent, so a person can talk to it from Telegram or Slack. An [MCP connector]({{% relref "/features/chat-apps" %}}#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.
 
 ## Triggers
 
@@ -721,7 +721,7 @@ What a run holds:
   agent holds; no tool changes the `acts` of a trigger afterwards. The proposal
   card lists them, and confirming it grants exactly those. A proposal from a
   chat of a messaging app carries only the acts that the binding allows
-  (`approval.acts`, see [Runs may act]({{% relref "/features/chats-and-agents/chats-connectors" %}}#runs-may-act)) and the
+  (`approval.acts`, see [Runs may act]({{% relref "/features/chat-apps" %}}#runs-may-act)) and the
   agent holds; the rest is dropped and named in the proposal. A connection starts
   such a trigger without asking only in the `auto` mode, when every act is allowed
   for the binding and the sender is paired; otherwise it is left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
@@ -733,7 +733,7 @@ What a run holds:
 - **Read only runs.** A trigger whose proposal said its runs only read
   (`access: read_only`), or that a connection made without asking while its
   approval mode is `auto_readonly` (see
-  [Approval modes]({{% relref "/features/chats-and-agents/chats-connectors" %}}#approval-modes)), holds nothing: every
+  [Approval modes]({{% relref "/features/chat-apps" %}}#approval-modes)), holds nothing: every
   tool that is not a read is refused, whatever `acts` and the agent say. A
   connection that cannot be read is treated as `auto_readonly`.
 - **Sub-agents.** A sub-agent of an unattended run has the same limits as its
