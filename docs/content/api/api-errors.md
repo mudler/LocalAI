@@ -177,7 +177,7 @@ curl http://localhost:8080/v1/chat/completions \
   -d '{"messages": [{"role": "user", "content": "hello"}]}'
 ```
 
-See also: [Text Generation]({{%relref "/features/text/text-generation" %}})
+See also: [Text Generation]({{%relref "/models/capabilities/text/text-generation" %}})
 
 ### Completions - `POST /v1/completions`
 
@@ -195,7 +195,7 @@ See also: [Text Generation]({{%relref "/features/text/text-generation" %}})
 | 400    | No `model` in the body and no embeddings model configured | `Bad Request` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Embeddings]({{%relref "/features/text/embeddings" %}})
+See also: [Embeddings]({{%relref "/models/capabilities/text/embeddings" %}})
 
 ### Image Generation - `POST /v1/images/generations`
 
@@ -205,7 +205,7 @@ See also: [Embeddings]({{%relref "/features/text/embeddings" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Image Generation]({{%relref "/features/vision/image-generation" %}})
+See also: [Image Generation]({{%relref "/models/capabilities/vision/image-generation" %}})
 
 ### Image Editing (Inpainting) - `POST /v1/images/edits`
 
@@ -224,7 +224,7 @@ See also: [Image Generation]({{%relref "/features/vision/image-generation" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Audio to Text]({{%relref "/features/audio/audio-to-text" %}})
+See also: [Audio to Text]({{%relref "/models/capabilities/audio/audio-to-text" %}})
 
 ### Text to Speech - `POST /v1/audio/speech`, `POST /tts`
 
@@ -234,7 +234,7 @@ See also: [Audio to Text]({{%relref "/features/audio/audio-to-text" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Text to Audio]({{%relref "/features/audio/text-to-audio" %}})
+See also: [Text to Audio]({{%relref "/models/capabilities/audio/text-to-audio" %}})
 
 ### ElevenLabs TTS - `POST /v1/text-to-speech/:voice-id`
 
@@ -260,7 +260,7 @@ See also: [Text to Audio]({{%relref "/features/audio/text-to-audio" %}})
 | 422    | `top_n` less than 1            | `top_n - should be greater than or equal to 1` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Reranker]({{%relref "/features/text/reranker" %}})
+See also: [Reranker]({{%relref "/models/capabilities/text/reranker" %}})
 
 ### Anthropic Messages - `POST /v1/messages`
 
@@ -347,7 +347,7 @@ curl http://localhost:8080/v1/responses \
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-See also: [Object Detection]({{%relref "/features/vision/object-detection" %}})
+See also: [Object Detection]({{%relref "/models/capabilities/vision/object-detection" %}})
 
 ### Video Generation - `POST /v1/video/generations`
 

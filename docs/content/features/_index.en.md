@@ -14,11 +14,11 @@ The navigation groups the pages by task. A page says when a feature comes from a
 |---|---|
 | [Chats and agents]({{% relref "/features/chats-and-agents" %}}) | Chats, saved agents, triggers, chat apps (Telegram, Slack, Discord), MCP, web search, the LocalAI Assistant and the terminal agent. |
 | [Files, documents and Home]({{% relref "/features/files-and-documents" %}}) | Files and sharing, Knowledge collections, Office documents, tables, pages, Home widgets and the Sandbox. |
-| [Text, reasoning and retrieval]({{% relref "/features/text" %}}) | Text generation, grammars, thinking models, embeddings, reranking and moderation. |
-| [Audio and speech]({{% relref "/features/audio" %}}) | Speech to text, text to speech, sound classification, speakers and voice activity. |
-| [Images, video and 3D]({{% relref "/features/vision" %}}) | Image understanding, object detection, faces, image and video generation, 3D and motion. |
-| [Engines]({{% relref "/features/engines" %}}) | Backends with their own page: vllm.cpp, RKLLM, Strata, audio.cpp, NeMo-Speech.cpp and Whisper-Medusa. |
-| [Training and quantization]({{% relref "/features/model-tools" %}}) | Fine-tune and quantize models. |
+| [Text and retrieval]({{% relref "/models/capabilities/text" %}}) | Text generation, grammars, thinking models, embeddings, reranking and moderation. |
+| [Audio and speech]({{% relref "/models/capabilities/audio" %}}) | Speech to text, text to speech, sound classification, speakers and voice activity. |
+| [Images, video and 3D]({{% relref "/models/capabilities/vision" %}}) | Image understanding, object detection, faces, image and video generation, 3D and motion. |
+| [Engines]({{% relref "/models/engines" %}}) | Backends with their own page: vllm.cpp, RKLLM, Strata, audio.cpp, NeMo-Speech.cpp and Whisper-Medusa. |
+| [Train and quantize]({{% relref "/models/training" %}}) | Fine-tune and quantize models. |
 
 ## Related pages outside this section
 

@@ -12,7 +12,7 @@ The owner installs, verifies, starts and supervises them, and a deployment with
 several frontends forwards every addon request to that owner over a pinned mutual
 TLS carrier. The routes are described in [Public API](#public-api), the Apps and
 Add-ons pages in [Apps](#apps), and Tables, the first first-party addon, in
-[Tables]({{% relref "/features/files-and-documents/tables" %}}). The first-party package is described in
+[Tables]({{% relref "/addons/catalogue/work/tables" %}}). The first-party package is described in
 [First-party package and release channels](#first-party-package-and-release-channels);
 it is not published to a registry by any test or by acceptance.
 
@@ -41,7 +41,7 @@ Trust has three parts, and they are different:
 Every addon requires an executable; a UI bundle alone is not an addon.
 
 The owner's resource policy also serves the resource kinds that are not add-ons.
-[Sharing resources]({{%relref "/features/files-and-documents/sharing" %}}) describes their roles, the
+[Share with your team]({{%relref "/features/sharing" %}}) describes their roles, the
 grant to `@everyone` and the `/api/shares` routes.
 
 ## Internal host policy store
@@ -612,7 +612,7 @@ a call may reach. The model never sees or sets either.
   it. An add-on whose service needs more than a token (servers, a login and a
   password) can seal a small versioned JSON record as the secret and keep only
   the resource name in the list, as the Mail add-on does (see
-  [Mail]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mail-imap-and-smtp)). The host cannot show a
+  [Mail]({{% relref "/features/chat-apps" %}}#mail-imap-and-smtp)). The host cannot show a
   sealed record back, so the add-on's page asks for all of it again when a person
   changes any part. A service that is not HTTP and is not reached through the
   sandbox network check must apply the address guard of `pkg/web/safehttp` itself.
@@ -2381,7 +2381,7 @@ draw the same thing.
 - `sdk.ui` also has the Share dialog, `ShareDialog`, and the role and sharing line
   of a list row, `RoleBadge` and `SharedByBadge`. `sdk.resources.shareClient(resourceId)`
   is the dialog's client for one resource of the add-on. See
-  [The Share dialog]({{%relref "/features/files-and-documents/sharing#the-share-dialog" %}}).
+  [The Share dialog]({{%relref "/features/sharing#the-share-dialog" %}}).
 - `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
   add-on's own scoped style sheet: `text`, `muted`, `surface`, `inset`, `edge`, `hover`,
   `accent`, `accentText`, `accentWash`, `onAccent`, `okText`, `okWash`, `warnText`,
@@ -2982,7 +2982,7 @@ person to confirm.
   names no resource: if its schema has a `resourceId`, the host ignores the
   value the model gives and sets it to the ID of the conversation.
 - **Who may call it.** Only the chats consumer (`studio-chats-addons` in the
-  consumer table of [Tables]({{% relref "/features/files-and-documents/tables" %}})). Every other consumer neither lists the
+  consumer table of [Tables]({{% relref "/addons/catalogue/work/tables" %}})). Every other consumer neither lists the
   tool nor runs it: the old chat route, the direct API, agents and scripts.
 - **The call.** `POST /act` with an envelope whose action and scope are `act`.
   The actor is the user of the chat. The answer is a `Result`. The call may run
@@ -3136,7 +3136,7 @@ The owner process holds everything about host grants. A frontend stores nothing 
 ## Connector add-ons
 
 A connector add-on carries the messages of a messaging platform between the platform
-and the [chats]({{% relref "/features/chats-and-agents/chats-connectors" %}}). The Telegram, Slack and Discord add-ons are
+and the [chats]({{% relref "/features/chat-apps" %}}). The Telegram, Slack and Discord add-ons are
 first-party connector add-ons. The host keeps what is the same for every platform (the
 bindings, the sealed bot token, the allowlist, the sender log, one chat for each sender
 or thread, the turn and its notifications), so an add-on holds only the transport and
@@ -3341,7 +3341,7 @@ is never sent a handle.
 The SDK of the first-party add-ons (`addons/internal/connector`) has `Put` and `Get`;
 a platform implements `StreamReader` and `StreamSender` and keeps only its own HTTP
 calls. The limits come from the platforms' own documents: see the table in
-[File limits]({{% relref "/features/chats-and-agents/chats-connectors" %}}#file-limits).
+[File limits]({{% relref "/features/chat-apps" %}}#file-limits).
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
@@ -3364,7 +3364,7 @@ A message is answered when it is `direct` (a private chat) or a `mention` (it
 addresses the bot in a group, such as a Slack mention or a reply in a thread the bot
 follows); any other message is logged and ignored. Which chat a message belongs to
 depends on the conversation mode of the binding (see
-[How the bot answers]({{% relref "/features/chats-and-agents/chats-connectors" %}}#how-the-bot-answers)); by default a
+[How the bot answers]({{% relref "/features/chat-apps" %}}#how-the-bot-answers)); by default a
 message with a `thread` belongs to a chat of that thread, shared by the people who
 write in it, and any other message belongs to a chat of its sender. When a message has `media` (at most 8
 references), the host reads each file with the op `media` before it makes the chat,
@@ -3960,7 +3960,7 @@ caller is an administrator before it acts.
 ### Add-ons that keep the owner's own data
 
 An add-on that keeps the data of one person and needs no credential and no resource list (the
-[Calendar]({{% relref "/features/files-and-documents/calendar" %}}) and [Contacts]({{% relref "/features/files-and-documents/contacts" %}}) add-ons) sets `capabilities.ownerData` to `true` and
+[Calendar]({{% relref "/addons/catalogue/work/calendar" %}}) and [Contacts]({{% relref "/addons/catalogue/work/contacts" %}}) add-ons) sets `capabilities.ownerData` to `true` and
 `featureLevel` to 3. Its tools name no resource: the add-on keys the data on the user in the
 authority of the call, never on an argument. Reads run at once for every sender a messaging
 bot lets in. A tool of another kind than `read` is held to `tools.write` in a messaging chat,
@@ -4064,7 +4064,7 @@ their own session; a model cannot change it, and a new connection made on the pa
 on **propose**. The SSH add-on works this way: its `run` tool declares no `approval` and
 no `approvalOverridable`, so the connection is the one place where the person chooses
 between confirming each command and running it at once. The card of a held command shows the
-host and the exact command (see [SSH]({{% relref "/features/chats-and-agents/ssh" %}})).
+host and the exact command (see [SSH]({{% relref "/addons/catalogue/services/ssh" %}})).
 
 The host limits a write call to the apply timeout (60 seconds), so a write tool that runs a
 command must stay below it.
@@ -4508,7 +4508,7 @@ Quantization keep a change set for the changes they can roll back, and the resul
 carries `undoable`, the `changeId` and a one-line `undo`. See
 [Undoing a change a chat made](#undoing-a-change-a-chat-made). `GET /api/addons/proposals?state=pending`
 lists the caller's own pending proposals (newest first, at most 32). See
-[Tables]({{% relref "/features/files-and-documents/tables" %}}#model-tools-and-approval-cards) for the tool names, the
+[Tables]({{% relref "/addons/catalogue/work/tables" %}}#model-tools-and-approval-cards) for the tool names, the
 approval card and the inventory of tool consumers.
 
 `POST /api/addons/proposals` takes a typed `write` or `schema` request. When the
@@ -5383,8 +5383,8 @@ Canonical links open the add-on shell, which reports unavailable installations. 
 "Core routes from add-ons"); the core keeps these routes and checks every call again.
 Both add-ons offer chat tools that start a job. In the chats a tool call starts it at once; on other surfaces it is a proposal that waits for a person to confirm. They
 reach the engine through [Host operations](#host-operations), and a tool can control only
-a job that a tool started. See [Fine-tuning]({{% relref "/features/model-tools/fine-tuning" %}}#fine-tuning-is-an-add-on) and
-[Quantization]({{% relref "/features/model-tools/quantization" %}}#quantization-is-an-add-on).
+a job that a tool started. See [Fine-tuning]({{% relref "/models/training/fine-tuning" %}}#fine-tuning-is-an-add-on) and
+[Quantization]({{% relref "/models/training/quantization" %}}#quantization-is-an-add-on).
 
 ### My add-ons
 
@@ -6018,7 +6018,7 @@ an `invalid_path` error before any request is made:
   `/api/chats/connectors/{id}/share`. Only the person shares, in the host's Share
   dialog: an add-on page renders `sdk.ui.ShareDialog` with
   `sdk.resources.shareClient` for its own resources, or `sdk.ui.ConnectionShareDialog`
-  for a connector binding (see [Sharing resources]({{%relref "/features/files-and-documents/sharing#in-an-add-on" %}}));
+  for a connector binding (see [Share with your team]({{%relref "/features/sharing#in-an-add-on" %}}));
 - an encoded `/` or `\` in the first two segments, because it can hide a segment
   boundary. In a later segment it is a normal identifier (`/api/voice-profiles/a%2Fb`).
 

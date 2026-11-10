@@ -1,7 +1,7 @@
 +++
 url = "/features/mcp/"
 title = "Model Context Protocol (MCP)"
-weight = 22
+weight = 80
 toc = true
 description = "Agentic capabilities with Model Context Protocol integration"
 tags = ["MCP", "Agents", "Tools", "Advanced"]
@@ -653,7 +653,7 @@ mcp:
 > The chats no longer connect to MCP servers from the browser. This section
 > describes the browser-side connection that the add-on host still offers to
 > add-ons. For the chats, define the server as a connector (it is stored per user
-> and connects from the server): see [Chats connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-servers).
+> and connects from the server): see [Chats connectors]({{% relref "/features/chat-apps" %}}#mcp-servers).
 > A server on your own computer or a private network is refused unless an
 > administrator allows private addresses.
 

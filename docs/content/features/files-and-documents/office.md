@@ -18,7 +18,7 @@ A chat can make and edit Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`) a
 | Control over layout | Basic | Full, with the libraries in the guest image |
 | Platforms | Linux and macOS | Linux |
 
-Use Simple Office when you want a quick document and your host cannot run a sandbox. Use the [Sandbox]({{% relref "/features/files-and-documents/sandbox" %}}) when you need charts, exact layout or a conversion. In the current development builds, both add-ons are in the development channel of the library.
+Use Simple Office when you want a quick document and your host cannot run a sandbox. Use the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) when you need charts, exact layout or a conversion. In the current development builds, both add-ons are in the development channel of the library.
 
 The two add-ons work on their own. LocalAI does not route between them and does not change the choice for you.
 

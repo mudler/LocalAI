@@ -55,6 +55,6 @@ An administrator installs an add-on for the whole instance. A user needs the `ad
 
 ## Related pages
 
-- [Sharing resources]({{% relref "/features/files-and-documents/sharing" %}}) has the roles and the API.
+- [Share with your team]({{% relref "/features/sharing" %}}) has the roles and the API.
 - [Files and shared folders]({{% relref "/features/files-and-documents/files" %}})
 - [Authentication]({{% relref "/administration/authentication" %}})

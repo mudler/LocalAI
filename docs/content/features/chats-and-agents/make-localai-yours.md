@@ -2,7 +2,7 @@
 url = "/features/make-localai-yours/"
 disableToc = false
 title = "Make LocalAI yours"
-weight = 23
+weight = 100
 +++
 
 You can change how LocalAI looks and behaves for you by asking for it in a
@@ -251,7 +251,7 @@ A metric uses `value`, `note` and `series` (numbers for the small line). A
 of recent chats under it. A missing data file shows as empty. A data file that
 breaks its schema shows its last valid data, marked as stale.
 
-A `page` widget shows one of your [pages]({{% relref "/features/files-and-documents/pages" %}}#a-page-on-home) as
+A `page` widget shows one of your [pages]({{% relref "/features/pages-and-home/pages" %}}#a-page-on-home) as
 a tile, in the page's compact mode. It names the page (`page`, the folder name
 under `pages/`) and, for a page of a shared folder, `folder` (the folder id).
 Its `title` is optional: without it, the tile shows the title of the page's
@@ -302,7 +302,7 @@ A page is a small tool, such as a task board or a reading list: an
 sandbox, as you, cannot reach the network, and reads and writes only its own
 folder. The **Pages** entry of the sidebar shows once you have a page, with a
 one-time **New** label; pinned pages show under it. Two ready pages ship with
-LocalAI (a task board and a reading list). See [Pages]({{% relref "/features/files-and-documents/pages" %}}) for
+LocalAI (a task board and a reading list). See [Pages]({{% relref "/features/pages-and-home/pages" %}}) for
 the folder, the bridge and the limits.
 
 ## Updates on a schedule
@@ -319,7 +319,7 @@ failed run keeps the last good data, marked as stale.
 
 A page in a shared folder runs as the person who opens it, so it never runs
 before they allow it, and a change by its author asks again. See
-[Pages]({{% relref "/features/files-and-documents/pages" %}}).
+[Pages]({{% relref "/features/pages-and-home/pages" %}}).
 
 ## Look
 
@@ -435,7 +435,7 @@ suggestions**, stored under `seen` in `LocalAI/user.json`:
 
 - The whole feature follows the chats and their files: with the chats or the
   files off, none of these screens or files is used.
-- Pages need the `pages` feature of a user (see [Pages]({{% relref "/features/files-and-documents/pages" %}})).
+- Pages need the `pages` feature of a user (see [Pages]({{% relref "/features/pages-and-home/pages" %}})).
 - The runtime setting `chats_suggestions` (**Offers from the assistant** in the
   settings, on by default) is the default for users who did not choose. It
   applies at once. See [Runtime settings]({{%relref "/administration/runtime-settings" %}}).

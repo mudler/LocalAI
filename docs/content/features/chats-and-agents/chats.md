@@ -2,7 +2,7 @@
 url = "/features/chats/"
 disableToc = false
 title = "Chats"
-weight = 21
+weight = 10
 +++
 
 Chats are conversations that the server keeps. You can keep typing while the
@@ -36,7 +36,7 @@ administrator always has all of them:
 | `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
 | `connectors` | off | Telegram and Slack bindings (`/api/chats/connectors`): a public door to one of your agents. |
 | `mcp_jobs` | off | The agent tasks and jobs API (`/api/agent/...`). |
-| `pages` | off | The pages of the workspace (`/api/chats/pages...`): HTML pages in `pages/` of the home, shown in a sandboxed frame. See [Pages]({{%relref "/features/files-and-documents/pages" %}}). |
+| `pages` | off | The pages of the workspace (`/api/chats/pages...`): HTML pages in `pages/` of the home, shown in a sandboxed frame. See [Pages]({{%relref "/features/pages-and-home/pages" %}}). |
 
 A command-line MCP server (stdio) in your MCP connectors stays for administrators
 only, whatever the features. A trigger or a connector whose owner loses its feature
@@ -349,7 +349,7 @@ stop it. Type `/loop` in the message box, or use the API.
   `wait_agents` need the capability `loops.wait` and a listed or paired
   sender. `loops.wait` is on by default for new bots and is added once to
   existing bots; `loops.start` is off until the owner ticks it, as for any
-  other capability (see [Chats: connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}})).
+  other capability (see [Chat apps and connections]({{% relref "/features/chat-apps" %}})).
   A bot that accepts anyone gives neither to a sender who is not paired. The
   server checks the capability again when the model calls the tool. A loop in
   a chat that a trigger, a job, a page or a connector started ends after a fifth
@@ -1546,8 +1546,8 @@ curl -s localhost:8080/api/chats/$ID/addons
 ### The connections of an add-on
 
 Some add-ons run their tools with a token that you keep in a connection (for
-example the [GitHub add-on]({{% relref "/features/chats-and-agents/chats-connectors" %}}#github) or the
-[Jellyfin add-on]({{% relref "/features/chats-and-agents/chats-connectors" %}}#jellyfin)). Any add-on
+example the [GitHub add-on]({{% relref "/features/chat-apps" %}}#github) or the
+[Jellyfin add-on]({{% relref "/features/chat-apps" %}}#jellyfin)). Any add-on
 that declares a credential in its manifest works this way. LocalAI never
 chooses the connections for you, and a chat can use more than one for the same
 add-on:
@@ -1735,7 +1735,7 @@ chats, as it does for `/v1/chat/completions`. A user needs the
 A tool cannot take the name of a built-in tool such as `spawn_agent`.
 
 You can also add MCP servers of your own, stored on the server: see
-[MCP servers]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-servers). Your enabled connectors
+[MCP servers]({{% relref "/features/chat-apps" %}}#mcp-servers). Your enabled connectors
 are offered to your chats next to the model's servers; the model's own
 configuration is not changed.
 
@@ -1882,7 +1882,7 @@ A tool of an MCP server can declare an interactive HTML page in
 `_meta.ui.resourceUri`, as the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview)
 defines. When the model calls such a tool, the chat shows the page under the tool
 line, with the arguments and the result of the call. This works for your
-[connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-apps) and for the MCP servers of the
+[connectors]({{% relref "/features/chat-apps" %}}#mcp-apps) and for the MCP servers of the
 chat's model. The page appears as soon as the tool call ends, while the turn
 goes on, and it stays when the turn ends or the chat is opened again.
 
@@ -2006,7 +2006,7 @@ The server ships these built-in skills: `writing-skills`, `localai-workspace`, `
 An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "/features/chats-and-agents/localai-assistant#the-prompt-and-the-recipes" %}}).
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours]({{% relref "/features/chats-and-agents/make-localai-yours" %}}).
-`localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "/features/files-and-documents/pages" %}}).
+`localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "/features/pages-and-home/pages" %}}).
 `assemble-media` is for the sandbox. It has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. It can also make a simple video from frames drawn with Python or SVG. It carries a hint for the `media` sandbox profile.
 `media-prompting` teaches the model how to prompt the image, video, music and speech models: a loop of pick, read the card, generate, inspect and change one thing, the anatomy of a prompt for each kind, what steps, guidance, size and seed do, and what to refuse. It has one card per model family in its `cards/` folder (Qwen-Image, MiniMax-H3, YuE2 and Qwen3-TTS), which the model reads when it uses that family. To add a family, add a card and a row in the table of `SKILL.md`.
 
@@ -2081,7 +2081,7 @@ administrator can switch each tool off, set a SearXNG instance for the
 searches and allow more ports in **Settings > Tools**. An add-on can replace
 either tool by name: the optional Web add-on replaces both, to search with Brave
 Search, Tavily or Google with a key and to read PDF files. See
-[Web search and web pages in chats]({{% relref "/features/chats-and-agents/web" %}}).
+[Search the web in chats]({{% relref "/features/chats-and-agents/web" %}}).
 
 ## Collections
 
@@ -2256,7 +2256,7 @@ Rules for this folder are in /workspace/home/Reports/AGENTS.md. Read that file b
   turns, so they work the same with several frontends.
 
 A folder `pages/<name>/` with an `index.html` is a page: the UI shows it in a
-sandboxed frame under **Pages**. See [Pages]({{%relref "/features/files-and-documents/pages" %}}).
+sandboxed frame under **Pages**. See [Pages]({{%relref "/features/pages-and-home/pages" %}}).
 
 ### Shared folders
 
@@ -2265,7 +2265,7 @@ it and chooses its members: a user, or **Everyone** (every user, also the ones
 who sign up later), each with **Can read** or **Can edit**. A member's chats see
 the folder at `/workspace/shared-<name>` (read-only for a reader), and its pages
 show on the Pages screen under **Shared with you** (see [Shared
-pages]({{%relref "/features/files-and-documents/pages#shared-pages" %}})). A user who is not a member
+pages]({{%relref "/features/pages-and-home/pages#shared-pages" %}})). A user who is not a member
 sees nothing of the folder: every call about it answers `404`, as for a folder
 that does not exist.
 
@@ -2332,7 +2332,7 @@ You can share a folder of your own home with other people, without an
 administrator. Open **Files**, choose **Share…** in the menu of a folder, and
 add a person or **Everyone**, with **Can read** or **Can edit**. This is the
 same Share dialog as for agents and the other things you can share (see
-[Sharing resources]({{%relref "/features/files-and-documents/sharing" %}})).
+[Share with your team]({{%relref "/features/sharing" %}})).
 
 - **What you can share.** A folder inside your home: not the home itself, and
   not a folder that LocalAI keeps or reads as your own words: `LocalAI/`,
@@ -2350,7 +2350,7 @@ same Share dialog as for agents and the other things you can share (see
 - **Who.** An active account that the search finds, or **Everyone** (every
   account, also the ones created later). The search is the user picker of the
   other kinds of sharing (see
-  [Sharing resources]({{%relref "/features/files-and-documents/sharing#api" %}})): it starts at three
+  [Share with your team]({{%relref "/features/sharing#api" %}})): it starts at three
   characters of the display name, a part of an address finds nobody, and an
   account without a name is found by its whole address only. It shows a name and
   nothing else.
@@ -2475,7 +2475,7 @@ In [distributed mode]({{% relref "/administration/distributed-mode" %}}) any fro
 
 **Settings and edits.** The settings, the title and the model of a chat, and the cut that regenerate and edit make, are stored with the chat. A change of title or model, a regenerate and an edit take the same turn claim as a message, so they are refused with 409 while a turn runs on any frontend. A video that comes with a message is held in the memory of the frontend that runs the turn, for that turn's first request.
 
-**MCP connectors.** The records of your [MCP connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-servers) are shared in PostgreSQL. The open MCP sessions are per instance: each frontend opens its own, and a local command (`stdio`) is refused in a cluster.
+**MCP connectors.** The records of your [MCP connectors]({{% relref "/features/chat-apps" %}}#mcp-servers) are shared in PostgreSQL. The open MCP sessions are per instance: each frontend opens its own, and a local command (`stdio`) is refused in a cluster.
 
 **Where a turn runs.** The frontend that wins the claim runs the whole turn. The model calls it makes are routed to inference nodes, and its MCP tool calls are sent to agent workers, exactly as for any other request. Agent workers do not run chats: they have no database.
 
@@ -2639,7 +2639,7 @@ The chat page (`/app/chats/<id>`) shows one chat.
   with a tab per sheet and the first 200 rows; Word documents and
   presentations as their text (the formatting is not shown); PDF files in the
   browser's viewer; HTML files run in the sandbox of
-  [Pages]({{%relref "/features/files-and-documents/pages" %}}) with no network and no bridge;
+  [Pages]({{%relref "/features/pages-and-home/pages" %}}) with no network and no bridge;
   images, Markdown, JSON, code, audio and video with their own views; any
   other type as a card with **Download**. An add-on that previews a type (the
   `files.preview` slot) replaces the built-in view for it. Drop files on the
