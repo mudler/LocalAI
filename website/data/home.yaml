@@ -117,7 +117,7 @@ sections:
 cards:
   - {t: Office, p: "Word, Excel, PowerPoint and PDF from a sentence.", icon: office, href: "/docs/features/office/"}
   - {t: Files, p: "Upload, share folders, use them in a chat.", icon: files, href: "/docs/features/files/"}
-  - {t: Sandbox, p: "Python and shell in an isolated box.", icon: sandbox, href: "/docs/features/sandbox/"}
+  - {t: Sandbox, p: "Python and shell in an isolated box.", icon: sandbox, href: "/docs/addons/catalogue/work/sandbox/"}
   - {t: Team, p: "A login per person. Admins choose features.", icon: team, href: "/docs/concepts/users-and-sharing/"}
   - {t: Collections, p: "Search your documents by meaning.", icon: collections, href: "/docs/features/collections/"}
   - {t: "Home and pages", p: "Widgets, small pages and triggers.", icon: home, href: "/docs/features/pages/"}
