@@ -21,7 +21,7 @@ files to that spec.
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer`, `httpControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl`, `nodes.AgentControlClient` (tunnel) |
 | Agent RPC, worker half | unexported `agentRPCServer` on NATS, `agentworker.Handler` on the tunnel | `core/cli/agent_worker.go`, `core/services/agentworker` | `nodes.NATSAgentRPCServer`, `agentworker.Config` |
-| Chat start, frontend half | `studio.ChatWorkers` | `core/services/studio` | `nodes.NATSChatStarter` |
+| Chat start, frontend half | `studio.ChatWorkers` | `core/services/studio` | `nodes.NATSChatStarter`, over the queue request of the broadcaster holder (NATS queue group, or a pick by the frontend on the tunnel) |
 | Chat start, worker half | `studio.Service.ServeStart`, served by `nodes.ChatStartHandler` | `core/application/studio_chatworker.go` | `nodes.NATSChatStartServer` |
 | Dial to a worker | `nodes.BackendClientFactory`, `nodes.ModelProber`, `nodes.WorkerNetDialerFor` | `core/services/nodes` | direct dial |
 
@@ -249,6 +249,9 @@ worker gives the handler the same budget.
 
 - `ErrNoRoute` (wrapped): no worker listens. `Service.SendBackground` runs the
   turn on the frontend.
+- `messaging.ErrNotDelivered` (wrapped): the start reached no worker (none
+  could be reached, or the carrier carries no starts). Nothing started, so the
+  frontend runs the turn too. It is not `ErrNoRoute`.
 - A timeout or a transport error: the worker may have started the turn. The
   start fails and nothing runs on the frontend, so a message cannot run twice.
 - A reply with `Error` set: the worker's refusal. The start fails with
@@ -269,16 +272,46 @@ it.
 ### Request and reply between processes
 
 The broadcaster holder also carries request and reply (`messaging.RequestReply`):
-the chat start, the chat replay and the background jobs of a turn. A set that has
-it names it in `Set.Replies` (the NATS client). The tunnel set has none, because
-the tunnel reaches workers and not other frontends. There `Request` returns an
-error that wraps `messaging.ErrNoResponders` (`messaging.IsNoResponders` reports
-it), which every caller already reads as "nobody listens": the chat start runs the
-turn on this frontend, the replay sends `resync`, and a background job on another
-node is out of reach. `SubscribeReply` and `QueueSubscribeReply` are kept in the
-registry of the holder like a broadcast subscription, so a chat worker that
-serves `chats.start` follows a change of carrier: it listens on NATS while NATS is
-attached and on nothing while only the tunnel is.
+the chat start, the chat replay and the background jobs of a turn. On NATS the
+subject routes a request (`Set.Replies` is the NATS client). On the tunnel there
+is no broker, so the asking process names the process that answers, and the
+holder has two more calls for it: `RequestInstance` (the replay and the job asks,
+which know the instance of the owner) and `RequestQueue` (the chat start). A
+carrier that routes by subject gets the plain request from both
+(`messaging.RequestInstance`, `messaging.RequestQueue`), so NATS is unchanged.
+
+On the tunnel (`carrier.tunnelReplies`) a request goes over the peer link to the
+replica it names (`tunnel.PeerPool.Request`), and the far replica runs the
+handler that it registered for the subject (`tunnel.Replies`; the tunnel package
+names no subject). A request for this replica runs in the process. A queue
+request lists the members (`TunnelOptions.Queues`: for `chats.start`, the live
+replicas that a node with `node.role=chat-worker` names in `node.instance`),
+tries them in a random order, at most three, and moves on only when the failure
+proves that the member ran nothing:
+
+- **Not started** (`tunnel.NotStarted`): the request was not written whole, the
+  replica serves nothing for the subject, it is not the replica named, or it
+  predates request and reply. Or the member answered with a refusal that
+  `moveOn` reads as proof, such as `ChatStartReply.Full`.
+- **Unknown**: the request was written and the reply did not arrive, or the
+  handler ran and failed. It is returned and never sent again, so a message is
+  never run twice.
+
+`SubscribeReply` and `QueueSubscribeReply` are kept in the registry of the
+holder like a broadcast subscription, so a handler follows a change of carrier;
+a request in flight ends on the carrier where it began. The handler gets no
+context, as on NATS: the stream is closed when the caller gives up, and the
+reply is dropped. The budget of the caller crosses in the request frame and
+bounds the wait of the far replica. A request and a reply are bounded by
+`messaging.MaxBroadcastBytes`.
+
+`carrier.mapReplyError` is where the errors of the tunnel become messaging
+errors. Only a replica that is not in the deployment, or that serves nothing for
+the subject, is `messaging.ErrNoResponders`. A peer that does not answer, an
+older release and a replica that is not the one named are
+`messaging.ErrNotDelivered`, which is never absence: no caller may read it as a
+process that left. A set with no request and reply (`Set.Replies` nil) answers
+`ErrNotDelivered` too.
 
 ## Control verbs
 
@@ -402,7 +435,11 @@ none. The link is plain `ws` unless `--peer-tls` is set (`tunnel.WithPeerTLS`),
 and a replica that publishes an address that is not on its host warns at
 start-up while it is plain. A relayed stream carries two request frames, the relay frame (worker, lane,
 remaining budget of the caller) and then the frame of the tunnel. The relay never
-relays onward.
+relays onward. A stream whose frame has `reply` where the lane goes is a
+request for the replica itself (replica, `reply`, budget, subject), followed by
+the body; the relay hands it to `tunnel.Replies`. A replica of an older release
+refuses that frame with a relay code, which the caller reads as
+`tunnel.ErrRequestUnsupported`.
 
 The errors of a dial are kept apart. A route that does not exist carries
 `tunnel.ErrNoRoute`, and the carrier maps it onto `nodes.ErrNoRoute` in one place
@@ -501,10 +538,13 @@ attempt (`RecordPendingBackendOpFailure`, the reconciler's attempt count, and
 the dead-letter after the maximum attempts). That is accounting for the op, not
 a verdict about the node.
 
-The carrier's own sentinel (`nats.ErrNoResponders`) is mapped onto
-`ErrNoRoute` in `core/services/nodes/control_nats.go` and nowhere else. A
+The carrier's own sentinel (`nats.ErrNoResponders`, `messaging.ErrNoResponders`)
+is mapped onto `ErrNoRoute` in `core/services/nodes/control_nats.go`
+(`mapRequestError`) and nowhere else; a caller outside `nodes` that needs the
+mapping asks through `nodes.RequestInstance`, as the job carrier does. A
 consumer that matches on the carrier error reads absence as a fact about the
 node, which is the mistake this contract exists to prevent.
+`messaging.ErrNotDelivered` is never mapped onto `ErrNoRoute`.
 
 ## Testing a new carrier
 
@@ -577,8 +617,16 @@ that attaches later.
   no minted JWT: that needs `chats.start` (sub, queue) and the
   `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
 - A chat worker refuses a start that would take it past
-  `LOCALAI_CHAT_WORKER_MAX_TURNS` running turns (`studio.ErrWorkerFull`), and
-  the run fails. A full worker cannot pass a start on to another one: NATS
-  picks the worker of the queue group, not the frontend.
+  `LOCALAI_CHAT_WORKER_MAX_TURNS` running turns (`studio.ErrWorkerFull`,
+  `ChatStartReply.Full`). On the tunnel the frontend sends the start to another
+  worker. On NATS the run fails: the queue group picks the worker, not the
+  frontend.
+- The requests between replicas share the peer link with the bulk traffic that
+  it relays to workers (one session with the windows of the bulk lane). A
+  512 KiB replay page behind one model file transfer takes about 0.13 s at
+  1 Gbit/s and 0.4 s at 100 Mbit/s, but 3.8 s (median) to 7.5 s at 10 Mbit/s, past the 2 s of
+  the replay (benchmark in `core/services/tunnel/replay_latency_test.go`). A
+  second peer session with the default windows for requests, as the worker
+  tunnel has two lanes, would keep them out of that queue.
 - A start that carries files runs on the frontend: the uploads are not sent
   over the bus.
