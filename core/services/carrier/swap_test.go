@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -90,17 +89,9 @@ type replicaNode struct {
 	builds    map[cluster.Carrier]int
 	buildErr  map[cluster.Carrier]error
 	sets      map[cluster.Carrier][]*fakeCarrier
-	handedTo  []cluster.Carrier
 	attached  map[string]carrier.Attachment
 	reconnect atomic.Int32
-
-	// hangStop makes the stop of the work of a set wait for releaseStop.
-	windowRec   recorder
-	hangStop    atomic.Bool
-	releaseStop chan struct{}
-	// hangHandoff makes the hand-over wait for the end of its context.
-	hangHandoff atomic.Bool
-	startFail   map[cluster.Carrier]error
+	windowRec recorder
 }
 
 func (n *replicaNode) build(_ context.Context, row cluster.CarrierRow, target cluster.Carrier) (*carrier.Set, error) {
@@ -126,33 +117,6 @@ func (n *replicaNode) newSet(name cluster.Carrier, epoch int64) *carrier.Set {
 	f.commands.closed = closed
 	f.set.Broadcaster = closedAwareBroadcaster{Broadcaster: bus, closed: closed}
 	f.set.OnReconnect = bus.OnReconnect
-	f.set.Start = func(ctx context.Context) (func(), error) {
-		n.mu.Lock()
-		failure := n.startFail[name]
-		n.mu.Unlock()
-		if failure != nil {
-			return nil, failure
-		}
-		n.life.rec("start:" + string(name))
-		return func() {
-			if n.hangStop.Load() {
-				<-n.releaseStop
-			}
-			released := carrier.IsReleased(context.Cause(ctx))
-			n.life.rec(fmt.Sprintf("stop:%s:released=%t", name, released))
-		}, nil
-	}
-	f.set.Handoff = func(hctx context.Context, next *carrier.Set) error {
-		n.mu.Lock()
-		n.handedTo = append(n.handedTo, next.Name)
-		n.mu.Unlock()
-		n.life.rec("handoff:" + string(name) + "->" + string(next.Name))
-		if n.hangHandoff.Load() {
-			<-hctx.Done()
-			n.life.rec("handoff-cancelled:" + string(name))
-		}
-		return nil
-	}
 	f.set.Close = func() { closed.Store(true); n.life.rec("close:" + string(name)) }
 	n.sets[name] = append(n.sets[name], f)
 	return f.set
@@ -191,20 +155,17 @@ var _ = Describe("The swap of a replica", func() {
 		net     *fakeNet
 		nodes   []*replicaNode
 		timings cluster.Timings
-		// stopGrace and closeGrace are the bounds of the swappers that join starts.
-		stopGrace, closeGrace time.Duration
 		// settleFor is how long a released set stays open.
 		settleFor time.Duration
 	)
 
 	// join starts a replica on the carrier that the row names, as initDistributed does.
-	join := func(id string, before ...func(*replicaNode)) *replicaNode {
+	join := func(id string) *replicaNode {
 		GinkgoHelper()
 		n := &replicaNode{
 			id: id, net: net, life: &life{},
 			builds: map[cluster.Carrier]int{}, buildErr: map[cluster.Carrier]error{},
 			sets: map[cluster.Carrier][]*fakeCarrier{}, attached: map[string]carrier.Attachment{},
-			releaseStop: make(chan struct{}), startFail: map[cluster.Carrier]error{},
 		}
 		row, err := store.Get(ctx)
 		Expect(err).ToNot(HaveOccurred())
@@ -224,14 +185,9 @@ var _ = Describe("The swap of a replica", func() {
 			Cur: &n.cur, Bus: n.bus, Window: windowSpy{n.window, n}, Rows: store,
 			Ready: readyReporter{reg: reg, id: id}, Build: n.build,
 			Interval: time.Hour, Settle: settleFor,
-			StopGrace: stopGrace, CloseGrace: closeGrace,
 		})
 		Expect(err).ToNot(HaveOccurred())
 		n.bus.OnReconnect(func() { n.reconnect.Add(1) })
-		for _, f := range before {
-			f(n)
-		}
-		n.swapper.Adopt(ctx)
 		nodes = append(nodes, n)
 		return n
 	}
@@ -297,7 +253,6 @@ var _ = Describe("The swap of a replica", func() {
 		reg = cluster.NewRegistry(db)
 		net = newFakeNet()
 		nodes = nil
-		stopGrace, closeGrace = 0, 0
 		settleFor = 50 * time.Millisecond
 		timings = cluster.Timings{PrepareTimeout: time.Minute, TransitionWindow: time.Minute, MaxDrain: time.Minute}
 		sw, err = cluster.NewSwitch(cluster.SwitchOptions{Store: store, Registry: reg, Timings: func() cluster.Timings { return timings }})
@@ -306,11 +261,6 @@ var _ = Describe("The swap of a replica", func() {
 
 	AfterEach(func() {
 		for _, n := range nodes {
-			select {
-			case <-n.releaseStop:
-			default:
-				close(n.releaseStop)
-			}
 			n.swapper.Close()
 		}
 	})
@@ -567,15 +517,6 @@ var _ = Describe("The swap of a replica", func() {
 			Expect(b.active()).To(Equal(cluster.CarrierTunnel))
 		})
 
-		It("starts the work of the new carrier when it commits, and keeps the old one running through the drain", func() {
-			a := join("a")
-			request(cluster.CarrierTunnel)
-			poll()
-			Expect(a.life.seen()).To(ConsistOf("start:nats"), "only the carrier in use runs its work")
-			drive()
-			poll()
-			Expect(a.life.seen()).To(ConsistOf("start:nats", "start:tunnel"))
-		})
 	})
 
 	Describe("the drain", func() {
@@ -592,7 +533,7 @@ var _ = Describe("The swap of a replica", func() {
 			Expect(a.life.seen()).ToNot(ContainElement(ContainSubstring("close:nats")))
 		})
 
-		It("releases the old carrier when the drain ends: unsubscribes, stops its work, hands over, closes, and replays the hooks once", func() {
+		It("releases the old carrier when the drain ends: unsubscribes, closes, and replays the hooks once", func() {
 			a := join("a")
 			var heard atomic.Int32
 			_, err := a.bus.Subscribe(swapSubject, func([]byte) { heard.Add(1) })
@@ -600,31 +541,10 @@ var _ = Describe("The swap of a replica", func() {
 			settle(cluster.CarrierTunnel)
 			expire()
 
-			Eventually(a.life.seen, "5s").Should(ContainElements(
-				"stop:nats:released=true", "handoff:nats->tunnel", "close:nats"))
+			Eventually(a.life.seen, "5s").Should(ContainElement("close:nats"))
 			Expect(net.bus[cluster.CarrierNATS].Publish(swapSubject, "after")).To(Succeed())
 			Expect(heard.Load()).To(BeZero(), "the old carrier is no longer listened on")
 			Expect(a.reconnect.Load()).To(Equal(int32(1)), "the consumers read their tables once")
-
-			seen := a.life.seen()
-			Expect(slices.Index(seen, "stop:nats:released=true")).To(BeNumerically("<", slices.Index(seen, "handoff:nats->tunnel")),
-				"the work is stopped before what it held is handed over")
-			Expect(slices.Index(seen, "handoff:nats->tunnel")).To(BeNumerically("<", slices.Index(seen, "close:nats")))
-		})
-
-		It("hands over a second time after the producers that lag have had time to flip", func() {
-			a := join("a")
-			settle(cluster.CarrierTunnel)
-			expire()
-			Eventually(func() int {
-				n := 0
-				for _, s := range a.life.seen() {
-					if s == "handoff:nats->tunnel" {
-						n++
-					}
-				}
-				return n
-			}, "5s", "20ms").Should(Equal(2))
 		})
 
 		It("reuses the draining set when the admin switches back during the drain", func() {
@@ -696,31 +616,6 @@ var _ = Describe("The swap of a replica", func() {
 	})
 
 	Describe("the robustness of a swap", func() {
-		It("goes on to hand over and to close a set whose work does not stop", func() {
-			stopGrace = 200 * time.Millisecond
-			a := join("a")
-			a.hangStop.Store(true)
-			settle(cluster.CarrierTunnel)
-			expire()
-
-			Eventually(a.life.seen, "10s").Should(ContainElements("handoff:nats->tunnel", "close:nats"),
-				"the stop of the work hangs, and the hand-over and the close do not wait for it")
-		})
-
-		It("returns from Close in a bounded time when the hand-over does not end", func() {
-			closeGrace = 300 * time.Millisecond
-			a := join("a")
-			a.hangHandoff.Store(true)
-			settle(cluster.CarrierTunnel)
-			expire()
-			Eventually(a.life.seen, "5s").Should(ContainElement("handoff:nats->tunnel"))
-
-			closed := make(chan struct{})
-			go func() { defer close(closed); a.swapper.Close() }()
-			Eventually(closed, "5s").Should(BeClosed())
-			Eventually(a.life.seen, "5s").Should(ContainElement("handoff-cancelled:nats"), "the hand-over is told to stop")
-		})
-
 		It("opens the window before the pointer moves, so that no call meets a gap", func() {
 			a := join("a")
 			settle(cluster.CarrierTunnel)
@@ -772,52 +667,6 @@ var _ = Describe("The swap of a replica", func() {
 			_ = a
 		})
 
-		It("says it is not ready when the work of the carrier cannot start, and is ready again when it can", func() {
-			a := join("a")
-			a.mu.Lock()
-			a.startFail[cluster.CarrierTunnel] = errors.New("the claim loop could not start")
-			a.mu.Unlock()
-			request(cluster.CarrierTunnel)
-			poll()
-			drive() // commit
-			poll()
-
-			in, err := reg.Get(ctx, "a")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(in.ReadyReason).To(ContainSubstring("claim loop could not start"))
-
-			a.mu.Lock()
-			a.startFail[cluster.CarrierTunnel] = nil
-			a.mu.Unlock()
-			poll()
-			in, err = reg.Get(ctx, "a")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(in.ReadyReason).To(BeEmpty())
-			Expect(a.life.seen()).To(ContainElement("start:tunnel"))
-		})
-	})
-
-	Describe("the start of the work at startup", func() {
-		It("reports not ready when the work of the first carrier cannot start, and ready when a later poll starts it", func() {
-			a := join("a", func(n *replicaNode) {
-				n.startFail[cluster.CarrierNATS] = errors.New("the consumer could not start")
-			})
-			Expect(a.life.seen()).ToNot(ContainElement("start:nats"))
-
-			poll()
-			in, err := reg.Get(ctx, "a")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(in.ReadyReason).To(ContainSubstring("consumer could not start"))
-
-			a.mu.Lock()
-			a.startFail[cluster.CarrierNATS] = nil
-			a.mu.Unlock()
-			poll()
-			in, err = reg.Get(ctx, "a")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(in.ReadyReason).To(BeEmpty())
-			Expect(a.life.seen()).To(ContainElement("start:nats"))
-		})
 	})
 
 	Describe("a call that runs while the set changes", func() {
