@@ -10,7 +10,7 @@ The Face add-on (ID `face`) is the page for face recognition. It is separate fro
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | One page, `/app/addons/face/recognition`: who is this, same person, and the faces you enrolled. The detect and embedding tools are under **More tools**. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

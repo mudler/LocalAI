@@ -10,7 +10,7 @@ The Talk add-on (ID `talk`) is a page for a spoken conversation with a model. It
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | The page `/app/addons/talk/talk`. It opens a WebRTC session to a realtime pipeline through `/v1/realtime/calls` and reads the pipeline list from `/api/pipeline-models`, with your own session. It uses the MCP servers that you added in the browser. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

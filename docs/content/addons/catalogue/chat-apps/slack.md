@@ -10,7 +10,7 @@ The Slack add-on binds a Slack app to one of your saved agents. People talk to t
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | A Slack app for one saved agent. It uses Socket Mode, so LocalAI needs no public address. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

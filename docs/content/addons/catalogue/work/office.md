@@ -10,7 +10,7 @@ The Simple Office add-on (ID `office`) lets a chat make, read and edit Word, Exc
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | 11 tools: read, edit and create for Word, Excel and PowerPoint, and read and create for PDF. Files are saved in your files. It runs on Linux and macOS. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

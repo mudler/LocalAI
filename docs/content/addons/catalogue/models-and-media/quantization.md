@@ -10,7 +10,7 @@ The Quantization add-on (ID `quantization`) is the Quantize page and the chat to
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | The page `/app/addons/quantization/jobs` and chat tools: list jobs, propose a job, read the status of a job, stop a job and import the result as a model. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
