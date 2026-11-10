@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Add-ons and permissions</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>.flow.big > .node { padding: 22px 14px; } .flow.big > .node b { font-size: 30px; } .flow.big > .node span { font-size: 23px; }</style>
+</head>
+<body>
+<p class="k">Add-ons</p>
+<h1>Who installs, who <span class="hl">uses</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="flow big" style="margin-bottom:26px"><div class="node cen" style=""><b>Admin installs</b><span>from the library or a file</span></div><div class="ar"></div><div class="node cen" style=""><b>Admin turns it on</b><span>and approves the service</span></div><div class="ar"></div><div class="node core cen" style=""><b>Users use it</b><span>with the add-ons feature, in the Tools menu of a chat</span></div><div class="ar"></div><div class="node cen" style=""><b>Each person connects</b><span>their own account, such as a mailbox</span></div></div>
+<div class="panel" style="padding:18px 22px 22px"><h3>What an add-on can add to LocalAI</h3>
+ <div class="row" style="gap:14px;align-items:stretch"><div class="node fl cen" style="padding:12px 10px"><b>Tools</b><span>for chats and agents</span></div><div class="node fl cen" style="padding:12px 10px"><b>Skills</b><span>instructions for agents</span></div><div class="node fl cen" style="padding:12px 10px"><b>Pages</b><span>in the web UI</span></div><div class="node fl cen" style="padding:12px 10px"><b>Services</b><span>such as a chat app</span></div></div></div>
+<div class="node warn" style="margin-top:18px;padding:14px 22px"><b style="font-size:27px">An installed add-on is trusted code</b><span>It runs as the system user that runs LocalAI. The install dialog shows what it may do.</span></div>
+
+</div>
+<div class="foot">An admin decides what is installed. <b>Each user decides what to use.</b></div>
+</body></html>
