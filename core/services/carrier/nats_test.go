@@ -51,7 +51,7 @@ var _ = Describe("NewNATSSet", func() {
 		Expect(set.Commands.InstallTimeout()).To(Equal(3 * time.Minute))
 	})
 
-	It("publishes and enqueues over the connection it was given", func() {
+	It("publishes over the connection it was given", func() {
 		set, err := carrier.NewNATSSet(opts())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(set.Broadcaster.Publish("nodes.x", "hello")).To(Succeed())

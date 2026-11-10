@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// Carrier names a transport that carries fan-out messages, work queues and
-// control requests between frontends and workers. Exactly one carrier is
+// Carrier names a transport that carries fan-out messages and control requests
+// between frontends and workers. Exactly one carrier is
 // active in a cluster at a time.
 type Carrier string
 
@@ -56,7 +56,7 @@ var (
 const carrierRowID = 1
 
 // CarrierRow is the one row of table cluster_carrier. Active is the carrier
-// that publishes, enqueues and dials. Epoch grows with every change, so a
+// that publishes and dials. Epoch grows with every change, so a
 // reader can tell a newer row from an older one without comparing clocks.
 type CarrierRow struct {
 	ID            int        `gorm:"primaryKey;check:cluster_carrier_single_row,id = 1" json:"-"`
