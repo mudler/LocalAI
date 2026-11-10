@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/telemetry"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
 
@@ -105,6 +107,21 @@ var ModelInferenceFunc = ModelInference
 
 func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64, metadata map[string]string) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
+
+	// Timestamp the first streamed token so the trace can report time to
+	// first token. Only worth doing when spans are actually exported; the
+	// callback runs per token, and a no-op wrapper there would be pure
+	// overhead on every streaming request.
+	var firstTokenAt atomic.Int64
+	if tokenCallback != nil && telemetry.Enabled() {
+		userTokenCallback := tokenCallback
+		tokenCallback = func(token string, usage TokenUsage) bool {
+			if firstTokenAt.Load() == 0 {
+				firstTokenAt.Store(time.Now().UnixNano())
+			}
+			return userTokenCallback(token, usage)
+		}
+	}
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
 	if o.AutoloadGalleries { // experimental
@@ -470,6 +487,21 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			return resp, err
 		}
 	}
+	// Instrument the backend call before the queueing wrapper is applied, so
+	// the span measures the model call itself and not the wait for a global
+	// backend slot.
+	if telemetry.Enabled() {
+		// One span per call of the returned function: retries and n>1 sample
+		// the backend more than once, and each attempt is its own model call.
+		// A call with no messages is a prompt-only utility call (moderation,
+		// compression, title generation), not a chat turn.
+		operation := "chat"
+		if len(messages) == 0 {
+			operation = "text_completion"
+		}
+		fn = instrumentInferenceAttempts(ctx, c, tokenCallback != nil, operation, &firstTokenAt, fn)
+	}
+
 	originalFn := fn
 	fn = func() (LLMResponse, error) {
 		release, err := AcquireGlobalBackendSlot()
