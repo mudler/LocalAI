@@ -251,6 +251,20 @@
     "cancel": "Annuler",
     "stop": "Arrêter après ce nœud",
     "listLabel": "Nœuds à mettre à jour",
+    "titleAll_one": "Lancer {{count}} mise à jour ?",
+    "titleAll_other": "Lancer {{count}} mises à jour ?",
+    "confirmPlus_one": "{{label}} et {{count}} autre",
+    "confirmPlus_other": "{{label}} et {{count}} autres",
+    "othersTitle": "Démarre aussi à la confirmation",
+    "othersLabel": "Autres mises à jour à lancer",
+    "othersIntro": "Celles-ci ne s’exécutent pas sur des nœuds. Elles démarrent l’une après l’autre à la confirmation. Un module complémentaire s’arrête pendant la sauvegarde et la migration de ses données. Si la nouvelle version ne démarre pas, la version actuelle continue de fonctionner.",
+    "otherKind": {
+      "addon": "Module complémentaire",
+      "library": "Backend de bibliothèque",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Bibliothèque {{library}}",
+    "otherOriginChannel": "Bibliothèque {{library}}, canal {{channel}}",
     "runningNote": "Arrêter empêche les nœuds qui n’ont pas commencé de démarrer."
   }
 }

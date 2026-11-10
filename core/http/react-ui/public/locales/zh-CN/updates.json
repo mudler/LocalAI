@@ -251,6 +251,20 @@
     "cancel": "取消",
     "stop": "此节点之后停止",
     "listLabel": "要更新的节点",
+    "titleAll_one": "开始 {{count}} 项更新？",
+    "titleAll_other": "开始 {{count}} 项更新？",
+    "confirmPlus_one": "{{label}}，另加 {{count}} 项",
+    "confirmPlus_other": "{{label}}，另加 {{count}} 项",
+    "othersTitle": "确认后同时开始",
+    "othersLabel": "要开始的其他更新",
+    "othersIntro": "这些不在节点上运行。确认后会依次开始。附加组件在备份和迁移其数据期间会停止。如果新版本无法启动，当前版本会继续运行。",
+    "otherKind": {
+      "addon": "附加组件",
+      "library": "库后端",
+      "gallery": "后端"
+    },
+    "otherOrigin": "库 {{library}}",
+    "otherOriginChannel": "库 {{library}}，渠道 {{channel}}",
     "runningNote": "停止会阻止尚未开始的节点开始。"
   }
 }

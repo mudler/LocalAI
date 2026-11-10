@@ -251,6 +251,20 @@
     "cancel": "Annulla",
     "stop": "Ferma dopo questo nodo",
     "listLabel": "Nodi da aggiornare",
+    "titleAll_one": "Avviare {{count}} aggiornamento?",
+    "titleAll_other": "Avviare {{count}} aggiornamenti?",
+    "confirmPlus_one": "{{label}} e {{count}} altro",
+    "confirmPlus_other": "{{label}} e altri {{count}}",
+    "othersTitle": "Parte anche alla conferma",
+    "othersLabel": "Altri aggiornamenti da avviare",
+    "othersIntro": "Questi non girano sui nodi. Partono uno dopo l’altro alla conferma. Un add-on si ferma mentre i suoi dati vengono salvati e migrati. Se la nuova versione non parte, quella attuale continua a funzionare.",
+    "otherKind": {
+      "addon": "Add-on",
+      "library": "Backend di libreria",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Libreria {{library}}",
+    "otherOriginChannel": "Libreria {{library}}, canale {{channel}}",
     "runningNote": "Ferma impedisce di partire ai nodi che non hanno ancora iniziato."
   }
 }

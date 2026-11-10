@@ -105,8 +105,9 @@ function UpdatesPage({ updates }) {
   // A backend that nodes report is updated node by node, after a confirmation
   // that names the models that stop. Every path that would start such an
   // update (a row's Update, its Retry, the Update ready button) opens the one
-  // dialog; nothing starts until it is confirmed. The rows that need no
-  // confirmation (single machine, library, add-on) start when it is.
+  // dialog; nothing starts until it is confirmed. The other selected rows
+  // (single machine, library, add-on) are listed in the same dialog and start
+  // when it is confirmed, so nothing starts that the dialog did not name.
   const { update: updateRow, retry: retryRow } = actions
   const todoOf = useCallback((row) => {
     const item = updates.snapshot && (updates.snapshot.items || []).find(i => i.id === row.id)
@@ -115,7 +116,7 @@ function UpdatesPage({ updates }) {
   const onUpdate = useCallback((row) => {
     if (isClusterRow(row)) {
       const todo = todoOf(row)
-      if (todo.length > 0) setNodePlan({ entries: todo, restIds: new Set() })
+      if (todo.length > 0) setNodePlan({ entries: todo, restIds: new Set(), others: [] })
       return
     }
     updateRow(row)
@@ -126,9 +127,9 @@ function UpdatesPage({ updates }) {
   }, [onUpdate, retryRow])
   const { bulk: bulkRun } = actions
   const onBulkStart = useCallback(() => {
-    const { entries, restIds } = splitUpdate({ rows: actions.rows, selected: bulkRun.selected, items: updates.snapshot ? updates.snapshot.items : [] })
+    const { entries, restIds, others } = splitUpdate({ rows: actions.rows, selected: bulkRun.selected, items: updates.snapshot ? updates.snapshot.items : [] })
     if (entries.length === 0) { bulkRun.start(restIds); return }
-    setNodePlan({ entries, restIds })
+    setNodePlan({ entries, restIds, others })
   }, [actions.rows, bulkRun, updates.snapshot])
 
   const setFilter = useCallback((next) => {
@@ -318,6 +319,7 @@ function UpdatesPage({ updates }) {
       {nodePlan && (
         <NodeUpdateDialog
           entries={nodePlan.entries}
+          others={nodePlan.others}
           onClose={() => setNodePlan(null)}
           onStart={() => { if (nodePlan.restIds.size > 0) bulkRun.start(nodePlan.restIds) }}
         />

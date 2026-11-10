@@ -251,6 +251,20 @@
     "cancel": "취소",
     "stop": "이 노드 후 중지",
     "listLabel": "업데이트할 노드",
+    "titleAll_one": "업데이트 {{count}}개를 시작할까요?",
+    "titleAll_other": "업데이트 {{count}}개를 시작할까요?",
+    "confirmPlus_one": "{{label}} 외 {{count}}개",
+    "confirmPlus_other": "{{label}} 외 {{count}}개",
+    "othersTitle": "확인하면 함께 시작됩니다",
+    "othersLabel": "함께 시작할 다른 업데이트",
+    "othersIntro": "이 항목은 노드에서 실행되지 않습니다. 확인하면 하나씩 차례로 시작됩니다. 애드온은 데이터를 백업하고 마이그레이션하는 동안 중지됩니다. 새 버전이 시작되지 않으면 현재 버전이 계속 실행됩니다.",
+    "otherKind": {
+      "addon": "애드온",
+      "library": "라이브러리 백엔드",
+      "gallery": "백엔드"
+    },
+    "otherOrigin": "라이브러리 {{library}}",
+    "otherOriginChannel": "라이브러리 {{library}}, 채널 {{channel}}",
     "runningNote": "중지하면 아직 시작하지 않은 노드는 시작되지 않습니다."
   }
 }
