@@ -80,7 +80,8 @@ func (r VersionRange) isHostAPI() bool {
 // Level 3: capabilities.ownerData.
 // Level 4: the setup text (the top-level setup and connector kind setup).
 // Level 5: capabilities.connector.kinds[].toolOnly.
-const HostFeatureLevel uint64 = 5
+// Level 6: capabilities.executionProvider.jobs.
+const HostFeatureLevel uint64 = 6
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -114,6 +115,9 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if p := m.Capabilities.ExecutionProvider; p != nil && p.Jobs != nil {
+		return 6
+	}
 	if m.usesToolOnly() {
 		return 5
 	}
@@ -523,7 +527,11 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
 		}
 	}
-	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0); e != nil {
+	jobsTool := ""
+	if p := c.ExecutionProvider; p != nil && p.Jobs != nil {
+		jobsTool = p.Jobs.Tool
+	}
+	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0, jobsTool); e != nil {
 		return e
 	}
 	if e := validateExtensions(c); e != nil {
