@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -419,8 +420,8 @@ func (s *Service) runJob(ctx context.Context, a workspace.Actor, args json.RawMe
 			return "Not started: command is empty.", nil
 		case strings.ContainsRune(in.Command, 0):
 			return "Not started: the command contains a NUL byte.", nil
-		case len([]rune(in.Label)) > 80:
-			return "Not started: the label is at most 80 characters.", nil
+		case utf8.RuneCountInString(in.Label) > contract.MaxJobLabelChars:
+			return fmt.Sprintf("Not started: the label is at most %d characters.", contract.MaxJobLabelChars), nil
 		case !contract.ValidJobLabel(strings.TrimSpace(in.Label)):
 			// The label is shown to the person and kept in the chat record: no
 			// line breaks, control or direction characters.
