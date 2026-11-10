@@ -809,13 +809,11 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 
 // ---- Branding ----
 
-// brandingAssetURL returns the same URL shape the public REST endpoint
-// would emit so MCP and HTTP clients see identical wire output.
-func brandingAssetURL(kind, file, defaultURL string) string {
-	if file != "" {
-		return "/branding/asset/" + kind
-	}
-	return defaultURL
+// brandingAssetURL returns the same URL the public REST endpoint would
+// emit (including the cache-busting version) so MCP and HTTP clients see
+// identical wire output.
+func brandingAssetURL(cfg *config.ApplicationConfig, kind, file, defaultURL string) string {
+	return cfg.BrandingAssetURL(kind, file, defaultURL)
 }
 
 func (c *Client) currentBranding() *localaitools.Branding {
@@ -823,9 +821,9 @@ func (c *Client) currentBranding() *localaitools.Branding {
 	return &localaitools.Branding{
 		InstanceName:      b.InstanceName,
 		InstanceTagline:   b.InstanceTagline,
-		LogoURL:           brandingAssetURL("logo", b.LogoFile, "/static/logo.png"),
-		LogoHorizontalURL: brandingAssetURL("logo_horizontal", b.LogoHorizontalFile, "/static/logo_horizontal.png"),
-		FaviconURL:        brandingAssetURL("favicon", b.FaviconFile, "/favicon.svg"),
+		LogoURL:           brandingAssetURL(c.AppConfig, "logo", b.LogoFile, "/static/logo.png"),
+		LogoHorizontalURL: brandingAssetURL(c.AppConfig, "logo_horizontal", b.LogoHorizontalFile, "/static/logo_horizontal.png"),
+		FaviconURL:        brandingAssetURL(c.AppConfig, "favicon", b.FaviconFile, "/favicon.svg"),
 	}
 }
 

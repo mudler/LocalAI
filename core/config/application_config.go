@@ -3,7 +3,11 @@ package config
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1846,4 +1850,26 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 
 func WithP2PEnableLimits(enabled bool) AppOption {
 	return func(o *ApplicationConfig) { o.P2PEnableLimits = enabled }
+}
+
+// BrandingAssetURL returns the URL clients should use for an uploaded
+// branding asset of the given kind, or defaultURL when file is empty.
+//
+// The asset route is a fixed path that browsers cache, so a replacement
+// upload would keep showing the old image. The URL therefore carries a
+// version derived from the stored file's modification time; every upload
+// changes it and forces a fresh fetch.
+func (o *ApplicationConfig) BrandingAssetURL(kind, file, defaultURL string) string {
+	if file == "" {
+		return defaultURL
+	}
+	url := "/branding/asset/" + kind
+	if o.DynamicConfigsDir == "" || strings.ContainsAny(file, "/\\") {
+		return url
+	}
+	info, err := os.Stat(filepath.Join(o.DynamicConfigsDir, "branding", file))
+	if err != nil {
+		return url
+	}
+	return url + "?v=" + strconv.FormatInt(info.ModTime().UnixNano(), 36)
 }
