@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -103,6 +104,9 @@ type Options struct {
 	KeepFinished                   int
 	// PerChat, PerUser and PerNode override the limits.
 	PerChat, PerUser, PerNode int
+	// InputTimeout overrides how long an input waits for a child that does
+	// not read.
+	InputTimeout time.Duration
 	// RingSize overrides the size of each job's ring.
 	RingSize int
 	// Check is asked by Sweep for every live job and returns the reason the
@@ -113,6 +117,26 @@ type Options struct {
 	// and when it has ended. The owner of the registry keeps the shared
 	// stubs in step with it, and a wait on the job is woken by it.
 	Changed func(Info)
+	// Audit is called, outside every lock, for each input written to a job
+	// and each kill sent to it, on the node that runs the job, whoever asked.
+	Audit func(AuditEvent)
+}
+
+// The kinds of an AuditEvent.
+const (
+	AuditInput = "input"
+	AuditKill  = "kill"
+)
+
+// AuditEvent is one action on a running job, for the audit of the owner of
+// the registry. Text is the input as written; Signal is the signal of a kill.
+type AuditEvent struct {
+	Kind   string
+	Info   Info
+	Text   string
+	Signal string
+	// Reason is the end reason of a kill (killed or stopped).
+	Reason EndReason
 }
 
 // Registry holds the background jobs of one process: their rings, their
@@ -155,6 +179,9 @@ func New(o Options) *Registry {
 	if o.PerNode <= 0 {
 		o.PerNode = PerNode
 	}
+	if o.InputTimeout <= 0 {
+		o.InputTimeout = InputTimeout
+	}
 	if o.Provider == "" {
 		o.Provider = "builtin"
 	}
@@ -183,10 +210,12 @@ type Job struct {
 	ring *Ring
 
 	last atomic.Int64 // unix nanoseconds of the last output
-	// stdin
+	// stdin is an OS pipe, not an io.Pipe: a child that is given a plain
+	// reader gets a copying goroutine that nothing can stop when the child
+	// ends, and its Wait would never return.
 	inMu   sync.Mutex
-	stdinR *io.PipeReader
-	stdinW *io.PipeWriter
+	stdinR *os.File
+	stdinW *os.File
 
 	mu      sync.Mutex
 	info    Info
@@ -243,7 +272,13 @@ func (r *Registry) Reserve(s Spec) (*Job, error) {
 	now := r.o.Now()
 	id := r.newIDLocked()
 	j := &Job{r: r, ring: NewRing(r.o.RingSize), command: s.Command, exited: make(chan struct{}), done: make(chan struct{})}
-	j.stdinR, j.stdinW = io.Pipe()
+	var perr error
+	j.stdinR, j.stdinW, perr = os.Pipe()
+	if perr != nil {
+		delete(r.jobs, id)
+		r.mu.Unlock()
+		return nil, fmt.Errorf("bgjob: no pipe for the input: %w", perr)
+	}
 	j.last.Store(now.UnixNano())
 	j.info = Info{ID: id, Owner: s.Owner, Chat: s.Chat, Parent: s.Parent, Instance: r.o.Instance, Provider: r.o.Provider,
 		Label: s.Label, State: StateStarting, Exit: ExitUnknown, Started: now, LastOutput: now}
@@ -341,6 +376,7 @@ func (j *Job) Fail() {
 	info := j.infoLocked()
 	j.mu.Unlock()
 	_ = j.stdinW.Close()
+	_ = j.stdinR.Close()
 	close(j.exited)
 	close(j.done)
 	j.r.changed(info)
@@ -483,28 +519,19 @@ func (j *Job) Input(text string, closeInput bool) (int, error) {
 	j.mu.Unlock()
 	j.inMu.Lock()
 	defer j.inMu.Unlock()
-	type result struct {
-		n   int
-		err error
-	}
-	ch := make(chan result, 1)
-	go func() {
-		n, err := j.stdinW.Write([]byte(text))
-		ch <- result{n, err}
-	}()
-	select {
-	case res := <-ch:
-		if res.err != nil {
-			// The pipe is closed: the job ended meanwhile.
-			return res.n, &EndedError{Info: j.Info()}
-		}
+	_ = j.stdinW.SetWriteDeadline(time.Now().Add(j.r.o.InputTimeout))
+	n, err := j.stdinW.Write([]byte(text))
+	switch {
+	case err == nil:
 		if closeInput {
 			_ = j.stdinW.Close()
 		}
-		return res.n, nil
-	case <-j.r.o.After(InputTimeout):
-		return 0, ErrInputTimeout
+		return n, nil
+	case errors.Is(err, os.ErrDeadlineExceeded):
+		return n, ErrInputTimeout
 	}
+	// The pipe is closed or broken: the job ended meanwhile.
+	return n, &EndedError{Info: j.Info()}
 }
 
 // changed reports a job's state to the owner of the registry.
@@ -633,7 +660,11 @@ func (r *Registry) Input(owner, chat, id, text string, closeInput bool) (int, er
 	if j.Info().Chat != chat {
 		return 0, ErrForbidden
 	}
-	return j.Input(text, closeInput)
+	n, err := j.Input(text, closeInput)
+	if err == nil && r.o.Audit != nil {
+		r.o.Audit(AuditEvent{Kind: AuditInput, Info: j.Info(), Text: text[:min(len(text), n)]})
+	}
+	return n, err
 }
 
 // Kill kills a job of the chat or of a sub-agent of the chat.
@@ -643,7 +674,20 @@ func (r *Registry) Kill(owner, chat, id string, reason EndReason, sig syscall.Si
 		return Info{}, ErrUnknown
 	}
 	err := j.Kill(reason, sig)
+	if err == nil && r.o.Audit != nil {
+		r.o.Audit(AuditEvent{Kind: AuditKill, Info: j.Info(), Signal: sigName(sig), Reason: reason})
+	}
 	return j.Info(), err
+}
+
+func sigName(s syscall.Signal) string {
+	switch s {
+	case syscall.SIGINT:
+		return "int"
+	case syscall.SIGKILL:
+		return "kill"
+	}
+	return "term"
 }
 
 // EndChat ends every live job started by the chat, and by its sub-agents when

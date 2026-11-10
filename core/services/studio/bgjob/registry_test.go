@@ -3,6 +3,7 @@ package bgjob_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -288,15 +289,12 @@ var _ = Describe("Registry", func() {
 		})
 
 		It("gives up on a child that does not read", func() {
-			j := start("alice", "c1", newProc())
-			timeout := make(chan time.Time, 1)
-			reg2 := bgjob.New(bgjob.Options{After: func(time.Duration) <-chan time.Time { return timeout }})
+			reg2 := bgjob.New(bgjob.Options{InputTimeout: 100 * time.Millisecond})
 			k, _ := reg2.Reserve(bgjob.Spec{Owner: "alice", Chat: "c1"})
 			k.Run(newProc(), func() {}, nil)
-			timeout <- time.Now()
-			_, err := k.Input("never read", false)
+			// More than a pipe holds, and nobody reads it.
+			_, err := k.Input(strings.Repeat("x", 1<<20), false)
 			Expect(err).To(MatchError(bgjob.ErrInputTimeout))
-			_ = j
 		})
 
 		It("says a finished job has ended", func() {
