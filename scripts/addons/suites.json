@@ -684,7 +684,13 @@
           "accepts toolOnly at feature level 5, implies agentOptional and keeps it through a JSON round trip",
           "a tool without approval",
           "approval always",
-          "approval always that the person may relax"
+          "approval always that the person may relax",
+          "draws the sandbox profiles only for an add-on whose commands tool declares profiles",
+          "accepts a fallback first and other profiles after it",
+          "reads a profile by ID and lists its tools as text",
+          "refuses a descriptor whose first profile is not the fallback",
+          "refuses a repeated profile, a bad ID, bad text, a bad limit, no tools and a bad check",
+          "refuses too many profiles"
         ]
       },
       {
