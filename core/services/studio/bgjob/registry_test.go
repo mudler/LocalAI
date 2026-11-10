@@ -342,6 +342,30 @@ var _ = Describe("Registry", func() {
 		})
 	})
 
+	Describe("the global cap of finished jobs", func() {
+		It("drops the oldest finished jobs beyond the total, whatever their chats", func() {
+			var all []*bgjob.Job
+			for i := range bgjob.KeepFinishedTotal + 10 {
+				p := newProc()
+				j := start("alice", "chat"+string(rune('A'+i%26))+string(rune('a'+i/26)), p)
+				p.finish(0, nil)
+				finished(j)
+				clk.Add(time.Second)
+				all = append(all, j)
+			}
+			reg.Sweep(ctx)
+			var left int
+			for _, j := range all {
+				if _, err := reg.Observe(ctx, bgjob.ObserveRequest{Owner: "alice", Chat: j.Info().Chat, ID: j.ID()}); err == nil {
+					left++
+				}
+			}
+			Expect(left).To(Equal(bgjob.KeepFinishedTotal))
+			_, err := reg.Observe(ctx, bgjob.ObserveRequest{Owner: "alice", Chat: all[0].Info().Chat, ID: all[0].ID()})
+			Expect(err).To(MatchError(bgjob.ErrUnknown), "the oldest went first")
+		})
+	})
+
 	Describe("a start that never began", func() {
 		It("is dropped without a state change", func() {
 			j, err := reg.Reserve(bgjob.Spec{Owner: "alice", Chat: "c1"})

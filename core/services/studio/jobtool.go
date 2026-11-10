@@ -40,7 +40,7 @@ const MaxJobInput = bgjob.MaxInput
 // sent.
 const jobDescription = "Run a shell command in the background, where bash runs, and come back to it later: builds, tests, servers, downloads. " +
 	"start returns a job id; list shows this chat's jobs; read returns new output; input writes to its standard input; kill stops it. " +
-	"A job ends after 2h. To be woken when it exits, prints something or goes quiet, use wait_for with job. Show the person the command you start."
+	"A job ends after 2h. Run a server as the job itself, never with &: what a command leaves in the background may be killed when the command returns. To be woken when it exits, prints something or goes quiet, use wait_for with job. Show the person the command you start."
 
 const jobSchema = `{"type":"object","properties":{` +
 	`"action":{"type":"string","enum":["start","list","read","input","kill"]},` +

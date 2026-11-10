@@ -415,6 +415,22 @@ var _ = Describe("background jobs of sub-agents", func() {
 			text := woken(g, l.ID)
 			Expect(text).To(ContainSubstring("finished: done"))
 			Expect(text).To(ContainSubstring("Now do what you planned: report"))
+			// The wait carries the result: the parent is not woken a second
+			// time by the message that reports a background sub-agent.
+			idle(g.r.svc, alice, g.parent)
+			Consistently(func() bool {
+				return slices.ContainsFunc(g.r.h.Sent(g.parent), func(t string) bool { return strings.Contains(t, "[Sub-agent finished") })
+			}, "1s", "100ms").Should(BeFalse())
+		})
+
+		It("still reports a finished sub-agent to the parent when no wait is armed on it", func() {
+			g := newSubRig("on")
+			child := g.spawn("quiet")
+			until("the sub-agent runs", func() bool { return turn(g.r.svc, alice, child).Running })
+			close(g.release)
+			until("the report", func() bool {
+				return slices.ContainsFunc(g.r.h.Sent(g.parent), func(t string) bool { return strings.Contains(t, "[Sub-agent finished") })
+			})
 		})
 
 		It("refuses match, a finished sub-agent and a bad idle", func() {

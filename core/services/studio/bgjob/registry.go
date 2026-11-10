@@ -30,6 +30,10 @@ const (
 	Retention = 30 * time.Minute
 	// KeepFinished is the most finished jobs a chat keeps.
 	KeepFinished = 16
+	// KeepFinishedTotal is the most finished jobs the process keeps, whatever
+	// their chats. A ring holds up to 2 x 256 KiB, so the cap bounds the
+	// memory of finished jobs to about 64 MiB however many chats end jobs.
+	KeepFinishedTotal = 128
 	// KillGrace is the wait between a polite signal and SIGKILL.
 	KillGrace = 10 * time.Second
 	// SweepEvery is how often a process checks the end conditions of its jobs.
@@ -832,12 +836,20 @@ func (r *Registry) Sweep(ctx context.Context) {
 			}
 		}
 	}
+	var kept []*Job
 	for _, list := range finished {
-		if len(list) <= r.o.KeepFinished {
-			continue
-		}
 		slices.SortFunc(list, func(a, b *Job) int { return b.Info().Ended.Compare(a.Info().Ended) })
-		for _, j := range list[r.o.KeepFinished:] {
+		if len(list) > r.o.KeepFinished {
+			for _, j := range list[r.o.KeepFinished:] {
+				r.drop(j.Info().ID)
+			}
+			list = list[:r.o.KeepFinished]
+		}
+		kept = append(kept, list...)
+	}
+	if len(kept) > KeepFinishedTotal {
+		slices.SortFunc(kept, func(a, b *Job) int { return b.Info().Ended.Compare(a.Info().Ended) })
+		for _, j := range kept[KeepFinishedTotal:] {
 			r.drop(j.Info().ID)
 		}
 	}

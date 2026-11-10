@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
+	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -846,6 +847,12 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 	if !st.Finished() {
 		return
 	}
+	if s.agentWaitArmed(ctx, a.Principal, a.ChatID, childID) {
+		// A wait of the parent on this sub-agent wakes it with the result
+		// (endAgentRun made it due): a second message would wake the parent
+		// again for the same end.
+		return
+	}
 	msg := fmt.Sprintf("[Sub-agent finished: %s]\n%s", title, s.finalText(ctx, childID))
 	if _, err := s.send(ctx, a.Principal, a.ChatID, session.Message{Text: msg}); err != nil {
 		s.log.Warn("studio: could not tell the parent that a sub-agent finished", "chat", a.ChatID, "error", err)
@@ -882,4 +889,19 @@ func truncate(s string, n int) string {
 // hasTool says whether the list has a tool of that name.
 func hasTool(tools []session.Tool, name string) bool {
 	return slices.ContainsFunc(tools, func(t session.Tool) bool { return t.Name == name })
+}
+
+// agentWaitArmed says whether the chat has a wait on the sub-agent that has
+// not woken it yet, so that the end of the sub-agent already has a wake-up.
+func (s *Service) agentWaitArmed(ctx context.Context, owner, chat, child string) bool {
+	if s.loops == nil {
+		return false
+	}
+	list, err := s.loops.o.Store.ListChat(ctx, principal(owner), chat)
+	if err != nil {
+		return false
+	}
+	return slices.ContainsFunc(list, func(l loops.Loop) bool {
+		return l.Watch != nil && l.Watch.Agent && l.Watch.Job == child && l.Watch.Wake == "" && l.State.Live()
+	})
 }
