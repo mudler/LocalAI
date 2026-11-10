@@ -238,3 +238,11 @@ div.highlight pre code[data-lang="plaintext"]::before { content: "text"; }
   .lai-diagram .lai-diagram-light { display: block !important; }
   .lai-diagram .lai-diagram-dark { display: none !important; }
 }
+
+/* ---- Front doors: several tags on one card -------------------------------- */
+.lai-feat:has(.lai-tags) { grid-template-columns: 2.5rem minmax(0, 1fr); align-items: start; }
+.lai-feat:has(.lai-tags) .lai-ic { margin-top: .1rem; }
+.lai-tags { grid-column: 2; display: flex; flex-wrap: wrap; gap: .35rem; }
+p.lai-lede, p.lai-legend, .lai-left p,
+#R-body-inner > .flex-block-wrapper article.narrow > p.lai-lede,
+#R-body-inner > .flex-block-wrapper article.narrow > p.lai-legend { text-align: left; }
