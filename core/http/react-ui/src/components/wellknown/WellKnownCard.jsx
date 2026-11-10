@@ -59,8 +59,9 @@ export function StoredIn({ file, onRevert, canRevert, busy, versionsOf, onRevert
 // file draws the same line. The path is shown as data, never as part of the
 // translated copy, so the copy names no file. children go after the path
 // (a saved time, for example); sourceOpen, when given, marks Source as a
-// toggle.
-export function FileFooter({ name, file, onSource, sourceOpen, onRevert, canRevert, children }) {
+// toggle, and sourceLabel replaces its label (Form, while the source shows);
+// extra goes after Revert (a reset, for example).
+export function FileFooter({ name, file, onSource, sourceOpen, sourceLabel, onRevert, canRevert, extra, children }) {
   const { t } = useTranslation('workspace')
   return (
     <footer className="wk-stored" data-testid={`wk-stored-${name}`}>
@@ -68,9 +69,10 @@ export function FileFooter({ name, file, onSource, sourceOpen, onRevert, canReve
       <span>{t('wellKnown.storedIn')} <code>{file}</code></span>
       {children}
       <span className="wk-stored__acts">
-        <button type="button" className="wk-linkbtn" onClick={onSource} aria-expanded={sourceOpen} data-testid={`wk-stored-source-${name}`}>{t('wellKnown.source.label')}</button>
+        <button type="button" className="wk-linkbtn" onClick={onSource} aria-expanded={sourceOpen} data-testid={`wk-stored-source-${name}`}>{sourceLabel || t('wellKnown.source.label')}</button>
         <span aria-hidden="true">·</span>
         <button type="button" className="wk-linkbtn" onClick={onRevert} disabled={!canRevert} data-testid={`wk-stored-revert-${name}`}>{t('wellKnown.revert')}</button>
+        {extra && <><span aria-hidden="true">·</span>{extra}</>}
       </span>
     </footer>
   )

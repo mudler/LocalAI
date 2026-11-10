@@ -4,7 +4,7 @@ import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
-import { ProblemDetails } from './WellKnownCard'
+import { FileFooter, ProblemDetails } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { useNavLinks } from '../../hooks/useNavConfig'
 import { usePages } from '../../hooks/usePages'
@@ -414,16 +414,12 @@ export default function NavigationEditor() {
         </div>
       </div>
 
-      <footer className="nv__foot" data-testid="nav-footer">
-        <span className="wk-src"><Icon name="file-code" /> {t('wellKnown.nav.storedIn')} <code>nav.json</code></span>
-        <span className="nv__foot-actions">
-          <button type="button" className="wk-linkbtn" onClick={() => { if (mode === 'form') { setSource(dirty ? sourceText({ ...base.current.data, items: cleanRows(rows, extras) }) : sourceText(base.current.data)); setMode('source') } else setMode('form') }} data-testid="wk-source-nav">
-            {mode === 'form' ? t('wellKnown.source.label') : t('wellKnown.form')}
-          </button>
-          <button type="button" className="wk-linkbtn" onClick={revert} disabled={!doc?.exists || busy} data-testid="wk-revert-nav.json"><Icon name="undo" /> {t('wellKnown.revert')}</button>
-          <button type="button" className="wk-linkbtn" onClick={resetToDefault} disabled={busy} data-testid="nav-reset"><Icon name="refresh" /> {t('wellKnown.nav.reset')}</button>
-        </span>
-      </footer>
+      <FileFooter
+        name="nav" file={WELL_KNOWN_FILES.nav} onRevert={revert} canRevert={!busy && !!doc?.exists}
+        sourceLabel={mode === 'form' ? t('wellKnown.source.label') : t('wellKnown.form')}
+        onSource={() => { if (mode === 'form') { setSource(dirty ? sourceText({ ...base.current.data, items: cleanRows(rows, extras) }) : sourceText(base.current.data)); setMode('source') } else setMode('form') }}
+        extra={<button type="button" className="wk-linkbtn" onClick={resetToDefault} disabled={busy} data-testid="nav-reset">{t('wellKnown.nav.reset')}</button>}
+      />
     </section>
   )
 }

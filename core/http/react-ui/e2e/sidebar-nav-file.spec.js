@@ -224,7 +224,7 @@ test('nav.json: the keyboard moves a row, and the editor has no control for the 
   await expect(page.getByTestId('nav-row').first()).toHaveAttribute('data-key', key)
   const all = await page.getByTestId('nav-row').evaluateAll(els => els.map(e => e.dataset.key))
   for (const fixed of ['id:new-chat', 'id:chats', 'id:settings', 'id:palette']) expect(all).not.toContain(fixed)
-  await expect(page.getByTestId('nav-footer')).toContainText('nav.json')
+  await expect(page.getByTestId('wk-stored-nav')).toContainText('Stored in LocalAI/nav.json')
   await expect(page.getByTestId('nav-reset')).toBeEnabled()
 })
 

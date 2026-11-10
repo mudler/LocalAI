@@ -54,8 +54,6 @@
 .nv-add__bad { color: var(--color-error); }
 .nv-add__close { align-self: flex-start; }
 
-.nv__foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-5); padding: var(--sp-3) var(--sp-4); border: 1px dashed var(--color-border-card); border-radius: var(--r-md); }
-.nv__foot-actions { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-4); }
 
 /* The preview is a small sidebar: the same entries, smaller. */
 .nv-prev { display: flex; flex-direction: column; min-height: 360px; max-height: 70vh; padding: var(--sp-3); border: 1px solid var(--color-border-card); border-radius: var(--r-lg); background: var(--color-bg-secondary); }
