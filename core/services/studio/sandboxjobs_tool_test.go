@@ -150,6 +150,7 @@ var _ = Describe("the job tool of a Sandbox chat", func() {
 		out := c.say(alice, id, "start build make all")
 		Expect(out).To(MatchRegexp(`^Started job job-aaaaab \("build"\) in the sandbox\.`))
 		Expect(out).To(HaveSuffix("```\nmake all\n```"))
+		Expect(out).To(ContainSubstring("job input needs no approval of its own"), "the start says that input takes no card, as on this machine")
 		_, _, node := c.host.reg.Counts(alice, id)
 		Expect(node).To(Equal(0), "nothing started on this machine")
 		stubs := c.stubs(alice, id)

@@ -442,7 +442,7 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	}
 	keep = true
 	b.s.followSandboxChat(a.Principal, a.ChatID, b.addon)
-	text := fmt.Sprintf("Started job %s (%q) %s. It ends after 2h at the latest. Read it with job read; to be woken when it ends, use wait_for with job %q and until \"exit\". Show the person this command:\n",
+	text := fmt.Sprintf("Started job %s (%q) %s. It ends after 2h at the latest. Read it with job read; to be woken when it ends, use wait_for with job %q and until \"exit\". The input you write to the job with job input needs no approval of its own. Show the person this command:\n",
 		in.ID, in.Label, jobWhere(b.addon), in.ID)
 	f := fenceOf(c.Command)
 	text += f + "\n" + c.Command + "\n" + f
