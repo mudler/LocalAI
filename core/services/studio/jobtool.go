@@ -338,18 +338,43 @@ func (s *Service) backendOf(ctx context.Context, provider string) JobBackend {
 
 // jobBackendFor picks the backend of a chat by the same choice as bash: the
 // add-on that serves bash for the chat, else the built-in. A chat served by
-// the Sandbox add-on never gets the built-in for a job.
+// the Sandbox add-on never gets the built-in for a job: when the tools of the
+// chat cannot be read, it is not known who serves bash, and nothing starts.
 func (s *Service) jobBackendFor(ctx context.Context, a workspace.Actor, rec session.ChatRecord) JobBackend {
 	ctx, closeScope := s.executionScope(ctx, a.Principal, a.ChatID)
 	defer closeScope()
-	if tools, err := s.hostTools(ctx, a); err == nil {
-		for _, t := range dropHidden(tools, s.hiddenFor(ctx, rec)) {
-			if t.Name == commandTool && t.Run != nil && t.Provider != "" && t.Provider != BuiltinProvider && len(t.StandInFor) == 0 {
-				return s.backendOf(ctx, t.Provider)
-			}
+	tools, err := s.hostTools(ctx, a)
+	if err != nil {
+		s.log.Debug("Chats: the tools of a chat could not be read for a job", "chat", a.ChatID, "error", err)
+		return refusingJobBackend("the tools of this chat could not be read just now; try again")
+	}
+	for _, t := range dropHidden(tools, s.hiddenFor(ctx, rec)) {
+		if t.Name == commandTool && t.Run != nil && t.Provider != "" && t.Provider != BuiltinProvider && len(t.StandInFor) == 0 {
+			return s.backendOf(ctx, t.Provider)
+		}
+		if slices.Contains(t.StandInFor, commandTool) {
+			// The add-on that serves bash cannot work now: bash is its
+			// stand-in, so no job runs anywhere.
+			why := strings.TrimSuffix(strings.TrimSuffix(t.Description, " Tell the user this instead of trying."), ".")
+			return refusingJobBackend(strings.Replace(why, "The ", "the ", 1))
 		}
 	}
 	return s.hostJobs
+}
+
+// refusingJobBackend starts nothing and says why: the provider of the chat's
+// bash is not known now, or cannot work, and a guess could run a Sandbox
+// chat's command on this machine.
+type refusingJobBackend string
+
+func (refusingJobBackend) Provider() string { return "" }
+
+func (r refusingJobBackend) Do(context.Context, workspace.Actor, JobCall) (JobResult, error) {
+	return JobResult{Text: "Not started: " + string(r) + "."}, nil
+}
+
+func (refusingJobBackend) EndChat(context.Context, workspace.Actor, bgjob.EndReason) error {
+	return nil
 }
 
 // runJob runs one call of the job tool.
@@ -698,6 +723,11 @@ func (b *hostJobBackend) start(ctx context.Context, a workspace.Actor, c JobCall
 	if b.hj == nil {
 		return JobResult{Text: "Not started: this server cannot run commands."}, nil
 	}
+	// The gates the tool was built with may have changed since: the fence,
+	// the group switch, the files and the mode, as for input.
+	if why := b.hostOK(ctx, a); why != "" {
+		return JobResult{Text: "Not started: " + why + "."}, nil
+	}
 	outcome, refusal, err := b.s.approveHostExec(ctx, a, c.Command)
 	if err != nil {
 		return JobResult{}, err
@@ -733,6 +763,7 @@ func (b *hostJobBackend) list(ctx context.Context, a workspace.Actor, c JobCall)
 	now := b.s.now()
 	live := map[string]bgjob.Info{}
 	answered := map[string]bool{}
+	gone := map[string]bool{}
 	for _, st := range c.Stubs {
 		if st.State.Finished() {
 			continue
@@ -747,9 +778,16 @@ func (b *hostJobBackend) list(ctx context.Context, a workspace.Actor, c JobCall)
 			answered[st.Instance] = true
 			for _, in := range rep.List {
 				live[in.ID] = in
+				b.s.jobAnswered(a.Principal, a.ChatID, in.ID)
 			}
 		case bgjob.Gone(err):
-			answered[st.Instance] = true // nobody there: the jobs are lost
+			// Nobody there: a job is lost once jobGone says so; one missed
+			// answer leaves its stub as it is.
+			for _, o := range c.Stubs {
+				if o.Instance == st.Instance && !o.State.Finished() && b.s.jobGone(ctx, a.Principal, a.ChatID, o.ID, err) {
+					gone[o.ID] = true
+				}
+			}
 		}
 		// A timeout changes nothing: the stub's line stands in.
 	}
@@ -770,9 +808,12 @@ func (b *hostJobBackend) list(ctx context.Context, a workspace.Actor, c JobCall)
 			lines = append(lines, jobLine(in, now))
 			continue
 		}
-		if !st.State.Finished() && answered[st.Instance] {
-			// The node answered, or is gone, and does not know a job that its
-			// stub calls live.
+		switch {
+		case gone[st.ID]:
+			st.State = bgjob.StateLost
+		case !st.State.Finished() && answered[st.Instance]:
+			// The node answered and does not know a job that its stub calls
+			// live.
 			b.s.markJobLost(ctx, a.Principal, a.ChatID, st.ID)
 			st.State = bgjob.StateLost
 		}
@@ -783,9 +824,11 @@ func (b *hostJobBackend) list(ctx context.Context, a workspace.Actor, c JobCall)
 
 func (b *hostJobBackend) act(ctx context.Context, a workspace.Actor, c JobCall) (JobResult, error) {
 	st := c.Stub
-	if st.State == bgjob.StateLost {
+	if st.State == bgjob.StateLost && c.Action == JobInput {
 		return JobResult{Text: lostText(st.ID)}, nil
 	}
+	// A lost read or kill is still sent: a node that missed some answers may
+	// hold the job, and then its answer makes the stub live again.
 	req := bgjob.Request{Owner: a.Principal, Chat: a.ChatID, ID: st.ID}
 	switch c.Action {
 	case JobRead:
@@ -809,13 +852,28 @@ func (b *hostJobBackend) act(ctx context.Context, a workspace.Actor, c JobCall) 
 	case errors.Is(err, bgjob.ErrInputTimeout):
 		return JobResult{Text: "Not written: " + st.ID + " does not read its input right now."}, nil
 	case bgjob.Gone(err):
+		if st.State == bgjob.StateLost {
+			return JobResult{Text: lostText(st.ID)}, nil
+		}
 		if st.State.Finished() {
 			return JobResult{Text: fmt.Sprintf("%s %q: %s. Its output is no longer kept.", st.ID, st.Label, endText(st))}, nil
 		}
-		b.s.markJobLost(ctx, a.Principal, a.ChatID, st.ID)
-		return JobResult{Text: lostText(st.ID)}, nil
+		if b.s.jobGone(ctx, a.Principal, a.ChatID, st.ID, err) {
+			return JobResult{Text: lostText(st.ID)}, nil
+		}
+		return JobResult{Text: fmt.Sprintf("Could not reach the node that runs %s; try again.", st.ID)}, nil
 	default:
 		return JobResult{Text: fmt.Sprintf("Could not reach the node that runs %s; try again.", st.ID)}, nil
+	}
+	b.s.jobAnswered(a.Principal, a.ChatID, st.ID)
+	if st.State == bgjob.StateLost {
+		// The node answered for a job its stub called lost: live again.
+		switch {
+		case rep.Obs != nil:
+			b.s.RecordJob(ctx, rep.Obs.Info)
+		case rep.Info != nil:
+			b.s.RecordJob(ctx, *rep.Info)
+		}
 	}
 	switch c.Action {
 	case JobRead:

@@ -204,14 +204,12 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 		return tools
 	}
 	out := make([]session.Tool, len(tools))
-	hostBash := providerOf(tools, commandTool) == BuiltinProvider
+	bashBy := providerOf(tools, commandTool)
 	for i, t := range tools {
 		out[i] = t
 		switch {
-		case t.Name == jobTool && hostBash:
-			// A job on this machine acts as host bash does; reading and
-			// stopping one acts on nothing new.
-			out[i] = s.gateJobTool(rec, pol, t)
+		case t.Name == jobTool && bashBy != "":
+			out[i] = s.gateJobTool(rec, pol, t, jobActTool(bashBy))
 		case t.Name == localaitools.ToolVoiceProfile:
 			out[i] = s.gateVoiceProfile(rec, pol, t)
 		case clientToolNames[t.Name]:
@@ -227,11 +225,24 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 	return out
 }
 
-// gateJobTool applies the policy to the job tool of the built-in bash by
-// action: start and input act like a command on this machine (they need
-// act.files and act.external); list, read and kill act on nothing new.
-func (s *Service) gateJobTool(rec session.ChatRecord, pol builtins.ActPolicy, t session.Tool) session.Tool {
-	gated := s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassFiles, External: true}).Run
+// jobActTool is what starting a job or writing to one asks of the policy: what
+// a call of the chat's bash asks. A job on this machine acts as host bash does
+// (act.files and act.spend); a job in an add-on's sandbox acts as the
+// add-on's bash does, under the add-on's act grant (gateAddonAct), so a run
+// whose policy refuses the Sandbox's bash cannot run a job there either.
+func jobActTool(bashBy string) builtins.ActTool {
+	if bashBy == BuiltinProvider {
+		return builtins.ActTool{Name: jobTool, Class: builtins.ClassFiles, External: true}
+	}
+	return builtins.ActTool{Name: jobTool, Class: builtins.ClassAddons, AddonID: bashBy}
+}
+
+// gateJobTool applies the policy to the job tool by action: start and input
+// act like a call of the chat's bash (req: on this machine they need
+// act.files and act.spend, in an add-on that add-on's act grant); list, read
+// and kill act on nothing new.
+func (s *Service) gateJobTool(rec session.ChatRecord, pol builtins.ActPolicy, t session.Tool, req builtins.ActTool) session.Tool {
+	gated := s.gateAct(rec, pol, t, req).Run
 	run := t.Run
 	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
 		var in struct {

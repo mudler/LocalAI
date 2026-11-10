@@ -62,7 +62,30 @@ var _ = Describe("the jobs of a Sandbox chat, host side", func() {
 		Expect(in).To(SatisfyAll(HaveField("ID", "job-abcdef"), HaveField("Owner", "alice"), HaveField("Chat", "c1"),
 			HaveField("Provider", "sandbox"), HaveField("Instance", "addon:sandbox"), HaveField("State", bgjob.StateRunning)))
 		Expect(caller.scopes).To(Equal([][3]string{{"alice", "c1", "sandbox"}}))
-		Expect(events).To(ConsistOf(SatisfyAll(HaveField("Kind", "job_start"), HaveField("Text", "make all"), HaveField("Chat", "c1"))))
+		Expect(events).To(ConsistOf(SatisfyAll(HaveField("Kind", "job_start"), HaveField("Job", "job-abcdef"), HaveField("Text", "make all"), HaveField("Chat", "c1"))))
+	})
+
+	It("audits no start the add-on refused", func() {
+		caller.answer = func(contract.JobArgs) (contract.JobReply, error) {
+			return contract.JobReply{Code: contract.JobCodeLimit, Error: "Not started: this server runs 32 jobs, the most it may."}, nil
+		}
+		_, err := jobs.Start(ctx, scope, "make all", "build")
+		Expect(err).To(HaveOccurred())
+		Expect(events).To(BeEmpty())
+	})
+
+	It("ends a job for a reason of the host, which the add-on records, and audits the kill and the end", func() {
+		_, err := jobs.End(ctx, scope, "job-abcdef", bgjob.EndGroupOff)
+		Expect(err).NotTo(HaveOccurred())
+		last := caller.calls[len(caller.calls)-1]
+		Expect(last).To(SatisfyAll(HaveField("Verb", contract.JobKill), HaveField("Signal", "term"), HaveField("Reason", "group_off")))
+		_, err = jobs.Kill(ctx, scope, "job-abcdef", "int")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(caller.calls[len(caller.calls)-1].Reason).To(BeEmpty(), "a kill of the model gives no reason: the end is killed")
+		jobs.Ended(ctx, scope, bgjob.Info{ID: "job-abcdef", End: bgjob.EndGroupOff, Exit: 143})
+		Expect(events).To(HaveLen(3))
+		Expect(events[0]).To(SatisfyAll(HaveField("Kind", "job_kill"), HaveField("Text", "group_off")))
+		Expect(events[2]).To(SatisfyAll(HaveField("Kind", "job_end"), HaveField("Job", "job-abcdef"), HaveField("Text", "group_off, exit 143")))
 	})
 
 	It("caps the audit of an input at 4 KiB and refuses an input over 2000 bytes before sending it", func() {
