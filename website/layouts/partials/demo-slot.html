@@ -1,0 +1,19 @@
+{{- /* The visual of a feature section: a static illustration now, a muted looping
+       video later. Call it with a dict:
+         kind  name of the illustration in layouts/partials/illus/
+         demo  optional. When set, the video replaces the illustration. It names
+               a file set under static/media/: <demo>.mp4, <demo>.webm and the
+               poster <demo>.jpg. Nothing else changes.
+         alt   description of the video, read by screen readers
+       See website/README.md, "Demo slots". */ -}}
+<figure class="demo-slot" data-kind="{{ .kind }}">
+{{- with .demo }}
+  <video class="demo-slot__video" muted loop playsinline preload="none" data-lazy
+    poster="{{ printf "media/%s.jpg" . | relURL }}" aria-label="{{ $.alt }}">
+    <source src="{{ printf "media/%s.webm" . | relURL }}" type="video/webm">
+    <source src="{{ printf "media/%s.mp4" . | relURL }}" type="video/mp4">
+  </video>
+{{- else }}
+  {{ partial (printf "illus/%s.html" .kind) . }}
+{{- end }}
+</figure>
