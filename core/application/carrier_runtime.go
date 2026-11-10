@@ -57,6 +57,9 @@ type carrierRuntime struct {
 	clusterReg *cluster.Registry
 	tunnels    *tunnel.Registry
 	peerPool   *tunnel.PeerPool
+	// replies holds the handlers that the requests of the other replicas reach
+	// over the peer link.
+	replies *tunnel.Replies
 
 	// bus is the broadcaster holder. The work that a set starts uses it, so that
 	// its subscriptions follow the sets. It is set before any set starts.
@@ -273,6 +276,12 @@ func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRo
 		Token:          d.RegistrationToken,
 		S3Staging:      d.StorageURL != "",
 		FileManager:    rt.fileMgr,
+		Self:           rt.instanceID,
+		Peers:          rt.peerPool,
+		Replies:        rt.replies,
+		Queues: map[string]carrier.QueueMembers{
+			messaging.SubjectChatStart: chatWorkerInstances(rt.registry, rt.liveInstances),
+		},
 	})
 	if err != nil {
 		fanout.Close()
@@ -280,6 +289,19 @@ func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRo
 	}
 
 	return set, nil
+}
+
+// liveInstances lists the ids of the live replicas.
+func (rt *carrierRuntime) liveInstances(ctx context.Context) ([]string, error) {
+	live, err := rt.clusterReg.ListLive(ctx, cluster.InstanceLiveness)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(live))
+	for _, inst := range live {
+		ids = append(ids, inst.ID)
+	}
+	return ids, nil
 }
 
 // availability says, for each carrier, why this replica could not build it now.
