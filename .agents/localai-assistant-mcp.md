@@ -105,7 +105,7 @@ The user chose KISS. Every mutating tool has a safety rule (`prompts/10_safety.m
 The prompt-only confirmation above applies to the admin catalog in
 `core/services/localaitools/` and to nothing else. Tools of installed add-ons (for
 example Tables) follow a different, code-enforced rule, documented in
-[docs/content/features/tables.md](../docs/content/features/tables.md):
+[docs/content/addons/catalogue/work/tables.md](../docs/content/addons/catalogue/work/tables.md):
 
 - They are never registered in this catalog and no `/api/addons` route appears
   in `toolToHTTPRoute`. `TestToolHTTPRouteMappingComplete` stays unchanged, and

@@ -3,7 +3,7 @@
 Persistent gRPC adapter for the pinned kimodo.cpp C API. The small C++ bridge
 exposes upstream skeleton metadata and runtime configuration; Go exports the
 returned motion as a node-only animated GLB. See
-[3D animation](../../../docs/content/features/3d-animation.md) for the API and
+[3D animation](../../../docs/content/models/capabilities/vision/3d-animation.md) for the API and
 runtime options.
 
 ```sh
@@ -44,5 +44,5 @@ count (including BOS), `usage.output_units` with frames × sampling steps, and
 
 The HTTP handler returns this object under `metadata`, with usage only at
 `metadata.usage`. Internal accounting reads those counts and records the request
-once; no top-level HTTP usage summary is emitted. See the [usage accounting documentation](../../../docs/content/features/3d-animation.md#usage-accounting)
+once; no top-level HTTP usage summary is emitted. See the [usage accounting documentation](../../../docs/content/models/capabilities/vision/3d-animation.md#usage-accounting)
 for the distinct backend and HTTP formats, validation, and persistence behavior.

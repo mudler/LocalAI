@@ -104,10 +104,10 @@ More in the [Quickstart](https://localai.io/docs/start/quickstart/).
 |---|---|
 | [Chats](https://localai.io/docs/features/chats/) | Conversations the server keeps, with saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/), skills and files, triggers, and chat apps |
 | [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, Telegram, Slack, Discord, mail, calendar and more install from a library and run beside the server |
-| [Text generation](https://localai.io/docs/features/text-generation/) | `llama.cpp`, `transformers`, `vllm` ... [and more](https://localai.io/docs/models/compatibility-table/), with an [OpenAI-compatible tools API](https://localai.io/docs/api/openai-functions/) and [constrained grammars](https://localai.io/docs/features/constrained_grammars/) |
-| Speech | [Text to audio](https://localai.io/docs/features/text-to-audio/), [audio to text](https://localai.io/docs/features/audio-to-text/), voice activity detection (Silero-VAD) and the [Realtime API](https://localai.io/docs/api/openai-realtime/) for speech-to-speech |
-| Images and vision | [Image generation](https://localai.io/docs/features/image-generation/), the [Vision API](https://localai.io/docs/features/gpt-vision/) and [object detection](https://localai.io/docs/features/object-detection/) |
-| Search | [Embeddings](https://localai.io/docs/features/embeddings/) and a [reranker](https://localai.io/docs/features/reranker/) |
+| [Text generation](https://localai.io/docs/models/capabilities/text/text-generation/) | `llama.cpp`, `transformers`, `vllm` ... [and more](https://localai.io/docs/models/compatibility-table/), with an [OpenAI-compatible tools API](https://localai.io/docs/api/openai-functions/) and [constrained grammars](https://localai.io/docs/models/capabilities/text/constrained_grammars/) |
+| Speech | [Text to audio](https://localai.io/docs/models/capabilities/audio/text-to-audio/), [audio to text](https://localai.io/docs/models/capabilities/audio/audio-to-text/), voice activity detection (Silero-VAD) and the [Realtime API](https://localai.io/docs/api/openai-realtime/) for speech-to-speech |
+| Images and vision | [Image generation](https://localai.io/docs/models/capabilities/vision/image-generation/), the [Vision API](https://localai.io/docs/models/capabilities/vision/gpt-vision/) and [object detection](https://localai.io/docs/models/capabilities/vision/object-detection/) |
+| Search | [Embeddings](https://localai.io/docs/models/capabilities/text/embeddings/) and a [reranker](https://localai.io/docs/models/capabilities/text/reranker/) |
 | Operations | API key auth, user quotas and roles, [distributed mode](https://localai.io/docs/administration/distributed-mode/) (PostgreSQL + NATS) and [P2P inferencing](https://localai.io/docs/administration/p2p-federated-inference/) |
 | Models and backends | [Models from Hugging Face](https://localai.io/docs/models/) and a [Backend Gallery](https://localai.io/docs/models/backends/) to install or remove backends on the fly, plus the integrated web UI |
 
@@ -154,7 +154,7 @@ Older news and the full release notes: [GitHub Releases](https://github.com/mudl
 ## Resources
 
 - [Documentation](https://localai.io/) and the [Quickstart](https://localai.io/docs/start/quickstart/)
-- [LLM fine-tuning guide](https://localai.io/docs/features/fine-tuning/), [build from source](https://localai.io/docs/contributing/build-from-source/) and [Kubernetes installation](https://localai.io/docs/start/install/kubernetes/)
+- [LLM fine-tuning guide](https://localai.io/docs/models/training/fine-tuning/), [build from source](https://localai.io/docs/contributing/build-from-source/) and [Kubernetes installation](https://localai.io/docs/start/install/kubernetes/)
 - [Integrations and community projects](https://localai.io/docs/api/integrations/)
 - [Examples](https://github.com/mudler/LocalAI-examples), including the [realtime voice assistant demo](https://github.com/localai-org/localai-realtime-demo)
 - [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)

@@ -85,9 +85,9 @@ The add-ons are in the development channel of the add-on library in the current 
 
 - **[Start here]({{% relref "/start" %}})**: install, first model, first agent, API examples.
 - **[Concepts]({{% relref "/concepts" %}})**: architecture, users and sharing.
-- **[Features]({{% relref "/features" %}})**: every capability, grouped by task.
-- **[Models and backends]({{% relref "/models" %}})**: the gallery, model configuration, backends and GPUs.
-- **[Add-ons]({{% relref "/addons" %}})**: install, use and build add-ons.
+- **[Features]({{% relref "/features" %}})**: what you can do, grouped by task.
+- **[Add-ons]({{% relref "/addons" %}})**: install, use and build add-ons, and the [catalogue]({{% relref "/addons/catalogue" %}}) of what each one adds.
+- **[Models and backends]({{% relref "/models" %}})**: the gallery, [what models can do]({{% relref "/models/capabilities" %}}), model configuration, backends and GPUs.
 - **[Administration]({{% relref "/administration" %}})**: authentication, settings, monitoring and troubleshooting.
 - **[Reference]({{% relref "/reference" %}})**: command line, binaries and the FAQ.
 - **[Contributing]({{% relref "/contributing" %}})**: build from source and write docs.
