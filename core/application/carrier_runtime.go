@@ -29,14 +29,15 @@ const (
 	// the NATS server.
 	natsProbeWait = 3 * time.Second
 	// availabilityEvery is how often a replica writes what it can build without
-	// being asked. A dry run asks, so this only keeps the status view from
-	// showing nothing.
-	availabilityEvery = 5 * time.Minute
-	// availabilityMaxAge is how old a report of what a replica can build may be
-	// for a change of carrier to rely on it. A dry run asks the replicas to look
-	// again first, so a report older than this is from a replica that did not
-	// answer.
-	availabilityMaxAge = 30 * time.Second
+	// being asked. A dry run and a change ask the replicas to look again first,
+	// so this keeps the status view and a preflight that did not ask current.
+	// Each report opens one short connection to the database (and, on the
+	// tunnel, one to NATS when a NATS address is set).
+	availabilityEvery = time.Minute
+	// availabilityMaxAge is how old a report may be for a preflight that did not
+	// ask the replicas first. It covers two missed refreshes, so that a replica
+	// is stale only when it stopped writing, not between two writes.
+	availabilityMaxAge = 3 * availabilityEvery
 	// probeWait is how long a dry run waits for the replicas to answer.
 	probeWait = 5 * time.Second
 	// hintPublishTimeout bounds the publish of a hint.
