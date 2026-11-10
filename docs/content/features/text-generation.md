@@ -4,7 +4,7 @@ title = "Text Generation (GPT)"
 weight = 10
 +++
 
-LocalAI supports generating text with GPT with `llama.cpp` and other backends (such as `rwkv.cpp` as ) see also the [Model compatibility]({{%relref "/models/compatibility-table" %}}) for an up-to-date list of the supported model families.
+LocalAI generates text with the `llama-cpp` backend and with other backends, such as `vllm` and `transformers`. See also the [Model compatibility]({{%relref "/models/compatibility-table" %}}) for an up-to-date list of the supported model families.
 
 Note:
 

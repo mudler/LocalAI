@@ -802,13 +802,13 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
    }' 
 ```
 
-An example that installs hermes-2-pro-mistral can be:
-   
+An example that installs `qwen3-4b` from the LocalAI gallery:
+
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "config_url": "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml"
-   }' 
+     "id": "localai@qwen3-4b"
+   }'
 ```
 
 The API will return a job `uuid` that you can use to track the job progress:
@@ -848,13 +848,13 @@ Note: `url` or `id` must be specified. `url` is used to a url to a model gallery
 For example:
 
 ```bash
-PRELOAD_MODELS=[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]
+PRELOAD_MODELS=[{"id": "localai@stable-diffusion-3-medium"}]
 ```
 
 or as arg:
 
 ```bash
-local-ai --preload-models '[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]'
+local-ai --preload-models '[{"id": "localai@stable-diffusion-3-medium"}]'
 ```
 
 or in a YAML file:
@@ -865,7 +865,7 @@ local-ai --preload-models-config "/path/to/yaml"
 
 YAML:
 ```yaml
-- url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
+- id: localai@stable-diffusion-3-medium
 ```
 
 </details>
@@ -874,27 +874,9 @@ YAML:
 
 You can find already some open licensed models in the [LocalAI gallery](https://github.com/mudler/LocalAI/tree/master/gallery).
 
-If you don't find the model in the gallery you can try to use the "base" model and provide an URL to LocalAI:
+If the model is not in the gallery, write a model configuration file and install it with the `config_url` or `url` parameter. See [Model configuration]({{% relref "/models/model-configuration" %}}).
 
-<details>
-
-```
-curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "url": "github:mudler/LocalAI/gallery/base.yaml@master",
-     "name": "model-name",
-     "files": [
-        {
-            "uri": "<URL>",
-            "sha256": "<SHA>",
-            "filename": "model"
-        }
-     ]
-   }'
-```
-
-</details>
-
- {{% /notice %}}
+{{% /notice %}}
 
 ### Override a model name
 
@@ -913,7 +895,7 @@ For example, to install a model as `gpt-3.5-turbo`:
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-      "url": "github:mudler/LocalAI/gallery/gpt4all-j.yaml",
+      "id": "localai@qwen3-4b",
       "name": "gpt-3.5-turbo"
    }' 
 ```
@@ -965,33 +947,31 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 ## Examples
 
-### Image generation: Stable diffusion
-
-URL: https://github.com/EdVince/Stable-Diffusion-NCNN
+### Image generation: Stable Diffusion 3
 
 {{< tabs >}}
-{{% tab name="Prepare the model in runtime" %}}
+{{% tab title="Prepare the model in runtime" %}}
 
-While the API is running, you can install the model by using the `/models/apply` endpoint and point it to the `stablediffusion` model in the [models-gallery](https://github.com/mudler/LocalAI/tree/master/gallery#image-generation-stable-diffusion):
+While the API is running, install the model with the `/models/apply` endpoint. Use the gallery name `stable-diffusion-3-medium`:
 ```bash
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{         
-     "url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"
+     "id": "localai@stable-diffusion-3-medium"
    }'
 ```
 
 {{% /tab %}}
-{{% tab name="Automatically prepare the model before start" %}}
+{{% tab title="Automatically prepare the model before start" %}}
 
 You can set the `PRELOAD_MODELS` environment variable:
 
 ```bash
-PRELOAD_MODELS=[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]
+PRELOAD_MODELS=[{"id": "localai@stable-diffusion-3-medium"}]
 ```
 
 or as arg:
 
 ```bash
-local-ai --preload-models '[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]'
+local-ai --preload-models '[{"id": "localai@stable-diffusion-3-medium"}]'
 ```
 
 or in a YAML file:
@@ -1002,7 +982,7 @@ local-ai --preload-models-config "/path/to/yaml"
 
 YAML:
 ```yaml
-- url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
+- id: localai@stable-diffusion-3-medium
 ```
 
 {{% /tab %}}
@@ -1023,7 +1003,7 @@ curl $LOCALAI/v1/images/generations -H "Content-Type: application/json" -d '{
 URL: https://github.com/ggerganov/whisper.cpp
 
 {{< tabs >}}
-{{% tab name="Prepare the model in runtime" %}}
+{{% tab title="Prepare the model in runtime" %}}
 
 ```bash
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{         
@@ -1033,7 +1013,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 ```
 
 {{% /tab %}}
-{{% tab name="Automatically prepare the model before start" %}}
+{{% tab title="Automatically prepare the model before start" %}}
 
 You can set the `PRELOAD_MODELS` environment variable:
 

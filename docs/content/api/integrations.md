@@ -24,7 +24,7 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 Community-maintained packages of LocalAI. Package versions and
 availability may lag upstream releases.
 
-- [Homebrew](https://formulae.brew.sh/formula/localai) - `brew install localai`
+- [Homebrew](https://formulae.brew.sh/formula/localai): a community package, not maintained by the LocalAI project. Check the formula before you use it.
 - [ALT Sisyphus](https://packages.altlinux.org/en/sisyphus/srpms/localai/) - `localai` package
 - [Gentoo overlay](https://git.ipnmod.org/packages/local-ai-overlay) - `sci-ml/local-ai` and per-backend packages, overlay `local-ai` in Gentoo's repository index
 

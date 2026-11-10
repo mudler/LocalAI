@@ -54,29 +54,25 @@ backend: "<backend>"
 embeddings: true
 ```
 
-## Huggingface embeddings
+## Hugging Face embeddings
 
-To use `sentence-transformers` and models in `huggingface` you can use the `sentencetransformers` embedding backend.
+To use `sentence-transformers` models from Hugging Face, set `backend: transformers` and `type: SentenceTransformer`.
 
 ```yaml
-name: text-embedding-ada-002
-backend: sentencetransformers
+name: my-embeddings
+backend: transformers
+type: SentenceTransformer
 embeddings: true
 parameters:
-  model: all-MiniLM-L6-v2
+  model: BAAI/bge-large-en-v1.5
 ```
 
-The `sentencetransformers` backend uses Python [sentence-transformers](https://github.com/UKPLab/sentence-transformers). For a list of all pre-trained models available see here: https://github.com/UKPLab/sentence-transformers#pre-trained-models
+The `transformers` backend loads the model with Python [sentence-transformers](https://github.com/UKPLab/sentence-transformers). The gallery entry `bge-large-en-v1.5` uses this setup.
 
-{{% notice note %}}
-
-- The `sentencetransformers` backend is an optional backend of LocalAI and uses Python. If you are running `LocalAI` from the containers you are good to go and should be already configured for use.
-- For local execution, you also have to specify the extra backend in the `EXTERNAL_GRPC_BACKENDS` environment variable.
-    - Example: `EXTERNAL_GRPC_BACKENDS="sentencetransformers:/path/to/LocalAI/backend/python/sentencetransformers/sentencetransformers.py"`
-- The `sentencetransformers` backend does support only embeddings of text, and not of tokens. If you need to embed tokens you can use the `bert` backend or `llama.cpp`.
-- No models are required to be downloaded before using the `sentencetransformers` backend. The models will be downloaded automatically the first time the API is used.
-
- {{% /notice %}}
+{{% callout style="note" %}}
+- LocalAI installs the `transformers` backend from the backend gallery when a model needs it. See [Backends]({{% relref "/models/backends" %}}).
+- With `type: SentenceTransformer`, the backend embeds text. It does not embed tokens. To embed tokens, use the `llama-cpp` backend.
+{{% /callout %}}
 
 ## Llama.cpp embeddings
 

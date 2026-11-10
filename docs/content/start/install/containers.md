@@ -5,6 +5,8 @@ weight: 50
 aliases:
   - "/basics/container/"
   - "/installation/containers/"
+  - "/installation/docker/"
+  - "/start/install/docker/"
 ---
 
 LocalAI supports Docker, Podman, and other OCI-compatible container engines. This guide covers the common aspects of running LocalAI in containers.

@@ -44,7 +44,7 @@ Returns the instance version, all available endpoint URLs (flat and categorized)
 
 ```json
 {
-  "version": "v2.28.0",
+  "version": "v5.0.0",
   "endpoints": {
     "chat_completions": "/v1/chat/completions",
     "models": "/v1/models",

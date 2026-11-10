@@ -29,8 +29,8 @@ ranking and lexical-name ordering still apply. If no eligible development build
 exists, LocalAI selects an eligible non-development build. If neither group has
 an eligible build, it does not register the alias.
 
-For example, generic `example-engine` selects `cpu-example-engine-development`
-over `cpu-example-engine` when both are installed and compatible. A compatible
+For example (`my-engine` is a placeholder name, not a real backend), generic `my-engine` selects `cpu-my-engine-development`
+over `cpu-my-engine` when both are installed and compatible. A compatible
 CPU development build also takes priority over a stable CUDA build.
 An incompatible development build cannot take priority over a compatible stable
 build. Compatibility uses LocalAI's existing hardware heuristics, including the
@@ -38,7 +38,7 @@ build. Compatibility uses LocalAI's existing hardware heuristics, including the
 that native libraries can load.
 
 Explicit concrete names keep their original paths. Selecting
-`cpu-example-engine` does not redirect to its development counterpart.
+`cpu-my-engine` does not redirect to its development counterpart.
 Installing a development image under a stable name does not rename that entry.
 The preference also retains its existing development-first download behavior.
 
@@ -664,7 +664,7 @@ tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
 
 In distributed mode, expand a row in **Backends → Installed** to see its node
 installations. Turn on **Variant builds** and **Development builds** under
-**Filters** when needed to reveal concrete builds such as `cpu-example-engine-development`. Removal uses
+**Filters** when needed to reveal concrete builds such as `cpu-my-engine-development`. Removal uses
 that exact row name, not a generic alias or the recommended build.
 
 **Remove from worker-alpha…** asks for confirmation naming both the backend and

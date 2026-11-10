@@ -27,23 +27,20 @@ The simplest way to use MLX distributed is with LocalAI's P2P auto-discovery.
 
 ### 1. Start LocalAI with P2P
 
+Run LocalAI natively on the Mac. Containers cannot use Metal, so there is no container image for this setup. Install the [macOS app or the binary]({{% relref "/start/install/macos" %}}), then run:
+
 ```bash
-docker run -ti --net host \
-  --name local-ai \
-  localai/localai:latest-metal-darwin-arm64 run --p2p
+local-ai run --p2p
 ```
 
 This generates a network token. Copy it for the next step.
 
 ### 2. Start MLX Workers
 
-On each additional Mac:
+On each additional Mac, run the worker with the same binary:
 
 ```bash
-docker run -ti --net host \
-  -e TOKEN="<your-token>" \
-  --name local-ai-mlx-worker \
-  localai/localai:latest-metal-darwin-arm64 p2p-worker p2p-mlx
+TOKEN="<your-token>" local-ai p2p-worker p2p-mlx
 ```
 
 Workers auto-register on the P2P network. The LocalAI server discovers them and generates a hostfile for MLX distributed.
