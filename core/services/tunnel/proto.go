@@ -256,16 +256,24 @@ func truncateRunes(s string, limit int) string {
 // payload in two frames. One Write also keeps the websocket adapter to one
 // message for each frame.
 func writeFrame(w io.Writer, payload string) error {
-	if len(payload) > maxFrame {
-		return fmt.Errorf("tunnel frame is %d bytes, over the %d-byte limit", len(payload), maxFrame)
+	buf, err := appendFrame(make([]byte, 0, 2+len(payload)), payload)
+	if err != nil {
+		return err
 	}
-	buf := make([]byte, 2+len(payload))
+	_, err = w.Write(buf)
+	return err
+}
+
+// appendFrame appends the frame of payload to buf, so that a caller can send a
+// frame and what follows it in one Write.
+func appendFrame(buf []byte, payload string) ([]byte, error) {
+	if len(payload) > maxFrame {
+		return nil, fmt.Errorf("tunnel frame is %d bytes, over the %d-byte limit", len(payload), maxFrame)
+	}
 	// #nosec G115 -- the check above limits the payload to maxFrame (1024),
 	// which is inside uint16.
-	binary.BigEndian.PutUint16(buf[:2], uint16(len(payload)))
-	copy(buf[2:], payload)
-	_, err := w.Write(buf)
-	return err
+	buf = binary.BigEndian.AppendUint16(buf, uint16(len(payload)))
+	return append(buf, payload...), nil
 }
 
 // readFrame reads a frame. It uses io.ReadFull because a yamux stream returns

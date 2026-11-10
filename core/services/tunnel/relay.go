@@ -121,6 +121,10 @@ func ReadRelayRequest(r io.Reader) (nodeID, lane string, budget time.Duration, e
 	if err != nil {
 		return "", "", 0, fmt.Errorf("reading a relay request: %w", err)
 	}
+	return parseRelayRequest(payload)
+}
+
+func parseRelayRequest(payload string) (nodeID, lane string, budget time.Duration, err error) {
 	fields := strings.Split(payload, streamRequestSeparator)
 	if len(fields) != 3 || fields[0] == "" {
 		return "", "", 0, fmt.Errorf("reading a relay request: want \"node lane budget\", got %d fields", len(fields))
@@ -243,6 +247,9 @@ const (
 // into a loop between two replicas, each sure that the other holds the worker.
 type Relay struct {
 	tunnels *Registry
+	// replies serves the requests between replicas that arrive on the same
+	// links. Nil refuses them as a release that predates them does.
+	replies *Replies
 
 	// The timeouts are fields so that a spec can reach a deadline without waiting
 	// out a production value.
@@ -252,7 +259,20 @@ type Relay struct {
 
 // NewRelay returns the relay for the tunnels that this replica holds. Its Stream
 // method is the handler of a PeerSessions.
-func NewRelay(tunnels *Registry) *Relay { return newRelay(tunnels, 0, 0) }
+func NewRelay(tunnels *Registry, opts ...RelayOption) *Relay {
+	r := newRelay(tunnels, 0, 0)
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+// RelayOption changes what a Relay serves.
+type RelayOption func(*Relay)
+
+// WithReplies makes the relay serve the requests between replicas with the
+// handlers of replies.
+func WithReplies(replies *Replies) RelayOption { return func(r *Relay) { r.replies = replies } }
 
 func newRelay(tunnels *Registry, headerTimeout, openTimeout time.Duration) *Relay {
 	return &Relay{
@@ -288,15 +308,33 @@ func (r *Relay) Stream(peerID string, stream net.Conn) {
 }
 
 // accept reads which worker the stream is for and opens the stream to the worker.
-// The second result is false when the stream was refused, and then the refusal
-// was sent and the stream closed.
+// A stream that carries a request for this replica is served here instead. The
+// second result is false when the stream was refused or served, and then the
+// stream is closed.
 func (r *Relay) accept(peerID string, stream net.Conn) (net.Conn, bool) {
 	if err := stream.SetReadDeadline(time.Now().Add(r.headerTimeout)); err != nil {
 		r.refuse(peerID, stream, fmt.Errorf("%w: arming the request deadline: %v", ErrRelayUnavailable, err))
 		return nil, false
 	}
 
-	nodeID, lane, budget, err := ReadRelayRequest(stream)
+	payload, err := readFrame(stream)
+	if err != nil {
+		err = fmt.Errorf("reading a relay request: %w", err)
+	} else if target, subject, budget, ok, rerr := parseReplyRequest(payload); ok {
+		// A request for this replica and not for a worker.
+		if rerr == nil && r.replies != nil {
+			r.replies.serve(peerID, stream, target, subject, budget)
+			return nil, false
+		}
+		err = cmp.Or(rerr, errors.New("this replica serves no request and reply"))
+	}
+	var (
+		nodeID, lane string
+		budget       time.Duration
+	)
+	if err == nil {
+		nodeID, lane, budget, err = parseRelayRequest(payload)
+	}
 	if err != nil {
 		// This includes the deadline above running out. Both mean that the stream
 		// never said which worker it wanted, which is a bug of the dialling
