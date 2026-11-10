@@ -41,8 +41,8 @@ The control traffic between frontends and workers goes over one **carrier**. The
 
 | Carrier | What it is | What you need |
 |---------|------------|---------------|
-| `nats` | A NATS broker. Frontends publish broadcasts and send control requests through it. Work queues are NATS queue groups. | A NATS server, reachable from the frontends and the workers. |
-| `tunnel` | The database. Broadcasts use PostgreSQL `LISTEN`/`NOTIFY` (a bus named *pgbus*). Jobs go through a claim table in PostgreSQL. Each worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. | PostgreSQL only. Workers need no inbound port. |
+| `nats` | A NATS broker. Frontends publish broadcasts and send control requests through it. Frontends and [chat workers](#chat-workers) also use it for request and reply between each other (the chat start, the replay of chat events, the background jobs of a turn). | A NATS server, reachable from the frontends and the workers. |
+| `tunnel` | The database. Broadcasts use PostgreSQL `LISTEN`/`NOTIFY` (a bus named *pgbus*). Each worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. There is no request and reply between frontends: see [Chats on the `tunnel` carrier](#chats-on-the-tunnel-carrier). | PostgreSQL only. Workers need no inbound port. |
 
 **Exactly one carrier is active at a time.** There is no setting that you pass at boot. The active carrier is a row in the database, and an admin can change it while the cluster runs, with no restart. The two carriers are never used together as a steady state. During a change, both stay attached for a short time so that work in progress can finish. See [Switching the carrier](#switching-the-carrier).
 
@@ -81,7 +81,7 @@ docker compose -f docker-compose.distributed.yaml up
 
 This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. The frontend has a NATS URL, so the cluster starts on `nats`. When you send an inference request, the SmartRouter installs the needed backend on the worker and loads the model. See the file for GPU support, shared volumes, and more workers.
 
-To try the `tunnel` carrier, remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The cluster then starts on `tunnel`, and the worker needs only `LOCALAI_REGISTER_TO` and the registration token.
+To try the `tunnel` carrier, remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The cluster then starts on `tunnel`, and the worker needs only `LOCALAI_REGISTER_TO` and the registration token. The chat worker gets no chat starts on `tunnel`, and the frontend runs those turns itself (see [Chats on the `tunnel` carrier](#chats-on-the-tunnel-carrier)).
 
 {{% notice tip %}}
 The compose file starts PostgreSQL, NATS, [Garage](https://garagehq.deuxfleurs.fr/) as S3-compatible object storage (with a one-shot step that creates its bucket and access key), a frontend, a model worker, an agent worker and a [chat worker](#chat-workers). The frontend and the chat worker store the chat files in Garage, and the frontend sends unattended chat turns to the chat worker. Its credentials are examples: change them, and the `rpc_secret` in `examples/distributed/garage.toml`, for anything beyond a local test.
@@ -1093,6 +1093,16 @@ What stays on the frontends:
 - A start that carries files, such as a connector message with a photo or a job with attachments. The files are saved before the turn starts.
 - Sub-agents follow their parent: the sub-agents of a turn that runs on a chat worker run on that worker.
 
+
+### Chats on the `tunnel` carrier
+
+A chat start, the replay of the events of a turn to a client that reconnected to another frontend, and the background jobs of a turn that runs on another node are request and reply between processes. Only the `nats` carrier has it. On `tunnel`:
+
+- A frontend that sends a start finds no chat worker and runs the turn itself, as it does when no chat worker listens on NATS. A chat worker keeps running and takes starts again when the cluster changes to `nats`.
+- A client whose event stream reconnects to a frontend that does not run the turn reads the transcript instead of the missed events.
+- A turn cannot reach a background job on another node. The tool call that asks for it fails with an error that says so.
+- Chat events, notifications and stops are broadcasts, and they work on both carriers.
+
 ## MCP in Distributed Mode
 
 MCP servers configured in model configs work in distributed mode. The frontend routes MCP operations through NATS to agent workers:
@@ -1533,7 +1543,7 @@ The dry run asks every frontend what it can build, then prints the **preflight**
   - `replica`: a frontend cannot use the target (for example, it cannot reach NATS), or its report is missing or too old. (Forceable.)
   - `worker`: a worker cannot follow (see [Workers and carriers](#workers-and-carriers)). (Forceable.)
 - **Warnings**, for example that the previous carrier from the last change is still draining.
-- **Work in flight:** model loads, jobs, and pending and claimed queue rows.
+- **Work in flight:** the models that are loading.
 - **The live frontends**, each with its version and whether it is ready. **Check that this list is complete.** It is the only protection against a frontend that predates carrier switching.
 - **The workers**, each with the carriers it holds and whether it can follow.
 
@@ -1576,12 +1586,11 @@ No request is cut by the commit.
 | Backend installs | Finish on the carrier that received them. A failed install is retried on the new one. |
 | Model loads | Keep their lease. Each renewal is a new call, sent on whichever carrier reaches the worker. A load whose worker never follows is stopped by the worker watchdog after 90 s without a renewal, then retried. |
 | File transfers | Finish on their connection. New ones use the new carrier. |
-| Jobs on the claim queue (`tunnel`) | Claimed rows are driven to the end over the old tunnel while workers are attached. At the end of the drain, rows still pending move to the NATS queue. |
-| Jobs on a NATS queue group | The ones NATS already delivered finish. NATS stores nothing that is pending. |
-| Agent runs | Keep the carrier they started on. |
+| MCP tool calls to agent workers | A call finishes on the carrier that carried it. New calls go to the carrier that the agent worker is attached to. |
+| Chat starts, chat replay and background jobs of a turn | Use the active carrier. On `tunnel` nobody answers, and the frontend runs the turn itself or reads the transcript. |
 | Broadcasts (progress, cache hints, state deltas) | Frontends listen on both carriers from `prepare` and publish on one. Order can skew by about one poll interval (2 s) around the commit. Each frontend then reloads its shared state once, so a lost delta is repaired. |
 
-**After the drain** (`max_drain`, default 15 minutes) the old carrier is released. Work that still runs only on it is cut. A job that was running is failed by the reaper. An agent run that lasts longer than the drain time loses its carrier and is failed the same way. Raise `max_drain` before you change the carrier if you run long jobs.
+**After the drain** (`max_drain`, default 15 minutes) the old carrier is released. Work that still runs only on it is cut, for example a backend install that takes longer than the drain. Raise `max_drain` before you change the carrier if you run long installs.
 
 ### Abort and roll back
 
@@ -1674,7 +1683,7 @@ Upgrade the **frontends first**, all of them, then the workers. Do not change th
 
 - **Old frontends are undetectable.** The preflight prints the live frontends so that you can check the list. Do not tick the confirmation if a frontend is missing.
 - **Rollback to a release without carrier switching.** First change the carrier to `nats` and wait for the drain to end. Then downgrade the frontends. Old workers still work.
-- A NATS-only deployment sees these additions after the upgrade: the tables `cluster_carrier`, `cluster_settings`, `instances`, `node_connections`, `bus_messages`, and `work_claims`; one write per frontend per heartbeat; one small read of the carrier row about every 2 seconds per frontend; the `/api/cluster/connect` route, which refuses everyone until a worker holds a tunnel credential; and the new status API and UI panel.
+- A NATS-only deployment sees these additions after the upgrade: the tables `cluster_carrier`, `cluster_settings`, `instances`, `node_connections`, and `bus_messages`; one write per frontend per heartbeat; one small read of the carrier row about every 2 seconds per frontend; the `/api/cluster/connect` route, which refuses everyone until a worker holds a tunnel credential; and the new status API and UI panel.
 
 ## Observability
 
@@ -1707,7 +1716,6 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 - **Large broadcasts.** A payload that does not fit in a PostgreSQL notification (about 8 KB) goes through a table row (the *spill* path). The spill path is fine up to about 1,000 messages per second of 64 KiB. It loses messages above about 2,000 per second, because delivery is at most once. The frontends read spilled rows with up to 8 concurrent readers, which reduces this loss. Keep large payloads rare.
 - **Delivery is at most once** on both carriers. Anything that must survive a gap lives in a table.
 - **Broadcast size limit.** Every carrier refuses a payload above 8 MiB (`ErrPayloadTooLarge`). Keep the NATS `max_payload` at 8 MiB or lower.
-- **Job pickup.** On the claim queue, a frontend polls every 2 seconds, and a NOTIFY hint wakes the pickup at once, so a job usually starts in a few milliseconds. The poll is the safety net, so the worst case is 2 seconds. One consumer claims about 660 rows per second, and 32 consumers about 6,000. The claim queue is at-least-once: a job in flight can run twice after a frontend dies, so job handlers must be idempotent. A NATS queue group lost 17 to 20% of items when a consumer was killed.
 - **Tunnel latency.** A tunnel adds about 0.1 ms per call. Token streaming runs at the same rate as a direct connection.
 - **Large transfers.** A bulk transfer used to delay small calls on the same tunnel session (head-of-line blocking). Bulk data now uses its own lane of the tunnel, so inference calls are not held behind a model upload.
 - **Cost of one tunnel session.** About 46 KB of heap and 6 goroutines (both ends together). With 64 KiB websocket buffers it is about 306 KB. 200 workers cost a frontend a few megabytes.

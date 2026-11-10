@@ -20,7 +20,7 @@ files to that spec.
 | Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter` over NATS request/reply and `TunnelControl` over the HTTP control plane of a worker; `S3FileStager` over either (`NewS3NATSFileStager`, `NewS3TunnelFileStager`); `HTTPFileStager` over HTTP |
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer`, `httpControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl`, `nodes.AgentControlClient` (tunnel) |
-| Agent RPC, worker half | unexported `agentRPCServer` on NATS, `agentworker.Handler` on the tunnel | `core/cli/agent_worker.go`, `core/services/agentworker` | `nodes.NATSAgentRPCServer`, `agentworker.Config` and `agentworker.Work` |
+| Agent RPC, worker half | unexported `agentRPCServer` on NATS, `agentworker.Handler` on the tunnel | `core/cli/agent_worker.go`, `core/services/agentworker` | `nodes.NATSAgentRPCServer`, `agentworker.Config` |
 | Chat start, frontend half | `studio.ChatWorkers` | `core/services/studio` | `nodes.NATSChatStarter` |
 | Chat start, worker half | `studio.Service.ServeStart`, served by `nodes.ChatStartHandler` | `core/application/studio_chatworker.go` | `nodes.NATSChatStartServer` |
 | Dial to a worker | `nodes.BackendClientFactory`, `nodes.ModelProber`, `nodes.WorkerNetDialerFor` | `core/services/nodes` | direct dial |
@@ -32,7 +32,7 @@ carrier share one wire format without importing each other.
 ## Holders and the carrier row
 
 Code above the seams does not hold a carrier. It holds a forwarding holder from
-`core/services/carrier`, one per seam: `Broadcaster`, `WorkQueue`, `Commands`
+`core/services/carrier`, one per seam: `Broadcaster`, `Commands`
 (`nodes.NodeControl`), `Files`, `Clients`, `NewWorkerDialer` and `Agents`. Each
 call loads an `atomic.Pointer[carrier.Set]` once and calls the same method on
 that set. A `carrier.Set` is the implementation of every seam for one carrier.
@@ -139,14 +139,11 @@ and names it in the note of the row.
 jitter, and a hint on `state.carrier` makes it look at once; the poll decides. In
 `prepare` it builds the target, attaches every subscription to it
 (`Broadcaster.Listen`) and reports ready for the epoch. In `commit` it stores the
-set, so that publishes, enqueues and new calls use it, starts the work of the set
-(`Set.Start`: the claim loop of the tunnel) and confirms. In `stable` with a drain it
+set, so that publishes and new calls use it, starts the work of the set
+(`Set.Start`, which no carrier sets today) and confirms. In `stable` with a drain it
 does nothing: the old set stays attached. When the leader ends the drain it stops
-listening on the old set, cancels its work with `messaging.ErrCarrierReleased`,
-runs `Set.Handoff` (the tunnel moves its pending claims to the queue of the new
-carrier: update, then publish, so a job is lost and not run twice if the replica
-dies in between; it runs again after `Settle` for the producers that were slow to
-flip), closes the set, and runs the reconnect hooks once. A replica that polls
+listening on the old set, cancels its work, runs `Set.Handoff` (no carrier sets it
+today), closes the set, and runs the reconnect hooks once. A replica that polls
 late, restarts or joins during a change acts on the row alone.
 
 `carrier.Window` is the only per-worker routing, and it exists between the commit
@@ -158,11 +155,8 @@ tunnel held when it reports nothing) and never from the error of an earlier
 attempt. A call that is running is never moved, so an install, a stream or a load
 renewal ends on the carrier it began on while the old carrier is attached.
 
-A run that the end of the drain cuts off is cancelled with
-`messaging.ErrCarrierReleased`. The claim driver completes its claim and leaves the
-job to the reaper (`ReapStuckJobs`), because the run did start and the carrier that
-took over must not start it again. The model loads, installs and agent runs that
-were started before the change finish where they began; whatever is still running
+The model loads, installs and MCP calls that were started before the change finish
+where they began; whatever is still running
 at `max_drain` is failed by the reaper, and a load whose lease is not renewed is
 killed by the watchdog of the worker, as it is for a dead owner (`#12524`).
 
@@ -273,96 +267,19 @@ instance on the chat (`store.Store.SetTurnOwner`). No answer in 2 s, or an
 answer of `resync`, means the client reads the transcript; nothing else acts on
 it.
 
-`messagingtest.RunWorkQueueConformance` is the suite every carrier of the
-queue passes: one consumer gets a payload and a publisher for its events,
-competing consumers split the work once when nothing fails, the kinds stay apart,
-`maxInFlight` holds, `Unsubscribe` waits for the running handler, and a payload
-above `messaging.MaxWorkPayloadBytes` (1 MiB, the default `max_payload` of NATS)
-is refused. It does not state what differs between carriers: the fate of work
-whose consumer dies, and how often a failed handler is called again. A handler
-must tolerate a repeat.
+### Request and reply between processes
 
-### The claim queue
-
-The tunnel carrier has no broker, so its queue is a table. `jobs.ClaimQueue`
-writes a row (`work_claims`) and sends a wake hint on `messaging.SubjectClaimWake`.
-`jobs.ClaimConsumer` runs on a frontend replica. It polls every two seconds,
-wakes at once on a hint for its kind, and claims into as many slots as it has with
-`FOR UPDATE SKIP LOCKED`. The hint is at-most-once, so the poll is what guarantees
-that work is found; with the poll alone a unit waits one second on average, and
-with the hint the median wait is a few milliseconds. A row stays until the work
-has an answer, so `Enqueue` succeeds while nobody consumes.
-
-A replica claims and not an agent worker, because an agent worker has no database.
-`jobs.AgentDriver` is the handler: it picks an agent worker with
-`nodes.AgentSelector`, sends the payload to the verb of the kind
-(`workerctl.VerbAgentExecute` or `VerbMCPCIRun`) and reads the stream that comes
-back. `jobs.DispatchLoop` is a consumer for the three kinds with the driver as its
-handler.
-
-- The outcome of the handler settles the row. `nil` deletes it. An error, or a
-  panic, releases it with a wait that doubles from two seconds to a minute (the
-  wait keeps one poison row from being claimed ahead of every newer row on every
-  tick). An error that wraps `jobs.ErrKeepClaim` leaves it with its replica: the
-  work ran and its answer could not be recorded, and releasing would run it again.
-- A release is for work that was not started. The driver releases a claim when no
-  worker could be picked, when a worker has no slot, no route or is too old to
-  serve the verb (the next worker is tried first, with no wait), when the carrier
-  was released before the run began, and when a worker was reached and the call
-  failed before one line of the run came back. Once a line of the run has come
-  back, the claim is never released: a broken link then closes the job as failed
-  and completes the claim, because a second run could repeat a CI pipeline or the
-  side effects of an agent.
-- A row ends after `MaxFailures` failures (default 10, about five minutes of
-  trying; `DispatchConfig.MaxFailures`). Only the failures that say something about
-  the work count: a worker was reached and the run failed on it. A release for lack
-  of a worker, a route or a free slot does not count, so a fleet that is down for a
-  day keeps its queue. The consumer records the job as failed first and deletes the
-  row after.
-- A claim is settled only by the replica and the attempt that hold it, so a
-  holder that was reaped and answers late cannot delete the claim of the replica
-  that took the work over.
-- `ReapAbandoned` returns the claims of replicas that are not live. It reads
-  `cluster.LiveInstanceIDsSQL` and has no age in it: a live replica that holds a
-  claim for an hour has a slow job. A replica whose own row is not live claims
-  nothing.
-- A replica stops the handler of a claim that is no longer its own. Every tick the
-  consumer (once for all kinds) checks that the replica is live and lists the
-  claims it holds. When the instances row is missing for as long as a peer needs to
-  reap, the handler's context is cancelled, the peer runs the work, and this
-  replica does not settle the row. When this replica registers again before a peer
-  reaped, it gives the row back to the queue itself, because a row held by a live
-  id is never reaped.
-- A process that starts to claim first releases the rows its own id holds
-  (`ReleaseOwned`). `LOCALAI_INSTANCE_ID` is stable across restarts, the id is
-  live again at once, and the reap never frees rows of a live id.
-- Delivery is at-least-once. A replica that dies in the middle of a job loses
-  nothing and the job runs again. NATS loses the job of a consumer that dies. A
-  stall of a replica for as long as the liveness window can also run a job twice.
-  A handler for work that is not safe to repeat must record its progress.
-- `MigratePending` takes the pending rows out of the queue once, for a change to a
-  carrier that has its own queue. Held rows are driven to their end where they are.
-  A row the new carrier refuses goes back to pending (`RestorePending`). Moved rows
-  stay as `migrated` for `MigratedRetention` (a day) and are then deleted with
-  their payloads.
-- Payload at rest: the payload of a row is the whole request of the work, in
-  plain text. For an MCP job it holds the job, the task and the model
-  configuration, including the configuration of its MCP servers. It stays in
-  `work_claims.payload` until the work is complete (the row is deleted) or, for a
-  moved row, until the purge. Anyone who can read the table can read it. Treat the
-  table as the place where those secrets live, and give the database role the
-  same care.
-- The poll reads the rows of a kind through `idx_work_claims_pick` (kind, state,
-  created_at) and filters the rows that wait for a backoff, so it passes over them
-  at each poll. The failure cap keeps their number small.
-- A plain task (`WorkTask`) has no worker on either carrier. The driver drops the
-  claim and the job is left to the reaper (`ReapStuckJobs`), as it was on NATS.
-- `Dispatcher.Cancel` marks the job as cancelled in the database and publishes
-  `jobs.<id>.cancel`. The mark is what stops a job that is still queued: the driver
-  reads the status before it dispatches, and again before each worker it offers the
-  run to. On NATS nothing subscribes to the subject, as on master, and a spec pins
-  that. On this carrier the replica that holds the job ends its stream, the run on
-  the worker ends with its request, and the job is closed as cancelled.
+The broadcaster holder also carries request and reply (`messaging.RequestReply`):
+the chat start, the chat replay and the background jobs of a turn. A set that has
+it names it in `Set.Replies` (the NATS client). The tunnel set has none, because
+the tunnel reaches workers and not other frontends. There `Request` returns an
+error that wraps `messaging.ErrNoResponders` (`messaging.IsNoResponders` reports
+it), which every caller already reads as "nobody listens": the chat start runs the
+turn on this frontend, the replay sends `resync`, and a background job on another
+node is out of reach. `SubscribeReply` and `QueueSubscribeReply` are kept in the
+registry of the holder like a broadcast subscription, so a chat worker that
+serves `chats.start` follows a change of carrier: it listens on NATS while NATS is
+attached and on nothing while only the tunnel is.
 
 ## Control verbs
 
@@ -434,19 +351,13 @@ replica holds because that call needs no relay. `nodes.AgentControlClient` sends
 the request over the control client, with the same contract as NATS: a decoded
 reply is returned with a nil error, no agent worker wraps `nodes.ErrNoRoute`, and
 only the deadline of ctx applies. A request goes to a second worker (up to three)
-only when the failure proves that the first did not start it: no route, a worker
-too old to serve the verb, or a worker with no free slot. A broken stream or a
+only when the failure proves that the first did not start it: no route, or a
+worker too old to serve the verb. A broken stream or a
 timeout is returned, because the tool may have run.
 
 `agentworker.Handler` is the worker half on the tunnel: one HTTP server that
 binds loopback only and is reached through the tunnel (its tunnel offers the http
-tag alone). `agentworker.Work` is its `WorkConsumer`. A run is a streaming
-request: the events that the handler publishes are progress lines that name their
-subject, the result it publishes becomes the reply line, and a body that ends
-without a reply line is a link that broke. A worker that is full answers busy
-(`workerctl.WriteBusy`, `workerctl.ErrWorkerBusy`) and the frontend offers the run
-to another worker. The frontend publishes a line only if
-`nodes.Rebroadcaster` allows the subject for the node type of the worker.
+tag alone). It serves the MCP tool call, the discovery and the backend stop.
 
 ## Dial
 
