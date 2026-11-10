@@ -1,8 +1,38 @@
-{{ define "main"}}
-    <main id="main">
-      <div>
-       <h1 id="title">Page not found</h1>
-       <p>This page does not exist, or it moved. Use the search box in the menu, or go to the <a href="{{ "/" | relURL }}">documentation home</a>.</p>
-      </div>
-    </main>
-{{ end }}
+<!DOCTYPE html>
+{{- .Store.Set "relearnOutputFormat" "html" }}
+<html id="R-html" lang="{{ .Page.Language.Locale }}" dir="{{ .Page.Language.Direction | default (T "Reading-direction") | default "ltr" }}" itemscope itemtype="http://schema.org/Article" data-r-output-format="{{ with .Store.Get "relearnOutputFormat" }}{{ . }}{{ else }}html{{ end }}">
+  <head>
+    {{- partial "meta.html" . }}
+    {{- $title := partial "title.gotmpl" (dict "page" . "fullyQualified" true "reverse" true) }}
+    <title>{{ $title }}</title>
+
+    {{- /* because this file can be called from literally any URL inside your project, we need to base all relative URLs to make them work */}}
+    <base href="{{ site.BaseURL }}">
+
+    {{- partialCached "favicon.html" site.Home }}
+    {{- partial "dependencies.html" (dict "page" . "location" "header") }}
+    {{- partial "custom-header.html" . }}
+  </head>
+  <body class="mobile-support {{ with .Store.Get "relearnOutputFormat" }}{{ . }}{{ else }}html{{ end }}{{- if site.Params.link.underline }} link-underline{{ end }}" data-origin="{{ partial "permalink.gotmpl" (dict "to" .) }}">
+    <div id="R-body" class="default-animation">
+      <main id="R-body-inner" class="highlightable chapter" tabindex="-1">
+        <div class="flex-block-wrapper">
+          <article class="notfound lai-404">
+            <p class="lai-404-code" aria-hidden="true">404</p>
+            <h1 id="404"><span class="a11y-only">404 </span>This page does not exist</h1>
+            <p>The page may have moved, or the address has a typo. Use the search on the docs home, or start from one of these pages.</p>
+            <ul>
+              <li><a href="{{ partial "permalink.gotmpl" (dict "to" site.Home) }}">Docs home</a></li>
+              <li><a href="{{ "start/install/" | absURL }}">Install</a></li>
+              <li><a href="{{ "start/quickstart/" | absURL }}">Quickstart</a></li>
+              <li><a href="{{ "features/" | absURL }}">Features</a></li>
+              <li><a href="https://localai.io/">localai.io</a></li>
+            </ul>
+          </article>
+        </div>
+      </main>
+    </div>
+{{- partial "dependencies.html" (dict "page" . "location" "footer") }}
+{{- partial "custom-footer.html" . }}
+  </body>
+</html>

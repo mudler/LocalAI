@@ -19,3 +19,205 @@
 :root {
   --LOGO-IMAGE-width: 12rem;
 }
+
+/* ---- Focus: always visible for keyboard users ------------------------------ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--PRIMARY-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---- Sidebar groups: Start, Use, Run, Build --------------------------------
+   The top-level sections are ordered by weight. A label sits above the first
+   section of each group. Relearn gives each menu item data-nav-id with its URL. */
+#R-sidebar li[data-nav-id$="/start/index.html"],
+#R-sidebar li[data-nav-id$="/features/index.html"],
+#R-sidebar li[data-nav-id$="/models/index.html"],
+#R-sidebar li[data-nav-id$="/api/index.html"] {
+  margin-top: 1.4rem;
+}
+#R-sidebar li[data-nav-id$="/start/index.html"]::before,
+#R-sidebar li[data-nav-id$="/features/index.html"]::before,
+#R-sidebar li[data-nav-id$="/models/index.html"]::before,
+#R-sidebar li[data-nav-id$="/api/index.html"]::before {
+  display: block;
+  padding: 0 1rem .25rem;
+  font: 700 .72rem/1.2 var(--MAIN-TITLES-font, sans-serif);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--MAIN-TEXT-color);
+  opacity: .72;
+}
+#R-sidebar li[data-nav-id$="/start/index.html"]::before { content: "Start"; }
+#R-sidebar li[data-nav-id$="/features/index.html"]::before { content: "Use"; }
+#R-sidebar li[data-nav-id$="/models/index.html"]::before { content: "Run"; }
+#R-sidebar li[data-nav-id$="/api/index.html"]::before { content: "Build"; }
+
+/* ---- Callouts follow the status roles of the brand -------------------------
+   note = warning role, tip = ok role, warning = error role, info = accent. */
+.box.cstyle {
+  border-radius: 10px;
+  overflow: hidden;
+}
+.box.cstyle > .box-label,
+.box.cstyle > summary {
+  letter-spacing: .01em;
+}
+
+/* ---- Code blocks: language label ----------------------------------------- */
+div.highlight pre code[data-lang]::before {
+  content: attr(data-lang);
+  display: block;
+  margin-bottom: .4rem;
+  font: 700 .68rem/1 var(--MAIN-TITLES-font, sans-serif);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: .62;
+}
+div.highlight pre code[data-lang="text"]::before,
+div.highlight pre code[data-lang="plaintext"]::before { content: "text"; }
+
+/* ---- Tables scroll on phones ---------------------------------------------- */
+@media screen and (max-width: 47.999rem) {
+  #R-body-inner table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #R-body-inner img { max-width: 100%; height: auto; }
+}
+
+/* ---- Home page ------------------------------------------------------------ */
+.lai-lede {
+  font-size: 1.2rem;
+  line-height: 1.5;
+  max-width: 40rem;
+  margin: .5rem 0 2rem;
+  opacity: .88;
+}
+.lai-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+.lai-step {
+  background: var(--BOX-BG-color);
+  border: 1px solid var(--MENU-BORDER-color);
+  border-radius: 16px;
+  padding: 1.25rem 1.25rem .5rem;
+  box-shadow: 0 1px 2px rgba(35, 42, 82, .08), 0 6px 18px -10px rgba(35, 42, 82, .25);
+  min-width: 0;
+}
+.lai-step h3 { margin: .25rem 0 .5rem; font-size: 1.2rem; }
+.lai-step p { margin: 0 0 .75rem; font-size: .95rem; line-height: 1.5; }
+.lai-step div.highlight { margin: .25rem 0 .75rem; }
+.lai-step pre, .lai-step pre code { white-space: pre !important; overflow-x: auto; font-size: .78rem; }
+#R-body-inner.home h1 { font-size: clamp(2rem, 4.6vw, 3.2rem); line-height: 1.15; margin-top: 1.5rem; }
+.lai-n {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: #ffc93c;
+  color: #232a52;
+  font: 700 1rem/1 var(--MAIN-TITLES-font, sans-serif);
+}
+.lai-legend { font-size: .95rem; line-height: 2; }
+.lai-feats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin: 1rem 0 1.25rem;
+}
+.lai-feat {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  gap: .9rem;
+  align-items: center;
+  padding: .85rem 1rem;
+  border: 1px solid var(--MENU-BORDER-color);
+  border-radius: 14px;
+  background: var(--BOX-BG-color);
+  color: var(--MAIN-TEXT-color);
+  text-decoration: none;
+  transition: border-color .15s, transform .15s;
+}
+.lai-feat:hover { border-color: var(--PRIMARY-color); transform: translateY(-1px); color: var(--MAIN-TEXT-color); }
+.lai-ic {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--PRIMARY-color) 14%, transparent);
+  color: var(--PRIMARY-color);
+}
+.lai-ic svg { width: 1.25rem; height: 1.25rem; }
+.lai-ft { display: grid; gap: .1rem; min-width: 0; }
+.lai-ft b { font-size: 1rem; }
+.lai-ft span { font-size: .875rem; line-height: 1.4; opacity: .82; }
+.lai-tag {
+  display: inline-block;
+  padding: .15rem .55rem;
+  border-radius: 999px;
+  font: 700 .72rem/1.4 var(--MAIN-TITLES-font, sans-serif);
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+.lai-tag-built { color: var(--BOX-GREEN-TEXT-color); background: color-mix(in srgb, var(--BOX-GREEN-color) 14%, transparent); }
+.lai-tag-addon { color: var(--BOX-BLUE-TEXT-color); background: color-mix(in srgb, var(--BOX-BLUE-color) 14%, transparent); }
+.lai-tag-admin { color: var(--BOX-YELLOW-TEXT-color); background: color-mix(in srgb, var(--BOX-YELLOW-color) 14%, transparent); }
+.lai-more {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+}
+.lai-more a {
+  display: block;
+  padding: .85rem 1rem;
+  border: 1px solid var(--MENU-BORDER-color);
+  border-radius: 14px;
+  background: var(--BOX-BG-color);
+  color: var(--MAIN-TEXT-color);
+  text-decoration: none;
+}
+.lai-more a:hover { border-color: var(--PRIMARY-color); color: var(--MAIN-TEXT-color); }
+.lai-more b { display: block; }
+.lai-more span { display: block; font-size: .85rem; opacity: .8; margin-top: .15rem; }
+@media screen and (max-width: 59.999rem) {
+  .lai-steps { grid-template-columns: 1fr; }
+  .lai-more { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media screen and (max-width: 47.999rem) {
+  .lai-feats { grid-template-columns: 1fr; }
+  .lai-lede { font-size: 1.05rem; }
+}
+
+/* ---- Page footer ----------------------------------------------------------- */
+.lai-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem 1.2rem;
+  margin-top: .75rem;
+  font-size: .875rem;
+}
+.lai-foot a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---- 404 ------------------------------------------------------------------ */
+.lai-404 { max-width: 40rem; margin: 3rem auto; text-align: center; }
+.lai-404 .lai-404-code {
+  font: 700 clamp(4rem, 14vw, 7rem)/1 var(--MAIN-TITLES-font, sans-serif);
+  color: var(--PRIMARY-color);
+  margin: 0;
+}
+.lai-404 ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+.lai-404 li a {
+  display: inline-block;
+  padding: .45rem .9rem;
+  border: 1px solid var(--MENU-BORDER-color);
+  border-radius: 999px;
+  background: var(--BOX-BG-color);
+  text-decoration: none;
+}
