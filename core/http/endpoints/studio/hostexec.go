@@ -34,7 +34,7 @@ func (h *Handlers) HostExecConsent(c echo.Context) error {
 
 // AdminHostExecEvents returns the audit of the commands the built-in bash ran.
 // @Summary Read the audit of the commands run on this machine (administrators).
-// @Description Every command the chats' built-in bash ran directly on this machine: who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.
+// @Description Every command the chats' built-in bash ran directly on this machine: who, in which chat, the kind of line (run, or job_start, job_input, job_kill and job_end for a background job, with its job id), the command or the input (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.
 // @Tags chats
 // @Param limit query int false "How many lines, newest first (default 100, at most 500)"
 // @Success 200 {object} schema.ChatsHostExecEventList "The newest commands first"
@@ -48,7 +48,7 @@ func (h *Handlers) AdminHostExecEvents(c echo.Context) error {
 	out := schema.ChatsHostExecEventList{Events: make([]schema.ChatsHostExecEvent, 0, len(evs))}
 	for _, e := range evs {
 		out.Events = append(out.Events, schema.ChatsHostExecEvent{User: e.User, UserName: h.svc.UserName(ctx, e.User), Chat: e.Chat, Command: e.Command,
-			Exit: e.Exit, DurationMS: e.DurationMS, TimedOut: e.TimedOut, At: e.At})
+			Exit: e.Exit, DurationMS: e.DurationMS, TimedOut: e.TimedOut, At: e.At, Kind: e.Kind, Job: e.Job})
 	}
 	return c.JSON(http.StatusOK, out)
 }
