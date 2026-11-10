@@ -149,7 +149,7 @@ got from `write` with the one `read` gives to skip them.
 
 `chat.send(text)` never starts the assistant by itself. LocalAI shows the
 message above the page with a choice of chat: the page's own chat (created on
-first use, titled "Page: <title>") or one of your recent chats. Nothing is sent
+first use, titled `Page: <title>`) or one of your recent chats. Nothing is sent
 until you choose **Send**. The message is then added to the chat as your
 message, starting with `From the page "<title>" (pages/<name>):`, so you can
 see it in the chat before the assistant answers. **Dismiss** resolves the
