@@ -1205,7 +1205,7 @@ button.cx-step__head:hover,
 .cx-nomodel h2 { margin: 0; font-family: var(--font-sans); font-size: 15px; font-weight: 650; letter-spacing: 0; }
 .cx-nomodel__head { display: flex; align-items: center; gap: var(--sp-4); }
 .cx-nomodel__head > div { min-width: 0; }
-.cx-nomodel__head p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: 14px; }
+.cx-nomodel__head p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: var(--fs-small); }
 @media (max-width: 480px) {
   .cx-nomodel__mascot { display: none; }
 }
