@@ -11972,7 +11972,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/sandbox-profile": {
             "get": {
-                "description": "The profile the next command of the chat runs (the one you picked, else the saved agent's, else the administrator's default, else base), where it comes from, the profiles the Sandbox add-on offers with their tools and limits, whether the administrator's policy lets you use each one (allowed), and where the image of each is on the host (state: pulling shows percent). fallback is true when the next command cannot use the profile because its image failed or is missing, and runs base. newer_image is true when the running sandbox is older than the current image. applies is false when the commands of the chat run in no sandbox with profiles. Another user's chat is 404.",
+                "description": "The profile the next command of the chat runs (the one you picked, else the saved agent's, else the administrator's default, else media, else base), where it comes from, the profiles the Sandbox add-on offers with their tools and limits, whether the administrator's policy lets you use each one (allowed), and where the image of each is on the host (state: pulling shows percent). fallback is true when the next command cannot use the profile because its image failed or is missing, and runs base. newer_image is true when the running sandbox is older than the current image. applies is false when the commands of the chat run in no sandbox with profiles. Another user's chat is 404.",
                 "tags": [
                     "chats"
                 ],
@@ -19743,6 +19743,10 @@ const docTemplate = `{
                 },
                 "total_bytes": {
                     "type": "integer"
+                },
+                "upgrade": {
+                    "description": "Upgrade is true if the operation re-installs a backend to move it to a\nnewer build. Without it an upgrade reads as an install: the UI needs the\ndifference for its wording and for what Retry has to call.",
+                    "type": "boolean"
                 }
             }
         },
