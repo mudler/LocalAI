@@ -53,7 +53,7 @@ type fakeJobHost struct {
 	cmds  map[string]string
 	// sandbox is the chat whose sandbox entry each job was asked to run in.
 	sandbox map[string]string
-	hook  func(bgjob.Info)
+	hook    func(bgjob.Info)
 }
 
 func newFakeJobHost(instance string) *fakeJobHost {
