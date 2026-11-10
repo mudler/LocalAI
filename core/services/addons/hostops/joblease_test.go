@@ -80,6 +80,43 @@ var _ = Describe("Job leases", func() {
 		Expect(in.Lease("sandbox", "over", "inc1", "jx", time.Now().Add(time.Hour))).To(MatchError(ContainSubstring("too many")))
 	})
 
+	It("reserves the place of a lease before a start is sent, so a full table refuses the start", func() {
+		in := NewInFlight()
+		var slots []*LeaseSlot
+		for range MaxLeasesPerAddon - 1 {
+			sl, err := in.ReserveLease("sandbox")
+			Expect(err).NotTo(HaveOccurred())
+			slots = append(slots, sl)
+		}
+		last, err := in.ReserveLease("sandbox")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = in.ReserveLease("sandbox")
+		Expect(err).To(MatchError(ErrLeasesFull), "every place is taken or reserved")
+		_, err = in.ReserveLease("other")
+		Expect(err).NotTo(HaveOccurred(), "the places are per add-on")
+
+		// A reserved start leases within its own place, whatever the count.
+		end := in.BeginRuntime(act("op1"), chat, true, "inc1")
+		Expect(last.Lease("op1", "inc1", "job-abcdef", time.Now().Add(time.Hour))).To(Succeed())
+		end()
+		Expect(in.Leases("sandbox")).To(Equal(1))
+		last.Release() // after a lease it frees nothing
+		_, err = in.ReserveLease("sandbox")
+		Expect(err).To(MatchError(ErrLeasesFull))
+
+		// A refused start gives its place back, once.
+		slots[0].Release()
+		slots[0].Release()
+		_, err = in.ReserveLease("sandbox")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = in.ReserveLease("sandbox")
+		Expect(err).To(MatchError(ErrLeasesFull))
+		// The end of a job frees its place.
+		in.EndLease("sandbox", "inc1", "job-abcdef")
+		_, err = in.ReserveLease("sandbox")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("drops the leases of an incarnation that goes away", func() {
 		in := NewInFlight()
 		end := in.BeginRuntime(act("op1"), chat, true, "inc1")

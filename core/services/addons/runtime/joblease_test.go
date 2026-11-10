@@ -4,10 +4,12 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
@@ -23,14 +25,17 @@ var _ = Describe("The lease of a background job", func() {
 
 	// jobsClient is a client of an add-on whose jobs tool is "job" and that
 	// answers each act with the next reply.
+	var sent atomic.Int32
 	jobsClient := func(jobs bool) (*Client, func(contract.JobReply), *bool) {
 		var mu sync.Mutex
 		var reply contract.JobReply
 		var c *Client
 		liveDuring := false
+		sent.Store(0)
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			mu.Lock()
 			defer mu.Unlock()
+			sent.Add(1)
 			_, _, liveDuring = c.inflight.LookupBound("sandbox", "op1")
 			p, _ := json.Marshal(reply)
 			res, _ := json.Marshal(contract.Result{Payload: p})
@@ -49,12 +54,15 @@ var _ = Describe("The lease of a background job", func() {
 		c.inflight = hostops.NewInFlight()
 		return c, func(r contract.JobReply) { mu.Lock(); reply = r; mu.Unlock() }, &liveDuring
 	}
-	act := func(c *Client, op, args string) error {
+	actResult := func(c *Client, op, args string) (contract.Result, error) {
 		e := envelope("act")
 		e.Request.AddonID, e.Request.Action, e.Request.OperationID, e.Request.ResourceID = "sandbox", "act", op, "chat-c1"
 		e.Request.Arguments = json.RawMessage(args)
 		ctx := hostops.WithBinding(context.Background(), hostops.Binding{Principal: "alice", ChatID: "c1"})
-		_, err := c.Act(ctx, e)
+		return c.Act(ctx, e)
+	}
+	act := func(c *Client, op, args string) error {
+		_, err := actResult(c, op, args)
 		return err
 	}
 	live := func(c *Client, op string) (bool, bool) {
@@ -100,5 +108,45 @@ var _ = Describe("The lease of a background job", func() {
 		answerOld(contract.JobReply{OK: true, Job: &running})
 		Expect(act(old, "op1", `{"tool":"job","verb":"start","command":"x"}`)).To(Succeed())
 		Expect(old.inflight.Leases("sandbox")).To(BeZero())
+	})
+
+	It("refuses a start, without sending it, when every lease place of the add-on is taken", func() {
+		c, answer, _ := jobsClient(true)
+		var held []*hostops.LeaseSlot
+		for range hostops.MaxLeasesPerAddon {
+			sl, err := c.inflight.ReserveLease("sandbox")
+			Expect(err).NotTo(HaveOccurred())
+			held = append(held, sl)
+		}
+		answer(contract.JobReply{OK: true, Job: &running})
+		res, err := actResult(c, "op1", `{"tool":"job","verb":"start","command":"make"}`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sent.Load()).To(BeZero(), "the add-on started nothing")
+		var reply contract.JobReply
+		Expect(json.Unmarshal(res.Payload, &reply)).To(Succeed())
+		Expect(reply.Validate(contract.JobArgs{Verb: contract.JobStart, Command: "make"})).To(Succeed())
+		Expect(reply.Code).To(Equal(contract.JobCodeLimit))
+		Expect(reply.Error).To(Equal(JobLeasesFullText))
+
+		// Other calls still pass, and a freed place lets a start through.
+		answer(contract.JobReply{OK: true, Jobs: []contract.JobInfo{}})
+		Expect(act(c, "op2", `{"tool":"job","verb":"list"}`)).To(Succeed())
+		Expect(sent.Load()).To(BeEquivalentTo(1))
+		held[0].Release()
+		answer(contract.JobReply{OK: true, Job: &running})
+		Expect(act(c, "op3", `{"tool":"job","verb":"start","command":"make"}`)).To(Succeed())
+		Expect(sent.Load()).To(BeEquivalentTo(2))
+		ok, leased := live(c, "op3")
+		Expect(ok && leased).To(BeTrue())
+	})
+
+	It("gives the reserved place back when the start makes no job", func() {
+		c, answer, _ := jobsClient(true)
+		answer(contract.JobReply{Code: contract.JobCodeLimit, Error: "full"})
+		for i := range hostops.MaxLeasesPerAddon + 1 {
+			Expect(act(c, fmt.Sprintf("op%d", i), `{"tool":"job","verb":"start","command":"x"}`)).To(Succeed())
+		}
+		_, err := c.inflight.ReserveLease("sandbox")
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
