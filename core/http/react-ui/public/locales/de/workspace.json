@@ -218,6 +218,10 @@
         "homeBackground": {
           "label": "Hintergrund der Startseite",
           "help": "Eine Farbe, ein Verlauf oder ein Bild aus deinen Dateien hinter der Startseite. Andere Seiten bleiben unverändert."
+        },
+        "chatBackground": {
+          "label": "Hintergrund der Chats",
+          "help": "Eine Farbe, ein Verlauf oder ein Bild aus deinen Dateien hinter deinen Chats. Andere Seiten bleiben unverändert."
         }
       }
     },

@@ -218,6 +218,10 @@
         "homeBackground": {
           "label": "Latar belakang Beranda",
           "help": "Warna, gradasi, atau gambar dari berkas Anda di belakang halaman Beranda. Halaman lain tidak berubah."
+        },
+        "chatBackground": {
+          "label": "Latar belakang obrolan",
+          "help": "Warna, gradasi, atau gambar dari berkas Anda di belakang obrolan Anda. Halaman lain tidak berubah."
         }
       }
     },

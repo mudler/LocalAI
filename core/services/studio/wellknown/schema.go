@@ -179,11 +179,11 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 	return obj, nil
 }
 
-// backgroundImageExts are the picture types Home may use as a background.
+// backgroundImageExts are the picture types a background may use.
 // SVG is left out on purpose: a picture is data here, never a document.
 var backgroundImageExts = []string{".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"}
 
-// BackgroundImageOK says whether p may be homeBackground.image: a path of a
+// BackgroundImageOK says whether p may be the image of a background: a path of a
 // picture inside the user's home, relative and without a leading slash. It
 // refuses an absolute path, an address, a backslash, an empty or dot segment
 // (so no ..), a control character and any file that is not a picture type.
@@ -205,18 +205,27 @@ func BackgroundImageOK(p string) bool {
 	return slices.Contains(backgroundImageExts, ext)
 }
 
-// backgroundErrors says, in words, what is wrong with homeBackground.image.
+// backgroundKeys are the keys of ui.json that hold a background. They share
+// one shape, so one rule checks the picture path of each.
+var backgroundKeys = []string{"homeBackground", "chatBackground"}
+
+// backgroundErrors says, in words, what is wrong with the image of each
+// background.
 func backgroundErrors(obj map[string]any) []string {
-	bg, _ := obj["homeBackground"].(map[string]any)
-	raw, ok := bg["image"]
-	if !ok {
-		return nil
+	var errs []string
+	for _, key := range backgroundKeys {
+		bg, _ := obj[key].(map[string]any)
+		raw, ok := bg["image"]
+		if !ok {
+			continue
+		}
+		p, isString := raw.(string)
+		if !isString || p == "" || BackgroundImageOK(p) {
+			continue
+		}
+		errs = append(errs, fmt.Sprintf("%s.image: %q is not the path of a picture in your files; use a path without a leading slash and without .., such as Pictures/sky.jpg, ending in .png, .jpg, .jpeg, .webp, .gif or .avif", key, clip(p, 80)))
 	}
-	p, isString := raw.(string)
-	if !isString || p == "" || BackgroundImageOK(p) {
-		return nil
-	}
-	return []string{fmt.Sprintf("homeBackground.image: %q is not the path of a picture in your files; use a path without a leading slash and without .., such as Pictures/sky.jpg, ending in .png, .jpg, .jpeg, .webp, .gif or .avif", clip(p, 80))}
+	return errs
 }
 
 // setupErrors says, in words, what the schema cannot: two setups with one id,

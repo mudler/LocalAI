@@ -2125,3 +2125,26 @@ html[data-handoff='fade']::view-transition-new(root) {
 .cx-hostnote__label { color: var(--color-text-secondary); font-weight: 600; }
 .cx-hostnote__text, .cx-hostnote__more { min-width: 0; overflow-wrap: anywhere; }
 .cx-hostnote__count { font-variant-numeric: tabular-nums; }
+
+/* A background of ui.json (chatBackground) sits under the whole chat view. The
+   thread, which is long text, also gets a panel in the page colour, so the
+   messages, code blocks and tool cards read the same over a busy picture as on
+   the plain page, in the light and the dark theme. The veil of the layer
+   (overlay) sets how much of the picture shows around and through it. */
+.cx-conv:has(> .bg-layer) { isolation: isolate; }
+.cx-conv:has(> .bg-layer) .cx-thread {
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--dk-canvas) 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+/* The shortcuts, the message box and the status line under the thread get the
+   same panel, so their text reads over a picture too. */
+.cx-conv:has(> .bg-layer) .cx-dock__in {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--dk-canvas) 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}

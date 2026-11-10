@@ -218,6 +218,10 @@
         "homeBackground": {
           "label": "Arrière-plan de l'accueil",
           "help": "Une couleur, un dégradé ou une image de vos fichiers derrière la page d'accueil. Les autres pages ne changent pas."
+        },
+        "chatBackground": {
+          "label": "Arrière-plan des conversations",
+          "help": "Une couleur, un dégradé ou une image de vos fichiers derrière vos conversations. Les autres pages ne changent pas."
         }
       }
     },

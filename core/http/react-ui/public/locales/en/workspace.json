@@ -316,6 +316,10 @@
         "homeBackground": {
           "label": "Home background",
           "help": "A colour, a gradient or a picture from your files behind the Home page. Other pages stay as they are."
+        },
+        "chatBackground": {
+          "label": "Chat background",
+          "help": "A colour, a gradient or a picture from your files behind your chats. Other pages stay as they are."
         }
       }
     },
@@ -557,7 +561,7 @@
       "user": "The assistant forgets what you told it about you, and your answers to its offers.",
       "shortcuts": "The message box shows the default shortcuts again.",
       "home": "Home loses its widgets.",
-      "ui": "Your theme, accent, density, Home background, default model and pinned pages go back to the defaults."
+      "ui": "Your theme, accent, density, Home and chat backgrounds, default model and pinned pages go back to the defaults."
     }
   },
   "newFile": "New file",

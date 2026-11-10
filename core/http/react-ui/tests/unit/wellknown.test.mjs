@@ -4,7 +4,7 @@ import {
   createWellKnownApi, WellKnownError, fieldsFromSchema, checkField, changedValues, parseSource,
   shortcutList, cleanShortcuts, move, widgetList, cleanWidgets, widgetId, widgetData, sparkPath, formatMetric,
   createWellKnownStore, wellKnownPath, editMeetsChange, wellKnownProblem,
-  backgroundImagePath, homeBackground, homeBackgroundStyle,
+  backgroundImagePath, homeBackground, chatBackground, background, backgroundStyle, backgroundVeil, BACKGROUND_KEYS,
 } from '../../src/utils/wellKnown.js'
 
 const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -253,9 +253,9 @@ test('home background: only the valid parts of the value are used, with defaults
 })
 
 test('home background: the layers stack picture, gradient, colour and the picture is served by the files API only', () => {
-  assert.equal(homeBackgroundStyle(null, () => ''), null)
+  assert.equal(backgroundStyle(null, () => ''), null)
   const urls = []
-  const s = homeBackgroundStyle(homeBackground({ homeBackground: { color: '#102030', gradient: { from: '#000000', to: '#ffffff', angle: 90 }, image: 'Pictures/a b.png', blur: 10, opacity: 0.5 } }), (p) => { urls.push(p); return `/api/chats/files/content?path=%2F${encodeURIComponent(p)}` })
+  const s = backgroundStyle(homeBackground({ homeBackground: { color: '#102030', gradient: { from: '#000000', to: '#ffffff', angle: 90 }, image: 'Pictures/a b.png', blur: 10, opacity: 0.5 } }), (p) => { urls.push(p); return `/api/chats/files/content?path=%2F${encodeURIComponent(p)}` })
   assert.deepEqual(urls, ['Pictures/a b.png'])
   assert.match(s.art.backgroundImage, /^url\("\/api\/chats\/files\/content\?path=%2FPictures%2Fa%20b\.png"\), linear-gradient\(90deg, #000000, #ffffff\)$/)
   assert.equal(s.art.backgroundSize, 'cover, cover')
@@ -276,4 +276,33 @@ test('home background: the schema field is an editable object and a save sends i
   assert.deepEqual(changedValues(f, { homeBackground: bg }, { homeBackground: {} }), { homeBackground: null })
   assert.deepEqual(changedValues(f, {}, { homeBackground: {} }), {})
   assert.equal(checkField(f[1], { image: 'a.png' }), '')
+})
+
+test('chat background: same shape as Home, read from its own key, with stronger veil defaults for a long read', () => {
+  assert.deepEqual(BACKGROUND_KEYS, ['homeBackground', 'chatBackground'])
+  assert.equal(chatBackground(null), null)
+  assert.equal(chatBackground({ homeBackground: { color: '#112233' } }), null, 'the Home key is not the chat key')
+  assert.equal(homeBackground({ chatBackground: { color: '#112233' } }), null, 'the chat key is not the Home key')
+  assert.equal(chatBackground({ chatBackground: { image: '../a.png' } }), null)
+  assert.deepEqual(chatBackground({ chatBackground: { color: '#112233' } }), { color: '#112233', fit: 'cover', opacity: 1, blur: 0, overlay: 0 })
+  assert.equal(chatBackground({ chatBackground: { gradient: { from: '#000000', to: '#ffffff' } } }).overlay, 0.6)
+  assert.equal(chatBackground({ chatBackground: { image: 'a.png' } }).overlay, 0.8)
+  assert.equal(chatBackground({ chatBackground: { image: 'a.png', overlay: 0.2 } }).overlay, 0.2, 'a veil the file names wins')
+  // The chat veil is never weaker than the one of Home, for any kind.
+  for (const kind of ['image', 'gradient', 'color']) assert.ok(backgroundVeil('chatBackground', kind) >= backgroundVeil('homeBackground', kind), kind)
+  // Both keys in one file are read apart.
+  const both = { homeBackground: { color: '#111111' }, chatBackground: { color: '#222222' } }
+  assert.equal(background(both, 'homeBackground').color, '#111111')
+  assert.equal(background(both, 'chatBackground').color, '#222222')
+  const st = backgroundStyle(chatBackground({ chatBackground: { image: 'a.png' } }), (p) => `/f/${p}`)
+  assert.equal(st.scrim.opacity, 0.8)
+})
+
+test('chat background: both backgrounds are editable fields of ui.json and save apart', () => {
+  const schema = { properties: { homeBackground: { type: 'object', 'x-ui': { widget: 'background' } }, chatBackground: { type: 'object', 'x-ui': { widget: 'background' } } } }
+  const f = fieldsFromSchema(schema)
+  assert.deepEqual(f.map(x => [x.key, x.widget]), [['homeBackground', 'background'], ['chatBackground', 'background']])
+  const home = { color: '#111111' }
+  assert.deepEqual(changedValues(f, { homeBackground: home }, { homeBackground: home, chatBackground: { image: 'a.png' } }), { chatBackground: { image: 'a.png' } })
+  assert.deepEqual(changedValues(f, { homeBackground: home, chatBackground: { image: 'a.png' } }, { homeBackground: home, chatBackground: {} }), { chatBackground: null })
 })

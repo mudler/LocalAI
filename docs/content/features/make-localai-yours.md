@@ -333,12 +333,14 @@ before they allow it, and a change by its author asks again. See
 once and keeps it when you save. `defaultModel` is the model a new chat starts
 with. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
 
-### Home background
+### Home and chat backgrounds
 
 `homeBackground` puts a colour, a gradient or a picture behind the Home page.
-Only Home changes; every other page keeps its look. Pick one in **Account >
-Appearance**, or ask the assistant ("put the picture Pictures/sky.jpg behind my
-Home page"). Both write the same key, and a change shows on Home at once.
+`chatBackground` does the same behind the chat view: the messages and the
+message box. Each changes only its own page; every other page keeps its look,
+and you can set one, both or none. Pick them in **Account > Appearance**, or
+ask the assistant ("put the picture Pictures/sky.jpg behind my chats"). Both
+write the same file, and a change shows at once.
 
 ```json
 {
@@ -349,9 +351,14 @@ Home page"). Both write the same key, and a change shows on Home at once.
     "opacity": 0.9,
     "blur": 4,
     "overlay": 0.4
+  },
+  "chatBackground": {
+    "gradient": { "from": "#0f172a", "to": "#3b82f6", "angle": 135 }
   }
 }
 ```
+
+Both keys take the same values:
 
 | Key | Meaning |
 |---|---|
@@ -361,15 +368,16 @@ Home page"). Both write the same key, and a change shows on Home at once.
 | `fit` | `cover` fills the page (default). `contain` shows the whole picture. |
 | `opacity` | 0 to 1. How strong the background is. Default 1. |
 | `blur` | 0 to 40 pixels. Default 0. |
-| `overlay` | 0 to 1. A veil in the colour of the theme, so text stays readable in the light and the dark theme. Default 0.55 for a picture, 0.35 for a gradient, 0 for a plain colour. |
+| `overlay` | 0 to 1. A veil in the colour of the theme, so text stays readable in the light and the dark theme. Default for Home: 0.55 for a picture, 0.35 for a gradient, 0 for a plain colour. Default for the chat: 0.8, 0.6 and 0, because a chat is long text. |
 
 The picture is read from your own files with your own rights. A path that
 starts with `/`, contains `..`, is a web address or does not end in a picture
 type is refused when you save. If the file is edited into an invalid state,
-Home keeps the last good version and the Appearance tab says the file has an
-error. Keys you add yourself stay in the file when you save from the
-Appearance tab. To remove the background, press **Remove the background** or
-delete the key.
+the page keeps the last good version and the Appearance tab says the file has
+an error. In the chat, the messages also sit on a panel in the colour of the
+theme, so they stay readable over any picture. Keys you add yourself stay in the file when you save from the
+Appearance tab. To remove a background, press **Remove the background** or
+delete its key.
 
 ## The LocalAI folder
 

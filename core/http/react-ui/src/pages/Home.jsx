@@ -46,7 +46,7 @@ import HomeWidgets from '../components/wellknown/HomeWidgets'
 // eslint-disable-next-line no-unused-vars
 import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
 // eslint-disable-next-line no-unused-vars
-import HomeBackground from '../components/wellknown/HomeBackground'
+import BackgroundLayer from '../components/wellknown/BackgroundLayer'
 import { useWellKnown } from '../hooks/useWellKnown'
 import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
@@ -729,7 +729,7 @@ export default function Home() {
 
   return (
     <div className="home-page" data-depart={depart || undefined}>
-      {chatsOn && <HomeBackground />}
+      {chatsOn && <BackgroundLayer bgKey="homeBackground" testId="home-bg" />}
       <div className="home-col">
         <header className="home-header">
           <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>

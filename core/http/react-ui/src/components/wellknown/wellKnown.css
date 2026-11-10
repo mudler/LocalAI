@@ -295,7 +295,7 @@
 .wk-details summary { width: max-content; cursor: pointer; }
 .wk-details ul { margin-top: 4px; }
 
-/* Home background field of the Appearance tab */
+/* Background fields of the Appearance tab */
 .wk-bg { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .wk-bg__row { display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
 .wk-bg__row > .dk-input { flex: 1 1 200px; min-width: 0; }
@@ -317,9 +317,10 @@
   .wk-bg__tune { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* The background of ui.json (homeBackground): a layer under the content of
-   Home, and the preview in the Appearance tab. The scrim is the page colour,
-   so the text keeps its contrast in the light and the dark theme. */
-.home-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-.home-bg__art { position: absolute; }
-.home-bg__scrim { position: absolute; inset: 0; background: var(--dk-canvas); }
+/* The backgrounds of ui.json (homeBackground, chatBackground): a layer under
+   the content of the page, and the preview in the Appearance tab. The scrim is
+   the page colour, so the text keeps its contrast in the light and the dark
+   theme. */
+.bg-layer { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.bg-layer__art { position: absolute; }
+.bg-layer__scrim { position: absolute; inset: 0; background: var(--dk-canvas); }

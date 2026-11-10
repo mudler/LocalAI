@@ -663,3 +663,105 @@ var _ = Describe("the Home background of ui.json", func() {
 		Expect(doc.Data).To(HaveKeyWithValue("homeBackground", map[string]any{"color": "#112233"}))
 	})
 })
+
+var _ = Describe("the chat background of ui.json", func() {
+	ctx := context.Background()
+	check := func(bg any) []string {
+		data, err := json.Marshal(map[string]any{"theme": "dark", "chatBackground": bg})
+		Expect(err).NotTo(HaveOccurred())
+		_, errs := wellknown.Validate(wellknown.UI, data)
+		return errs
+	}
+
+	It("takes the same values as the Home background", func() {
+		Expect(check(map[string]any{"color": "#1e293b"})).To(BeEmpty())
+		Expect(check(map[string]any{"gradient": map[string]any{"from": "#0f172a", "to": "#3b82f6", "angle": 135}})).To(BeEmpty())
+		Expect(check(map[string]any{"image": "Pictures/sky.JPG", "fit": "contain", "opacity": 0.8, "blur": 12, "overlay": 0.5})).To(BeEmpty())
+		Expect(check(map[string]any{"color": "#112233", "x_future": true})).To(BeEmpty())
+	})
+
+	DescribeTable("refuses a bad value and names the key",
+		func(bg map[string]any) {
+			Expect(check(bg)).To(ContainElement(ContainSubstring("chatBackground")))
+		},
+		Entry("a colour that is not a hex code", map[string]any{"color": "red"}),
+		Entry("a gradient with a CSS function in it", map[string]any{"gradient": map[string]any{"from": "url(x)", "to": "#000000"}}),
+		Entry("an opacity above 1", map[string]any{"opacity": 2}),
+		Entry("a blur above 40", map[string]any{"blur": 41}),
+		Entry("a path that climbs out of the home", map[string]any{"image": "../secret/a.png"}),
+		Entry("a path that climbs from the middle", map[string]any{"image": "Pictures/../../a.png"}),
+		Entry("an absolute path", map[string]any{"image": "/etc/a.png"}),
+		Entry("a web address", map[string]any{"image": "https://example.com/a.png"}),
+		Entry("a data address", map[string]any{"image": "data:image/png;base64,AAAA"}),
+		Entry("a backslash path", map[string]any{"image": `Pictures\a.png`}),
+		Entry("a file that is not a picture", map[string]any{"image": "Docs/notes.txt"}),
+		Entry("an SVG document", map[string]any{"image": "Pictures/a.svg"}),
+	)
+
+	It("checks both backgrounds in one file and names each bad one", func() {
+		data := []byte(`{"homeBackground":{"image":"../a.png"},"chatBackground":{"image":"/b.png"}}`)
+		_, errs := wellknown.Validate(wellknown.UI, data)
+		Expect(errs).To(ContainElement(ContainSubstring("homeBackground.image")))
+		Expect(errs).To(ContainElement(ContainSubstring("chatBackground.image")))
+	})
+
+	It("describes the chat background with the same keys as the Home one", func() {
+		doc, err := wellknown.Schema(wellknown.UI)
+		Expect(err).NotTo(HaveOccurred())
+		var parsed struct {
+			Properties map[string]struct {
+				Properties map[string]json.RawMessage `json:"properties"`
+				XUI        map[string]any             `json:"x-ui"`
+			} `json:"properties"`
+		}
+		Expect(json.Unmarshal(doc, &parsed)).To(Succeed())
+		home, chat := parsed.Properties["homeBackground"], parsed.Properties["chatBackground"]
+		Expect(chat.XUI).To(Equal(home.XUI))
+		Expect(chat.Properties).To(HaveLen(len(home.Properties)))
+		for k := range home.Properties {
+			Expect(chat.Properties).To(HaveKey(k))
+		}
+	})
+
+	It("saves from the editor beside the Home background, keeps the other keys and removes only the one cleared", func() {
+		s, f := newService()
+		raw(f, alice, "/LocalAI/ui.json", `{"theme":"dark","x_mood":"calm","homeBackground":{"color":"#112233"}}`)
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{
+			"chatBackground": map[string]any{"image": "Pictures/sky.jpg", "fit": "cover"},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+		on := readRaw(f, alice, "/LocalAI/ui.json")
+		Expect(on).To(HaveKeyWithValue("x_mood", "calm"))
+		Expect(on).To(HaveKeyWithValue("homeBackground", map[string]any{"color": "#112233"}))
+		Expect(on["chatBackground"]).To(HaveKeyWithValue("image", "Pictures/sky.jpg"))
+
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{"chatBackground": nil}})
+		Expect(err).NotTo(HaveOccurred())
+		after := readRaw(f, alice, "/LocalAI/ui.json")
+		Expect(after).NotTo(HaveKey("chatBackground"))
+		Expect(after).To(HaveKey("homeBackground"))
+	})
+
+	It("refuses a write with a traversal path and leaves the file as it was", func() {
+		s, f := newService()
+		raw(f, alice, "/LocalAI/ui.json", `{"chatBackground":{"color":"#112233"}}`)
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{
+			"chatBackground": map[string]any{"image": "../../etc/passwd.png"},
+		}})
+		var invalid *wellknown.InvalidError
+		Expect(errors.As(err, &invalid)).To(BeTrue())
+		Expect(readRaw(f, alice, "/LocalAI/ui.json")).To(HaveKeyWithValue("chatBackground", map[string]any{"color": "#112233"}))
+	})
+
+	It("shows the last good version when the assistant writes a broken chat background", func() {
+		s, f := newService()
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{"chatBackground": map[string]any{"color": "#112233"}}})
+		Expect(err).NotTo(HaveOccurred())
+		raw(f, alice, "/LocalAI/ui.json", `{"chatBackground":{"image":"../a.png"}}`)
+		doc, err := s.Read(ctx, alice, wellknown.UI, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Valid).To(BeFalse())
+		Expect(doc.Fallback).To(BeTrue())
+		Expect(doc.Data).To(HaveKeyWithValue("chatBackground", map[string]any{"color": "#112233"}))
+	})
+})

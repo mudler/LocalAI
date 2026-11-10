@@ -432,12 +432,12 @@ export function formatMetric(value) {
   return String(+value.toFixed(2))
 }
 
-// ---- Home background (ui.json: homeBackground) ----
+// ---- Backgrounds (ui.json: homeBackground, chatBackground) ----
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const BG_IMAGE_EXT = /\.(png|jpe?g|webp|gif|avif)$/i
 
-// backgroundImagePath says whether p may be homeBackground.image: a relative
+// backgroundImagePath says whether p may be the image of a background: a relative
 // path of a picture in the home, with no leading slash, no .. or . segment, no
 // address, no backslash and a picture extension. The server checks the same
 // rule (BackgroundImageOK in Go); this one keeps a bad value from being sent
@@ -451,12 +451,28 @@ export function backgroundImagePath(p) {
 
 const num = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined)
 
-// homeBackground reads the homeBackground of ui.json and keeps only the parts
-// that are valid, so a half-valid value (from the assistant, or a file the
-// server read before the schema knew a key) still shows what it can. It
+// The keys of ui.json that hold a background, and the veil each one gets when
+// the file names none. A veil keeps text readable: a stronger one over a
+// picture, which can be busy, a lighter one over a gradient; a plain colour is
+// the user's own pick and gets none unless they ask. A chat is mostly long
+// text, so its veils are stronger than the ones of Home.
+export const BACKGROUND_KEYS = ['homeBackground', 'chatBackground']
+export const BACKGROUND_VEIL = {
+  homeBackground: { image: 0.55, gradient: 0.35, color: 0 },
+  chatBackground: { image: 0.8, gradient: 0.6, color: 0 },
+}
+
+// backgroundVeil is the default veil of a kind (image, gradient, color) for a key.
+export function backgroundVeil(key, kind) {
+  return (BACKGROUND_VEIL[key] || BACKGROUND_VEIL.homeBackground)[kind] ?? 0
+}
+
+// background reads the background that key of ui.json holds and keeps only the
+// parts that are valid, so a half-valid value (from the assistant, or a file
+// the server read before the schema knew a key) still shows what it can. It
 // returns null when nothing is left to show.
-export function homeBackground(data) {
-  const v = data?.homeBackground
+export function background(data, key) {
+  const v = data?.[key]
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null
   const out = {}
   if (typeof v.color === 'string' && HEX.test(v.color)) out.color = v.color
@@ -469,18 +485,18 @@ export function homeBackground(data) {
   out.fit = v.fit === 'contain' ? 'contain' : 'cover'
   out.opacity = num(v.opacity, 0, 1) ?? 1
   out.blur = Math.round(num(v.blur, 0, 40) ?? 0)
-  // A veil keeps text readable: a stronger one over a picture, which can be
-  // busy, a lighter one over a gradient; a plain colour is the user's own
-  // pick and gets none unless they ask.
-  out.overlay = num(v.overlay, 0, 1) ?? (out.image ? 0.55 : out.gradient ? 0.35 : 0)
+  out.overlay = num(v.overlay, 0, 1) ?? backgroundVeil(key, out.image ? 'image' : out.gradient ? 'gradient' : 'color')
   return out
 }
 
-// homeBackgroundStyle turns a homeBackground (as homeBackground returns it)
-// into the inline styles of the layers: art (colour, gradient and picture,
-// with opacity and blur) and scrim (the veil in the colour of the page).
-// imageUrl turns the path of the picture into the address that serves it.
-export function homeBackgroundStyle(bg, imageUrl) {
+export const homeBackground = (data) => background(data, 'homeBackground')
+export const chatBackground = (data) => background(data, 'chatBackground')
+
+// backgroundStyle turns a background (as background returns it) into the
+// inline styles of the layers: art (colour, gradient and picture, with opacity
+// and blur) and scrim (the veil in the colour of the page). imageUrl turns the
+// path of the picture into the address that serves it.
+export function backgroundStyle(bg, imageUrl) {
   if (!bg) return null
   const layers = []
   if (bg.image) layers.push(`url("${imageUrl(bg.image)}")`)

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { filesApi } from '../../utils/api'
-import { backgroundImagePath, homeBackground, homeBackgroundStyle } from '../../utils/wellKnown'
+import { background, backgroundImagePath, backgroundStyle, backgroundVeil } from '../../utils/wellKnown'
 import { sortEntries } from '../../utils/fileBrowser'
 
 const KINDS = ['none', 'color', 'gradient', 'image']
@@ -20,7 +20,7 @@ function kindOf(v) {
 
 // ImagePicker walks the folders of the user's files and offers the pictures in
 // the open one. Its choice is a path without a leading slash, as the file stores it.
-function ImagePicker({ onPick, onClose }) {
+function ImagePicker({ onPick, onClose, pre }) {
   const { t } = useTranslation('workspace')
   const [at, setAt] = useState('/')
   const [state, setState] = useState({ status: 'loading', entries: [] })
@@ -34,7 +34,7 @@ function ImagePicker({ onPick, onClose }) {
   }, [at])
   const parts = at.split('/').filter(Boolean)
   return (
-    <div className="wk-bgpick" data-testid="wk-bg-picker">
+    <div className="wk-bgpick" data-testid={`${pre}-picker`}>
       <nav className="wk-bgpick__path" aria-label={t('breadcrumb')}>
         <button type="button" className="wk-linkbtn" onClick={() => setAt('/')}><Icon name="home" /> {t('home')}</button>
         {parts.map((p, i) => (
@@ -49,7 +49,7 @@ function ImagePicker({ onPick, onClose }) {
             {e.kind === 'dir' ? (
               <button type="button" className="wk-bgpick__item" onClick={() => setAt(e.path)}><Icon name="folder" /><span>{e.name}</span></button>
             ) : (
-              <button type="button" className="wk-bgpick__item" data-testid={`wk-bg-pick-${e.name}`} onClick={() => onPick(e.path.replace(/^\/+/, ''))}>
+              <button type="button" className="wk-bgpick__item" data-testid={`${pre}-pick-${e.name}`} onClick={() => onPick(e.path.replace(/^\/+/, ''))}>
                 <img src={filesApi.contentUrl(e.path, true)} alt="" loading="lazy" /><span>{e.name}</span>
               </button>
             )}
@@ -61,16 +61,19 @@ function ImagePicker({ onPick, onClose }) {
   )
 }
 
-// BackgroundField edits homeBackground of ui.json: one kind (colour, gradient
-// or picture) and the tuning (fit, opacity, blur, veil). Keys it does not
-// show stay in the value, so a save keeps them.
-export default function BackgroundField({ id, name, value, onChange, disabled, describedBy }) {
+// BackgroundField edits a background of ui.json (bgKey: homeBackground or
+// chatBackground): one kind (colour, gradient or picture) and the tuning (fit,
+// opacity, blur, veil). Keys it does not show stay in the value, so a save
+// keeps them. The veil default depends on the key, as the page that draws it does.
+export default function BackgroundField({ id, name, bgKey, value, onChange, disabled, describedBy }) {
   const { t } = useTranslation('workspace')
   const v = useMemo(() => (value && typeof value === 'object' && !Array.isArray(value) ? value : {}), [value])
   const [picked, setPicked] = useState(null)
   const [browsing, setBrowsing] = useState(false)
   const kind = picked && kindOf(v) === 'none' ? picked : kindOf(v)
-  const tid = (s) => `wk-bg-${s}`
+  // The test ids of Home keep their first names; another background has its own.
+  const pre = bgKey === 'homeBackground' ? 'wk-bg' : `wk-${bgKey}`
+  const tid = (s) => `${pre}-${s}`
 
   const rest = (keep) => Object.fromEntries(Object.entries(v).filter(([k]) => !LAYERS.includes(k) || keep.includes(k)))
   const pickKind = (k) => {
@@ -85,13 +88,13 @@ export default function BackgroundField({ id, name, value, onChange, disabled, d
   const setGrad = (k, val) => set('gradient', { ...(v.gradient || { from: FALLBACK.from, to: FALLBACK.to }), [k]: val })
   const clear = () => { setPicked(null); setBrowsing(false); onChange({}) }
 
-  const style = useMemo(() => homeBackgroundStyle(homeBackground({ homeBackground: v }), (p) => filesApi.contentUrl(`/${p}`, true)), [v])
+  const style = useMemo(() => backgroundStyle(background({ [bgKey]: v }, bgKey), (p) => filesApi.contentUrl(`/${p}`, true)), [v, bgKey])
   const imageBad = !!v.image && !backgroundImagePath(v.image)
-  const veilDefault = kind === 'image' ? 0.55 : kind === 'gradient' ? 0.35 : 0
+  const veilDefault = backgroundVeil(bgKey, kind)
   const colorOk = (c) => (/^#[0-9a-fA-F]{6}$/.test(c || '') ? c : FALLBACK.color)
 
   return (
-    <div className="wk-bg" id={id} aria-describedby={describedBy} data-testid={`wk-field-${name}-homeBackground`}>
+    <div className="wk-bg" id={id} aria-describedby={describedBy} data-testid={`wk-field-${name}-${bgKey}`}>
       <div className="dk-segmented" role="radiogroup" aria-label={t('wellKnown.bg.kind')}>
         {KINDS.map(k => (
           <button key={k} type="button" role="radio" aria-checked={kind === k} className="dk-seg" disabled={disabled} data-testid={tid(`kind-${k}`)} onClick={() => pickKind(k)}>
@@ -130,7 +133,7 @@ export default function BackgroundField({ id, name, value, onChange, disabled, d
             </button>
           </div>
           {imageBad && <p className="dk-field-error" data-testid={tid('image-error')}>{t('wellKnown.bg.imageBad')}</p>}
-          {browsing && <ImagePicker onPick={(p) => { set('image', p); setBrowsing(false) }} onClose={() => setBrowsing(false)} />}
+          {browsing && <ImagePicker pre={pre} onPick={(p) => { set('image', p); setBrowsing(false) }} onClose={() => setBrowsing(false)} />}
           <label className="wk-bg__small">{t('wellKnown.bg.fit')}
             <span className="dk-select-wrap">
               <select className="dk-select" value={v.fit || 'cover'} disabled={disabled} data-testid={tid('fit')} onChange={e => set('fit', e.target.value)}>
@@ -158,8 +161,8 @@ export default function BackgroundField({ id, name, value, onChange, disabled, d
 
       {style && (
         <div className="wk-bg__preview" aria-hidden="true" data-testid={tid('preview')}>
-          <div className="home-bg__art" style={style.art} />
-          <div className="home-bg__scrim" style={style.scrim} />
+          <div className="bg-layer__art" style={style.art} />
+          <div className="bg-layer__scrim" style={style.scrim} />
         </div>
       )}
 

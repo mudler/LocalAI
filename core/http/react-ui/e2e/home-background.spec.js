@@ -106,7 +106,7 @@ test('home background: the Appearance editor picks a gradient and a picture, kee
   await expect(field.getByTestId('wk-bg-image')).toHaveValue('Pictures/sky.png')
   await field.getByTestId('wk-bg-fit').selectOption('contain')
   // The preview draws the same layers as Home, so it must be laid out on this page too.
-  await expect(field.getByTestId('wk-bg-preview').locator('.home-bg__art')).toHaveCSS('position', 'absolute')
+  await expect(field.getByTestId('wk-bg-preview').locator('.bg-layer__art')).toHaveCSS('position', 'absolute')
   await card.getByTestId('wk-save-ui').click()
   await expect.poll(async () => (await read(request, 'ui')).data.homeBackground?.image).toBe('Pictures/sky.png')
   saved = (await read(request, 'ui')).data

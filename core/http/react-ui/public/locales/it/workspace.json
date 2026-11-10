@@ -218,6 +218,10 @@
         "homeBackground": {
           "label": "Sfondo della Home",
           "help": "Un colore, un gradiente o un'immagine dei tuoi file dietro la pagina Home. Le altre pagine restano come sono."
+        },
+        "chatBackground": {
+          "label": "Sfondo delle chat",
+          "help": "Un colore, un gradiente o un'immagine dei tuoi file dietro le tue chat. Le altre pagine restano come sono."
         }
       }
     },

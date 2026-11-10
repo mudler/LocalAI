@@ -100,6 +100,8 @@ import { copyToClipboard } from '../utils/clipboard'
 import { chatAddress, seqOfSearch } from '../utils/chatSearch'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
+import BackgroundLayer from '../components/wellknown/BackgroundLayer'
+// eslint-disable-next-line no-unused-vars
 import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
 import { turnChanges, describeChanges, liveTurns } from '../utils/changeNotes'
 import { usePages } from '../hooks/usePages'
@@ -1186,6 +1188,7 @@ function ChatPage() {
   return (
     <div className="cx-page" data-testid="chats-page" ref={pageRef}>
       <div className="cx-conv" data-empty={isEmpty || undefined}>
+        <BackgroundLayer bgKey="chatBackground" testId="chat-bg" />
         <ChatHeader
           historyMenu={(
             <ChatsMenu

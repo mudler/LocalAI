@@ -72,7 +72,7 @@ export default function SchemaFields({ name, fields, values, onChange, notes = {
         break
       }
       case 'background':
-        control = <BackgroundField id={id} name={name} value={values?.[f.key]} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
+        control = <BackgroundField id={id} name={name} bgKey={f.key} value={values?.[f.key]} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
         break
       case 'color':
         control = (

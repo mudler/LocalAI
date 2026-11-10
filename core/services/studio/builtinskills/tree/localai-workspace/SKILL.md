@@ -16,7 +16,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat, at most 50. `id` is lowercase letters, digits and dashes (at most 40). `effort` is `""`, `none`, `minimal`, `low`, `medium` or `high`. `tools` holds lists of names that are switched off or on: `builtins_off`, `builtins_on`, `addons_off`, `mcp_off`, `skills_off`. `default` is the `id` a new chat starts with. It stores no prompt and no files. |
 | `LocalAI/home.json` | `{"widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `type` is `list`, `metric`, `chats` or `page`. `trigger` is set by LocalAI when the user confirms the trigger that feeds the widget. A `page` widget names a page (`page`, its folder name; `folder` only for a page of a shared folder) and may leave out `title`; at most 3 page widgets. |
-| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `defaultModel`, `homeBackground` (the background of the Home page only; see "Home background" below). |
+| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `defaultModel`, `homeBackground` (the background of the Home page only) and `chatBackground` (the background of the chat view only); see "Backgrounds" below. |
 
 Rules:
 
@@ -26,21 +26,21 @@ Rules:
 - After a change, tell the user in one line what changed and where they see it ("I saved your shortcut. It shows above the message box.").
 - A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`, and reading files next to the page with `fetch('data.json')` works. To build one, use the `localai-apps` skill.
 
-## Home background
+## Backgrounds
 
-`homeBackground` in `LocalAI/ui.json` sets what is behind the Home page. No other page changes. It is an object; every key is optional, and layers stack as picture over gradient over colour:
+`homeBackground` in `LocalAI/ui.json` sets what is behind the Home page; `chatBackground` sets what is behind the chat view (the messages and the message box). Each changes only its own page, and they are independent: set one, both or none. Both are an object of the same shape; every key is optional, and layers stack as picture over gradient over colour:
 
 ```json
 {"homeBackground": {"image": "Pictures/sky.jpg", "fit": "cover", "opacity": 0.9, "blur": 4, "overlay": 0.4}}
-{"homeBackground": {"gradient": {"from": "#0f172a", "to": "#3b82f6", "angle": 135}}}
+{"chatBackground": {"gradient": {"from": "#0f172a", "to": "#3b82f6", "angle": 135}}}
 {"homeBackground": {"color": "#1e293b"}}
 ```
 
 - `color`: `#rrggbb`. `gradient`: `from` and `to` (`#rrggbb`) and an `angle` from 0 to 360 (180 is top to bottom). Write no CSS.
 - `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`, not `/Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, no address (`https://`, `data:`), no backslash. The picture is read with the user's own rights, so a path they cannot read shows nothing. Check that the file exists first (list the folder).
-- `fit`: `cover` (default) or `contain`. `opacity`: 0 to 1 (default 1). `blur`: pixels, 0 to 40. `overlay`: 0 to 1, a veil in the colour of the theme that keeps the text readable (default 0.55 for a picture, 0.35 for a gradient, 0 for a colour). Raise `overlay` for a busy or bright picture.
-- To remove the background, delete the `homeBackground` key (a save with `null` does the same).
-- A file that breaks these rules is not used: Home keeps the last good version and the Appearance tab says the file has an error. Keep the other keys of `ui.json` when you change this one.
+- `fit`: `cover` (default) or `contain`. `opacity`: 0 to 1 (default 1). `blur`: pixels, 0 to 40. `overlay`: 0 to 1, a veil in the colour of the theme that keeps the text readable. Raise `overlay` for a busy or bright picture. Default for `homeBackground`: 0.55 for a picture, 0.35 for a gradient, 0 for a colour. Default for `chatBackground`: 0.8 for a picture, 0.6 for a gradient, 0 for a colour, because a chat is long text. In the chat the messages also sit on a panel in the colour of the theme, so they stay readable whatever the overlay.
+- To remove a background, delete its key (a save with `null` does the same).
+- A file that breaks these rules is not used: the pages keep the last good version and the Appearance tab says the file has an error. Keep the other keys of `ui.json` when you change one.
 
 ## Widget data
 
