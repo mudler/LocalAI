@@ -15,8 +15,8 @@ import (
 // The request/reply of the frontends (the chat start, the replay of chat
 // events, the background jobs of a turn) goes through the same holder as the
 // fan-out. A carrier that has no request/reply between processes leaves
-// Set.Replies nil, and the holder answers that nobody listens, which the
-// callers read as "run it here".
+// Set.Replies nil, and the holder answers that nothing was delivered, which
+// the chat start reads as "run it here" and no caller reads as absence.
 var _ = Describe("Broadcaster holder, request and reply", func() {
 	var (
 		nats, tun *fakeCarrier
@@ -46,13 +46,27 @@ var _ = Describe("Broadcaster holder, request and reply", func() {
 		Expect(string(out)).To(Equal("nats:x"))
 	})
 
-	It("answers that nobody listens when the active carrier has no request and reply", func() {
+	It("answers that nothing was delivered, and not that nobody listens, when the active carrier has no request and reply", func() {
 		cur.Store(tun.set)
 
 		_, err := h.Request("chats.replay.r1", []byte("x"), time.Second)
-		Expect(err).To(HaveOccurred())
-		Expect(messaging.IsNoResponders(err)).To(BeTrue())
-		Expect(errors.Is(err, messaging.ErrNoResponders)).To(BeTrue())
+		Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
+		Expect(messaging.IsNoResponders(err)).To(BeFalse(), "a carrier that cannot carry the request says nothing about who serves it")
+		_, err = h.RequestInstance("r1", "chats.replay.r1", []byte("x"), time.Second)
+		Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
+		_, err = h.RequestQueue("chats.start", []byte("x"), time.Second, nil)
+		Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
+	})
+
+	It("sends an addressed or a queue request on subject alone to a carrier that routes by subject", func() {
+		_, err := nats.bus.SubscribeReply("chats.replay.r1", echo("nats:"))
+		Expect(err).ToNot(HaveOccurred())
+		out, err := h.RequestInstance("r1", "chats.replay.r1", []byte("x"), time.Second)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(Equal("nats:x"))
+		out, err = h.RequestQueue("chats.replay.r1", []byte("y"), time.Second, func([]byte) bool { return true })
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(Equal("nats:y"), "moveOn is not used where the carrier picks the member")
 	})
 
 	It("keeps a reply subscription across a change of carrier, and serves it only where the carrier has request and reply", func() {

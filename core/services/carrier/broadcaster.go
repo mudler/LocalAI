@@ -38,8 +38,10 @@ type Broadcaster struct {
 }
 
 var (
-	_ messaging.Broadcaster  = (*Broadcaster)(nil)
-	_ messaging.RequestReply = (*Broadcaster)(nil)
+	_ messaging.Broadcaster       = (*Broadcaster)(nil)
+	_ messaging.RequestReply      = (*Broadcaster)(nil)
+	_ messaging.InstanceRequester = (*Broadcaster)(nil)
+	_ messaging.QueueRequester    = (*Broadcaster)(nil)
 )
 
 // NewBroadcaster returns a holder over cur, which must name a set. Existing
@@ -83,13 +85,38 @@ func (b *Broadcaster) Subscribe(subject string, handler func([]byte)) (messaging
 
 // Request sends a request on the active carrier. A carrier that has no request
 // and reply between processes (Set.Replies is nil) answers with an error that
-// wraps messaging.ErrNoResponders: nobody can listen there.
+// wraps messaging.ErrNotDelivered: nothing was sent, and that says nothing
+// about the process that would serve the subject.
 func (b *Broadcaster) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	cur := b.cur.Load()
 	if cur.Replies == nil {
-		return nil, fmt.Errorf("%w: the %s carrier has no request and reply (%s)", messaging.ErrNoResponders, cur.Name, subject)
+		return nil, errNoReplies(cur, subject)
 	}
 	return cur.Replies.Request(subject, data, timeout)
+}
+
+// RequestInstance sends a request to the process instance on the active
+// carrier. A carrier that routes by subject is sent the subject alone.
+func (b *Broadcaster) RequestInstance(instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	cur := b.cur.Load()
+	if cur.Replies == nil {
+		return nil, errNoReplies(cur, subject)
+	}
+	return messaging.RequestInstance(cur.Replies, instance, subject, data, timeout)
+}
+
+// RequestQueue sends a request to one member of the queue group of subject on
+// the active carrier (see messaging.QueueRequester).
+func (b *Broadcaster) RequestQueue(subject string, data []byte, timeout time.Duration, moveOn func([]byte) bool) ([]byte, error) {
+	cur := b.cur.Load()
+	if cur.Replies == nil {
+		return nil, errNoReplies(cur, subject)
+	}
+	return messaging.RequestQueue(cur.Replies, subject, data, timeout, moveOn)
+}
+
+func errNoReplies(s *Set, subject string) error {
+	return fmt.Errorf("%w: the %s carrier has no request and reply (%s)", messaging.ErrNotDelivered, s.Name, subject)
 }
 
 // SubscribeReply answers the requests on subject on every set the holder

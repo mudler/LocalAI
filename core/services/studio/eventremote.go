@@ -86,7 +86,7 @@ func (b *busReplay) Ask(instance string, req ReplayRequest) (ReplayReply, error)
 	if err != nil {
 		return ReplayReply{}, err
 	}
-	data, err := b.mc.Request(replaySubject(instance), raw, replayTimeout)
+	data, err := messaging.RequestInstance(b.mc, instance, replaySubject(instance), raw, replayTimeout)
 	if err != nil {
 		return ReplayReply{}, err
 	}

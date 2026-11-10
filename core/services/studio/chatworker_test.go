@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
@@ -33,11 +34,17 @@ import (
 type requestBus struct {
 	*testutil.FakeBus
 	gone atomic.Bool
+	// fail, when set, is the error of every request: a carrier that could not
+	// deliver it, or a link that broke after it was sent.
+	fail atomic.Pointer[error]
 }
 
 func (b *requestBus) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
 	if b.gone.Load() {
 		return nil, nats.ErrNoResponders
+	}
+	if err := b.fail.Load(); err != nil {
+		return nil, *err
 	}
 	reply, ok := b.DeliverReply(subject, data)
 	if !ok {
@@ -177,6 +184,27 @@ var _ = Describe("chatworker", func() {
 		Expect(res.Started).To(BeTrue(), "SendBackground = %+v, want a started turn", res)
 		until("the frontend to run the turn", func() bool { return len(r.hFront.Sent()) == 1 })
 		Expect(r.hWorker.Sent()).To(BeEmpty())
+	})
+
+	It("a background start runs on the frontend when the start reached no chat worker", func() {
+		r := newWorkerRig(true)
+		undelivered := fmt.Errorf("%w: no chat worker could be reached", messaging.ErrNotDelivered)
+		r.bus.fail.Store(&undelivered)
+		id := create(r.front, alice)
+		res := background(r.front, alice, id, "go")
+		Expect(res.Started).To(BeTrue(), "SendBackground = %+v, want a started turn", res)
+		until("the frontend to run the turn", func() bool { return len(r.hFront.Sent()) == 1 })
+		Expect(r.hWorker.Sent()).To(BeEmpty())
+	})
+
+	It("a start whose outcome is unknown fails and nothing runs on the frontend", func() {
+		r := newWorkerRig(true)
+		lost := errors.New("the link broke after the start was sent")
+		r.bus.fail.Store(&lost)
+		id := create(r.front, alice)
+		_, err := r.front.SendBackground(context.Background(), alice, id, "go", nil)
+		Expect(err).To(MatchError(ContainSubstring("the link broke")))
+		Expect(r.hFront.Sent()).To(BeEmpty(), "the worker may have started the turn")
 	})
 
 	It("a chat workers refusal is an error and nothing runs on the frontend", func() {
