@@ -5,11 +5,12 @@ import Icon from '../Icon'
 import { filesApi } from '../../utils/api'
 import { background, backgroundImagePath, backgroundStyle, backgroundVeil } from '../../utils/wellKnown'
 import { sortEntries } from '../../utils/fileBrowser'
+import { PICKER_FALLBACK } from '../../theme/pickerDefaults'
 
 const KINDS = ['none', 'color', 'gradient', 'image']
 const IMAGE_FILE = /\.(png|jpe?g|webp|gif|avif)$/i
 const LAYERS = ['color', 'gradient', 'image']
-const FALLBACK = { color: '#1e293b', from: '#0f172a', to: '#3b82f6' }
+const FALLBACK = PICKER_FALLBACK
 
 function kindOf(v) {
   if (v?.image) return 'image'
