@@ -13,7 +13,7 @@ aliases = ["/overview/"]
 
 LocalAI is an AI server that runs on your own hardware. A small core speaks the OpenAI and Anthropic APIs. Each model backend is added only when you need it. Many existing clients work with it.
 
-{{< diagram "architecture-overview" "How LocalAI works: clients call one API on a small core, which talks over gRPC to a separate backend process for each model, running on your own hardware." >}}
+{{< diagram "architecture-overview" "How LocalAI works: clients call one API on a small core with chats, agents, an add-on host and an MCP client and server, which talks over gRPC to a separate backend process for each model, running on your own hardware." >}}
 
 ## Why LocalAI
 
