@@ -183,6 +183,15 @@ var _ = Describe("apps list", func() {
 			Expect(strings.Contains(string(b), secret)).To(BeFalse(), secret)
 		}
 	})
+	It("names the jobs tool of an execution provider, and none for an add-on without one", func() {
+		s := snapshot("sandbox", true, "running", nil, "bash", "status", "job")
+		s.Receipt.Manifest.Capabilities.ExecutionProvider = &contract.ExecutionProvider{Tools: []string{"bash"}, StatusTool: "status", Jobs: &contract.ExecutionJobs{Tool: "job"}}
+		old := snapshot("old", true, "running", nil, "bash")
+		list := Build([]Snapshot{s, old}, false)
+		Expect(list[0].ID).To(Equal("old"))
+		Expect(list[0].JobsTool).To(BeEmpty())
+		Expect(list[1].JobsTool).To(Equal("job"))
+	})
 	It("lists the host controls an add-on is entitled to, whatever its ID", func() {
 		bash := contract.ToolDefinition{Name: "bash", Description: "Run.", Kind: contract.ToolKindAction, Shadows: "bash",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)}
