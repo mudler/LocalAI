@@ -59,6 +59,9 @@ func (w hostWaits) wire(ctx context.Context, cb *chat.Callbacks) {
 		// The host runs the command of a script itself, where its bash runs;
 		// nib never does for a host wait.
 		cb.HostWaitScripts = true
+		// The host reads its background jobs itself, through the registry of the
+		// node that runs them; nib never does for a host wait.
+		cb.HostWaitJobs = true
 		cb.OnWaitFor = func(req chat.WaitRequest) string { return runHost(ctx, *t, waitArgs(req)) }
 	}
 	if t := w.waitAgents; t != nil {
@@ -91,6 +94,10 @@ func waitArgs(r chat.WaitRequest) map[string]any {
 	set("tool", r.Tool)
 	set("url", r.URL)
 	set("script", r.Script)
+	set("job", r.Job)
+	if r.Idle > 0 {
+		m["idle"] = int(r.Idle / time.Second)
+	}
 	set("until", r.Until)
 	set("pattern", r.Pattern)
 	set("field", r.Field)

@@ -447,12 +447,12 @@ type ChatsWait struct {
 	Phase string `json:"phase"`
 	// Reason is the line the model gave for the wait.
 	Reason string `json:"reason,omitempty"`
-	// SourceKind is "tool", "url" or "script". Source is the name of the tool,
-	// the host and path of the URL without the query, or "a script": the text
-	// of a command is never in this object.
+	// SourceKind is "tool", "url", "script" or "job". Source is the name of the
+	// tool, the host and path of the URL without the query, "a script", or the
+	// id and label of the job: the text of a command is never in this object.
 	SourceKind string `json:"source_kind"`
 	Source     string `json:"source"`
-	// Mode is change, match, json_equals or exit_zero; Condition says it in
+	// Mode is change, match, json_equals, exit_zero, exit or stall; Condition says it in
 	// words.
 	Mode      string `json:"mode"`
 	Condition string `json:"condition"`

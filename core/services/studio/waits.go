@@ -41,8 +41,8 @@ const waitForName = "wait_for"
 
 const waitForDescription = "Wait for something to happen without spending a model call on each check: the server checks for you and wakes you once. " +
 	"Use it when you tell the person that you will wait until a download or a job is done, or until a page or a tool's output changes. " +
-	"The source is one of: tool (a read-only tool of this chat, for example one that lists downloads, with fixed arguments), url (a page, read like web_fetch) or script (a shell command that the server runs for each check, in the same place as bash and with no model call; it changes no file, and a command that exits with a non-zero status is a result, not a failure). " +
-	"until is change (the output differs from the first check; the default), match (the output matches the regular expression pattern), json_equals (the JSON field of the output equals the value) or exit_zero (a script exits with status 0). " +
+	"The source is one of: tool (a read-only tool of this chat, for example one that lists downloads, with fixed arguments), url (a page, read like web_fetch), script (a shell command that the server runs for each check, in the same place as bash and with no model call; it changes no file, and a command that exits with a non-zero status is a result, not a failure) or job (the id of a background job of this chat that job start returned). " +
+	"until is change (the output differs from the first check; the default), match (the output matches the regular expression pattern; for a job, the output it wrote since the last check), json_equals (the JSON field of the output equals the value), exit_zero (a script exits with status 0), exit (a job has ended; the default for a job) or stall (a job still runs but wrote no output for idle seconds). " +
 	"You are woken when the condition holds, when the source fails max_errors checks in a row, or when timeout passes; the wake-up text says plainly when the condition was NOT met. " +
 	"then is what to do when you are woken. The person sees the wait and can stop it."
 
@@ -51,7 +51,9 @@ const waitForSchema = `{"type":"object","properties":{` +
 	`"arguments":{"type":"object","description":"The fixed arguments of that tool."},` +
 	`"url":{"type":"string","description":"An http or https address to poll instead of a tool."},` +
 	`"script":{"type":"string","maxLength":8000,"description":"A shell command to run for each check instead of a tool or a URL. It runs where bash runs, changes no file, and its output and exit status are the observation. In the person's ask mode they allow this command once, when you arm the wait."},` +
-	`"until":{"type":"string","enum":["change","match","json_equals","exit_zero"],"description":"change (default), match, json_equals or exit_zero (a script exits with status 0)."},` +
+	`"job":{"type":"string","description":"The id of a background job of this chat, instead of a tool, a URL or a script."},` +
+	`"until":{"type":"string","enum":["change","match","json_equals","exit_zero","exit","stall"],"description":"change (default), match, json_equals, exit_zero (a script exits with status 0), exit (a job ended; the default for a job) or stall (a job wrote no output for idle seconds)."},` +
+	`"idle":{"type":"integer","minimum":60,"maximum":3600,"description":"For stall: seconds without output from the job before you are woken. Default 600."},` +
 	`"pattern":{"type":"string","description":"For match: a regular expression the output must match."},` +
 	`"field":{"type":"string","description":"For json_equals: the field of the JSON output, with dots for depth and numbers for list items, such as items.0.status."},` +
 	`"equals":{"description":"For json_equals: the value the field must equal, such as \"done\"."},` +
@@ -217,6 +219,9 @@ func (h *Loops) probe(ctx context.Context, l loops.Loop) watch.Result {
 		out string
 		err error
 	)
+	if w.Job != "" {
+		return watch.Result{Err: errors.New("a check of a job went through the wrong path")}
+	}
 	if w.Script != "" {
 		// Checks of a script are made by checkScript, which charges the budget.
 		return watch.Result{Err: errors.New("a check of a script went through the wrong path")}
@@ -300,6 +305,11 @@ func jsonField(text, path string) (string, error) {
 // owns (a copy), and says whether the wait is over.
 func step(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, string) {
 	v, why := judge(w, res, now)
+	return settle(w, res, v, why, now)
+}
+
+// settle records what a check found and how the wait ended, if it did.
+func settle(w *loops.Watch, res watch.Result, v watch.Verdict, why string, now time.Time) (watch.Verdict, string) {
 	w.LastCheck = now.UTC()
 	if w.Script != "" && res.Err == nil {
 		w.LastExit = res.ExitCode
@@ -422,6 +432,11 @@ func judge(w *loops.Watch, res watch.Result, now time.Time) (watch.Verdict, stri
 // wakeText is the message of the run that ends a wait. It says plainly when
 // the condition was not met, so that silence never reads as success.
 func wakeText(w *loops.Watch, v watch.Verdict, checks int) string {
+	if w.Job != "" {
+		if text, ok := jobWakeText(w, v); ok {
+			return text
+		}
+	}
 	var b strings.Builder
 	switch {
 	case v.Reason.Satisfied():
@@ -450,6 +465,8 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		Arguments json.RawMessage `json:"arguments"`
 		URL       string          `json:"url"`
 		Script    string          `json:"script"`
+		Job       string          `json:"job"`
+		Idle      int             `json:"idle"`
 		Until     string          `json:"until"`
 		Pattern   string          `json:"pattern"`
 		Field     string          `json:"field"`
@@ -464,14 +481,16 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
 	lim := h.Limits()
-	w := &loops.Watch{Tool: strings.TrimSpace(args.Tool), URL: strings.TrimSpace(args.URL), Script: strings.TrimSpace(args.Script), Mode: strings.TrimSpace(args.Until),
+	w := &loops.Watch{Tool: strings.TrimSpace(args.Tool), URL: strings.TrimSpace(args.URL), Script: strings.TrimSpace(args.Script), Job: strings.TrimSpace(args.Job), Mode: strings.TrimSpace(args.Until),
 		Pattern: args.Pattern, Field: strings.TrimSpace(args.Field), Then: strings.TrimSpace(args.Then), MaxErrors: args.MaxErrors}
 	if w.Then == "" {
 		return "", errors.New("then is empty: say what to do when the wait ends")
 	}
 	switch {
 	case sourceCount(w) != 1:
-		return "", errors.New("name exactly one source: tool (a read-only tool of this chat), url or script")
+		return "", errors.New("name exactly one source: tool (a read-only tool of this chat), url, script or job")
+	case w.Job != "":
+		// Resolved and validated below, with the condition.
 	case w.Script != "":
 		// Whether this chat can run it is checked after the other arguments
 		// and the repeat of a wait (armScript).
@@ -500,7 +519,17 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 			return "", errors.New("web_fetch is switched off in this chat, so a URL cannot be polled")
 		}
 	}
+	switch {
+	case w.Job != "":
+		if err := h.armJob(ctx, a, w, time.Duration(args.Idle)*time.Second); err != nil {
+			return "", fmt.Errorf("no wait was started: %w", err)
+		}
+	case w.Mode == loops.UntilExit || w.Mode == loops.UntilStall:
+		return "", fmt.Errorf("until %s needs a job", w.Mode)
+	}
 	switch w.Mode {
+	case loops.UntilExit, loops.UntilStall:
+		// A job only; armJob has checked it.
 	case "", loops.UntilChange:
 		w.Mode = loops.UntilChange
 	case loops.UntilMatch:
@@ -522,7 +551,7 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 			w.Equals = strings.TrimSpace(string(args.Equals))
 		}
 	default:
-		return "", fmt.Errorf("until must be change, match, json_equals or exit_zero, not %q", w.Mode)
+		return "", fmt.Errorf("until must be change, match, json_equals, exit_zero, exit or stall, not %q", w.Mode)
 	}
 	every := lim.MinInterval
 	if s := strings.TrimSpace(args.Every); s != "" {
@@ -581,7 +610,7 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 // sourceCount is the number of sources that w names; a wait has exactly one.
 func sourceCount(w *loops.Watch) int {
 	n := 0
-	for _, s := range []string{w.Tool, w.URL, w.Script} {
+	for _, s := range []string{w.Tool, w.URL, w.Script, w.Job} {
 		if s != "" {
 			n++
 		}
@@ -592,6 +621,9 @@ func sourceCount(w *loops.Watch) int {
 // waitStarted is the answer of wait_for for a wait that runs: new, or one that
 // the same call had made before (note says so).
 func (h *Loops) waitStarted(w *loops.Watch, every, timeout time.Duration, asked string, lim LoopLimits, note string) string {
+	if w.Job != "" {
+		return h.jobWaitStarted(w, every, timeout, asked, lim, note)
+	}
 	out := fmt.Sprintf("The wait is armed for %s. The server checks every %s, for at most %s, and the first check sets the baseline. "+
 		"You are woken once: when the condition holds, when the source fails %d checks in a row, or at the timeout, and the wake-up says so when the condition was not met. "+
 		"Tell the person in one short sentence what you wait for; they can stop the wait.",
@@ -632,7 +664,7 @@ func (h *Loops) sameWait(ctx context.Context, a workspace.Actor, w *loops.Watch)
 		if o == nil || !l.State.Live() || o.Wake != "" {
 			continue
 		}
-		if o.Tool == w.Tool && o.URL == w.URL && o.Script == w.Script && o.Mode == w.Mode && o.Pattern == w.Pattern &&
+		if o.Tool == w.Tool && o.URL == w.URL && o.Script == w.Script && o.Job == w.Job && o.Idle == w.Idle && o.Mode == w.Mode && o.Pattern == w.Pattern &&
 			o.Field == w.Field && o.Equals == w.Equals && same(o.Args, w.Args) {
 			return &l, nil
 		}
@@ -682,8 +714,14 @@ func (h *Loops) checkWatch(ctx context.Context, l loops.Loop, lim LoopLimits) {
 	var (
 		res watch.Result
 		end *scriptEnd
+		jr  jobResult
 	)
-	if claimed.Watch.Script != "" {
+	if claimed.Watch.Job != "" {
+		// A read of the job's node: no script budget, no approval.
+		jctx, cancel := context.WithTimeout(ctx, waitProbeTimeout)
+		jr = h.checkJob(jctx, claimed)
+		cancel()
+	} else if claimed.Watch.Script != "" {
 		res, end = h.checkScript(ctx, claimed, lim)
 	} else {
 		res = h.probe(ctx, claimed)
@@ -698,7 +736,11 @@ func (h *Loops) checkWatch(ctx context.Context, l loops.Loop, lim LoopLimits) {
 			v   watch.Verdict
 			why string
 		)
-		if end != nil {
+		if w.Job != "" {
+			now := h.o.Clock().UTC()
+			v, why = judgeJob(w, jr, now)
+			v, why = settle(w, jr.Result, v, why, now)
+		} else if end != nil {
 			v, why = endAtOnce(w, end.detail, h.o.Clock().UTC()), end.why
 		} else {
 			v, why = step(w, res, h.o.Clock().UTC())

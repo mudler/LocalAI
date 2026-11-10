@@ -369,11 +369,13 @@ stop it. Type `/loop` in the message box, or use the API.
   lists downloads; the chat must be allowed to call it, and only tools whose
   name says they read, such as `list_*`, `get_*`, `search_*` or `*_status`, can
   be polled), a URL, which is read like `web_fetch` and so passes the same
-  checks, or a `script`, a shell command that the server runs for each check
-  (see below). The condition is `change` (the output differs from the first
+  checks, a `script`, a shell command that the server runs for each check
+  (see below), or a `job`, a background job of the same chat (see "Waits on a
+  job"). The condition is `change` (the output differs from the first
   check), `match` (a regular expression), `json_equals` (a JSON field equals a
   value) or, for a script only, `exit_zero` (the command exits with status 0).
-  The first check sets a baseline and never wakes the model; an error
+  For a job only, `exit` and `stall` apply. The first check sets a baseline and
+  never wakes the model (a job has no baseline); an error
   is not a change. The model wakes when the condition holds, when the source
   fails `max_errors` checks in a row (3 by default), or at the timeout (`timeout_seconds`; 1
   hour by default, 24 hours at most). Failure and timeout wake it too, and the
@@ -423,6 +425,32 @@ stop it. Type `/loop` in the message box, or use the API.
     host exec, or the Sandbox no longer serves the chat), the wait ends at once
     and the model is woken with a text that says plainly that the script cannot
     run on this node and was not run. The wait is not pinned to a node.
+- **Waits on a job.** With `job`, the server reads a background job of the
+  same chat that `job start` returned. A check is a read of the job's memory on
+  the node that runs it: it starts no process, spends no script budget, asks
+  for no approval and never shows a command. The conditions are:
+  - `exit` (the default for a job): the job has ended, with any status. The
+    wake-up gives the exit status, how long it ran and the last 2000 bytes of
+    its output. A non-zero status is stated, never hidden.
+  - `stall`, with `idle` seconds (60 to 3600, default 600): the job still runs
+    but wrote no output for that long. The wake-up says it may wait for input,
+    hang or work quietly, and gives the tail. A job that has already exited
+    wakes the wait as exited, never as stalled.
+  - `match`: a regular expression over the output the job wrote, read in order
+    from the first byte and once each, at every check. A match that falls across
+    two checks is missed. When the job exits and its output never matched, the
+    wait ends with a plain text that says so and that the condition was not met.
+  - `change` and `json_equals` are refused for a job: it has no output to compare.
+  A job that has already ended is not armed (read it with `job read`). A job of
+  a sub-agent is waited for by the sub-agent. When the job ends, the wait is
+  checked at the next tick of the loop host (about 5 seconds) instead of at the
+  next interval. A check that cannot reach the node that runs the job changes
+  nothing and counts as a failed check (`max_errors`); a job that the node does
+  not know ends the wait at once, with a text that says the job is gone with its
+  node, that its output and exit status are lost, and that the condition was not
+  met. A wait on a job is pinned to the node that runs the job, which it records
+  when it is armed. The loops list and its API name the source `job` with the id
+  and the label, and never the command.
 - **Tools of a sub-agent.** The names of the tools the parent gave a sub-agent
   are stored with its chat. After a restart, or when another frontend runs its
   next loop run, the sub-agent gets back those tools, limited to what the

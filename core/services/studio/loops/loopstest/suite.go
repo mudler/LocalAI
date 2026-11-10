@@ -87,6 +87,37 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(got.Watch).To(BeNil())
 	})
 
+	It("keeps the job fields of a wait through Add, Update and Get", func() {
+		l := sample("j1", "u1", "c1", 0)
+		l.Watch = &loops.Watch{Job: "job-ab12cd", JobLabel: "build", Node: "addon:sandbox@3", Mode: loops.UntilStall, Idle: 10 * time.Minute,
+			JobOffset: 4096, Deadline: base.Add(time.Hour), MaxErrors: 3, Then: "look at it"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "j1")
+		Expect(err).NotTo(HaveOccurred())
+		w := got.Watch
+		Expect(w.Job).To(Equal("job-ab12cd"))
+		Expect(w.JobLabel).To(Equal("build"))
+		Expect(w.Node).To(Equal("addon:sandbox@3"))
+		Expect(w.Mode).To(Equal(loops.UntilStall))
+		Expect(w.Idle).To(Equal(10 * time.Minute))
+		Expect(w.JobOffset).To(Equal(int64(4096)))
+		_, err = s.Update(ctx, "j1", func(c *loops.Loop) error {
+			n := c.Watch.Clone()
+			n.JobOffset, n.JobExit, n.JobEnd, n.JobRan, n.JobGone, n.JobNoMatch = 9000, 2, "exit", 3*time.Minute, true, true
+			c.Watch = n
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		again, _ := s.Get(ctx, "j1")
+		Expect(again.Watch.JobOffset).To(Equal(int64(9000)))
+		Expect(again.Watch.JobExit).To(Equal(2))
+		Expect(again.Watch.JobEnd).To(Equal("exit"))
+		Expect(again.Watch.JobRan).To(Equal(3 * time.Minute))
+		Expect(again.Watch.JobGone).To(BeTrue())
+		Expect(again.Watch.JobNoMatch).To(BeTrue())
+		Expect(again.Watch.Node).To(Equal("addon:sandbox@3"))
+	})
+
 	It("returns ErrNotFound for an unknown loop", func() {
 		_, err := s.Get(ctx, "nope")
 		Expect(err).To(MatchError(loops.ErrNotFound))
