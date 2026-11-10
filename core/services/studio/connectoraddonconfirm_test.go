@@ -59,7 +59,7 @@ var _ = Describe("a held write of an add-on in a messaging chat", func() {
 		r = newConnRigWith(sh, connStore(), studiobot.NewTransport(addon), script, func(context.Context) bool { return false })
 		r.bot, r.untrusted = bot, true
 		r.svc.SetCapabilityGate(r.conns.CapabilityGate())
-		b = r.bind(studio.ConnectorInput{Allow: []string{asker, paired, group}, Caps: binCaps})
+		b = r.bind(studio.ConnectorInput{Allow: []string{asker, paired, group}, Caps: binCaps, ReplyLanguage: englishReplies()})
 		got, err := r.store.GetBinding(ctx, b.ID)
 		Expect(err).NotTo(HaveOccurred())
 		for _, id := range pairedIDs {

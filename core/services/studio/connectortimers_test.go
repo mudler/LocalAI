@@ -55,7 +55,7 @@ var _ = Describe("timers and approval modes in a connector chat", func() {
 		gate.set(studio.CapTriggersPropose, true)
 		gate.set(studio.CapTriggersRun, true)
 		gate.set(studio.CapProposalsConfirm, true)
-		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, Approval: &ap})
+		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, Approval: &ap, ReplyLanguage: englishReplies()})
 		seq = 0
 	}
 	from := func(sender, text string) {

@@ -160,7 +160,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			o.RatePerMinute = 100
 		})
 		r.svc.SetCapabilityGate(gate)
-		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}})
+		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, ReplyLanguage: englishReplies()})
 		args = proposal("Digest", origin)
 		seq = 0
 	}
