@@ -18,7 +18,7 @@ keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox
 
 ### Install
 
-Use the script on Linux or macOS. Other ways: the macOS app, Docker, Kubernetes. See the [install guide]({{% relref "/start/install" %}}).
+Use the script on Linux, or on a Mac with Apple Silicon. Other ways: a container, the macOS app, Kubernetes. See the [install guide]({{% relref "/start/install" %}}).
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
