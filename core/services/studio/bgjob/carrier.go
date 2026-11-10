@@ -144,7 +144,9 @@ func (r *Registry) Handle(ctx context.Context, q Request) Reply {
 // RemoteInputWait is how long an input that came over the carrier waits for a
 // child that does not read. It is below AskTimeout, so the node answers
 // before the asker gives up: a retry of an input the asker never saw answered
-// would write it twice.
+// would write it twice. The bus also hands a node one request at a time per
+// subscription, so the wait is kept short: a stalled input delays the next
+// ask to the node by at most this long.
 const RemoteInputWait = AskTimeout - 500*time.Millisecond
 
 func (r *Registry) handle(ctx context.Context, q Request, inputWait time.Duration) Reply {
