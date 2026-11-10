@@ -26,7 +26,8 @@
     "check": {
       "required": "Obligatoire.",
       "tooLong": "{{max}} caractères au maximum.",
-      "format": "Cette valeur a un format incorrect."
+      "format": "Cette valeur a un format incorrect.",
+      "placeholder": "Un espace réservé de ce texte n'est pas correct."
     },
     "source": {
       "label": "Source",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "Assistant",
-      "lede": "Nom et instructions que l'assistant utilise dans chaque chat."
+      "lede": "Nom, image, salutation et instructions de l'assistant dans chaque chat."
     },
     "user": {
       "title": "Vous",
@@ -169,6 +170,18 @@
         "system_prompt": {
           "label": "Prompt système",
           "help": "Ajouté à chaque chat, après le prompt du chat et les instructions de l'agent."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Une image de vos fichiers. PNG, JPG, WebP, GIF ou AVIF."
+        },
+        "greeting": {
+          "label": "Salutation",
+          "help": "La première ligne de l'assistant dans un nouveau chat. Elle est affichée, pas envoyée au modèle."
+        },
+        "emptyChat": {
+          "label": "Chat vide",
+          "help": "Ce qu'affiche un nouveau chat au-dessus de la zone de message."
         }
       },
       "user": {
@@ -222,6 +235,20 @@
         "chatBackground": {
           "label": "Arrière-plan des conversations",
           "help": "Une couleur, un dégradé ou une image de vos fichiers derrière vos conversations. Les autres pages ne changent pas."
+        },
+        "look": {
+          "label": "Style",
+          "help": "Police, coins, messages et code, à partir de listes fixes."
+        },
+        "strings": {
+          "label": "Textes",
+          "help": "Seules les clés de cette liste peuvent changer."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Titre",
+          "help": "Vide garde la salutation selon l'heure."
         }
       }
     },
@@ -310,6 +337,95 @@
           "chat": "Il n'y a aucun chat à ajouter."
         }
       }
+    },
+    "blocked": "Corrigez les valeurs signalées pour enregistrer.",
+    "storedIn": "Enregistré dans",
+    "placeholders": {
+      "unknown_one": "{{names}} n'est pas un espace réservé de ce texte.",
+      "unknown_other": "{{names}} ne sont pas des espaces réservés de ce texte.",
+      "unknownUse_one": "{{names}} n'est pas un espace réservé de ce texte. Utilisez {{use}}.",
+      "unknownUse_other": "{{names}} ne sont pas des espaces réservés de ce texte. Utilisez {{use}}.",
+      "none_one": "{{names}} n'est pas un espace réservé. Ce texte n'en prend aucun.",
+      "none_other": "{{names}} ne sont pas des espaces réservés. Ce texte n'en prend aucun.",
+      "brace": "Une accolade n'a pas sa paire. Écrivez un espace réservé sous la forme {name}.",
+      "hint": "Espaces réservés disponibles",
+      "insert": "Insérer cet espace réservé"
+    },
+    "avatar": {
+      "path": "Chemin de l'image",
+      "remove": "Retirer",
+      "bad": "Utilisez une image de vos fichiers : un chemin sans barre oblique au début et sans .., qui se termine par .png, .jpg, .jpeg, .webp, .gif ou .avif."
+    },
+    "emptyChat": {
+      "title": "Titre",
+      "subtitle": "Ligne sous le titre",
+      "titleSample": "Demandez-moi ce que vous voulez",
+      "subtitleSample": "Dites ce dont vous avez besoin.",
+      "showShortcuts": "Afficher mes raccourcis au-dessus de la zone de message"
+    },
+    "look": {
+      "font": {
+        "label": "Police",
+        "default": "Geist, par défaut",
+        "system": "Système",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Coins",
+        "sharp": "Nets",
+        "soft": "Doux",
+        "round": "Arrondis"
+      },
+      "bubble": {
+        "label": "Style des messages",
+        "card": "Carte",
+        "filled": "Plein",
+        "tinted": "Teinté",
+        "outline": "Contour",
+        "plain": "Simple"
+      },
+      "messageWidth": {
+        "label": "Largeur des messages",
+        "narrow": "Étroite 640",
+        "medium": "Moyenne 760",
+        "wide": "Large 920",
+        "full": "Pleine"
+      },
+      "codeTheme": {
+        "label": "Couleurs du code",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Vives",
+        "ink": "Encre"
+      },
+      "note": "Chaque valeur vient d'une liste fixe et la couleur d'accent doit rester lisible. Il n'y a pas de zone CSS, donc un style ne peut ni masquer ni casser une page."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Trop pâle : {{ratio}}:1 en mode {{mode}}",
+      "failLong": "Cette couleur d'accent a un contraste de {{ratio}}:1 avec la page en mode {{mode}} et il faut 4,5:1. LocalAI affiche l'accent par défaut à la place.",
+      "mode": {
+        "light": "clair",
+        "dark": "sombre"
+      }
+    },
+    "headline": {
+      "title": "Titre de l'accueil",
+      "lede": "La grande ligne en haut de l'accueil."
+    },
+    "strings": {
+      "title": "Textes",
+      "lede": "Vos propres mots pour quelques libellés. Les messages de sécurité, de permission et de consentement gardent les leurs.",
+      "changed_one": "{{count}} modifié",
+      "changed_other": "{{count}} modifiés",
+      "find": "Chercher un texte",
+      "key": "Clé",
+      "default": "Par défaut",
+      "yours": "Votre texte",
+      "yoursFor": "Votre texte pour {{key}}",
+      "same": "Comme par défaut",
+      "hint": "Gardez les espaces réservés d'un texte, comme {model}. Une erreur est signalée avant l'enregistrement. Une zone vide garde le texte par défaut."
     }
   },
   "discovery": {
@@ -855,5 +971,33 @@
     "stored": "Enregistré dans vos réglages (l’ancien modèle par défaut d’Apparence passe ici)",
     "preview": "Ce qui est enregistré",
     "revert": "Revenir à la version précédente"
+  },
+  "identity": {
+    "messageName": "Écrire à {{name}}...",
+    "preview": {
+      "title": "Aperçu",
+      "home": "Accueil",
+      "newChat": "Nouveau chat",
+      "firstMessage": "Premier message",
+      "assistant": "Assistant",
+      "noGreeting": "Aucune salutation. Un nouveau chat commence vide."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Aperçu en direct",
+      "question": "Montre-moi comment lire un fichier en Python.",
+      "answer": "Ouvre-le avec un gestionnaire de contexte pour qu'il se ferme tout seul :",
+      "comment": "tout le fichier",
+      "after": "Pour les gros fichiers, parcours f ligne par ligne.",
+      "button": "Exécuter",
+      "box": "Écrire à l'assistant..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Aperçu",
+      "sidebar": "Barre latérale"
+    }
   }
 }

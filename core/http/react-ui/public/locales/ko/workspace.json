@@ -26,7 +26,8 @@
     "check": {
       "required": "필수 항목입니다.",
       "tooLong": "최대 {{max}}자까지 입력할 수 있습니다.",
-      "format": "값의 형식이 올바르지 않습니다."
+      "format": "값의 형식이 올바르지 않습니다.",
+      "placeholder": "이 텍스트의 자리표시자가 올바르지 않습니다."
     },
     "source": {
       "label": "원본",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "어시스턴트",
-      "lede": "모든 채팅에서 어시스턴트가 사용하는 이름과 지침입니다."
+      "lede": "모든 채팅에서 쓰는 어시스턴트의 이름, 사진, 인사말, 지침입니다."
     },
     "user": {
       "title": "나",
@@ -169,6 +170,18 @@
         "system_prompt": {
           "label": "시스템 프롬프트",
           "help": "모든 채팅에 추가됩니다. 채팅의 프롬프트와 에이전트 지침 뒤에 붙습니다."
+        },
+        "avatar": {
+          "label": "아바타",
+          "help": "내 파일의 사진입니다. PNG, JPG, WebP, GIF, AVIF."
+        },
+        "greeting": {
+          "label": "인사말",
+          "help": "새 채팅에서 어시스턴트의 첫 줄입니다. 화면에만 보이고 모델에는 보내지 않습니다."
+        },
+        "emptyChat": {
+          "label": "빈 채팅",
+          "help": "새 채팅이 메시지 상자 위에 보여 주는 내용입니다."
         }
       },
       "user": {
@@ -222,6 +235,20 @@
         "chatBackground": {
           "label": "채팅 배경",
           "help": "채팅 뒤에 색, 그라데이션 또는 내 파일의 이미지를 표시합니다. 다른 페이지는 그대로입니다."
+        },
+        "look": {
+          "label": "모양",
+          "help": "글꼴, 모서리, 메시지, 코드를 정해진 목록에서 고릅니다."
+        },
+        "strings": {
+          "label": "텍스트",
+          "help": "여기 나온 키만 바꿀 수 있습니다."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "제목",
+          "help": "비워 두면 시간대 인사말을 씁니다."
         }
       }
     },
@@ -310,6 +337,95 @@
           "chat": "추가할 채팅이 없습니다."
         }
       }
+    },
+    "blocked": "표시된 값을 고쳐야 저장할 수 있습니다.",
+    "storedIn": "저장 위치",
+    "placeholders": {
+      "unknown_one": "{{names}}은(는) 이 텍스트의 자리표시자가 아닙니다.",
+      "unknown_other": "{{names}}은(는) 이 텍스트의 자리표시자가 아닙니다.",
+      "unknownUse_one": "{{names}}은(는) 이 텍스트의 자리표시자가 아닙니다. {{use}}을(를) 쓰세요.",
+      "unknownUse_other": "{{names}}은(는) 이 텍스트의 자리표시자가 아닙니다. {{use}}을(를) 쓰세요.",
+      "none_one": "{{names}}은(는) 자리표시자가 아닙니다. 이 텍스트에는 자리표시자가 없습니다.",
+      "none_other": "{{names}}은(는) 자리표시자가 아닙니다. 이 텍스트에는 자리표시자가 없습니다.",
+      "brace": "짝이 없는 중괄호가 있습니다. 자리표시자는 {name} 형식으로 쓰세요.",
+      "hint": "쓸 수 있는 자리표시자",
+      "insert": "이 자리표시자 넣기"
+    },
+    "avatar": {
+      "path": "사진 경로",
+      "remove": "제거",
+      "bad": "내 파일의 사진을 쓰세요. 앞에 슬래시와 ..가 없고 .png, .jpg, .jpeg, .webp, .gif, .avif로 끝나는 경로여야 합니다."
+    },
+    "emptyChat": {
+      "title": "제목",
+      "subtitle": "제목 아래 줄",
+      "titleSample": "무엇이든 물어보세요",
+      "subtitleSample": "필요한 것을 말해 주세요.",
+      "showShortcuts": "메시지 상자 위에 내 바로가기 보이기"
+    },
+    "look": {
+      "font": {
+        "label": "글꼴",
+        "default": "Geist, 기본",
+        "system": "시스템",
+        "serif": "세리프",
+        "mono": "고정폭"
+      },
+      "radius": {
+        "label": "모서리",
+        "sharp": "각지게",
+        "soft": "부드럽게",
+        "round": "둥글게"
+      },
+      "bubble": {
+        "label": "메시지 스타일",
+        "card": "카드",
+        "filled": "채움",
+        "tinted": "옅은 색",
+        "outline": "윤곽선",
+        "plain": "없음"
+      },
+      "messageWidth": {
+        "label": "메시지 너비",
+        "narrow": "좁게 640",
+        "medium": "보통 760",
+        "wide": "넓게 920",
+        "full": "전체"
+      },
+      "codeTheme": {
+        "label": "코드 색상",
+        "auto": "자동",
+        "mono": "단색",
+        "vivid": "선명하게",
+        "ink": "잉크"
+      },
+      "note": "모든 값은 정해진 목록에서 고르며, 강조 색은 읽기 쉬운 대비를 유지해야 합니다. CSS 입력란이 없으므로 화면을 가리거나 망가뜨릴 수 없습니다."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "너무 흐림: {{mode}}에서 {{ratio}}:1",
+      "failLong": "이 강조 색은 {{mode}} 페이지와의 대비가 {{ratio}}:1이며 4.5:1이 필요합니다. 대신 기본 강조 색을 보여 줍니다.",
+      "mode": {
+        "light": "밝은 테마",
+        "dark": "어두운 테마"
+      }
+    },
+    "headline": {
+      "title": "홈 제목",
+      "lede": "홈 맨 위의 큰 줄입니다."
+    },
+    "strings": {
+      "title": "텍스트",
+      "lede": "일부 라벨을 내 말로 바꿉니다. 보안, 권한, 동의 안내는 바꿀 수 없습니다.",
+      "changed_one": "{{count}}개 변경됨",
+      "changed_other": "{{count}}개 변경됨",
+      "find": "텍스트 찾기",
+      "key": "키",
+      "default": "기본값",
+      "yours": "내 텍스트",
+      "yoursFor": "{{key}}의 내 텍스트",
+      "same": "기본값과 같음",
+      "hint": "{model} 같은 자리표시자는 그대로 두세요. 잘못된 자리표시자는 저장 전에 표시됩니다. 빈 칸은 기본값을 씁니다."
     }
   },
   "discovery": {
@@ -855,5 +971,33 @@
     "stored": "설정에 저장돼요 (모양 설정에 있던 예전 기본 모델은 여기로 옮겨져요)",
     "preview": "저장된 내용",
     "revert": "이전 버전으로 되돌리기"
+  },
+  "identity": {
+    "messageName": "{{name}}에게 메시지...",
+    "preview": {
+      "title": "미리 보기",
+      "home": "홈",
+      "newChat": "새 채팅",
+      "firstMessage": "첫 메시지",
+      "assistant": "어시스턴트",
+      "noGreeting": "인사말이 없습니다. 새 채팅은 빈 상태로 시작합니다."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "실시간 미리 보기",
+      "question": "Python에서 파일을 읽는 방법을 보여 줘.",
+      "answer": "컨텍스트 관리자로 열면 저절로 닫힙니다:",
+      "comment": "파일 전체",
+      "after": "큰 파일은 f를 한 줄씩 읽으세요.",
+      "button": "실행",
+      "box": "어시스턴트에게 메시지..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "미리 보기",
+      "sidebar": "사이드바"
+    }
   }
 }

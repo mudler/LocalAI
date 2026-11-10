@@ -20,13 +20,16 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | What | Say, for example | File |
 |---|---|---|
 | The assistant's name and how it answers | "Call yourself Ada and keep answers short" | `LocalAI/persona.json` |
+| The assistant's picture, greeting and empty chat | "Use Pictures/ada.png as your picture and greet me by name" | `LocalAI/persona.json` |
+| The headline of Home | "Say 'Rise and shine' at the top of Home" | `LocalAI/home.json` |
 | Standing rules of one saved agent | "Always answer this agent's users in French" | `LocalAI/agents/<agent>/profile.md` |
 | What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `LocalAI/user.json` |
 | Shortcuts in the message box | "Make this a shortcut" | `LocalAI/shortcuts.json` |
 | Saved setups of a new chat | "Save this as a setup called Coding" | `LocalAI/setups.json` |
 | The model for pictures, speech and other work | "Use kokoro for speech from now on" | `LocalAI/defaults.json` |
 | The widgets on Home | "Show my open tasks on Home" | `LocalAI/home.json` and a data file |
-| The look | "Use the light theme and a compact layout" | `LocalAI/ui.json` |
+| The look | "Use the light theme, a serif font and round corners" | `LocalAI/ui.json` |
+| A few labels of the app | "Call the New chat button New thread" | `LocalAI/ui.json` |
 | The sidebar | "Hide Agents and rename Skills to Recipes" | `LocalAI/nav.json` |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
 | Updates on a schedule | "Every morning, update this widget" | a trigger you confirm |
@@ -94,6 +97,35 @@ The persona is added to the prompt of every chat at the start of each turn,
 after the chat's own system prompt and the instructions of its agent, which
 take precedence, and before the server's default prompt text. A change applies
 from the next message.
+
+#### Picture, greeting and empty chat
+
+The same file sets how the assistant shows itself. None of these keys reaches
+the model; they change only what you see.
+
+```json
+{
+  "name": "Juniper",
+  "avatar": "Pictures/avatars/juniper.png",
+  "greeting": "Hi {user.name}, what are we working on?",
+  "emptyChat": { "title": "Ask Juniper anything", "subtitle": "I remember your projects.", "showShortcuts": true }
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `avatar` | A picture in your files, such as `Pictures/avatars/juniper.png`, written without a leading slash. Allowed types: png, jpg, jpeg, webp, gif, avif (no SVG). It shows on Home, above each reply and in an empty chat. Without it, the first letter of the name shows. |
+| `greeting` | The first line of the assistant in an empty chat. At most 200 characters. |
+| `emptyChat.title` | The headline of an empty chat. At most 80 characters. |
+| `emptyChat.subtitle` | One line under the headline. At most 200 characters. |
+| `emptyChat.showShortcuts` | `false` hides your shortcuts in an empty chat. Default `true`. |
+
+The texts can use the placeholders `{user.name}` (the name in `user.json`, or
+your account name), `{time_of_day}` (the greeting of the hour, such as "Good
+morning") and `{date}` (the short date of Home). Any other `{name}`, or a brace
+without its pair, is refused when you save. The identity shows in your own
+chats; a chat with an agent and the LocalAI assistant of **Manage** keep their
+own name.
 
 ### LocalAI/agents/\<agent\>/profile.md
 
@@ -257,6 +289,15 @@ to keep it in `defaults.json`.
 `LocalAI/home.json` and the data files of its widgets. **Edit layout** on Home adds,
 removes and orders the widgets.
 
+`headline` replaces the greeting at the top of Home. It takes the placeholders
+of the greeting (`{user.name}`, `{time_of_day}`, `{date}`), and an empty value
+keeps the greeting of the time of day. Edit it in **Account > About you and the
+assistant**. A `home.json` with a headline and no widgets is valid.
+
+```json
+{ "headline": "{time_of_day}, {user.name}" }
+```
+
 
 ```json
 {
@@ -383,6 +424,60 @@ before they allow it, and a change by its author asks again. See
 
 `theme` is `dark`, `light` or `system`. The Appearance tab applies a change at
 once and keeps it when you save. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
+
+`accent` must keep a contrast of at least 4.5:1 against the page in the theme
+you use. The Appearance tab shows the ratio beside the colour and does not save
+a colour that fails. If the file holds an accent that fails in the current
+theme (for example a dark teal in the dark theme), LocalAI does not use it and
+shows the default accent; the Appearance tab says why. The check runs again
+when you change the theme. Text on a filled accent (a button) takes the text
+or the page colour of the theme, whichever reads better.
+
+### Fonts, corners, messages and code
+
+`look` changes the font, the corners and the look of your messages and of code.
+Each key takes one value of a fixed list; there is no CSS. Every colour comes
+from the theme, so each value works in the light and the dark theme. Leave a
+key out for the default. The Appearance tab shows a live preview.
+
+```json
+{ "look": { "font": "serif", "radius": "round", "bubble": "tinted", "messageWidth": "wide", "codeTheme": "ink" } }
+```
+
+| Key | Values (default first) |
+|---|---|
+| `font` | `default` (Geist), `system`, `serif`, `mono`. For messages and the message box; code stays monospace. |
+| `radius` | `soft`, `sharp`, `round`. The corners of cards, buttons and messages. |
+| `bubble` | `card`, `filled`, `tinted`, `outline`, `plain`. How your own messages look. |
+| `messageWidth` | `medium` (760 px), `narrow` (640 px), `wide` (920 px), `full`. |
+| `codeTheme` | `auto`, `mono` (no colours), `vivid` (more colours), `ink` (a block in the inverse colours of the theme). |
+
+A value outside its list is refused when you save. Keys you add inside `look`
+stay in the file.
+
+### Your own text for a few labels
+
+`strings` replaces a few labels of the app with your own words. Edit them in
+**Account > Text**, or ask the assistant. Only these keys can change:
+
+| Key | Where | Placeholders |
+|---|---|---|
+| `home.headline` | The top of Home, when `home.json` has no `headline` | `{user.name}`, `{time_of_day}`, `{date}` |
+| `composer.placeholder` | The hint in an empty message box, when a model is chosen | `{model}` |
+| `chat.empty.title` | The headline of an empty chat, when `persona.json` has no `emptyChat.title` | none |
+| `nav.newChat` | The New chat button | none |
+| `nav.home` | Home in the sidebar | none |
+| `nav.recentChats` | The title of the recent chats in the sidebar | none |
+| `nav.allChats` | All chats in the sidebar | none |
+
+```json
+{ "strings": { "nav.newChat": "New thread", "composer.placeholder": "Ask {model}..." } }
+```
+
+The text of security, permission, consent and trust prompts cannot change: the
+server refuses any key that is not in the list. A text with a placeholder its
+key does not take, or a brace without its pair, is refused too. An empty box in
+the Text tab removes the key, and the default text shows again.
 
 ### Home and chat backgrounds
 

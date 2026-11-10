@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/persona.json",
   "title": "LocalAI/persona.json",
-  "description": "The name and instructions the assistant uses in every chat of this user.",
+  "description": "The name, picture, greeting and instructions of the assistant in every chat of this user.",
   "type": "object",
   "properties": {
     "name": {
@@ -10,6 +10,33 @@
       "title": "Name",
       "description": "What the assistant calls itself.",
       "maxLength": 80
+    },
+    "avatar": {
+      "type": "string",
+      "title": "Avatar",
+      "description": "The picture of the assistant: the path of a picture in your files, without a leading slash, such as Pictures/avatars/juniper.png. A png, jpg, jpeg, webp, gif or avif file. No .. and no address.",
+      "maxLength": 400,
+      "pattern": "^$|^[^/\\\\:?#][^\\\\:?#]*$",
+      "x-ui": { "widget": "avatar" }
+    },
+    "greeting": {
+      "type": "string",
+      "title": "Greeting",
+      "description": "The first line of the assistant in a new chat. It is shown, not sent to the model. Placeholders: {user.name}, {time_of_day}, {date}.",
+      "maxLength": 200,
+      "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"],
+      "x-ui": { "widget": "template" }
+    },
+    "emptyChat": {
+      "type": "object",
+      "title": "Empty chat",
+      "description": "What a new, empty chat shows above the message box.",
+      "properties": {
+        "title": { "type": "string", "maxLength": 80, "description": "The headline. Placeholders: {user.name}, {time_of_day}, {date}.", "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"] },
+        "subtitle": { "type": "string", "maxLength": 200, "description": "One line under the headline. Placeholders: {user.name}, {time_of_day}, {date}.", "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"] },
+        "showShortcuts": { "type": "boolean", "description": "Show your shortcuts above the message box of an empty chat. Default true." }
+      },
+      "x-ui": { "widget": "emptyChat" }
     },
     "system_prompt": {
       "type": "string",

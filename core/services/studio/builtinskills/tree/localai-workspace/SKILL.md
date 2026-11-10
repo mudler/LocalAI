@@ -11,13 +11,13 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 
 | File | What it does |
 |---|---|
-| `LocalAI/persona.json` | `name`, `system_prompt`: your name and instructions in every chat of this user. They reach you at the next message. |
+| `LocalAI/persona.json` | `name`, `system_prompt`: your name and instructions in every chat of this user. They reach you at the next message. `avatar`, `greeting`, `emptyChat`: shown to the user, never sent to you. |
 | `LocalAI/user.json` | `name`, `bio`, `language`, `timezone`: a short "About the user" block in every chat. `seen` records hints (below). |
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat (`tools` lists names switched off or on); `default` is the `id` a new chat starts with. No prompt, no files. Limits and values: its schema. |
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
-| `LocalAI/home.json` | `{"widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
-| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `defaultModel`, `homeBackground` (the background of the Home page only) and `chatBackground` (the background of the chat view only); see "Backgrounds" below. |
+| `LocalAI/home.json` | `{"headline"?, "widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `headline` replaces the greeting at the top. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
+| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground` (Home only), `chatBackground` (the chat view only; see "Backgrounds") and `strings` (own text for a few labels). |
 | `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 
 Rules:
@@ -55,6 +55,12 @@ Rules:
 - A result with `model_note` used a default. Tell the user ("Made with flux.1-schnell, your default for images").
 - A tool that stops because the user wants to be asked, or because the default model is gone: ask which installed model to use (`list_models`), then call again with `model`, for that request only. Never switch models silently.
 - Edit the file only when asked: read it, change that key, keep the rest, say what changed. The old `ui.json` `defaultModel` is only a fallback for `chat`.
+
+## Identity, look and text
+
+- `persona.json` `avatar` (a picture path, rule of the background `image`; no SVG), `greeting`, `emptyChat`; `home.json` `headline`. Their texts take only `{user.name}`, `{time_of_day}` ("Good morning"), `{date}`; another `{name}` or a lone brace breaks the file.
+- `ui.json` `look`: values from the lists of the schema, never CSS. An `accent` under 4.5:1 contrast on the page of the theme is ignored: say so.
+- `ui.json` `strings`: only `home.headline`, `composer.placeholder` (`{model}`), `chat.empty.title`, `nav.newChat`, `nav.home`, `nav.recentChats`, `nav.allChats`. No other text can change.
 
 ## Widget data
 

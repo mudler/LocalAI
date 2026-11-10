@@ -26,7 +26,8 @@
     "check": {
       "required": "Pflichtfeld.",
       "tooLong": "Höchstens {{max}} Zeichen.",
-      "format": "Dieser Wert hat das falsche Format."
+      "format": "Dieser Wert hat das falsche Format.",
+      "placeholder": "Ein Platzhalter dieses Textes stimmt nicht."
     },
     "source": {
       "label": "Quelle",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "Assistent",
-      "lede": "Name und Anweisungen, die der Assistent in jedem Chat verwendet."
+      "lede": "Name, Bild, Begrüßung und Anweisungen des Assistenten in jedem Chat."
     },
     "user": {
       "title": "Du",
@@ -169,6 +170,18 @@
         "system_prompt": {
           "label": "Systemprompt",
           "help": "Wird jedem Chat hinzugefügt, nach dem Prompt des Chats und den Anweisungen des Agenten."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Ein Bild aus Ihren Dateien. PNG, JPG, WebP, GIF oder AVIF."
+        },
+        "greeting": {
+          "label": "Begrüßung",
+          "help": "Die erste Zeile des Assistenten in einem neuen Chat. Sie wird gezeigt, nicht an das Modell gesendet."
+        },
+        "emptyChat": {
+          "label": "Leerer Chat",
+          "help": "Was ein neuer Chat über dem Nachrichtenfeld zeigt."
         }
       },
       "user": {
@@ -222,6 +235,20 @@
         "chatBackground": {
           "label": "Hintergrund der Chats",
           "help": "Eine Farbe, ein Verlauf oder ein Bild aus deinen Dateien hinter deinen Chats. Andere Seiten bleiben unverändert."
+        },
+        "look": {
+          "label": "Aussehen",
+          "help": "Schrift, Ecken, Nachrichten und Code aus festen Listen."
+        },
+        "strings": {
+          "label": "Texte",
+          "help": "Nur die hier aufgeführten Schlüssel können sich ändern."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Überschrift",
+          "help": "Leer behält die Begrüßung nach Tageszeit."
         }
       }
     },
@@ -310,6 +337,95 @@
           "chat": "Es gibt keine Chats zum Hinzufügen."
         }
       }
+    },
+    "blocked": "Korrigieren Sie die markierten Werte, um zu speichern.",
+    "storedIn": "Gespeichert in",
+    "placeholders": {
+      "unknown_one": "{{names}} ist kein Platzhalter dieses Textes.",
+      "unknown_other": "{{names}} sind keine Platzhalter dieses Textes.",
+      "unknownUse_one": "{{names}} ist kein Platzhalter dieses Textes. Verwenden Sie {{use}}.",
+      "unknownUse_other": "{{names}} sind keine Platzhalter dieses Textes. Verwenden Sie {{use}}.",
+      "none_one": "{{names}} ist kein Platzhalter. Dieser Text hat keine.",
+      "none_other": "{{names}} sind keine Platzhalter. Dieser Text hat keine.",
+      "brace": "Eine Klammer hat kein Gegenstück. Schreiben Sie einen Platzhalter als {name}.",
+      "hint": "Verfügbare Platzhalter",
+      "insert": "Diesen Platzhalter einfügen"
+    },
+    "avatar": {
+      "path": "Pfad des Bildes",
+      "remove": "Entfernen",
+      "bad": "Verwenden Sie ein Bild aus Ihren Dateien: einen Pfad ohne führenden Schrägstrich und ohne .., der auf .png, .jpg, .jpeg, .webp, .gif oder .avif endet."
+    },
+    "emptyChat": {
+      "title": "Überschrift",
+      "subtitle": "Zeile unter der Überschrift",
+      "titleSample": "Frag mich alles",
+      "subtitleSample": "Sag, was du brauchst.",
+      "showShortcuts": "Meine Kurzbefehle über dem Nachrichtenfeld zeigen"
+    },
+    "look": {
+      "font": {
+        "label": "Schrift",
+        "default": "Geist, Standard",
+        "system": "System",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Ecken",
+        "sharp": "Eckig",
+        "soft": "Weich",
+        "round": "Rund"
+      },
+      "bubble": {
+        "label": "Nachrichtenstil",
+        "card": "Karte",
+        "filled": "Gefüllt",
+        "tinted": "Getönt",
+        "outline": "Umriss",
+        "plain": "Schlicht"
+      },
+      "messageWidth": {
+        "label": "Nachrichtenbreite",
+        "narrow": "Schmal 640",
+        "medium": "Mittel 760",
+        "wide": "Breit 920",
+        "full": "Voll"
+      },
+      "codeTheme": {
+        "label": "Codefarben",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Kräftig",
+        "ink": "Tinte"
+      },
+      "note": "Jeder Wert stammt aus einer festen Liste, und die Akzentfarbe muss gut lesbar bleiben. Es gibt kein CSS-Feld, daher kann ein Aussehen keine Seite verdecken oder beschädigen."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Zu blass: {{ratio}}:1 auf {{mode}}",
+      "failLong": "Diese Akzentfarbe hat einen Kontrast von {{ratio}}:1 zur Seite im Modus {{mode}} und braucht 4,5:1. LocalAI zeigt stattdessen die Standardfarbe.",
+      "mode": {
+        "light": "hell",
+        "dark": "dunkel"
+      }
+    },
+    "headline": {
+      "title": "Überschrift der Startseite",
+      "lede": "Die große Zeile oben auf der Startseite."
+    },
+    "strings": {
+      "title": "Texte",
+      "lede": "Eigene Wörter für einige Beschriftungen. Sicherheits-, Berechtigungs- und Zustimmungsabfragen behalten ihre.",
+      "changed_one": "{{count}} geändert",
+      "changed_other": "{{count}} geändert",
+      "find": "Text suchen",
+      "key": "Schlüssel",
+      "default": "Standard",
+      "yours": "Ihr Text",
+      "yoursFor": "Ihr Text für {{key}}",
+      "same": "Wie Standard",
+      "hint": "Behalten Sie die Platzhalter eines Textes, etwa {model}. Ein falscher wird vor dem Speichern markiert. Ein leeres Feld behält den Standard."
     }
   },
   "discovery": {
@@ -855,5 +971,33 @@
     "stored": "In deinen Einstellungen gespeichert (das alte Standardmodell aus Darstellung wird hierher übernommen)",
     "preview": "Was gespeichert ist",
     "revert": "Auf vorherige Version zurücksetzen"
+  },
+  "identity": {
+    "messageName": "Nachricht an {{name}}...",
+    "preview": {
+      "title": "Vorschau",
+      "home": "Startseite",
+      "newChat": "Neuer Chat",
+      "firstMessage": "Erste Nachricht",
+      "assistant": "Assistent",
+      "noGreeting": "Keine Begrüßung festgelegt. Ein neuer Chat beginnt leer."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Live-Vorschau",
+      "question": "Zeig mir, wie ich in Python eine Datei lese.",
+      "answer": "Öffne sie mit einem Kontextmanager, dann schließt sie sich selbst:",
+      "comment": "ganze Datei",
+      "after": "Bei großen Dateien gehe f Zeile für Zeile durch.",
+      "button": "Ausführen",
+      "box": "Nachricht an den Assistenten..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Vorschau",
+      "sidebar": "Seitenleiste"
+    }
   }
 }

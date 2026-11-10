@@ -26,7 +26,8 @@
     "check": {
       "required": "必填。",
       "tooLong": "最多 {{max}} 个字符。",
-      "format": "此值的格式不正确。"
+      "format": "此值的格式不正确。",
+      "placeholder": "此文字中的占位符不正确。"
     },
     "source": {
       "label": "源文件",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "助手",
-      "lede": "助手在每次聊天中使用的名称和指令。"
+      "lede": "助手在每个对话中使用的名称、头像、问候语和指令。"
     },
     "user": {
       "title": "您",
@@ -169,6 +170,18 @@
         "system_prompt": {
           "label": "系统提示词",
           "help": "会添加到每次聊天中，位于聊天自身的提示词和代理指令之后。"
+        },
+        "avatar": {
+          "label": "头像",
+          "help": "你文件中的一张图片。PNG、JPG、WebP、GIF 或 AVIF。"
+        },
+        "greeting": {
+          "label": "问候语",
+          "help": "新对话中助手的第一句话。只显示，不发送给模型。"
+        },
+        "emptyChat": {
+          "label": "空对话",
+          "help": "新对话在消息框上方显示的内容。"
         }
       },
       "user": {
@@ -222,6 +235,20 @@
         "chatBackground": {
           "label": "聊天背景",
           "help": "在聊天后面显示一种颜色、渐变或你文件中的图片。其他页面保持不变。"
+        },
+        "look": {
+          "label": "外观",
+          "help": "字体、圆角、消息和代码，均来自固定列表。"
+        },
+        "strings": {
+          "label": "文字",
+          "help": "只有这里列出的键可以更改。"
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "标题",
+          "help": "留空则使用按时段的问候语。"
         }
       }
     },
@@ -310,6 +337,95 @@
           "chat": "没有可添加的聊天。"
         }
       }
+    },
+    "blocked": "请修正标出的值后再保存。",
+    "storedIn": "保存在",
+    "placeholders": {
+      "unknown_one": "{{names}} 不是此文字的占位符。",
+      "unknown_other": "{{names}} 不是此文字的占位符。",
+      "unknownUse_one": "{{names}} 不是此文字的占位符。请使用 {{use}}。",
+      "unknownUse_other": "{{names}} 不是此文字的占位符。请使用 {{use}}。",
+      "none_one": "{{names}} 不是占位符。此文字不使用占位符。",
+      "none_other": "{{names}} 不是占位符。此文字不使用占位符。",
+      "brace": "有一个花括号没有配对。占位符的写法是 {name}。",
+      "hint": "可用的占位符",
+      "insert": "插入此占位符"
+    },
+    "avatar": {
+      "path": "图片路径",
+      "remove": "移除",
+      "bad": "请使用你文件中的图片：路径开头不带斜杠，不含 ..，以 .png、.jpg、.jpeg、.webp、.gif 或 .avif 结尾。"
+    },
+    "emptyChat": {
+      "title": "标题",
+      "subtitle": "标题下方的一行",
+      "titleSample": "有什么都可以问我",
+      "subtitleSample": "说说你需要什么。",
+      "showShortcuts": "在消息框上方显示我的快捷方式"
+    },
+    "look": {
+      "font": {
+        "label": "字体",
+        "default": "Geist，默认",
+        "system": "系统",
+        "serif": "衬线",
+        "mono": "等宽"
+      },
+      "radius": {
+        "label": "圆角",
+        "sharp": "直角",
+        "soft": "柔和",
+        "round": "圆润"
+      },
+      "bubble": {
+        "label": "消息样式",
+        "card": "卡片",
+        "filled": "填充",
+        "tinted": "浅色",
+        "outline": "描边",
+        "plain": "无"
+      },
+      "messageWidth": {
+        "label": "消息宽度",
+        "narrow": "窄 640",
+        "medium": "中 760",
+        "wide": "宽 920",
+        "full": "全宽"
+      },
+      "codeTheme": {
+        "label": "代码颜色",
+        "auto": "自动",
+        "mono": "单色",
+        "vivid": "鲜明",
+        "ink": "墨色"
+      },
+      "note": "每个值都来自固定列表，强调色必须保持可读的对比度。没有 CSS 输入框，所以外观不会遮挡或破坏页面。"
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "太浅：在{{mode}}下为 {{ratio}}:1",
+      "failLong": "此强调色与{{mode}}页面的对比度为 {{ratio}}:1，需要 4.5:1。LocalAI 会改用默认强调色。",
+      "mode": {
+        "light": "浅色主题",
+        "dark": "深色主题"
+      }
+    },
+    "headline": {
+      "title": "首页标题",
+      "lede": "首页顶部的大标题。"
+    },
+    "strings": {
+      "title": "文字",
+      "lede": "用你自己的话替换部分标签。安全、权限和同意提示保持原样。",
+      "changed_one": "已更改 {{count}} 项",
+      "changed_other": "已更改 {{count}} 项",
+      "find": "查找文字",
+      "key": "键",
+      "default": "默认",
+      "yours": "你的文字",
+      "yoursFor": "{{key}} 的文字",
+      "same": "与默认相同",
+      "hint": "请保留文字中的占位符，例如 {model}。错误的占位符会在保存前标出。留空则使用默认文字。"
     }
   },
   "discovery": {
@@ -855,5 +971,33 @@
     "stored": "保存在你的设置中（外观里旧的默认模型已移到这里）",
     "preview": "已保存的内容",
     "revert": "恢复到上一个版本"
+  },
+  "identity": {
+    "messageName": "给 {{name}} 发消息...",
+    "preview": {
+      "title": "预览",
+      "home": "首页",
+      "newChat": "新对话",
+      "firstMessage": "第一条消息",
+      "assistant": "助手",
+      "noGreeting": "未设置问候语。新对话以空白开始。"
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "实时预览",
+      "question": "教我用 Python 读取文件。",
+      "answer": "用上下文管理器打开，它会自动关闭：",
+      "comment": "整个文件",
+      "after": "大文件可以逐行遍历 f。",
+      "button": "运行",
+      "box": "给助手发消息..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "预览",
+      "sidebar": "侧边栏"
+    }
   }
 }

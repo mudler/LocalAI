@@ -26,7 +26,8 @@
     "check": {
       "required": "Obbligatorio.",
       "tooLong": "Massimo {{max}} caratteri.",
-      "format": "Questo valore ha un formato errato."
+      "format": "Questo valore ha un formato errato.",
+      "placeholder": "Un segnaposto di questo testo non è corretto."
     },
     "source": {
       "label": "Sorgente",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "Assistente",
-      "lede": "Nome e istruzioni che l'assistente usa in ogni chat."
+      "lede": "Nome, immagine, saluto e istruzioni dell'assistente in ogni chat."
     },
     "user": {
       "title": "Tu",
@@ -169,6 +170,18 @@
         "system_prompt": {
           "label": "Prompt di sistema",
           "help": "Aggiunto a ogni chat, dopo il prompt della chat e le istruzioni dell'agente."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Un'immagine dei tuoi file. PNG, JPG, WebP, GIF o AVIF."
+        },
+        "greeting": {
+          "label": "Saluto",
+          "help": "La prima riga dell'assistente in una nuova chat. Viene mostrata, non inviata al modello."
+        },
+        "emptyChat": {
+          "label": "Chat vuota",
+          "help": "Cosa mostra una nuova chat sopra la casella del messaggio."
         }
       },
       "user": {
@@ -222,6 +235,20 @@
         "chatBackground": {
           "label": "Sfondo delle chat",
           "help": "Un colore, un gradiente o un'immagine dei tuoi file dietro le tue chat. Le altre pagine restano come sono."
+        },
+        "look": {
+          "label": "Aspetto",
+          "help": "Carattere, angoli, messaggi e codice, da elenchi fissi."
+        },
+        "strings": {
+          "label": "Testi",
+          "help": "Solo le chiavi elencate qui possono cambiare."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Titolo",
+          "help": "Vuoto mantiene il saluto dell'ora del giorno."
         }
       }
     },
@@ -310,6 +337,95 @@
           "chat": "Non ci sono chat da aggiungere."
         }
       }
+    },
+    "blocked": "Correggi i valori segnati per salvare.",
+    "storedIn": "Salvato in",
+    "placeholders": {
+      "unknown_one": "{{names}} non è un segnaposto di questo testo.",
+      "unknown_other": "{{names}} non sono segnaposto di questo testo.",
+      "unknownUse_one": "{{names}} non è un segnaposto di questo testo. Usa {{use}}.",
+      "unknownUse_other": "{{names}} non sono segnaposto di questo testo. Usa {{use}}.",
+      "none_one": "{{names}} non è un segnaposto. Questo testo non ne prevede.",
+      "none_other": "{{names}} non sono segnaposto. Questo testo non ne prevede.",
+      "brace": "Una graffa non ha la sua coppia. Scrivi un segnaposto come {name}.",
+      "hint": "Segnaposto che puoi usare",
+      "insert": "Inserisci questo segnaposto"
+    },
+    "avatar": {
+      "path": "Percorso dell'immagine",
+      "remove": "Rimuovi",
+      "bad": "Usa un'immagine dei tuoi file: un percorso senza barra iniziale e senza .., che termina con .png, .jpg, .jpeg, .webp, .gif o .avif."
+    },
+    "emptyChat": {
+      "title": "Titolo",
+      "subtitle": "Riga sotto il titolo",
+      "titleSample": "Chiedimi qualsiasi cosa",
+      "subtitleSample": "Dimmi cosa ti serve.",
+      "showShortcuts": "Mostra le mie scorciatoie sopra la casella del messaggio"
+    },
+    "look": {
+      "font": {
+        "label": "Carattere",
+        "default": "Geist, predefinito",
+        "system": "Sistema",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Angoli",
+        "sharp": "Netti",
+        "soft": "Morbidi",
+        "round": "Arrotondati"
+      },
+      "bubble": {
+        "label": "Stile dei messaggi",
+        "card": "Scheda",
+        "filled": "Pieno",
+        "tinted": "Tinta",
+        "outline": "Contorno",
+        "plain": "Semplice"
+      },
+      "messageWidth": {
+        "label": "Larghezza dei messaggi",
+        "narrow": "Stretta 640",
+        "medium": "Media 760",
+        "wide": "Larga 920",
+        "full": "Piena"
+      },
+      "codeTheme": {
+        "label": "Colori del codice",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Vivaci",
+        "ink": "Inchiostro"
+      },
+      "note": "Ogni valore viene da un elenco fisso e il colore d'accento deve restare leggibile. Non c'è una casella CSS, quindi un aspetto non può nascondere o rompere una pagina."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Troppo tenue: {{ratio}}:1 sul tema {{mode}}",
+      "failLong": "Questo colore d'accento ha un contrasto di {{ratio}}:1 sulla pagina {{mode}} e serve 4,5:1. LocalAI mostra invece il colore predefinito.",
+      "mode": {
+        "light": "chiaro",
+        "dark": "scuro"
+      }
+    },
+    "headline": {
+      "title": "Titolo della Home",
+      "lede": "La riga grande in cima alla Home."
+    },
+    "strings": {
+      "title": "Testi",
+      "lede": "Parole tue per alcune etichette. I messaggi di sicurezza, permesso e consenso restano i loro.",
+      "changed_one": "{{count}} modificato",
+      "changed_other": "{{count}} modificati",
+      "find": "Cerca un testo",
+      "key": "Chiave",
+      "default": "Predefinito",
+      "yours": "Il tuo testo",
+      "yoursFor": "Il tuo testo per {{key}}",
+      "same": "Come il predefinito",
+      "hint": "Mantieni i segnaposto di un testo, come {model}. Uno sbagliato viene segnalato prima del salvataggio. Una casella vuota mantiene il predefinito."
     }
   },
   "discovery": {
@@ -855,5 +971,33 @@
     "stored": "Salvato nelle tue impostazioni (il vecchio modello predefinito di Aspetto passa qui)",
     "preview": "Ciò che è salvato",
     "revert": "Torna alla versione precedente"
+  },
+  "identity": {
+    "messageName": "Scrivi a {{name}}...",
+    "preview": {
+      "title": "Anteprima",
+      "home": "Home",
+      "newChat": "Nuova chat",
+      "firstMessage": "Primo messaggio",
+      "assistant": "Assistente",
+      "noGreeting": "Nessun saluto impostato. Una nuova chat parte vuota."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Anteprima dal vivo",
+      "question": "Mostrami come leggere un file in Python.",
+      "answer": "Aprilo con un context manager, così si chiude da solo:",
+      "comment": "tutto il file",
+      "after": "Per file grandi, scorri f riga per riga.",
+      "button": "Eseguilo",
+      "box": "Scrivi all'assistente..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Anteprima",
+      "sidebar": "Barra laterale"
+    }
   }
 }

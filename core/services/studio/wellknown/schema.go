@@ -162,11 +162,23 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 		// The schema says the same, but its message names a keyword; these
 		// say what to change. They are checked even when the schema passes.
 		errs = append(errs, pageWidgetErrors(obj)...)
+		errs = append(errs, templateErrors("headline", obj["headline"], identityPlaceholders)...)
+	}
+	if n == Persona {
+		// The schema cannot read a placeholder or follow a path, so these
+		// rules live here.
+		errs = append(errs, imagePathErrors("avatar", obj["avatar"])...)
+		errs = append(errs, templateErrors("greeting", obj["greeting"], identityPlaceholders)...)
+		if ec, ok := obj["emptyChat"].(map[string]any); ok {
+			errs = append(errs, templateErrors("emptyChat.title", ec["title"], identityPlaceholders)...)
+			errs = append(errs, templateErrors("emptyChat.subtitle", ec["subtitle"], identityPlaceholders)...)
+		}
 	}
 	if n == UI {
 		// The schema bounds the path of the picture; these say what is wrong
 		// with a path that climbs out of the home or is not a picture.
 		errs = append(errs, backgroundErrors(obj)...)
+		errs = append(errs, stringErrors(obj["strings"])...)
 	}
 	if n == Defaults {
 		errs = append(errs, defaultsErrors(obj)...)
@@ -226,17 +238,100 @@ func backgroundErrors(obj map[string]any) []string {
 	var errs []string
 	for _, key := range backgroundKeys {
 		bg, _ := obj[key].(map[string]any)
-		raw, ok := bg["image"]
-		if !ok {
-			continue
+		if raw, ok := bg["image"]; ok {
+			errs = append(errs, imagePathErrors(key+".image", raw)...)
 		}
-		p, isString := raw.(string)
-		if !isString || p == "" || BackgroundImageOK(p) {
-			continue
-		}
-		errs = append(errs, fmt.Sprintf("%s.image: %q is not the path of a picture in your files; use a path without a leading slash and without .., such as Pictures/sky.jpg, ending in .png, .jpg, .jpeg, .webp, .gif or .avif", key, clip(p, 80)))
 	}
 	return errs
+}
+
+// imagePathErrors says, in words, why raw is not the path of a picture in the
+// home. A value that is not a string is left to the schema, which names it.
+func imagePathErrors(field string, raw any) []string {
+	p, isString := raw.(string)
+	if !isString || p == "" || BackgroundImageOK(p) {
+		return nil
+	}
+	return []string{fmt.Sprintf("%s: %q is not the path of a picture in your files; use a path without a leading slash and without .., such as Pictures/sky.jpg, ending in .png, .jpg, .jpeg, .webp, .gif or .avif", field, clip(p, 80))}
+}
+
+// identityPlaceholders are the placeholders of the greeting, the empty chat
+// and the Home headline. The UI fills them; the model never sees them.
+var identityPlaceholders = []string{"{user.name}", "{time_of_day}", "{date}"}
+
+// overridableStrings is the allow-list of the text a user may change in
+// ui.json strings, with the placeholders each one may use. Text that guards
+// a decision (security, permission, consent, trust) is not on it on purpose:
+// a file the assistant can write must not be able to reword those prompts.
+// The schema lists the same keys; a test keeps the two in step.
+var overridableStrings = map[string][]string{
+	"home.headline":        identityPlaceholders,
+	"composer.placeholder": {"{model}"},
+	"chat.empty.title":     nil,
+	"nav.newChat":          nil,
+	"nav.home":             nil,
+	"nav.recentChats":      nil,
+	"nav.allChats":         nil,
+}
+
+// StringKeys lists the keys of ui.json strings, sorted.
+func StringKeys() []string {
+	keys := make([]string, 0, len(overridableStrings))
+	for k := range overridableStrings {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// StringPlaceholders lists the placeholders the text of key may use.
+func StringPlaceholders(key string) []string {
+	return append([]string{}, overridableStrings[key]...)
+}
+
+// stringErrors says, in words, which text override is not allowed: a key that
+// is not on the list, or a text with a placeholder its key does not have.
+func stringErrors(raw any) []string {
+	m, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for k, v := range m {
+		allowed, known := overridableStrings[k]
+		if !known {
+			out = append(out, fmt.Sprintf("strings.%q: this text cannot be changed; the keys that can are %s", clip(k, 60), strings.Join(StringKeys(), ", ")))
+			continue
+		}
+		out = append(out, templateErrors("strings."+k, v, allowed)...)
+	}
+	return out
+}
+
+var placeholderRE = regexp.MustCompile(`\{[^{}]*\}`)
+
+// templateErrors checks the placeholders of a text: each {name} must be one
+// of allowed, and no brace may stand alone. A broken placeholder would show
+// as raw braces, or as an empty gap, so it is refused rather than shown.
+func templateErrors(field string, raw any, allowed []string) []string {
+	s, ok := raw.(string)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for _, ph := range placeholderRE.FindAllString(s, -1) {
+		if !slices.Contains(allowed, ph) {
+			if len(allowed) == 0 {
+				out = append(out, fmt.Sprintf("%s: %s is not a placeholder of this text; it takes none", field, clip(ph, 40)))
+			} else {
+				out = append(out, fmt.Sprintf("%s: %s is not a placeholder of this text; use %s", field, clip(ph, 40), strings.Join(allowed, ", ")))
+			}
+		}
+	}
+	if strings.ContainsAny(placeholderRE.ReplaceAllString(s, ""), "{}") {
+		out = append(out, fmt.Sprintf("%s: a brace without its pair; write a placeholder as {name}, with one brace on each side", field))
+	}
+	return out
 }
 
 // setupErrors says, in words, what the schema cannot: two setups with one id,

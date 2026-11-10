@@ -8,7 +8,7 @@ import { totalsOf, groupUsage, compactCount } from '../utils/traffic'
 import { timeUntil, initialOf } from '../utils/access'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, useLoad } from '../components/ui'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
-import { AboutYouTab, AppearanceTab, NavigationTab } from '../components/wellknown/SettingsTabs'
+import { AboutYouTab, AppearanceTab, NavigationTab, StringsTab } from '../components/wellknown/SettingsTabs'
 import DefaultsTab from '../components/wellknown/DefaultsTab'
 import MemoryTab from '../components/MemoryTab'
 import MemorySettings from '../components/MemorySettings'
@@ -24,10 +24,11 @@ const TABS = [
   { id: 'appearance', labelKey: 'account.tabs.appearance', files: true },
   { id: 'defaults', labelKey: 'account.tabs.defaults', files: true },
   { id: 'navigation', labelKey: 'account.tabs.navigation', files: true },
+  { id: 'strings', labelKey: 'account.tabs.strings', files: true },
 ]
 
-// Wide tabs hold two cards side by side.
-const WIDE_TABS = new Set(['about', 'defaults', 'navigation'])
+// Wide tabs hold two cards side by side, or a form and its preview.
+const WIDE_TABS = new Set(['about', 'appearance', 'defaults', 'navigation', 'strings'])
 
 const WINDOW_WORDS = { '1m': 'minute', '5m': '5 minutes', '1h': 'hour', '6h': '6 hours', '1d': 'day', '7d': 'week', '30d': '30 days' }
 
@@ -308,6 +309,7 @@ export default function Account() {
         {tab === 'appearance' && <AppearanceTab />}
         {tab === 'defaults' && <DefaultsTab />}
         {tab === 'navigation' && <NavigationTab />}
+        {tab === 'strings' && <StringsTab />}
       </div>
     </Page>
   )

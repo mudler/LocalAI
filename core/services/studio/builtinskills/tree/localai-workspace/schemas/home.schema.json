@@ -2,9 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/home.json",
   "title": "LocalAI/home.json",
-  "description": "The widgets of the Home page, in order.",
+  "description": "The headline and the widgets of the Home page, in order.",
   "type": "object",
   "properties": {
+    "headline": {
+      "type": "string",
+      "title": "Home headline",
+      "description": "The big line at the top of Home. Placeholders: {user.name}, {time_of_day}, {date}. Empty keeps the greeting of the time of day.",
+      "maxLength": 120,
+      "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"],
+      "x-ui": { "widget": "template" }
+    },
     "widgets": {
       "type": "array",
       "maxItems": 12,
@@ -58,6 +66,5 @@
         ]
       }
     }
-  },
-  "required": ["widgets"]
+  }
 }

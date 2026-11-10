@@ -3,6 +3,11 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { checkField } from '../../utils/wellKnown'
 import BackgroundField from './BackgroundField'
+import LookField from './LookField'
+import StringsField from './StringsField'
+import { AvatarField, EmptyChatField, TemplateField } from './IdentityFields'
+import { StatusChip } from '../ui'
+import { accentContrast } from './contrast'
 
 // Common language tags for the language field. The value is free text in the
 // file; a tag that is not here still shows, as its own option.
@@ -14,6 +19,18 @@ function timeZones() {
 
 function languageName(tag, locale) {
   try { return new Intl.DisplayNames([locale || 'en'], { type: 'language' }).of(tag) || tag } catch { return tag }
+}
+
+// ContrastBadge says whether an accent keeps the contrast of the page in the
+// mode the theme value gives: "AA 5.5:1", or why the default shows instead.
+function ContrastBadge({ accent, theme }) {
+  const { t } = useTranslation('workspace')
+  const c = accentContrast(accent, theme)
+  if (!c) return null
+  const mode = t(`wellKnown.contrast.mode.${c.mode}`)
+  return c.ok
+    ? <StatusChip tone="ok" icon="check" testId="wk-contrast-ok">{t('wellKnown.contrast.ok', { ratio: c.ratio })}</StatusChip>
+    : <StatusChip tone="error" icon="alert-circle" testId="wk-contrast-fail" title={t('wellKnown.contrast.failLong', { ratio: c.ratio, mode })}>{t('wellKnown.contrast.fail', { ratio: c.ratio, mode })}</StatusChip>
 }
 
 // SchemaFields draws the form of a well-known file from the fields of its JSON
@@ -71,6 +88,21 @@ export default function SchemaFields({ name, fields, values, onChange, notes = {
         )
         break
       }
+      case 'avatar':
+        control = <AvatarField id={id} name={name} value={values?.[f.key]} assistantName={values?.name} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
+        break
+      case 'template':
+        control = <TemplateField id={id} name={name} fieldKey={f.key} value={values?.[f.key]} placeholders={f.placeholders} maxLength={f.maxLength} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
+        break
+      case 'emptyChat':
+        control = <EmptyChatField id={id} name={name} value={values?.[f.key]} properties={f.properties} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
+        break
+      case 'look':
+        control = <LookField id={id} name={name} value={values?.[f.key]} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
+        break
+      case 'strings':
+        control = <StringsField id={id} name={name} value={values?.[f.key]} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
+        break
       case 'background':
         control = <BackgroundField id={id} name={name} bgKey={f.key} value={values?.[f.key]} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
         break
@@ -79,18 +111,22 @@ export default function SchemaFields({ name, fields, values, onChange, notes = {
           <span className="wk-color">
             <input type="color" className="wk-color__swatch" aria-label={label} value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#4a5aa0'} disabled={disabled} onChange={e => onChange(f.key, e.target.value)} />
             <input {...common} type="text" className="dk-input dk-mono" value={value} maxLength={7} placeholder="#4a5aa0" onChange={e => onChange(f.key, e.target.value)} />
+            {f.contrast && <ContrastBadge accent={value} theme={values?.theme} />}
           </span>
         )
         break
       default:
         control = <input {...common} type="text" className="dk-input" value={value} maxLength={f.maxLength} onChange={e => onChange(f.key, e.target.value)} />
     }
+    // The widgets that draw their own errors (a placeholder, a path) say
+    // more than the line under the field.
+    const ownErrors = ['template', 'avatar', 'emptyChat', 'strings'].includes(f.widget)
     return (
       <div key={f.key} className={`dk-field wk-field${f.widget === 'checkbox' ? ' wk-field--check' : ''}`}>
         <label className="dk-label" htmlFor={id}>{label}</label>
         {control}
         <p className="dk-hint" id={`${id}-hint`}>{help}</p>
-        {problem && <p className="dk-field-error" id={`${id}-err`}>{t(`wellKnown.check.${problem}`, { max: f.maxLength })}</p>}
+        {problem && !ownErrors && <p className="dk-field-error" id={`${id}-err`}>{t(`wellKnown.check.${problem}`, { max: f.maxLength })}</p>}
       </div>
     )
   })

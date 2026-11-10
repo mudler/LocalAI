@@ -13,14 +13,27 @@
     "accent": {
       "type": "string",
       "title": "Accent colour",
-      "description": "A colour such as #3b82f6 for buttons and links. Empty keeps the default.",
+      "description": "A colour such as #3b82f6 for buttons and links. Empty keeps the default. It must keep a contrast of at least 4.5:1 against the page in the theme in use; a fainter colour is not used and the default shows instead.",
       "pattern": "^$|^#[0-9a-fA-F]{6}$",
-      "x-ui": { "widget": "color" }
+      "x-ui": { "widget": "color", "contrast": 4.5 }
     },
     "density": {
       "enum": ["comfortable", "compact"],
       "title": "Density",
       "description": "compact shows more on one screen."
+    },
+    "look": {
+      "type": "object",
+      "title": "Look",
+      "description": "The font, the corners and the look of messages and code. Only the values of each list; there is no CSS.",
+      "properties": {
+        "font": { "enum": ["default", "system", "serif", "mono"], "description": "The font of messages and the message box. default is Geist." },
+        "radius": { "enum": ["sharp", "soft", "round"], "description": "The corners of cards, buttons and messages. soft is the default." },
+        "bubble": { "enum": ["card", "filled", "tinted", "outline", "plain"], "description": "How your own messages look in a chat. card is the default." },
+        "messageWidth": { "enum": ["narrow", "medium", "wide", "full"], "description": "How wide a chat is: narrow 640 px, medium 760 px (default), wide 920 px, full the whole window." },
+        "codeTheme": { "enum": ["auto", "mono", "vivid", "ink"], "description": "The colours of code in a chat, all from the theme: auto (default), mono (no colours), vivid (more colours), ink (a block in the inverse colours of the theme)." }
+      },
+      "x-ui": { "widget": "look" }
     },
     "defaultModel": {
       "type": "string",
@@ -94,6 +107,22 @@
         "overlay": { "type": "number", "minimum": 0, "maximum": 1, "description": "A veil in the colour of the theme that keeps the text readable, 0 to 1. Default 0.8 for a picture, 0.6 for a gradient, 0 for a colour." }
       },
       "x-ui": { "widget": "background" }
+    },
+    "strings": {
+      "type": "object",
+      "title": "Text",
+      "description": "Your own text for a few labels of the app, by key. Only the keys listed here can change: the text of security, permission and consent prompts cannot. A text may use only the placeholders of its key, written as {name}.",
+      "properties": {
+        "home.headline": { "type": "string", "minLength": 1, "maxLength": 120, "description": "The big line at the top of Home, when home.json has no headline. Placeholders: {user.name}, {time_of_day}, {date}.", "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"] },
+        "composer.placeholder": { "type": "string", "minLength": 1, "maxLength": 120, "description": "The hint in an empty message box when a model is chosen. Placeholder: {model}.", "x-placeholders": ["{model}"] },
+        "chat.empty.title": { "type": "string", "minLength": 1, "maxLength": 120, "description": "The headline of an empty chat, when persona.json has no emptyChat title. No placeholders.", "x-placeholders": [] },
+        "nav.newChat": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The name of the New chat button. No placeholders.", "x-placeholders": [] },
+        "nav.home": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The name of Home in the sidebar. No placeholders.", "x-placeholders": [] },
+        "nav.recentChats": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The title of the recent chats in the sidebar. No placeholders.", "x-placeholders": [] },
+        "nav.allChats": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The name of All chats in the sidebar. No placeholders.", "x-placeholders": [] }
+      },
+      "additionalProperties": false,
+      "x-ui": { "widget": "strings" }
     },
     "pinnedPages": {
       "type": "array",

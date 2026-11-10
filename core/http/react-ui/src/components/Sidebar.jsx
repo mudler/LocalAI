@@ -26,6 +26,7 @@ import { useNewLabel } from './wellknown/useNewLabel'
 import SidebarNavLink from './SidebarNavLinks'
 import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
 import { sections as navSections } from '../utils/nav'
+import { useUiString } from './wellknown/Identity'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -48,9 +49,9 @@ const sections = [
   { id: 'workspace', titleKey: 'sections.workspace', hubs: true },
 ]
 
-function NavItem({ item, onClose, collapsed, active, badge, label: custom }) {
+function NavItem({ item, onClose, collapsed, active, badge, label: ownLabel }) {
   const { t } = useTranslation('nav')
-  const label = custom || t(item.labelKey)
+  const label = ownLabel || t(item.labelKey)
   // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
   // before the synthetic click on mobile; mouseenter/focus cover desktop and
   // keyboard. The underlying import() is memoised so multiple triggers are free.
@@ -96,6 +97,8 @@ function saveSectionState(state) {
 // too); null until it arrived.
 export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   const { t } = useTranslation('nav')
+  // The user's own text for a few entries (ui.json strings).
+  const uiString = useUiString()
   const features = featuresProp || {}
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
@@ -288,7 +291,8 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
             const renderTop = (item, label) => (
               <Fragment key={item.path}>
                 <NavItem
-                  item={item} onClose={onClose} collapsed={collapsed} label={label}
+                  item={item} onClose={onClose} collapsed={collapsed}
+                  label={label || (item.path === '/app' ? uiString('nav.home', '') : '')}
                   active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)}
                   badge={item.pagesEntry && pagesNew && !collapsed ? <span className="nav-new" data-testid="nav-pages-new">{t('new')}</span> : undefined}
                 />

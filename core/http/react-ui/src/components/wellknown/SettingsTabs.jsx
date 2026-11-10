@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import WellKnownCard from './WellKnownCard'
 import { applyAppearance } from './AppearanceSync'
@@ -7,7 +7,11 @@ import { useTheme } from '../../contexts/ThemeContext'
 import ShortcutsEditor from './ShortcutsEditor'
 import HelpCard from './HelpCard'
 import NavigationEditor from './NavigationEditor'
+import { IdentityPreview, LookPreview, StringsPreview } from './Previews'
 import Icon from '../Icon'
+
+const HEADLINE_KEYS = ['headline']
+const TEXT_KEYS = ['strings']
 
 function browserLanguage() {
   try { return navigator.language || '' } catch { return '' }
@@ -30,10 +34,18 @@ export function AboutYouTab() {
     return { values, notes }
   }, [fromBrowser])
 
+  // The forms' values as they are edited, for the preview.
+  const [persona, setPersona] = useState(null)
+  const [home, setHome] = useState(null)
+
   return (
     <div className="wk-tab" data-testid="account-about">
-      <div className="wk-grid">
-        <WellKnownCard name="persona" title={t('wellKnown.persona.title')} lede={t('wellKnown.persona.lede')} />
+      <div className="wk-grid wk-grid--preview">
+        <WellKnownCard name="persona" title={t('wellKnown.persona.title')} lede={t('wellKnown.persona.lede')} onChange={setPersona} footer />
+        <IdentityPreview persona={persona} home={home} />
+      </div>
+      <div className="wk-grid wk-gap">
+        <WellKnownCard name="home" testId="wk-card-home-headline" title={t('wellKnown.headline.title')} lede={t('wellKnown.headline.lede')} only={HEADLINE_KEYS} onChange={setHome} footer />
         <WellKnownCard name="user" title={t('wellKnown.user.title')} lede={t('wellKnown.user.lede')} prefill={prefillUser}>
           <p className="wk-note wk-note--info wk-privacy" data-testid="wk-privacy">
             <Icon name="info" /> <span>{t('discovery.privacy')}</span>
@@ -56,8 +68,9 @@ export function AboutYouTab() {
   )
 }
 
-// The Account tab "Appearance": ui.json. A change shows at once; leaving the
-// tab without saving puts the saved look back.
+// The Account tab "Appearance": ui.json, without its text overrides (the Text
+// tab). A change shows at once and in the preview; leaving the tab without
+// saving puts the saved look back.
 export function AppearanceTab() {
   const { t } = useTranslation('workspace')
   const { setTheme } = useTheme()
@@ -69,8 +82,9 @@ export function AppearanceTab() {
   const prefill = useCallback((doc) => { saved.current = doc.data; return { values: {}, notes: {} } }, [])
 
   return (
-    <div className="wk-grid wk-grid--one" data-testid="account-appearance">
-      <WellKnownCard name="ui" title={t('wellKnown.ui.title')} lede={t('wellKnown.ui.lede')} onChange={onChange} onSaved={onSaved} prefill={prefill} />
+    <div className="wk-grid wk-grid--preview" data-testid="account-appearance">
+      <WellKnownCard name="ui" title={t('wellKnown.ui.title')} lede={t('wellKnown.ui.lede')} onChange={onChange} onSaved={onSaved} prefill={prefill} omit={TEXT_KEYS} footer />
+      <LookPreview />
     </div>
   )
 }
@@ -80,6 +94,19 @@ export function NavigationTab() {
   return (
     <div className="wk-grid wk-grid--wide" data-testid="account-navigation">
       <NavigationEditor />
+    </div>
+  )
+}
+
+// The Account tab "Text": the text overrides of ui.json (strings). Only the
+// keys of the server's list show, and a save keeps every other key of the file.
+export function StringsTab() {
+  const { t } = useTranslation('workspace')
+  const [ui, setUi] = useState(null)
+  return (
+    <div className="wk-grid wk-grid--preview" data-testid="account-strings">
+      <WellKnownCard name="ui" testId="wk-card-strings" title={t('wellKnown.strings.title')} lede={t('wellKnown.strings.lede')} only={TEXT_KEYS} onChange={setUi} footer />
+      <StringsPreview ui={ui} />
     </div>
   )
 }

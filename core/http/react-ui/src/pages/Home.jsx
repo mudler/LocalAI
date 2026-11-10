@@ -47,6 +47,8 @@ import HomeWidgets from '../components/wellknown/HomeWidgets'
 import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
 // eslint-disable-next-line no-unused-vars
 import BackgroundLayer from '../components/wellknown/BackgroundLayer'
+// eslint-disable-next-line no-unused-vars
+import { AssistantAvatar, useIdentity, useUiString } from '../components/wellknown/Identity'
 import { useWellKnown } from '../hooks/useWellKnown'
 import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
@@ -90,6 +92,10 @@ export default function Home() {
   const { t: tw } = useTranslation('workspace')
   const { t: tc } = useTranslation('chats')
   const { t: tch } = useTranslation('chat')
+  // How the assistant shows itself (persona.json, the headline of home.json)
+  // and the text overrides of ui.json.
+  const identity = useIdentity()
+  const uiString = useUiString()
   // The command list that /help drew under the composer, or null.
   const [help, setHelp] = useState(null)
   const { isAdmin, hasFeature, user } = useAuth()
@@ -707,6 +713,15 @@ export default function Home() {
 
   // ----- Non-admin, nothing installed -------------------------------------
 
+  // The hint of the empty box: the override of ui.json strings, else the
+  // assistant's name when there is one, else the composer's own.
+  const ownName = !agentPicked && identity.name
+  const homePlaceholder = firstRun
+    ? t('input.placeholderFirstRun')
+    : selectedModel
+      ? uiString('composer.placeholder', ownName ? tw('identity.messageName', { name: identity.name }) : undefined, { model: selectedModel })
+      : undefined
+
   if (firstRun && !isAdmin) {
     return (
       <div className="home-page">
@@ -732,7 +747,10 @@ export default function Home() {
       {chatsOn && <BackgroundLayer bgKey="homeBackground" testId="home-bg" />}
       <div className="home-col">
         <header className="home-header">
-          <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
+          {!agentPicked && (identity.avatar || identity.name) && (
+            <AssistantAvatar avatar={identity.avatar} name={identity.name} size="md" testId="home-assistant-avatar" />
+          )}
+          <h1 className="home-greeting" data-testid="home-headline">{identity.headline || t(`greeting.${greetingKey()}`)}</h1>
           <span className="home-date">{dateLabel}</span>
         </header>
 
@@ -775,7 +793,7 @@ export default function Home() {
             sending={sending}
             sendTitle={sendTitle}
             textareaRef={textareaRef}
-            placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
+            placeholder={homePlaceholder}
             slashSurface="home"
             slashContext={slashContext}
             onRunAction={runAction}

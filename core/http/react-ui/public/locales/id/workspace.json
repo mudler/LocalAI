@@ -26,7 +26,8 @@
     "check": {
       "required": "Wajib diisi.",
       "tooLong": "Maksimal {{max}} karakter.",
-      "format": "Nilai ini memiliki format yang salah."
+      "format": "Nilai ini memiliki format yang salah.",
+      "placeholder": "Sebuah placeholder di teks ini tidak benar."
     },
     "source": {
       "label": "Sumber",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "Asisten",
-      "lede": "Nama dan instruksi yang digunakan asisten di setiap chat."
+      "lede": "Nama, gambar, sapaan, dan instruksi asisten di setiap chat."
     },
     "user": {
       "title": "Anda",
@@ -169,6 +170,18 @@
         "system_prompt": {
           "label": "Prompt sistem",
           "help": "Ditambahkan ke setiap chat, setelah prompt chat dan instruksi agen."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Gambar dari file Anda. PNG, JPG, WebP, GIF, atau AVIF."
+        },
+        "greeting": {
+          "label": "Sapaan",
+          "help": "Baris pertama asisten di chat baru. Ditampilkan, tidak dikirim ke model."
+        },
+        "emptyChat": {
+          "label": "Chat kosong",
+          "help": "Yang ditampilkan chat baru di atas kotak pesan."
         }
       },
       "user": {
@@ -222,6 +235,20 @@
         "chatBackground": {
           "label": "Latar belakang obrolan",
           "help": "Warna, gradasi, atau gambar dari berkas Anda di belakang obrolan Anda. Halaman lain tidak berubah."
+        },
+        "look": {
+          "label": "Tampilan",
+          "help": "Font, sudut, pesan, dan kode, dari daftar tetap."
+        },
+        "strings": {
+          "label": "Teks",
+          "help": "Hanya kunci di daftar ini yang bisa diubah."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Judul",
+          "help": "Kosong memakai sapaan sesuai waktu."
         }
       }
     },
@@ -310,6 +337,95 @@
           "chat": "Tidak ada chat untuk ditambahkan."
         }
       }
+    },
+    "blocked": "Perbaiki nilai yang ditandai untuk menyimpan.",
+    "storedIn": "Disimpan di",
+    "placeholders": {
+      "unknown_one": "{{names}} bukan placeholder teks ini.",
+      "unknown_other": "{{names}} bukan placeholder teks ini.",
+      "unknownUse_one": "{{names}} bukan placeholder teks ini. Gunakan {{use}}.",
+      "unknownUse_other": "{{names}} bukan placeholder teks ini. Gunakan {{use}}.",
+      "none_one": "{{names}} bukan placeholder. Teks ini tidak memakai placeholder.",
+      "none_other": "{{names}} bukan placeholder. Teks ini tidak memakai placeholder.",
+      "brace": "Ada kurung kurawal tanpa pasangan. Tulis placeholder sebagai {name}.",
+      "hint": "Placeholder yang bisa dipakai",
+      "insert": "Sisipkan placeholder ini"
+    },
+    "avatar": {
+      "path": "Path gambar",
+      "remove": "Hapus",
+      "bad": "Gunakan gambar dari file Anda: path tanpa garis miring di awal dan tanpa .., berakhiran .png, .jpg, .jpeg, .webp, .gif, atau .avif."
+    },
+    "emptyChat": {
+      "title": "Judul",
+      "subtitle": "Baris di bawah judul",
+      "titleSample": "Tanyakan apa saja",
+      "subtitleSample": "Katakan apa yang Anda perlukan.",
+      "showShortcuts": "Tampilkan pintasan saya di atas kotak pesan"
+    },
+    "look": {
+      "font": {
+        "label": "Font",
+        "default": "Geist, bawaan",
+        "system": "Sistem",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Sudut",
+        "sharp": "Tajam",
+        "soft": "Lembut",
+        "round": "Bulat"
+      },
+      "bubble": {
+        "label": "Gaya pesan",
+        "card": "Kartu",
+        "filled": "Penuh",
+        "tinted": "Berwarna",
+        "outline": "Garis tepi",
+        "plain": "Polos"
+      },
+      "messageWidth": {
+        "label": "Lebar pesan",
+        "narrow": "Sempit 640",
+        "medium": "Sedang 760",
+        "wide": "Lebar 920",
+        "full": "Penuh"
+      },
+      "codeTheme": {
+        "label": "Warna kode",
+        "auto": "Otomatis",
+        "mono": "Mono",
+        "vivid": "Cerah",
+        "ink": "Tinta"
+      },
+      "note": "Setiap nilai berasal dari daftar tetap, dan warna aksen harus tetap mudah dibaca. Tidak ada kotak CSS, jadi tampilan tidak bisa menyembunyikan atau merusak halaman."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Terlalu pudar: {{ratio}}:1 pada mode {{mode}}",
+      "failLong": "Warna aksen ini punya kontras {{ratio}}:1 terhadap halaman mode {{mode}} dan butuh 4,5:1. LocalAI menampilkan warna aksen bawaan.",
+      "mode": {
+        "light": "terang",
+        "dark": "gelap"
+      }
+    },
+    "headline": {
+      "title": "Judul Beranda",
+      "lede": "Baris besar di bagian atas Beranda."
+    },
+    "strings": {
+      "title": "Teks",
+      "lede": "Kata-kata Anda sendiri untuk beberapa label. Perintah keamanan, izin, dan persetujuan tetap memakai teksnya.",
+      "changed_one": "{{count}} diubah",
+      "changed_other": "{{count}} diubah",
+      "find": "Cari teks",
+      "key": "Kunci",
+      "default": "Bawaan",
+      "yours": "Teks Anda",
+      "yoursFor": "Teks Anda untuk {{key}}",
+      "same": "Sama dengan bawaan",
+      "hint": "Pertahankan placeholder sebuah teks, seperti {model}. Placeholder yang salah ditandai sebelum disimpan. Kotak kosong memakai teks bawaan."
     }
   },
   "discovery": {
@@ -855,5 +971,33 @@
     "stored": "Disimpan di pengaturan Anda (model bawaan lama dari Tampilan pindah ke sini)",
     "preview": "Yang tersimpan",
     "revert": "Kembali ke versi sebelumnya"
+  },
+  "identity": {
+    "messageName": "Kirim pesan ke {{name}}...",
+    "preview": {
+      "title": "Pratinjau",
+      "home": "Beranda",
+      "newChat": "Chat baru",
+      "firstMessage": "Pesan pertama",
+      "assistant": "Asisten",
+      "noGreeting": "Belum ada sapaan. Chat baru dimulai kosong."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Pratinjau langsung",
+      "question": "Tunjukkan cara membaca file di Python.",
+      "answer": "Buka dengan context manager agar tertutup sendiri:",
+      "comment": "seluruh file",
+      "after": "Untuk file besar, baca f baris demi baris.",
+      "button": "Jalankan",
+      "box": "Kirim pesan ke asisten..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Pratinjau",
+      "sidebar": "Bilah samping"
+    }
   }
 }

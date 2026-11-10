@@ -124,7 +124,8 @@
     "check": {
       "required": "Required.",
       "tooLong": "At most {{max}} characters.",
-      "format": "This value has the wrong format."
+      "format": "This value has the wrong format.",
+      "placeholder": "A placeholder of this text is not right."
     },
     "source": {
       "label": "Source",
@@ -134,7 +135,7 @@
     },
     "persona": {
       "title": "Assistant",
-      "lede": "Name and instructions the assistant uses in every chat."
+      "lede": "Name, picture, greeting and instructions of the assistant in every chat."
     },
     "user": {
       "title": "You",
@@ -267,6 +268,18 @@
         "system_prompt": {
           "label": "System prompt",
           "help": "Added to every chat, after the chat's own prompt and the agent's instructions."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "A picture from your files. PNG, JPG, WebP, GIF or AVIF."
+        },
+        "greeting": {
+          "label": "Greeting",
+          "help": "The first line of the assistant in a new chat. It is shown, not sent to the model."
+        },
+        "emptyChat": {
+          "label": "Empty chat",
+          "help": "What a new chat shows above the message box."
         }
       },
       "user": {
@@ -320,6 +333,20 @@
         "chatBackground": {
           "label": "Chat background",
           "help": "A colour, a gradient or a picture from your files behind your chats. Other pages stay as they are."
+        },
+        "look": {
+          "label": "Look",
+          "help": "Font, corners, messages and code, from fixed lists."
+        },
+        "strings": {
+          "label": "Text",
+          "help": "Only the keys listed here can change."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Headline",
+          "help": "Empty keeps the greeting of the time of day."
         }
       }
     },
@@ -408,6 +435,95 @@
           "chat": "There are no chats to add."
         }
       }
+    },
+    "blocked": "Fix the marked values to save.",
+    "storedIn": "Stored in",
+    "placeholders": {
+      "unknown_one": "{{names}} is not a placeholder of this text.",
+      "unknown_other": "{{names}} are not placeholders of this text.",
+      "unknownUse_one": "{{names}} is not a placeholder of this text. Use {{use}}.",
+      "unknownUse_other": "{{names}} are not placeholders of this text. Use {{use}}.",
+      "none_one": "{{names}} is not a placeholder. This text takes none.",
+      "none_other": "{{names}} are not placeholders. This text takes none.",
+      "brace": "A brace has no pair. Write a placeholder as {name}.",
+      "hint": "Placeholders you can use",
+      "insert": "Insert this placeholder"
+    },
+    "avatar": {
+      "path": "Path of the picture",
+      "remove": "Remove",
+      "bad": "Use a picture in your files: a path without a leading slash and without .., ending in .png, .jpg, .jpeg, .webp, .gif or .avif."
+    },
+    "emptyChat": {
+      "title": "Headline",
+      "subtitle": "Line under the headline",
+      "titleSample": "Ask me anything",
+      "subtitleSample": "Say what you need.",
+      "showShortcuts": "Show my shortcuts above the message box"
+    },
+    "look": {
+      "font": {
+        "label": "Font",
+        "default": "Geist, default",
+        "system": "System",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Corners",
+        "sharp": "Sharp",
+        "soft": "Soft",
+        "round": "Round"
+      },
+      "bubble": {
+        "label": "Message style",
+        "card": "Card",
+        "filled": "Filled",
+        "tinted": "Tinted",
+        "outline": "Outline",
+        "plain": "Plain"
+      },
+      "messageWidth": {
+        "label": "Message width",
+        "narrow": "Narrow 640",
+        "medium": "Medium 760",
+        "wide": "Wide 920",
+        "full": "Full"
+      },
+      "codeTheme": {
+        "label": "Code colours",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Vivid",
+        "ink": "Ink"
+      },
+      "note": "Each value comes from a fixed list, and the accent must keep a readable contrast. There is no CSS box, so a look cannot hide or break a page."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Too faint: {{ratio}}:1 on {{mode}}",
+      "failLong": "This accent has a contrast of {{ratio}}:1 against the {{mode}} page and needs 4.5:1. LocalAI shows the default accent instead.",
+      "mode": {
+        "light": "light",
+        "dark": "dark"
+      }
+    },
+    "headline": {
+      "title": "Home headline",
+      "lede": "The big line at the top of Home."
+    },
+    "strings": {
+      "title": "Text",
+      "lede": "Your own words for a few labels. Security, permission and consent prompts keep theirs.",
+      "changed_one": "{{count}} changed",
+      "changed_other": "{{count}} changed",
+      "find": "Find a text",
+      "key": "Key",
+      "default": "Default",
+      "yours": "Your text",
+      "yoursFor": "Your text for {{key}}",
+      "same": "Same as default",
+      "hint": "Keep the placeholders of a text, such as {model}. A wrong one is flagged before you save. An empty box keeps the default."
     }
   },
   "discovery": {
@@ -876,5 +992,33 @@
     "stored": "Saved in your settings (the old default model of Appearance moves here)",
     "preview": "What is saved",
     "revert": "Revert to previous version"
+  },
+  "identity": {
+    "messageName": "Message {{name}}...",
+    "preview": {
+      "title": "Preview",
+      "home": "Home",
+      "newChat": "New chat",
+      "firstMessage": "First message",
+      "assistant": "Assistant",
+      "noGreeting": "No greeting set. A new chat starts empty."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Live preview",
+      "question": "Show me how to read a file in Python.",
+      "answer": "Open it with a context manager so it closes itself:",
+      "comment": "whole file",
+      "after": "For big files, loop over f line by line instead.",
+      "button": "Run it",
+      "box": "Message the assistant..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Preview",
+      "sidebar": "Sidebar"
+    }
   }
 }

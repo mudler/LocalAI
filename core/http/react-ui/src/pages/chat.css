@@ -37,7 +37,7 @@
   scrollbar-color: var(--dk-control-edge) transparent;
 }
 .cx-thread {
-  max-width: 760px;
+  max-width: var(--cx-width, 760px);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -82,7 +82,7 @@
 .cx-who--tool > .lai-icon { width: 15px; height: 15px; flex: none; }
 .cx-row { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .cx-prose {
-  max-width: 720px;
+  max-width: var(--cx-prose-width, 720px);
   font-size: 16px;
   line-height: 1.7;
   overflow-wrap: anywhere;
@@ -163,7 +163,7 @@
 /* Code blocks: language, Copy, Canvas. */
 .cx-page .code-block {
   margin: 0;
-  max-width: 720px;
+  max-width: var(--cx-prose-width, 720px);
   border: 0;
   border-radius: var(--dk-radius-2);
   background: var(--dk-inset);
@@ -271,7 +271,7 @@
    Motion: a fold body and a new step fade in from 4 px below; a finished
    step's spinner gives way to a check that scales in; the time fades in.
    Transform and opacity only; @starting-style, so no keyframes. */
-.cx-fold { max-width: 720px; }
+.cx-fold { max-width: var(--cx-prose-width, 720px); }
 .cx-fold__head {
   display: inline-flex;
   align-items: center;
@@ -617,7 +617,7 @@ button.cx-step__head:hover,
 
 /* ---- The dock: the Home command bar under the thread ------------------------ */
 .cx-dock { flex: none; padding: 6px 24px 10px; }
-.cx-dock__in { max-width: 760px; margin: 0 auto; position: relative; }
+.cx-dock__in { max-width: var(--cx-width, 760px); margin: 0 auto; position: relative; }
 .cx-dock .home-cmd__top { flex-wrap: wrap; }
 .cx-dock .home-textarea { min-height: 52px; max-height: 220px; }
 /* The dock sits at the bottom of the page, so its menus open upward. */
@@ -1109,7 +1109,7 @@ button.cx-step__head:hover,
   align-items: center;
   gap: 8px;
   width: calc(100% - 48px);
-  max-width: 760px;
+  max-width: var(--cx-width, 760px);
   margin: 0 auto 6px;
   padding: 6px 6px 6px 12px;
   border-radius: var(--dk-radius-2);
@@ -1169,10 +1169,10 @@ button.cx-step__head:hover,
 .cx-conv[data-empty] .home-menu,
 .cx-conv[data-empty] .chat-mcp-dropdown-menu { top: calc(100% + 6px); bottom: auto; }
 .cx-conv[data-empty] .dk-cmdlist.home-slash { top: calc(100% + 6px); bottom: auto; }
-.cx-empty { max-width: 760px; margin: 0 auto; display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; }
+.cx-empty { max-width: var(--cx-width, 760px); margin: 0 auto; display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; }
 .cx-empty h1 { margin: 0; font-family: var(--font-sans); font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1.2; }
 .cx-empty__name { color: var(--dk-muted); font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
-.cx-under { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 24px 40px; }
+.cx-under { max-width: var(--cx-width, 760px); width: 100%; margin: 0 auto; padding: 0 24px 40px; }
 .cx-empty__text { margin: 0 0 12px; color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .cx-starters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
 .cx-starters__label { margin-right: 4px; color: var(--dk-muted); font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
@@ -2148,3 +2148,14 @@ html[data-handoff='fade']::view-transition-new(root) {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
+
+/* The assistant of persona.json: its name before the model in a reply, and
+   its picture, headline and greeting in an empty chat. */
+.cx-who b.cx-who__name { font-family: var(--font-sans); }
+.cx-who__model { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-muted); }
+.cx-empty--identity { align-items: center; }
+.cx-empty__sub { flex-basis: 100%; margin: 0; color: var(--color-text-secondary); font-size: var(--fs-body); line-height: var(--lh-body); }
+.cx-greeting { flex-basis: 100%; display: flex; align-items: flex-start; gap: var(--sp-3); margin-top: var(--sp-2); }
+.cx-greeting .wk-avatar { margin-top: 2px; }
+.cx-greeting b { display: block; font-size: var(--fs-small); color: var(--dk-text); }
+.cx-greeting p { margin: 2px 0 0; font-family: var(--cx-font, var(--font-sans)); font-size: var(--fs-lead); line-height: 1.6; color: var(--dk-text); }

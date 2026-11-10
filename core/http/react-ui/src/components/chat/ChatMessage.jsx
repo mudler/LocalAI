@@ -17,6 +17,8 @@ import Icon from '../Icon'
 import { SenderLine } from './ConnectorChat'
 // eslint-disable-next-line no-unused-vars
 import AddonSlot from '../../addons/AddonSlot'
+// eslint-disable-next-line no-unused-vars
+import { AssistantAvatar } from '../wellknown/Identity'
 
 // Assistant prose. The HTML string is memoised, so React leaves the node alone
 // while the page re-renders for other reasons (polling, streaming elsewhere):
@@ -80,6 +82,21 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onS
   )
 }
 
+// Who is the line above a reply: whether the model is loaded and its name.
+// With an identity (the name or the picture of persona.json) it shows the
+// assistant first and the model after it, smaller.
+function Who({ model, warm, identity }) {
+  const named = identity && (identity.name || identity.avatar)
+  return (
+    <div className="cx-who">
+      <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
+      {named && <AssistantAvatar avatar={identity.avatar} name={identity.name} size="xs" testId="chat-assistant-avatar" />}
+      {named && identity.name && <b className="cx-who__name" data-testid="chat-assistant-name">{identity.name}</b>}
+      {model && (named ? <span className="cx-who__model">{model}</span> : <b>{model}</b>)}
+    </div>
+  )
+}
+
 // One message. The reader's messages are raised blocks on the right, the
 // model's are plain prose with its name above. Actions show on hover, on focus
 // and on the last message; the message itself takes focus so the arrow keys and
@@ -87,7 +104,7 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onS
 // replaces your message and runs the chat again from it, Regenerate answers the
 // last message again, and Branch copies the chat up to the message into a new one.
 function ChatMessage({
-  msg, isLast, model, warm, busy, activityItems, proposalItems, actions, conversationId, canRegenerate, proposalTick,
+  msg, isLast, model, warm, busy, activityItems, proposalItems, actions, conversationId, canRegenerate, proposalTick, identity,
 }) {
   const { t } = useTranslation('chat')
   const isUser = msg.role === 'user'
@@ -139,14 +156,9 @@ function ChatMessage({
       data-handoff={msg.handoff || undefined}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      aria-label={isUser ? t('message.you') : (model || t('message.assistant'))}
+      aria-label={isUser ? t('message.you') : (identity?.name || model || t('message.assistant'))}
     >
-      {isAssistant && (
-        <div className="cx-who">
-          <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
-          {model && <b>{model}</b>}
-        </div>
-      )}
+      {isAssistant && <Who model={model} warm={warm} identity={identity} />}
       {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} withProposals={false} />}
 
       {isUser && draft !== null ? (
@@ -240,15 +252,12 @@ export function ProposalsRow({ items, proposalTick }) {
 // The reply while it is still coming: the activity line, the prose so far with a
 // caret at its end, and, before anything has arrived, whatever the page says
 // the model is waiting for (a load card, or quiet dots).
-export function StreamingTurn({ model, warm, content, reasoning, toolCalls, waiting }) {
+export function StreamingTurn({ model, warm, content, reasoning, toolCalls, waiting, identity }) {
   const html = useMemo(() => (content ? renderMarkdown(content) : ''), [content])
   const idle = !content && !reasoning && toolCalls.length === 0
   return (
     <article className="cx-msg cx-msg--model" data-testid="chat-streaming" aria-busy="true">
-      <div className="cx-who">
-        <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
-        {model && <b>{model}</b>}
-      </div>
+      <Who model={model} warm={warm} identity={identity} />
       <StreamingActivity reasoning={reasoning} toolCalls={toolCalls} hasResponse={!!content} />
       {content && <Prose html={html} className="cx-prose--live" />}
       {idle && waiting}

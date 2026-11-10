@@ -5,6 +5,7 @@
 // No browser globals at import time, so the node unit tests load it.
 
 import { pageLinkTarget } from './pageLinks.js'
+import { templateProblem, avatarPath, STRING_KEYS } from './look.js'
 
 // SETTINGS_DIR is the folder of the home that holds the settings files.
 export const SETTINGS_DIR = 'LocalAI'
@@ -176,6 +177,10 @@ export function fieldsFromSchema(schema) {
       maxLength: typeof p.maxLength === 'number' ? p.maxLength : undefined,
       pattern: typeof p.pattern === 'string' ? p.pattern : undefined,
       required: required.has(key),
+      // The placeholders a text may use, and the contrast an accent must keep.
+      placeholders: Array.isArray(p['x-placeholders']) ? p['x-placeholders'] : undefined,
+      contrast: typeof ui.contrast === 'number' ? ui.contrast : undefined,
+      properties: p.properties && typeof p.properties === 'object' ? p.properties : undefined,
     })
   }
   return out
@@ -185,12 +190,44 @@ export function fieldsFromSchema(schema) {
 // wrong before the save. The server validates again with the full schema.
 export function checkField(field, value) {
   if (value === undefined || value === null || value === '') return field.required ? 'required' : ''
+  const objectProblem = checkObjectField(field, value)
+  if (objectProblem !== null) return objectProblem
   if (field.maxLength !== undefined && String(value).length > field.maxLength) return 'tooLong'
   if (field.pattern) {
     try { if (!new RegExp(field.pattern).test(String(value))) return 'format' } catch { /* the server decides */ }
   }
   if (field.options && !field.options.includes(value)) return 'format'
+  if (field.placeholders && templateProblem(String(value), field.placeholders)) return 'placeholder'
+  if (field.widget === 'avatar' && !avatarPath(value)) return 'format'
   return ''
+}
+
+// checkObjectField checks the fields whose value is an object: the empty chat
+// of persona.json (its texts and their placeholders) and the text overrides of
+// ui.json (keys on the allow-list, placeholders of each key). It answers null
+// for any other field, so checkField goes on.
+function checkObjectField(field, value) {
+  if (field.widget === 'emptyChat') {
+    if (typeof value !== 'object' || Array.isArray(value)) return 'format'
+    for (const k of ['title', 'subtitle']) {
+      const v = value[k]
+      if (v === undefined || v === '') continue
+      const max = field.properties?.[k]?.maxLength
+      if (typeof v !== 'string') return 'format'
+      if (max && v.length > max) return 'tooLong'
+      if (templateProblem(v, field.properties?.[k]?.['x-placeholders'] || [])) return 'placeholder'
+    }
+    return ''
+  }
+  if (field.widget === 'strings') {
+    if (typeof value !== 'object' || Array.isArray(value)) return 'format'
+    for (const [k, v] of Object.entries(value)) {
+      if (!(k in STRING_KEYS) || typeof v !== 'string') return 'format'
+      if (templateProblem(v, STRING_KEYS[k])) return 'placeholder'
+    }
+    return ''
+  }
+  return null
 }
 
 // changedValues returns what a save sends: the fields whose value differs from

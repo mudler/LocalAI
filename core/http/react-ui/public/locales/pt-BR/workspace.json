@@ -26,7 +26,8 @@
     "check": {
       "required": "Obrigatório.",
       "tooLong": "No máximo {{max}} caracteres.",
-      "format": "Este valor está com o formato errado."
+      "format": "Este valor está com o formato errado.",
+      "placeholder": "Um marcador deste texto não está correto."
     },
     "source": {
       "label": "Origem",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "Assistente",
-      "lede": "Nome e instruções que o assistente usa em todos os chats."
+      "lede": "Nome, imagem, saudação e instruções do assistente em cada chat."
     },
     "user": {
       "title": "Você",
@@ -169,6 +170,18 @@
         "system_prompt": {
           "label": "Prompt do sistema",
           "help": "Adicionado a todos os chats, depois do prompt do chat e das instruções do agente."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Uma imagem dos seus arquivos. PNG, JPG, WebP, GIF ou AVIF."
+        },
+        "greeting": {
+          "label": "Saudação",
+          "help": "A primeira linha do assistente em um chat novo. É mostrada, não enviada ao modelo."
+        },
+        "emptyChat": {
+          "label": "Chat vazio",
+          "help": "O que um chat novo mostra acima da caixa de mensagem."
         }
       },
       "user": {
@@ -222,6 +235,20 @@
         "chatBackground": {
           "label": "Plano de fundo do chat",
           "help": "Uma cor, um gradiente ou uma imagem dos seus arquivos atrás dos seus chats. As outras páginas não mudam."
+        },
+        "look": {
+          "label": "Visual",
+          "help": "Fonte, cantos, mensagens e código, de listas fixas."
+        },
+        "strings": {
+          "label": "Textos",
+          "help": "Só as chaves desta lista podem mudar."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Título",
+          "help": "Vazio mantém a saudação conforme a hora do dia."
         }
       }
     },
@@ -310,6 +337,95 @@
           "chat": "Não há chats para adicionar."
         }
       }
+    },
+    "blocked": "Corrija os valores marcados para salvar.",
+    "storedIn": "Salvo em",
+    "placeholders": {
+      "unknown_one": "{{names}} não é um marcador deste texto.",
+      "unknown_other": "{{names}} não são marcadores deste texto.",
+      "unknownUse_one": "{{names}} não é um marcador deste texto. Use {{use}}.",
+      "unknownUse_other": "{{names}} não são marcadores deste texto. Use {{use}}.",
+      "none_one": "{{names}} não é um marcador. Este texto não aceita nenhum.",
+      "none_other": "{{names}} não são marcadores. Este texto não aceita nenhum.",
+      "brace": "Uma chave não tem par. Escreva um marcador como {name}.",
+      "hint": "Marcadores que você pode usar",
+      "insert": "Inserir este marcador"
+    },
+    "avatar": {
+      "path": "Caminho da imagem",
+      "remove": "Remover",
+      "bad": "Use uma imagem dos seus arquivos: um caminho sem barra inicial e sem .., terminando em .png, .jpg, .jpeg, .webp, .gif ou .avif."
+    },
+    "emptyChat": {
+      "title": "Título",
+      "subtitle": "Linha abaixo do título",
+      "titleSample": "Pergunte o que quiser",
+      "subtitleSample": "Diga o que você precisa.",
+      "showShortcuts": "Mostrar meus atalhos acima da caixa de mensagem"
+    },
+    "look": {
+      "font": {
+        "label": "Fonte",
+        "default": "Geist, padrão",
+        "system": "Sistema",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Cantos",
+        "sharp": "Retos",
+        "soft": "Suaves",
+        "round": "Arredondados"
+      },
+      "bubble": {
+        "label": "Estilo das mensagens",
+        "card": "Cartão",
+        "filled": "Preenchido",
+        "tinted": "Tingido",
+        "outline": "Contorno",
+        "plain": "Simples"
+      },
+      "messageWidth": {
+        "label": "Largura das mensagens",
+        "narrow": "Estreita 640",
+        "medium": "Média 760",
+        "wide": "Larga 920",
+        "full": "Inteira"
+      },
+      "codeTheme": {
+        "label": "Cores do código",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Vivas",
+        "ink": "Tinta"
+      },
+      "note": "Cada valor vem de uma lista fixa e a cor de destaque precisa manter um contraste legível. Não há caixa de CSS, então um visual não pode esconder nem quebrar uma página."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Fraca demais: {{ratio}}:1 no tema {{mode}}",
+      "failLong": "Esta cor de destaque tem contraste de {{ratio}}:1 com a página {{mode}} e precisa de 4,5:1. O LocalAI mostra a cor padrão no lugar.",
+      "mode": {
+        "light": "claro",
+        "dark": "escuro"
+      }
+    },
+    "headline": {
+      "title": "Título do Início",
+      "lede": "A linha grande no topo do Início."
+    },
+    "strings": {
+      "title": "Textos",
+      "lede": "Suas próprias palavras para alguns rótulos. Avisos de segurança, permissão e consentimento mantêm os deles.",
+      "changed_one": "{{count}} alterado",
+      "changed_other": "{{count}} alterados",
+      "find": "Buscar um texto",
+      "key": "Chave",
+      "default": "Padrão",
+      "yours": "Seu texto",
+      "yoursFor": "Seu texto para {{key}}",
+      "same": "Igual ao padrão",
+      "hint": "Mantenha os marcadores de um texto, como {model}. Um errado é marcado antes de salvar. Uma caixa vazia mantém o padrão."
     }
   },
   "discovery": {
@@ -855,5 +971,33 @@
     "stored": "Salvo nas suas configurações (o antigo modelo padrão de Aparência passa para cá)",
     "preview": "O que está salvo",
     "revert": "Voltar à versão anterior"
+  },
+  "identity": {
+    "messageName": "Mensagem para {{name}}...",
+    "preview": {
+      "title": "Prévia",
+      "home": "Início",
+      "newChat": "Novo chat",
+      "firstMessage": "Primeira mensagem",
+      "assistant": "Assistente",
+      "noGreeting": "Nenhuma saudação definida. Um chat novo começa vazio."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Prévia ao vivo",
+      "question": "Mostre como ler um arquivo em Python.",
+      "answer": "Abra com um gerenciador de contexto para que ele feche sozinho:",
+      "comment": "arquivo inteiro",
+      "after": "Para arquivos grandes, percorra f linha por linha.",
+      "button": "Executar",
+      "box": "Mensagem para o assistente..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Prévia",
+      "sidebar": "Barra lateral"
+    }
   }
 }

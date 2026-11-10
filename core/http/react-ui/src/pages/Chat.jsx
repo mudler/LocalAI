@@ -101,6 +101,7 @@ import { chatAddress, seqOfSearch } from '../utils/chatSearch'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import BackgroundLayer from '../components/wellknown/BackgroundLayer'
+import { useIdentity, useUiString } from '../components/wellknown/Identity'
 // eslint-disable-next-line no-unused-vars
 import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
 import { turnChanges, describeChanges, liveTurns } from '../utils/changeNotes'
@@ -144,6 +145,10 @@ function ChatPage() {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const { t: tw } = useTranslation('workspace')
+  // How the assistant shows itself (persona.json) and the text overrides of
+  // ui.json: shared copies of the files, live through the change feed.
+  const identity = useIdentity()
+  const uiString = useUiString()
   const { user, isAdmin, hasFeature } = useAuth()
   const canAgents = hasFeature('agents')
   const { operations } = useOperations()
@@ -965,6 +970,13 @@ function ChatPage() {
   const noModel = !activeId && !chatModelsLoading && chatModels.length === 0 && !pickedAgent?.model
   const conversations = isEmpty ? resumeItems(chat.chats.filter(c => c.id !== activeId && c.id !== pendingDelete?.id)).slice(0, 8) : []
   const manage = Boolean(activeChat?.assistant)
+  // The identity of persona.json is the user's own assistant. An agent and
+  // the LocalAI assistant of Manage keep their own name.
+  const ownAssistant = !manage && !(activeId ? activeChat?.agent_id : pickedAgent)
+  const shownIdentity = useMemo(
+    () => (ownAssistant && (identity.name || identity.avatar) ? { name: identity.name, avatar: identity.avatar } : null),
+    [ownAssistant, identity.name, identity.avatar],
+  )
 
   // The sub-agents of a chat: a chip after Skills.
   const subAgents = activeId && <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
@@ -1012,7 +1024,7 @@ function ChatPage() {
   )
 
   const moreItems = [
-    { key: 'new', icon: 'plus', label: t('menu.newChat'), onClick: () => navigate('/app') },
+    { key: 'new', icon: 'plus', label: uiString('nav.newChat', t('menu.newChat')), onClick: () => navigate('/app') },
     { key: 'rename', icon: 'pencil', label: t('menu.rename'), hidden: !activeId, onClick: () => setRenaming(true) },
     { key: 'copy', icon: 'clipboard', label: t('menu.copyChat'), hidden: !hasThread, onClick: () => copyChat(activeId) },
     { key: 'export', icon: 'export', label: t('menu.exportMarkdown'), hidden: !hasThread, onClick: () => exportChat(activeId) },
@@ -1182,7 +1194,7 @@ function ChatPage() {
   const footModel = chat.usage?.model || model
   const footBackend = loadedModels.find(m => m.id === footModel)?.backend || ''
   const placeholder = effectiveModel
-    ? (chat.running ? t('input.placeholderQueue') : t('input.placeholderModel', { model: effectiveModel }))
+    ? (chat.running ? t('input.placeholderQueue') : uiString('composer.placeholder', t('input.placeholderModel', { model: effectiveModel }), { model: effectiveModel }))
     : (noModel ? t('input.placeholderNoModel') : t('input.placeholderPick'))
 
   return (
@@ -1258,7 +1270,14 @@ function ChatPage() {
 
         <div className="cx-stage">
           <div className="cx-body" ref={messagesRef}>
-            {isEmpty && <EmptyHead name={activeId ? title : (pickedAgent?.name || '')} manage={manage} />}
+            {isEmpty && (
+              <EmptyHead
+                name={activeId ? title : (pickedAgent?.name || '')}
+                manage={manage}
+                identity={ownAssistant ? identity : null}
+                fallbackTitle={uiString('chat.empty.title', '')}
+              />
+            )}
             {needsAgent && <div className="cx-agent-needs"><AgentNeedsNotice agentId={needsAgent} /></div>}
             <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
               <EgressCardsContext.Provider value={egressCards}>
@@ -1285,6 +1304,7 @@ function ChatPage() {
                     conversationId={activeId}
                     canRegenerate={!chat.running && row.key === lastAnswerKey}
                     proposalTick={chat.ticks.proposals}
+                    identity={shownIdentity}
                   />,
                   changeNoteFor(row),
                   fileChipsFor(row),
@@ -1295,6 +1315,7 @@ function ChatPage() {
 
               {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
                 <StreamingTurn
+                  identity={shownIdentity}
                   model={model}
                   warm={modelWarm}
                   content={streaming.text}
@@ -1401,7 +1422,7 @@ function ChatPage() {
                 <Icon name="alert-circle" /> {t('connection.lost')}
               </p>
             )}
-            {!noModel && (
+            {!noModel && !(isEmpty && ownAssistant && !identity.showShortcuts) && (
               <ShortcutsRow
                 starters={manage ? t('empty.suggestionsManage', { returnObjects: true }) : undefined}
                 filesOn={chat.files.on && !manage}
