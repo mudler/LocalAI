@@ -1,0 +1,20 @@
+{{ define "main" }}
+<main id="main">
+<section class="lost"><div class="shell">
+  <img class="mascot" src="{{ "img/scenes/scene-s9-close.jpg" | relURL }}" width="1024" height="576" alt="The LocalAI llama in teal sunglasses, standing in warm sunlight.">
+  <p class="kicker">Error 404</p>
+  <h1>This page went <span class="hl">missing</span>.</h1>
+  <p class="lede">The link may be old, or the page may have moved. Search the documentation, or start from one of these.</p>
+  <form action="{{ .Site.Params.docsURL }}" method="get" role="search">
+    <label class="vh" for="q404">Search the documentation</label>
+    <input id="q404" type="search" name="search-by" placeholder="Search the documentation" autocomplete="off">
+    <button class="btn" type="submit">Search</button>
+  </form>
+  <div class="acts">
+    <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
+    <a class="btn btn--o" href="{{ .Site.Params.docsURL }}">Docs home</a>
+    <a class="btn btn--o" href="{{ .Site.Home.RelPermalink }}">Home</a>
+  </div>
+</div></section>
+</main>
+{{ end }}
