@@ -315,7 +315,8 @@
       "offersOff": "Saran dari asisten dimatikan.",
       "undoing": "Mengurungkan…",
       "undone": "Diurungkan.",
-      "undoFailed": "Tidak diurungkan: {{message}}"
+      "undoFailed": "Tidak diurungkan: {{message}}",
+      "defaults": "Model bawaan Anda sudah disimpan. Asisten memakainya mulai pesan berikutnya."
     },
     "toast": {
       "shortcutAdded": "Ditambahkan ke kotak pesanmu: {{label}}",
@@ -522,7 +523,8 @@
       "user": "Asisten melupakan apa yang Anda ceritakan tentang diri Anda, dan jawaban Anda atas tawarannya.",
       "shortcuts": "Kotak pesan kembali menampilkan pintasan bawaan.",
       "home": "Beranda kehilangan widgetnya.",
-      "ui": "Tema, warna aksen, kepadatan, model bawaan, dan halaman yang disematkan kembali ke bawaan."
+      "ui": "Tema, warna aksen, kepadatan, model bawaan, dan halaman yang disematkan kembali ke bawaan.",
+      "defaults": "Model bawaan Anda terlupakan. Alat kembali memilih sendiri model yang terpasang."
     }
   },
   "newFile": "File baru",
@@ -738,5 +740,66 @@
     "writeHelp": "Mereka juga dapat menambah, mengubah, dan menghapus berkas di sini.",
     "failed": "Tidak dapat membuka berbagi: {{message}}",
     "lost": "Anda tidak dapat lagi membagikan folder ini di sini."
+  },
+  "defaults": {
+    "lede": "Satu model untuk tiap jenis pekerjaan. Anda bisa memilih model lain untuk satu permintaan saja.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Dipakai untuk: chat baru, judul chat, ringkasan"
+      },
+      "image": {
+        "label": "Pembuatan gambar",
+        "use": "Dipakai untuk: “gambar”, “buat gambar”, halaman Gambar"
+      },
+      "tts": {
+        "label": "Teks ke suara",
+        "use": "Dipakai untuk: membacakan, “ucapkan ini”, balasan suara"
+      },
+      "stt": {
+        "label": "Suara ke teks",
+        "use": "Dipakai untuk: dikte, mikrofon, file audio"
+      },
+      "embeddings": {
+        "label": "Embedding",
+        "use": "Dipakai untuk: pencarian Pengetahuan, pencarian file"
+      },
+      "video": {
+        "label": "Pembuatan video",
+        "use": "Dipakai untuk: “buat klip pendek”, halaman Video"
+      },
+      "rerank": {
+        "label": "Reranking",
+        "use": "Dipakai untuk: mengurutkan hasil Pengetahuan"
+      },
+      "vision": {
+        "label": "Pemahaman gambar",
+        "use": "Dipakai untuk: gambar yang Anda lampirkan ke chat"
+      }
+    },
+    "automatic": "Otomatis (yang pertama terpasang)",
+    "asking": "Bertanya setiap kali",
+    "modeLabel": "Pilihan untuk {{kind}}",
+    "mode": {
+      "default": "Bawaan",
+      "ask": "Tanya setiap kali"
+    },
+    "noModel": "Belum ada model",
+    "notInstalled": "Belum terpasang",
+    "installOne": "Pasang satu",
+    "missing": "Model ini tidak terpasang lagi. Asisten akan bertanya model mana yang dipakai sampai Anda memilih yang lain.",
+    "fromOld": "Diatur sebelum halaman ini ada. Pilih model di sini untuk menyimpannya sebagai bawaan.",
+    "modelsFailed": "Daftar model terpasang tidak termuat. Muat ulang halaman untuk mencoba lagi.",
+    "help": {
+      "title": "Asisten membaca pengaturan bawaan Anda",
+      "body": "Saat Anda mengatakan “gambar seekor rubah” atau “bacakan ini”, asisten memeriksa pengaturan bawaan Anda lebih dulu dan memakai model yang tercatat untuk jenis pekerjaan itu.",
+      "example": "Gambar seekor rubah di salju",
+      "tool": "memeriksa bawaan › image",
+      "used": "Memakai <code>{{model}}</code>, model bawaan Anda untuk gambar.",
+      "exampleModel": "model gambar Anda"
+    },
+    "stored": "Disimpan di pengaturan Anda (model bawaan lama dari Tampilan pindah ke sini)",
+    "preview": "Yang tersimpan",
+    "revert": "Kembali ke versi sebelumnya"
   }
 }

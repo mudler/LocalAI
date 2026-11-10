@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { setPreferredModel } from '../../utils/lastModel'
+import { chatStartModel } from '../../utils/defaults'
 import './wellKnown.css'
 
 function systemTheme() {
@@ -10,7 +11,7 @@ function systemTheme() {
 }
 
 // applyAppearance puts the values of ui.json on the page: the theme, the
-// accent colour, the density and the default model. Keys that are absent
+// accent colour and the density. Keys that are absent
 // leave the page as it is, so a missing file changes nothing.
 export function applyAppearance(ui, setTheme) {
   const v = ui || {}
@@ -28,7 +29,6 @@ export function applyAppearance(ui, setTheme) {
   }
   if (v.density === 'compact') root.setAttribute('data-density', 'compact')
   else root.removeAttribute('data-density')
-  setPreferredModel(v.defaultModel || '')
 }
 
 // AppearanceSync applies the user's ui.json when the app starts and whenever
@@ -38,11 +38,18 @@ export default function AppearanceSync() {
   const { hasFeature } = useAuth()
   const on = !hasFeature || hasFeature('chats')
   const { doc } = useWellKnown('ui', { enabled: on })
+  const { doc: defaults } = useWellKnown('defaults', { enabled: on })
   const applied = useRef(null)
   useEffect(() => {
     if (!doc || applied.current === doc.version) return
     applied.current = doc.version
     applyAppearance(doc.data, setTheme)
   }, [doc, setTheme])
+  // The model a new chat starts with: the chat default of defaults.json, or
+  // the older defaultModel of ui.json when that file has none.
+  useEffect(() => {
+    if (!doc || !defaults) return
+    setPreferredModel(chatStartModel(defaults.data, doc.data))
+  }, [doc, defaults])
   return null
 }

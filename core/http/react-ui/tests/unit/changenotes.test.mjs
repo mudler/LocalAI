@@ -52,6 +52,7 @@ test('change notes: what a turn says, by file', () => {
   assert.equal(sc.notes[0].toast, 'shortcut')
   assert.equal(describeChanges([{ rev: 1, paths: ['/LocalAI/home.json'] }]).notes[0].toast, 'home')
   assert.equal(describeChanges([{ rev: 1, paths: ['/LocalAI/ui.json'] }]).notes[0].key, 'ui')
+  assert.deepEqual(describeChanges([{ rev: 1, paths: ['/LocalAI/defaults.json'] }]).notes, [{ key: 'defaults', action: 'defaults' }])
 
   // A page created in this turn, then changed in a later one.
   const seen = new Set()

@@ -315,7 +315,8 @@
       "offersOff": "As sugestões do assistente estão desativadas.",
       "undoing": "Desfazendo…",
       "undone": "Desfeito.",
-      "undoFailed": "Não desfeito: {{message}}"
+      "undoFailed": "Não desfeito: {{message}}",
+      "defaults": "Salvei seus modelos padrão. O assistente os usa a partir da sua próxima mensagem."
     },
     "toast": {
       "shortcutAdded": "Adicionado à sua caixa de mensagem: {{label}}",
@@ -522,7 +523,8 @@
       "user": "O assistente esquece o que você contou sobre você e suas respostas às ofertas dele.",
       "shortcuts": "A caixa de mensagem volta a mostrar os atalhos padrão.",
       "home": "O Início perde seus widgets.",
-      "ui": "Tema, cor de destaque, densidade, modelo padrão e páginas fixadas voltam ao padrão."
+      "ui": "Tema, cor de destaque, densidade, modelo padrão e páginas fixadas voltam ao padrão.",
+      "defaults": "Seus modelos padrão são esquecidos. As ferramentas voltam a escolher sozinhas um modelo instalado."
     }
   },
   "newFile": "Novo arquivo",
@@ -738,5 +740,66 @@
     "writeHelp": "Elas também podem adicionar, alterar e excluir arquivos aqui.",
     "failed": "Não foi possível abrir o compartilhamento: {{message}}",
     "lost": "Você não pode mais compartilhar esta pasta aqui."
+  },
+  "defaults": {
+    "lede": "Um modelo para cada tipo de tarefa. Você pode escolher outro para uma única solicitação.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Usado para: novos chats, títulos de chat, resumos"
+      },
+      "image": {
+        "label": "Geração de imagens",
+        "use": "Usado para: “desenhe”, “crie uma imagem”, a página Imagens"
+      },
+      "tts": {
+        "label": "Texto para fala",
+        "use": "Usado para: leitura em voz alta, “diga isto”, respostas em voz"
+      },
+      "stt": {
+        "label": "Fala para texto",
+        "use": "Usado para: ditado, o microfone, arquivos de áudio"
+      },
+      "embeddings": {
+        "label": "Embeddings",
+        "use": "Usado para: busca no Conhecimento, busca de arquivos"
+      },
+      "video": {
+        "label": "Geração de vídeo",
+        "use": "Usado para: “faça um clipe curto”, a página Vídeo"
+      },
+      "rerank": {
+        "label": "Reranking",
+        "use": "Usado para: ordenar os resultados do Conhecimento"
+      },
+      "vision": {
+        "label": "Compreensão de imagens",
+        "use": "Usado para: imagens que você anexa a um chat"
+      }
+    },
+    "automatic": "Automático (o primeiro instalado)",
+    "asking": "Pergunta sempre",
+    "modeLabel": "Escolha para {{kind}}",
+    "mode": {
+      "default": "Padrão",
+      "ask": "Perguntar sempre"
+    },
+    "noModel": "Nenhum modelo definido",
+    "notInstalled": "Não instalado",
+    "installOne": "Instalar um",
+    "missing": "Este modelo não está mais instalado. O assistente pergunta qual modelo usar até você escolher outro.",
+    "fromOld": "Definido antes de esta página existir. Escolha um modelo aqui para salvá-lo como padrão.",
+    "modelsFailed": "A lista de modelos instalados não carregou. Recarregue a página para tentar de novo.",
+    "help": {
+      "title": "O assistente lê seus padrões",
+      "body": "Quando você diz “desenhe uma raposa” ou “leia isto em voz alta”, o assistente consulta primeiro seus padrões e usa o modelo indicado para esse tipo de tarefa.",
+      "example": "Desenhe uma raposa na neve",
+      "tool": "padrões consultados › image",
+      "used": "Usando <code>{{model}}</code>, seu padrão para imagens.",
+      "exampleModel": "seu modelo de imagens"
+    },
+    "stored": "Salvo nas suas configurações (o antigo modelo padrão de Aparência passa para cá)",
+    "preview": "O que está salvo",
+    "revert": "Voltar à versão anterior"
   }
 }

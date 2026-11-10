@@ -315,7 +315,8 @@
       "offersOff": "I suggerimenti dell'assistente sono disattivati.",
       "undoing": "Annullamento…",
       "undone": "Annullato.",
-      "undoFailed": "Non annullato: {{message}}"
+      "undoFailed": "Non annullato: {{message}}",
+      "defaults": "Ho salvato i tuoi modelli predefiniti. L’assistente li usa dal tuo prossimo messaggio."
     },
     "toast": {
       "shortcutAdded": "Aggiunto alla tua casella di scrittura: {{label}}",
@@ -522,7 +523,8 @@
       "user": "L'assistente dimentica quello che gli hai detto di te e le tue risposte alle sue proposte.",
       "shortcuts": "Il campo di scrittura mostra di nuovo le scorciatoie predefinite.",
       "home": "La Home perde i suoi widget.",
-      "ui": "Tema, colore, densità, modello predefinito e pagine fissate tornano ai valori predefiniti."
+      "ui": "Tema, colore, densità, modello predefinito e pagine fissate tornano ai valori predefiniti.",
+      "defaults": "I tuoi modelli predefiniti vengono dimenticati. Gli strumenti tornano a scegliere da soli un modello installato."
     }
   },
   "newFile": "Nuovo file",
@@ -738,5 +740,66 @@
     "writeHelp": "Possono anche aggiungere, modificare ed eliminare file qui.",
     "failed": "Impossibile aprire la condivisione: {{message}}",
     "lost": "Non puoi più condividere questa cartella da qui."
+  },
+  "defaults": {
+    "lede": "Un modello per ogni tipo di lavoro. Per una singola richiesta puoi sceglierne un altro.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Usato per: nuove chat, titoli delle chat, riassunti"
+      },
+      "image": {
+        "label": "Generazione di immagini",
+        "use": "Usato per: «disegna», «crea un’immagine», la pagina Immagini"
+      },
+      "tts": {
+        "label": "Sintesi vocale",
+        "use": "Usato per: lettura ad alta voce, «dillo», risposte vocali"
+      },
+      "stt": {
+        "label": "Riconoscimento vocale",
+        "use": "Usato per: dettatura, il microfono, file audio"
+      },
+      "embeddings": {
+        "label": "Embedding",
+        "use": "Usato per: ricerca nella Conoscenza, ricerca di file"
+      },
+      "video": {
+        "label": "Generazione di video",
+        "use": "Usato per: «fai una breve clip», la pagina Video"
+      },
+      "rerank": {
+        "label": "Riordinamento",
+        "use": "Usato per: ordinare i risultati della Conoscenza"
+      },
+      "vision": {
+        "label": "Comprensione delle immagini",
+        "use": "Usato per: le immagini che alleghi a una chat"
+      }
+    },
+    "automatic": "Automatico (il primo installato)",
+    "asking": "Chiede ogni volta",
+    "modeLabel": "Scelta per {{kind}}",
+    "mode": {
+      "default": "Predefinito",
+      "ask": "Chiedi ogni volta"
+    },
+    "noModel": "Nessun modello impostato",
+    "notInstalled": "Non installato",
+    "installOne": "Installane uno",
+    "missing": "Questo modello non è più installato. L’assistente chiede quale modello usare finché non ne scegli un altro.",
+    "fromOld": "Impostato prima che esistesse questa pagina. Scegli qui un modello per salvarlo come predefinito.",
+    "modelsFailed": "L’elenco dei modelli installati non si è caricato. Ricarica la pagina per riprovare.",
+    "help": {
+      "title": "L’assistente legge i tuoi predefiniti",
+      "body": "Quando dici «disegna una volpe» o «leggi questo ad alta voce», l’assistente controlla prima i tuoi predefiniti e usa il modello indicato per quel tipo di lavoro.",
+      "example": "Disegna una volpe nella neve",
+      "tool": "predefiniti controllati › image",
+      "used": "Uso <code>{{model}}</code>, il tuo predefinito per le immagini.",
+      "exampleModel": "il tuo modello per le immagini"
+    },
+    "stored": "Salvato nelle tue impostazioni (il vecchio modello predefinito di Aspetto passa qui)",
+    "preview": "Ciò che è salvato",
+    "revert": "Torna alla versione precedente"
   }
 }

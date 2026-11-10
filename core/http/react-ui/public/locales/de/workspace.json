@@ -315,7 +315,8 @@
       "offersOff": "Vorschläge des Assistenten sind aus.",
       "undoing": "Wird rückgängig gemacht…",
       "undone": "Rückgängig gemacht.",
-      "undoFailed": "Nicht rückgängig gemacht: {{message}}"
+      "undoFailed": "Nicht rückgängig gemacht: {{message}}",
+      "defaults": "Deine Standardmodelle sind gespeichert. Der Assistent nutzt sie ab deiner nächsten Nachricht."
     },
     "toast": {
       "shortcutAdded": "Zu deinem Eingabefeld hinzugefügt: {{label}}",
@@ -522,7 +523,8 @@
       "user": "Der Assistent vergisst, was du ihm über dich gesagt hast, und deine Antworten auf seine Angebote.",
       "shortcuts": "Das Nachrichtenfeld zeigt wieder die Standard-Kurzbefehle.",
       "home": "Home verliert seine Widgets.",
-      "ui": "Design, Akzentfarbe, Dichte, Standardmodell und angeheftete Seiten kehren zu den Standardwerten zurück."
+      "ui": "Design, Akzentfarbe, Dichte, Standardmodell und angeheftete Seiten kehren zu den Standardwerten zurück.",
+      "defaults": "Deine Standardmodelle gehen verloren. Die Werkzeuge wählen wieder selbst ein installiertes Modell."
     }
   },
   "newFile": "Neue Datei",
@@ -738,5 +740,66 @@
     "writeHelp": "Sie können hier außerdem Dateien hinzufügen, ändern und löschen.",
     "failed": "Freigabe konnte nicht geöffnet werden: {{message}}",
     "lost": "Du kannst diesen Ordner hier nicht mehr teilen."
+  },
+  "defaults": {
+    "lede": "Ein Modell pro Art von Aufgabe. Für eine einzelne Anfrage kannst du ein anderes wählen.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Verwendet für: neue Chats, Chat-Titel, Zusammenfassungen"
+      },
+      "image": {
+        "label": "Bilderzeugung",
+        "use": "Verwendet für: „zeichne“, „erstelle ein Bild“, die Seite Bilder"
+      },
+      "tts": {
+        "label": "Text zu Sprache",
+        "use": "Verwendet für: Vorlesen, „sag das“, Sprachantworten"
+      },
+      "stt": {
+        "label": "Sprache zu Text",
+        "use": "Verwendet für: Diktat, das Mikrofon, Audiodateien"
+      },
+      "embeddings": {
+        "label": "Embeddings",
+        "use": "Verwendet für: Wissenssuche, Dateisuche"
+      },
+      "video": {
+        "label": "Videoerzeugung",
+        "use": "Verwendet für: „mach einen kurzen Clip“, die Seite Video"
+      },
+      "rerank": {
+        "label": "Reranking",
+        "use": "Verwendet für: Sortieren von Wissensergebnissen"
+      },
+      "vision": {
+        "label": "Bildverständnis",
+        "use": "Verwendet für: Bilder, die du an einen Chat anhängst"
+      }
+    },
+    "automatic": "Automatisch (zuerst installiertes)",
+    "asking": "Fragt jedes Mal",
+    "modeLabel": "Auswahl für {{kind}}",
+    "mode": {
+      "default": "Standard",
+      "ask": "Jedes Mal fragen"
+    },
+    "noModel": "Kein Modell festgelegt",
+    "notInstalled": "Nicht installiert",
+    "installOne": "Eines installieren",
+    "missing": "Dieses Modell ist nicht mehr installiert. Der Assistent fragt, welches Modell er nehmen soll, bis du ein anderes wählst.",
+    "fromOld": "Gesetzt, bevor es diese Seite gab. Wähle hier ein Modell, um es als Standard zu speichern.",
+    "modelsFailed": "Die Liste der installierten Modelle wurde nicht geladen. Lade die Seite neu und versuche es erneut.",
+    "help": {
+      "title": "Der Assistent liest deine Standards",
+      "body": "Wenn du „zeichne einen Fuchs“ oder „lies das vor“ sagst, prüft der Assistent zuerst deine Standards und nimmt das Modell, das für diese Art von Aufgabe eingetragen ist.",
+      "example": "Zeichne einen Fuchs im Schnee",
+      "tool": "Standards geprüft › image",
+      "used": "Verwendet <code>{{model}}</code>, dein Standard für Bilder.",
+      "exampleModel": "dein Bildmodell"
+    },
+    "stored": "In deinen Einstellungen gespeichert (das alte Standardmodell aus Darstellung wird hierher übernommen)",
+    "preview": "Was gespeichert ist",
+    "revert": "Auf vorherige Version zurücksetzen"
   }
 }

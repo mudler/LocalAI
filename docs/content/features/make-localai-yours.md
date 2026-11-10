@@ -24,6 +24,7 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `LocalAI/user.json` |
 | Shortcuts in the message box | "Make this a shortcut" | `LocalAI/shortcuts.json` |
 | Saved setups of a new chat | "Save this as a setup called Coding" | `LocalAI/setups.json` |
+| The model for pictures, speech and other work | "Use kokoro for speech from now on" | `LocalAI/defaults.json` |
 | The widgets on Home | "Show my open tasks on Home" | `LocalAI/home.json` and a data file |
 | The look | "Use the light theme and a compact layout" | `LocalAI/ui.json` |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
@@ -200,6 +201,56 @@ the setup is not changed. A saved agent decides the model and tools of its
 chat, so the chip is off while you have one chosen. The line under the box
 then says why and keeps "Manage setups" at hand.
 
+## Default models
+
+`LocalAI/defaults.json`, edited in **Account > Defaults**, holds one model for
+each kind of work:
+
+```json
+{
+  "chat": "qwen3-8b-instruct",
+  "image": "flux.1-schnell",
+  "tts": "kokoro-82m",
+  "stt": "whisper-large-v3-turbo",
+  "embeddings": "bge-m3",
+  "rerank": "bge-reranker-v2-m3",
+  "video": null,
+  "vision": "ask"
+}
+```
+
+The keys are `chat` (the model a new chat starts with), `image`, `tts` (text
+to speech), `stt` (speech to text), `embeddings`, `rerank`, `video` and
+`vision` (image understanding). A value is one of three things:
+
+- the name of an installed model;
+- `"ask"`: the assistant asks you which model to use, every time;
+- `null`, or no key: you made no choice, and LocalAI picks the first installed
+  model that can do the work, as it did before this file existed.
+
+The assistant reads the file before it makes a picture, reads text aloud,
+transcribes, embeds, reranks, makes a video or looks at an image. It says which
+default it used ("Made with flux.1-schnell, your default for images"). Say
+"use sd-3.5-medium this time" to use another model for one request; that
+never changes your default. To change the default itself, use the Defaults tab
+or ask ("use kokoro for speech from now on"); the assistant tells you what it
+changed and never edits the file on its own.
+
+If the model of a default is not installed any more, or is switched off, the
+assistant does not use another one. It tells you, asks which model to use for
+this request and offers to set a new default. The Defaults tab marks such a row
+"Not installed". A row with no installed model shows **Install one**, which
+opens the model gallery.
+
+Each row of the tab lists only the installed models that can do that kind of
+work. A pick is saved at once. **Source** shows the file, and **Revert to
+previous version** writes the earlier version back.
+
+The `defaultModel` key of `ui.json` is the older way to set the chat model.
+It is still read, but only when `defaults.json` has no `chat`. The Defaults
+tab shows it in the Chat row and never writes it; choose a model in the row
+to keep it in `defaults.json`.
+
 ## Home
 
 `LocalAI/home.json` and the data files of its widgets. **Edit layout** on Home adds,
@@ -326,12 +377,11 @@ before they allow it, and a change by its author asks again. See
 `LocalAI/ui.json`, edited in **Account > Appearance**:
 
 ```json
-{ "theme": "light", "accent": "#3b82f6", "density": "compact", "defaultModel": "qwen3-8b" }
+{ "theme": "light", "accent": "#3b82f6", "density": "compact" }
 ```
 
 `theme` is `dark`, `light` or `system`. The Appearance tab applies a change at
-once and keeps it when you save. `defaultModel` is the model a new chat starts
-with. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
+once and keeps it when you save. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
 
 ### Home and chat backgrounds
 
@@ -509,7 +559,7 @@ a chat in the **Skills** menu.
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `home`, `ui`, or `widget-data` with `?path=` |
+| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `defaults`, `home`, `ui`, or `widget-data` with `?path=` |
 | PUT | `/api/chats/wellknown/{name}` | Changes a file: `{"values": {...}, "replace": false}` |
 | POST | `/api/chats/wellknown/{name}/revert` | Writes the previous valid version back, or the version `{"rev": N}` |
 | GET | `/api/chats/wellknown/{name}/versions` | The versions of the file, newest first: `rev`, `at`, `kind` (`user` or `agent`), `chat` and `chat_title`, and `data` when valid |

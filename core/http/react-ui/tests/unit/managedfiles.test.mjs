@@ -32,6 +32,7 @@ test('managed files: a delete or rename of a managed folder or settings file ask
   assert.deepEqual(guardOf(file('/LocalAI/persona.json', 'localai')), { what: 'persona', name: 'LocalAI/persona.json' })
   assert.deepEqual(guardOf(file('/LocalAI/user.json', 'localai')), { what: 'user', name: 'LocalAI/user.json' })
   assert.deepEqual(guardOf(file('/LocalAI/ui.json', 'localai')), { what: 'ui', name: 'LocalAI/ui.json' })
+  assert.deepEqual(guardOf(file('/LocalAI/defaults.json', 'localai')), { what: 'defaults', name: 'LocalAI/defaults.json' })
   assert.equal(guardOf(file('/LocalAI/notes.txt', 'localai')), null, 'a file LocalAI does not read')
   assert.equal(guardOf(file('/persona.json')), null, 'the user\'s own file of the same name')
   assert.equal(guardOf(dir('Notes')), null)

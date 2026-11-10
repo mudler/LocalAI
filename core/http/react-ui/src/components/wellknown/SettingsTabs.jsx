@@ -1,11 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import WellKnownCard from './WellKnownCard'
 import { applyAppearance } from './AppearanceSync'
 import { useTheme } from '../../contexts/ThemeContext'
-import { useModels } from '../../hooks/useModels'
-import { CAP_CHAT } from '../../utils/capabilities'
 import ShortcutsEditor from './ShortcutsEditor'
 import HelpCard from './HelpCard'
 import Icon from '../Icon'
@@ -62,9 +60,7 @@ export function AboutYouTab() {
 export function AppearanceTab() {
   const { t } = useTranslation('workspace')
   const { setTheme } = useTheme()
-  const { models } = useModels(CAP_CHAT)
   const saved = useRef({})
-  const options = useMemo(() => ({ defaultModel: models.map(m => ({ value: m.id, label: m.id })) }), [models])
 
   useEffect(() => () => applyAppearance(saved.current, setTheme), [setTheme])
   const onChange = useCallback((v) => applyAppearance(v, setTheme), [setTheme])
@@ -73,7 +69,7 @@ export function AppearanceTab() {
 
   return (
     <div className="wk-grid wk-grid--one" data-testid="account-appearance">
-      <WellKnownCard name="ui" title={t('wellKnown.ui.title')} lede={t('wellKnown.ui.lede')} options={options} onChange={onChange} onSaved={onSaved} prefill={prefill} />
+      <WellKnownCard name="ui" title={t('wellKnown.ui.title')} lede={t('wellKnown.ui.lede')} onChange={onChange} onSaved={onSaved} prefill={prefill} />
     </div>
   )
 }

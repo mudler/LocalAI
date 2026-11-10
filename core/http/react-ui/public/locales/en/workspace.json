@@ -413,7 +413,8 @@
       "offersOff": "Suggestions from the assistant are off.",
       "undoing": "Undoing…",
       "undone": "Undone.",
-      "undoFailed": "Not undone: {{message}}"
+      "undoFailed": "Not undone: {{message}}",
+      "defaults": "Saved your default models. The assistant uses them from your next message."
     },
     "toast": {
       "shortcutAdded": "Added to your composer: {{label}}",
@@ -561,7 +562,8 @@
       "user": "The assistant forgets what you told it about you, and your answers to its offers.",
       "shortcuts": "The message box shows the default shortcuts again.",
       "home": "Home loses its widgets.",
-      "ui": "Your theme, accent, density, Home and chat backgrounds, default model and pinned pages go back to the defaults."
+      "ui": "Your theme, accent, density, Home and chat backgrounds, default model and pinned pages go back to the defaults.",
+      "defaults": "Your default models are forgotten. Tools pick an installed model themselves again."
     }
   },
   "newFile": "New file",
@@ -759,5 +761,66 @@
     "writeHelp": "They can also add, change and delete files here.",
     "failed": "Could not open sharing: {{message}}",
     "lost": "You can no longer share this folder here."
+  },
+  "defaults": {
+    "lede": "One model per kind of work. You can pick another for a single request.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Use for: new chats, chat titles, summaries"
+      },
+      "image": {
+        "label": "Image generation",
+        "use": "Use for: \"draw\", \"make an image\", the Images page"
+      },
+      "tts": {
+        "label": "Text to speech",
+        "use": "Use for: read-aloud, \"say this\", voice replies"
+      },
+      "stt": {
+        "label": "Speech to text",
+        "use": "Use for: dictation, the microphone, audio files"
+      },
+      "embeddings": {
+        "label": "Embeddings",
+        "use": "Use for: Knowledge search, file search"
+      },
+      "video": {
+        "label": "Video generation",
+        "use": "Use for: \"make a short clip\", the Video page"
+      },
+      "rerank": {
+        "label": "Reranking",
+        "use": "Use for: sorting Knowledge results"
+      },
+      "vision": {
+        "label": "Image understanding",
+        "use": "Use for: images you attach to a chat"
+      }
+    },
+    "automatic": "Automatic (first installed)",
+    "asking": "Asks each time",
+    "modeLabel": "Choice for {{kind}}",
+    "mode": {
+      "default": "Default",
+      "ask": "Ask each time"
+    },
+    "noModel": "No model set",
+    "notInstalled": "Not installed",
+    "installOne": "Install one",
+    "missing": "This model is not installed any more. The assistant asks which model to use until you pick another.",
+    "fromOld": "Set before this page existed. Choose a model here to save it as your default.",
+    "modelsFailed": "The list of installed models did not load. Reload the page to try again.",
+    "help": {
+      "title": "The assistant reads your defaults",
+      "body": "When you say \"draw a fox\" or \"read this aloud\", the assistant checks your defaults first and uses the model listed for that kind of work.",
+      "example": "Draw a fox in the snow",
+      "tool": "checked your defaults › image",
+      "used": "Using <code>{{model}}</code>, your default for images.",
+      "exampleModel": "your image model"
+    },
+    "stored": "Saved in your settings (the old default model of Appearance moves here)",
+    "preview": "What is saved",
+    "revert": "Revert to previous version"
   }
 }

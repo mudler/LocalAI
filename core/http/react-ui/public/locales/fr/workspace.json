@@ -315,7 +315,8 @@
       "offersOff": "Les suggestions de l’assistant sont désactivées.",
       "undoing": "Annulation…",
       "undone": "Annulé.",
-      "undoFailed": "Non annulé : {{message}}"
+      "undoFailed": "Non annulé : {{message}}",
+      "defaults": "Vos modèles par défaut sont enregistrés. L’assistant les utilise dès votre prochain message."
     },
     "toast": {
       "shortcutAdded": "Ajouté à votre zone de saisie : {{label}}",
@@ -522,7 +523,8 @@
       "user": "L'assistant oublie ce que vous lui avez dit sur vous et vos réponses à ses propositions.",
       "shortcuts": "La zone de message affiche de nouveau les raccourcis par défaut.",
       "home": "L'Accueil perd ses widgets.",
-      "ui": "Votre thème, couleur d'accent, densité, modèle par défaut et pages épinglées reviennent aux valeurs par défaut."
+      "ui": "Votre thème, couleur d'accent, densité, modèle par défaut et pages épinglées reviennent aux valeurs par défaut.",
+      "defaults": "Vos modèles par défaut sont oubliés. Les outils choisissent de nouveau eux-mêmes un modèle installé."
     }
   },
   "newFile": "Nouveau fichier",
@@ -738,5 +740,66 @@
     "writeHelp": "Elles peuvent aussi ajouter, modifier et supprimer des fichiers ici.",
     "failed": "Impossible d’ouvrir le partage : {{message}}",
     "lost": "Vous ne pouvez plus partager ce dossier ici."
+  },
+  "defaults": {
+    "lede": "Un modèle par type de tâche. Vous pouvez en choisir un autre pour une seule demande.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Utilisé pour : nouveaux chats, titres de chats, résumés"
+      },
+      "image": {
+        "label": "Génération d’images",
+        "use": "Utilisé pour : « dessine », « crée une image », la page Images"
+      },
+      "tts": {
+        "label": "Synthèse vocale",
+        "use": "Utilisé pour : lecture à voix haute, « dis ceci », réponses vocales"
+      },
+      "stt": {
+        "label": "Reconnaissance vocale",
+        "use": "Utilisé pour : dictée, le micro, fichiers audio"
+      },
+      "embeddings": {
+        "label": "Embeddings",
+        "use": "Utilisé pour : recherche dans les Connaissances, recherche de fichiers"
+      },
+      "video": {
+        "label": "Génération de vidéo",
+        "use": "Utilisé pour : « fais un court clip », la page Vidéo"
+      },
+      "rerank": {
+        "label": "Reclassement",
+        "use": "Utilisé pour : trier les résultats des Connaissances"
+      },
+      "vision": {
+        "label": "Compréhension d’images",
+        "use": "Utilisé pour : les images que vous joignez à un chat"
+      }
+    },
+    "automatic": "Automatique (le premier installé)",
+    "asking": "Demande à chaque fois",
+    "modeLabel": "Choix pour {{kind}}",
+    "mode": {
+      "default": "Par défaut",
+      "ask": "Demander à chaque fois"
+    },
+    "noModel": "Aucun modèle défini",
+    "notInstalled": "Non installé",
+    "installOne": "En installer un",
+    "missing": "Ce modèle n’est plus installé. L’assistant demande quel modèle utiliser jusqu’à ce que vous en choisissiez un autre.",
+    "fromOld": "Défini avant l’existence de cette page. Choisissez un modèle ici pour l’enregistrer comme valeur par défaut.",
+    "modelsFailed": "La liste des modèles installés ne s’est pas chargée. Rechargez la page pour réessayer.",
+    "help": {
+      "title": "L’assistant lit vos valeurs par défaut",
+      "body": "Quand vous dites « dessine un renard » ou « lis ça à voix haute », l’assistant consulte d’abord vos valeurs par défaut et utilise le modèle indiqué pour ce type de tâche.",
+      "example": "Dessine un renard dans la neige",
+      "tool": "valeurs par défaut consultées › image",
+      "used": "Avec <code>{{model}}</code>, votre modèle par défaut pour les images.",
+      "exampleModel": "votre modèle d’images"
+    },
+    "stored": "Enregistré dans vos réglages (l’ancien modèle par défaut d’Apparence passe ici)",
+    "preview": "Ce qui est enregistré",
+    "revert": "Revenir à la version précédente"
   }
 }
