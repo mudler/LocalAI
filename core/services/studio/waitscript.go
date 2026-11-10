@@ -110,7 +110,7 @@ func (s *Service) scriptProviderOf(ctx context.Context, rec session.ChatRecord) 
 		}
 		hx, ok := s.d.HostExec.(ReadOnlyHostExec)
 		if !ok {
-			return scriptProvider{}, unavailablef("the built-in bash of this server cannot run a command that leaves the files alone, and no Sandbox serves this chat")
+			return scriptProvider{}, unavailablef("the built-in bash of this server cannot run a command that leaves the files alone, and no add-on serves this chat")
 		}
 		return scriptProvider{host: true, run: func(ctx context.Context, args json.RawMessage) (string, error) {
 			return hx.RunReadOnly(ctx, a, args)
