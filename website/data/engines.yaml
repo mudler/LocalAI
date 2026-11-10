@@ -1,5 +1,6 @@
-# The eighteen native engines the LocalAI team wrote, and the one quantization
-# recipe that feeds them. This file is the single source of truth for the
+# The native engines the LocalAI team wrote, and the one quantization recipe
+# that feeds them. Every entry has to exist in this tree (backend/ or the
+# gallery); drop an engine here when it is not shipped. This file is the single source of truth for the
 # /engines/ page: the layout renders whatever is here, in this order, and adds
 # nothing of its own. Numbers in `highlights` come from each engine's own
 # benchmark suite, so if a README moves, move the number here too.
@@ -127,19 +128,6 @@ engines:
       - 11 GB down to 6.8 GB at Q8_0 with no measurable recall loss
       - Realtime 0.5B, 1.5B and a 7B ASR model
 
-  - name: voxtral-tts.c
-    tagline: Run a 4B speech model with nothing but a C compiler and libm, reading the weights straight off the safetensors file.
-    category: voice
-    language: C
-    repo: https://github.com/mudler/voxtral-tts.c
-    status: Experimental
-    highlights:
-      - Pure C, no dependency beyond the C standard library and math
-      - BF16 weights read from mmap, no conversion step
-      - 20 preset voices across 9 languages, 24 kHz output
-      - Optional BLAS, Apple Accelerate, NEON and CUDA paths
-
-  # --------------------------------------------------------------- identity
   - name: voice-detect.cpp
     tagline: Tell who is speaking, and read their age, gender and mood, without an onnxruntime install anywhere near it.
     category: identity
@@ -209,17 +197,6 @@ engines:
       - Loads about 6.7x faster, 112 ms against 749 ms
       - 99 MB at q4_k, and correlation 1.0 with the reference component by component
       - Exports to glb, COLMAP and PLY, plus confidence and a sky mask
-
-  - name: free-splatter.cpp
-    tagline: Turn a handful of snapshots into a 3D Gaussian scene with no camera poses, no rig and no GPU.
-    category: space
-    language: C++
-    repo: https://github.com/localai-org/free-splatter.cpp
-    highlights:
-      - 0.22 s per forward pass on Vulkan, against 1.37 s for the PyTorch reference on CUDA
-      - 14 s on 12 CPU threads, roughly 4x the reference, with no GPU at all
-      - Pose-free, so ordinary photos are enough
-      - One 3D Gaussian per pixel, ready for any splat viewer
 
   - name: trellis2.cpp
     tagline: Drop in one image and get back a watertight textured mesh you can hand straight to a 3D tool.
