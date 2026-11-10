@@ -60,7 +60,7 @@ var _ = AfterSuite(func() {
 })
 
 var _ = Describe("NATS client", func() {
-	messagingtest.RunBroadcasterConformance(func() (messaging.Broadcaster, func()) {
+	messagingtest.RunBroadcasterConformance(func() messagingtest.Carrier {
 		url, err := sharedNATS()
 		if err != nil {
 			// This is the only spec that runs the rules against a real carrier.
@@ -76,6 +76,15 @@ var _ = Describe("NATS client", func() {
 		if err != nil {
 			Fail("connecting to the test NATS server: " + err.Error())
 		}
-		return c, c.Close
+		peer, err := messaging.New(url)
+		if err != nil {
+			c.Close()
+			Fail("connecting to the test NATS server: " + err.Error())
+		}
+		return messagingtest.Carrier{
+			Bus: c, Peer: peer,
+			Cleanup:            func() { c.Close(); peer.Close() },
+			ServesControlRoots: true,
+		}
 	})
 })

@@ -14,6 +14,7 @@ import { Button, Callout, SkeletonRows } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SideSheet from '../components/SideSheet'
 import LocalMachineView from '../components/nodes/LocalMachineView'
+import ClusterTransport from '../components/nodes/ClusterTransport'
 import AddNodeFlow from '../components/swarm/AddNodeFlow'
 import CommandBlock from '../components/swarm/CommandBlock'
 import NodeMap from '../components/swarm/NodeMap'
@@ -200,6 +201,7 @@ export default function Nodes() {
           <p className="sw-note">{t('first.sub')}</p>
         </header>
         <AddNodeFlow nodes={nodes} single={false} addToast={addToast} onApproved={refetch} />
+        <ClusterTransport addToast={addToast} />
       </div>
     )
   }
@@ -230,6 +232,7 @@ export default function Nodes() {
       )}
 
       <FleetHero summary={fleet} running={runningCount} attention={attentionCount} />
+      <ClusterTransport addToast={addToast} />
 
       <div className="sw-bar">
         <div className="dk-segmented" role="radiogroup" aria-label={t('nodes.view')}>

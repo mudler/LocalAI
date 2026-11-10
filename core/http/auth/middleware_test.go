@@ -442,6 +442,37 @@ var _ = Describe("Auth Middleware", func() {
 			}
 		})
 
+		It("delegates the tunnel dial to its own credential check, and only that path", func() {
+			app = newClusterTestApp(db, appConfig)
+
+			// A bearer token that is no API key and no session. The middleware
+			// lets the dial through, and the handler (which has no registry here)
+			// answers 503. If the middleware stopped it, the answer would be 401.
+			dial := doRequest(app, http.MethodGet, "/api/cluster/connect?id=w1", withBearerToken("own-tunnel-token"))
+			Expect(dial.Code).To(Equal(http.StatusServiceUnavailable))
+
+			// Another route under the same prefix is not delegated.
+			other := doRequest(app, http.MethodGet, "/api/cluster/other", withBearerToken("own-tunnel-token"))
+			Expect(other.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("delegates the peer link to its own credential check, and only that path", func() {
+			app = newClusterTestApp(db, appConfig)
+
+			// The header of the peer credential, which is no API key and no
+			// session. The middleware lets the dial through, and the handler (which
+			// has no table of replicas here) answers 503. If the middleware stopped
+			// it, the answer would be 401.
+			peer := doRequest(app, http.MethodGet, "/api/cluster/peer?id=replica-a", func(r *http.Request) {
+				r.Header.Set("X-LocalAI-Peer-Token", "own-peer-credential")
+			})
+			Expect(peer.Code).To(Equal(http.StatusServiceUnavailable))
+
+			// A dial with no credential is refused whoever answers.
+			anonymous := doRequest(app, http.MethodGet, "/api/cluster/peer?id=replica-a")
+			Expect(anonymous.Code).To(Equal(http.StatusUnauthorized))
+		})
+
 		It("lets downstream node auth reject missing and invalid registration tokens", func() {
 			const registrationToken = "node-registration-secret"
 			app = newNodeSelfServiceTestApp(db, appConfig, registrationToken)

@@ -10,13 +10,15 @@ import (
 // FileStager abstracts file transfer between frontend and backend nodes
 // in distributed mode. Two implementations exist:
 //
-//  1. S3NATSFileStager (primary): Both sides have FileManager with same S3.
-//     Frontend uploads to S3, sends NATS request-reply to backend to download locally.
+//  1. S3FileStager (primary): Both sides have FileManager with same S3.
+//     Frontend uploads to S3, sends the file verb to the backend (a NATS
+//     request-reply, or an HTTP request to its control plane on the tunnel)
+//     to download locally.
 //
 //  2. HTTPFileStager (fallback): Frontend pushes/pulls files directly over
 //     HTTP to a small file transfer server on the backend node (no S3 needed).
 //
-// S3NATSFileStager returns ErrNoRoute when nothing is listening for the node;
+// S3FileStager returns ErrNoRoute when no route to the node exists;
 // HTTPFileStager reports connection failures as ordinary errors. See ErrNoRoute
 // for what a caller may do with it.
 type FileStager interface {

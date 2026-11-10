@@ -151,3 +151,23 @@ var _ = Describe("Control payload wire format", func() {
 		Entry("FileReleaseReply, error", workerctl.FileReleaseReply{Error: "e"}, `{"error":"e"}`),
 	)
 })
+
+var _ = Describe("Agent worker verbs", func() {
+	It("names two verbs that the backend worker does not serve", func() {
+		Expect(workerctl.AgentVerbs()).To(ConsistOf(workerctl.VerbMCPToolExecute, workerctl.VerbMCPDiscovery))
+		for _, v := range workerctl.AgentVerbs() {
+			Expect(workerctl.AllVerbs()).ToNot(ContainElement(v), v)
+		}
+	})
+
+	It("maps each verb onto its own path below the prefix", func() {
+		Expect(workerctl.PathOf(workerctl.VerbMCPToolExecute)).To(Equal("/v1/control/mcp/tools/execute"))
+		Expect(workerctl.PathOf(workerctl.VerbMCPDiscovery)).To(Equal("/v1/control/mcp/discovery"))
+	})
+
+	It("writes a progress line with no subject", func() {
+		raw, err := json.Marshal(workerctl.Envelope{Progress: json.RawMessage(`{"a":1}`)})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(Equal(`{"progress":{"a":1}}`))
+	})
+})

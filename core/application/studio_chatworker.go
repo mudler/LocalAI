@@ -30,13 +30,16 @@ func (a *Application) StartChatWorker() error {
 		return nil
 	}
 	d := a.Distributed()
-	if d == nil || d.Nats == nil {
-		return errors.New("chat worker: distributed mode with NATS is required")
+	if d == nil || d.Replies == nil {
+		return errors.New("chat worker: distributed mode is required")
 	}
 	if a.studioService == nil {
 		return errors.New("chat worker: the chats did not start (see the earlier log, or LOCALAI_DISABLE_CHATS)")
 	}
-	sub, err := nodes.NewNATSChatStartServer(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout)).Serve(a.studioService.ServeStart)
+	// The subscription follows the carrier of the cluster. Only NATS carries
+	// chat starts: while the cluster runs on the tunnel no frontend reaches this
+	// worker, and the frontends run the turns themselves.
+	sub, err := nodes.NewNATSChatStartServer(d.Replies, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout)).Serve(a.studioService.ServeStart)
 	if err != nil {
 		return fmt.Errorf("chat worker: %w", err)
 	}

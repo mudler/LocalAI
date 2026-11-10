@@ -102,15 +102,17 @@ func (a *Application) initStudioService() {
 	var replay studio.ReplayCarrier
 	var jobs bgjob.Carrier
 	instance := ""
-	if d := a.Distributed(); d != nil && d.Nats != nil {
-		bus = studio.NewBroadcastBus(d.Nats, nil)
-		fan = notify.NewBroadcastFanout(d.Nats, nil)
+	if d := a.Distributed(); d != nil && d.Broadcaster != nil && d.Replies != nil {
+		bus = studio.NewBroadcastBus(d.Broadcaster, nil)
+		fan = notify.NewBroadcastFanout(d.Broadcaster, nil)
 		// A client whose event stream reconnects to another frontend gets the
-		// events it missed from the process that runs the turn.
-		replay = studio.NewReplayCarrier(d.Nats, nil)
+		// events it missed from the process that runs the turn. On a carrier
+		// with no request and reply nobody answers, and the client reads the
+		// transcript.
+		replay = studio.NewReplayCarrier(d.Replies, nil)
 		// A turn that runs on another node reads, writes to and kills a
 		// background job on the node that runs it.
-		jobs = studio.NewJobCarrier(d.Nats, nil)
+		jobs = studio.NewJobCarrier(d.Replies, nil)
 		instance = a.applicationConfig.Distributed.InstanceID
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
@@ -240,8 +242,10 @@ func (a *Application) initStudioService() {
 	}
 	deps.IsAdmin = a.studioIsAdmin
 	deps.ToolPins = a.studioToolPins
-	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
-		deps.Workers = nodes.NewNATSChatStarter(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout))
+	if d := a.Distributed(); d != nil && d.Replies != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
+		// On a carrier with no request and reply no chat worker can be reached,
+		// so every start finds no route and the turn runs on this frontend.
+		deps.Workers = nodes.NewNATSChatStarter(d.Replies, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout))
 	}
 	if a.applicationConfig.Distributed.ChatWorker {
 		deps.RunLimit = a.studioWorkerRunLimit

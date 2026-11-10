@@ -75,6 +75,38 @@ func NATSReadiness(conn natsConn) func() error {
 	}
 }
 
+// tunnelConn is the slice of the tunnel client of a worker that the readiness
+// probe needs. It is a local interface for the same reasons as natsConn.
+type tunnelConn interface {
+	Connected() bool
+}
+
+// ErrTunnelDisconnected is reported by TunnelReadiness when the worker holds no
+// tunnel session.
+var ErrTunnelDisconnected = errors.New("worker tunnel is down: the frontend cannot reach this worker")
+
+// TunnelReadiness builds the readiness probe of a worker that is attached to the
+// tunnel carrier. It is the counterpart of NATSReadiness.
+//
+// Everything that a worker does arrives over its tunnel: the installs and stops
+// of backends, the model lifecycle, file staging, and every inference stream. A
+// worker with no tunnel session is up and cannot be reached, and a worker that
+// binds only loopback has no other way in. The registration of the worker is
+// implied by the probe being reachable at all, because the file-transfer server
+// starts after the registration.
+//
+// The heartbeat of the node row is an HTTP call to the frontend and does not
+// pass through the tunnel. A worker can keep sending it while its tunnel is
+// down, so the local probe sees what the registry cannot.
+func TunnelReadiness(conn tunnelConn) func() error {
+	return func() error {
+		if conn == nil || !conn.Connected() {
+			return ErrTunnelDisconnected
+		}
+		return nil
+	}
+}
+
 // ErrBackendUnreachable is reported when a worker holds a backend process it
 // can no longer reach.
 var ErrBackendUnreachable = errors.New("backend process is unreachable")

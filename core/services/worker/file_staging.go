@@ -109,7 +109,12 @@ type fileStagingVerbs struct {
 // ensure downloads an object storage key into the local cache.
 func (v *fileStagingVerbs) ensure(ctx context.Context, req workerctl.FileEnsureRequest) workerctl.FileEnsureReply {
 	value, err, _ := v.ensureGroup.Do(req.Key, func() (any, error) {
-		return ensureWorkerFile(ctx, v.fm, v.capacity, req.Key)
+		// The download is shared by every caller of this key. It must not end
+		// when the caller that happened to start it goes away: the others wait
+		// for the same result, and a carrier with a request context (HTTP)
+		// cancels that context when its caller leaves. The NATS server passes a
+		// context that never ends.
+		return ensureWorkerFile(context.WithoutCancel(ctx), v.fm, v.capacity, req.Key)
 	})
 	if err != nil {
 		xlog.Error("File ensure failed", "key", req.Key, "error", err)

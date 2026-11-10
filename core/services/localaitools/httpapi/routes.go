@@ -41,6 +41,7 @@ const (
 	routeVersion                = "/version"
 	routeSystem                 = "/system"
 	routeFailover               = "/api/failover"
+	routeClusterCarrier         = "/api/cluster/carrier"
 	routeSharedFolders          = "/api/chats/admin/shared-folders"
 	routeSharedFolderRestore    = "/api/chats/admin/shared-folders/restore"
 	routeSharedFolderEvents     = "/api/chats/admin/shared-folders/events"

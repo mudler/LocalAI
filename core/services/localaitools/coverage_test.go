@@ -54,6 +54,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolGetChatEgress:             "GET /api/chats/admin/egress",
 	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
 	ToolListFailoverChains:        "GET /api/failover",
+	ToolGetClusterCarrier:         "GET /api/cluster/carrier",
 
 	// Mutating tools.
 	ToolInstallModel:             "POST /models/apply",

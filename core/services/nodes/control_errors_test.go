@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -28,8 +29,8 @@ var _ = Describe("Control request error classification", func() {
 	})
 
 	request := func() (*workerctl.BackendInstallReply, error) {
-		return controlRequestJSON[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](
-			mc, subject, workerctl.BackendInstallRequest{Backend: "b"}, time.Second)
+		return callVerb[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](
+			context.Background(), &natsLink{bus: mc}, nodeID, workerctl.VerbBackendInstall, workerctl.BackendInstallRequest{Backend: "b"}, time.Second)
 	}
 
 	It("reports a subject nobody answers as ErrNoRoute", func() {

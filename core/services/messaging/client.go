@@ -154,6 +154,9 @@ func (c *Client) Publish(subject string, data any) error {
 	if err != nil {
 		return fmt.Errorf("marshalling message for %s: %w", subject, err)
 	}
+	if err := CheckBroadcastSize(subject, len(payload)); err != nil {
+		return err
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.conn.Publish(subject, payload)
@@ -332,7 +335,14 @@ func (c *Client) Close() {
 	}
 }
 
+// ErrNoResponders means that nobody listens on the subject of a request. A
+// carrier with no request and reply between processes returns it for every
+// request.
+var ErrNoResponders = errors.New("messaging: no responders")
+
 // IsNoResponders reports whether err says that no subscriber listens on the
 // subject of a request. It is the carrier's own check, so code above the
 // seam can tell "nobody there" from a timeout without importing nats.go.
-func IsNoResponders(err error) bool { return errors.Is(err, nats.ErrNoResponders) }
+func IsNoResponders(err error) bool {
+	return errors.Is(err, nats.ErrNoResponders) || errors.Is(err, ErrNoResponders)
+}

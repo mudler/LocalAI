@@ -66,6 +66,7 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerPIITools(srv, client, opts)
 	registerMiddlewareTools(srv, client, opts)
 	registerFailoverTools(srv, client, opts)
+	registerClusterTools(srv, client)
 
 	// The second group: inference for any user. Kept apart so a caller can
 	// register or filter the two groups separately.
