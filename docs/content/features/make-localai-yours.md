@@ -333,6 +333,44 @@ before they allow it, and a change by its author asks again. See
 once and keeps it when you save. `defaultModel` is the model a new chat starts
 with. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
 
+### Home background
+
+`homeBackground` puts a colour, a gradient or a picture behind the Home page.
+Only Home changes; every other page keeps its look. Pick one in **Account >
+Appearance**, or ask the assistant ("put the picture Pictures/sky.jpg behind my
+Home page"). Both write the same key, and a change shows on Home at once.
+
+```json
+{
+  "theme": "dark",
+  "homeBackground": {
+    "image": "Pictures/sky.jpg",
+    "fit": "cover",
+    "opacity": 0.9,
+    "blur": 4,
+    "overlay": 0.4
+  }
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `color` | A solid colour, `#rrggbb`. |
+| `gradient` | `{ "from": "#rrggbb", "to": "#rrggbb", "angle": 135 }`. The angle is 0 to 360 degrees; 180 runs from top to bottom. |
+| `image` | The path of a picture in your files, such as `Pictures/sky.jpg`. Write it without a leading slash. Allowed types: png, jpg, jpeg, webp, gif, avif. |
+| `fit` | `cover` fills the page (default). `contain` shows the whole picture. |
+| `opacity` | 0 to 1. How strong the background is. Default 1. |
+| `blur` | 0 to 40 pixels. Default 0. |
+| `overlay` | 0 to 1. A veil in the colour of the theme, so text stays readable in the light and the dark theme. Default 0.55 for a picture, 0.35 for a gradient, 0 for a plain colour. |
+
+The picture is read from your own files with your own rights. A path that
+starts with `/`, contains `..`, is a web address or does not end in a picture
+type is refused when you save. If the file is edited into an invalid state,
+Home keeps the last good version and the Appearance tab says the file has an
+error. Keys you add yourself stay in the file when you save from the
+Appearance tab. To remove the background, press **Remove the background** or
+delete the key.
+
 ## The LocalAI folder
 
 The five settings files live in one visible folder, `LocalAI/`, at the top of

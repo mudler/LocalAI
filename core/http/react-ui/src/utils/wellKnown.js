@@ -150,8 +150,9 @@ export function createWellKnownStore({ api, onOwnWrite = () => {} }) {
 }
 
 // fieldsFromSchema turns the top-level properties of a JSON Schema into the
-// fields an editor shows, in schema order. A property with x-ui.hidden, or one
-// that is an object or an array, is left to the Source view.
+// fields an editor shows, in schema order. A property with x-ui.hidden, or an
+// object or an array that has no x-ui.widget of its own, is left to the Source
+// view.
 export function fieldsFromSchema(schema) {
   const props = schema?.properties || {}
   const required = new Set(schema?.required || [])
@@ -160,7 +161,7 @@ export function fieldsFromSchema(schema) {
     const ui = p['x-ui'] || {}
     if (ui.hidden) continue
     const type = Array.isArray(p.enum) ? 'enum' : p.type
-    if (type === 'object' || type === 'array') continue
+    if ((type === 'object' || type === 'array') && !ui.widget) continue
     let widget = ui.widget || 'text'
     if (type === 'enum') widget = ui.widget || 'select'
     if (type === 'boolean') widget = 'checkbox'
@@ -200,12 +201,13 @@ export function changedValues(fields, original, edited) {
     const before = original?.[f.key]
     let after = edited?.[f.key]
     if (typeof after === 'string') after = after.replace(/\s+$/, '')
-    const empty = after === undefined || after === null || after === ''
+    const isObj = after !== null && typeof after === 'object'
+    const empty = after === undefined || after === null || after === '' || (isObj && Object.keys(after).length === 0)
     if (empty) {
       if (before !== undefined && before !== null && before !== '') out[f.key] = null
       continue
     }
-    if (after !== before) out[f.key] = after
+    if (isObj ? JSON.stringify(after) !== JSON.stringify(before) : after !== before) out[f.key] = after
   }
   return out
 }
@@ -428,4 +430,71 @@ export function formatMetric(value) {
   if (abs >= 1e6) return `${+(value / 1e6).toFixed(1)}M`
   if (abs >= 1e4) return `${+(value / 1e3).toFixed(0)}k`
   return String(+value.toFixed(2))
+}
+
+// ---- Home background (ui.json: homeBackground) ----
+
+const HEX = /^#[0-9a-fA-F]{6}$/
+const BG_IMAGE_EXT = /\.(png|jpe?g|webp|gif|avif)$/i
+
+// backgroundImagePath says whether p may be homeBackground.image: a relative
+// path of a picture in the home, with no leading slash, no .. or . segment, no
+// address, no backslash and a picture extension. The server checks the same
+// rule (BackgroundImageOK in Go); this one keeps a bad value from being sent
+// or shown.
+export function backgroundImagePath(p) {
+  if (typeof p !== 'string' || p === '' || p.length > 400) return false
+  if (p.startsWith('/') || /[\\:?#\u0000-\u001f\u007f]/.test(p)) return false
+  if (p.split('/').some(seg => seg === '' || seg === '.' || seg === '..')) return false
+  return BG_IMAGE_EXT.test(p)
+}
+
+const num = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined)
+
+// homeBackground reads the homeBackground of ui.json and keeps only the parts
+// that are valid, so a half-valid value (from the assistant, or a file the
+// server read before the schema knew a key) still shows what it can. It
+// returns null when nothing is left to show.
+export function homeBackground(data) {
+  const v = data?.homeBackground
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const out = {}
+  if (typeof v.color === 'string' && HEX.test(v.color)) out.color = v.color
+  const g = v.gradient
+  if (g && typeof g === 'object' && HEX.test(g.from) && HEX.test(g.to)) {
+    out.gradient = { from: g.from, to: g.to, angle: Math.round(num(g.angle, 0, 360) ?? 180) }
+  }
+  if (backgroundImagePath(v.image)) out.image = v.image
+  if (!out.color && !out.gradient && !out.image) return null
+  out.fit = v.fit === 'contain' ? 'contain' : 'cover'
+  out.opacity = num(v.opacity, 0, 1) ?? 1
+  out.blur = Math.round(num(v.blur, 0, 40) ?? 0)
+  // A veil keeps text readable: a stronger one over a picture, which can be
+  // busy, a lighter one over a gradient; a plain colour is the user's own
+  // pick and gets none unless they ask.
+  out.overlay = num(v.overlay, 0, 1) ?? (out.image ? 0.55 : out.gradient ? 0.35 : 0)
+  return out
+}
+
+// homeBackgroundStyle turns a homeBackground (as homeBackground returns it)
+// into the inline styles of the layers: art (colour, gradient and picture,
+// with opacity and blur) and scrim (the veil in the colour of the page).
+// imageUrl turns the path of the picture into the address that serves it.
+export function homeBackgroundStyle(bg, imageUrl) {
+  if (!bg) return null
+  const layers = []
+  if (bg.image) layers.push(`url("${imageUrl(bg.image)}")`)
+  if (bg.gradient) layers.push(`linear-gradient(${bg.gradient.angle}deg, ${bg.gradient.from}, ${bg.gradient.to})`)
+  const pad = bg.blur ? -(bg.blur * 2) : 0
+  const art = {
+    inset: pad ? `${pad}px` : 0,
+    backgroundColor: bg.color || 'transparent',
+    backgroundImage: layers.length ? layers.join(', ') : undefined,
+    backgroundSize: bg.image ? `${bg.fit}${bg.gradient ? ', cover' : ''}` : undefined,
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    opacity: bg.opacity,
+    filter: bg.blur ? `blur(${bg.blur}px)` : undefined,
+  }
+  return { art, scrim: { opacity: bg.overlay } }
 }

@@ -214,13 +214,45 @@
         "defaultModel": {
           "label": "Model bawaan",
           "help": "Model yang digunakan saat chat baru dimulai."
+        },
+        "homeBackground": {
+          "label": "Latar belakang Beranda",
+          "help": "Warna, gradasi, atau gambar dari berkas Anda di belakang halaman Beranda. Halaman lain tidak berubah."
         }
       }
     },
     "saveInvalid": "Beberapa nilai tidak valid. Periksa lalu simpan lagi.",
     "saveTooLarge": "Pengaturan ini terlalu besar untuk disimpan. Hapus beberapa entri lalu coba lagi.",
     "saveFailed": "Tidak dapat menyimpan. Coba lagi.",
-    "details": "Detail"
+    "details": "Detail",
+    "bg": {
+      "kind": "Jenis latar belakang",
+      "kinds": {
+        "none": "Tidak ada",
+        "color": "Warna",
+        "gradient": "Gradasi",
+        "image": "Gambar"
+      },
+      "color": "Warna latar belakang",
+      "from": "Dari",
+      "to": "Ke",
+      "angle": "Sudut: {{n}} derajat",
+      "imagePath": "Jalur gambar di berkas Anda",
+      "choose": "Pilih gambar",
+      "imageBad": "Gunakan jalur berkas png, jpg, webp, gif, atau avif di berkas Anda, tanpa garis miring di awal dan tanpa ..",
+      "fit": "Penyesuaian",
+      "fits": {
+        "cover": "Penuhi halaman",
+        "contain": "Tampilkan seluruh gambar"
+      },
+      "opacity": "Kekuatan: {{n}}%",
+      "blur": "Blur: {{n}} px",
+      "overlay": "Selubung untuk teks: {{n}}%",
+      "clear": "Hapus latar belakang",
+      "pickFailed": "Folder tidak dapat dibaca.",
+      "pickEmpty": "Tidak ada gambar atau folder di sini.",
+      "pickClose": "Tutup"
+    }
   },
   "discovery": {
     "ex": {

@@ -214,13 +214,45 @@
         "defaultModel": {
           "label": "Modèle par défaut",
           "help": "Le modèle avec lequel un nouveau chat démarre."
+        },
+        "homeBackground": {
+          "label": "Arrière-plan de l'accueil",
+          "help": "Une couleur, un dégradé ou une image de vos fichiers derrière la page d'accueil. Les autres pages ne changent pas."
         }
       }
     },
     "saveInvalid": "Certaines valeurs ne sont pas valides. Vérifiez-les et enregistrez à nouveau.",
     "saveTooLarge": "Ces réglages sont trop volumineux pour être enregistrés. Supprimez quelques entrées et réessayez.",
     "saveFailed": "Impossible d’enregistrer. Réessayez.",
-    "details": "Détails"
+    "details": "Détails",
+    "bg": {
+      "kind": "Type d'arrière-plan",
+      "kinds": {
+        "none": "Aucun",
+        "color": "Couleur",
+        "gradient": "Dégradé",
+        "image": "Image"
+      },
+      "color": "Couleur d'arrière-plan",
+      "from": "De",
+      "to": "À",
+      "angle": "Angle : {{n}} degrés",
+      "imagePath": "Chemin de l'image dans vos fichiers",
+      "choose": "Choisir une image",
+      "imageBad": "Utilisez le chemin d'un fichier png, jpg, webp, gif ou avif de vos fichiers, sans barre oblique au début et sans ..",
+      "fit": "Ajustement",
+      "fits": {
+        "cover": "Remplir la page",
+        "contain": "Afficher l'image entière"
+      },
+      "opacity": "Intensité : {{n}} %",
+      "blur": "Flou : {{n}} px",
+      "overlay": "Voile pour le texte : {{n}} %",
+      "clear": "Retirer l'arrière-plan",
+      "pickFailed": "Le dossier n'a pas pu être lu.",
+      "pickEmpty": "Aucune image ni aucun dossier ici.",
+      "pickClose": "Fermer"
+    }
   },
   "discovery": {
     "ex": {

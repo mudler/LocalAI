@@ -214,13 +214,45 @@
         "defaultModel": {
           "label": "默认模型",
           "help": "新聊天开始时使用的模型。"
+        },
+        "homeBackground": {
+          "label": "主页背景",
+          "help": "在主页后面显示一种颜色、渐变或你文件中的图片。其他页面保持不变。"
         }
       }
     },
     "saveInvalid": "部分值无效。请检查后再次保存。",
     "saveTooLarge": "这些设置太大，无法保存。请删除一些条目后重试。",
     "saveFailed": "无法保存。请重试。",
-    "details": "详细信息"
+    "details": "详细信息",
+    "bg": {
+      "kind": "背景类型",
+      "kinds": {
+        "none": "无",
+        "color": "颜色",
+        "gradient": "渐变",
+        "image": "图片"
+      },
+      "color": "背景颜色",
+      "from": "起点",
+      "to": "终点",
+      "angle": "角度：{{n}} 度",
+      "imagePath": "图片在你文件中的路径",
+      "choose": "选择图片",
+      "imageBad": "请使用你文件中 png、jpg、webp、gif 或 avif 文件的路径，开头不要加斜杠，也不要包含 ..",
+      "fit": "适应方式",
+      "fits": {
+        "cover": "填满页面",
+        "contain": "显示整张图片"
+      },
+      "opacity": "强度：{{n}}%",
+      "blur": "模糊：{{n}} px",
+      "overlay": "文字遮罩：{{n}}%",
+      "clear": "移除背景",
+      "pickFailed": "无法读取该文件夹。",
+      "pickEmpty": "这里没有图片或文件夹。",
+      "pickClose": "关闭"
+    }
   },
   "discovery": {
     "ex": {

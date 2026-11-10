@@ -214,13 +214,45 @@
         "defaultModel": {
           "label": "Standardmodell",
           "help": "Das Modell, mit dem ein neuer Chat startet."
+        },
+        "homeBackground": {
+          "label": "Hintergrund der Startseite",
+          "help": "Eine Farbe, ein Verlauf oder ein Bild aus deinen Dateien hinter der Startseite. Andere Seiten bleiben unverändert."
         }
       }
     },
     "saveInvalid": "Einige Werte sind ungültig. Prüfe sie und speichere erneut.",
     "saveTooLarge": "Diese Einstellungen sind zu groß zum Speichern. Entferne einige Einträge und versuche es erneut.",
     "saveFailed": "Speichern fehlgeschlagen. Versuche es erneut.",
-    "details": "Details"
+    "details": "Details",
+    "bg": {
+      "kind": "Hintergrundtyp",
+      "kinds": {
+        "none": "Keiner",
+        "color": "Farbe",
+        "gradient": "Verlauf",
+        "image": "Bild"
+      },
+      "color": "Hintergrundfarbe",
+      "from": "Von",
+      "to": "Nach",
+      "angle": "Winkel: {{n}} Grad",
+      "imagePath": "Pfad des Bildes in deinen Dateien",
+      "choose": "Bild auswählen",
+      "imageBad": "Nutze den Pfad einer png-, jpg-, webp-, gif- oder avif-Datei in deinen Dateien, ohne führenden Schrägstrich und ohne ..",
+      "fit": "Anpassung",
+      "fits": {
+        "cover": "Seite füllen",
+        "contain": "Ganzes Bild zeigen"
+      },
+      "opacity": "Stärke: {{n}} %",
+      "blur": "Unschärfe: {{n}} px",
+      "overlay": "Schleier für den Text: {{n}} %",
+      "clear": "Hintergrund entfernen",
+      "pickFailed": "Der Ordner konnte nicht gelesen werden.",
+      "pickEmpty": "Hier sind keine Bilder oder Ordner.",
+      "pickClose": "Schließen"
+    }
   },
   "discovery": {
     "ex": {

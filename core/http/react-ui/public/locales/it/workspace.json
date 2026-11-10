@@ -214,13 +214,45 @@
         "defaultModel": {
           "label": "Modello predefinito",
           "help": "Il modello con cui inizia una nuova chat."
+        },
+        "homeBackground": {
+          "label": "Sfondo della Home",
+          "help": "Un colore, un gradiente o un'immagine dei tuoi file dietro la pagina Home. Le altre pagine restano come sono."
         }
       }
     },
     "saveInvalid": "Alcuni valori non sono validi. Controllali e salva di nuovo.",
     "saveTooLarge": "Queste impostazioni sono troppo grandi per essere salvate. Rimuovi alcune voci e riprova.",
     "saveFailed": "Impossibile salvare. Riprova.",
-    "details": "Dettagli"
+    "details": "Dettagli",
+    "bg": {
+      "kind": "Tipo di sfondo",
+      "kinds": {
+        "none": "Nessuno",
+        "color": "Colore",
+        "gradient": "Gradiente",
+        "image": "Immagine"
+      },
+      "color": "Colore di sfondo",
+      "from": "Da",
+      "to": "A",
+      "angle": "Angolo: {{n}} gradi",
+      "imagePath": "Percorso dell'immagine nei tuoi file",
+      "choose": "Scegli un'immagine",
+      "imageBad": "Usa il percorso di un file png, jpg, webp, gif o avif dei tuoi file, senza barra iniziale e senza ..",
+      "fit": "Adattamento",
+      "fits": {
+        "cover": "Riempi la pagina",
+        "contain": "Mostra tutta l'immagine"
+      },
+      "opacity": "Intensità: {{n}}%",
+      "blur": "Sfocatura: {{n}} px",
+      "overlay": "Velo per il testo: {{n}}%",
+      "clear": "Rimuovi lo sfondo",
+      "pickFailed": "Non è stato possibile leggere la cartella.",
+      "pickEmpty": "Qui non ci sono immagini né cartelle.",
+      "pickClose": "Chiudi"
+    }
   },
   "discovery": {
     "ex": {

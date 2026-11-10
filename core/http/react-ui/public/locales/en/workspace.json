@@ -312,13 +312,45 @@
         "defaultModel": {
           "label": "Default model",
           "help": "The model a new chat starts with."
+        },
+        "homeBackground": {
+          "label": "Home background",
+          "help": "A colour, a gradient or a picture from your files behind the Home page. Other pages stay as they are."
         }
       }
     },
     "saveInvalid": "Some values are not valid. Check them and save again.",
     "saveTooLarge": "These settings are too large to save. Remove some entries and try again.",
     "saveFailed": "Could not save. Try again.",
-    "details": "Details"
+    "details": "Details",
+    "bg": {
+      "kind": "Background type",
+      "kinds": {
+        "none": "None",
+        "color": "Colour",
+        "gradient": "Gradient",
+        "image": "Picture"
+      },
+      "color": "Background colour",
+      "from": "From",
+      "to": "To",
+      "angle": "Angle: {{n}} degrees",
+      "imagePath": "Path of the picture in your files",
+      "choose": "Choose a picture",
+      "imageBad": "Use a path of a png, jpg, webp, gif or avif file in your files, without a leading slash and without ..",
+      "fit": "Fit",
+      "fits": {
+        "cover": "Fill the page",
+        "contain": "Show the whole picture"
+      },
+      "opacity": "Strength: {{n}}%",
+      "blur": "Blur: {{n}} px",
+      "overlay": "Veil for the text: {{n}}%",
+      "clear": "Remove the background",
+      "pickFailed": "The folder could not be read.",
+      "pickEmpty": "No pictures or folders here.",
+      "pickClose": "Close"
+    }
   },
   "discovery": {
     "ex": {
@@ -525,7 +557,7 @@
       "user": "The assistant forgets what you told it about you, and your answers to its offers.",
       "shortcuts": "The message box shows the default shortcuts again.",
       "home": "Home loses its widgets.",
-      "ui": "Your theme, accent, density, default model and pinned pages go back to the defaults."
+      "ui": "Your theme, accent, density, Home background, default model and pinned pages go back to the defaults."
     }
   },
   "newFile": "New file",

@@ -566,3 +566,100 @@ var _ = Describe("widget data and home widgets", func() {
 		Expect(errs).NotTo(BeEmpty(), "a trigger id with a path")
 	})
 })
+
+var _ = Describe("the Home background of ui.json", func() {
+	ctx := context.Background()
+	check := func(bg any) []string {
+		data, err := json.Marshal(map[string]any{"theme": "dark", "homeBackground": bg})
+		Expect(err).NotTo(HaveOccurred())
+		_, errs := wellknown.Validate(wellknown.UI, data)
+		return errs
+	}
+
+	It("accepts a colour, a gradient and a picture with its tuning", func() {
+		Expect(check(map[string]any{"color": "#1e293b"})).To(BeEmpty())
+		Expect(check(map[string]any{"gradient": map[string]any{"from": "#0f172a", "to": "#3b82f6", "angle": 135}})).To(BeEmpty())
+		Expect(check(map[string]any{"image": "Pictures/sky.JPG", "fit": "contain", "opacity": 0.8, "blur": 12, "overlay": 0.5})).To(BeEmpty())
+		Expect(check(map[string]any{})).To(BeEmpty())
+	})
+
+	It("keeps keys it does not know inside the background", func() {
+		Expect(check(map[string]any{"color": "#112233", "x_future": true})).To(BeEmpty())
+	})
+
+	DescribeTable("refuses a bad value",
+		func(bg map[string]any, want string) {
+			Expect(check(bg)).To(ContainElement(ContainSubstring(want)))
+		},
+		Entry("a colour that is not a hex code", map[string]any{"color": "red"}, "homeBackground"),
+		Entry("a gradient without an end", map[string]any{"gradient": map[string]any{"from": "#000000"}}, "homeBackground"),
+		Entry("a gradient with a CSS function in it", map[string]any{"gradient": map[string]any{"from": "url(x)", "to": "#000000"}}, "homeBackground"),
+		Entry("an angle above 360", map[string]any{"gradient": map[string]any{"from": "#000000", "to": "#ffffff", "angle": 400}}, "homeBackground"),
+		Entry("a fit that is not in the list", map[string]any{"fit": "stretch"}, "homeBackground"),
+		Entry("an opacity above 1", map[string]any{"opacity": 2}, "homeBackground"),
+		Entry("a blur above 40", map[string]any{"blur": 41}, "homeBackground"),
+		Entry("a path that climbs out of the home", map[string]any{"image": "../secret/a.png"}, "path of a picture"),
+		Entry("a path that climbs from the middle", map[string]any{"image": "Pictures/../../a.png"}, "path of a picture"),
+		Entry("an absolute path", map[string]any{"image": "/etc/a.png"}, "homeBackground.image"),
+		Entry("a web address", map[string]any{"image": "https://example.com/a.png"}, "homeBackground.image"),
+		Entry("a data address", map[string]any{"image": "data:image/png;base64,AAAA"}, "homeBackground.image"),
+		Entry("a backslash path", map[string]any{"image": `Pictures\a.png`}, "homeBackground.image"),
+		Entry("a file that is not a picture", map[string]any{"image": "Docs/notes.txt"}, "path of a picture"),
+		Entry("an SVG document", map[string]any{"image": "Pictures/a.svg"}, "path of a picture"),
+		Entry("a query string", map[string]any{"image": "a.png?x=1"}, "homeBackground.image"),
+		Entry("a path that is not a string", map[string]any{"image": 5}, "homeBackground"),
+	)
+
+	DescribeTable("BackgroundImageOK",
+		func(p string, want bool) { Expect(wellknown.BackgroundImageOK(p)).To(Equal(want)) },
+		Entry("a file at the top", "sky.png", true),
+		Entry("a file in a folder, upper-case extension", "Pictures/Sky.AVIF", true),
+		Entry("a name with spaces", "My pictures/blue sky.webp", true),
+		Entry("empty", "", false),
+		Entry("dot segment", "./a.png", false),
+		Entry("double slash", "a//b.png", false),
+		Entry("trailing slash", "a.png/", false),
+		Entry("control character", "a\n.png", false),
+		Entry("no extension", "Pictures/sky", false),
+	)
+
+	It("saves from the editor, keeps the other keys and removes the background when cleared", func() {
+		s, f := newService()
+		raw(f, alice, "/LocalAI/ui.json", `{"theme":"dark","x_mood":"calm"}`)
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{
+			"homeBackground": map[string]any{"image": "Pictures/sky.jpg", "fit": "cover"},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+		on := readRaw(f, alice, "/LocalAI/ui.json")
+		Expect(on).To(HaveKeyWithValue("x_mood", "calm"))
+		Expect(on).To(HaveKeyWithValue("theme", "dark"))
+		Expect(on["homeBackground"]).To(HaveKeyWithValue("image", "Pictures/sky.jpg"))
+
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{"homeBackground": nil}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(readRaw(f, alice, "/LocalAI/ui.json")).NotTo(HaveKey("homeBackground"))
+	})
+
+	It("refuses a write with a traversal path and leaves the file as it was", func() {
+		s, f := newService()
+		raw(f, alice, "/LocalAI/ui.json", `{"homeBackground":{"color":"#112233"}}`)
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{
+			"homeBackground": map[string]any{"image": "../../etc/passwd.png"},
+		}})
+		var invalid *wellknown.InvalidError
+		Expect(errors.As(err, &invalid)).To(BeTrue())
+		Expect(readRaw(f, alice, "/LocalAI/ui.json")).To(HaveKeyWithValue("homeBackground", map[string]any{"color": "#112233"}))
+	})
+
+	It("shows the last good version when the assistant writes a broken background", func() {
+		s, f := newService()
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{"homeBackground": map[string]any{"color": "#112233"}}})
+		Expect(err).NotTo(HaveOccurred())
+		raw(f, alice, "/LocalAI/ui.json", `{"homeBackground":{"image":"../a.png"}}`)
+		doc, err := s.Read(ctx, alice, wellknown.UI, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Valid).To(BeFalse())
+		Expect(doc.Fallback).To(BeTrue())
+		Expect(doc.Data).To(HaveKeyWithValue("homeBackground", map[string]any{"color": "#112233"}))
+	})
+})
