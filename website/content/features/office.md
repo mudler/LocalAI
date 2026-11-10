@@ -5,8 +5,10 @@ card: "Make Word, Excel, PDF and PowerPoint files from one sentence."
 headline: 'A sentence becomes your <span class="hl">documents</span>.'
 lede: "Type what you need. LocalAI makes real Word, Excel, PDF and PowerPoint files and saves them in Files."
 docs: "/docs/features/office/"
-scene: "s4-office"
-alt: "The llama stands in an open-plan office between two llama coworkers at their desks."
+icon: "office"
+illus: "office"
+# demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
+demo: ""
 points:
   - "Make Word (docx), Excel (xlsx), PDF and PowerPoint (pptx) files."
   - "Read those files back into the chat."

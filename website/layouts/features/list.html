@@ -8,10 +8,10 @@
 <section><div class="shell">
   <div class="grid">
   {{ range .Pages.ByWeight }}
-    <a class="fcard rv" href="{{ .RelPermalink }}"><h3>{{ .Title }}</h3><p>{{ .Params.card }}</p><span>Read more &rarr;</span></a>
+    <a class="fcard rv" href="{{ .RelPermalink }}" aria-label="{{ .Title }}: {{ .Params.card }}"><span class="ic">{{ partial "icon.html" .Params.icon }}</span><h2>{{ .Title }}</h2><p>{{ .Params.card }}</p><span class="go" aria-hidden="true">Read about {{ .Title }} &rarr;</span></a>
   {{ end }}
   </div>
-  <p class="fine" style="margin-top:2rem">Some features are add-ons or are off until an admin turns them on. Each page names the ones that apply.</p>
+  <p class="fine">Some features are add-ons or are off until an admin turns them on. Each page names the ones that apply.</p>
 </div></section>
 </main>
 {{ end }}

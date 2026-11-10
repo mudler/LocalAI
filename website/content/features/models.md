@@ -1,12 +1,14 @@
 ---
 title: "Models"
-weight: 9
+weight: 10
 card: "Pick an open model from the gallery. LocalAI picks the engine."
 headline: 'Open models, your <span class="hl">hardware</span>.'
 lede: "Run open models on your own hardware. Pick one from the gallery and LocalAI installs it."
 docs: "/docs/models/"
-scene: "s8-endless"
-alt: "The llama stands in a workshop with shelves of tools behind it."
+icon: "models"
+illus: "models"
+# demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
+demo: ""
 special: "models"
 points:
   - "Browse the gallery and install a model with one command or one click."
