@@ -8,14 +8,14 @@ aliases:
 keywords: ["install", "script", "docker", "macos", "linux", "kubernetes", "setup"]
 ---
 
-On Linux and macOS, use the install script. On Windows, in a cluster, or when you want to keep LocalAI apart from the host, use a container.
+Start with the install script on Linux, or on a Mac with Apple Silicon. On Windows, on an Intel Mac, in a cluster, or when you want to keep LocalAI apart from the host, use a container. On a Mac you can also use the app.
 
 | You have | Use | Command or guide |
 |---|---|---|
-| Linux or macOS (Apple Silicon) | Install script | `curl -sSL https://localai.io/install.sh \| sh` |
+| Linux, or a Mac with Apple Silicon | Install script | `curl -sSL https://localai.io/install.sh \| sh` |
+| Windows (WSL2), an Intel Mac, a server, or a GPU image | Container | [Containers]({{% relref "/start/install/containers" %}}) |
 | A Mac and you want an app | macOS app | [macOS]({{% relref "/start/install/macos" %}}) |
 | Linux with a desktop | Launcher or binary | [Linux]({{% relref "/start/install/linux" %}}) |
-| Windows (WSL2), a server, or a GPU image | Container | [Containers]({{% relref "/start/install/containers" %}}) |
 | A cluster | Helm chart | [Kubernetes]({{% relref "/start/install/kubernetes" %}}) |
 | A change to the code | Source | [Build from source]({{% relref "/contributing/build-from-source" %}}) |
 
@@ -48,6 +48,10 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
 Podman works the same way. For GPU images, see [Containers]({{% relref "/start/install/containers" %}}).
+
+## macOS app
+
+Download [LocalAI.dmg](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg), open it and move LocalAI to Applications. The DMG is signed and notarized. See [macOS]({{% relref "/start/install/macos" %}}) for the details.
 
 ## What next
 

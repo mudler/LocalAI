@@ -16,20 +16,20 @@ LocalAI is an open source server that speaks the OpenAI and Anthropic APIs. It r
 
 ## Install and start LocalAI
 
-On Linux or macOS, run the install script, then start LocalAI with a model:
+On Linux, or on a Mac with Apple Silicon, run the install script, then start LocalAI with a model:
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
 local-ai run qwen3-4b
 ```
 
-On Windows, or when you prefer a container, use Docker instead:
+On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
 
 ```bash
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-For all install methods, see the [install guide]({{% relref "/start/install" %}}).
+On a Mac you can also use the [macOS app]({{% relref "/start/install/macos" %}}). For all install methods, see the [install guide]({{% relref "/start/install" %}}).
 
 You should see the log line `LocalAI is started and running` with the address `:8080`. The first run of `local-ai run qwen3-4b` downloads the model, so it takes longer.
 
