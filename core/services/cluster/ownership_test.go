@@ -361,7 +361,7 @@ var _ = Describe("Connection ownership", func() {
 		const claimants = 8
 		epochs := make(chan int64, claimants)
 		var wg sync.WaitGroup
-		for i := 0; i < claimants; i++ {
+		for i := range claimants {
 			wg.Add(1)
 			go func(n int) {
 				defer wg.Done()

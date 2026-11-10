@@ -96,7 +96,7 @@ var _ = Describe("the counters of the PostgreSQL broadcast carrier", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		const sent = 40
-		for i := 0; i < sent; i++ {
+		for i := range sent {
 			Expect(db.Create(&pgbus.BusMessage{
 				ID: fmt.Sprintf("m2-%02d", i), Subject: "staging.m2.probe", Payload: []byte(`{}`),
 			}).Error).To(Succeed())
@@ -113,7 +113,7 @@ var _ = Describe("the counters of the PostgreSQL broadcast carrier", func() {
 		}
 		DeferCleanup(release)
 		Expect(held.Exec("LOCK TABLE bus_messages IN ACCESS EXCLUSIVE MODE").Error).To(Succeed())
-		for i := 0; i < sent; i++ {
+		for i := range sent {
 			Expect(db.Exec("SELECT pg_notify('localai_staging', ?)",
 				fmt.Sprintf(`{"s":"staging.m2.probe","i":"m2-%02d"}`, i)).Error).To(Succeed())
 		}
@@ -145,7 +145,7 @@ var _ = Describe("the counters of the PostgreSQL broadcast carrier", func() {
 		_, err := b.Subscribe("staging.m4.slow", func([]byte) { <-block })
 		Expect(err).ToNot(HaveOccurred())
 
-		for i := 0; i < 400; i++ {
+		for i := range 400 {
 			Expect(b.Publish("staging.m4.slow", map[string]int{"i": i})).To(Succeed())
 		}
 

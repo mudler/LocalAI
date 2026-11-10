@@ -215,7 +215,7 @@ var _ = Describe("the PostgreSQL broadcast carrier", func() {
 			start := sub.Subscribers()
 			Expect(start).To(Equal(1))
 
-			for i := 0; i < 1000; i++ {
+			for range 1000 {
 				s, err := sub.Subscribe("staging.churn.progress", func([]byte) {})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(s.Unsubscribe()).To(Succeed())
@@ -241,7 +241,7 @@ var _ = Describe("the PostgreSQL broadcast carrier", func() {
 			// not self-heal: the next Subscribe sees first == false and never
 			// re-LISTENs.
 			out, _ := received(sub, "staging.abc.progress")
-			for i := 0; i < 50; i++ {
+			for range 50 {
 				s, err := sub.Subscribe("staging.other.progress", func([]byte) {})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(s.Unsubscribe()).To(Succeed())
@@ -261,7 +261,7 @@ var _ = Describe("the PostgreSQL broadcast carrier", func() {
 		// There is deliberately no Eventually around the PUBLISH. Retrying the
 		// publish is exactly the thing that would hide an asynchronous LISTEN.
 		It("has already issued the LISTEN, every time", func() {
-			for i := 0; i < 50; i++ {
+			for i := range 50 {
 				out := make(chan []byte, 1)
 				s, err := sub.Subscribe("staging.race.progress", func(data []byte) { out <- data })
 				Expect(err).ToNot(HaveOccurred())
@@ -310,7 +310,7 @@ var _ = Describe("the PostgreSQL broadcast carrier", func() {
 			// Comfortably past the queue depth, stated absolutely rather than
 			// as deliveryQueueDepth+n, so a change to the depth moves the
 			// behaviour and not the expectation.
-			for i := 0; i < 400; i++ {
+			for i := range 400 {
 				Expect(pub.Publish("staging.slow.consumer", map[string]int{"i": i})).To(Succeed())
 			}
 
