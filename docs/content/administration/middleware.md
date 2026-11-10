@@ -444,7 +444,7 @@ runs against that resolved target. ACL checks, disabled-state, and
 per-model PII all apply to the resolved model - the router does
 *model selection only*.
 
-#### Depth-1 invariant
+### Depth-1 invariant
 
 Candidates **must not** themselves be router models. A
 `smart-router → claude-strict → cloud-proxy` chain is fine
@@ -454,7 +454,7 @@ by the middleware (the dispatcher returns HTTP 500 with a
 `depth-1 invariant` error). This keeps the dispatch graph acyclic and
 predictable.
 
-#### Fallback
+### Fallback
 
 If no candidate's label set covers the active label set from the classifier,
 or the classifier errors out, the router uses `cfg.Router.Fallback`.
@@ -569,7 +569,7 @@ distribution carries more signal than the argmax - reading off the
 spread lets one prompt activate multiple policies and route to a model
 capable of all of them.
 
-#### Recommended classifier model
+### Recommended classifier model
 
 [Arch-Router-1.5B](https://huggingface.co/katanemo/Arch-Router-1.5B) is
 the canonical choice. It's a Qwen-2.5-1.5B-Instruct base trained
@@ -695,7 +695,7 @@ recompute text→id on their own copy to group decisions by corpus
 region (e.g. for external per-region reliability accounting) without
 corpus text ever leaving the server.
 
-#### Seeding and curating the corpus (API-only)
+### Seeding and curating the corpus (API-only)
 
 Corpus entries may contain example user content, so they are managed
 exclusively through the admin API — the UI never sends or displays
@@ -727,7 +727,7 @@ handled prompts like this" is exactly as useful as one recording that
 it failed — grade a sample of production traffic against your
 candidates and seed both.
 
-#### Persistence
+### Persistence
 
 The corpus is persisted as one JSONL file per router under
 `<data path>/router-corpus/` (text, labels, vector, embedding-model name,
@@ -749,7 +749,7 @@ the live in-memory index, LocalAI fails the classifier build instead of
 querying mixed embedding spaces. Restart LocalAI to rebuild the empty live
 index and re-embed the persisted entries.
 
-#### Tuning notes
+### Tuning notes
 
 - **`similarity_threshold` is the safety knob.** Too low and the
   router confidently extrapolates from unrelated exemplars; too high
@@ -856,7 +856,7 @@ Pairs naturally with a larger / slower classifier model: the steady-state
 cost on cache hits collapses to one embedding round-trip plus a KNN
 search, both well under 100ms with `nomic-embed-text-v1.5` + local-store.
 
-#### Configuration
+### Configuration
 
 Add an `embedding_cache:` block to a router model:
 
@@ -878,7 +878,7 @@ Omit the block entirely to disable. The cache adds two new failure modes
 (embedder unavailable, store unavailable) - both fall through to the
 inner classifier so routing keeps working.
 
-#### How it works
+### How it works
 
 For each request:
 
@@ -899,7 +899,7 @@ restart and re-learns from live traffic. (The KNN classifier's corpus
 does NOT have this limitation — its corpus file is the source of truth
 and re-indexes on startup; see "The KNN classifier" above.)
 
-#### Tuning notes
+### Tuning notes
 
 - **Similarity threshold**: 0.80 is the package default - re-tune
   per (embedding model, corpus). The histogram on the Routing tab

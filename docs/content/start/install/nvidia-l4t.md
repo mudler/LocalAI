@@ -3,6 +3,8 @@ disableToc = false
 title = "Running on Nvidia ARM64"
 weight = 100
 aliases = ["/reference/nvidia-l4t/"]
+description = "Run LocalAI on NVIDIA ARM64 devices: Jetson boards and DGX Spark."
+keywords = ["jetson","arm64","l4t","dgx spark"]
 +++
 
 LocalAI can be run on Nvidia ARM64 devices, such as the Jetson Nano, Jetson Xavier NX, Jetson AGX Orin, and Nvidia DGX Spark. The following instructions will guide you through building and using the LocalAI container for Nvidia ARM64 devices.

@@ -3,6 +3,8 @@ disableToc = false
 title = "Model compatibility table"
 weight = 110
 aliases = ["/model-compatibility/"]
+description = "Which backends support which model families, features and hardware."
+keywords = ["backends","compatibility","hardware"]
 +++
 
 Besides llama based models, LocalAI is compatible also with other architectures. The table below lists all the backends, compatible models families and the associated repository.

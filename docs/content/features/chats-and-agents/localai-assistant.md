@@ -3,6 +3,8 @@ url = "/features/localai-assistant/"
 disableToc = false
 title = "LocalAI Assistant"
 weight = 23
+description = "An admin-only chat that installs models, manages backends and checks the status of your LocalAI instance."
+keywords = ["assistant","admin","mcp"]
 +++
 
 {{< agentic-routing current="localai-assistant" >}}

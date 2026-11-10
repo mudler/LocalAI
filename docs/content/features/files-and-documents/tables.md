@@ -1,6 +1,8 @@
 ---
 url: "/features/tables/"
 title: Tables
+description: "Tables is an add-on with databases that a chat can read and change, and that you can share."
+keywords: ["tables","database","add-on"]
 ---
 
 ## Status

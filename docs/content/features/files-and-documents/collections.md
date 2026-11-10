@@ -3,6 +3,8 @@ url = "/features/collections/"
 disableToc = false
 title = "Knowledge (collections)"
 weight = 21
+description = "Knowledge collections: upload documents, search them by meaning, and let an agent use them."
+keywords = ["knowledge","collections","rag","search","embeddings"]
 +++
 
 Knowledge is the part of LocalAI that holds collections of documents that agents

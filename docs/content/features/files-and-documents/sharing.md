@@ -3,6 +3,8 @@ url = "/features/sharing/"
 disableToc = false
 title = "Sharing resources"
 weight = 27
+description = "Share folders, saved agents, collections and connections with other users, and choose what they may do."
+keywords = ["team","sharing","permissions","users"]
 +++
 
 LocalAI keeps one record of who may use a shared resource. Add-on resources,

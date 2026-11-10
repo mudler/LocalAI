@@ -3,6 +3,8 @@ title: "Realtime API"
 weight: 30
 aliases:
   - "/features/openai-realtime/"
+description: "Hold low-latency voice and text conversations over WebSocket with the Realtime API."
+keywords: ["realtime","websocket","voice"]
 ---
 
 ![The realtime voice loop: VAD to STT to LLM to TTS, over WebSocket or WebRTC](/docs/images/diagrams/realtime-pipeline.png)

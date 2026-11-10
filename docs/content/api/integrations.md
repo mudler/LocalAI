@@ -5,6 +5,8 @@ icon = "sync"
 
 weight = 80
 aliases = ["/integrations/"]
+description = "Projects and tools that work with LocalAI."
+keywords = ["integrations","clients"]
 +++
 
 ## Community Integrations

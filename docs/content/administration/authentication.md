@@ -3,6 +3,8 @@ disableToc = false
 title = "Authentication & Authorization"
 weight = 30
 aliases = ["/features/authentication/"]
+description = "Turn on accounts, roles, API keys and OAuth login for LocalAI."
+keywords = ["authentication","team","users","api keys","oauth","roles"]
 +++
 
 LocalAI supports two authentication modes: **legacy API key authentication** (simple shared keys) and a full **user authentication system** with roles, sessions, OAuth, and per-user usage tracking.

@@ -11,7 +11,7 @@ categories = ["Features"]
 ![Server-side vs client-side MCP: the model's tool loop runs on the server or in the browser](/docs/images/diagrams/mcp-server-vs-client.png)
 
 
-LocalAI now supports the **Model Context Protocol (MCP)**, enabling powerful agentic capabilities by connecting AI models to external tools and services. This feature allows your LocalAI models to interact with various MCP servers, providing access to real-time data, APIs, and specialized tools.
+LocalAI supports the **Model Context Protocol (MCP)**. MCP connects models to external tools and services. Your models can use MCP servers to get live data, call APIs and use specialised tools.
 
 {{< agentic-routing current="mcp" >}}
 

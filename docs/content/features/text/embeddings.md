@@ -3,6 +3,8 @@ url = "/features/embeddings/"
 disableToc = false
 title = "Embeddings"
 weight = 60
+description = "Make vector embeddings with the embeddings API, with llama.cpp or the transformers backend."
+keywords = ["embeddings","vectors","rag"]
 +++
 
 LocalAI supports generating embeddings for text or list of tokens.

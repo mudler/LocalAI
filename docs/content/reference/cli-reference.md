@@ -2,6 +2,8 @@
 disableToc = false
 title = "CLI Reference"
 weight = 20
+description = "All command line flags and environment variables of the local-ai command."
+keywords = ["cli","flags","environment variables"]
 +++
 
 Complete reference for all LocalAI command-line interface (CLI) parameters and environment variables.

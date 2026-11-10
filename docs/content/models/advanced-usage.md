@@ -5,7 +5,7 @@ weight = 30
 aliases = ["/advanced/"]
 +++
 
-### Model Configuration with YAML Files
+## Model Configuration with YAML Files
 
 LocalAI uses YAML configuration files to define model parameters, templates, and behavior. You can create individual YAML files in the models directory or use a single configuration file with multiple models.
 
@@ -39,7 +39,7 @@ For a complete reference of all available configuration options, see the [Model 
 
 See also the [configuration examples](https://github.com/mudler/LocalAI-examples/tree/main/configurations) in the LocalAI-examples repository for more config files.
 
-### Prompt templates 
+## Prompt templates 
 
 The API doesn't inject a default prompt for talking to the model. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
 
@@ -74,7 +74,7 @@ Below is an instruction that describes a task, paired with an input that provide
 
 </details>
 
-### Install models using the API
+## Install models using the API
 
 Instead of installing models manually, you can use the LocalAI API endpoints and a model definition to install programmatically via API models in runtime.
 
@@ -92,7 +92,7 @@ curl --location 'http://localhost:8080/models/apply' \
 ```
 
 
-### Preloading models during startup
+## Preloading models during startup
 
 In order to allow the API to start-up with all the needed model on the first-start, the model gallery files can be used during startup. 
 
@@ -109,7 +109,7 @@ Similarly it can be specified a path to a YAML configuration file containing a l
   name: gpt4all-j
 ```
 
-### Automatic prompt caching
+## Automatic prompt caching
 
 LocalAI can automatically cache prompts for faster loading of the prompt. This can be useful if your model need a prompt template with prefixed text in the prompt before the input.
 
@@ -124,7 +124,7 @@ prompt_cache_all: true
 
 `prompt_cache_path` is relative to the models folder. you can enter here a name for the file that will be automatically create during the first load if `prompt_cache_all` is set to `true`.
 
-### Configuring a specific backend for the model
+## Configuring a specific backend for the model
 
 By default LocalAI will try to autoload the model by trying all the backends. This might work for most of models, but some of the backends are NOT configured to autoload.
 
@@ -142,7 +142,7 @@ parameters:
 backend: llama-cpp
 ```
 
-### Connect external backends
+## Connect external backends
 
 LocalAI backends are internally implemented using `gRPC` services. This also allows `LocalAI` to connect to external `gRPC` services on start and extend LocalAI functionalities via third-party binaries.
 
@@ -173,7 +173,7 @@ make -C backend/python/vllm
 ```
 
 
-### Environment variables
+## Environment variables
 
 When LocalAI runs in a container,
 there are additional environment variables available that modify the behavior of LocalAI on startup:
@@ -189,13 +189,13 @@ Here is how to configure these variables:
 docker run --env-file .env localai/localai:latest
 ```
 
-### CLI Parameters
+## CLI Parameters
 
 For a complete reference of all CLI parameters, environment variables, and command-line options, see the [CLI Reference]({{%relref "/reference/cli-reference" %}}) page.
 
 You can control LocalAI with command line arguments to specify a binding address, number of threads, model paths, and many other options. Any command line parameter can be specified via an environment variable.
 
-### .env files
+## .env files
 
 Any settings being provided by an Environment Variable can also be provided from within .env files.  There are several locations that will be checked for relevant .env files. In order of precedence they are:
 
@@ -215,7 +215,7 @@ LOCALAI_MODELS_PATH=/mnt/storage/localai/models
 LOCALAI_F16=true
 ```
 
-### Request headers
+## Request headers
 
 You can use 'Extra-Usage' request header key presence ('Extra-Usage: true') to receive inference timings in milliseconds extending default OpenAI response model in the usage field:   
 ```
@@ -243,11 +243,11 @@ You can use 'Extra-Usage' request header key presence ('Extra-Usage: true') to r
 ...
 ```
 
-### Extra backends
+## Extra backends
 
 LocalAI can be extended with extra backends. The backends are implemented as `gRPC` services and can be written in any language. See the [backend section](https://localai.io/backends/) for more details on how to install and build new backends for LocalAI.
 
-#### In runtime
+### In runtime
 
 When using the `-core` container image it is possible to prepare the python backends you are interested into by using the `EXTRA_BACKENDS` variable, for instance:
 
@@ -255,7 +255,7 @@ When using the `-core` container image it is possible to prepare the python back
 docker run --env EXTRA_BACKENDS="backend/python/diffusers" quay.io/go-skynet/local-ai:master
 ```
 
-### Concurrent requests
+## Concurrent requests
 
 LocalAI supports parallel requests for the backends that supports it. For instance, vLLM and llama.cpp supports parallel requests, and thus LocalAI allows to run multiple requests in parallel. 
 
@@ -275,11 +275,11 @@ A list of the environment variable that tweaks parallelism is the following:
 
 Note that, for llama.cpp you need to set accordingly `LLAMACPP_PARALLEL` to the number of parallel processes your GPU/CPU can handle. For python-based backends (like vLLM) you can set `PYTHON_GRPC_MAX_WORKERS` to the number of parallel requests.
 
-### VRAM and Memory Management
+## VRAM and Memory Management
 
 For detailed information on managing VRAM when running multiple models, see the dedicated [VRAM and Memory Management]({{%relref "/models/vram-management" %}}) page.
 
-### Disable CPU flagset auto detection in llama.cpp
+## Disable CPU flagset auto detection in llama.cpp
 
 LocalAI will automatically discover the CPU flagset available in your host and will use the most optimized version of the backends.
 
