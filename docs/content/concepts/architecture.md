@@ -11,6 +11,8 @@ LocalAI is an API written in Go. It follows the OpenAI API, so software that use
 
 LocalAI uses a mixture of backends written in various languages (C++, Golang, Python, ...). You can check [the model compatibility table]({{%relref "/models/compatibility-table" %}}) to learn about all the components of LocalAI.
 
-![How LocalAI works: clients speak one API to a small core, which routes each request over gRPC to separate backend processes pulled on demand](/docs/images/diagrams/architecture-overview.png)
+{{< diagram "architecture-overview" "How LocalAI works: clients call one API on a small core, which talks over gRPC to a separate backend process for each model, running on your own hardware." >}}
+
+{{< diagram "request-flow" "How a request flows: the client calls the API, the model config picks a backend, the backend process runs the model over gRPC on your hardware, and tokens stream back." >}}
 
 For the history of the project, read [LocalAI, from March 2023 to now](https://localai.io/blog/localai-since-march-2023/).

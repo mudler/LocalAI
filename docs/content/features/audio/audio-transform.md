@@ -5,7 +5,7 @@ title = "Audio Transform"
 weight = 34
 +++
 
-![Audio transform: two inputs (mic plus reference) become one cleaned output; interleaved-stereo on the wire](/docs/images/diagrams/audio-transform-io.png)
+{{< diagram "audio-transform-io" "Audio transform: two inputs (mic plus reference) become one cleaned output; interleaved-stereo on the wire" >}}
 
 The audio-transform endpoints take **audio in** and emit **audio out**, optionally
 conditioned on a second reference audio signal. The category is generic by

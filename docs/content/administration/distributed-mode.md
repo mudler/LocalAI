@@ -15,7 +15,7 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ## Architecture Overview
 
-![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/docs/images/diagrams/distributed-mode-arch.png)
+{{< diagram "distributed-mode-arch" "Distributed mode: clients reach a load balancer, then stateless frontends with a SmartRouter, then generic workers that each run one gRPC process per loaded model, all backed by a shared NATS, PostgreSQL and optional S3 plane." >}}
 
 **Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
 
@@ -23,7 +23,7 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ### Scheduling Algorithm
 
-![SmartRouter scheduling: idle-first placement that checks for an already-loaded node, then free VRAM, then an idle node, then preemptive LRU eviction, ending in backend.install and LoadModel](/docs/images/diagrams/smartrouter-scheduling.png)
+{{< diagram "smartrouter-scheduling" "SmartRouter scheduling: use a node that already has the model loaded, else check disk, then free VRAM, then an idle or least loaded node, else evict the least recently used idle model, then install the backend and load the model." >}}
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node → use it (per-model gRPC address)
@@ -1157,7 +1157,7 @@ This is **not** routed through the SmartRouter: it is a model-internal split, co
 
 ### Topology
 
-![ds4 layer-split topology: workers dial in to the coordinator and own higher layer ranges, the inverse of llama.cpp RPC where the main server dials out to rpc-servers](/docs/images/diagrams/ds4-layer-split.png)
+{{< diagram "ds4-layer-split" "ds4 layer split: workers dial in to the coordinator, which owns layers 0:19, and the worker owns layers 20:output. llama.cpp RPC is the reverse: the main server dials out to rpc-servers." >}}
 
 ds4 uses a **coordinator/worker** split:
 
