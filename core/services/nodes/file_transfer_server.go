@@ -73,13 +73,13 @@ func StartFileTransferServerWithControl(addr, stagingDir, modelsDir, dataDir, to
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return startFileTransferServerWithControl(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, control, logStore...)
+	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, control, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
 // This avoids the TOCTOU race of closing a listener and re-binding to the same port.
 func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, nil, nil, logStore...)
+	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, nil, nil, nil, logStore...)
 }
 
 // StartFileTransferServerWithReadiness is StartFileTransferServerWithListener
@@ -87,14 +87,10 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 // the probe keeps its historical always-200 behaviour for callers that have no
 // meaningful readiness signal to report.
 func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, nil, logStore...)
 }
 
-func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return startFileTransferServerWithControl(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
-}
-
-func startFileTransferServerWithControl(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
+func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}

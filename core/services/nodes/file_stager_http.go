@@ -23,7 +23,6 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // HTTPFileStager implements FileStager using HTTP for environments without S3.
@@ -33,8 +32,7 @@ type HTTPFileStager struct {
 	httpAddrFor     func(nodeID string) (string, error)
 	token           string
 	dialFor         WorkerNetDialerFor
-	clientsMu       sync.Mutex
-	clients         map[string]*nodeFileClient
+	clients         nodeClients
 	responseTimeout time.Duration // timeout waiting for server response after upload
 	maxRetries      int           // number of retry attempts for transient failures
 }
@@ -62,58 +60,41 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 		httpAddrFor:     httpAddrFor,
 		token:           token,
 		dialFor:         dialFor,
-		clients:         map[string]*nodeFileClient{},
 		responseTimeout: responseTimeout,
 		maxRetries:      maxRetries,
 	}
 }
 
-// nodeFileClient is the client of one node and the transport it was built on. The
-// transport is kept so that ForgetNode can close the idle streams that it holds.
-type nodeFileClient struct {
-	client    *http.Client
-	transport *http.Transport
-}
-
-// clientFor returns the HTTP client that reaches nodeID. Clients are per node
-// rather than shared because the idle pool is keyed by host:port only: two
-// workers reporting the same address (NAT, loopback) would otherwise be handed
-// each other's connections once the dialer routes by node.
+// clientFor returns the HTTP client that reaches nodeID (see nodeClients).
 //
 // A stager with no dialer for the node cannot reach it. That is a route that does
 // not exist, and ErrNoRoute says so, where a nil function would panic at the
 // first transfer.
 func (h *HTTPFileStager) clientFor(nodeID string) (*http.Client, error) {
-	h.clientsMu.Lock()
-	defer h.clientsMu.Unlock()
-	if c, ok := h.clients[nodeID]; ok {
-		return c.client, nil
-	}
-	if h.dialFor == nil {
-		return nil, fmt.Errorf("file transfer to node %s: no dialer is configured: %w", nodeID, ErrNoRoute)
-	}
-	dial := h.dialFor(nodeID)
-	if dial == nil {
-		return nil, fmt.Errorf("file transfer to node %s: no dialer for the node: %w", nodeID, ErrNoRoute)
-	}
-	transport := &http.Transport{
-		DialContext:           dial,
-		ForceAttemptHTTP2:     false, // HTTP/2 flow control can stall large uploads
-		MaxIdleConns:          10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		WriteBufferSize:       256 << 10, // 256 KB
-		ReadBufferSize:        256 << 10, // 256 KB
-	}
-	// No Timeout set: for large uploads, http.Client.Timeout covers the
-	// entire request lifecycle including the body upload. If it fires
-	// mid-write, Go closes the connection causing "connection reset by peer"
-	// on the server. Instead we use ResponseHeaderTimeout on the transport
-	// to cover only the wait-for-server-response phase.
-	c := httpclient.New(httpclient.WithTransport(transport))
-	h.clients[nodeID] = &nodeFileClient{client: c, transport: transport}
-	return c, nil
+	// No Timeout is set on the client: for large uploads, http.Client.Timeout
+	// covers the entire request lifecycle including the body upload. If it fires
+	// mid-write, Go closes the connection causing "connection reset by peer" on
+	// the server. Instead we use ResponseHeaderTimeout on the transport to cover
+	// only the wait-for-server-response phase.
+	return h.clients.get(nodeID, func() (*http.Transport, error) {
+		if h.dialFor == nil {
+			return nil, fmt.Errorf("file transfer to node %s: no dialer is configured: %w", nodeID, ErrNoRoute)
+		}
+		dial := h.dialFor(nodeID)
+		if dial == nil {
+			return nil, fmt.Errorf("file transfer to node %s: no dialer for the node: %w", nodeID, ErrNoRoute)
+		}
+		return &http.Transport{
+			DialContext:           dial,
+			ForceAttemptHTTP2:     false, // HTTP/2 flow control can stall large uploads
+			MaxIdleConns:          10,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			WriteBufferSize:       256 << 10, // 256 KB
+			ReadBufferSize:        256 << 10, // 256 KB
+		}, nil
+	})
 }
 
 // do sends a request to the HTTP server of nodeID.
@@ -130,30 +111,16 @@ func (h *HTTPFileStager) do(nodeID string, req *http.Request) (*http.Response, e
 // worker that ever connected, and a stream of a tunnel that is gone stays open.
 // It is safe on a nil receiver.
 func (h *HTTPFileStager) ForgetNode(nodeID string) {
-	if h == nil {
-		return
-	}
-	h.clientsMu.Lock()
-	entry, ok := h.clients[nodeID]
-	delete(h.clients, nodeID)
-	h.clientsMu.Unlock()
-	if ok {
-		entry.transport.CloseIdleConnections()
+	if h != nil {
+		h.clients.forget(nodeID)
 	}
 }
 
 // Close drops the client of every node and closes the idle streams that their
 // transports hold. It is safe on a nil receiver and may be called twice.
 func (h *HTTPFileStager) Close() {
-	if h == nil {
-		return
-	}
-	h.clientsMu.Lock()
-	entries := h.clients
-	h.clients = map[string]*nodeFileClient{}
-	h.clientsMu.Unlock()
-	for _, entry := range entries {
-		entry.transport.CloseIdleConnections()
+	if h != nil {
+		h.clients.closeAll()
 	}
 }
 
