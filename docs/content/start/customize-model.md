@@ -27,11 +27,11 @@ docker run -p 8080:8080 localai/localai:{{< version >}} https://gist.githubuserc
 
 You can also check all the embedded models configurations [here](https://github.com/mudler/LocalAI/tree/master/gallery).
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 The model configurations used in the quickstart are accessible here: [https://github.com/mudler/LocalAI/tree/master/gallery](https://github.com/mudler/LocalAI/tree/master/gallery). Contributions are welcome; please feel free to submit a Pull Request.
 
 The `phi-2` model configuration from the quickstart is expanded from [https://github.com/mudler/LocalAI-examples/blob/main/configurations/phi-2.yaml](https://github.com/mudler/LocalAI-examples/blob/main/configurations/phi-2.yaml).
- {{% /notice %}}
+ {{% /callout %}}
 
 ## Example: Customizing the Prompt Template
 
@@ -69,4 +69,4 @@ docker run -p 8080:8080 localai/localai:{{< version >}} https://gist.githubuserc
 ## Next Steps
 
 - Visit the [advanced section]({{%relref "/models/advanced-usage" %}}) for more insights on prompt templates and configuration files.
-- To learn about fine-tuning an LLM model, check out the [fine-tuning section]({{%relref "/features/fine-tuning" %}}).
+- To learn about fine-tuning an LLM model, check out the [fine-tuning section]({{%relref "/features/model-tools/fine-tuning" %}}).

@@ -27,16 +27,19 @@
 /features/audio-diarization/
 /features/audio-to-text/
 /features/audio-transform/
+/features/audio/
 /features/authentication/
 /features/backend-monitor/
 /features/benchmark/
 /features/calendar/
 /features/chats-agents/
+/features/chats-and-agents/
 /features/chats-connectors/
 /features/chats-migration/
 /features/chats/
 /features/cloud-proxy/
 /features/collections/
+/features/connectors-and-agents/
 /features/constrained_grammars/
 /features/contacts/
 /features/context-compression/
@@ -45,7 +48,9 @@
 /features/distribute/
 /features/distributed-mode/
 /features/embeddings/
+/features/engines/
 /features/face-recognition/
+/features/files-and-documents/
 /features/fine-tuning/
 /features/forecast/
 /features/gpt-vision/
@@ -61,6 +66,7 @@
 /features/mlx-distributed/
 /features/model-aliases/
 /features/model-failover/
+/features/model-tools/
 /features/moderation/
 /features/motion/
 /features/nemo-speech-cpp/
@@ -84,8 +90,10 @@
 /features/terminal-agent/
 /features/text-generation/
 /features/text-to-audio/
+/features/text/
 /features/tracing/
 /features/video-generation/
+/features/vision/
 /features/vllm-cpp/
 /features/voice-activity-detection/
 /features/voice-recognition/
@@ -119,4 +127,5 @@
 /reference/shell-completion/
 /reference/system-info/
 /search/
+/start/install/docker/
 /stores/

@@ -8,13 +8,13 @@ aliases = ["/stores/"]
 Stores are an experimental feature to help with querying data using similarity search. It is
 a low level API that consists of only `get`, `set`, `delete` and `find`.
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 **Face recognition uses this store.** The 1:N face identification flow
 (`/v1/face/register`, `/v1/face/identify`, `/v1/face/forget`) is built
 on top of the generic store - see
-[Face Recognition]({{% relref "/features/face-recognition" %}}) for the face-oriented
+[Face Recognition]({{% relref "/features/vision/face-recognition" %}}) for the face-oriented
 API.
-{{% /notice %}}
+{{% /callout %}}
 
 For example if you have an embedding of some text and want to find text with similar embeddings.
 You can create embeddings for chunks of all your text then compare them against the embedding of the text you
@@ -139,19 +139,19 @@ backend converts with `similarity = 1 - distance`. For `L2` and `IP` the raw Val
 returned in `similarities` (for `L2`, smaller means closer — the opposite ordering of `COSINE`);
 nearest-first ordering of the results is preserved in all cases.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 Valkey Search updates its vector index **asynchronously** after a write. A `find` issued
 immediately after `set` may not yet see the new vectors — poll `find` briefly (or retry) until the
 expected results appear. `get` and `delete` are synchronous and unaffected.
-{{% /notice %}}
+{{% /callout %}}
 
-{{% notice note %}}
+{{% callout style="note" %}}
 This backend targets a **standalone** Valkey Search server (one server per namespace/model). Valkey
 Cluster is not a supported target yet — index coordination across shards is out of scope for this
 backend.
-{{% /notice %}}
+{{% /callout %}}
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 `tls` defaults to `false` (plaintext). Set `tls:true` whenever the Valkey server is
 not on `localhost` or a `password`/`username` is configured, otherwise the credentials
 and the stored vectors travel the network unencrypted. The TLS `ServerName` (SNI) is derived from
@@ -159,7 +159,7 @@ the host portion of `addr`, so certificate verification works for both hostname 
 IP-addressed endpoints. For a self-signed / private CA, point `tls_ca_cert` at the PEM
 bundle; `tls_skip_verify:true` disables verification entirely and should only be used for
 local testing.
-{{% /notice %}}
+{{% /callout %}}
 
 ### Qdrant store backend
 
@@ -220,31 +220,31 @@ results come back nearest-first. If a collection already exists with a different
 `distance_metric`, loading the store (or, if the collection appeared later, the first `find`) fails
 rather than returning scores with the wrong meaning.
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 Only `COSINE` returns similarity-like scores. With `DOT`, `EUCLID` or `MANHATTAN` the backend
 returns Qdrant's raw dot products or distances, which are not bounded to `[-1, 1]` and, for
 `EUCLID` and `MANHATTAN`, run in the opposite direction. Router stores, face recognition and voice
 recognition compare scores against cosine thresholds, so keep them on `COSINE`. The backend logs a
 warning at load time when a store is configured with another metric.
-{{% /notice %}}
+{{% /callout %}}
 
-{{% notice note %}}
+{{% callout style="note" %}}
 The backend creates collections with Qdrant's default settings. For custom settings (sharding and
 replication on a cluster, HNSW parameters, on-disk vectors, quantization), create the collection
 in Qdrant yourself and point `collection` at it: an existing collection is used as long as it has a
 single unnamed vector with the configured `distance_metric`.
-{{% /notice %}}
+{{% /callout %}}
 
-{{% notice note %}}
+{{% callout style="note" %}}
 Small collections are searched exactly. Once Qdrant builds the HNSW index (when a segment passes
 its indexing threshold, 10 MB of vectors per segment by default, so typically tens of thousands of
 embeddings), `find` is approximate, with recall set by the collection's HNSW settings.
-{{% /notice %}}
+{{% /callout %}}
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 `tls` defaults to `false` (plaintext). Set `tls:true` whenever Qdrant is not on `localhost` or an
 API key is configured, otherwise the key and the stored vectors travel the network unencrypted.
-{{% /notice %}}
+{{% /callout %}}
 
 ## Set
 

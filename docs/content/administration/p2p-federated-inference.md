@@ -7,9 +7,9 @@ aliases = ["/features/distribution/", "/features/distribute/"]
 
 ![Federated vs worker mode: federated routes a whole request to one node; worker shards one model across nodes](/docs/images/diagrams/federated-vs-worker.png)
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 Looking for production-grade horizontal scaling with PostgreSQL and NATS? See [Distributed Mode]({{% relref "/administration/distributed-mode" %}}).
-{{% /notice %}}
+{{% /callout %}}
 
 ## Choosing a distributed mode
 
@@ -77,11 +77,11 @@ The instructions are on the **P2P** page of the Swarm hub and in **Add a node**,
 
 ### Workers mode
 
-{{% notice note %}}
+{{% callout style="note" %}}
 This feature is available exclusively with llama-cpp compatible models.
 
 This feature was introduced in [LocalAI pull request #2324](https://github.com/mudler/LocalAI/pull/2324) and is based on the upstream work in [llama.cpp pull request #6829](https://github.com/ggerganov/llama.cpp/pull/6829).
- {{% /notice %}}
+ {{% /callout %}}
 
 To connect multiple workers to a single LocalAI instance, start first a server in p2p mode:
 

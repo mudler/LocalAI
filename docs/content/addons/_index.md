@@ -1,7 +1,7 @@
 +++
 title = "Add-ons"
 description = "Install, use and build add-ons."
-weight = 4
+weight = 5
 type = "chapter"
 icon = "extension"
 +++

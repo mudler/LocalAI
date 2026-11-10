@@ -49,12 +49,12 @@ Disabled phase timing allocates no diagnostic identities or events and adds no d
 
 ## Access and data sensitivity
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 The profiling listener is unauthenticated. Loopback reachability is its authorization boundary, not the public API's authentication policy.
 Other processes in the same network namespace can access it, including containers sharing a pod's namespace.
 Profiles can contain sensitive application data. Heap data and goroutine output can expose secrets.
 Protect captures, review them before sharing, and delete them when the investigation ends.
-{{% /notice %}}
+{{% /callout %}}
 
 The separate listener uses a private mux, not the public API router or the default Go mux.
 It provides the profiling index, CPU, trace, symbol, and named runtime profiles, including heap, goroutine, mutex, and block.

@@ -471,5 +471,5 @@ The realtime voice assistant example demonstrates how to build a voice assistant
 - [Realtime Voice Assistant Example (Python)](https://github.com/mudler/LocalAI-examples/tree/main/realtime)
 - [Realtime Voice Assistant Demo (Go)](https://github.com/localai-org/localai-realtime-demo)
 - [LocalAI Realtime API documentation]({{% relref "/features" %}})
-- [Audio features documentation]({{% relref "/features/text-to-audio" %}})
-- [Transcription features documentation]({{% relref "/features/audio-to-text" %}})
+- [Audio features documentation]({{% relref "/features/audio/text-to-audio" %}})
+- [Transcription features documentation]({{% relref "/features/audio/audio-to-text" %}})

@@ -29,9 +29,9 @@ The left column is the literal string as it appears in the LocalAI server log (o
 | Backend was terminated by the watchdog | The idle or busy watchdog stopped a backend that ran longer than its threshold. This is expected behavior when the watchdog is enabled, not a crash. | If the backend was killed prematurely, raise `--watchdog-idle-timeout` / `--watchdog-busy-timeout`, or disable the relevant watchdog (`LOCALAI_WATCHDOG_IDLE=false`, `LOCALAI_WATCHDOG_BUSY=false`). The next request reloads the model. |
 | Context size exceeded / truncated output | The combined prompt and generation exceeded the model's context window. | Shorten the prompt or raise `context_size:` in the model YAML (bounded by what the model and your memory allow). |
 
-{{% notice note %}}
+{{% callout style="note" %}}
 The exact wording of a backend's own error (the `...` part above) is produced by the backend engine (llama.cpp, vLLM, whisper.cpp, and so on), not by LocalAI, and can change between backend versions. Match on the LocalAI-side prefix (`could not load model`, `grpc service not ready`) and treat the trailing text as the backend's diagnosis.
-{{% /notice %}}
+{{% /callout %}}
 
 ## How to read the real error
 

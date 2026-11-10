@@ -1,7 +1,7 @@
 +++
 title = "API"
 description = "The HTTP API and the pages that describe it."
-weight = 6
+weight = 7
 type = "chapter"
 icon = "api"
 +++

@@ -7,13 +7,13 @@ aliases = ["/model-compatibility/"]
 
 Besides llama based models, LocalAI is compatible also with other architectures. The table below lists all the backends, compatible models families and the associated repository.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 
 LocalAI will attempt to automatically load models which are not explicitly configured for a specific backend. You can specify the backend to use by configuring a model with a YAML file. See [the advanced section]({{%relref "/models/advanced-usage" %}}) for more details.
 
 All backends listed here can be installed on demand from the [Backend Gallery]({{%relref "/models/backends" %}}). The exact set of acceleration variants published for each backend is defined in the backend library, [`gallery/backends/index.yaml`](https://github.com/mudler/LocalAI/blob/master/gallery/backends/index.yaml). [`backend/index.yaml`](https://github.com/mudler/LocalAI/blob/master/backend/index.yaml) is generated from it.
 
- {{% /notice %}}
+ {{% /callout %}}
 
 ## Text Generation & Language Models
 
@@ -32,7 +32,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [MLX-VLM](https://github.com/Blaizzy/mlx-vlm) | Vision-Language Models on Apple Silicon | Multimodal GPT, Functions | no | yes | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [MLX Distributed](https://github.com/ml-explore/mlx-lm) | Distributed LLM inference across multiple Apple Silicon Macs | GPT | no | no | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [tinygrad](https://github.com/tinygrad/tinygrad) | Minimalist deep-learning framework with zero runtime dependencies | GPT, Embeddings, Multimodal | yes | yes | CPU |
-| [RKLLM](https://github.com/airockchip/rknn-llm) | Rockchip NPU runtime connected through its OpenAI-compatible server and LocalAI's [cloud-proxy]({{% relref "/features/rkllm" %}}) configuration | GPT | no | yes | Rockchip NPU (RK3588, RK3576, RV1126B, RK3562) |
+| [RKLLM](https://github.com/airockchip/rknn-llm) | Rockchip NPU runtime connected through its OpenAI-compatible server and LocalAI's [cloud-proxy]({{% relref "/features/engines/rkllm" %}}) configuration | GPT | no | yes | Rockchip NPU (RK3588, RK3576, RV1126B, RK3562) |
 
 ## Speech-to-Text
 
@@ -48,8 +48,8 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) | Qwen3 automatic speech recognition | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [NeMo](https://github.com/NVIDIA/NeMo) | NVIDIA NeMo ASR toolkit | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/) | Sherpa-ONNX ASR (Whisper, Paraformer, SenseVoice) and TTS | CPU, CUDA 12, Metal |
-| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: transcription, forced alignment and speaker diarization (`nemotron_asr`, `qwen3_asr`, `voxtral_realtime`, `sortformer_diar` and more). See [audio.cpp backend]({{% relref "/features/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
-| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA C++/GGML runtime for Nemotron Speech: offline, streaming and live transcription, Sortformer diarization, MagpieTTS synthesis and Riva-Translate translation from one backend. See [NeMo-Speech.cpp backend]({{% relref "/features/nemo-speech-cpp" %}}) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: transcription, forced alignment and speaker diarization (`nemotron_asr`, `qwen3_asr`, `voxtral_realtime`, `sortformer_diar` and more). See [audio.cpp backend]({{% relref "/features/engines/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
+| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA C++/GGML runtime for Nemotron Speech: offline, streaming and live transcription, Sortformer diarization, MagpieTTS synthesis and Riva-Translate translation from one backend. See [NeMo-Speech.cpp backend]({{% relref "/features/engines/nemo-speech-cpp" %}}) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 
 ## Text-to-Speech
 
@@ -76,8 +76,8 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Kitten TTS](https://github.com/KittenML/KittenTTS) | Kitten TTS model | CPU, Metal |
 | [Supertonic](https://github.com/supertone-inc/supertonic) | Lightning-fast on-device multilingual TTS via ONNX | CPU |
 | [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | CPU, CUDA 12/13, Metal, Jetson L4T |
-| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: TTS, voice cloning and voice design (`supertonic`, `vibevoice`, `qwen3_tts`, `chatterbox` and more). See [audio.cpp backend]({{% relref "/features/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
-| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA MagpieTTS over NanoCodec, served by the same backend as Nemotron ASR. See [NeMo-Speech.cpp backend]({{% relref "/features/nemo-speech-cpp" %}}) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: TTS, voice cloning and voice design (`supertonic`, `vibevoice`, `qwen3_tts`, `chatterbox` and more). See [audio.cpp backend]({{% relref "/features/engines/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
+| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA MagpieTTS over NanoCodec, served by the same backend as Nemotron ASR. See [NeMo-Speech.cpp backend]({{% relref "/features/engines/nemo-speech-cpp" %}}) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 
 ## Speech-to-Speech
 
@@ -91,7 +91,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 |---------|-------------|-------------|
 | [ACE-Step](https://github.com/ace-step/ACE-Step-1.5) | Music generation from text descriptions, lyrics, or audio | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [acestep.cpp](https://github.com/ace-step/acestep.cpp) | ACE-Step 1.5 C++ backend using GGML | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
-| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: music and sound generation (`ace_step`, `stable_audio`, `heartmula`). See [audio.cpp backend]({{% relref "/features/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: music and sound generation (`ace_step`, `stable_audio`, `heartmula`). See [audio.cpp backend]({{% relref "/features/engines/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
 
 ## Image & Video Generation
 
@@ -124,7 +124,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Silero VAD](https://github.com/snakers4/silero-vad) | Voice Activity Detection | CPU, Metal |
 | [LocalVQE](https://github.com/localai-org/LocalVQE) | Joint acoustic echo cancellation, noise suppression, and dereverberation in C/C++ using GGML | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Jetson L4T |
 | [Opus](https://opus-codec.org/) | Audio codec for WebRTC / Realtime API | CPU, Metal |
-| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: voice activity detection (bundled `silero_vad` and `marblenet_vad`, no download), source separation into named stems, and voice conversion. See [audio.cpp backend]({{% relref "/features/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: voice activity detection (bundled `silero_vad` and `marblenet_vad`, no download), source separation into named stems, and voice conversion. See [audio.cpp backend]({{% relref "/features/engines/audio-cpp" %}}) | CPU, CUDA 12/13, Metal |
 
 ## Utilities & Other
 

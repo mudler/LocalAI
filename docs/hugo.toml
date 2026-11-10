@@ -2,7 +2,7 @@
 # site (see ../website). CI passes the same path via --baseURL, so keeping it
 # here means a local build produces the same links as production.
 baseURL = 'https://localai.io/docs/'
-languageCode = 'en-GB'
+locale = 'en-GB'
 defaultContentLanguage = 'en'
 
 title = 'LocalAI'
@@ -15,7 +15,7 @@ enableGitInfo = true
 enableEmoji = true
 
 [outputs]
-  home = ['html', 'rss', 'print', 'search']
+  home = ['html', 'rss', 'print']
   section = ['html', 'rss', 'print']
   page = ['html', 'print']
 
@@ -37,7 +37,7 @@ enableEmoji = true
 [params]
   # Relearn theme parameters
   editURL = 'https://github.com/mudler/LocalAI/edit/master/docs/content/'
-  author = 'Ettore Di Giacinto'
+  author = { name = 'Ettore Di Giacinto' }
   showVisitedLinks = true
   disableBreadcrumb = false
   disableNextPrev = false
@@ -46,7 +46,7 @@ enableEmoji = true
   disableSeoHiddenPages = true
   
   # Additional theme options
-  disableSearch = false
+  search = { disable = false }
   disableGenerator = false
   disableLanguageSwitchingButton = true
   
@@ -64,7 +64,7 @@ enableEmoji = true
 [languages]
   [languages.en]
     title = 'LocalAI'
-    languageName = 'English'
+    label = 'English'
     weight = 10
     contentDir = 'content'
     [languages.en.params]
