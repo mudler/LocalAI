@@ -204,9 +204,14 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 		return tools
 	}
 	out := make([]session.Tool, len(tools))
+	hostBash := providerOf(tools, commandTool) == BuiltinProvider
 	for i, t := range tools {
 		out[i] = t
 		switch {
+		case t.Name == jobTool && hostBash:
+			// A job on this machine acts as host bash does; reading and
+			// stopping one acts on nothing new.
+			out[i] = s.gateJobTool(rec, pol, t)
 		case t.Name == localaitools.ToolVoiceProfile:
 			out[i] = s.gateVoiceProfile(rec, pol, t)
 		case clientToolNames[t.Name]:
@@ -220,4 +225,23 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 		}
 	}
 	return out
+}
+
+// gateJobTool applies the policy to the job tool of the built-in bash by
+// action: start and input act like a command on this machine (they need
+// act.files and act.external); list, read and kill act on nothing new.
+func (s *Service) gateJobTool(rec session.ChatRecord, pol builtins.ActPolicy, t session.Tool) session.Tool {
+	gated := s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassFiles, External: true}).Run
+	run := t.Run
+	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in struct {
+			Action string `json:"action"`
+		}
+		_ = json.Unmarshal(args, &in)
+		if in.Action == JobStart || in.Action == JobInput {
+			return gated(ctx, args)
+		}
+		return run(ctx, args)
+	}
+	return t
 }

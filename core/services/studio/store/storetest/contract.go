@@ -7,6 +7,7 @@ package storetest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -281,6 +283,56 @@ func Run(newStore New) {
 		wg.Wait()
 		rec, _ = s.GetChat(ctx(), "alice", "c1")
 		Expect(rec.Egress.Rules).To(HaveLen(9), "no change was lost")
+	})
+
+	It("keeps the job index, survives a chat update, belongs to the owner and loses no concurrent change", func() {
+		s := newStore()
+		chat(s, "j1", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "j1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Jobs).To(BeEmpty(), "a new chat has no jobs")
+		Expect(s.UpdateJobs(ctx(), "alice", "j1", func(cur []session.JobStub) ([]session.JobStub, error) {
+			Expect(cur).To(BeEmpty())
+			return append(cur, session.JobStub{ID: "job-aaaaaa", Instance: "n1", Provider: "builtin", Label: "build", State: bgjob.StateRunning, Started: t0}), nil
+		})).To(Succeed())
+		stale := rec
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(rec.Jobs).To(HaveLen(1), "UpdateChat keeps the jobs")
+		Expect(rec.Jobs[0].ID).To(Equal("job-aaaaaa"))
+		Expect(rec.Jobs[0].State).To(Equal(bgjob.StateRunning))
+		Expect(rec.Jobs[0].Started.Equal(t0)).To(BeTrue())
+		rec.Jobs[0].Label = "changed on the copy"
+		again, _ := s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs[0].Label).To(Equal("build"), "GetChat returns a copy")
+
+		Expect(s.UpdateJobs(ctx(), "bob", "j1", func(c []session.JobStub) ([]session.JobStub, error) { return c, nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateJobs(ctx(), "alice", "j1", func(c []session.JobStub) ([]session.JobStub, error) {
+			c[0].State = bgjob.StateExited
+			return c, boom
+		})).To(MatchError(boom))
+		again, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs[0].State).To(Equal(bgjob.StateRunning), "an error leaves the list as it was")
+
+		var wg sync.WaitGroup
+		for i := range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateJobs(ctx(), "alice", "j1", func(c []session.JobStub) ([]session.JobStub, error) {
+					return append(c, session.JobStub{ID: fmt.Sprintf("job-%06d", i), State: bgjob.StateRunning}), nil
+				})).To(Succeed())
+			}()
+		}
+		wg.Wait()
+		again, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs).To(HaveLen(9), "no concurrent change is lost")
+		Expect(s.UpdateJobs(ctx(), "alice", "j1", func([]session.JobStub) ([]session.JobStub, error) { return nil, nil })).To(Succeed())
+		again, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs).To(BeEmpty())
 	})
 
 	It("keeps the goal, survives a chat update, belongs to the owner and loses no concurrent change", func() {

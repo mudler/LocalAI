@@ -25,8 +25,10 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/host"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
@@ -59,7 +61,8 @@ const Description = "Run a shell script with bash directly on this machine, with
 	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use relative paths. " +
 	"What it changes in the home and the writable shared folders is saved to the user's files; anything else is lost. " +
 	"It can read what the server can read and reach the internet and the local network. " +
-	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " + workfiles.ToolHint
+	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " +
+	"For a command that runs for minutes or does not end (a server, a watcher), use job start. " + workfiles.ToolHint
 
 // Options configures a Runner.
 type Options struct {
@@ -87,6 +90,12 @@ type Options struct {
 	PerUser, Total int
 	// Geteuid is os.Geteuid; tests set it.
 	Geteuid func() int
+	// Instance is the node that runs the background jobs: it is recorded in
+	// each job and in its stub, and the carrier reaches the job there.
+	Instance string
+	// JobOptions tunes the registry of the background jobs. The hooks
+	// (Check, Changed, Audit) are set by Runner itself and by OnJob.
+	JobOptions bgjob.Options
 }
 
 // Runner runs the built-in bash of the chats.
@@ -94,6 +103,11 @@ type Runner struct {
 	o      Options
 	m      *runner.Manager
 	reason string
+	jobs   *bgjob.Registry
+
+	hookMu  sync.RWMutex
+	check   func(context.Context, bgjob.Info) bgjob.EndReason
+	changed func(bgjob.Info)
 }
 
 // New returns a Runner. It never fails: a host that cannot run commands (LocalAI
@@ -151,6 +165,13 @@ func New(o Options) *Runner {
 	}
 	m.Start(context.Background())
 	r.m = m
+	jo := o.JobOptions
+	jo.Instance, jo.Provider = o.Instance, "builtin"
+	jo.Check = r.jobCheck
+	jo.Changed = r.jobChanged
+	jo.Audit = r.jobAudit
+	r.jobs = bgjob.New(jo)
+	r.jobs.Start(context.Background())
 	return r
 }
 
@@ -213,6 +234,9 @@ func (r *Runner) Close(ctx context.Context) error {
 	if r == nil || r.m == nil {
 		return nil
 	}
+	// The jobs end first: each saves what it wrote while its sandbox still
+	// exists.
+	r.jobs.Close(ctx)
 	return r.m.Close(ctx)
 }
 
@@ -232,11 +256,7 @@ func (r *Runner) actor(ctx context.Context, user, chat string) (workspace.Actor,
 // audit records one call.
 func (r *Runner) audit(ctx context.Context, res runner.BashResult) {
 	req, _ := runner.RequestFrom(ctx)
-	cmd := res.Command
-	if len(cmd) > maxAuditCommand {
-		cmd = strings.ToValidUTF8(cmd[:maxAuditCommand], "") + "..."
-	}
-	ev := Event{User: req.User, Chat: req.Conversation, Command: cmd, Exit: res.Exit, DurationMS: res.Duration.Milliseconds(),
+	ev := Event{Kind: KindRun, User: req.User, Chat: req.Conversation, Command: capAudit(res.Command), Exit: res.Exit, DurationMS: res.Duration.Milliseconds(),
 		TimedOut: res.TimedOut, At: time.Now().UTC()}
 	r.o.Log.Warn("[host-exec] done", "user", ev.User, "chat", ev.Chat, "exit", ev.Exit, "ms", ev.DurationMS, "timed_out", ev.TimedOut)
 	if err := r.o.Audit.Add(context.WithoutCancel(ctx), ev); err != nil {
@@ -252,4 +272,12 @@ func (r *Runner) Events(ctx context.Context, limit int) ([]Event, error) {
 // Prune removes the audit lines older than before.
 func (r *Runner) Prune(ctx context.Context, before time.Time) (int64, error) {
 	return r.o.Audit.Prune(ctx, before)
+}
+
+// capAudit cuts a command or an input to what an audit line keeps.
+func capAudit(s string) string {
+	if len(s) > maxAuditCommand {
+		return strings.ToValidUTF8(s[:maxAuditCommand], "") + "..."
+	}
+	return s
 }

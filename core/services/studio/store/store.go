@@ -206,6 +206,13 @@ type Store interface {
 	// each other's change.
 	UpdateHostConsent(ctx context.Context, principal, chatID string, change func(cur *session.HostConsent) (*session.HostConsent, error)) error
 
+	// UpdateJobs changes the index of the chat's background jobs in one atomic
+	// step: change gets a copy of the stubs and returns the list to keep; an
+	// error from change leaves the chat as it was and is returned. Two nodes
+	// that write the stubs of one chat at once do not lose either change.
+	// UpdateChat leaves the list alone.
+	UpdateJobs(ctx context.Context, principal, chatID string, change func(cur []session.JobStub) ([]session.JobStub, error)) error
+
 	// UpdateEgress changes the network state of a chat (preset, rules, cards,
 	// grants) in one atomic step: change gets the current state and edits it;
 	// an error from change leaves the chat as it was and is returned. Two
