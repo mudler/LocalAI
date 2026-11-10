@@ -5,6 +5,16 @@ weight = 50
 aliases = ["/features/contacts/"]
 +++
 
+In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
+
+## At a glance
+
+| | |
+|---|---|
+| What it adds | One address book for each user, inside LocalAI. A chat or a saved agent looks up and keeps contacts. There is no account to connect. |
+| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
+| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. |
+
 The Contacts add-on gives you an address book inside LocalAI. Ask a chat or a [saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}) "what is Marco's number?" or "add Anna, anna@example.org" and it reads or changes the book. There is no account to connect, no sync and no setup: install the add-on and use it.
 
 ## What it keeps

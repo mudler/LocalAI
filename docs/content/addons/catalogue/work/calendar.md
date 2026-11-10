@@ -5,6 +5,16 @@ weight = 40
 aliases = ["/features/calendar/"]
 +++
 
+In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
+
+## At a glance
+
+| | |
+|---|---|
+| What it adds | One calendar for each user, inside LocalAI. A chat or a saved agent reads and changes events. There is no account to connect. |
+| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
+| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. |
+
 The Calendar add-on gives you a calendar inside LocalAI. Ask a chat or a [saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}) "what is on Thursday?" or "add dinner with Sam at 8" and it reads or changes the calendar. There is no account to connect, no sync and no setup: install the add-on and use it.
 
 ## What it keeps

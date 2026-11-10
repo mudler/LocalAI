@@ -17,7 +17,7 @@ LocalAI supports fine-tuning LLMs directly through the API and Web UI. Fine-tuni
 
 ## Availability
 
-Fine-tuning is always enabled. When authentication is enabled, fine-tuning is a per-user feature (default OFF). Admins can enable it for specific users via the user management API.
+The fine-tuning API and the training backends are part of LocalAI. The Fine-Tune page and the chat tools are in the `fine-tuning` add-on (see [Fine-tuning is an add-on](#fine-tuning-is-an-add-on)). With `--addons-enabled=false` every path under `/api/fine-tuning` answers `503`. When authentication is enabled, fine-tuning is a per-user feature (default OFF). Admins can enable it for specific users via the user management API.
 
 {{% callout style="note" %}}
 This feature is **experimental** and may change in future releases.

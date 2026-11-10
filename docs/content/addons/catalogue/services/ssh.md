@@ -5,6 +5,16 @@ weight = 80
 aliases = ["/features/ssh/"]
 +++
 
+In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
+
+## At a glance
+
+| | |
+|---|---|
+| What it adds | A tool to run one non-interactive command on a remote machine over SSH. A person confirms each command by default. |
+| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
+| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. A person adds a connection: a host, a user and a key or a password. |
+
 The SSH add-on lets your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) run commands on a remote machine over SSH. By default **a person confirms each command**: the card shows the host, the user and the exact text before anything runs.
 
 A chat can answer questions such as:
