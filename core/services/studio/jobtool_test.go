@@ -401,8 +401,11 @@ var _ = Describe("the job tool", func() {
 				for ev := range events {
 					if ev.Kind == session.KindHostExecConsent {
 						cards++
-						Expect(ev.Text).To(HavePrefix("sleep 9\n"))
-						Expect(ev.Text).To(ContainSubstring("takes input from the model without a further approval"))
+						Expect(ev.Text).To(Equal("sleep 9"), "the card shows the command alone; the UI adds the note")
+						rec, err := c.svc.Get(context.Background(), alice, id)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(rec.HostConsent).NotTo(BeNil())
+						Expect(rec.HostConsent.Job).To(BeTrue(), "the card of a job start says that it covers the input")
 						Expect(c.svc.HostExecDecide(context.Background(), alice, id, ev.IDs[0], studio.HostExecOnce)).To(Succeed())
 					}
 				}

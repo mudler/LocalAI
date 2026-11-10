@@ -521,7 +521,7 @@ export function useServerChat({ seed = null } = {}) {
     jobs: detail?.jobs || [],
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
-    hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
+    hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '', job: !!detail.host_consent.job } : null,
     select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, stopJob, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),

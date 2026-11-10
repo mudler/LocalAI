@@ -170,6 +170,9 @@ type JobStub struct {
 type HostConsent struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
+	// Job is set when the command starts a background job: the yes also
+	// covers the input the model writes to the job later.
+	Job bool `json:"job,omitempty"`
 	// Turn is the turn that asked and AskedAt when. The card waits only while
 	// that turn holds the chat; one left by a frontend that died is expired.
 	Turn    string    `json:"turn,omitempty"`

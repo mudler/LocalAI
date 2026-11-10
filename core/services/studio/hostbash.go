@@ -198,19 +198,15 @@ func (s *Service) runHostBash(ctx context.Context, a workspace.Actor, run func(c
 // that tells the model why the command did not run; err is set only when the
 // turn was stopped. A wait on a script asks here once, when it is armed.
 func (s *Service) approveHostExec(ctx context.Context, a workspace.Actor, command string) (outcome, refusal string, err error) {
-	return s.approveHostExecNote(ctx, a, command, "")
+	return s.approveHostExecCard(ctx, a, command, false)
 }
 
-// jobCardNote is the line the card of a background job adds below the
-// command. The yes of the start covers the input the model writes to the job
-// later, one card per input would make a job that reads input unusable, so
-// the person is told what the yes covers.
-const jobCardNote = "\n\n# This is a background job. It keeps running after this call and takes input from the model without a further approval."
-
-// approveHostExecNote is approveHostExec with a note that the card shows
-// after the command. The command that runs, and the audit line, are the
-// command alone.
-func (s *Service) approveHostExecNote(ctx context.Context, a workspace.Actor, command, note string) (outcome, refusal string, err error) {
+// approveHostExecCard is approveHostExec for a command that may start a
+// background job. The yes of a job's start covers the input the model writes
+// to the job later (one card per input would make a job that reads input
+// unusable), so the card of a job says so below the command, in the person's
+// language.
+func (s *Service) approveHostExecCard(ctx context.Context, a workspace.Actor, command string, job bool) (outcome, refusal string, err error) {
 	outcome = "ran"
 	switch s.hostExecMode() {
 	case hostexec.ModeOff:
@@ -226,7 +222,7 @@ func (s *Service) approveHostExecNote(ctx context.Context, a workspace.Actor, co
 			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "denied"})
 			return "", fmt.Sprintf("Not run: the command is longer than %d bytes, too long for the user to read before they allow it. Do not try again as it is; split it into shorter commands, or put the script in a file first.", hostExecCardLimit), nil
 		}
-		switch d := s.askHostExec(ctx, a, command+note); d {
+		switch d := s.askHostExec(ctx, a, command, job); d {
 		case HostExecOnce:
 			outcome = "once"
 		case "stopped":
@@ -247,7 +243,7 @@ func (s *Service) approveHostExecNote(ctx context.Context, a workspace.Actor, co
 // before it goes on the chat bus; the call wakes on the message, or finds the
 // answer when it reads the card again every two seconds, as the network card
 // does, so a lost message does not cost the person's click.
-func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command string) string {
+func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command string, job bool) string {
 	id := newID()
 	k := key(a.Principal, a.ChatID)
 	wake, cancel := s.listenConsent(k, func(m ControlMsg) bool { return m.HostExec != nil && m.HostExec.ID == id })
@@ -257,7 +253,7 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 	// asked, so a card that a dead frontend leaves behind is not taken for a
 	// waiting one.
 	turn := consentTurn(s.chatTurn(ctx, a.Principal, a.ChatID))
-	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command, Turn: turn, AskedAt: s.now().UTC()})
+	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command, Job: job, Turn: turn, AskedAt: s.now().UTC()})
 	defer s.clearHostConsent(context.WithoutCancel(ctx), a.Principal, a.ChatID, id)
 	s.bus.Publish(k, session.Event{Kind: session.KindHostExecConsent, IDs: []string{id}, Text: command})
 	decision := ""

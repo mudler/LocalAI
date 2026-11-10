@@ -345,7 +345,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	// The card waits only while the turn that asked holds the chat; a card a
 	// dead frontend left, also under a later turn, is not shown.
 	if hc := h.svc.HostConsent(c.Request().Context(), user, rec, info); hc != nil {
-		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command}
+		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command, Job: hc.Job}
 	}
 	out.Loops = []schema.ChatsLoop{}
 	if host := h.svc.Loops(); host != nil {

@@ -603,6 +603,7 @@
       "deny": "Don't run",
       "alwaysHint": "Always on this instance lets every user's chats run commands here without asking (Settings > Tools).",
       "askAdmin": "Only an administrator can allow commands on this machine. Ask one, or run the command yourself.",
+      "job": "This starts a background job. It keeps running after this call, and allowing it also allows the input the model writes to it later, without asking again.",
       "expired": "Not answered: the turn that asked has ended, so the command did not run."
     },
     "provider": {

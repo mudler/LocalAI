@@ -416,6 +416,7 @@
       "deny": "Não rodar",
       "alwaysHint": "\"Sempre nesta instância\" deixa os chats de todos os usuários rodarem comandos aqui sem perguntar (Configurações > Ferramentas).",
       "askAdmin": "Só um administrador pode permitir comandos nesta máquina. Peça a um, ou rode o comando você mesmo.",
+      "job": "Isto inicia um job em segundo plano. Ele continua em execução após esta chamada, e permiti-lo também permite a entrada que o modelo escrever nele depois, sem perguntar de novo.",
       "expired": "Sem resposta: o turno que pediu terminou, então o comando não foi executado."
     },
     "provider": {

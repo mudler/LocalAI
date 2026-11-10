@@ -26648,6 +26648,10 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "job": {
+                    "description": "Job is set when the command starts a background job of the ` + "`" + `job` + "`" + ` tool:\nallowing it also allows the input the model writes to that job later.",
+                    "type": "boolean"
                 }
             }
         },

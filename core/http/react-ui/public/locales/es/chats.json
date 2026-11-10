@@ -416,6 +416,7 @@
       "deny": "No ejecutar",
       "alwaysHint": "«Siempre en esta instancia» deja que los chats de todos los usuarios ejecuten comandos aquí sin preguntar (Ajustes > Herramientas).",
       "askAdmin": "Solo un administrador puede permitir comandos en esta máquina. Pídeselo a uno o ejecuta tú el comando.",
+      "job": "Esto inicia un trabajo en segundo plano. Sigue ejecutándose después de esta llamada, y permitirlo también permite la entrada que el modelo le escriba después, sin volver a preguntar.",
       "expired": "Sin respuesta: el turno que lo pidió ha terminado, así que el comando no se ejecutó."
     },
     "provider": {

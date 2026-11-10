@@ -541,6 +541,9 @@ type ChatsLoopMark struct {
 type ChatsHostConsent struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
+	// Job is set when the command starts a background job of the `job` tool:
+	// allowing it also allows the input the model writes to that job later.
+	Job bool `json:"job,omitempty"`
 }
 
 // ChatsSendRequest is a message to a conversation.

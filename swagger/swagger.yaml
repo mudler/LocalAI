@@ -7452,6 +7452,11 @@ definitions:
         type: string
       id:
         type: string
+      job:
+        description: |-
+          Job is set when the command starts a background job of the `job` tool:
+          allowing it also allows the input the model writes to that job later.
+        type: boolean
     type: object
   schema.ChatsHostExecConsent:
     properties:

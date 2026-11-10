@@ -733,7 +733,7 @@ func (b *hostJobBackend) start(ctx context.Context, a workspace.Actor, c JobCall
 	if why := b.hostOK(ctx, a); why != "" {
 		return JobResult{Text: "Not started: " + why + "."}, nil
 	}
-	outcome, refusal, err := b.s.approveHostExecNote(ctx, a, c.Command, jobCardNote)
+	outcome, refusal, err := b.s.approveHostExecCard(ctx, a, c.Command, true)
 	if err != nil {
 		return JobResult{}, err
 	}

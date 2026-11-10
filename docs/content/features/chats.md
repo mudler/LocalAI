@@ -1486,7 +1486,8 @@ can only refuse it. The card lives as long as the call waits, at most 5
 minutes. The server keeps it with the chat, so a reload, or another browser
 or frontend, shows it again and it can still be answered; once the call ends
 the card is gone and the call's line says how it ended. `GET /api/chats/{id}`
-carries the waiting card as `host_consent` (`id` and `command`) while the turn
+carries the waiting card as `host_consent` (`id`, `command`, and `job`, true
+when the command starts a [background job](#background-jobs)) while the turn
 that asked runs. The card names that turn: a card of an earlier turn is not
 shown, also while a later turn runs, and is cleared when the next turn starts.
 An answer to a card with nobody waiting on it (its turn has ended, its
