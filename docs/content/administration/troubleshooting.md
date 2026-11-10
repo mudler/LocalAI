@@ -83,16 +83,11 @@ uname -m
 # aarch64 → download the arm64 binary
 ```
 
-### macOS: Application Is Quarantined
+### macOS: the app does not open
 
-**Symptoms:** macOS blocks LocalAI from running because the DMG is not signed by Apple.
+**Symptoms:** macOS shows a warning when you open LocalAI, or the app does not start.
 
-**Solution:** See [GitHub issue #6268](https://github.com/mudler/LocalAI/issues/6268) for quarantine bypass instructions. This is tracked for resolution in [issue #6244](https://github.com/mudler/LocalAI/issues/6244).
-
-
-
-
-
+**Solution:** The release DMG and the `local-ai` binary are signed with an Apple Developer ID and notarized, so a current release opens without a workaround. Check that you downloaded `LocalAI.dmg` from the [releases page](https://github.com/mudler/LocalAI/releases/latest). To check the signature, run the `spctl` command in the [macOS install guide]({{% relref "/start/install/macos" %}}#verification). A copy that was modified or downloaded from another place fails this check.
 
 ## Model Loading Problems
 
@@ -172,7 +167,7 @@ docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
 
 When working correctly, LocalAI logs should show: `ggml_init_cublas: found X CUDA devices`.
 
-Ensure you are using a CUDA-enabled container image (tags containing `cuda11`, `cuda12`, or `cuda13`). CPU-only images cannot use NVIDIA GPUs.
+Ensure you are using a CUDA-enabled container image (tags containing `cuda-12` or `cuda-13`). CPU-only images cannot use NVIDIA GPUs.
 
 **AMD (ROCm):**
 

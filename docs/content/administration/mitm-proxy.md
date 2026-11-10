@@ -88,7 +88,7 @@ The proxy is enabled with two startup settings:
 | Flag / env | Default | Purpose |
 |---|---|---|
 | `--mitm-listen` / `LOCALAI_MITM_LISTEN` | empty (disabled) | Address to bind the proxy listener on |
-| `--mitm-ca-dir` / `LOCALAI_MITM_CA_DIR` | `<data-path>/mitm-ca` | Where to persist the CA cert + key |
+| `--mitmca-dir` / `LOCALAI_MITM_CA_DIR` | `<data-path>/mitm-ca` | Where to persist the CA cert + key |
 
 There is no global intercept-hosts flag. The hosts whose TLS is terminated
 and scanned are declared **per model**, in the model YAML `mitm.hosts:`

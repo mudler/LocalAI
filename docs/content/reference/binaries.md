@@ -10,11 +10,7 @@ LocalAI binaries are available for both Linux and MacOS platforms and can be exe
 
 You can download the DMG and install the application:
 
-<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg">
-  <img src="https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download LocalAI for macOS"/>
-</a> 
-
-> Note: the DMGs are not signed by Apple as quarantined. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
+[Download LocalAI.dmg](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg). The DMG is signed with an Apple Developer ID and notarized.
 
 Otherwise, use the following one-liner command in your terminal to download and run LocalAI on Linux or MacOS:
 

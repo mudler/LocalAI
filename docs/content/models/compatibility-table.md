@@ -149,9 +149,8 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 
 ### Specialized Hardware
 - **NVIDIA Jetson (L4T CUDA 12)**: ARM64 support for embedded AI (AGX Orin, Jetson Nano, Jetson Xavier NX, Jetson AGX Xavier)
-- **NVIDIA Jetson (L4T CUDA 13)**: ARM64 support for embedded AI (DGX Spark)
+- **NVIDIA ARM64 (L4T CUDA 13)**: ARM64 support for DGX Spark
 - **Apple Silicon**: Native Metal acceleration for Mac M1/M2/M3+
-- **Darwin x86**: Intel Mac support
 
 ### CPU Optimization
 - **AVX/AVX2/AVX512**: Advanced vector extensions for x86
