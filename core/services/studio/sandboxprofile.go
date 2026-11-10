@@ -196,7 +196,11 @@ func (s *Service) withSandboxProfile(ctx context.Context, a workspace.Actor, rec
 	}
 	inner := t.Run
 	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
-		return inner(contract.WithExecutionCall(ctx, s.callOptions(ctx, a.Principal, a.ChatID, d)), args)
+		opts := s.callOptions(ctx, a.Principal, a.ChatID, d)
+		if prev, ok := contract.ExecutionCallFrom(ctx); ok && prev.ReadOnly {
+			opts.ReadOnly = true // the check of a wait must not change files
+		}
+		return inner(contract.WithExecutionCall(ctx, opts), args)
 	}
 	return t
 }

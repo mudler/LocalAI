@@ -904,7 +904,8 @@
       "lastError": "Último erro: {{message}}",
       "sources": {
         "tool": "ferramenta {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "um script"
       },
       "end": {
         "met": "Concluída: a condição foi atendida",

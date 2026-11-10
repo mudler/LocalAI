@@ -904,7 +904,8 @@
       "lastError": "마지막 오류: {{message}}",
       "sources": {
         "tool": "도구 {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "스크립트"
       },
       "end": {
         "met": "완료: 조건이 충족되었습니다",

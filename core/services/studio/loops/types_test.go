@@ -16,6 +16,15 @@ func TestLoops(t *testing.T) {
 }
 
 var _ = Describe("Loop values", func() {
+	It("describes a wait on a script without its command", func() {
+		for _, mode := range []string{loops.UntilChange, loops.UntilMatch, loops.UntilJSONEquals, loops.UntilExitZero} {
+			w := &loops.Watch{Script: "rm -rf /secret/path", Mode: mode, Pattern: "ok", Field: "a", Equals: "b"}
+			Expect(w.Describe()).NotTo(ContainSubstring("secret"), mode)
+			Expect(w.Describe()).To(ContainSubstring("script"), mode)
+			Expect(w.Clone().Script).To(Equal(w.Script))
+		}
+	})
+
 	DescribeTable("LooksLikeInterval", func(in string, want bool) {
 		Expect(loops.LooksLikeInterval(in)).To(Equal(want))
 	},

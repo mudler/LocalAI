@@ -129,9 +129,12 @@ type Manager struct {
 }
 
 type entry struct {
-	mu       sync.Mutex // one call at a time; guards sb, snap, gone
-	user     string
-	conv     string
+	mu   sync.Mutex // one call at a time; guards sb, snap, gone
+	user string
+	conv string
+	// ro marks the sandbox of read-only calls: its view has every folder
+	// read-only, so what a call writes is refused at the checkpoint.
+	ro       bool
 	created  time.Time
 	lastUse  time.Time // guarded by Manager.mu
 	sb       sandbox.Sandbox
@@ -217,7 +220,16 @@ func clearDir(dir string) error {
 	return nil
 }
 
-func key(user, conv string) string { return user + "\x00" + conv }
+func key(user, conv string) string { return ekey(user, conv, false) }
+
+// ekey is the key of an entry. A read-only call runs in a sandbox of its own,
+// so that nothing a check writes reaches the sandbox that commits.
+func ekey(user, conv string, ro bool) string {
+	if ro {
+		return user + "\x00" + conv + "\x00ro"
+	}
+	return user + "\x00" + conv
+}
 
 // Count is the number of sandboxes of a user, or of everybody when user is "".
 func (m *Manager) Count(user string) int {
@@ -257,10 +269,10 @@ func (m *Manager) Running() int {
 // find returns the entry of a pair, making it when it is new. A new entry past
 // the limits asks the oldest sandbox of the user to give way; past the total
 // limit it is refused.
-func (m *Manager) find(user, conv string) (*entry, error) {
+func (m *Manager) find(user, conv string, ro bool) (*entry, error) {
 	var victims []*entry
 	m.mu.Lock()
-	if e, ok := m.entries[key(user, conv)]; ok {
+	if e, ok := m.entries[ekey(user, conv, ro)]; ok {
 		e.lastUse = m.o.Now()
 		m.mu.Unlock()
 		return e, nil
@@ -283,7 +295,7 @@ func (m *Manager) find(user, conv string) (*entry, error) {
 				continue
 			}
 			victims = append(victims, c)
-			delete(m.entries, key(c.user, c.conv))
+			delete(m.entries, ekey(c.user, c.conv, c.ro))
 			break
 		}
 		if len(victims) == 0 {
@@ -303,7 +315,7 @@ func (m *Manager) find(user, conv string) (*entry, error) {
 		for _, c := range own {
 			if c.mu.TryLock() { // an idle one; a busy one is not touched
 				victims = append(victims, c)
-				delete(m.entries, key(c.user, c.conv))
+				delete(m.entries, ekey(c.user, c.conv, c.ro))
 				evicted = true
 				break
 			}
@@ -319,8 +331,8 @@ func (m *Manager) find(user, conv string) (*entry, error) {
 		}
 	}
 	now := m.o.Now()
-	e := &entry{user: user, conv: conv, created: now, lastUse: now}
-	m.entries[key(user, conv)] = e
+	e := &entry{user: user, conv: conv, ro: ro, created: now, lastUse: now}
+	m.entries[ekey(user, conv, ro)] = e
 	m.mu.Unlock()
 	for _, v := range victims {
 		v.gone = true
@@ -333,8 +345,8 @@ func (m *Manager) find(user, conv string) (*entry, error) {
 // forget drops an entry that never got a sandbox.
 func (m *Manager) forget(e *entry) {
 	m.mu.Lock()
-	if m.entries[key(e.user, e.conv)] == e {
-		delete(m.entries, key(e.user, e.conv))
+	if m.entries[ekey(e.user, e.conv, e.ro)] == e {
+		delete(m.entries, ekey(e.user, e.conv, e.ro))
 	}
 	m.mu.Unlock()
 }
@@ -386,6 +398,12 @@ func (m *Manager) access(ctx context.Context, e *entry) (workspace.Actor, worksp
 	}
 	if len(v.Mounts) == 0 {
 		return workspace.Actor{}, workspace.View{}, fmt.Errorf("%w: the view of this chat has no folder", ErrInvalid)
+	}
+	if e.ro {
+		v.Mounts = slices.Clone(v.Mounts)
+		for i := range v.Mounts {
+			v.Mounts[i].Mode = workspace.ModeRead
+		}
 	}
 	return a, v, nil
 }
@@ -507,7 +525,7 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 		}
 		return "", err
 	}
-	e, err := m.find(r.User, r.Conversation)
+	e, err := m.find(r.User, r.Conversation, r.Call.ReadOnly)
 	if err != nil {
 		return "", err
 	}

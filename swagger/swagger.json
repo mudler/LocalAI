@@ -29308,7 +29308,7 @@
                     "type": "integer"
                 },
                 "mode": {
-                    "description": "Mode is change, match or json_equals; Condition says it in words.",
+                    "description": "Mode is change, match, json_equals or exit_zero; Condition says it in\nwords.",
                     "type": "string"
                 },
                 "next_check": {
@@ -29330,7 +29330,7 @@
                     "type": "string"
                 },
                 "source_kind": {
-                    "description": "SourceKind is \"tool\" or \"url\". Source is the name of the tool, or the\nhost and path of the URL without the query.",
+                    "description": "SourceKind is \"tool\", \"url\" or \"script\". Source is the name of the tool,\nthe host and path of the URL without the query, or \"a script\": the text\nof a command is never in this object.",
                     "type": "string"
                 }
             }

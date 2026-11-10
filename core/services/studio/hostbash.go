@@ -172,37 +172,16 @@ const hostExecCardLimit = 2000
 
 // runHostBash runs one call, after the card when the mode asks for one.
 func (s *Service) runHostBash(ctx context.Context, a workspace.Actor, run func(context.Context, json.RawMessage) (string, error), args json.RawMessage) (string, error) {
-	outcome := "ran"
-	switch s.hostExecMode() {
-	case hostexec.ModeOff:
-		return "Commands on this machine were switched off by an administrator. Do not try again.", nil
-	case hostexec.ModeAsk:
-		if !s.isAdmin(ctx, a.Principal) {
-			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "admin"})
-			return "Not run: only an administrator can allow commands on this machine. Tell the user to ask one, or give them the command to run.", nil
-		}
-		var in struct {
-			Command string `json:"command"`
-		}
-		_ = json.Unmarshal(args, &in)
-		// The card shows the whole command. A longer one is refused, so the
-		// person never approves text they could not read.
-		if len(in.Command) > hostExecCardLimit {
-			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "denied"})
-			return fmt.Sprintf("Not run: the command is longer than %d bytes, too long for the user to read before they allow it. Do not try again as it is; split it into shorter commands, or put the script in a file first.", hostExecCardLimit), nil
-		}
-		switch d := s.askHostExec(ctx, a, in.Command); d {
-		case HostExecOnce:
-			outcome = "once"
-		case "stopped":
-			return "", ctx.Err()
-		case "timeout":
-			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "timeout"})
-			return "Not run: the user did not answer the card that asks to run this command on this machine. Do not try again; ask them.", nil
-		default:
-			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "denied"})
-			return "Not run: the user did not allow this command on this machine. Do not try again; give them the command, or ask what to do.", nil
-		}
+	var in struct {
+		Command string `json:"command"`
+	}
+	_ = json.Unmarshal(args, &in)
+	outcome, refusal, err := s.approveHostExec(ctx, a, in.Command)
+	if err != nil {
+		return "", err
+	}
+	if refusal != "" {
+		return refusal, nil
 	}
 	out, err := run(ctx, args)
 	if err == nil {
@@ -211,6 +190,43 @@ func (s *Service) runHostBash(ctx context.Context, a workspace.Actor, run func(c
 		s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindFiles})
 	}
 	return out, err
+}
+
+// approveHostExec decides whether a command may run on this machine now, and
+// asks the person when the mode says so. It returns the outcome that labels
+// the call (ran: no card was needed, once: the person allowed it), or the text
+// that tells the model why the command did not run; err is set only when the
+// turn was stopped. A wait on a script asks here once, when it is armed.
+func (s *Service) approveHostExec(ctx context.Context, a workspace.Actor, command string) (outcome, refusal string, err error) {
+	outcome = "ran"
+	switch s.hostExecMode() {
+	case hostexec.ModeOff:
+		return "", "Commands on this machine were switched off by an administrator. Do not try again.", nil
+	case hostexec.ModeAsk:
+		if !s.isAdmin(ctx, a.Principal) {
+			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "admin"})
+			return "", "Not run: only an administrator can allow commands on this machine. Tell the user to ask one, or give them the command to run.", nil
+		}
+		// The card shows the whole command. A longer one is refused, so the
+		// person never approves text they could not read.
+		if len(command) > hostExecCardLimit {
+			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "denied"})
+			return "", fmt.Sprintf("Not run: the command is longer than %d bytes, too long for the user to read before they allow it. Do not try again as it is; split it into shorter commands, or put the script in a file first.", hostExecCardLimit), nil
+		}
+		switch d := s.askHostExec(ctx, a, command); d {
+		case HostExecOnce:
+			outcome = "once"
+		case "stopped":
+			return "", "", ctx.Err()
+		case "timeout":
+			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "timeout"})
+			return "", "Not run: the user did not answer the card that asks to run this command on this machine. Do not try again; ask them.", nil
+		default:
+			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "denied"})
+			return "", "Not run: the user did not allow this command on this machine. Do not try again; give them the command, or ask what to do.", nil
+		}
+	}
+	return outcome, "", nil
 }
 
 // askHostExec shows the card and waits for its answer: once, deny, timeout,

@@ -240,6 +240,40 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(ok).To(BeTrue(), "no budget is no limit")
 	})
 
+	It("keeps a budget of checks of waits on a script apart from the budget of runs", func() {
+		for range 2 {
+			ok, err := s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		}
+		ok, _ := s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+		Expect(ok).To(BeFalse())
+		ok, _ = s.TakeRun(ctx, "u1", "2026-10-31", 1)
+		Expect(ok).To(BeTrue(), "the checks did not use a run")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+		Expect(ok).To(BeFalse(), "a run did not give a check back")
+		ok, _ = s.TakeCheck(ctx, "u2", "2026-10-31", 2)
+		Expect(ok).To(BeTrue(), "another owner has a budget of their own")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-11-01", 2)
+		Expect(ok).To(BeTrue(), "a new day has a new budget")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-11-01", 0)
+		Expect(ok).To(BeTrue(), "no budget is no limit")
+	})
+
+	It("never takes the last check of the day twice", func() {
+		var wg sync.WaitGroup
+		var ok atomic.Int32
+		for range 8 {
+			wg.Go(func() {
+				if took, err := s.TakeCheck(ctx, "u1", "2026-10-31", 3); err == nil && took {
+					ok.Add(1)
+				}
+			})
+		}
+		wg.Wait()
+		Expect(ok.Load()).To(Equal(int32(3)))
+	})
+
 	It("never takes the last run of the day twice", func() {
 		var wg sync.WaitGroup
 		var ok atomic.Int32

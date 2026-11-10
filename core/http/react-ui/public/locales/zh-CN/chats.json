@@ -904,7 +904,8 @@
       "lastError": "最近的错误：{{message}}",
       "sources": {
         "tool": "工具 {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "一个脚本"
       },
       "end": {
         "met": "完成：条件已满足",

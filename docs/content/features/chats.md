@@ -368,19 +368,61 @@ stop it. Type `/loop` in the message box, or use the API.
   read-only tool of the same chat with fixed arguments (for example a tool that
   lists downloads; the chat must be allowed to call it, and only tools whose
   name says they read, such as `list_*`, `get_*`, `search_*` or `*_status`, can
-  be polled), or a URL, which is read like `web_fetch` and so passes the same
-  checks. The condition is `change` (the output differs from the first check),
-  `match` (a regular expression) or `json_equals` (a JSON field equals a
-  value). The first check sets a baseline and never wakes the model; an error
+  be polled), a URL, which is read like `web_fetch` and so passes the same
+  checks, or a `script`, a shell command that the server runs for each check
+  (see below). The condition is `change` (the output differs from the first
+  check), `match` (a regular expression), `json_equals` (a JSON field equals a
+  value) or, for a script only, `exit_zero` (the command exits with status 0).
+  The first check sets a baseline and never wakes the model; an error
   is not a change. The model wakes when the condition holds, when the source
   fails `max_errors` checks in a row (3 by default), or at the timeout (`timeout_seconds`; 1
   hour by default, 24 hours at most). Failure and timeout wake it too, and the
   wake-up text says plainly that the condition was *not* met. The check
   interval (`interval_seconds`) is at least the loop minimum. The tool is nib's
-  own `wait_for`, answered by the server; it takes no `script`. A wait is listed with the loops (the
+  own `wait_for`, answered by the server. A wait is listed with the loops (the
   API gives it `kind: "wait"`), counts against the same limits, and you stop it
   like a loop. A sub-agent that arms a wait stays running until it ends, as with
   a loop.
+- **Waits on a script.** With `script`, the server runs the command for each
+  check and the model is not called. The command runs where the chat's `bash`
+  runs: in the Sandbox add-on when one serves the chat, otherwise in the
+  built-in bash on the server. It has the same fixed environment, the same
+  120 second timeout and about the same 64 KiB output limit as `bash`, and its output
+  is the standard output and standard error together. The rules:
+  - **A non-zero exit status is a result, not a failure.** The exit status and
+    the output feed `change`, `match`, `json_equals` and `exit_zero`; a status
+    that changes is a change even when the output does not. Only a command that
+    does not finish in time, or that cannot be run, counts toward
+    `max_errors`. For `json_equals`, the output of a command that failed is
+    read as "not there yet", not as a failed check.
+  - **A check changes no file.** It runs read-only: what the command writes is
+    not saved to your files and makes no change set. It can read your files.
+  - **Arming it needs a chat that can run commands.** `wait_for` refuses a
+    script when the chat has no `bash`: bash is switched off for the chat or by
+    an administrator, the Shell tool group is off, the server cannot run
+    commands and no Sandbox serves the chat, the files are off, the agent works
+    in one folder (only the Sandbox can serve that), or the chat is an
+    unattended run without an agent. A sub-agent cannot arm a wait on a script.
+    In a connector chat the sender needs the `loops.wait` capability, as for
+    other waits.
+  - **In the mode `ask` for the built-in bash**, only an administrator can arm
+    a script wait. The administrator allows the whole command once, in a card,
+    when the wait is armed; a command over 2000 bytes is refused. The checks
+    then run with no card. A command that the Sandbox runs needs no card.
+  - **The command is shown to you in the chat, not in the list.** The answer of
+    `wait_for` contains the command, and the model is told to show it to you.
+    The loops list, its API and the interface name the source `script` and show
+    a generic line; the command is kept only in the store of the owner.
+  - **Budget.** Checks of scripts have their own daily budget per user, apart
+    from the 200 model runs: 1500 checks a day (UTC), over all the user's waits.
+    A check is charged before it runs. When the budget is used up, the wait ends
+    and the model is woken with a text that says the condition is not known. A
+    wait still ends after 2000 checks, and the limits per chat and per user
+    still apply.
+  - **If the server cannot run the script** at a check (the server lost its
+    host exec, or the Sandbox no longer serves the chat), the wait ends at once
+    and the model is woken with a text that says plainly that the script cannot
+    run on this node and was not run. The wait is not pinned to a node.
 - **Tools of a sub-agent.** The names of the tools the parent gave a sub-agent
   are stored with its chat. After a restart, or when another frontend runs its
   next loop run, the sub-agent gets back those tools, limited to what the
@@ -428,7 +470,8 @@ stop it. Type `/loop` in the message box, or use the API.
   (`chats_loop_max_per_chat`, `chats_loop_max_per_user`; ended loops do not
   count). A loop ends after 100 runs (`chats_loop_max_runs`). One user starts
   at most 200 loop runs a day, over all loops (`chats_loop_daily_runs`, UTC
-  days); after that the loops wait for the next day. A loop pauses itself
+  days); after that the loops wait for the next day. Checks of waits on a
+  script have a separate budget of 1500 a day per user. A loop pauses itself
   after 3 failed runs in a row; **Resume** starts it again. A run has a time
   limit of 15 minutes.
 - **Stop** removes a loop. It does not stop a run that goes on; the chat's

@@ -904,7 +904,8 @@
       "lastError": "Kesalahan terakhir: {{message}}",
       "sources": {
         "tool": "alat {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "sebuah skrip"
       },
       "end": {
         "met": "Selesai: kondisi terpenuhi",

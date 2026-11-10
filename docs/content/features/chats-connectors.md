@@ -1089,7 +1089,10 @@ add-on.
 - **Loops and waits.** `loops.wait` lets the model wait for a change (`wait_for`,
   `wait_agents`). A wait is checked by code and costs no model call until it ends, so
   the capability is not sensitive: a listed or paired sender holds it, and it is on by
-  default (in the usual set, and added to existing bindings once). `loops.start`
+  default (in the usual set, and added to existing bindings once). A wait can also
+  run a shell command for each check (`script`); it needs a chat that can run
+  commands, so a connector chat needs an agent, and the model shows the sender the
+  command it armed (see [Chats]({{% relref "features/chats" %}})). `loops.start`
   lets the model start a loop (`start_loop`, then `schedule_next` and `loop_done`).
   Each run of a loop is a model call that nobody asked for at that moment, so the
   capability is sensitive: only a paired sender holds it, and a bot that accepts

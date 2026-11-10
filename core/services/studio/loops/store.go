@@ -38,6 +38,12 @@ type Store interface {
 	// never both take the last run.
 	TakeRun(ctx context.Context, owner, day string, budget int) (bool, error)
 
+	// TakeCheck takes one check of a wait on a script from the owner's budget
+	// of day: it returns false, and takes nothing, when budget checks were
+	// taken that day already. It is a budget of its own, apart from TakeRun.
+	// A budget of zero or less is no limit.
+	TakeCheck(ctx context.Context, owner, day string, budget int) (bool, error)
+
 	// Consented reports whether the owner confirmed a loop in the chat once.
 	Consented(ctx context.Context, owner, chatID string) (bool, error)
 	// SetConsented records that the owner confirmed a loop in the chat.

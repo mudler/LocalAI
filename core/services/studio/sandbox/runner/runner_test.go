@@ -160,6 +160,24 @@ var _ = Describe("the sandbox of a scoped chat", func() {
 		Expect(r.read("/users/alice/Chats/c1/ok.txt")).To(Equal("ok\n"), "the chat folder is writable at any mode")
 	})
 
+	It("runs a read-only call in a sandbox of its own whose folders are all read-only, and saves nothing it writes", func() {
+		r := newScopedRig(workspace.ModeWrite)
+		opN++
+		raw, _ := json.Marshal(map[string]any{"command": "cat in.txt; echo x > made.txt; echo y > in.txt; echo z > ../chat/z.txt"})
+		out, err := r.m.Run(r.ctx, runner.Request{User: alice.Principal, Conversation: alice.ChatID, Operation: fmt.Sprintf("op%d", opN),
+			Tool: "bash", Args: raw, Call: sandbox.CallOptions{ReadOnly: true}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(HavePrefix("inside\n"), "a read-only call can read the files")
+		Expect(out).To(ContainSubstring("was not saved: that folder is read-only"))
+		Expect(r.exists("/users/alice/Proj/made.txt")).To(BeFalse())
+		Expect(r.exists("/users/alice/Chats/c1/z.txt")).To(BeFalse())
+		Expect(r.read("/users/alice/Proj/in.txt")).To(Equal("inside\n"))
+		// The sandbox that commits is another one: it is not held back.
+		r.must("echo made > made.txt")
+		Expect(r.read("/users/alice/Proj/made.txt")).To(Equal("made\n"))
+		Expect(r.m.Count("")).To(Equal(2))
+	})
+
 	It("never makes a sandbox with a view wider than the fence", func() {
 		r := newScopedRig(workspace.ModeWrite)
 		r.wide = true

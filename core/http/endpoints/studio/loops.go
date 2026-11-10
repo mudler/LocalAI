@@ -54,9 +54,14 @@ func waitJSON(l loops.Loop) *schema.ChatsWait {
 	out := &schema.ChatsWait{Reason: w.Note, Mode: w.Mode, Condition: waitCondition(w), Checks: w.Checks,
 		LastCheck: utcPtr(w.LastCheck), Outcome: w.Outcome, LastError: redactURLs(w.LastErr),
 		Deadline: w.Deadline.UTC(), Errors: w.Errors, MaxErrors: w.MaxErrors}
-	if w.Tool != "" {
+	switch {
+	case w.Script != "":
+		// The command is not shown: this list reaches people who may not
+		// read it. It stays in the store of its owner.
+		out.SourceKind, out.Source = "script", "a script"
+	case w.Tool != "":
 		out.SourceKind, out.Source = "tool", w.Tool
-	} else {
+	default:
 		out.SourceKind, out.Source = "url", urlLabel(w.URL)
 	}
 	switch {
@@ -90,6 +95,8 @@ func waitCondition(w *loops.Watch) string {
 		return s
 	}
 	switch w.Mode {
+	case loops.UntilExitZero:
+		return "the script exits with status 0"
 	case loops.UntilMatch:
 		return fmt.Sprintf("the output matches %q", short(w.Pattern))
 	case loops.UntilJSONEquals:

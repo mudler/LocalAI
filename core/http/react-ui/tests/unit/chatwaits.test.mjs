@@ -48,6 +48,12 @@ test('a URL source is shown by the name the server sent, and a first check is co
   assert.match(text(v, 'checked'), /^Checked 1 time, last 20 s ago/)
 })
 
+test('a script source is shown as a script, with the label the server sent and no command', () => {
+  const v = waitView(t, wait({ source_kind: 'script', source: 'a script', condition: 'the script exits with status 0', checks: 2 }), NOW)
+  assert.equal(text(v, 'source'), 'Watching a script')
+  assert.equal(text(v, 'until'), 'Until the script exits with status 0')
+})
+
 test('a wait that was not checked yet says so, and does not invent a check', () => {
   const v = waitView(t, wait({ checks: 0, last_check: undefined, outcome: '' }), NOW)
   assert.equal(text(v, 'checked'), 'Not checked yet')

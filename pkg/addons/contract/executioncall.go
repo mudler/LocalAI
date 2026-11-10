@@ -22,6 +22,11 @@ type ExecutionCall struct {
 	// MemoryMiB and DiskMiB cap the sandbox. Zero means no cap.
 	MemoryMiB int `json:"memoryMiB,omitempty"`
 	DiskMiB   int `json:"diskMiB,omitempty"`
+	// ReadOnly asks that the call changes none of the user's files: it runs
+	// in a sandbox whose folders are read-only, so what the command writes
+	// is refused when the call ends and no change set is made. The host sets
+	// it for the checks of a wait.
+	ReadOnly bool `json:"readOnly,omitempty"`
 }
 
 type executionCallKey struct{}
