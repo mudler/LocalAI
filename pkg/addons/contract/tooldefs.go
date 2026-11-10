@@ -253,7 +253,7 @@ var schemaTypes = map[string]bool{"object": true, "string": true, "integer": tru
 
 // validateToolDefinitions checks the definitions against the declared tools.
 func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
-	return validateToolDefinitionsFor(defs, tools, false)
+	return validateToolDefinitionsFor(defs, tools, false, "")
 }
 
 // validateToolDefinitionsFor is validateToolDefinitions for an add-on that does
@@ -262,7 +262,11 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 // credentialed says that the add-on declares a credential slot. A write tool
 // of such an add-on names its resource with the slot argument and not with
 // resourceId, so its schema is checked with ValidateCredentialedToolSchema.
-func validateToolDefinitionsFor(defs []ToolDefinition, tools []string, credentialed bool) error {
+//
+// jobsTool is the tool ExecutionProvider.Jobs binds, or "". It is the one
+// page-only tool that may be an action tool: the host's own job tool calls it,
+// and no model and no page does.
+func validateToolDefinitionsFor(defs []ToolDefinition, tools []string, credentialed bool, jobsTool string) error {
 	if len(defs) == 0 {
 		return nil
 	}
@@ -312,7 +316,7 @@ func validateToolDefinitionsFor(defs []ToolDefinition, tools []string, credentia
 		if err := check(d.InputSchema, d.Kind); err != nil {
 			return fmt.Errorf("tool %s: %w", d.Name, err)
 		}
-		if d.UIOnly && !IsResourceless(d) {
+		if d.UIOnly && !IsResourceless(d) && (d.Kind != ToolKindAction || d.Name != jobsTool) {
 			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
 		}
 		if err := d.Execution.validate(d); err != nil {

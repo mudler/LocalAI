@@ -443,6 +443,69 @@
           "additionalProperties": false
         },
         "uiOnly": true
+      },
+      {
+        "name": "job",
+        "description": "Background jobs of the chat: start, list, read, input, kill. The host's job tool calls it; no model does.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "verb": {
+              "type": "string",
+              "enum": [
+                "start",
+                "list",
+                "read",
+                "input",
+                "kill"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "maxLength": 16
+            },
+            "command": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "since": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 256,
+              "maximum": 65536
+            },
+            "observe": {
+              "type": "boolean"
+            },
+            "input": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "closeInput": {
+              "type": "boolean"
+            },
+            "signal": {
+              "type": "string",
+              "enum": [
+                "term",
+                "int",
+                "kill"
+              ]
+            }
+          },
+          "required": [
+            "verb"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
       }
     ],
     "tools": [
@@ -450,7 +513,8 @@
       "execution-status",
       "status",
       "set-backend",
-      "confirm-host"
+      "confirm-host",
+      "job"
     ],
     "ui": {
       "controls": [
@@ -523,7 +587,10 @@
       "tools": [
         "bash"
       ],
-      "statusTool": "execution-status"
+      "statusTool": "execution-status",
+      "jobs": {
+        "tool": "job"
+      }
     }
   },
   "dataFormat": {
@@ -531,6 +598,7 @@
     "min": 1
   },
   "executable": "sandbox",
+  "featureLevel": 6,
   "host": {
     "max": 1,
     "min": 1

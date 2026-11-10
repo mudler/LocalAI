@@ -228,6 +228,47 @@ The current chat binding requires each bound tool to shadow `bash` through
 rule. This declaration neither grants shadow authority nor changes provider
 arbitration or execution authorization.
 
+`jobs` is optional, feature level 6: `{"jobs": {"tool": "job"}}` names the
+tool that runs the background jobs of the host's `job` tool. It is a declared
+`kind: "action"`, `uiOnly: true` tool that shadows nothing, is not an admin tool
+and is neither a bound execution tool nor the status tool. It is the only
+page-only tool that may be an action tool. No model is offered it and no page
+can call it: the host calls it through the act path, with the chat as the
+resource and the person as the actor, and with the arguments and answer below.
+A provider without `jobs` cannot run background jobs. The host then answers
+`job start` with "The Sandbox add-on here cannot run background jobs: it is
+older than this LocalAI. An administrator can update it." and does not run the
+job anywhere else. A manifest with `jobs` and a lower `featureLevel` is
+refused; an older host refuses the add-on with "needs a newer LocalAI".
+
+The arguments of the jobs tool are `contract.JobArgs`: `verb` (`start`,
+`list`, `read`, `input` or `kill`; the key is `verb` because `action` is a name
+no tool schema may use), `id` (`job-` and six base32 characters), `command` and
+`label` (start; the label is one line of at most 80 characters), `since` (an
+absolute byte offset; omitted, the read goes on where the model's last read
+ended), `maxBytes` (256 to 65536, default 16384), `observe` (a read that does
+not move the model's cursor and carries the last 2000 bytes as `tail`: the
+check of a wait), `input` (at most 2000 bytes) and `closeInput`, and `signal`
+(`term`, the default, `int` or `kill`). The host's `execution` call options are
+added as for `bash`. The answer is `contract.JobReply`: `ok`, `job` or `jobs`
+(`id`, `label`, `state`, `end`, `exit`, `started`, `ended`, `lastOutput`,
+`total`, `idleMs`; never the command), and for a read `output`, `from` and
+`next`. A refusal is `ok: false` with `code` (`unknown`, `ended`, `limit`,
+`busy`, `invalid`, `failed`) and an `error` the model reads. The host checks
+every answer against its arguments (sizes, offsets, states, job IDs) and shows
+nothing of one that fails, and a job of another person or chat is `unknown`.
+
+While the add-on reports a started job as running, the owner keeps the
+start's request live as a **job lease**, so the job's final checkpoint
+(`workspace.commit`, `workspace.changes`) and its network checks (`egress.check`,
+`egress.audit`) still find a live request after the call returned. The lease
+has the actor, scope, resource and chat of the start. It ends when an answer of
+the jobs tool reports the job finished, two hours and five minutes after the
+start, or when the add-on process stops. Under a lease the channel allows only
+those four operations, and an add-on holds at most 64 leases. The in-flight
+table, and so the lease, lives in the owner process, where every act of a
+frontend is forwarded.
+
 `statusTool` is a separately declared `kind: "read"`, `uiOnly: true` tool,
 not an execution binding or admin tool. Its input schema is an object accepting
 `{}`, with no required inputs, no resource, and `additionalProperties: false`.
@@ -2010,7 +2051,7 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 5.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 6.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
@@ -2019,6 +2060,7 @@ level**: one integer that counts the additive manifest features it understands.
   `featureLevel: 2`. `capabilities.ownerData` is level 3.
   The setup text (`setup` on the manifest, `kinds[].setup` and the `setup` of a kind translation) is level 4.
   `kinds[].toolOnly` is level 5.
+  `capabilities.executionProvider.jobs` is level 6.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -6442,7 +6484,7 @@ The binding stays on the host. It is kept next to the envelope of the live reque
 An add-on that holds `sandbox=egress.` in the host operation setting (the default) can ask about the network connections of the commands it runs (see [Network access](#network-access)):
 
 - `egress.check` (`act`, feature `chats`) takes `{host, port, kind, tls}`, with `kind` `connect` or `http`, and answers `{action, reason, allowPrivate, self}`, with `action` `allow` or `block`. An allow carries `self`: the addresses of the server as CIDR strings (its interfaces, loopback, and the addresses of the host of the external base URL), the same list `web_fetch` refuses. The add-on refuses them on every dial, besides the interfaces of its own machine, so a command cannot reach the LocalAI API through the server's public name or address. When a card asks the person (see the cards under [Network access](#network-access)), the call waits for the answer, at most 60 seconds, before it answers. The chat is the resource of the live envelope and the user is its actor: arguments named `chat`, `user`, `preset` or `allow`, or any other unknown name, are refused. The host writes the audit line of the verdict itself. The operation may wait up to 60 seconds for a card and has a 75-second timeout.
-- `egress.audit` (`act`, feature `chats`) takes `{events: [...]}`, at most 500 lines of `{host, port, kind, verdict, reason, addr, bytesUp, bytesDown, durationMs, at}`. `verdict` is `done` (an allowed connection ended; the bytes it moved) or `block` (the add-on refused it itself: an address that is private, the server's own or a metadata address, a TLS name that is not the host, a limit, or a connection while no call ran).
+- `egress.audit` (`act`, feature `chats`) takes `{events: [...]}`, at most 500 lines of `{host, port, kind, verdict, reason, addr, bytesUp, bytesDown, durationMs, at}`. `verdict` is `done` (an allowed connection ended; the bytes it moved) or `block` (the add-on refused it itself: an address that is private, the server's own or a metadata address, a TLS name that is not the host, a limit, or a connection while no call ran). A call made under a job lease (see [Execution provider and status payload](#execution-provider-and-status-payload)) is unattended: `egress.check` blocks a host that would need a card with the reason `unattended` instead of asking.
 
 ## Simple Office
 
@@ -6512,6 +6554,8 @@ An older package of the add-on also served `read`, `write`, `edit`, `glob` and `
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
 - **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, their version stays and the sandbox's version is saved as a copy; the answer names the file and the copy. A file written outside `/workspace/home` (where `bash` starts) is not saved, and the answer names it too. In a chat whose agent works in [one folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}), `/workspace/home` is that folder (read only when the agent can only read it), and the chat's own folder is at `/workspace/chat`, where files are saved as well; nothing else of the user's files is in the sandbox. The change set belongs to the chat that ran the command, so the chat lists the files it saved (see [Files that a command saved]({{%relref "features/chats#files-that-a-command-saved" %}})). A file change by someone else makes the sandbox rebuild its view of the files before the next call.
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When the add-on stops (it is disabled, or the server shuts down) it first stops all its sandboxes, for at most 8 seconds. The supervisor waits for that before it kills the add-on process; a server that is killed with SIGKILL cannot do this, and the next start removes what was left. When a suspended sandbox is removed, the host backend also stops the processes it left running.
+- **Background jobs.** The add-on runs the jobs of the chat's `job` tool (see [Execution provider and status payload](#execution-provider-and-status-payload)) in the chat's sandbox, in the add-on process. A job's output (stdout and stderr together, the last 256 KiB, with absolute byte offsets) and its exit status come from the process, not from any connection of the host, so they stay when the call that started the job returns. While a job runs, its sandbox is not given way to another chat, not suspended, not refreshed and not removed at its age. Input goes to the job's standard input; a call waits at most 5 seconds for the job to read it. A kill sends SIGTERM (or SIGINT) to the job's process group and SIGKILL 10 seconds later; a job ends after 2 hours the same way. When a job ends, what it wrote is committed as one change set (`Job job-3: build`) before the sandbox is let go; a file it writes is also in the next `bash` call's change set. At most 32 jobs run in the add-on process; the host keeps the limits per chat and per user. A finished job stays readable for 30 minutes, at most 16 per chat. An add-on restart ends every job: the host reads the jobs as gone. A call that must make the sandbox again (a new profile, agent folder or mode) ends the chat's jobs first and says so at the top of its output.
+- **The network of a job.** While no call of the chat runs, the proxy lets a connection through under the operation of the oldest live job of the sandbox (the proxy cannot tell which process opened it; during a call, every connection counts against the call). Each job has its own 64 MiB up and 4 GiB down. A host that the chat's preset or an always-allowed rule allows passes. A host that needs the person's yes is blocked, since nobody is there to answer a card: the job's output gets *Blocked by LocalAI: host:port needs the user's approval, and nobody can be asked while no turn of this chat runs (a background job)*, and the audit line has the reason `unattended`. With neither a call nor a job, every connection is refused as before.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. Without the add-on, or with it switched off for a chat, the chat's model is told that it cannot run commands, and the chat's Tools menu says so to the user; see [Running commands]({{%relref "features/chats#running-commands" %}}). A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
 - **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.

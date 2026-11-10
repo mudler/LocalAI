@@ -251,6 +251,13 @@ func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, 
 	return c.callIn(false, ctx, path, env, in, out, timeout)
 }
 func (c *Client) callIn(poll bool, ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
+	return c.callThen(poll, ctx, path, env, in, out, timeout, nil)
+}
+
+// callThen is callIn with a step that runs after a good answer and before the
+// envelope stops being live: a job lease must take over a request that is
+// still in flight.
+func (c *Client) callThen(poll bool, ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration, then func()) error {
 	done, e := c.admitIn(poll)
 	if e != nil {
 		return e
@@ -264,7 +271,10 @@ func (c *Client) callIn(poll bool, ctx context.Context, path string, env *contra
 		return e
 	}
 	defer func() { _ = resp.Body.Close() }()
-	return decode(resp.Body, c.limits.EnvelopeBytes, out)
+	if e = decode(resp.Body, c.limits.EnvelopeBytes, out); e == nil && then != nil {
+		then()
+	}
+	return e
 }
 func (c *Client) Read(ctx context.Context, v contract.Envelope) (contract.Result, error) {
 	var r contract.Result
@@ -292,7 +302,11 @@ func (c *Client) Act(ctx context.Context, v contract.Envelope) (contract.Result,
 	if e := c.valid(v, "act"); e != nil {
 		return r, e
 	}
-	e := c.call(ctx, "/act", &v, v, &r, contract.ActTimeout)
+	e := c.callThen(false, ctx, "/act", &v, v, &r, contract.ActTimeout, func() {
+		if r.Validate(c.limits) == nil {
+			c.leaseJobs(v, r)
+		}
+	})
 	if e == nil {
 		e = r.Validate(c.limits)
 	}

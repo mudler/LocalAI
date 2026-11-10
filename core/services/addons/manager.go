@@ -1603,6 +1603,10 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	if c.ExecutionProvider != nil {
 		p := *c.ExecutionProvider
 		p.Tools = slices.Clone(p.Tools)
+		if p.Jobs != nil {
+			j := *p.Jobs
+			p.Jobs = &j
+		}
 		out.ExecutionProvider = &p
 	}
 	if c.HostOperations != nil {

@@ -76,6 +76,8 @@ func (c *Carrier) apps(ctx context.Context, a contract.Actor) (apps.List, error)
 type appsWire struct {
 	apps.List
 	Resources map[string]*contract.ResourceTools `json:"resources,omitempty"`
+	// Jobs is the jobs tool of each app that declares one (apps.App.JobsTool).
+	Jobs map[string]string `json:"jobs,omitempty"`
 }
 
 func newAppsWire(list apps.List) appsWire {
@@ -87,6 +89,12 @@ func newAppsWire(list apps.List) appsWire {
 			}
 			w.Resources[a.ID] = a.Resources
 		}
+		if a.JobsTool != "" {
+			if w.Jobs == nil {
+				w.Jobs = map[string]string{}
+			}
+			w.Jobs[a.ID] = a.JobsTool
+		}
 	}
 	return w
 }
@@ -94,6 +102,7 @@ func newAppsWire(list apps.List) appsWire {
 func (w appsWire) list() apps.List {
 	for i := range w.Apps {
 		w.Apps[i].Resources = w.Resources[w.Apps[i].ID]
+		w.Apps[i].JobsTool = w.Jobs[w.Apps[i].ID]
 	}
 	return w.List
 }

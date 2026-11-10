@@ -101,17 +101,19 @@ func (r *Runner) StartJob(ctx context.Context, s JobSpec) (bgjob.Info, error) {
 	}
 	op := make([]byte, 8)
 	_, _ = rand.Read(op)
+	req := runner.Request{User: s.Actor.Principal, Conversation: s.Actor.ChatID, Operation: "hj" + hex.EncodeToString(op), Tool: "job"}
 	// The job saves its files and gives its slot back once its process ended;
 	// the slot is known only after StartJob returns.
 	released := make(chan func(), 1)
 	onEnd := func(in bgjob.Info) {
 		cctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		_, conflicts, err := r.m.CheckpointJob(cctx, s.Actor.Principal, s.Actor.ChatID, fmt.Sprintf("Job %s: %s", in.ID, in.Label))
-		if err != nil {
+		var ce *runner.ConflictsError
+		switch err := r.m.CheckpointJob(cctx, req, fmt.Sprintf("Job %s: %s", in.ID, in.Label)); {
+		case errors.As(err, &ce):
+			r.o.Log.Warn("[host-exec] the files of a job conflict with newer changes", "job", in.ID, "conflicts", len(ce.Conflicts), "reason", ce.Conflicts[0].Reason, "path", ce.Conflicts[0].Path)
+		case err != nil:
 			r.o.Log.Warn("[host-exec] the files of a job were not saved", "job", in.ID, "error", err)
-		} else if len(conflicts) > 0 {
-			r.o.Log.Warn("[host-exec] the files of a job conflict with newer changes", "job", in.ID, "conflicts", len(conflicts), "reason", conflicts[0].Reason, "path", conflicts[0].Path)
 		}
 		r.auditJob(Event{Kind: KindJobEnd, User: in.Owner, Chat: in.Chat, Job: in.ID, Exit: in.Exit, DurationMS: in.Ended.Sub(in.Started).Milliseconds(),
 			Command: string(in.End)})
@@ -119,7 +121,7 @@ func (r *Runner) StartJob(ctx context.Context, s JobSpec) (bgjob.Info, error) {
 			rel()
 		}
 	}
-	release, err := r.m.StartJob(ctx, runner.Request{User: s.Actor.Principal, Conversation: s.Actor.ChatID, Operation: "hj" + hex.EncodeToString(op), Tool: "job"},
+	release, err := r.m.StartJob(ctx, req,
 		func(sb sandbox.Sandbox) (bgjob.EndFunc, error) {
 			// The process must not die with the call that starts it.
 			pctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.jobs.Lifetime())

@@ -42,6 +42,9 @@ func (e addonEgress) Check(ctx context.Context, c hostops.EgressCall, in hostops
 	if p == "" {
 		return hostops.EgressVerdict{Action: egress.Block, Reason: "chat"}, nil
 	}
+	if c.Unattended {
+		ctx = studio.WithUnattendedEgress(ctx)
+	}
 	v, err := svc.EgressCheck(ctx, p, c.ResourceID, c.OperationID, egress.Request{Host: in.Host, Port: in.Port, Kind: in.Kind, TLS: in.TLS, Private: in.Private})
 	if err != nil {
 		return hostops.EgressVerdict{}, err

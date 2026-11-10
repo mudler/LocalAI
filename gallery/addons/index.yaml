@@ -2662,13 +2662,14 @@
       "ko": "채팅이 격리된 샌드박스에서 명령과 코드를 실행할 수 있게 하며, 내 파일이 마운트됩니다."
       "pt-BR": "Deixe seus chats executarem comandos e código em um sandbox isolado, com seus arquivos montados."
       "zh-CN": "让你的聊天在隔离的沙箱中运行命令和代码，并挂载你的文件。"
-  toolCount: 5
+  toolCount: 6
   tools:
     - "bash"
     - "execution-status"
     - "status"
     - "set-backend"
     - "confirm-host"
+    - "job"
   shadows:
     - "bash"
   skillShadows:
@@ -2712,13 +2713,14 @@
       "ko": "채팅이 격리된 샌드박스에서 명령과 코드를 실행할 수 있게 하며, 내 파일이 마운트됩니다."
       "pt-BR": "Deixe seus chats executarem comandos e código em um sandbox isolado, com seus arquivos montados."
       "zh-CN": "让你的聊天在隔离的沙箱中运行命令和代码，并挂载你的文件。"
-  toolCount: 5
+  toolCount: 6
   tools:
     - "bash"
     - "execution-status"
     - "status"
     - "set-backend"
     - "confirm-host"
+    - "job"
   shadows:
     - "bash"
   skillShadows:
