@@ -10,7 +10,7 @@ The Mail add-on lets your saved agents read a mailbox over IMAP and, if you allo
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | List folders, search, read a message or a conversation, read the text of a text attachment, and send or save a plain text email. It never deletes, moves, flags or forwards mail. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

@@ -10,7 +10,7 @@ The Web add-on (ID `web`) serves the chat tools `web_search` and `web_fetch` in 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | Search providers that need a key (Brave Search, Tavily and Google Programmable Search), tried in an order an administrator chooses, and the text of PDF files in `web_fetch`. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. An administrator sets the providers on the **Settings** tab of the add-on. |

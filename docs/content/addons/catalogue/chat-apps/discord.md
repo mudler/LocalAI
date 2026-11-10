@@ -10,7 +10,7 @@ The Discord add-on binds a Discord bot to one of your saved agents. People talk 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | A Discord bot for one saved agent. The add-on keeps a Gateway link to Discord, so LocalAI needs no public address. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

@@ -10,7 +10,7 @@ The Telegram add-on binds a Telegram bot to one of your saved agents. A person w
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | A Telegram bot for one saved agent. Each sender gets a conversation of their own, which is a chat of the agent's owner. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

@@ -10,7 +10,7 @@ The Fine-tuning add-on (ID `fine-tuning`) is the Fine-Tune page and the chat too
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | The page `/app/addons/fine-tuning/jobs` and chat tools: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

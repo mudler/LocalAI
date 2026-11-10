@@ -10,7 +10,7 @@ The Voice add-on (ID `voice`) is the page for voice recognition, the voice libra
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | One page, `/app/addons/voice/voice`, with four tabs: **Recognition**, **Library**, **Text to speech** and **From a recording**. The Library tab is for administrators. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

@@ -10,7 +10,7 @@ The GitHub add-on lets your saved agents read the repositories you choose: code,
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | Read tools, and, if you allow it, comments on issues and pull requests, new issues, labels and line comments on a pull request diff. It cannot merge, delete, push code, approve or request changes. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

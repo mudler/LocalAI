@@ -9,7 +9,7 @@ In the current development builds, this add-on is in the development channel of 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | Tools to check a PiKVM and the machine it controls. If you allow it, press its power buttons and type on its keyboard, with a confirmation each time unless you say otherwise. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |

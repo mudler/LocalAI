@@ -9,7 +9,7 @@ In the current development builds, this add-on is in the development channel of 
 
 ## At a glance
 
-| | |
+| Topic | Detail |
 |---|---|
 | What it adds | A tool to run one non-interactive command on a remote machine over SSH. A person confirms each command by default. |
 | Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
