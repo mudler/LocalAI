@@ -4,7 +4,7 @@ weight: 4
 card: "Run Python on your files in an isolated sandbox."
 headline: 'Python in a <span class="hl">box</span>.'
 lede: "Put a spreadsheet in Files and ask for a chart. The Sandbox runs the code and saves the result in Files."
-docs: "/docs/features/sandbox/"
+docs: "/docs/addons/catalogue/work/sandbox/"
 icon: "sandbox"
 illus: "sandbox"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.

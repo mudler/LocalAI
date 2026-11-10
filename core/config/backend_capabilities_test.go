@@ -132,7 +132,7 @@ var _ = Describe("GetBackendCapability", func() {
 
 // nemo-speech-cpp fronts four model families from one server, and its
 // PossibleUsecases is their union. The entry has to stay in step with what
-// docs/content/features/nemo-speech-cpp.md tells operators to put in
+// docs/content/models/engines/nemo-speech-cpp.md tells operators to put in
 // known_usecases: nothing validates known_usecases against PossibleUsecases, so
 // a flag the docs recommend and the map omits fails silently, and the place it
 // surfaces is the gallery. GET /api/backends/usecases is derived from this list

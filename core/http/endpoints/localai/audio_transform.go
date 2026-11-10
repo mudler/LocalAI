@@ -249,7 +249,7 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 	}
 }
 
-// Wire protocol documented in docs/content/features/audio-transform.md
+// Wire protocol documented in docs/content/models/capabilities/audio/audio-transform.md
 // and on schema.AudioTransformStreamControl.
 //
 // @Summary Bidirectional realtime audio transform over WebSocket.

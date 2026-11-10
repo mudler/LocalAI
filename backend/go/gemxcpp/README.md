@@ -1,7 +1,7 @@
 # GEM-X backend
 
 Resident native `gemx_live_*` inference via PureGo. See
-[Motion Capture](../../../docs/content/features/motion.md) for configuration and
+[Motion Capture](../../../docs/content/models/capabilities/vision/motion.md) for configuration and
 protocol. The upstream pin lives in `Makefile` and is registered with the daily
 bump workflow. Linux CPU/Vulkan and Darwin CPU packages are built; Metal is not
 supported by the upstream runtime. Model assets are not needed for unit tests.

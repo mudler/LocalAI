@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Client of the routes with which a person shares a folder of their own home,
-// /api/chats/files/shares/... (see docs/content/features/chats.md). The grants
+// /api/chats/files/shares/... (see docs/content/features/chats-and-agents/chats.md). The grants
 // are the workspace grants of the folder; the server decides every call. This
 // module only validates the identifiers, shapes the path and sets the
 // own-session confirmation header, which names the folder.

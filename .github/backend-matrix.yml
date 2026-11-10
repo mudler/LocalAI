@@ -6585,7 +6585,7 @@ include:
   # compiled from C++, so the base image is a plain ubuntu and skip-drivers is
   # 'true': each engine package carries its own CUDA / ROCm / oneAPI runtime.
   # build-type and cuda-major-version only choose the package; see the target
-  # table in docs/content/features/strata.md. Not supported by Strata, so not
+  # table in docs/content/models/engines/strata.md. Not supported by Strata, so not
   # listed: cpu, vulkan, Jetson (l4t, CUDA 12 arm64), Intel Macs.
   - build-type: 'cublas'
     cuda-major-version: "12"
