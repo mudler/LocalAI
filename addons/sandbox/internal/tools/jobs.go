@@ -19,11 +19,33 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/addons/internal/protocol"
-	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
+
+// The states, end reasons and unknown exit status the job tool reports
+// (contract.JobInfo). They are the words of the host's job registry; the
+// add-on does not import it, so it keeps to the workspace and sandbox
+// packages of the core.
+type jobState string
+
+const (
+	stateStarting jobState = "starting"
+	stateRunning  jobState = "running"
+	stateEnding   jobState = "ending"
+	stateExited   jobState = "exited"
+	stateKilled   jobState = "killed"
+
+	endExit     runner.EndReason = "exit"
+	endKilled   runner.EndReason = "killed"
+	endStopped  runner.EndReason = "stopped"
+	endLifetime runner.EndReason = "lifetime"
+
+	exitUnknown = -1
+)
+
+func (s jobState) finished() bool { return s == stateExited || s == stateKilled || s == "failed" }
 
 // ToolJob is the tool of the host's job tool (ExecutionProvider.Jobs). It is
 // page-only: no model sees it; the host calls it with contract.JobArgs.
@@ -92,8 +114,8 @@ type job struct {
 	ring                      *ring
 
 	mu      sync.Mutex
-	state   bgjob.State
-	end     bgjob.EndReason
+	state   jobState
+	end     runner.EndReason
 	exit    int
 	started time.Time
 	ended   time.Time
@@ -185,7 +207,7 @@ func (t *jobTable) live() int {
 	n := 0
 	for _, j := range t.jobs {
 		j.mu.Lock()
-		if !j.state.Finished() {
+		if !j.state.finished() {
 			n++
 		}
 		j.mu.Unlock()
@@ -220,7 +242,7 @@ func (t *jobTable) start(ctx context.Context, user, conv, op string, call sandbo
 	}
 	now := t.now()
 	j := &job{id: id, user: user, conv: conv, op: op, label: a.Label, ring: newRing(contract.JobRingBytes, t.now),
-		state: bgjob.StateStarting, exit: bgjob.ExitUnknown, started: now}
+		state: stateStarting, exit: exitUnknown, started: now}
 	j.req = runner.Request{User: user, Conversation: conv, Operation: op, Tool: ToolJob, Call: call}
 	// The slot is taken before the sandbox is made, so two starts cannot pass
 	// the limit together.
@@ -228,7 +250,7 @@ func (t *jobTable) start(ctx context.Context, user, conv, op string, call sandbo
 	t.mu.Unlock()
 
 	var stopEgress func()
-	release, err := t.run.StartJob(ctx, j.req, func(sb sandbox.Sandbox) (bgjob.EndFunc, error) {
+	release, err := t.run.StartJob(ctx, j.req, func(sb sandbox.Sandbox) (runner.EndFunc, error) {
 		pr, pw, err := os.Pipe()
 		if err != nil {
 			return nil, err
@@ -248,9 +270,9 @@ func (t *jobTable) start(ctx context.Context, user, conv, op string, call sandbo
 			return nil, err
 		}
 		j.mu.Lock()
-		j.proc, j.kill, j.stdin, j.stdinR, j.state = proc, kill, pw, pr, bgjob.StateRunning
+		j.proc, j.kill, j.stdin, j.stdinR, j.state = proc, kill, pw, pr, stateRunning
 		j.mu.Unlock()
-		return func(reason bgjob.EndReason) { t.endJob(j, reason, syscall.SIGTERM) }, nil
+		return func(reason runner.EndReason) { t.endJob(j, reason, syscall.SIGTERM) }, nil
 	})
 	if err != nil {
 		t.mu.Lock()
@@ -262,7 +284,7 @@ func (t *jobTable) start(ctx context.Context, user, conv, op string, call sandbo
 		return refuse(contract.JobCodeFailed, "Not started: "+err.Error())
 	}
 	j.mu.Lock()
-	j.life = time.AfterFunc(t.lifetime, func() { t.endJob(j, bgjob.EndLifetime, syscall.SIGTERM) })
+	j.life = time.AfterFunc(t.lifetime, func() { t.endJob(j, endLifetime, syscall.SIGTERM) })
 	j.mu.Unlock()
 	go t.wait(j, release, stopEgress)
 	return contract.JobReply{OK: true, Job: j.info(t.now())}
@@ -271,16 +293,16 @@ func (t *jobTable) start(ctx context.Context, user, conv, op string, call sandbo
 // endJob signals a live job for a reason, and sends SIGKILL to its group
 // after the grace time. The first reason stays. It returns quickly and does
 // not call the runner: the runner may hold its locks.
-func (t *jobTable) endJob(j *job, reason bgjob.EndReason, sig syscall.Signal) {
+func (t *jobTable) endJob(j *job, reason runner.EndReason, sig syscall.Signal) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	if j.state.Finished() || j.proc == nil {
+	if j.state.finished() || j.proc == nil {
 		return
 	}
 	if j.end == "" {
 		j.end = reason
 	}
-	j.state = bgjob.StateEnding
+	j.state = stateEnding
 	if sig == syscall.SIGKILL {
 		j.kill()
 		return
@@ -317,7 +339,7 @@ func (t *jobTable) wait(j *job, release, stopEgress func()) {
 	case errors.Is(err, context.Canceled):
 		code = 128 + int(syscall.SIGKILL) // the job was killed through its context
 	default:
-		code = bgjob.ExitUnknown
+		code = exitUnknown
 	}
 	// The final checkpoint, under the entry lock, before the sandbox is let go.
 	title := "Job " + j.id
@@ -334,11 +356,11 @@ func (t *jobTable) wait(j *job, release, stopEgress func()) {
 	j.exit, j.ended = code, t.now()
 	switch end {
 	case "":
-		j.end, j.state = bgjob.EndExit, bgjob.StateExited
-	case bgjob.EndKilled, bgjob.EndStopped:
-		j.state = bgjob.StateKilled
+		j.end, j.state = endExit, stateExited
+	case endKilled, endStopped:
+		j.state = stateKilled
 	default:
-		j.state = bgjob.StateExited
+		j.state = stateExited
 	}
 	j.mu.Unlock()
 }
@@ -350,8 +372,8 @@ func (j *job) info(now time.Time) *contract.JobInfo {
 	defer j.mu.Unlock()
 	in := &contract.JobInfo{ID: j.id, Label: j.label, State: string(j.state), End: string(j.end), Exit: j.exit,
 		Started: j.started, Ended: j.ended, LastOutput: last, Total: total}
-	if !j.state.Finished() {
-		in.Exit = bgjob.ExitUnknown
+	if !j.state.finished() {
+		in.Exit = exitUnknown
 		if idle := now.Sub(last); idle > 0 {
 			in.IdleMS = idle.Milliseconds()
 		}
@@ -441,7 +463,7 @@ func (t *jobTable) input(user, conv string, a contract.JobArgs) contract.JobRepl
 	}
 	in := j.info(t.now())
 	j.mu.Lock()
-	ended, closed, w := j.state.Finished() || j.state == bgjob.StateEnding, j.closed, j.stdin
+	ended, closed, w := j.state.finished() || j.state == stateEnding, j.closed, j.stdin
 	j.mu.Unlock()
 	if ended {
 		return refuse(contract.JobCodeEnded, endedText(in))
@@ -496,7 +518,7 @@ func (t *jobTable) killJob(user, conv string, a contract.JobArgs) contract.JobRe
 	case "kill":
 		sig = syscall.SIGKILL
 	}
-	t.endJob(j, bgjob.EndKilled, sig)
+	t.endJob(j, endKilled, sig)
 	return contract.JobReply{OK: true, Job: j.info(t.now())}
 }
 
@@ -509,7 +531,7 @@ func (t *jobTable) prune() {
 	byChat := map[string][]*job{}
 	for id, j := range t.jobs {
 		j.mu.Lock()
-		fin, ended := j.state.Finished(), j.ended
+		fin, ended := j.state.finished(), j.ended
 		j.mu.Unlock()
 		if !fin {
 			continue

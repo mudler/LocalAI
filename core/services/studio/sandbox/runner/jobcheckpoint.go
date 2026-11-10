@@ -4,7 +4,16 @@ import (
 	"context"
 	"errors"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+)
+
+// EndFunc and EndReason are the job vocabulary of bgjob under the runner's
+// name, so an add-on that runs jobs through the runner imports no other
+// package of the core.
+type (
+	EndFunc   = bgjob.EndFunc
+	EndReason = bgjob.EndReason
 )
 
 // CheckpointJob commits what a background job wrote in the sandbox of a user
