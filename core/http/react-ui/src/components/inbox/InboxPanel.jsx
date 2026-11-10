@@ -312,7 +312,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
         onKeyDown={onPanelKey}
         data-testid="inbox-panel"
       >
-        <header className="nx-head">
+        <header className={`nx-head${tabs ? ' nx-head--tabs' : ''}`}>
           <div className="nx-head__row">
             <h2 id={titleId} className="nx-head__title">{opsOnly ? t('inbox.tabs.activity') : t('inbox.title')}</h2>
             {!opsOnly && inbox.unread > 0 && <span className="nx-head__count">{t('inbox.unread', { count: inbox.unread })}</span>}
@@ -348,20 +348,20 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
               ))}
             </div>
           )}
-          {onNotifications && (inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-head__tools">
-            <Segmented
-              className="nx-filter"
-              label={t('inbox.filterLabel')}
-              value={inbox.filter}
-              onChange={(f) => { setConfirm(''); inbox.setFilter(f) }}
-              options={filters}
-              itemTestId="inbox-filter-"
-            />
-            <Button variant="ghost" size="sm" icon="check" className="nx-mark-all" disabled={inbox.unread === 0 || busy} onClick={() => attempt(() => inbox.markAllRead())} data-testid="inbox-mark-all">
-              {t('inbox.markAll')}
-            </Button>
-          </div>}
         </header>
+        {onNotifications && (inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-tools">
+          <Segmented
+            className="nx-filter"
+            label={t('inbox.filterLabel')}
+            value={inbox.filter}
+            onChange={(f) => { setConfirm(''); inbox.setFilter(f) }}
+            options={filters}
+            itemTestId="inbox-filter-"
+          />
+          <Button variant="ghost" size="sm" icon="check" className="nx-mark-all" disabled={inbox.unread === 0 || busy} onClick={() => attempt(() => inbox.markAllRead())} data-testid="inbox-mark-all">
+            {t('inbox.markAll')}
+          </Button>
+        </div>}
         {onNotifications && confirm && inbox.total > 0 && (
           <Callout
             tone="warn"

@@ -14,7 +14,7 @@
   align-items: center;
   column-gap: var(--sp-3);
   min-height: 60px;
-  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
   transition: background-color var(--dk-dur-slow, var(--dur-slow)) var(--ease-out);
 }
 .nx-op + .nx-op { border-top: 1px solid var(--color-border-subtle); }
@@ -90,31 +90,47 @@
 
 /* Recent: one short line each. */
 .nx-op--recent { min-height: 40px; padding-block: var(--sp-1); }
+.nx-op--recent .nx-op__text { min-width: 0; }
 .nx-op--recent .nx-op__title { color: var(--color-text-secondary); font-weight: var(--font-weight-regular); }
-.nx-tile--sm { width: 24px; height: 24px; margin-left: 4px; }
-.nx-tile--sm .lai-icon { width: 14px; height: 14px; }
+/* Two classes: inbox.css, which loads after this file, sets the tile to 32 px. */
+.nx-op .nx-tile--sm { width: 24px; height: 24px; margin-left: var(--sp-1); }
+.nx-op .nx-tile--sm .lai-icon { width: 14px; height: 14px; }
 .nx-op__when { flex: none; color: var(--dk-muted); font-size: var(--fs-meta); white-space: nowrap; }
 
-.nx-seeall { display: flex; justify-content: flex-start; padding: var(--sp-2) var(--sp-3) var(--sp-1); }
+.nx-seeall {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--sp-2);
+  padding: var(--sp-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+.nx-seeall .dk-btn { color: var(--color-text-secondary); }
+.nx-seeall .dk-btn:hover { color: var(--dk-text); }
 
-/* The tab strip: two tabs under the title, above the filters. */
-.nx-tabs { display: flex; gap: var(--sp-1); margin: 0 0 calc(var(--sp-2) * -1); }
+/* The tab bar: primary navigation of the panel. Labels start on the gutter
+   (the first tab has no side padding, so it lines up with the title above),
+   the active one carries an accent underline that sits on the head's border. */
+.nx-tabs { display: flex; gap: var(--sp-5); margin-bottom: -1px; }
 .nx-tab {
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-1);
-  padding: var(--sp-2) var(--sp-2);
+  gap: var(--sp-2);
+  min-height: var(--ctl-h);
+  padding: 0;
   border: 0;
   border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: none;
   color: var(--dk-muted);
   font: inherit;
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 .nx-tab[aria-selected="true"] { border-bottom-color: var(--dk-accent); color: var(--dk-text); }
 .nx-tab:hover { color: var(--dk-text); }
-.nx-tab:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: -2px; }
+.nx-tab:not([aria-selected="true"]):hover { border-bottom-color: var(--dk-edge); }
+.nx-tab:focus-visible { outline: none; border-radius: var(--r-sm); box-shadow: var(--focus-ring); }
 .nx-tab__n {
   min-width: 18px;
   padding: 0 5px;
@@ -129,8 +145,8 @@
 .nx-tab__n--failed { background: var(--dk-error-wash); color: var(--dk-error-text); }
 
 @media (max-width: 639px) {
-  .nx-tab { min-height: 44px; padding-inline: var(--sp-3); }
-  .nx-op { min-height: 64px; padding-inline: var(--sp-4) var(--sp-2); }
+  .nx-tab { min-height: 44px; }
+  .nx-op { min-height: 64px; }
   .nx-op--recent { min-height: 44px; }
-  .nx-op__acts .dk-btn, .nx-op__act { min-height: 40px; }
+  .nx-op__acts .dk-btn, .nx-op__act, .nx-seeall .dk-btn { min-height: 44px; }
 }

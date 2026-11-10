@@ -7,6 +7,12 @@
 
 /* ---- the panel ---------------------------------------------------------- */
 
+/* One rhythm for the whole panel. The side gutter is --sp-4 everywhere: title,
+   tabs, filter, day headings, row text and footer text start on it. Bands are
+   stacked top to bottom: head (title, then tabs), tools (the filter of the
+   list), body (scrolls), foot. Structure borders (head, foot) use --dk-edge;
+   the lines inside a list use --color-border-subtle. */
+
 .nx-scrim { display: none; }
 .nx-panel {
   position: fixed;
@@ -36,10 +42,12 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-3) var(--sp-2) var(--sp-4);
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--dk-edge);
 }
+/* With tabs the tab bar closes the head: its underline sits on the border. */
+.nx-head--tabs { padding-bottom: 0; }
 .nx-head__row { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--ctl-h-sm); }
 .nx-head__title {
   margin: 0;
@@ -58,8 +66,20 @@
 .nx-head__acts .action-menu__trigger { width: var(--ctl-h-sm); height: var(--ctl-h-sm); color: var(--color-text-secondary); }
 .nx-head__close { display: none; }
 .nx-head__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nx-head__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-.nx-mark-all { margin-left: auto; }
+
+/* The filter belongs to the list below it, not to the tabs above: its own band
+   with the list's gutter, a quiet divider and room on both sides. */
+.nx-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.nx-mark-all { margin-left: auto; color: var(--color-text-secondary); }
+.nx-mark-all:hover:not(:disabled) { color: var(--dk-text); }
 
 .nx-confirm { flex: none; margin: var(--sp-3) var(--sp-3) 0; grid-template-columns: 20px minmax(0, 1fr); }
 .nx-confirm .ui-callout__actions { grid-column: 2; margin: var(--sp-2) 0 0; justify-content: flex-start; }
@@ -71,11 +91,11 @@
   overscroll-behavior: contain;
   padding-bottom: var(--sp-2);
 }
-.nx-body > .ui-empty { margin: var(--sp-5) var(--sp-4); }
+.nx-body .ui-empty { margin: 0 var(--sp-4); }
 .nx-body > .skeleton-rows { border: 0; border-radius: 0; background: none; }
 .nx-body > .skeleton-rows .skeleton-row { gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-color: var(--color-border-subtle); }
 .nx-body > .skeleton-rows .skeleton--tile { width: 32px; height: 32px; }
-.nx-load-error { margin: var(--sp-3); }
+.nx-load-error { margin: var(--sp-3) var(--sp-4); }
 
 .nx-note {
   display: flex;
@@ -97,7 +117,7 @@
   top: 0;
   z-index: 1;
   margin: 0;
-  padding: var(--sp-3) var(--sp-4) var(--sp-1);
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
   background: var(--color-bg-primary);
   color: var(--dk-muted);
   font-size: var(--fs-meta);
@@ -111,6 +131,7 @@
 .nx-item { position: relative; transition: background-color var(--dur-slow) var(--ease-out); }
 .nx-item + .nx-item { border-top: 1px solid var(--color-border-subtle); }
 .nx-item:hover { background: var(--dk-hover); }
+.nx-item.is-failed:hover { background: var(--dk-error-wash); }
 .nx-item.is-fresh { background: var(--dk-accent-wash); }
 @media (prefers-reduced-motion: no-preference) {
   .nx-item.is-fresh { animation: dk-page-in var(--dur-slow) var(--ease-out) both; }
@@ -235,7 +256,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-3) 0 var(--sp-4);
+  padding: var(--sp-2) var(--sp-3) var(--sp-1) var(--sp-4);
   border-top: 1px solid var(--color-border-subtle);
   color: var(--dk-muted);
   font-size: var(--fs-meta);
@@ -247,11 +268,11 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2);
   border-top: 1px solid var(--dk-edge);
 }
 .nx-foot:empty { display: none; }
-.nx-foot__note { margin: 0; padding: 0 var(--sp-1); color: var(--dk-muted); font-size: var(--fs-meta); }
+.nx-foot__note { margin: 0; padding: 0 var(--sp-2); color: var(--dk-muted); font-size: var(--fs-meta); }
 .nx-foot__note--error { color: var(--dk-error-text); }
 
 @media (hover: none), (pointer: coarse) {
@@ -284,7 +305,8 @@
     border-radius: var(--r-xl) var(--r-xl) 0 0;
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .nx-head { padding: var(--sp-3) var(--sp-2) var(--sp-2) var(--sp-4); }
+  .nx-head { padding-right: var(--sp-2); }
+  .nx-tools { padding-right: var(--sp-2); }
   .nx-head__close { display: inline-flex; }
   .nx-head .nx-head__close, .nx-head__acts .action-menu__trigger { min-width: 44px; min-height: 44px; }
   .nx-filter .ui-seg__item { min-height: 40px; }
