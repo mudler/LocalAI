@@ -400,6 +400,27 @@ var _ = Describe("the job tool", func() {
 		})
 	})
 
+	Describe("listeners", func() {
+		It("tells a listener when a job starts and when it has ended, after its stub is written", func() {
+			c := newJobChat("on", nil)
+			id := create(c.svc, bob)
+			var mu sync.Mutex
+			var seen []bgjob.State
+			c.svc.OnJobChange(func(in bgjob.Info) {
+				mu.Lock()
+				seen = append(seen, in.State)
+				mu.Unlock()
+				rec, err := c.svc.Get(context.Background(), bob, id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rec.Jobs).NotTo(BeEmpty(), "the stub is there when the listener runs")
+			})
+			c.say(bob, id, "start t run")
+			job := c.stubs(bob, id)[0].ID
+			c.host.proc(job).finish(0)
+			Eventually(func() []bgjob.State { mu.Lock(); defer mu.Unlock(); return slices.Clone(seen) }).Should(Equal([]bgjob.State{bgjob.StateRunning, bgjob.StateExited}))
+		})
+	})
+
 	Describe("end conditions", func() {
 		It("ends the jobs of a chat when it is deleted", func() {
 			c := newJobChat("on", nil)

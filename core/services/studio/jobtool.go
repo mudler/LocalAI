@@ -260,10 +260,32 @@ func (s *Service) setupJobs() {
 	var local *bgjob.Registry
 	if ok {
 		local = hj.Jobs()
-		hj.OnJob(s.jobCheck, func(in bgjob.Info) { s.RecordJob(context.Background(), in) })
+		hj.OnJob(s.jobCheck, s.jobChanged)
 	}
 	s.bgJobs = &bgjob.Router{Local: local, Self: s.d.Instance, Carrier: s.d.JobCarrier}
 	s.hostJobs = &hostJobBackend{s: s, hj: hj}
+}
+
+// jobChanged is the hook of the registry of this process: it keeps the stub
+// of the chat in step, then tells the listeners (a wait on the job is woken by
+// the end of the job).
+func (s *Service) jobChanged(in bgjob.Info) {
+	s.RecordJob(context.Background(), in)
+	s.jobMu.Lock()
+	ls := slices.Clone(s.jobListeners)
+	s.jobMu.Unlock()
+	for _, f := range ls {
+		f(in)
+	}
+}
+
+// OnJobChange adds a listener that is called, outside every lock, when a job
+// of this process starts and when it has ended, after its stub was written. A
+// wait on a job uses it to be checked at once when the job ends.
+func (s *Service) OnJobChange(f func(bgjob.Info)) {
+	s.jobMu.Lock()
+	s.jobListeners = append(s.jobListeners, f)
+	s.jobMu.Unlock()
 }
 
 // endChatJobs ends the jobs of a chat that is going to be deleted: from the

@@ -416,7 +416,10 @@ type Service struct {
 	bgJobs   *bgjob.Router
 	hostJobs *hostJobBackend
 	stopJobs func()
-	locks    map[string]*keyLock
+	// jobListeners are told of each job that starts or ends here (OnJobChange).
+	jobMu        sync.Mutex
+	jobListeners []func(bgjob.Info)
+	locks        map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
 	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
