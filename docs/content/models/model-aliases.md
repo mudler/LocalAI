@@ -51,7 +51,7 @@ top of the target's config for requests to the alias:
 |-------|--------|
 | `profile.system_prompt` | Replaces the target's system prompt. A system message sent by the client still takes precedence, as for any model. |
 | `profile.mcp` (`remote`, `stdio`) | Replaces the target's MCP servers. |
-| `profile.mcp.auto` | Enables the MCP servers on `/v1/chat/completions` without `metadata.mcp_servers`, when MCP is enabled and the caller has the `mcp` permission. See [MCP]({{%relref "/features/mcp" %}}). |
+| `profile.mcp.auto` | Enables the MCP servers on `/v1/chat/completions` without `metadata.mcp_servers`, when MCP is enabled and the caller has the `mcp` permission. See [MCP]({{%relref "/features/chats-and-agents/mcp" %}}). |
 | `profile.client_tools: drop` | Discards tools and `tool_choice` sent by the client. |
 | `profile.evidence_check.numbers` | Marks answers that contain numbers without evidence in the request. See [Evidence check](#evidence-check). |
 | `profile.evidence_check.note` | Text appended by the evidence check. Defaults to an English note. |
@@ -313,7 +313,7 @@ and a target. To re-point an existing alias, edit it and change the target.
 The LocalAI Assistant (and the MCP server) expose the same operations as tools:
 `set_alias`, `list_aliases`, and `delete_model`.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 **You cannot turn an existing real model into an alias.** If you run `set_alias`
 (or `PATCH /api/models/config-json/:name`) against a name that is already a real,
 non-alias model, the request is **rejected**. An alias is a pure redirect, so it
@@ -326,7 +326,7 @@ To add an alias, point a **new** name at the target instead of reusing an
 existing model's name. Re-pointing an **existing alias** at a different target
 is fully supported and is the live-swap path: the alias config has no backend of
 its own, so swapping its target stays a valid pure redirect.
-{{% /notice %}}
+{{% /callout %}}
 
 ## Aliases as deployment slots (distributed mode)
 

@@ -1,0 +1,696 @@
++++
+url = "/features/mcp/"
+title = "Model Context Protocol (MCP)"
+weight = 22
+toc = true
+description = "Agentic capabilities with Model Context Protocol integration"
+tags = ["MCP", "Agents", "Tools", "Advanced"]
+categories = ["Features"]
++++
+
+![Server-side vs client-side MCP: the model's tool loop runs on the server or in the browser](/docs/images/diagrams/mcp-server-vs-client.png)
+
+
+LocalAI now supports the **Model Context Protocol (MCP)**, enabling powerful agentic capabilities by connecting AI models to external tools and services. This feature allows your LocalAI models to interact with various MCP servers, providing access to real-time data, APIs, and specialized tools.
+
+{{< agentic-routing current="mcp" >}}
+
+## What is MCP?
+
+The Model Context Protocol is a standard for connecting AI models to external tools and data sources. It enables AI agents to:
+
+- Access real-time information from external APIs
+- Execute commands and interact with external systems
+- Use specialized tools for specific tasks
+- Maintain context across multiple tool interactions
+
+## Key Features
+
+- **Real-time Tool Access**: Connect to external MCP servers for live data
+- **Multiple Server Support**: Configure both remote HTTP and local stdio servers
+- **Cached Connections**: Efficient tool caching for better performance
+- **Secure Authentication**: Static bearer tokens or OAuth2 `client_credentials` with automatic token refresh
+- **Multi-endpoint Support**: Works with OpenAI Chat, Anthropic Messages, and Open Responses APIs
+- **Selective Server Activation**: Use `metadata.mcp_servers` to enable only specific servers per request
+- **Server-side Tool Execution**: Tools are executed on the server and results fed back to the model automatically
+- **Agent Configuration**: Customizable execution limits and retry behavior
+- **MCP Prompts**: Discover and expand reusable prompt templates from MCP servers
+- **MCP Resources**: Browse and inject resource content (files, data) from MCP servers into conversations
+
+## Configuration
+
+MCP support is configured in your model's YAML configuration file using the `mcp` section:
+
+```yaml
+name: my-mcp-model
+backend: llama-cpp
+parameters:
+  model: qwen3-4b.gguf
+
+mcp:
+  remote: |
+    {
+      "mcpServers": {
+        "weather-api": {
+          "url": "https://api.weather.com/v1",
+          "token": "your-api-token"
+        },
+        "search-engine": {
+          "url": "https://search.example.com/mcp",
+          "token": "your-search-token"
+        }
+      }
+    }
+
+  stdio: |
+    {
+      "mcpServers": {
+        "file-manager": {
+          "command": "python",
+          "args": ["-m", "mcp_file_manager"],
+          "env": {
+            "API_KEY": "your-key"
+          }
+        },
+        "database-tools": {
+          "command": "node",
+          "args": ["database-mcp-server.js"],
+          "env": {
+            "DB_URL": "postgresql://localhost/mydb"
+          }
+        }
+      }
+    }
+
+agent:
+  max_iterations: 10             # Maximum MCP tool execution loop iterations
+```
+
+### Configuration Options
+
+In the interactive model editor, **Remote MCP Servers** and **MCP STDIO Servers** are YAML editors. Enter only the embedded `mcpServers` document shown inside the `remote: |` or `stdio: |` block above; the editor supplies the outer model configuration keys.
+
+#### Remote Servers (`remote`)
+Configure HTTP-based MCP servers:
+
+- **`url`**: The MCP server endpoint URL
+- **`token`**: Static bearer token for authentication (optional)
+- **`oauth2`**: OAuth2 `client_credentials` settings (optional, mutually exclusive with `token`); see [OAuth2 client credentials](#oauth2-client-credentials-for-remote-servers)
+
+LocalAI automatically selects the transport for remote model MCP servers. It tries Streamable HTTP first, including servers that do not assign session IDs. If the initial POST returns HTTP 400, 404, or 405, LocalAI retries with legacy SSE. Both attempts share the discovery timeout and use the configured bearer token. Authentication failures and redirects do not trigger fallback.
+
+Use the endpoint URL published by your server: usually `/mcp` for Streamable HTTP or `/sse` for legacy SSE. Legacy SSE servers must advertise a message endpoint on the same origin (scheme, host, and port). No transport setting is required.
+
+Remote model MCP connections originate from the LocalAI process. If LocalAI runs in Docker, the URL must therefore resolve and be reachable **from the LocalAI container**, not only from the host browser. For another service in the same Compose project, use its Compose service name and container port. Host-only DNS names, VPN DNS, and private routes must also be made available inside the container.
+
+#### OAuth2 client credentials for remote servers
+
+When an MCP server sits behind an OpenID Connect / OAuth2 provider (for example authentik, Keycloak, Entra ID or Auth0), LocalAI can obtain short-lived access tokens with the `client_credentials` grant instead of using a long-lived static `token`:
+
+```yaml
+mcp:
+  remote: |
+    {
+      "mcpServers": {
+        "internal-tools": {
+          "url": "https://mcp.example.com/mcp",
+          "oauth2": {
+            "token_url": "https://auth.example.com/application/o/token/",
+            "client_id": "localai",
+            "client_secret_env": "MCP_INTERNAL_TOOLS_SECRET",
+            "scopes": ["mcp:tools"],
+            "endpoint_params": {"audience": "mcp-gateway"}
+          }
+        }
+      }
+    }
+```
+
+| Field | Description |
+|---|---|
+| `token_url` | Token endpoint of the identity provider (required). Must use `https`; plain `http` is accepted only for `localhost`, `127.0.0.1` and `::1` |
+| `client_id` / `client_id_env` | Client ID, literally or as the name of an environment variable (exactly one is required) |
+| `client_secret` / `client_secret_env` | Client secret, literally or as the name of an environment variable (exactly one is required). Use `client_secret_env` instead of a literal `client_secret` so the secret is not stored in the model YAML or the server configuration |
+| `scopes` | Scopes to request (optional) |
+| `endpoint_params` | Extra form parameters for the token request, e.g. `audience` or `resource` (RFC 8707) (optional) |
+
+Behaviour:
+
+- The token is fetched on the first request to the server, cached, and sent as `Authorization: Bearer <token>` on every request, for both streamable HTTP and SSE transports.
+- It is refreshed proactively once **half** of its lifetime (`expires_in`) has elapsed. If the provider omits `expires_in`, a lifetime of 5 minutes is assumed.
+- If a refresh fails, the current token keeps being used until 30 seconds before it expires (retries wait at least 5 seconds after a failed fetch, including the first fetch). After that, requests to the MCP server fail with an error; LocalAI never falls back to an unauthenticated request.
+- Configuring both `token` and `oauth2` for the same server is rejected when the model configuration is loaded, as are missing or duplicated `client_id`/`client_secret` sources. An environment variable named in `*_env` that is unset or empty makes the connection to that server fail, and the server is reported with an error in the server listing.
+- Debug logs of remote server entries redact static tokens and OAuth2 client secrets in both text and JSON formats.
+- Token caches and retry timers are local to each connection-owning process. Workers obtain and refresh their own tokens; this cache is not shared across the cluster.
+- The environment variables are read by the process that connects to the MCP server. In distributed mode that is the agent worker, so set them there.
+- Sessions and cached tokens are keyed by the server configuration, not by the value of an environment variable. After you rotate a secret that is referenced by `client_secret_env` (or `client_id_env`), restart the process that connects to the MCP server so it picks up the new value.
+
+Servers configured with a static `token` behave exactly as before.
+
+#### STDIO Servers (`stdio`)
+Configure local command-based MCP servers:
+
+- **`command`**: The executable command to run
+- **`args`**: Array of command-line arguments
+- **`env`**: Environment variables (optional)
+
+#### Automatic activation (`auto`)
+
+`/v1/chat/completions` only runs a model's MCP servers when the request selects
+them through `metadata.mcp_servers`. Plain OpenAI clients cannot send that field.
+Set `auto: true` in the `mcp:` block to enable every configured server when the
+request names none:
+
+```yaml
+mcp:
+  auto: true
+  remote: |
+    {"mcpServers": {"weather-api": {"url": "https://weather.example.com/mcp"}}}
+```
+
+A request that does send `metadata.mcp_servers` still gets exactly the servers it
+names. `/v1/responses` already enables all servers when the request sends no
+`tools`, and `/mcp/v1/chat/completions` always does; `auto` does not change them.
+
+`auto` only applies when MCP is enabled on the instance (not disabled with
+`LOCALAI_DISABLE_MCP`) and, with authentication on, the caller has the `mcp`
+permission. Otherwise the request is answered as a plain chat: no server is
+contacted and no tools are added. It is not rejected, because the client did not
+ask for MCP.
+
+#### Client tools (`client_tools`)
+
+`client_tools: drop` (a top-level model config key) discards the `tools`,
+`functions` and `tool_choice` a client sends, so the model is offered only its own
+MCP tools. Use it when a front end attaches tools of its own that should not
+reach this model. Empty (the default) keeps client tools.
+
+On a [model alias]({{%relref "/models/model-aliases" %}}#profile-aliases) these
+keys go inside the alias's `profile` block, which lets several assistants with
+different tools share one loaded model.
+
+#### Agent Configuration (`agent`)
+
+- **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.
+- **`max_attempts`**: How often a failed tool call is retried (chats and saved agents).
+- **`force_reasoning_tool`**: Make the model reason before it picks a tool (chats and saved agents).
+- **`max_generation_tokens`**: Accepted and ignored. It capped the completions of the old agent jobs.
+
+The planning, plan re-evaluation, loop detection and reasoning switches of the old agent loop (`enable_planning`, `enable_plan_re_evaluator`, `enable_reasoning`, `enable_mcp_prompts`, `disable_sink_state`, `loop_detection`, `max_adjustment_attempts`) are ignored; a model file that sets one still loads and the server logs a warning. See [Model configuration]({{% relref "/models/model-configuration" %}}).
+
+## Agent-scoped MCP servers
+
+The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. A [saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}) of the chats can limit a chat to some of them: its `mcp_servers` list names the servers of the model's `mcp:` block that the chat may use. The agent cannot add a server of its own.
+
+## Usage
+
+### Selecting MCP Servers via `metadata`
+
+All API endpoints support MCP server selection through the standard `metadata` field. Pass a comma-separated list of server names in `metadata.mcp_servers`:
+
+- **When present**: Only the named MCP servers are activated for this request. Server names must match the keys in the model's MCP config YAML (e.g., `"weather-api"`, `"search-engine"`).
+- **When absent**: Behavior depends on the endpoint:
+  - **OpenAI Chat Completions** and **Anthropic Messages**: No MCP tools are injected (standard behavior).
+  - **Open Responses**: If the model has MCP config and no user-provided tools, all MCP servers are auto-activated (backward compatible).
+
+The `mcp_servers` metadata key is consumed by the MCP engine and stripped before reaching the backend. Clients that support the standard `metadata` field can use this without custom schema extensions.
+
+### API Endpoints
+
+MCP tools work across all three API endpoints:
+
+#### OpenAI Chat Completions (`/v1/chat/completions`)
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "messages": [{"role": "user", "content": "What is the weather in New York?"}],
+    "metadata": {"mcp_servers": "weather-api"},
+    "stream": true
+  }'
+```
+
+#### Anthropic Messages (`/v1/messages`)
+
+```bash
+curl http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "What is the weather in New York?"}],
+    "metadata": {"mcp_servers": "weather-api"}
+  }'
+```
+
+#### Open Responses (`/v1/responses`)
+
+```bash
+curl http://localhost:8080/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "input": "What is the weather in New York?",
+    "metadata": {"mcp_servers": "weather-api"}
+  }'
+```
+
+The tools LocalAI runs server-side are part of the response: `output` lists a
+`function_call` item and its `function_call_output` item for every MCP tool call,
+in the order they ran, before the final `message`. Replayed tool results retain
+the `call_id` association with their calls. If the streaming iteration limit is
+reached, each executed tool round appears once in the final output. This holds for streaming
+(`response.completed`) and non-streaming requests and for the stored response.
+A follow-up request with `previous_response_id` therefore replays the earlier
+tool calls and results to the model, and a client that keeps the `output` items
+and sends them back as input does the same. Without this trail, models tend to
+answer follow-up questions from the earlier text instead of calling the tool
+again. Chat completions (`/v1/chat/completions`) return only the final answer,
+so a client cannot carry the tool trail over to the next turn there.
+
+### Server Listing Endpoint
+
+You can list available MCP servers and their tools for a given model:
+
+```bash
+curl http://localhost:8080/v1/mcp/servers/my-mcp-model
+```
+
+Returns a model wrapper and one status entry for every configured server:
+
+```json
+{
+  "model": "my-mcp-model",
+  "servers": [
+    {
+      "name": "weather-api",
+      "type": "remote",
+      "tools": ["get_weather", "get_forecast"]
+    },
+    {
+      "name": "search-engine",
+      "type": "remote",
+      "tools": [],
+      "error": "connection failed: ..."
+    }
+  ]
+}
+```
+
+The Chat **MCP → Servers** tab uses this endpoint. A configured server remains listed when it is unavailable, shows the discovery error, and cannot be selected until a later discovery attempt succeeds. Reopening the dropdown or returning to the Servers tab retries discovery.
+
+When authentication is enabled, the Servers tab is offered to admins and to every user holding the `mcp` feature (on by default for new users). Chat learns that a model has MCP servers from the `mcp` flag of `GET /api/models/capabilities`, so non-admin users do not need access to the model configuration. With `LOCALAI_DISABLE_MCP=true` the flag is never set.
+
+### MCP Prompts
+
+MCP servers can provide reusable prompt templates. LocalAI supports discovering and expanding prompts from MCP servers.
+
+#### List Prompts
+
+```bash
+curl http://localhost:8080/v1/mcp/prompts/my-mcp-model
+```
+
+Returns:
+
+```json
+[
+  {
+    "name": "code-review",
+    "description": "Review code for best practices",
+    "title": "Code Review",
+    "arguments": [
+      {"name": "language", "description": "Programming language", "required": true}
+    ],
+    "server": "dev-tools"
+  }
+]
+```
+
+#### Expand a Prompt
+
+```bash
+curl -X POST http://localhost:8080/v1/mcp/prompts/my-mcp-model/code-review \
+  -H "Content-Type: application/json" \
+  -d '{"arguments": {"language": "go"}}'
+```
+
+Returns:
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "Please review the following Go code for best practices..."}
+  ]
+}
+```
+
+#### Inject Prompts via Metadata
+
+You can inject MCP prompts into any chat request using `metadata.mcp_prompt` and `metadata.mcp_prompt_args`:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "messages": [{"role": "user", "content": "Review this function: func add(a, b int) int { return a + b }"}],
+    "metadata": {
+      "mcp_servers": "dev-tools",
+      "mcp_prompt": "code-review",
+      "mcp_prompt_args": "{\"language\": \"go\"}"
+    }
+  }'
+```
+
+The prompt messages are prepended to the conversation before inference.
+
+### MCP Resources
+
+MCP servers can expose data/content (files, database records, etc.) as resources identified by URI.
+
+#### List Resources
+
+```bash
+curl http://localhost:8080/v1/mcp/resources/my-mcp-model
+```
+
+Returns:
+
+```json
+[
+  {
+    "name": "project-readme",
+    "uri": "file:///README.md",
+    "description": "Project documentation",
+    "mimeType": "text/markdown",
+    "server": "file-manager"
+  }
+]
+```
+
+#### Read a Resource
+
+```bash
+curl -X POST http://localhost:8080/v1/mcp/resources/my-mcp-model/read \
+  -H "Content-Type: application/json" \
+  -d '{"uri": "file:///README.md"}'
+```
+
+Returns:
+
+```json
+{
+  "uri": "file:///README.md",
+  "content": "# My Project\n...",
+  "mimeType": "text/markdown"
+}
+```
+
+#### Inject Resources via Metadata
+
+You can inject MCP resources into chat requests using `metadata.mcp_resources` (comma-separated URIs):
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "messages": [{"role": "user", "content": "Summarize this project"}],
+    "metadata": {
+      "mcp_servers": "file-manager",
+      "mcp_resources": "file:///README.md,file:///CHANGELOG.md"
+    }
+  }'
+```
+
+Resource contents are appended to the last user message as text blocks (following the same approach as llama.cpp's WebUI).
+
+### Legacy Endpoint
+
+The `/mcp/v1/chat/completions` endpoint is still supported for backward compatibility. It automatically enables all configured MCP servers (equivalent to not specifying `mcp_servers`).
+
+```bash
+curl http://localhost:8080/mcp/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-mcp-model",
+    "messages": [
+      {"role": "user", "content": "What is the current weather in New York?"}
+    ]
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "id": "chatcmpl-123",
+  "created": 1699123456,
+  "model": "my-mcp-model",
+  "choices": [
+    {
+      "text": "The current weather in New York is 72°F (22°C) with partly cloudy skies."
+    }
+  ],
+  "object": "text_completion"
+}
+```
+
+## Example Configurations
+
+### Docker-based Tools
+
+```yaml
+name: docker-agent
+backend: llama-cpp
+parameters:
+  model: qwen3-4b.gguf
+
+mcp:
+  stdio: |
+    {
+      "mcpServers": {
+        "searxng": {
+          "command": "docker",
+          "args": [
+            "run", "-i", "--rm",
+            "quay.io/mudler/tests:duckduckgo-localai"
+          ]
+        }
+      }
+    }
+
+agent:
+  max_iterations: 10
+```
+
+## How It Works
+
+1. **Tool Discovery**: LocalAI connects to configured MCP servers and discovers available tools
+2. **Tool Injection**: Discovered tools are injected into the model's tool/function list alongside any user-provided tools
+3. **Inference Loop**: The model generates a response. If it calls MCP tools, LocalAI executes them server-side, appends results to the conversation, and re-runs inference
+4. **Response Generation**: When the model produces a final response (no more MCP tool calls), it is returned to the client
+
+The execution loop is bounded by `agent.max_iterations` (default 10) to prevent infinite loops.
+
+## Session Lifecycle
+
+MCP sessions are automatically managed by LocalAI:
+
+- **Lazy initialization**: Sessions are created the first time a model's MCP tools are used
+- **Cached per model**: Sessions are reused across requests for the same model
+- **Cleanup on model unload**: When a model is unloaded (idle watchdog eviction, manual stop, or shutdown), all associated MCP sessions are closed and resources freed
+- **Graceful shutdown**: All MCP sessions are closed when LocalAI shuts down
+
+This means you don't need to manually manage MCP connections - they follow the model's lifecycle automatically.
+
+## Supported MCP Servers
+
+LocalAI is compatible with any MCP-compliant server.
+
+## Best Practices
+
+### Security
+- Use environment variables for sensitive tokens
+- Validate MCP server endpoints before deployment
+- Implement proper authentication for remote servers
+
+### Performance
+- Cache frequently used tools
+- Use appropriate timeout values for external APIs
+- Monitor resource usage for stdio servers
+
+### Error Handling
+- Implement fallback mechanisms for tool failures
+- Log tool execution for debugging
+- Handle network timeouts gracefully
+
+### With External Applications
+
+Use MCP-enabled models in your applications:
+
+```python
+import openai
+
+client = openai.OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="your-api-key"
+)
+
+response = client.chat.completions.create(
+    model="my-mcp-model",
+    messages=[
+        {"role": "user", "content": "Analyze the latest research papers on AI"}
+    ],
+    extra_body={"metadata": {"mcp_servers": "search-engine"}}
+)
+```
+
+### MCP and adding packages
+
+It might be handy to install packages before starting the container to setup the environment. This is an example on how you can do that with docker-compose (installing and configuring docker)
+
+```yaml
+services:
+  local-ai:
+    image: localai/localai:latest
+    #image: localai/localai:latest-gpu-nvidia-cuda-13
+    #image: localai/localai:latest-gpu-nvidia-cuda-12
+    container_name: local-ai
+    restart: always
+    entrypoint: [ "/bin/bash" ]
+    command: >
+     -c "apt-get update &&
+         apt-get install -y docker.io &&
+         /entrypoint.sh"
+    environment:
+      - DEBUG=true
+      - LOCALAI_WATCHDOG_IDLE=true
+      - LOCALAI_WATCHDOG_BUSY=true
+      - LOCALAI_WATCHDOG_IDLE_TIMEOUT=15m
+      - LOCALAI_WATCHDOG_BUSY_TIMEOUT=15m
+      - LOCALAI_API_KEY=my-beautiful-api-key
+      - DOCKER_HOST=tcp://docker:2376
+      - DOCKER_TLS_VERIFY=1
+      - DOCKER_CERT_PATH=/certs/client
+    ports:
+      - "8080:8080"
+    volumes:
+      - /data/models:/models
+      - /data/backends:/backends
+      - certs:/certs:ro
+    # uncomment for nvidia
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+    #           device_ids: ['7']
+    # runtime: nvidia
+
+  docker:
+    image: docker:dind
+    privileged: true
+    container_name: docker
+    volumes:
+      - certs:/certs
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 10s
+      timeout: 5s
+volumes:
+  certs:
+```
+
+An example model config (to append to any existing model you have) can be:
+
+```yaml
+mcp:
+  stdio: |
+     {
+      "mcpServers": {
+        "weather": {
+          "command": "docker",
+          "args": [
+            "run", "-i", "--rm",
+            "ghcr.io/mudler/mcps/weather:master"
+          ]
+        },
+        "memory": {
+          "command": "docker",
+          "env": {
+            "MEMORY_INDEX_PATH": "/data/memory.bleve"
+          },
+          "args": [
+            "run", "-i", "--rm", "-v", "/host/data:/data",
+            "ghcr.io/mudler/mcps/memory:master"
+          ]
+        },
+        "ddg": {
+          "command": "docker",
+          "env": {
+            "MAX_RESULTS": "10"
+          },
+          "args": [
+            "run", "-i", "--rm", "-e", "MAX_RESULTS",
+            "ghcr.io/mudler/mcps/duckduckgo:master"
+          ]
+        }
+      }
+     }
+```
+
+### Links
+
+- [Awesome MCPs](https://github.com/punkpeye/awesome-mcp-servers)
+- [A list of MCPs by mudler](https://github.com/mudler/MCPs)
+
+## Client-Side MCP (Browser)
+
+> The chats no longer connect to MCP servers from the browser. This section
+> describes the browser-side connection that the add-on host still offers to
+> add-ons. For the chats, define the server as a connector (it is stored per user
+> and connects from the server): see [Chats connectors]({{% relref "/features/chats-and-agents/chats-connectors" %}}#mcp-servers).
+> A server on your own computer or a private network is refused unless an
+> administrator allows private addresses.
+
+In addition to server-side MCP (where the backend connects to MCP servers), LocalAI supports **client-side MCP** where the browser connects directly to MCP servers. This is inspired by llama.cpp's WebUI and works alongside server-side MCP.
+
+The browser keeps one MCP client, for the pages that add-ons add to the interface. An add-on page can ask it to connect to an MCP server and call its tools. Those server configurations are stored in the browser's localStorage and are not shared with the server; custom headers (for example API keys) are stored there too, so use them with care on shared machines.
+
+Because browsers enforce CORS, LocalAI provides a proxy at `/api/cors-proxy`. It forwards the method, headers and body of a request to the target URL and streams the response back with CORS headers. It can forward requests to any HTTP or HTTPS URL, and it is only available while MCP is on (`LOCALAI_DISABLE_MCP` is not set).
+
+For interactive tool pages (MCP Apps) in the chats, see [Interactive tool pages]({{% relref "/features/chats-and-agents/chats" %}}).
+
+## Disabling MCP Support
+
+You can completely disable MCP functionality in LocalAI by setting the `LOCALAI_DISABLE_MCP` environment variable to `true`, `1`, or `yes`:
+
+```bash
+export LOCALAI_DISABLE_MCP=true
+```
+
+When this environment variable is set, all MCP-related features will be disabled, including:
+- MCP server connections (both remote and stdio)
+- Agent tool execution
+- The `/mcp/v1/chat/completions` endpoint
+
+This is useful when you want to:
+- Run LocalAI without MCP capabilities for security reasons
+- Reduce the attack surface by disabling unnecessary features
+- Troubleshoot MCP-related issues
+
+### Example
+
+```bash
+# Disable MCP completely
+LOCALAI_DISABLE_MCP=true localai run
+
+# Or in Docker
+docker run -e LOCALAI_DISABLE_MCP=true localai/localai:latest
+```
+
+When MCP is disabled, any model configuration with `mcp` sections will be ignored, and attempts to use the MCP endpoint will return an error indicating that MCP support is disabled.

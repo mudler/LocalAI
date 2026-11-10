@@ -210,9 +210,9 @@ local-ai run ollama://gemma:2b
 local-ai run oci://localai/phi-2:latest
 ```
 
-{{% notice note %}}
+{{% callout style="note" %}}
 On every model download — Ollama and OCI registries, the model gallery, and plain HTTP(S) file URLs alike — LocalAI identifies itself with a `LocalAI/<version> (<os>; <arch>)` `User-Agent` header (for example `LocalAI/v3.2.1 (linux; amd64)`) so registry and gallery operators can attribute usage to LocalAI. Builds from source that carry no stamped version send `LocalAI (<os>; <arch>)` instead.
-{{% /notice %}}
+{{% /callout %}}
 
 ### Run Models via URI
 
@@ -223,9 +223,9 @@ To run models via URI, specify a URI to a model file or a configuration file whe
 - From OCIs: `oci://container_image:tag`, `ollama://model_id:tag`
 - From configuration files: `https://gist.githubusercontent.com/.../phi-2.yaml`
 
-{{% notice note %}}
+{{% callout style="note" %}}
 When using `file://` URLs, the path must point to a file within your models directory (specified by `MODELS_PATH`). Files outside this directory are rejected for security reasons.
-{{% /notice %}}
+{{% /callout %}}
 
 Configuration files can be used to customize the model defaults and settings. For advanced configurations, refer to the [Customize Models section]({{% relref "/start/customize-model" %}}).
 
@@ -295,11 +295,11 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 **Other Docker Images**:
 
 For other Docker images, please refer to the table in [the container images section]({{% relref "/start/install/containers" %}}).
- {{% /notice %}}
+ {{% /callout %}}
 
 ### Example:
 
@@ -321,10 +321,10 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
    }'
 ```
 
-{{% notice note %}}
+{{% callout style="note" %}}
 - If running on Apple Silicon (ARM), it is **not** recommended to run on Docker due to emulation. Follow the [build instructions]({{% relref "/contributing/build-from-source" %}}) to use Metal acceleration for full GPU support.
 - If you are running on Apple x86_64, you can use Docker without additional gain from building it from source.
- {{% /notice %}}
+ {{% /callout %}}
 
 {{% /tab %}}
 {{% tab title="Docker Compose" %}}
@@ -347,11 +347,11 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 **Other Docker Images**:
 
 For other Docker images, please refer to the table in [Getting Started](https://localai.io/basics/getting_started/#container-images).
- {{% /notice %}}
+ {{% /callout %}}
 
 Note: If you are on Windows, ensure the project is on the Linux filesystem to avoid slow model loading. For more information, see the [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
 
@@ -370,7 +370,7 @@ LocalAI binary releases are available on [GitHub](https://github.com/go-skynet/L
 local-ai --models-path ./models
 ```
 
-{{% notice tip %}}
+{{% callout style="tip" %}}
 If installing on macOS, you might encounter a message saying:
 
 > "local-ai-git-Darwin-arm64" (or the name you gave the binary) can't be opened because Apple cannot check it for malicious software.
@@ -380,7 +380,7 @@ Hit OK, then go to Settings > Privacy & Security > Security and look for the mes
 > "local-ai-git-Darwin-arm64" was blocked from use because it is not from an identified developer.
 
 Press "Allow Anyway."
- {{% /notice %}}
+ {{% /callout %}}
 
 {{% /tab %}}
 {{% tab title="From Source" %}}

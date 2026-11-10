@@ -169,9 +169,9 @@ When a model config does not set a value itself, LocalAI reads the header of its
 
 Set an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`) to give a frontend its own file, `header-cache-<id>.json`, instead of the shared one. It then keeps its own entries across restarts and does not share them with other frontends. An instance ID that is not a plain token (letters, digits, `-` and `_`, up to 64 characters) is hashed into the file name. In distributed mode, an ID that LocalAI generates at startup does not select a file of its own, because it changes on every start; such a frontend uses the shared file.
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 All frontends that share this cache must mount the same data volume. With a ReadWriteOnce volume, the volume attaches to one node at a time, so all frontends that share the cache must run on that one node. A frontend on another node cannot mount the volume and will not start. Sharing this cache across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
-{{% /notice %}}
+{{% /callout %}}
 
 ### What is stored
 
@@ -232,13 +232,13 @@ These settings will be used as defaults for all the API calls to the model.
 | `tfz` | float | `1.0` | Tail free z parameter |
 | `keep` | int | `0` | Number of tokens to keep from the prompt |
 
-{{% notice note %}}
+{{% callout style="note" %}}
 The DS4 backend preserves its legacy behavior for omitted or non-positive
 `max_tokens` values by generating at most 256 tokens. Set `max_tokens` to a
 positive value when you need a specific DS4 output limit. After processing the
 prompt, DS4 clamps that limit to the available context space and reserves one
 context slot for safe generation.
-{{% /notice %}}
+{{% /callout %}}
 
 ### Language and Translation
 
@@ -615,11 +615,11 @@ The canonical names match upstream llama.cpp (dash-separated). For backward comp
 
 Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram-simple,ngram-mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 The current LocalAI llama.cpp backend supports speculative decoding with multimodal models that load an `mmproj`, including MTP. LocalAI passes both configurations to llama.cpp and does not disable speculation merely because an `mmproj` is present. Upstream llama.cpp removed the former general multimodal/speculative restriction in [ggml-org/llama.cpp#19493](https://github.com/ggml-org/llama.cpp/pull/19493); [ggml-org/llama.cpp#22673](https://github.com/ggml-org/llama.cpp/pull/22673) later added MTP support and explicitly documented its compatibility with vision input.
 
 Compatibility still depends on the installed backend version and the target/draft model architecture. Check the backend logs for successful projector loading and speculative-context initialization, then look for the `draft acceptance` statistics line and its `accepted / generated` counts. A representative run with zero accepted draft tokens receives no speculative speedup and can indicate that the model or settings need tuning.
-{{% /notice %}}
+{{% /callout %}}
 
 ##### Multi-Token Prediction (MTP)
 
@@ -705,7 +705,7 @@ Pre-converted GGUFs with MTP heads are published on the [ggml-org HuggingFace or
 
 ### Reasoning Models (DeepSeek-R1, Qwen3, etc.)
 
-These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array. For how reasoning is returned alongside tool calls and survives the tool-result round trip, see [Interleaved Thinking with Tool Calls]({{%relref "/features/interleaved-thinking" %}}).
+These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array. For how reasoning is returned alongside tool calls and survives the tool-result round trip, see [Interleaved Thinking with Tool Calls]({{%relref "/features/text/interleaved-thinking" %}}).
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -714,14 +714,14 @@ These load-time options control how the backend parses `<think>` reasoning block
 | `reasoning_budget` | int | `-1` | Token cap for the thinking section (upstream `--reasoning-budget`): `-1` unlimited, `0` end thinking at once, `N` > 0 allows at most `N` thinking tokens, then the end-of-thinking tag is forced. Values below `-1` are ignored with a warning. For compatibility, `reasoning_budget:0` also turns thinking off (`enable_reasoning:0`) unless `enable_reasoning` is set too. |
 | `prefill_assistant` | bool | `true` | When `false`, the trailing assistant message is not pre-filled by the chat template. |
 
-{{% notice note %}}
+{{% callout style="note" %}}
 Before this change both names wrote the on/off switch, so `reasoning_budget:N` with `N` > 1 only turned thinking on and never capped it. It now sets the real token cap. `reasoning_budget:0` and `enable_reasoning:0` keep switching thinking off; `reasoning_budget:1` is now a one-token cap, not "on".
 
 This is the load-time reasoning configuration. The orthogonal per-request `enable_thinking` chat-template kwarg toggles thinking on/off per call without restarting the model. It can be driven either by the YAML `reasoning.disable` field (model default) or per request via the OpenAI `reasoning_effort` field on `/v1/chat/completions`:
 
 - `reasoning_effort: "none"` disables thinking for that request (`enable_thinking=false`) - useful to run a single reasoning model like Qwen3 for low-latency tasks while still enabling reasoning on other requests.
 - `reasoning_effort: "minimal" | "low" | "medium" | "high" | "xhigh" | "max"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
-{{% /notice %}}
+{{% /callout %}}
 
 The `/v1/responses` endpoint accepts the same effort levels through `reasoning.effort`.
 It also forwards request `metadata` to the backend, including `enable_thinking` overrides.
@@ -877,7 +877,7 @@ Notes:
 
 ### Prompt Caching
 
-The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "/features/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
+The recommended way to enable prompt caching for the `llama-cpp` backend is the **server-side prompt cache** controlled by `cache_ram` / `kv_unified` / `cache_idle_slots` in the `options:` array (see [llama.cpp backend options]({{%relref "/features/text/text-generation#server-side-prompt-cache-repeated-system-prompts" %}})). It's on by default since LocalAI v4.3 and is what gives repeated system prompts a near-zero prefill on the second call.
 
 Of the fields below, only `prompt_cache_all` is used by the `llama-cpp` gRPC server. The others come from upstream llama.cpp's **CLI completion tool** and are passed through for compatibility, but the server does not consume them: keep them empty unless you're targeting a non-llama-cpp backend that reads them.
 
@@ -1080,7 +1080,7 @@ Model Context Protocol (MCP) configuration:
 
 ## Agent Configuration
 
-Options of the tool loop. They apply to the [chats]({{% relref "/features/chats" %}}) (including saved agents, triggers and connector turns) and, for `max_iterations`, to `/v1/chat/completions`, `/v1/messages` and `/v1/responses`:
+Options of the tool loop. They apply to the [chats]({{% relref "/features/chats-and-agents/chats" %}}) (including saved agents, triggers and connector turns) and, for `max_iterations`, to `/v1/chat/completions`, `/v1/messages` and `/v1/responses`:
 
 | Field | Type | Description |
 |-------|------|-------------|

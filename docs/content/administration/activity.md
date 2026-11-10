@@ -167,13 +167,13 @@ progress of a backend install in the backend's own row, with its **Cancel**.
   attention** or in the **Record**, depending on whether it has been
   acknowledged.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 Retrying a model that was installed with an explicit `variant` reinstalls it
 with automatic variant selection, because the variant is not carried on the
 operation. If you pinned a build, reinstall it from the Models page or the API
 with the `variant` you want rather than using **Retry**. See
 [Model Gallery]({{% relref "/models" %}}) for variants.
-{{% /notice %}}
+{{% /callout %}}
 
 ## History
 

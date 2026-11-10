@@ -79,7 +79,7 @@ The project documentation is located in `docs/content`. When adding new features
 - **Feature Documentation**: If you add a new feature (like a new backend or API endpoint), create a new markdown file in `docs/content/features/` explaining what it is, how to configure it, and how to use it.
 - **Configuration**: If you modify configuration options, update the relevant sections in `docs/content/`.
 - **Examples**: providing concrete examples (like YAML configuration blocks) is highly encouraged to help users get started quickly.
-- **Shortcodes**: Use `{{% notice note %}}`, `{{% notice tip %}}`, or `{{% notice warning %}}` for callout boxes. Do **not** use `{{% alert %}}` — that shortcode does not exist in this project's Hugo theme and will break the docs build.
+- **Shortcodes**: Use `{{% callout style="note" %}}`, `{{% callout style="tip" %}}`, `{{% callout style="warning" %}}` or `{{% callout style="info" %}}` for callout boxes, and close them with `{{% /callout %}}`. The `notice` shortcode is deprecated in the Relearn theme and prints a build warning. Give each `tab` a `title=` (the `name=` parameter is deprecated). Write `{{% relref "..." %}}` with `%`, not `<`. Do **not** use `{{% alert %}}`: that shortcode does not exist in this project's Hugo theme and breaks the docs build.
 
 ## React UI styling
 

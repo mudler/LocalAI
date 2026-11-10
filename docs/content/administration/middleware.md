@@ -57,7 +57,7 @@ Filtering runs on every text-accepting endpoint that has an adapter wired:
 (`instructions`, string `input`, and in input items the message and
 reasoning text, `function_call` arguments and `function_call_output` output),
 and the Ollama `/api/chat`, `/api/generate` and `/api/embed` endpoints, plus
-the [MITM proxy]({{< relref "/administration/mitm-proxy" >}}) request body. Image, audio
+the [MITM proxy]({{% relref "/administration/mitm-proxy" %}}) request body. Image, audio
 (TTS/STT), video, rerank, and the realtime WebSocket are not filtered yet
 (different prompt-PII semantics; realtime is not HTTP middleware).
 
@@ -299,7 +299,7 @@ Multiple detectors **union** their detections; overlapping spans resolve to
 the strongest action (`block` > `mask` > `allow`). A configured detector
 that can't be loaded **fails the request closed** (HTTP 503,
 `error.type=pii_ner_unavailable`) rather than silently skipping the check.
-The same NER path runs on the [MITM proxy]({{< relref "/administration/mitm-proxy" >}})
+The same NER path runs on the [MITM proxy]({{% relref "/administration/mitm-proxy" %}})
 request body for intercepted hosts. Reversible response restoration currently
 applies to LocalAI API routes; the MITM proxy keeps its own output-redaction
 policy.
@@ -342,7 +342,7 @@ nothing - set a default detector to close that gap.
 ### Admin page
 
 The `/app/middleware` page (admin role only) has four tabs - **Filtering**,
-**Routing**, **MITM Proxy** (see the [MITM doc]({{< relref "/administration/mitm-proxy" >}})),
+**Routing**, **MITM Proxy** (see the [MITM doc]({{% relref "/administration/mitm-proxy" %}})),
 and **Events**. The Filtering tab has a **Detector models** table (every
 `token_classify` filter model, with the per-row Default toggle above and an
 edit link to each detector's config, plus an *Add detector model* button) and
@@ -980,13 +980,13 @@ with `POST /models/reload` to pick up YAML edits without restarting.
 
 ## Related features
 
-- [Cloud passthrough proxy]({{< relref "/administration/cloud-proxy" >}}) - combine
+- [Cloud passthrough proxy]({{% relref "/administration/cloud-proxy" %}}) - combine
   the router with `proxy-*` backends to send simple prompts to local
   models and complex ones to cloud providers.
-- [MITM proxy]({{< relref "/administration/mitm-proxy" >}}) - apply the same PII
+- [MITM proxy]({{% relref "/administration/mitm-proxy" %}}) - apply the same PII
   filter to Claude Code, Codex CLI, and any HTTPS client without
   LocalAI holding their API keys.
-- [Authentication]({{< relref "/administration/authentication" >}}) - admin role is
+- [Authentication]({{% relref "/administration/authentication" %}}) - admin role is
   required for mutating endpoints and the `/app/middleware` page; in
   no-auth single-user mode the synthetic local user has admin role
   automatically.

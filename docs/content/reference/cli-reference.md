@@ -6,7 +6,7 @@ weight = 20
 
 Complete reference for all LocalAI command-line interface (CLI) parameters and environment variables.
 
-For client-side text inference measurements, see [Benchmark text models]({{% relref "/features/benchmark" %}}).
+For client-side text inference measurements, see [Benchmark text models]({{% relref "/features/text/benchmark" %}}).
 
 These options configure the LocalAI server process. To configure an individual
 model, see [Model Configuration]({{% relref "/models/model-configuration" %}}).
@@ -170,7 +170,7 @@ settings bypasses this automatic default.
 
 The collections service is the knowledge base that the chats search. The old
 `LOCALAI_AGENT_POOL_*` names still work and warn once; see
-[Moving from the old chat and agents]({{% relref "/features/chats-migration" %}}).
+[Moving from the old chat and agents]({{% relref "/features/chats-and-agents/chats-migration" %}}).
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
@@ -223,7 +223,7 @@ See [Authentication & Authorization]({{%relref "/administration/authentication" 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
-| `--chats-auto-resume` | `false` | Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, within 30 minutes of the interruption. Off: a person, or the page, resumes it. See [If a frontend dies]({{% relref "/features/chats#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
+| `--chats-auto-resume` | `false` | Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, within 30 minutes of the interruption. Off: a person, or the page, resumes it. See [If a frontend dies]({{% relref "/features/chats-and-agents/chats#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
 | `--disable-triggers` | `false` | Turn off the trigger runner and the triggers API; the rest of the chats stays on | `$LOCALAI_DISABLE_TRIGGERS` |
 | `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--disable-connector-talkback` | `false` | Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on) | `$LOCALAI_DISABLE_CONNECTOR_TALKBACK` |
@@ -239,7 +239,7 @@ See [Authentication & Authorization]({{%relref "/administration/authentication" 
 | `--chat-worker-max-turns` | `32` | Distributed mode: on a chat worker, the most turns it runs at once. A start beyond it is refused and its run fails. `0` means no limit | `$LOCALAI_CHAT_WORKER_MAX_TURNS` |
 | `--chat-start-timeout` | `30s` | Distributed mode: how long a frontend waits for a chat worker to start a turn, and how long the worker gives the start. Set the same value on the frontends and the chat workers | `$LOCALAI_CHAT_START_TIMEOUT` |
 
-See [Chats]({{% relref "/features/chats#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "/features/agent-jobs" %}}) and [Chat workers]({{% relref "/administration/distributed-mode#chat-workers" %}}).
+See [Chats]({{% relref "/features/chats-and-agents/chats#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) and [Chat workers]({{% relref "/administration/distributed-mode#chat-workers" %}}).
 
 ## Collections Flags
 
@@ -257,14 +257,14 @@ See [Chats]({{% relref "/features/chats#switch-the-chats-off" %}}), [Agent tasks
 | `--collections-chunk-overlap` | `0` | Chunk overlap size for collection documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
 | `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
 
-See [Collections]({{% relref "/features/collections" %}}). The old `--agent-pool-*` names still work and log a deprecation warning.
+See [Collections]({{% relref "/features/files-and-documents/collections" %}}). The old `--agent-pool-*` names still work and log a deprecation warning.
 
 ## Chat Flags
 
 Use `local-ai chat` to run the built-in terminal agent against a LocalAI server.
 The agent can run shell commands, delegate to sub-agents, and use MCP tools. Read-only
 calls run on their own; everything else goes through an approval prompt you answer.
-See [Terminal agent]({{% relref "/features/terminal-agent" %}}) for the full feature page.
+See [Terminal agent]({{% relref "/features/chats-and-agents/terminal-agent" %}}) for the full feature page.
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
@@ -291,10 +291,10 @@ local-ai chat mcp add my-server -- npx -y @modelcontextprotocol/server-filesyste
 local-ai chat --config-dir /srv/agent plugin list   # flags first
 ```
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 In a script, pass `--yes` to those subcommands. Without it, a non-interactive
 `plugin install` installs the plugin, leaves it disabled, and still exits `0`.
-{{% /notice %}}
+{{% /callout %}}
 
 Summon the agent from any shell prompt with `Ctrl+Space`:
 

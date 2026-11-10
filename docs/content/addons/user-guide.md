@@ -7,9 +7,9 @@ weight = 10
 
 An add-on is a separate program that gives LocalAI new tools, pages or services. The host installs it, starts it and checks what it may do. Examples are Sandbox, Simple Office, Tables, Calendar, Telegram and Gmail.
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 An installed add-on is trusted code. It runs as the operating system user that runs LocalAI. It is not sandboxed. Install only add-ons that you trust. An add-on that you install from a local file is not signed.
-{{% /notice %}}
+{{% /callout %}}
 
 ## Who can do what
 

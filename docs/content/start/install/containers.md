@@ -206,11 +206,11 @@ The container exposes the following volumes:
 | `/configuration` | Dynamic config files (api_keys.json, external_backends.json, runtime_settings.json) | `--localai-config-dir` | `$LOCALAI_CONFIG_DIR` |
 | `/data` | Persistent data (collections, chat files, JSON stores when there is no database). Downloads are staged in `/data/downloading` until they are extracted | `--data-path` | `$LOCALAI_DATA_PATH` |
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 Container files that are not stored in a volume are lost when the container is
 recreated during an image upgrade. Mount all four paths if you want to preserve
 installed models, backends, settings, and application data.
-{{% /notice %}}
+{{% /callout %}}
 
 The host paths can be anywhere on persistent storage, but the container paths
 must be exactly `/models`, `/backends`, `/configuration`, and `/data`. In

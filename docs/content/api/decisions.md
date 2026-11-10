@@ -219,7 +219,7 @@ Install one from the gallery and filter on the `decisions` tag:
 | `nimble-9b-vllm-cpp` | Bespoke Nimble 9B | Qwen3.5-9B with the Nimble LoRA merged, reads the answer-letter logits, converted for vllm.cpp only, about 19.3 GB |
 | `clm-v0.1-8b-vllm-cpp` | CLM v0.1 8B | Bi-encoder: Qwen3-8B backbone with state and action heads, answers by cosine similarity, converted for vllm.cpp only, about 16.5 GB |
 
-The engine, [vllm.cpp]({{% relref "/features/vllm-cpp" %}}), also supports the
+The engine, [vllm.cpp]({{% relref "/features/engines/vllm-cpp" %}}), also supports the
 xor decision model. That checkpoint needs a conversion step, so it is not a
 gallery entry yet. The kev, Nimble and CLM entries install checkpoints that
 were already converted with the vllm.cpp `convert-kev.py`, `convert-nimble.py`
@@ -237,7 +237,7 @@ allows 26), because the model is trained on the letters A to X, and every
 option needs a nonempty description. The published checkpoints name another
 architecture in `config.json`, so the Tev1 gallery entries set
 `engine_args.hf_overrides` to load them as `Tev1Model` (see
-[Overriding config.json keys]({{% relref "/features/vllm-cpp" %}}#overriding-configjson-keys-hf_overrides)).
+[Overriding config.json keys]({{% relref "/features/engines/vllm-cpp" %}}#overriding-configjson-keys-hf_overrides)).
 The same model also answers `/v1/chat/completions` requests.
 
 ## Request limits

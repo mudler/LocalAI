@@ -1,88 +1,28 @@
 +++
 disableToc = false
 title = "Features"
+description = "What LocalAI can do, grouped by task: chats and agents, files and documents, text, audio, images and video."
 icon = "lightbulb"
 type = "chapter"
 weight = 3
+keywords = ["features", "capabilities", "team", "office", "sandbox", "add-on"]
 +++
 
-LocalAI provides a comprehensive set of features for running AI models locally. The pages in this section are grouped by capability, and the left navigation is ordered to match these groups.
+Each page in this section says if the feature is built in, comes from an add-on, or needs an administrator to switch it on. The navigation groups the pages by task.
 
-## Text
+| Group | What is in it |
+|---|---|
+| [Chats and agents]({{% relref "/features/chats-and-agents" %}}) | Chats, saved agents, triggers, chat apps (Telegram, Slack, Discord), MCP, web search, the LocalAI Assistant and the terminal agent. |
+| [Files, documents and Home]({{% relref "/features/files-and-documents" %}}) | Files and sharing, Knowledge collections, Office documents, tables, pages, Home widgets and the Sandbox. |
+| [Text, reasoning and retrieval]({{% relref "/features/text" %}}) | Text generation, grammars, thinking models, embeddings, reranking and moderation. |
+| [Audio and speech]({{% relref "/features/audio" %}}) | Speech to text, text to speech, sound classification, speakers and voice activity. |
+| [Images, video and 3D]({{% relref "/features/vision" %}}) | Image understanding, object detection, faces, image and video generation, 3D and motion. |
+| [Engines]({{% relref "/features/engines" %}}) | Backends with their own page: vllm.cpp, RKLLM, Strata, audio.cpp, NeMo-Speech.cpp and Whisper-Medusa. |
+| [Training and quantization]({{% relref "/features/model-tools" %}}) | Fine-tune and quantize models. |
 
-- **[Text Generation]({{% relref "/features/text-generation" %}})** - Generate text with GPT-compatible models using various backends.
-- **[OpenAI Functions and tools]({{% relref "/api/openai-functions" %}})** - Use function calling and the tools API with local models.
-- **[Constrained Grammars]({{% relref "/features/constrained_grammars" %}})** - Control model output format with BNF grammars.
-- **[Interleaved thinking]({{% relref "/features/interleaved-thinking" %}})** - Reasoning models that interleave thought and output.
-- **[Model aliases]({{% relref "/models/model-aliases" %}})** - Expose one model under several names.
-- **[API discovery]({{% relref "/api/api-discovery" %}})** - How LocalAI advertises its capability surface.
+## Related pages outside this section
 
-## Agents
-
-- **[Chats]({{% relref "/features/chats" %}})** - Conversations the server keeps, with files, sub-agents, skills and add-on tools.
-- **[Saved agents, triggers and inbox]({{% relref "/features/chats-agents" %}})** - Instructions and exact tool grants, schedules, and notifications.
-- **[Knowledge]({{% relref "/features/collections" %}})** - Collections of documents that agents can search: upload documents and search them by meaning.
-- **[Telegram, Slack and Discord connectors]({{% relref "/features/chats-connectors" %}})** - Talk to an agent from Telegram, Slack or Discord.
-- **[Moving from the old chat and agents]({{% relref "/features/chats-migration" %}})** - What was converted and what was dropped.
-- **[Model Context Protocol (MCP)]({{% relref "/features/mcp" %}})** - Give a model external tools over MCP.
-- **[LocalAI Assistant]({{% relref "/features/localai-assistant" %}})** - Chat to administer your LocalAI instance.
-- **[Terminal agent]({{% relref "/features/terminal-agent" %}})** - `local-ai chat`, an agent in your shell that runs commands behind an approval gate.
-
-## Files, documents and Home
-
-- **[Files and shared folders]({{% relref "/features/files" %}})** - Your files, the Trash, archives and sharing.
-- **[Sandbox]({{% relref "/features/sandbox" %}})** - An add-on that runs commands and code in an isolated runtime.
-- **[Office documents]({{% relref "/features/office" %}})** - Make Word, Excel, PowerPoint and PDF files from a chat.
-- **[Pages]({{% relref "/features/pages" %}})** - Small HTML pages in your workspace.
-- **[Home widgets and live pages]({{% relref "/features/home-widgets" %}})** - Tiles on Home, kept current by a schedule or a file.
-- **[Connectors and agents]({{% relref "/features/connectors-and-agents" %}})** - Talk to a saved agent from Telegram, Slack or Discord.
-
-## Audio
-
-- **[Audio to text]({{% relref "/features/audio-to-text" %}})** - Transcribe audio to text.
-- **[Text to audio]({{% relref "/features/text-to-audio" %}})** - Generate speech, music, and sound effects from text.
-- **[Audio classification]({{% relref "/features/audio-classification" %}})** - Classify sounds and audio events.
-- **[Audio diarization]({{% relref "/features/audio-diarization" %}})** - Separate speakers in an audio stream.
-- **[Audio transform]({{% relref "/features/audio-transform" %}})** - Transform and process audio.
-- **[Voice Activity Detection]({{% relref "/features/voice-activity-detection" %}})** - Detect speech segments in audio data.
-- **[Voice recognition]({{% relref "/features/voice-recognition" %}})** - Identify speakers by voice.
-- **[Realtime API]({{% relref "/api/openai-realtime" %}})** - Low-latency multi-modal conversations (voice and text) over WebSocket.
-
-## Vision
-
-- **[GPT Vision]({{% relref "/features/gpt-vision" %}})** - Analyze and understand images with vision-language models.
-- **[Object detection]({{% relref "/features/object-detection" %}})** - Detect and locate objects in images.
-- **[Face recognition]({{% relref "/features/face-recognition" %}})** - Recognize faces in images.
-
-## Image and Video
-
-- **[Image Generation]({{% relref "/features/image-generation" %}})** - Create images with Stable Diffusion and other diffusion models.
-- **[Video Generation]({{% relref "/features/video-generation" %}})** - Generate videos from text, image, or audio conditioning, including LongCat and avatar workflows.
-
-## Retrieval
-
-- **[Embeddings]({{% relref "/features/embeddings" %}})** - Generate vector embeddings for semantic search and RAG applications.
-- **[Reranker]({{% relref "/features/reranker" %}})** - Improve retrieval accuracy with cross-encoder models.
-- **[Stores]({{% relref "/api/stores" %}})** - Vector similarity search for embeddings.
-
-## Distributed and acceleration
-
-- **[Distributed inference]({{% relref "/administration/p2p-federated-inference" %}})** - Scale inference across multiple nodes (P2P federation or production distributed mode).
-- **[Distributed mode]({{% relref "/administration/distributed-mode" %}})** - The production distributed deployment.
-- **[MLX distributed]({{% relref "/administration/mlx-distributed" %}})** - Distributed inference on Apple Silicon with MLX.
-- **[GPU Acceleration]({{% relref "/models/gpu-acceleration" %}})** - Optimize performance with GPU support.
-
-## Platform and model management
-
-- **[Backends]({{% relref "/models/backends" %}})** - Available backends and how to manage them.
-- **[Model Gallery]({{% relref "/models" %}})** - Browse and install pre-configured models.
-- **[Runtime Settings]({{% relref "/administration/runtime-settings" %}})** - Configure application settings via the web UI without restarting.
-- **[Quantization]({{% relref "/features/quantization" %}})** - Quantize models for smaller memory footprint.
-- **[Fine-tuning]({{% relref "/features/fine-tuning" %}})** - Fine-tune models on your own data.
-- **[Authentication]({{% relref "/administration/authentication" %}})** - Protect the API with keys.
-
-For operator-facing runtime, proxy, and monitoring concerns (middleware, cloud and MITM proxies, backend monitor), see the [Administration]({{% relref "/administration" %}}) section.
-
-## Getting Started
-
-To start using these features, make sure you have [LocalAI installed]({{% relref "/start/install" %}}) and have [downloaded some models]({{% relref "/models/setting-up-models" %}}). Then explore the feature pages above to learn how to use each capability.
+- [OpenAI functions and tools]({{% relref "/api/openai-functions" %}}), [Realtime API]({{% relref "/api/openai-realtime" %}}) and [Stores]({{% relref "/api/stores" %}}) are in the API section.
+- [Model aliases]({{% relref "/models/model-aliases" %}}), [Backends]({{% relref "/models/backends" %}}), [GPU acceleration]({{% relref "/models/gpu-acceleration" %}}) and the [model gallery]({{% relref "/models" %}}) are in the Models section.
+- [Distributed mode]({{% relref "/administration/distributed-mode" %}}), [P2P and federated inference]({{% relref "/administration/p2p-federated-inference" %}}), [MLX distributed]({{% relref "/administration/mlx-distributed" %}}) and [Runtime settings]({{% relref "/administration/runtime-settings" %}}) are in the Administration section.
+- [Add-ons]({{% relref "/addons" %}}) explains how to install the add-ons that some features need.

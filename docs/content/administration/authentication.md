@@ -138,18 +138,18 @@ What happens to each part when you switch authentication on:
   bot answers "not available" and is switched off.
 - **Collections** made without a user belong to the root storage area. With
   authentication on, each user has their own collections (see
-  [Collections]({{% relref "/features/collections" %}})).
+  [Collections]({{% relref "/features/files-and-documents/collections" %}})).
 - **Old agents, tasks, skills, Telegram connectors and saved chats** of the
   previous agent pool are converted at start and given to the account that owned
-  them (see [Chats migration]({{% relref "/features/chats-migration" %}})). With
+  them (see [Chats migration]({{% relref "/features/chats-and-agents/chats-migration" %}})). With
   authentication on, an old item that belongs to no user is not converted: the
   report at `/app/chats/conversion` lists it as skipped, and you make it again
   under the intended account.
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 LocalAI does not migrate, delete or pause anything when you enable
 authentication. Nothing moves the anonymous data to an account.
-{{% /notice %}}
+{{% /callout %}}
 
 Before switching an existing instance:
 
@@ -163,7 +163,7 @@ Before switching an existing instance:
    `POST /api/chats/agents/import`). Recreate collections there as needed.
 7. Grant the new accounts the features they need. Saved agents, triggers,
    connectors and agent jobs are off by default for a user (see
-   [Chats permissions]({{% relref "/features/chats" %}}#permissions)); an administrator has all of
+   [Chats permissions]({{% relref "/features/chats-and-agents/chats" %}}#permissions)); an administrator has all of
    them.
 8. Open the conversion report and check each item, and verify credentials and required data, before resuming triggers and bots.
 

@@ -1,7 +1,7 @@
 +++
 title = "Administration"
 description = "Run, monitor and govern a LocalAI instance."
-weight = 7
+weight = 6
 type = "chapter"
 icon = "manage_accounts"
 aliases = ["/operations/"]

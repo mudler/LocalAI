@@ -223,7 +223,7 @@ Declare it only when the upstream model accepts images: LocalAI does not
 check.
 
 With the declaration, `/v1/models/capabilities` lists the model with the
-`vision` capability and `image` input, and the [chats]({{% relref "/features/chats#images-and-vision" %}})
+`vision` capability and `image` input, and the [chats]({{% relref "/features/chats-and-agents/chats#images-and-vision" %}})
 send an attached image to the model inside the message, as an `image_url`
 part with a `data:` URL. Passthrough mode forwards the part as it is. Without
 it, the chats give the model the file path and the `describe_image` tool.
@@ -367,7 +367,7 @@ router:
 The router rewrites `input.Model` to the chosen candidate; per-model PII,
 ACLs, and the cloud-proxy fork all run against the resolved target.
 
-See [Middleware: PII filtering and intelligent routing]({{< relref "/administration/middleware" >}})
+See [Middleware: PII filtering and intelligent routing]({{% relref "/administration/middleware" %}})
 for the full router and PII-filter reference.
 
 ## Proxying to another LocalAI (`localai-proxy`)
