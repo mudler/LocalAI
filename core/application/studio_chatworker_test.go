@@ -33,7 +33,7 @@ var _ = Describe("chat worker node", func() {
 	}
 
 	It("appears in the node list as a healthy agent node with the chat worker role", func() {
-		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", time.Hour)
+		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", time.Hour)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(n.stop)
 		node := get("chat-a")
@@ -45,8 +45,27 @@ var _ = Describe("chat worker node", func() {
 			HaveField("Key", "node.role"), HaveField("Value", ChatWorkerRole))))
 	})
 
+	It("names its replica, and is listed for a start while that replica is live", func() {
+		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(n.stop)
+		m, err := registerChatWorkerNode(context.Background(), reg, "chat-b", "replica-b", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(m.stop)
+		// A node with the instance label and another role is not a chat worker.
+		other := &nodes.BackendNode{Name: "agent-1", NodeType: nodes.NodeTypeAgent}
+		Expect(reg.Register(context.Background(), other, true)).To(Succeed())
+		Expect(reg.SetNodeLabel(context.Background(), other.ID, chatWorkerInstanceLabel, "replica-c")).To(Succeed())
+
+		live := []string{"replica-a", "replica-c", "frontend-1"}
+		members := chatWorkerInstances(reg, func(context.Context) ([]string, error) { return live, nil })
+		got, err := members(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(ConsistOf("replica-a"), "replica-b is not live, and replica-c is no chat worker")
+	})
+
 	It("gets no model: the scheduler skips it", func() {
-		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", time.Hour)
+		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", time.Hour)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(n.stop)
 		_, err = reg.FindLeastLoadedNode(context.Background())
@@ -56,7 +75,7 @@ var _ = Describe("chat worker node", func() {
 	})
 
 	It("beats while it runs and goes offline when it stops", func() {
-		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", 10*time.Millisecond)
+		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", 10*time.Millisecond)
 		Expect(err).NotTo(HaveOccurred())
 		first := get("chat-a").LastHeartbeat
 		Eventually(func() time.Time { return get("chat-a").LastHeartbeat }).
@@ -66,11 +85,11 @@ var _ = Describe("chat worker node", func() {
 	})
 
 	It("keeps its row across a restart", func() {
-		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", time.Hour)
+		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", time.Hour)
 		Expect(err).NotTo(HaveOccurred())
 		id := get("chat-a").ID
 		n.stop()
-		n, err = registerChatWorkerNode(context.Background(), reg, "chat-a", time.Hour)
+		n, err = registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", time.Hour)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(n.stop)
 		node := get("chat-a")

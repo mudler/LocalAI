@@ -353,7 +353,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, err
 	}
 	peerPool := tunnel.NewPeerPool(cfg.Distributed.InstanceID, peerCred, clusterReg, peerOpts...)
-	peerSessions := tunnel.NewPeerSessions(tunnel.NewRelay(tunnels).Stream)
+	// The handlers of the requests that other replicas send to this one over the
+	// peer link. The tunnel set registers them; on NATS it stays empty.
+	replies := tunnel.NewReplies(cfg.Distributed.InstanceID, messaging.MaxBroadcastBytes)
+	peerSessions := tunnel.NewPeerSessions(tunnel.NewRelay(tunnels, tunnel.WithReplies(replies)).Stream)
 
 	// Build the set of the carrier that the row names, and put it behind the
 	// holders. Everything below takes a holder, not a carrier. A NATS server that
@@ -363,7 +366,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	runtime := &carrierRuntime{
 		cfg: cfg, db: authDB, settings: settingsStore, registry: registry, fileMgr: fileMgr,
 		instanceID: cfg.Distributed.InstanceID, clusterReg: clusterReg,
-		tunnels: tunnels, peerPool: peerPool, active: active,
+		tunnels: tunnels, peerPool: peerPool, replies: replies, active: active,
 		probeWake: make(chan struct{}, 1),
 	}
 	startSet, err = runtime.build(context.Background(), carrierRow, carrierRow.Active, false)
