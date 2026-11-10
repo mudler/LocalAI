@@ -223,17 +223,18 @@ div.highlight pre code[data-lang="plaintext"]::before { content: "text"; }
 }
 
 /* Diagrams: a light and a dark picture, one of them shown. "auto" follows the
-   system setting, the two fixed variants follow the reader's choice. */
+   system setting, the two fixed variants follow the reader's choice. The theme
+   sets display on every image, hence the !important. */
 .lai-diagram { display: block; }
 .lai-diagram img { max-width: 100%; height: auto; }
-.lai-diagram .lai-diagram-dark { display: none; }
-:root[data-r-theme-variant="localai-dark"] .lai-diagram .lai-diagram-light { display: none; }
-:root[data-r-theme-variant="localai-dark"] .lai-diagram .lai-diagram-dark { display: inline; }
+.lai-diagram .lai-diagram-dark { display: none !important; }
+:root[data-r-theme-variant="localai-dark"] .lai-diagram .lai-diagram-light { display: none !important; }
+:root[data-r-theme-variant="localai-dark"] .lai-diagram .lai-diagram-dark { display: block !important; }
 @media (prefers-color-scheme: dark) {
-  :root[data-r-theme-variant="auto"] .lai-diagram .lai-diagram-light { display: none; }
-  :root[data-r-theme-variant="auto"] .lai-diagram .lai-diagram-dark { display: inline; }
+  :root[data-r-theme-variant="auto"] .lai-diagram .lai-diagram-light { display: none !important; }
+  :root[data-r-theme-variant="auto"] .lai-diagram .lai-diagram-dark { display: block !important; }
 }
 @media print {
-  .lai-diagram .lai-diagram-light { display: inline !important; }
+  .lai-diagram .lai-diagram-light { display: block !important; }
   .lai-diagram .lai-diagram-dark { display: none !important; }
 }
