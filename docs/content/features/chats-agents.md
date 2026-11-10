@@ -978,7 +978,7 @@ when an unread item is a failure, and opens one panel (a sheet over the bottom
 of the screen on a phone). An administrator always sees the entry. Anyone else
 sees it once they have items. Nobody sees it when the chats are off or the
 account lacks the `chats` feature. A change that waits for you is listed in the
-panel but is not in the count. An administrator also sees an **Activity** tab in the panel, with installs, updates and removals (see [Activity]({{% relref "operations/activity" %}})); operations are never in the count. In the panel:
+panel but is not in the count. An administrator also sees an **Activity** tab in the panel, with installs, updates and removals (see [Activity]({{% relref "/administration/activity" %}})); operations are never in the count. In the panel:
 
 - **All**, **Unread** and **Failed** filter the list. **Failed** shows every
   failed run and every trigger or connector that was switched off.
