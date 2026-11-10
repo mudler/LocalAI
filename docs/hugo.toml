@@ -42,7 +42,16 @@ enableEmoji = true
   disableBreadcrumb = false
   disableNextPrev = false
   disableLandingPageButton = false
-  titleSeparator = '::'
+  titleSeparator = '·'
+  images = ['images/og-card-1200x630.jpg']
+  topbarEnd = [
+    { type = 'sitelink' },
+    { type = 'editbutton' },
+    { type = 'printbutton' },
+    { type = 'prevbutton' },
+    { type = 'nextbutton' },
+    { type = 'morebutton' },
+  ]
   disableSeoHiddenPages = true
   
   # Additional theme options

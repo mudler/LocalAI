@@ -8,7 +8,7 @@ weight = 3
 keywords = ["features", "capabilities", "team", "office", "sandbox", "add-on"]
 +++
 
-Each page in this section says if the feature is built in, comes from an add-on, or needs an administrator to switch it on. The navigation groups the pages by task.
+The navigation groups the pages by task. A page says when a feature comes from an add-on or needs an administrator to switch it on.
 
 | Group | What is in it |
 |---|---|

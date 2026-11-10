@@ -21,12 +21,13 @@
   {{- end }}
 {{- end }}
 <link rel="apple-touch-icon" href="{{ "apple-touch-icon.png" | relURL }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ "favicon-32x32.png" | relURL }}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ "favicon-16x16.png" | relURL }}">
 <link rel="manifest" href="{{ "site.webmanifest" | relURL }}">
 <meta name="theme-color" content="#005b69">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="LocalAI docs">
-<meta property="og:title" content="{{ if .IsHome }}LocalAI documentation{{ else }}{{ .Title }}{{ end }}">
-<meta property="og:url" content="{{ .Permalink }}">
-<meta property="og:image" content="{{ "images/og-card-1200x630.jpg" | absURL }}">
+{{- /* The theme writes one set of Open Graph and Twitter tags. This file adds what it lacks: a canonical link, keywords and the alt text of the share image. The share image itself is params.images in hugo.toml. */}}
+<link rel="canonical" href="{{ .Permalink }}">
+{{- with .Params.keywords }}
+<meta name="keywords" content="{{ delimit . ", " }}">
+{{- end }}
 <meta property="og:image:alt" content="The LocalAI llama mascot with the LocalAI logo.">
-<meta name="twitter:card" content="summary_large_image">

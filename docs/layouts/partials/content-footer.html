@@ -1,0 +1,29 @@
+{{- /* The footer of each page: who changed it and when (the theme's own text), then the same links as the footer of the website. */}}
+{{- $LastModifierDisplayName := "" }}
+{{- $Date := "" }}
+{{- $dateFormat := site.Params.dateFormat | default ":date_medium" }}
+{{- with .GitInfo }}
+  {{- with and (not site.Params.hideAuthorName) .AuthorName }}{{ $LastModifierDisplayName = . }}{{ end }}
+  {{- with and (not site.Params.hideAuthorDate) .AuthorDate }}{{ $Date = . | time.Format $dateFormat }}{{ end }}
+{{- end }}
+{{- if $LastModifierDisplayName }}
+              <i class='fa-fw fas fa-user' aria-hidden="true"></i> {{ $LastModifierDisplayName }}
+{{- end }}
+{{- with $Date }}
+              <i class='fa-fw fas fa-calendar-days' aria-hidden="true"></i> {{ . }}
+{{- end }}
+{{- partial "term-list.html" (dict
+  "page" .
+  "taxonomy" "categories"
+  "icon" "layer-group"
+) }}
+              <div class="lai-foot">
+                <span>&copy; 2026 LocalAI</span>
+                <span>MIT licence</span>
+                <a href="https://localai.io/">localai.io</a>
+                <a href="https://github.com/mudler/LocalAI">GitHub</a>
+                <a href="https://discord.gg/uJAeKSAGDy">Discord</a>
+                {{- with .File }}
+                <a href="{{ site.Params.editURL }}{{ .Path }}">Edit this page</a>
+                {{- end }}
+              </div>
