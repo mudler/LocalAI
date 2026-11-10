@@ -210,7 +210,7 @@ html.js .pane[hidden] { display: none; }
 .foot h4 { margin: 0 0 .8rem; font: 700 .8rem/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--dk-muted); }
 .foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
 .foot a { color: var(--dk-text); }
-.foot .lockup { width: 190px; }
+.foot .lockup { width: 190px; height: auto; }
 .foot .lockup.dk { display: none; }
 :root[data-theme="dark"] .foot .lockup.lt { display: none; } :root[data-theme="dark"] .foot .lockup.dk { display: block; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .foot .lockup.lt { display: none; } :root:not([data-theme="light"]) .foot .lockup.dk { display: block; } }
