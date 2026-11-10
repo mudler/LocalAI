@@ -83,7 +83,7 @@ var _ = Describe("the localai skill", func() {
 	})
 
 	It("uses only names that exist anywhere else in backticks", func() {
-		known := map[string]bool{"ref": true, "load_skill": false}
+		known := map[string]bool{"ref": true, "model_note": true, "load_skill": false}
 		for tool, ps := range props {
 			known[tool] = true
 			for p := range ps {
@@ -116,7 +116,12 @@ var _ = Describe("the localai skill", func() {
 		// 450 bytes) and the capability names they add to list_models.
 		// 6,400 to 6,600: the lines that point to the assemble-media
 		// skill; sandbox chats have no other way to find it.
-		Expect(len(text)).To(BeNumerically("<=", 6600), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
+		// 6,600 to 7,100: the "Which model" section (452 bytes
+		// measured with the heading): how the saved defaults of the user
+		// decide the model, what model_note means, and what to do when the
+		// user wants to be asked or the default is gone. The rule lives in
+		// the code, but only this text tells the model what to do next.
+		Expect(len(text)).To(BeNumerically("<=", 7100), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
 		Expect(strings.Count(text, "—")).To(BeZero(), "no em dashes")
 	})
 })

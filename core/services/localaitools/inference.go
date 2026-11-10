@@ -93,6 +93,8 @@ type Inference struct {
 	Vision func(ctx context.Context) (model string, guess bool)
 	// Files reads input files and stores results.
 	Files FileStore
+	// Defaults reads the user's defaults.json. Nil: no defaults.
+	Defaults DefaultReader
 }
 
 // gate takes one of the heavy-call places of the acting user. Without
@@ -116,21 +118,18 @@ func (i *Inference) files(ctx context.Context) (FileStore, error) {
 	return i.Files, nil
 }
 
+// pick names the model a tool uses. See choose for the order of the rules.
 func (i *Inference) pick(ctx context.Context, given string, spec ClientToolSpec) (string, error) {
-	if given = strings.TrimSpace(given); given != "" {
-		return given, nil
-	}
-	if i == nil || i.Models == nil {
-		return "", errors.New("cannot choose a model here: name one with the model argument")
-	}
-	m, err := i.Models.FirstModel(ctx, spec.Flag)
-	if err != nil {
-		return "", err
-	}
-	if m == "" {
-		return "", &NoModelError{Capability: spec.Capability}
-	}
-	return m, nil
+	p, err := i.choose(ctx, given, spec)
+	return p.Model, err
+}
+
+// pickNote is pick for a tool that tells the person which default it used: the
+// note is a sentence for the result, empty when the model was named or picked
+// without a default.
+func (i *Inference) pickNote(ctx context.Context, given string, spec ClientToolSpec) (model, note string, err error) {
+	p, err := i.choose(ctx, given, spec)
+	return p.Model, p.Note, err
 }
 
 func (i *Inference) read(ctx context.Context, ref string, max int64, what string) (File, error) {
@@ -339,7 +338,7 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	if len(req.RefImages) > maxRefImages {
 		return nil, fmt.Errorf("ref_images: at most %d images", maxRefImages)
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +392,7 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	if err := json.Unmarshal(data, &out); err != nil || len(out.Data) == 0 {
 		return nil, errors.New("the model returned no image")
 	}
-	res := &ImageResult{Model: model}
+	res := &ImageResult{Model: model, ModelNote: note}
 	for _, it := range out.Data {
 		raw, err := base64.StdEncoding.DecodeString(it.B64JSON)
 		if err != nil || len(raw) == 0 {
@@ -430,7 +429,7 @@ func (i *Inference) EditImage(ctx context.Context, req EditImageRequest) (*Image
 	if err != nil {
 		return nil, err
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -472,7 +471,7 @@ func (i *Inference) EditImage(ctx context.Context, req EditImageRequest) (*Image
 	if err != nil {
 		return nil, err
 	}
-	return &ImageResult{Model: model, Images: []OutputFile{f}}, nil
+	return &ImageResult{Model: model, ModelNote: note, Images: []OutputFile{f}}, nil
 }
 
 // fetchResult returns the bytes of an item of an OpenAI-style answer: the
@@ -510,7 +509,7 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	if req.SampleRate != 0 && (req.SampleRate < minSampleRate || req.SampleRate > maxSampleRate) {
 		return nil, fmt.Errorf("sample_rate must be from %d to %d", minSampleRate, maxSampleRate)
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -551,7 +550,7 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	if err != nil {
 		return nil, err
 	}
-	return &AudioResult{Model: model, Audio: f}, nil
+	return &AudioResult{Model: model, ModelNote: note, Audio: f}, nil
 }
 
 // audioMIME returns the media type of an audio answer.
@@ -574,7 +573,7 @@ func (i *Inference) TranscribeAudio(ctx context.Context, req TranscribeAudioRequ
 	if err != nil {
 		return nil, err
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +602,7 @@ func (i *Inference) TranscribeAudio(ctx context.Context, req TranscribeAudioRequ
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, errors.New("the model gave no transcript")
 	}
-	return &TranscriptResult{Model: model, Text: strings.TrimSpace(out.Text), Language: out.Language, Duration: out.Duration}, nil
+	return &TranscriptResult{Model: model, ModelNote: note, Text: strings.TrimSpace(out.Text), Language: out.Language, Duration: out.Duration}, nil
 }
 
 // DescribeImage asks a vision model about an image, as a chat completion with
@@ -614,15 +613,23 @@ func (i *Inference) DescribeImage(ctx context.Context, req DescribeImageRequest)
 	if err != nil {
 		return nil, err
 	}
-	model, guess := strings.TrimSpace(req.Model), false
+	model, guess, note := strings.TrimSpace(req.Model), false, ""
 	if model == "" {
-		if i != nil && i.Vision != nil {
+		picked, found, err := i.fromDefault(ctx, spec)
+		switch {
+		case err != nil:
+			return nil, err
+		case found:
+			model, note = picked.Model, picked.Note
+		case i != nil && i.Vision != nil:
 			model, guess = i.Vision(ctx)
 			if model == "" {
 				return nil, &NoModelError{Capability: spec.Capability}
 			}
-		} else if model, err = i.pick(ctx, "", spec); err != nil {
-			return nil, err
+		default:
+			if model, err = i.pick(ctx, "", spec); err != nil {
+				return nil, err
+			}
 		}
 	}
 	question := req.Question
@@ -654,7 +661,7 @@ func (i *Inference) DescribeImage(ctx context.Context, req DescribeImageRequest)
 	if err := json.Unmarshal(data, &out); err != nil || len(out.Choices) == 0 {
 		return nil, errors.New("the model gave no description")
 	}
-	return &DescribeImageResult{Model: model, Description: strings.TrimSpace(out.Choices[0].Message.Content)}, nil
+	return &DescribeImageResult{Model: model, ModelNote: note, Description: strings.TrimSpace(out.Choices[0].Message.Content)}, nil
 }
 
 // Embed turns texts into vectors (POST /v1/embeddings). The vectors are
@@ -667,7 +674,7 @@ func (i *Inference) Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, 
 	if err := checkTexts("input", req.Input, maxEmbedInputs); err != nil {
 		return nil, err
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -697,7 +704,7 @@ func (i *Inference) Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, 
 	if err != nil {
 		return nil, err
 	}
-	return &EmbedResult{Model: model, Count: len(vectors), Dimensions: len(vectors[0]), Vectors: f, Preview: preview}, nil
+	return &EmbedResult{Model: model, ModelNote: note, Count: len(vectors), Dimensions: len(vectors[0]), Vectors: f, Preview: preview}, nil
 }
 
 // Detect finds objects in an image (POST /v1/detection).
@@ -763,7 +770,7 @@ func (i *Inference) Rerank(ctx context.Context, req RerankRequest) (*RerankResul
 	if req.TopN < 0 || req.TopN > maxRerankDocs {
 		return nil, fmt.Errorf("top_n must be from 1 to %d", maxRerankDocs)
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -787,7 +794,7 @@ func (i *Inference) Rerank(ctx context.Context, req RerankRequest) (*RerankResul
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, errors.New("the model returned no ranking")
 	}
-	res := &RerankResult{Model: model, Results: []RerankItem{}}
+	res := &RerankResult{Model: model, ModelNote: note, Results: []RerankItem{}}
 	for _, r := range out.Results {
 		res.Results = append(res.Results, RerankItem{Index: r.Index, Score: r.Score, Text: r.Document.Text})
 	}
@@ -874,7 +881,7 @@ func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest)
 			return nil, fmt.Errorf("ref_videos[%d].fps must be from 1 to %d", k, maxFPS)
 		}
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -971,7 +978,7 @@ func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest)
 	if err != nil {
 		return nil, err
 	}
-	return &VideoResult{Model: model, Video: f}, nil
+	return &VideoResult{Model: model, ModelNote: note, Video: f}, nil
 }
 
 // GenerateSound makes a sound or a piece of music (POST /v1/sound-generation).

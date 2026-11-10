@@ -1,6 +1,6 @@
 ---
 name: localai-workspace
-description: Use to personalise LocalAI for the user - persona, profile, shortcuts, Home widgets, theme, and updates on a schedule. To build an app or a tool as a page, use localai-apps.
+description: Use to personalise LocalAI for the user - persona, profile, shortcuts, default models, Home widgets, theme, and updates on a schedule. To build an app or a tool as a page, use localai-apps.
 ---
 
 # Make LocalAI theirs
@@ -15,6 +15,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/user.json` | `name`, `bio`, `language`, `timezone`: a short "About the user" block in every chat. `seen` records hints (below). |
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat, at most 50. `id` is lowercase letters, digits and dashes (at most 40). `effort` is `""`, `none`, `minimal`, `low`, `medium` or `high`. `tools` holds lists of names that are switched off or on: `builtins_off`, `builtins_on`, `addons_off`, `mcp_off`, `skills_off`. `default` is the `id` a new chat starts with. It stores no prompt and no files. |
+| `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
 | `LocalAI/home.json` | `{"widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `type` is `list`, `metric`, `chats` or `page`. `trigger` is set by LocalAI when the user confirms the trigger that feeds the widget. A `page` widget names a page (`page`, its folder name; `folder` only for a page of a shared folder) and may leave out `title`; at most 3 page widgets. |
 | `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `defaultModel`, `homeBackground` (the background of the Home page only) and `chatBackground` (the background of the chat view only); see "Backgrounds" below. |
 
@@ -41,6 +42,14 @@ Rules:
 - `fit`: `cover` (default) or `contain`. `opacity`: 0 to 1 (default 1). `blur`: pixels, 0 to 40. `overlay`: 0 to 1, a veil in the colour of the theme that keeps the text readable. Raise `overlay` for a busy or bright picture. Default for `homeBackground`: 0.55 for a picture, 0.35 for a gradient, 0 for a colour. Default for `chatBackground`: 0.8 for a picture, 0.6 for a gradient, 0 for a colour, because a chat is long text. In the chat the messages also sit on a panel in the colour of the theme, so they stay readable whatever the overlay.
 - To remove a background, delete its key (a save with `null` does the same).
 - A file that breaks these rules is not used: the pages keep the last good version and the Appearance tab says the file has an error. Keep the other keys of `ui.json` when you change one.
+
+## Default models
+
+`LocalAI/defaults.json` sets the model per kind of work (its schema lists the keys). The media tools read it themselves.
+
+- A result with `model_note` used a default. Tell the user ("Made with flux.1-schnell, your default for images").
+- A tool that stops because the user wants to be asked, or because the default model is gone: ask which installed model to use (`list_models`), then call again with `model`, for that request only. Never switch models silently.
+- Edit the file only when asked: read it, change that key, keep the rest, say what changed. The old `ui.json` `defaultModel` is only a fallback for `chat`.
 
 ## Widget data
 

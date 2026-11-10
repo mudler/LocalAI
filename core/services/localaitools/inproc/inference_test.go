@@ -41,6 +41,27 @@ var _ = Describe("inproc.Client client tools", func() {
 		Expect(m).To(BeEmpty())
 	})
 
+	It("tells an installed model from a removed or disabled one, for the default of a tool", func() {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "on.yaml"), []byte("name: on\nbackend: stablediffusion\nknown_usecases: [image]\n"), 0o600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "off.yaml"), []byte("name: off\nbackend: stablediffusion\nknown_usecases: [image]\ndisabled: true\n"), 0o600)).To(Succeed())
+		cl := config.NewModelConfigLoader(dir)
+		Expect(cl.LoadModelConfigsFromPath(dir)).To(Succeed())
+		c := &Client{ConfigLoader: cl}
+		for name, want := range map[string]bool{"on": true, "off": false, "removed": false} {
+			has, err := c.HasModel(context.Background(), name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(Equal(want), name)
+		}
+		// A chooser that cannot say is trusted.
+		has, _ := (&Client{Models: fixedChooser("x")}).HasModel(context.Background(), "anything")
+		Expect(has).To(BeTrue())
+	})
+
+	It("reads no default for a user it cannot tell, so a tool still works", func() {
+		Expect((&Client{}).userDefault(context.Background(), "image").Kind).To(BeEmpty())
+	})
+
 	It("lets Models replace the default chooser", func() {
 		c := &Client{Models: fixedChooser("custom")}
 		m, err := c.FirstModel(context.Background(), config.FLAG_IMAGE)

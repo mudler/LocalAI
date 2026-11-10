@@ -38,6 +38,7 @@ const (
 	routeMiddleware             = "/api/middleware/status"
 	routeRouterDecisions        = "/api/router/decisions"
 	routeModelsCapabilities     = "/api/models/capabilities"
+	routeWellKnown              = "/api/chats/wellknown/"
 	routeVersion                = "/version"
 	routeSystem                 = "/system"
 	routeFailover               = "/api/failover"
