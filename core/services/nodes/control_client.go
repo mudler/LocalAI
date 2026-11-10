@@ -9,11 +9,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/workerctl"
-	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // errStreamBroken marks the failure of a streamed verb after the worker accepted
@@ -37,24 +35,14 @@ type ControlClient struct {
 
 	// clients holds one HTTP client for each node, so that two verbs in a row
 	// reuse the stream that the transport already holds. ForgetNode drops one.
-	clientsMu sync.Mutex
-	clients   map[string]*nodeHTTPClient
-}
-
-// nodeHTTPClient is a client and the transport it was built on. The transport is
-// kept beside the client because closing the idle streams of a node needs it,
-// and what http.Client.Transport holds is whatever the shared constructor wrapped
-// it in.
-type nodeHTTPClient struct {
-	client    *http.Client
-	transport *http.Transport
+	clients nodeClients
 }
 
 // NewControlClient returns the client for the workers that dialFor can reach. It
 // authenticates with the registration token of the deployment, as the file
 // transfer to a worker does.
 func NewControlClient(dialFor WorkerNetDialerFor, token string) *ControlClient {
-	return &ControlClient{dialFor: dialFor, token: token, clients: map[string]*nodeHTTPClient{}}
+	return &ControlClient{dialFor: dialFor, token: token}
 }
 
 // WorkerHTTPHost is the host of the URL of a request to the HTTP server of a
@@ -90,39 +78,26 @@ func (c *ControlClient) clientFor(nodeID string) (*http.Client, error) {
 	if c == nil || c.dialFor == nil {
 		return nil, fmt.Errorf("control request to node %q: no dialer is configured", nodeID)
 	}
-	c.clientsMu.Lock()
-	defer c.clientsMu.Unlock()
-	if cl, ok := c.clients[nodeID]; ok {
-		return cl.client, nil
-	}
-	dial := c.dialFor(nodeID)
-	if dial == nil {
-		return nil, fmt.Errorf("control request to node %q: no dialer for the node", nodeID)
-	}
-	transport := &http.Transport{
-		DialContext:           dial,
-		ForceAttemptHTTP2:     false,
-		MaxIdleConns:          10,
-		IdleConnTimeout:       90 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-	cl := httpclient.New(httpclient.WithTransport(transport))
-	c.clients[nodeID] = &nodeHTTPClient{client: cl, transport: transport}
-	return cl, nil
+	return c.clients.get(nodeID, func() (*http.Transport, error) {
+		dial := c.dialFor(nodeID)
+		if dial == nil {
+			return nil, fmt.Errorf("control request to node %q: no dialer for the node", nodeID)
+		}
+		return &http.Transport{
+			DialContext:           dial,
+			ForceAttemptHTTP2:     false,
+			MaxIdleConns:          10,
+			IdleConnTimeout:       90 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}, nil
+	})
 }
 
 // ForgetNode drops the client of a node and closes the idle streams it holds.
 // It is safe on a nil receiver.
 func (c *ControlClient) ForgetNode(nodeID string) {
-	if c == nil {
-		return
-	}
-	c.clientsMu.Lock()
-	entry, ok := c.clients[nodeID]
-	delete(c.clients, nodeID)
-	c.clientsMu.Unlock()
-	if ok {
-		entry.transport.CloseIdleConnections()
+	if c != nil {
+		c.clients.forget(nodeID)
 	}
 }
 
@@ -131,15 +106,8 @@ func (c *ControlClient) ForgetNode(nodeID string) {
 // of its tunnels do not wait for an idle timeout. It is safe on a nil receiver
 // and may be called twice.
 func (c *ControlClient) Close() {
-	if c == nil {
-		return
-	}
-	c.clientsMu.Lock()
-	entries := c.clients
-	c.clients = map[string]*nodeHTTPClient{}
-	c.clientsMu.Unlock()
-	for _, entry := range entries {
-		entry.transport.CloseIdleConnections()
+	if c != nil {
+		c.clients.closeAll()
 	}
 }
 
