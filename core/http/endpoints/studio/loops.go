@@ -59,6 +59,12 @@ func waitJSON(l loops.Loop) *schema.ChatsWait {
 		// The command is not shown: this list reaches people who may not
 		// read it. It stays in the store of its owner.
 		out.SourceKind, out.Source = "script", "a script"
+	case w.Job != "":
+		// The id and the label the model gave; the command is never here.
+		out.SourceKind, out.Source = "job", w.Job
+		if w.JobLabel != "" {
+			out.Source = fmt.Sprintf("%s %q", w.Job, w.JobLabel)
+		}
 	case w.Tool != "":
 		out.SourceKind, out.Source = "tool", w.Tool
 	default:
@@ -97,6 +103,10 @@ func waitCondition(w *loops.Watch) string {
 	switch w.Mode {
 	case loops.UntilExitZero:
 		return "the script exits with status 0"
+	case loops.UntilExit:
+		return "the job exits"
+	case loops.UntilStall:
+		return fmt.Sprintf("the job writes no output for %s", loops.ShortDuration(w.Idle))
 	case loops.UntilMatch:
 		return fmt.Sprintf("the output matches %q", short(w.Pattern))
 	case loops.UntilJSONEquals:

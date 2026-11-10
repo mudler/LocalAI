@@ -138,6 +138,12 @@ const (
 	// UntilExitZero waits for the script to exit with status 0. It needs a
 	// script.
 	UntilExitZero = "exit_zero"
+	// UntilExit waits for a background job to end, with any status. It needs
+	// a job.
+	UntilExit = "exit"
+	// UntilStall waits for a background job that still runs to write no
+	// output for Idle. It needs a job.
+	UntilStall = "stall"
 )
 
 // What the last check of a wait found.
@@ -188,6 +194,29 @@ type Watch struct {
 	// the API name a script, not its text. Exactly one of Tool, URL and
 	// Script is set.
 	Script string `json:"script,omitempty"`
+	// Job is the id of a background job of the chat that is watched; it is the
+	// fourth source. JobLabel is the name the person sees. Node is where the
+	// job runs (the instance, or "addon:<id>@<incarnation>"): it is copied
+	// from the job when the wait is armed and never resolved again, so a
+	// loop leader on another node asks the same one. No field here holds the
+	// command of the job. Exactly one of Tool, URL, Script and Job is set.
+	Job      string `json:"job,omitempty"`
+	JobLabel string `json:"job_label,omitempty"`
+	Node     string `json:"node,omitempty"`
+	// Idle is the silence that ends an UntilStall wait.
+	Idle time.Duration `json:"idle,omitempty"`
+	// JobOffset is the absolute output offset where the next check of an
+	// UntilMatch wait reads on, so each byte is matched once.
+	JobOffset int64 `json:"job_offset,omitempty"`
+	// What the last check saw of the job, for the wake-up: its exit status
+	// (-1 when not known), how it ended, how long it ran, and the two ways a
+	// job wait ends without its condition: the job is gone with its node, or
+	// it exited and its output never matched.
+	JobExit    int           `json:"job_exit,omitempty"`
+	JobEnd     string        `json:"job_end,omitempty"`
+	JobRan     time.Duration `json:"job_ran,omitempty"`
+	JobGone    bool          `json:"job_gone,omitempty"`
+	JobNoMatch bool          `json:"job_no_match,omitempty"`
 	// Mode is UntilChange, UntilMatch or UntilJSONEquals; Pattern, Field and
 	// Equals are its arguments.
 	Mode    string `json:"mode"`
@@ -243,6 +272,16 @@ func (w *Watch) Clone() *Watch {
 // A script is never named by its text: the line goes to lists that other
 // people read.
 func (w *Watch) Describe() string {
+	switch {
+	case w.Job != "":
+		switch w.Mode {
+		case UntilStall:
+			return fmt.Sprintf("job %s to go quiet for %s", w.Job, ShortDuration(w.Idle))
+		case UntilMatch:
+			return fmt.Sprintf("job %s to print a match of %q", w.Job, w.Pattern)
+		}
+		return fmt.Sprintf("job %s to exit", w.Job)
+	}
 	src := "the URL " + w.URL
 	switch {
 	case w.Script != "":

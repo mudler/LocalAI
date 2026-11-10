@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
@@ -204,6 +205,10 @@ type Deps struct {
 	Builtins *builtins.Registry
 	// HostExec runs the built-in bash on this machine. Nil: there is none.
 	HostExec HostExec
+	// Jobs reads the background jobs for wait_for with a job. It routes a read
+	// to the node that runs the job. Nil: this server has no background jobs,
+	// and a wait on a job is refused.
+	Jobs bgjob.Observer
 	// HostExecMode is the setting chats_host_exec as it applies now: off, ask
 	// or on. Nil: off.
 	HostExecMode func() string
