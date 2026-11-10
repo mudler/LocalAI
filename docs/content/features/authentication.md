@@ -138,18 +138,54 @@ What happens to each part when you switch authentication on:
   bot answers "not available" and is switched off.
 - **Collections** made without a user belong to the root storage area. With
   authentication on, each user has their own collections (see
-  [Collections](/features/collections/)).
+  [Collections](/features/collections/)); only the legacy owner (see below)
+  keeps the root ones.
 - **Old agents, tasks, skills, Telegram connectors and saved chats** of the
   previous agent pool are converted at start and given to the account that owned
   them (see [Chats migration]({{% relref "chats-migration" %}})). With
-  authentication on, an old item that belongs to no user is not converted: the
-  report at `/app/chats/conversion` lists it as skipped, and you make it again
-  under the intended account.
+  authentication on, an old item that belongs to no user goes to the legacy
+  owner (`LOCALAI_AUTH_LEGACY_OWNER`, see below) when one is configured and has an
+  account; otherwise it is not converted: the report at `/app/chats/conversion`
+  lists it as skipped, and you make it again under the intended account.
 
 {{% notice warning %}}
 LocalAI does not migrate, delete or pause anything when you enable
 authentication. Nothing moves the anonymous data to an account.
 {{% /notice %}}
+
+To keep the root storage area without moving it, name the account that owns it
+with `LOCALAI_AUTH_LEGACY_OWNER`. Requests authenticated as that account
+(session or one of its API keys) use the root storage area instead of a
+per-user one, so the collections made while auth was off stay visible and
+usable, and switching auth off again returns to the same data. The fine-tuning
+and quantization job endpoints answer that account as they answer without
+auth, with the jobs of every user. Every other account keeps its own storage
+area. The account is matched by e-mail, case-insensitively, and must hold the
+**admin** role: LocalAI grants that role only on a verified e-mail, so an OAuth
+identity that merely reports the owner's address without verification keeps its
+own area. Treat the address like `LOCALAI_ADMIN_EMAIL` and register it before
+anyone else can. Legacy API keys (`LOCALAI_API_KEY`) are not the owner, and an
+owner account that loses the admin role loses the root area with it.
+
+The owner's chats use the root area too: their collection tools
+(`list_collections`, `search_collection`) and the texts proposed for Knowledge
+work on the root collections. While the owner works in the root area, collections that
+other accounts share with the owner are not reachable. The old agent-pool items
+of no user are converted to the owner's account (see the list above). The
+chats' own data of the anonymous owner (chats, saved agents, triggers,
+connector bindings, notifications and files made with the chats while auth was
+off) is not part of the root storage area and is not covered: export and import
+it as described below.
+
+```bash
+LOCALAI_AUTH=true \
+LOCALAI_ADMIN_EMAIL=owner@example.com \
+LOCALAI_AUTH_LEGACY_OWNER=owner@example.com \
+LOCALAI_REGISTRATION_MODE=invite \
+local-ai run
+```
+
+Without `LOCALAI_AUTH_LEGACY_OWNER`, or for any other account, the steps below apply.
 
 Before switching an existing instance:
 
@@ -197,6 +233,7 @@ trigger and the binding stay, and work again when the feature is given back.
 | `LOCALAI_OIDC_CLIENT_SECRET` | | OIDC Client Secret |
 | `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
 | `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
+| `LOCALAI_AUTH_LEGACY_OWNER` | | Email address of the account that keeps the root storage area (data created while auth was off) |
 | `LOCALAI_REGISTRATION_MODE` | `approval` | Registration mode: `open`, `approval`, or `invite` |
 | `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
 

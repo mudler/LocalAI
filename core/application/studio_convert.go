@@ -82,6 +82,11 @@ func (a *Application) ConvertStudioData() {
 	stateDir := cmp.Or(a.applicationConfig.Collections.StateDir, a.applicationConfig.DataPath, a.applicationConfig.DynamicConfigsDir)
 	src := convert.Sources{StateDir: stateDir, DataDir: a.applicationConfig.DataPath,
 		DB: a.authDB, AuthEnabled: a.authDB != nil, Zone: zone, ZoneNote: note}
+	if owner, err := auth.LegacyOwnerID(a.authDB, a.applicationConfig.Auth.LegacyOwnerEmail); err != nil {
+		xlog.Warn("chats conversion: legacy owner lookup failed, root items stay unconverted", "error", err)
+	} else {
+		src.RootOwner = owner
+	}
 	run := func() error {
 		rep, err := convert.Run(ctx, src, studioTargets{a: a, svc: svc}, a.studioMarks)
 		if err != nil {

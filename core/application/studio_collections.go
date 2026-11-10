@@ -20,9 +20,17 @@ type studioCollections struct{ a *Application }
 
 // owner maps the chat's user to the user the collections are kept under. The
 // chats name the unauthenticated user "anonymous"; the collections name it "".
-func (studioCollections) owner(user string) string {
+// The legacy owner (LOCALAI_AUTH_LEGACY_OWNER) keeps the root area in the
+// chats as over /api/collections, so the collections made while auth was off
+// are the ones the owner's chats list and search.
+func (c studioCollections) owner(ctx context.Context, user string) string {
 	if user == studio.AnonymousPrincipal {
 		return ""
+	}
+	if c.a.authDB != nil && c.a.applicationConfig != nil && c.a.applicationConfig.Auth.LegacyOwnerEmail != "" {
+		if u, err := c.a.loadStudioUser(ctx, user); err == nil && auth.IsLegacyOwner(u, c.a.applicationConfig.Auth.LegacyOwnerEmail) {
+			return ""
+		}
 	}
 	return user
 }
@@ -47,11 +55,11 @@ func (c studioCollections) List(ctx context.Context, user string) ([]string, err
 	if svc == nil || !c.Allowed(ctx, user) {
 		return nil, studio.ErrNoCollection
 	}
-	own, err := svc.ListForUser(c.owner(user))
+	own, err := svc.ListForUser(c.owner(ctx, user))
 	if err != nil {
 		return own, err
 	}
-	for _, s := range c.a.SharedCollections(ctx, c.owner(user), own) {
+	for _, s := range c.a.SharedCollections(ctx, c.owner(ctx, user), own) {
 		own = append(own, s.Address)
 	}
 	return own, nil
@@ -63,7 +71,7 @@ func (c studioCollections) Search(ctx context.Context, user, collection, query s
 		return nil, studio.ErrNoCollection
 	}
 	var res []lagi.SearchResult
-	err := c.a.WithCollection(ctx, c.owner(user), collection, policy.ActionRead, func(ctx context.Context, owner, name string) error {
+	err := c.a.WithCollection(ctx, c.owner(ctx, user), collection, policy.ActionRead, func(ctx context.Context, owner, name string) error {
 		var err error
 		res, err = svc.SearchForUser(ctx, owner, name, query, limit)
 		return err
@@ -95,7 +103,7 @@ func (c studioCollections) Add(ctx context.Context, user, collection, name, text
 	if svc == nil || !c.Allowed(ctx, user) {
 		return studio.ErrNoCollection
 	}
-	err := c.a.WithCollection(ctx, c.owner(user), collection, policy.ActionWrite, func(ctx context.Context, owner, coll string) error {
+	err := c.a.WithCollection(ctx, c.owner(ctx, user), collection, policy.ActionWrite, func(ctx context.Context, owner, coll string) error {
 		_, err := svc.UploadForUser(ctx, owner, coll, name, strings.NewReader(text))
 		return err
 	})
@@ -114,7 +122,7 @@ func (c studioCollections) Remove(ctx context.Context, user, collection, name st
 	if svc == nil || !c.Allowed(ctx, user) {
 		return studio.ErrNoCollection
 	}
-	err := c.a.WithCollection(ctx, c.owner(user), collection, policy.ActionWrite, func(_ context.Context, owner, coll string) error {
+	err := c.a.WithCollection(ctx, c.owner(ctx, user), collection, policy.ActionWrite, func(_ context.Context, owner, coll string) error {
 		entries, err := svc.ListEntriesForUser(owner, coll)
 		if err != nil {
 			return err

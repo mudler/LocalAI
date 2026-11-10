@@ -98,6 +98,10 @@ type Sources struct {
 	// AuthEnabled says whether users have accounts. Without it every old item
 	// belongs to the one anonymous user.
 	AuthEnabled bool
+	// RootOwner is the user that owns the items of no user: the legacy owner
+	// (LOCALAI_AUTH_LEGACY_OWNER), who keeps the storage created while auth was
+	// off. Empty: with accounts, such items are not converted.
+	RootOwner string
 	// Zone is the IANA name of the zone the old cron tasks ran in, the server's
 	// local zone. It is empty when that zone is UTC or cannot be named; then
 	// ZoneNote says what the report tells about it. See LocalZone.

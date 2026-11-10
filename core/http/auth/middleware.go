@@ -21,6 +21,7 @@ const (
 	contextKeyAPIKey              = "auth_apikey" // #nosec G101 -- the name of a request context key, not a credential
 	contextKeySource              = "auth_source"
 	contextKeyHeaderAuthenticated = "auth_header_authenticated"
+	contextKeyStorageUserID       = "auth_storage_user_id"
 )
 
 // Middleware returns an Echo middleware that handles authentication.
@@ -66,6 +67,9 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 				if user != nil {
 					c.Set(contextKeyUser, user)
 					c.Set(contextKeyRole, user.Role)
+					if IsLegacyOwner(user, appConfig.Auth.LegacyOwnerEmail) {
+						c.Set(contextKeyStorageUserID, "")
+					}
 					authenticated = true
 
 					// Session rotation for cookie-based sessions
@@ -227,6 +231,55 @@ func GetUser(c echo.Context) *User {
 		return nil
 	}
 	return u
+}
+
+// IsLegacyOwner reports whether user is the account configured to own the
+// data created before user authentication was enabled.
+//
+// The e-mail alone is not proof: an OAuth provider may report an address it
+// has not verified, and e-mail addresses are not unique across identities.
+// The owner must therefore also hold the admin role, which LocalAI only grants
+// on a verified e-mail (or to the first account / LOCALAI_ADMIN_EMAIL on local
+// registration). An unverified identity that claims the owner's address keeps
+// its own storage area.
+func IsLegacyOwner(user *User, legacyOwnerEmail string) bool {
+	owner := strings.TrimSpace(legacyOwnerEmail)
+	return user != nil && owner != "" && user.Role == RoleAdmin &&
+		strings.EqualFold(strings.TrimSpace(user.Email), owner)
+}
+
+// LegacyOwnerID returns the ID of the account that IsLegacyOwner accepts for
+// legacyOwnerEmail, or "" when none is configured or registered.
+func LegacyOwnerID(db *gorm.DB, legacyOwnerEmail string) (string, error) {
+	owner := strings.TrimSpace(legacyOwnerEmail)
+	if db == nil || owner == "" {
+		return "", nil
+	}
+	var users []User
+	if err := db.Where("LOWER(email) = LOWER(?) AND role = ?", owner, RoleAdmin).Order("created_at").Find(&users).Error; err != nil {
+		return "", err
+	}
+	for i := range users {
+		if IsLegacyOwner(&users[i], owner) {
+			return users[i].ID, nil
+		}
+	}
+	return "", nil
+}
+
+// GetStorageUserID returns the user ID that scopes per-user storage
+// (collections, fine-tuning and quantization jobs). It is the authenticated
+// user's ID, except for the legacy owner, whose storage is the root area
+// (empty ID) that holds everything created while auth was off. Without an
+// authenticated user it is empty, as before auth existed.
+func GetStorageUserID(c echo.Context) string {
+	if id, ok := c.Get(contextKeyStorageUserID).(string); ok {
+		return id
+	}
+	if u := GetUser(c); u != nil {
+		return u.ID
+	}
+	return ""
 }
 
 // GetUserRole returns the role of the authenticated user, or empty string.
