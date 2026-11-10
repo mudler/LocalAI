@@ -124,19 +124,19 @@
 
   /* Three of the four releases land within two months of each other, so a single
      row of labels overlaps into mush. Push each one down a row until it clears. */
-  var LBL_W = 12.4;              /* label width as a percentage of the plot */
+  var LBL_W = 18;                /* label width as a percentage of the plot */
   var rows = [];
   var xlab = MARKS.map(function(m){
     var pct = X(Date.parse(m.date)) / W * 100;
     var row = 0;
     while (rows[row] !== undefined && pct - rows[row] < LBL_W) row++;
     rows[row] = pct;
-    return '<span class="sc__x' + row + '" style="left:' + pct + '%;top:' + (row * 2.55) + 'rem">'
+    return '<span class="sc__x' + row + '" style="left:' + pct + '%;top:' + (row * 3.7) + 'rem">'
          + '<b>' + m.tag + '</b>' + m.label + '</span>';
   }).join('');
   fig.querySelector('.sc__xlab').innerHTML = xlab;
-  fig.querySelector('.sc__xlab').style.height = (rows.length * 2.55 + 1.1) + 'rem';
-  fig.querySelector('.sc__plot').style.paddingBottom = (rows.length * 2.55 + 1.1) + 'rem';
+  fig.querySelector('.sc__xlab').style.height = (rows.length * 3.7 + 1.1) + 'rem';
+  fig.querySelector('.sc__plot').style.paddingBottom = (rows.length * 3.7 + 1.1) + 'rem';
 
   /* hover layer */
   var plot = fig.querySelector('.sc__plot');
