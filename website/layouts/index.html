@@ -1,154 +1,63 @@
 {{ define "main" }}
-{{- $s := .Site.Data.stats -}}
-{{- $eng := len .Site.Data.engines.engines -}}
+{{- $s := hugo.Data.stats -}}
+{{- $eng := len hugo.Data.engines.engines -}}
 <main id="main">
 
-<!-- 1. Hero -->
 <section class="hero">
-  <svg class="rays" viewBox="-100 -100 200 200" aria-hidden="true" focusable="false"><g>{{ range seq 0 11 }}<path d="M0 0 L{{ mul 100 (math.Cos (mul . 0.5236)) | printf "%.1f" }} {{ mul 100 (math.Sin (mul . 0.5236)) | printf "%.1f" }} L{{ mul 100 (math.Cos (add (mul . 0.5236) 0.2618)) | printf "%.1f" }} {{ mul 100 (math.Sin (add (mul . 0.5236) 0.2618)) | printf "%.1f" }} Z"/>{{ end }}</g></svg>
   <div class="shell duo">
     <div>
-      <p class="kicker">LocalAI</p>
-      <h1>Ready to <span class="hl">work</span> for you.</h1>
-      <p class="lede">LocalAI runs open models on your own hardware. Chat, work with your files and connect your chat apps. Free and open source.</p>
+      <a class="news" href="{{ .Site.Params.docsURL }}start/whats-new/"><b>5.0</b><span>Office, Sandbox, Team and add-ons. What is new</span><span aria-hidden="true">&rarr;</span></a>
+      <h1>Your own AI, on your own hardware.</h1>
+      <p class="hero__line">Ready to <span class="hl">work</span> for you.</p>
+      <p class="lede">LocalAI runs open models on your own machine. Chat, work with your files, make Office documents and connect your chat apps. Free and open source.</p>
       <div class="acts">
-        <div class="cmd"><span class="p" aria-hidden="true">$</span><code>local-ai run</code><button class="cpy" type="button" data-copy="local-ai run" aria-label="Copy the command local-ai run">copy</button></div>
-        <a class="btn" href="{{ .Site.Params.docsURL }}">Read the docs</a>
+        <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
+        <a class="btn btn--o" href="#whats-new">See what is new in 5.0</a>
       </div>
-      <p class="fine">Free, open source, MIT licence. {{ lang.FormatNumberCustom 0 $s.stars }} stars on GitHub. <a href="{{ "get-started/" | relURL }}">Not installed yet? Start here.</a></p>
+      <div class="cmd"><span class="p" aria-hidden="true">$</span><code>curl -sSL https://localai.io/install.sh | sh</code><button class="cpy" type="button" data-copy="curl -sSL https://localai.io/install.sh | sh" aria-label="Copy the install command">copy</button></div>
+      <p class="alts">Or the <a href="{{ .Site.Params.docsURL }}start/install/macos/">macOS app</a>, <a href="{{ .Site.Params.docsURL }}start/install/docker/">Docker</a> or <a href="{{ .Site.Params.docsURL }}start/install/kubernetes/">Kubernetes</a>. Then open <code>http://localhost:8080</code>.</p>
     </div>
     <figure class="scene"><img src="{{ "img/scenes/scene-s9-close.jpg" | relURL }}" width="1024" height="576" alt="The LocalAI llama, a blue wool llama in teal sunglasses with a badge on a lanyard, standing in warm sunlight."></figure>
   </div>
 </section>
 
-<!-- 2. Three proofs -->
-<section>
+<section class="facts" aria-label="At a glance">
+  <div class="shell facts__g">
+    <div><b>CPU or GPU</b>NVIDIA, AMD, Intel and Apple</div>
+    <div><b>{{ $eng }} own engines</b>Written by the team in C, C++ and Go</div>
+    <div><b>Your server</b>Files stay on your hardware</div>
+    <div><b>MIT licence</b>Open since March 2023, {{ lang.FormatNumberCustom 0 $s.stars }} stars</div>
+  </div>
+</section>
+
+{{ range $i, $f := hugo.Data.home.sections }}
+<section class="feat{{ if eq (mod $i 2) 0 }} band-inset{{ end }}" id="{{ $f.id }}"{{ if eq $i 0 }} aria-labelledby="h-{{ $f.id }}"{{ end }}>
+  <div class="shell duo duo--wide{{ if eq (mod $i 2) 1 }} flip{{ end }}">
+    <div class="rv">
+      <p class="kicker">{{ $f.kicker }}</p>
+      <h2 id="h-{{ $f.id }}">{{ $f.h | safeHTML }}</h2>
+      <p class="lede">{{ $f.lede }}</p>
+      <ul class="ticks">{{ range $f.points }}<li>{{ replace . "{{engines}}" (string $eng) }}</li>{{ end }}</ul>
+      {{ with $f.need }}<p class="need">{{ . }}</p>{{ end }}
+      <p class="links">{{ range $f.links }}<a href="{{ if hasPrefix .href "/" }}{{ .href }}{{ else }}{{ .href | relURL }}{{ end }}">{{ .t }} &rarr;</a>{{ end }}</p>
+    </div>
+    <div class="rv">{{ partial "demo-slot.html" (dict "kind" $f.illus "demo" $f.demo "alt" (printf "%s: a short demo" $f.kicker)) }}</div>
+  </div>
+</section>
+{{ end }}
+
+<section class="grid5" id="whats-new">
   <div class="shell">
-    <h2 class="vh">Why LocalAI</h2>
-    <div class="three">
-      <div class="card rv"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><h3>Your hardware</h3><p>It runs on a CPU. A GPU makes it faster.</p></div>
-      <div class="card rv"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></div><h3>Real work</h3><p>Open files, make Office documents, run Python in a sandbox.</p></div>
-      <div class="card rv"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14"/></svg></div><h3>Open</h3><p>MIT licence. Open models. Public code.</p></div>
+    <h2>Everything in <span class="hl">5.0</span>.</h2>
+    <p class="lede">Each card opens the page that says how to use it.</p>
+    <div class="cards">
+      {{ range hugo.Data.home.cards }}
+      <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p><span class="go">Docs &rarr;</span></a>
+      {{ end }}
     </div>
   </div>
 </section>
 
-<!-- 3. Talk, then work -->
-<section class="band-inset">
-  <div class="shell duo">
-    <div class="rv">
-      <p class="kicker">Chat</p>
-      <h2>Talk. Then it <span class="hl">works</span>.</h2>
-      <p class="lede">Chat with an open model. Ask it to read a file, make a table or write a report.</p>
-      <p class="proof"><b>Proof</b>You can save agents. Each one has its own model, skills and memory.</p>
-      <a class="more" href="{{ "features/chat/" | relURL }}">See Chat &rarr;</a>
-    </div>
-    <figure class="scene rv"><img loading="lazy" src="{{ "img/scenes/scene-s1-talk.jpg" | relURL }}" width="1024" height="576" alt="The llama in sunglasses chats at a cafe table while a waiter with a tray looks on."></figure>
-  </div>
-</section>
-
-<!-- 4. Text it -->
-<section>
-  <div class="shell duo flip">
-    <div class="rv">
-      <p class="kicker">Chat apps</p>
-      <h2>Text it from your <span class="hl">phone</span>.</h2>
-      <p class="lede">Add-ons connect an agent to Slack, Telegram and Discord. An admin installs them and turns them on.</p>
-      <p class="proof"><b>Proof</b>A bot is bound to one agent. That agent answers from your files.</p>
-      <a class="more" href="{{ "features/connectors/" | relURL }}">See Connectors &rarr;</a>
-    </div>
-    <figure class="scene rv"><img loading="lazy" src="{{ "img/scenes/scene-s3-text.jpg" | relURL }}" width="1024" height="576" alt="The llama stands in a warm room next to three phones on stands."></figure>
-  </div>
-</section>
-
-<!-- 5. Whole office -->
-<section class="band-inset">
-  <div class="shell duo">
-    <div class="rv">
-      <p class="kicker">Team</p>
-      <h2>One server. Your whole <span class="hl">team</span>.</h2>
-      <p class="lede">Each person has a login and their own chats. An admin chooses what each person can use.</p>
-      <p class="proof"><b>Proof</b>The admin page lists every person and a switch for each feature.</p>
-      <p class="fine">Admins can read all chats.</p>
-      <a class="more" href="{{ "features/team/" | relURL }}">See Team &rarr;</a>
-    </div>
-    <figure class="scene rv"><img loading="lazy" src="{{ "img/scenes/scene-s4-office.jpg" | relURL }}" width="1024" height="576" alt="The llama stands in an open-plan office between two llama coworkers at their desks."></figure>
-  </div>
-</section>
-
-<!-- 6. Search -->
-<section>
-  <div class="shell duo flip">
-    <div class="rv">
-      <p class="kicker">Collections</p>
-      <h2>Ask your <span class="hl">documents</span>.</h2>
-      <p class="lede">Collections index PDF, text, Markdown and web pages. An agent finds the passages by meaning.</p>
-      <p class="proof"><b>Proof</b>An agent searches a collection only when you name it.</p>
-      <p class="fine">An admin turns Collections on.</p>
-      <a class="more" href="{{ "features/files/" | relURL }}">See Files &rarr;</a>
-    </div>
-    <figure class="scene rv"><img loading="lazy" src="{{ "img/scenes/scene-s5-search.jpg" | relURL }}" width="1024" height="576" alt="The llama stands calm in a busy office while sheets of paper fly through the air."></figure>
-  </div>
-</section>
-
-<!-- 7. Files and sandbox -->
-<section class="band-inset">
-  <div class="shell duo">
-    <div class="rv">
-      <p class="kicker">Files and Sandbox</p>
-      <h2>Files in. Python in a <span class="hl">box</span>.</h2>
-      <p class="lede">Put a spreadsheet in Files and ask for a chart. The Sandbox runs Python on it and saves the result in Files. It has no internet unless you allow it.</p>
-      <p class="proof"><b>Proof</b>Every change is listed in History, with an Undo button.</p>
-      <a class="more" href="{{ "features/sandbox/" | relURL }}">See Sandbox &rarr;</a>
-    </div>
-    <figure class="scene rv"><img loading="lazy" src="{{ "img/scenes/scene-s6-files.jpg" | relURL }}" width="1024" height="576" alt="The llama sits at a table with four llama colleagues, folders and a chart on the table."></figure>
-  </div>
-</section>
-
-<!-- 8. Tables, pages, Office files, tools -->
-<section>
-  <div class="shell duo flip">
-    <div class="rv">
-      <p class="kicker">Office, Pages and tools</p>
-      <h2>Documents, tables and <span class="hl">pages</span>.</h2>
-      <p class="lede">Make Word, Excel, PDF and PowerPoint files. Keep data in Tables. Ask for a small page and pin it to Home. Add more tools over MCP.</p>
-      <p class="proof"><b>Proof</b>The assistant proposes a page. You confirm it, then it is saved to your files.</p>
-      <p class="fine">An admin installs Office and Tables, and turns Pages on per person.</p>
-      <a class="more" href="{{ "features/office/" | relURL }}">See Office &rarr;</a>
-    </div>
-    <figure class="scene rv"><img loading="lazy" src="{{ "img/scenes/scene-s7-tools.jpg" | relURL }}" width="1024" height="576" alt="The llama stands in front of a wall of colourful sockets with cables plugged in."></figure>
-  </div>
-</section>
-
-<!-- 9. Open models -->
-<section class="band-inset">
-  <div class="shell duo">
-    <div class="rv">
-      <p class="kicker">Models</p>
-      <h2>Open models, your <span class="hl">hardware</span>.</h2>
-      <p class="lede">Pick a model from the gallery. LocalAI installs it and picks an engine that fits your machine.</p>
-      <p class="proof"><b>Proof</b>The team wrote {{ $eng }} of the engines itself. <a href="{{ "engines/" | relURL }}">See the list.</a></p>
-      <a class="more" href="{{ "features/models/" | relURL }}">See Models &rarr;</a>
-    </div>
-    <figure class="scene rv"><img loading="lazy" src="{{ "img/scenes/scene-s8-endless.jpg" | relURL }}" width="1024" height="576" alt="The llama stands in a workshop with shelves of tools behind it."></figure>
-  </div>
-</section>
-
-<!-- 10. Social proof -->
-<section>
-  <div class="shell">
-    <h2 class="rv">Built in the open since <span class="hl">March 2023</span>.</h2>
-    <div class="stats rv">
-      <div class="stat"><b>{{ lang.FormatNumberCustom 0 $s.stars }}</b><span>GitHub stars</span></div>
-      <div class="stat"><b>{{ lang.FormatNumberCustom 0 $s.contributors }}</b><span>Contributors</span></div>
-      <div class="stat"><b>{{ lang.FormatNumberCustom 0 $s.releases }}</b><span>Releases</span></div>
-      <div class="stat"><b>{{ lang.FormatNumberCustom 0 $s.discord }}</b><span>Discord members</span></div>
-    </div>
-    <p class="fine">Numbers come from GitHub and refresh every week.</p>
-  </div>
-</section>
-
-<!-- 11. Install -->
 <section class="band-inset" id="start">
   <div class="shell duo">
     <div class="rv">
@@ -161,16 +70,11 @@
   </div>
 </section>
 
-<!-- 12. End card -->
 <section class="band-sun endcard">
   <div class="shell">
-    <img class="mascot" src="{{ "img/scenes/scene-s9-close.jpg" | relURL }}" alt="" width="220" height="124" style="border-radius:var(--r)">
     <h2>Ready to <span class="hl">work</span> for you.</h2>
-    <div class="url-pill">localai.io</div>
-    <div class="acts">
-      <div class="cmd"><span class="p" aria-hidden="true">$</span><code>local-ai run</code><button class="cpy" type="button" data-copy="local-ai run" aria-label="Copy the command local-ai run">copy</button></div>
-      <a class="btn" href="{{ .Site.Params.docsURL }}">Read the docs</a>
-    </div>
+    <p><span class="url-pill">localai.io</span></p>
+    <div class="acts"><a class="btn" href="{{ "get-started/" | relURL }}">Get started</a></div>
   </div>
 </section>
 </main>
