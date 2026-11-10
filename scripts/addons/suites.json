@@ -690,7 +690,65 @@
           "reads a profile by ID and lists its tools as text",
           "refuses a descriptor whose first profile is not the fallback",
           "refuses a repeated profile, a bad ID, bad text, a bad limit, no tools and a bad check",
-          "refuses too many profiles"
+          "refuses too many profiles",
+          "parses a provider with a jobs tool at feature level 6 and keeps it through an echo",
+          "needs featureLevel 6, and a level 5 host says it needs a newer LocalAI",
+          "is refused by the strict reader of an older host, which knows no jobs key",
+          "refuses an unknown key in the jobs binding",
+          "not uiOnly",
+          "a read tool",
+          "a shadow",
+          "an admin tool",
+          "undeclared",
+          "the status tool",
+          "an execution tool",
+          "a bad name",
+          "start",
+          "start without command",
+          "start with NUL",
+          "start too long",
+          "start label with a newline",
+          "start label with a direction override",
+          "start label too long",
+          "start with an id",
+          "list",
+          "read",
+          "read without id",
+          "read with a traversal id",
+          "read with an upper case id",
+          "read negative since",
+          "read too much",
+          "read too little",
+          "input",
+          "input close only",
+          "input empty",
+          "input too long",
+          "input with a signal",
+          "kill",
+          "kill with a bad signal",
+          "kill for a reason",
+          "kill stopped by the person",
+          "kill for a reason only the add-on gives",
+          "kill for an unknown reason",
+          "read with a reason",
+          "unknown verb",
+          "accepts a read, a list and a refusal",
+          "accepts each end reason the host may ask for",
+          "huge output",
+          "a read past the total",
+          "a read larger than allowed",
+          "offsets backwards",
+          "another job",
+          "too many jobs",
+          "a duplicate job",
+          "a bad id",
+          "a bad state",
+          "a finished job without an end time",
+          "an unknown code",
+          "a refusal with data",
+          "a long refusal",
+          "output on input",
+          "written too much"
         ]
       },
       {
@@ -1436,7 +1494,11 @@
           "bounds the hint to printable ASCII",
           "types a 401 credential_rejected answer, never as an outage",
           "keeps a 401 with another reason, or none, an outage",
-          "does not read the reason on another status as a rejection"
+          "does not read the reason on another status as a rejection",
+          "keeps the start live after the call and ends it when an answer reports the job finished",
+          "leases nothing for another tool, a refusal, a finished start, a bad answer or an add-on without jobs",
+          "refuses a start, without sending it, when every lease place of the add-on is taken",
+          "gives the reserved place back when the start makes no job"
         ]
       },
       {
@@ -1797,7 +1859,8 @@
           "bounds a reply",
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
-          "answers an unknown lifecycle operation with its own type, not as a denial"
+          "answers an unknown lifecycle operation with its own type, not as a denial",
+          "carries the jobs tool of an app, which the public apps API leaves out"
         ]
       },
       {
@@ -3292,7 +3355,8 @@
           "bounds a reply",
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
-          "answers an unknown lifecycle operation with its own type, not as a denial"
+          "answers an unknown lifecycle operation with its own type, not as a denial",
+          "carries the jobs tool of an app, which the public apps API leaves out"
         ]
       },
       {
@@ -3561,7 +3625,8 @@
           "writes no setup field for an add-on without one",
           "writes the field names setup, setups and localizedSetup",
           "names the scopes of an OAuth login, and nothing of a token slot",
-          "tells an administrator whether an add-on comes from the official library, and nobody else"
+          "tells an administrator whether an add-on comes from the official library, and nobody else",
+          "names the jobs tool of an execution provider, and none for an add-on without one"
         ]
       },
       {
@@ -3780,7 +3845,11 @@
           "bounds the hint to printable ASCII",
           "types a 401 credential_rejected answer, never as an outage",
           "keeps a 401 with another reason, or none, an outage",
-          "does not read the reason on another status as a rejection"
+          "does not read the reason on another status as a rejection",
+          "keeps the start live after the call and ends it when an answer reports the job finished",
+          "leases nothing for another tool, a refusal, a finished start, a bad answer or an add-on without jobs",
+          "refuses a start, without sending it, when every lease place of the add-on is taken",
+          "gives the reserved place back when the start makes no job"
         ]
       },
       {
@@ -4895,7 +4964,12 @@
       "go: tells the model a connection expired or was revoked, without an outage",
       "go: tells the model that the owner of a shared connection must connect it again, never to log in",
       "go: tells the model of a shared connection that the resource is not listed, without a list",
-      "go: renders the excerpt of an artifact result for the model"
+      "go: renders the excerpt of an artifact result for the model",
+      "go: calls the page-only jobs tool for the chat, bound to it, with the host's execution call",
+      "go: is never offered to a model, and a model cannot call it by name",
+      "go: says an add-on without a jobs tool cannot run jobs, and sends nothing",
+      "go: refuses invalid arguments before it sends anything, and a plain adapter never calls it",
+      "go: refuses an answer that is too large, malformed, or about another job"
     ]
   },
   "tables-admin": {
