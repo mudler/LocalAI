@@ -396,18 +396,11 @@ func (rt *carrierRuntime) ProbeReplicas(ctx context.Context) {
 type workCounts struct{ db *gorm.DB }
 
 func (w workCounts) InFlight(ctx context.Context) (cluster.InFlight, error) {
-	var out cluster.InFlight
-	count := func(dst *int, q *gorm.DB) error {
-		var n int64
-		if err := q.Count(&n).Error; err != nil {
-			return err
-		}
-		*dst = int(n)
-		return nil
+	var loads int64
+	err := w.db.WithContext(ctx).Model(&nodes.NodeModel{}).
+		Where("state IN ?", []string{"loading", "staging"}).Count(&loads).Error
+	if err != nil {
+		return cluster.InFlight{}, fmt.Errorf("counting the models that load: %w", err)
 	}
-	db := w.db.WithContext(ctx)
-	if err := count(&out.Loads, db.Model(&nodes.NodeModel{}).Where("state IN ?", []string{"loading", "staging"})); err != nil {
-		return out, fmt.Errorf("counting the models that load: %w", err)
-	}
-	return out, nil
+	return cluster.InFlight{Loads: int(loads)}, nil
 }
