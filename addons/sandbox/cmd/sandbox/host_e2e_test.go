@@ -80,7 +80,7 @@ func call(rt contract.Runtime, tool, user, conv string, args map[string]any) map
 	args["tool"] = tool
 	raw, _ := json.Marshal(args)
 	scope, action := "read", "read"
-	if tool == "bash" {
+	if tool == "bash" || tool == tools.ToolJob {
 		scope, action = "act", "act"
 	}
 	env := contract.Envelope{
@@ -133,5 +133,42 @@ var _ = Describe("Host backend end to end", func() {
 		Expect(got["ok"]).To(Equal(true), "bash = %v", got)
 		Expect(got["output"]).To(ContainSubstring("done"))
 		Expect(eng.committed).To(HaveKeyWithValue("home/made.txt", "from the host\n"))
+	})
+
+	// A background job on the host backend keeps running across the idle
+	// sweep, keeps its exit status, and its final checkpoint commits what it
+	// wrote.
+	It("runs a background job for real", func() {
+		data := GinkgoT().TempDir()
+		sel, err := newSelector(data)
+		Expect(err).NotTo(HaveOccurred())
+		eng := &engine{data: data, committed: map[string]string{}}
+		rs := remote.New(eng, data)
+		m, err := runner.New(runner.Options{Backend: sel.Backend, Store: rs, Actor: remote.Actor, View: rs.HomeView, Tools: tools.Runs,
+			IdleAfter: time.Millisecond,
+			Prepare: func(ctx context.Context, r runner.Request) context.Context {
+				return remote.WithOperation(ctx, r.Operation)
+			}})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = m.Close(context.Background()) })
+		rt := tools.New(m, settingsAdapter{Selector: sel, m: m}, admin(true))
+		Expect(call(rt, "confirm-host", "root", "", map[string]any{"phrase": backends.HostPhrase})["ok"]).To(Equal(true))
+		Expect(call(rt, "set-backend", "root", "", map[string]any{"backend": "host"})["ok"]).To(Equal(true))
+
+		got := call(rt, tools.ToolJob, "alice", "conv1", map[string]any{"verb": "start", "label": "e2e", "command": "sleep 1; echo from a job > job.txt; echo out; exit 4"})
+		Expect(got["ok"]).To(Equal(true), "start = %v", got)
+		id := got["job"].(map[string]any)["id"].(string)
+		m.Sweep(context.Background()) // idle, but a job runs: no suspend
+		var job map[string]any
+		Eventually(func() string {
+			r := call(rt, tools.ToolJob, "alice", "conv1", map[string]any{"verb": "read", "id": id, "observe": true})
+			job, _ = r["job"].(map[string]any)
+			s, _ := job["state"].(string)
+			return s
+		}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal("exited"))
+		Expect(job["exit"]).To(BeEquivalentTo(4))
+		out := call(rt, tools.ToolJob, "alice", "conv1", map[string]any{"verb": "read", "id": id})
+		Expect(out["output"]).To(Equal("out\n"))
+		Expect(eng.committed).To(HaveKeyWithValue("home/job.txt", "from a job\n"))
 	})
 })

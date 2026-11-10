@@ -59,9 +59,13 @@ func main() {
 		// Without a host channel nothing can decide, so no port is offered.
 		var ports func(user, conv string) map[int]sandbox.PortHandler
 		var begin func(ctx context.Context, user, conv, op string) func()
+		var opts []tools.Option
 		if client != nil {
 			proxy := egress.New(egress.Options{Host: hostEgress{client}})
 			ports, begin = proxy.Ports, proxy.Begin
+			// A background job reaches the network under its own operation,
+			// which the host keeps live for it (the job lease).
+			opts = append(opts, tools.WithJobEgress(proxy))
 		}
 		store := remote.New(client, s.DataDir)
 		imgs, err := releaseImages()
@@ -135,6 +139,6 @@ func main() {
 			// anybody waits for them.
 			deliv.Prepull(context.Background())
 		}()
-		return tools.New(m, settingsAdapter{Selector: sel, m: m, d: deliv}, hostAdmin{client})
+		return tools.New(m, settingsAdapter{Selector: sel, m: m, d: deliv}, hostAdmin{client}, opts...)
 	}))
 }
