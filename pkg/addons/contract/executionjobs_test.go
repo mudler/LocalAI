@@ -111,6 +111,11 @@ var _ = Describe("Execution jobs", func() {
 			Entry("input with a signal", JobArgs{Verb: JobInput, ID: "job-abcdef", Input: "a", Signal: "kill"}, false),
 			Entry("kill", JobArgs{Verb: JobKill, ID: "job-abcdef", Signal: "int"}, true),
 			Entry("kill with a bad signal", JobArgs{Verb: JobKill, ID: "job-abcdef", Signal: "hup"}, false),
+			Entry("kill for a reason", JobArgs{Verb: JobKill, ID: "job-abcdef", Reason: "group_off"}, true),
+			Entry("kill stopped by the person", JobArgs{Verb: JobKill, ID: "job-abcdef", Reason: "stopped"}, true),
+			Entry("kill for a reason only the add-on gives", JobArgs{Verb: JobKill, ID: "job-abcdef", Reason: "lifetime"}, false),
+			Entry("kill for an unknown reason", JobArgs{Verb: JobKill, ID: "job-abcdef", Reason: "because"}, false),
+			Entry("read with a reason", JobArgs{Verb: JobRead, ID: "job-abcdef", Reason: "fenced"}, false),
 			Entry("unknown verb", JobArgs{Verb: "exec"}, false),
 		)
 	})
@@ -124,6 +129,13 @@ var _ = Describe("Execution jobs", func() {
 			Expect(JobReply{OK: true, Job: &running, Output: "hi", From: 98, Next: 100}.Validate(read)).To(Succeed())
 			Expect(JobReply{OK: true, Jobs: []JobInfo{running, done}}.Validate(JobArgs{Verb: JobList})).To(Succeed())
 			Expect(JobReply{Code: JobCodeUnknown, Error: "no such job"}.Validate(read)).To(Succeed())
+		})
+		It("accepts each end reason the host may ask for", func() {
+			for _, r := range []string{"stopped", "chat_deleted", "agent_ended", "shell_off", "group_off", "fenced"} {
+				j := done
+				j.State, j.End = "exited", r
+				Expect(JobReply{OK: true, Jobs: []JobInfo{j}}.Validate(JobArgs{Verb: JobList})).To(Succeed(), r)
+			}
 		})
 		DescribeTable("refuses what a broken or hostile add-on answers", func(r JobReply, a JobArgs) {
 			Expect(r.Validate(a)).To(MatchError(ErrJobReply))

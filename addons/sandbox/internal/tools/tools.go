@@ -76,7 +76,8 @@ const JobSchema = `{"type":"object","properties":{` +
 	`"observe":{"type":"boolean"},` +
 	`"input":{"type":"string","maxLength":2000},` +
 	`"closeInput":{"type":"boolean"},` +
-	`"signal":{"type":"string","enum":["term","int","kill"]}},` +
+	`"signal":{"type":"string","enum":["term","int","kill"]},` +
+	`"reason":{"type":"string","enum":["stopped","chat_deleted","agent_ended","shell_off","group_off","fenced"]}},` +
 	`"required":["verb"],"additionalProperties":false}`
 
 // Settings is the choice of backend. *backends.Selector implements all but
