@@ -464,7 +464,9 @@ stop it. Type `/loop` in the message box, or use the API.
   at once. `spawn_agent` with `wait` set to true returns after at most two
   minutes of waiting for a sub-agent that ended its turn and holds for a loop
   or a wait; the sub-agent then goes on in the background and its result
-  arrives as a message.
+  arrives as a message. To be woken when a background sub-agent makes no
+  progress, `wait_for` takes the id that `spawn_agent` returned as `job`, with
+  `exit` or `stall` (see "Waits on a job" and "Background jobs").
 - **The promise guard.** When the last answer of a turn promises a later
   check or action ("I'll check in a few minutes", "Controllo tra poco") and
   nothing is armed in the chat (no active or running loop or wait, no running
@@ -1179,13 +1181,44 @@ chat: each `bash` call, and one more when the job ends (a change named `Job
 job-4k2x7q: build`). A `bash` call that runs while the job writes a file may
 save it half written; the next checkpoint corrects it.
 
-**Distributed mode.** A job is a process in the memory of one node, so jobs are
-per-instance by design. The chat record keeps an index of its jobs (id, node,
-provider, state, never the command), so a turn that runs on another node still
-reads, writes to and kills the job, by a request to the node that runs it. If
-that node restarted or left the cluster, the job is marked lost and its output
-and exit status are gone. If the node only answers slowly, nothing changes and
-the model is told to try again.
+**In the Sandbox.** When the Sandbox serves the chat's `bash`, the job runs in
+the chat's sandbox, inside the add-on. The sandbox stays awake while a job runs.
+It needs a Sandbox add-on of feature level 6; with an older one, `job start`
+says so and runs nothing elsewhere (see [Execution provider and status
+payload]({{%relref "features/addons#execution-provider-and-status-payload" %}})).
+A call that must make the sandbox again (a new profile, folder or mode) ends the
+chat's jobs first and says so at the top of its output.
+A user's sandboxes with work in them count against the limit of sandboxes per
+user, so jobs run in at most that many chats of one user at once.
+
+**Sub-agents.** A sub-agent gets `job` exactly when it gets `bash`, with the
+same limits and the same checks. It never sees a card, so on this machine it
+runs a job only in mode `on`. Its jobs end when it ends its run, unless it waits
+for one with `wait_for`; the parent can list, read and kill them, not write to
+them. The wake-up of a wait on a job of a sub-agent goes to the sub-agent, not
+to the parent.
+
+**See and stop a job.** The jobs of a chat are listed above the message box,
+with the loops and waits: the label the model gave, the state in words (running,
+no output for a while, exited with its status, stopped, killed, lost), where it
+runs and for how long. Finished jobs fold into one line. The list never shows
+the command. **Stop** ends a running job as you: `term`, then `kill` after 10
+seconds, and the end reason reads "stopped". The same is
+`POST /api/chats/{id}/jobs/{job}/kill`, for the owner of the chat only. The jobs
+are also in the `jobs` field of `GET /api/chats/{id}` and of
+`GET /api/chats/{id}/loops`: `id`, `label`, `state`, `end`, `exit`, `started`,
+`ended`, `last_output`, `bytes`, `provider` and whether a sub-agent started it.
+
+**Distributed mode.** A job is a process in the memory of one node (or of the
+Sandbox add-on), so jobs are per-instance by design: they are not shared and not
+moved. A restart of that process or the loss of that node ends the job, and its
+output and exit status are gone. The chat record keeps an index of its jobs (id,
+node, provider, state, never the command), so a turn that runs on another node
+still reads, writes to and kills the job, by a request to the node that runs it.
+After the loss the index marks the job lost, and a wait on it wakes with a text
+that says the job is gone with its node and that the condition is not known. If
+the node only answers slowly, nothing changes and the model is told to try
+again.
 
 ### Network of the Sandbox commands
 
@@ -1344,7 +1377,10 @@ shown when the Sandbox is already installed, or when add-ons are off.
   and when the output passes 64 KiB. One call runs at a time in a chat, and at
   most four chats of one user run commands at once.
 - **Audit.** Every call is recorded: user, chat, command (cut at 4 KiB), exit
-  code, duration and whether it timed out, in the auth database (in a cluster,
+  code, duration and whether it timed out. A line has a `kind`: `run` for a
+  `bash` command, and `job_start`, `job_input` (the text written, cut at 4 KiB),
+  `job_kill` and `job_end` (exit and duration) for a background job, with its
+  `job` id. The record is kept in the auth database (in a cluster,
   shared by every frontend), in a file under the data path, or in memory. The
   server log has one line per command with the prefix `[host-exec]`.
   Administrators read the audit with `GET /api/chats/admin/host-exec/events`
