@@ -17,10 +17,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/safefile"
@@ -57,11 +59,21 @@ func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string,
 // StartFileTransferServerWithCapacity starts the file transfer server with a
 // worker-local guard for per-request ephemeral inputs.
 func StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithControl(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+// StartFileTransferServerWithControl is StartFileTransferServerWithCapacity plus
+// the control plane of the worker. A non-nil control handler serves every path
+// under workerctl.Prefix, behind the same bearer check as the file routes. The
+// handler may gain its routes after the server started, as http.ServeMux does,
+// so a worker can start the server before the supervisor that owns the verbs
+// exists.
+func StartFileTransferServerWithControl(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, logStore...)
+	return startFileTransferServerWithControl(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, control, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
@@ -79,6 +91,10 @@ func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDi
 }
 
 func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return startFileTransferServerWithControl(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+func startFileTransferServerWithControl(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -92,6 +108,11 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 	// to fail closed) to protect it.
 	if token == "" {
 		xlog.Warn("HTTP file transfer server starting WITHOUT a registration token — read/write to models/staging/data is unauthenticated for anyone who can reach this port; set LOCALAI_REGISTRATION_TOKEN")
+	}
+
+	if control != nil && token == "" {
+		xlog.Warn("The control plane of this worker has no registration token, so it serves only callers on this host. " +
+			"A frontend reaches it through the tunnel; set LOCALAI_REGISTRATION_TOKEN to serve it to a caller on the network")
 	}
 
 	mux := http.NewServeMux()
@@ -157,6 +178,17 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	// The control plane of the worker, for a worker that a frontend reaches over
+	// a tunnel. The bearer check is the one of the file routes: a verb can stop a
+	// node, so it is never served without it.
+	if control != nil {
+		if slot, ok := control.(*ControlSlot); ok {
+			mux.Handle(workerctl.Prefix, slot.gated(token))
+		} else {
+			mux.Handle(workerctl.Prefix, controlGate(token, control))
+		}
+	}
 
 	// Backend log endpoints (only registered when a log store is provided)
 	var ls *model.BackendLogStore
@@ -1053,6 +1085,88 @@ func resolveKeyToDir(key, stagingDir, modelsDir, dataDir string) (targetDir, rel
 	return
 }
 
+// ControlSlot is a control plane that a worker can attach after its HTTP server
+// started, and detach again. A worker that booted on NATS has none, and a later
+// switch to the tunnel needs one without a restart.
+//
+// While nothing is attached, the path answers as a path that does not exist, so a
+// worker that never attaches behaves as it did before the slot existed. The
+// bearer check applies to what is attached, as for any control plane.
+type ControlSlot struct {
+	handler atomic.Pointer[http.Handler]
+}
+
+// Set attaches the control plane. A nil handler detaches it.
+func (s *ControlSlot) Set(h http.Handler) {
+	if h == nil {
+		s.handler.Store(nil)
+		return
+	}
+	s.handler.Store(&h)
+}
+
+// ServeHTTP serves the attached control plane, and 404 when there is none.
+func (s *ControlSlot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h := s.handler.Load(); h != nil {
+		(*h).ServeHTTP(w, r)
+		return
+	}
+	http.NotFound(w, r)
+}
+
+// gated is the slot behind controlGate. The check of the token comes after the
+// test for an attached plane, so that a path with nothing behind it does not
+// answer 401 to a caller who could not know that it exists.
+func (s *ControlSlot) gated(token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := s.handler.Load()
+		if h == nil {
+			http.NotFound(w, r)
+			return
+		}
+		controlGate(token, *h).ServeHTTP(w, r)
+	})
+}
+
+// controlGate puts the check of the control plane in front of next.
+//
+// The file routes have always fail open on an empty token, and a worker on NATS
+// keeps that. The control verbs are worse: they install a backend from any URI,
+// stop the node and delete models. A worker on the tunnel carrier that was given
+// an address binds every interface, so a control plane that failed open would be
+// open to the network. With a token, the bearer check decides, as for the file
+// routes. Without one, only a caller on the loopback address is served, which is
+// the stream that the tunnel opens on the worker, and any other caller is
+// refused for every verb.
+func controlGate(token string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token == "" {
+			if !fromLoopback(r) {
+				http.Error(w, "the control plane needs a registration token for a caller that is not on this host", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// fromLoopback reports whether the peer of the request is on the loopback
+// interface of this host.
+func fromLoopback(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 // checkBearerToken validates a Bearer token from the Authorization header
 // using constant-time comparison. Returns true if valid or if expectedToken is empty.
 func checkBearerToken(r *http.Request, expectedToken string) bool {
@@ -1065,6 +1179,19 @@ func checkBearerToken(r *http.Request, expectedToken string) bool {
 	}
 	provided := auth[7:]
 	return subtle.ConstantTimeCompare([]byte(provided), []byte(expectedToken)) == 1
+}
+
+// RequireBearer puts the bearer check of the worker in front of next. A request
+// without the token is answered 401. An empty token lets everything through, as
+// it does for the file routes.
+func RequireBearer(token string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // validatePathInDir checks that targetPath is within the given base directory.

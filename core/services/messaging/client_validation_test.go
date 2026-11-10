@@ -50,7 +50,7 @@ var _ = Describe("Client subject validation", func() {
 		})
 
 		It(name+" refuses a multi-token wildcard before using the connection", func() {
-			Expect(call("jobs.>")).To(MatchError(messaging.ErrUnsupportedWildcard))
+			Expect(call("gallery.>")).To(MatchError(messaging.ErrUnsupportedWildcard))
 		})
 	}
 })

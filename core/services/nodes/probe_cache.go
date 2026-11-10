@@ -73,22 +73,49 @@ func (c *probeCache) Invalidate(key string) {
 // probes invalidate the cache, so a transient miss doesn't pin every
 // subsequent request to a re-probe.
 func (c *probeCache) DoOrCached(key string, probe func() bool) bool {
+	return c.DoOrCachedVerdict(key, func() probeVerdict {
+		if probe() {
+			return probeAlive
+		}
+		return probeDead
+	}) == probeAlive
+}
+
+// probeVerdict is what a probe of a backend found. Only probeDead is a statement
+// that the backend is gone.
+type probeVerdict int
+
+const (
+	// probeAlive: the backend answered.
+	probeAlive probeVerdict = iota
+	// probeDead: the backend did not answer, and the probe reached its host.
+	probeDead
+	// probeUnknown: the probe could not reach the host, because the transport
+	// failed. Nothing was learned about the backend.
+	probeUnknown
+)
+
+// DoOrCachedVerdict is DoOrCached for a probe that can say that it learned
+// nothing. Only probeAlive is cached, and every other verdict invalidates the
+// cache. Callers that coalesce on the same key all get the verdict of the one
+// probe that ran.
+func (c *probeCache) DoOrCachedVerdict(key string, probe func() probeVerdict) probeVerdict {
 	if c.IsFresh(key) {
-		return true
+		return probeAlive
 	}
 	v, _, _ := c.flight.Do(key, func() (any, error) {
 		// Double-check after potentially waiting: another caller in this
 		// flight may have just populated the cache.
 		if c.IsFresh(key) {
-			return true, nil
+			return probeAlive, nil
 		}
-		ok := probe()
-		if ok {
+		verdict := probe()
+		if verdict == probeAlive {
 			c.markFresh(key)
 		} else {
 			c.Invalidate(key)
 		}
-		return ok, nil
+		return verdict, nil
 	})
-	return v.(bool)
+	return v.(probeVerdict)
 }

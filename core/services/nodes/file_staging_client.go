@@ -42,6 +42,10 @@ type FileStagingClient struct {
 	remoteModelPath string // set during LoadModel from staged ModelPath
 }
 
+// Unwrap returns the client that this one decorates, so that a caller can ask it
+// why a dial failed. See grpc.BackendUnwrapper.
+func (c *FileStagingClient) Unwrap() grpc.Backend { return c.Backend }
+
 type ttsReference struct {
 	Audio string `json:"audio"`
 	Text  string `json:"text"`
