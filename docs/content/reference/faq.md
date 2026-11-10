@@ -4,6 +4,8 @@ title = "FAQ"
 icon = "quiz"
 weight = 70
 aliases = ["/faq/"]
+description = "Answers to common questions about LocalAI."
+keywords = ["faq","questions"]
 +++
 
 ## Frequently asked questions
@@ -75,7 +77,7 @@ Yes! If the client uses OpenAI and supports setting a different base URL to send
 Many clients read the endpoint from the `OPENAI_BASE_URL` environment variable (older ones use `OPENAI_API_BASE`), so pointing an existing app at LocalAI is often just `OPENAI_BASE_URL=http://localhost:8080/v1`. Clients that insist on a non-empty API key accept any placeholder value, unless you have configured `api_keys`.
 {{% /callout %}}
 
-### Can this leverage GPUs? 
+### Can this use GPUs? 
 
 There is GPU support, see {{%relref "/models/gpu-acceleration" %}}.
 

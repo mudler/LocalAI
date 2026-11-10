@@ -3,6 +3,8 @@ url = "/features/audio-to-text/"
 disableToc = false
 title = "Audio to Text"
 weight = 30
+description = "Transcribe audio to text with the OpenAI-compatible transcription API."
+keywords = ["transcription","speech to text","whisper","asr"]
 +++
 
 Audio to text models are models that can generate text from an audio file.

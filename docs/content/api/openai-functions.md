@@ -3,6 +3,8 @@ disableToc = false
 title = "OpenAI Functions and Tools"
 weight = 20
 aliases = ["/features/openai-functions/"]
+description = "Use the OpenAI functions and tools API with LocalAI models on any backend."
+keywords = ["functions","tools","tool calling","json mode"]
 +++
 
 ![Function calling: one tool-call request shape, each backend's native parser extracts the calls](/docs/images/diagrams/tool-call-parsers.png)

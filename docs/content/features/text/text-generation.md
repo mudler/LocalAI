@@ -3,6 +3,8 @@ url = "/features/text-generation/"
 disableToc = false
 title = "Text Generation (GPT)"
 weight = 10
+description = "Generate text with LocalAI through the OpenAI-compatible API, with llama.cpp and other backends."
+keywords = ["text generation","completions","chat completions","llm"]
 +++
 
 LocalAI generates text with the `llama-cpp` backend and with other backends, such as `vllm` and `transformers`. See also the [Model compatibility]({{%relref "/models/compatibility-table" %}}) for an up-to-date list of the supported model families.

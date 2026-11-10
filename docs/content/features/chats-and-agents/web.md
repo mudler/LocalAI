@@ -3,6 +3,8 @@ url = "/features/web/"
 disableToc = false
 title = "Web search and web pages in chats"
 weight = 22
+description = "A chat can search the web and read web pages with two built-in tools, with no add-on and no key."
+keywords = ["web search","browse","chat"]
 +++
 
 A [chat]({{% relref "/features/chats-and-agents/chats" %}}) can search the web and read web pages. LocalAI

@@ -5,9 +5,11 @@ icon = "rocket_launch"
 
 weight = 120
 aliases = ["/getting-started/customize-model/"]
+description = "Edit the configuration and the prompt template of an installed model."
+keywords = ["model configuration","prompt template","yaml"]
 +++
 
-To customize the prompt template or the default settings of the model, a configuration file is utilized. This file must adhere to the LocalAI YAML configuration standards. For comprehensive syntax details, refer to the [advanced documentation]({{%relref "/models/advanced-usage" %}}). The configuration file can be located either remotely (such as in a Github Gist) or within the local filesystem or a remote URL.
+A model configuration file sets the prompt template and the default settings of a model. It uses the LocalAI YAML format. For the syntax, see [Advanced usage]({{%relref "/models/advanced-usage" %}}). The file can be on the local file system, or at a URL such as a GitHub Gist.
 
 LocalAI can be initiated using either its container image or binary, with a command that includes URLs of model config files or utilizes a shorthand format (like `huggingface://` or `github://`), which is then expanded into complete URLs.
 

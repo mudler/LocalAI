@@ -4,6 +4,8 @@ title = "Try it out"
 icon = "rocket_launch"
 weight = 110
 aliases = ["/basics/try/"]
+description = "Call the OpenAI-compatible endpoints of LocalAI with curl: chat, vision, images, speech and embeddings."
+keywords = ["api","curl","examples","openai"]
 +++
 
 Once LocalAI is installed, you can start it (either by using docker, or the cli, or the systemd service).
@@ -51,7 +53,7 @@ You can also test out the API endpoints using `curl`. A few examples are listed 
 Each example assumes you have already installed the model it names. The chat and function-calling examples below use `qwen3-4b` (install it from the Models page or with `local-ai run qwen3-4b`). The other examples name a model for the task they show (`gpt-4-vision-preview` for vision, `tts-1` for text to speech, `whisper-1` for transcription, `text-embedding-ada-002` for embeddings); replace each with the name of a model you have installed for that task.
 {{% /callout %}}
 
-### Text Generation
+## Text Generation
 
 Creates a model response for the given chat conversation. [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat/create).
 
@@ -65,7 +67,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 </details>
 
-### GPT Vision
+## GPT Vision
 
 Understand images.
 
@@ -95,7 +97,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 </details>
 
-### Function calling
+## Function calling
 
 Call functions
 
@@ -141,7 +143,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 </details>
 
-### Anthropic Messages API
+## Anthropic Messages API
 
 LocalAI supports the Anthropic Messages API for Claude-compatible models. [Anthropic documentation](https://docs.anthropic.com/claude/reference/messages_post).
 
@@ -163,7 +165,7 @@ curl http://localhost:8080/v1/messages \
 
 </details>
 
-### Open Responses API
+## Open Responses API
 
 LocalAI supports the Open Responses API specification with support for background processing, streaming, and advanced features. [Open Responses documentation](https://www.openresponses.org/specification).
 
@@ -201,7 +203,7 @@ curl http://localhost:8080/v1/responses/<response_id>
 
 </details>
 
-### Image Generation
+## Image Generation
 
 Creates an image given a prompt. [OpenAI documentation](https://platform.openai.com/docs/api-reference/images/create).
 
@@ -217,7 +219,7 @@ curl http://localhost:8080/v1/images/generations \
 
 </details>
 
-### Text to speech
+## Text to speech
 
 
 Generates audio from the input text. [OpenAI documentation](https://platform.openai.com/docs/api-reference/audio/createSpeech).
@@ -238,7 +240,7 @@ curl http://localhost:8080/v1/audio/speech \
 </details>
 
 
-### Audio Transcription
+## Audio Transcription
 
 Transcribes audio into the input language. [OpenAI Documentation](https://platform.openai.com/docs/api-reference/audio/createTranscription).
 
@@ -259,7 +261,7 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 </details>
 
-### Embeddings Generation
+## Embeddings Generation
 
 Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms. [OpenAI Embeddings](https://platform.openai.com/docs/api-reference/embeddings).
 

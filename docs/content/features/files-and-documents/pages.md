@@ -3,6 +3,8 @@ url = "/features/pages/"
 disableToc = false
 title = "Pages"
 weight = 22
+description = "Pages are small HTML pages in your workspace, shown in a sandboxed frame and usable on Home."
+keywords = ["pages","html","home"]
 +++
 
 A page is a small HTML page in your workspace that LocalAI shows as part of its
