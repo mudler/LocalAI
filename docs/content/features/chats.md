@@ -1240,7 +1240,7 @@ save it half written; the next checkpoint corrects it.
 the chat's sandbox, inside the add-on. The sandbox stays awake while a job runs.
 It needs a Sandbox add-on of feature level 6; with an older one, `job start`
 says so and runs nothing elsewhere (see [Execution provider and status
-payload]({{%relref "features/addons#execution-provider-and-status-payload" %}})).
+payload]({{%relref "/addons/contract-reference#execution-provider-and-status-payload" %}})).
 A call that must make the sandbox again (a new profile, folder or mode) ends the
 chat's jobs first and says so at the top of its output.
 
