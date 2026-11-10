@@ -6590,7 +6590,7 @@ matplotlib draws charts without a display: it writes PNG and SVG files, and the 
 
 1. The profile the person picked in the chat. The picker sits next to the network switcher in the Tools menu of the chat.
 2. The profile of the saved agent of the chat (`sandbox_profile`). Unattended runs of an agent (triggers, jobs, connectors) use it too.
-3. The default profile of the administrator (`default` of the policy below), then `base`.
+3. The default profile of the administrator (`default` of the policy below), then `media`, then `base`. With media as the default, each sandbox reserves the limits of `media` (2 CPUs, 4 GiB of memory, 20 GiB of disk); an administrator who wants the smaller `base` sets it as the default.
 
 Switching the profile restarts the sandbox at the next command. The user's files stay. Running processes and installed packages are lost, and the picker says so before you switch. The model can switch too with one tool, `sandbox_profile`: the action `list` shows the profiles with their programs, and the action `use` switches. It is in the *Run commands* group of the chat and follows the rules of the picker: the user's own chat and the policy of the administrator. A skill can name the profile it wants with the frontmatter field `sandbox: media` (see [Chats](/features/chats/)). It is a hint: the model is told, may offer the switch and never switches without the person's yes.
 
@@ -6598,7 +6598,7 @@ Switching the profile restarts the sandbox at the next command. The user's files
 
 | Key | Meaning |
 |---|---|
-| `default` | The profile a new chat gets. Empty: `base`. |
+| `default` | The profile a new chat gets. Empty: `media`, or `base` when the add-on has no `media` profile. |
 | `access` | For a profile, the `roles` (`admin`, `user`) and the `users` who may use it. A profile that is not listed, or has no roles and no users, is open to everyone. |
 | `memory_mib`, `disk_mib` | The most memory and disk one sandbox may have, whatever the profile asks. `0` is no cap. |
 | `pin_previous` | The profiles that run their previous image. See below. |

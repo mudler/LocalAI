@@ -40,7 +40,7 @@ var _ = Describe("The sandbox profile policy", func() {
 		Expect(err).NotTo(HaveOccurred())
 		p := snap.Policy.SandboxPolicy()
 		Expect(p.Allows("heavy", "alice", "user")).To(BeTrue())
-		Expect(p.DefaultProfile()).To(Equal("base"))
+		Expect(p.DefaultProfile()).To(Equal("media"))
 		raw, _ := json.Marshal(snap.Policy)
 		Expect(string(raw)).To(ContainSubstring(`"sandbox_profiles":{"default":"","access":{},"memory_mib":0,"disk_mib":0,"pin_previous":[]}`))
 	})

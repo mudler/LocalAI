@@ -1195,7 +1195,8 @@ A Sandbox add-on that declares profiles (the Sandbox does: `base` and
 `media`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
-default of the administrator, or the profile of its saved agent. Switching
+default of the administrator (`media` when the administrator sets none), or the
+profile of its saved agent. Switching
 restarts the sandbox at the next command: your files stay, running processes and
 installed packages are lost, and the row says so before you switch. While the
 image of a profile is pulled for the first time, the row shows the progress. If

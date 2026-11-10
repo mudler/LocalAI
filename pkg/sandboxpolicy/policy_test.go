@@ -14,8 +14,8 @@ func TestOpenByDefault(t *testing.T) {
 			t.Errorf("%s: the empty policy must allow everyone", id)
 		}
 	}
-	if p.DefaultProfile() != "base" || p.Pinned("media") {
-		t.Error("the empty policy defaults to base and pins nothing")
+	if p.DefaultProfile() != "media" || p.Pinned("media") {
+		t.Error("the empty policy defaults to media and pins nothing")
 	}
 }
 

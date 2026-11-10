@@ -166,6 +166,7 @@ test.describe('Sandbox profiles control', () => {
   async function open(page) {
     const state = await mockAddons(page, { apps: [RUNNER], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' })] })
     await page.route('**/api/chats/admin/sandbox-profiles', route => route.fulfill({ json: ADMIN }))
+    await page.route('**/api/chats/sandbox-profiles', route => route.fulfill({ json: { addon: 'sandbox', default: 'media', profiles: ADMIN.profiles } }))
     await page.goto('/app/addons?detail=sandbox&view=settings')
     await expect(page.getByTestId('sandbox-profiles-settings')).toBeVisible({ timeout: 15_000 })
     return state
@@ -176,7 +177,8 @@ test.describe('Sandbox profiles control', () => {
     await expect(page.getByTestId('sandbox-profile-who-media')).toHaveText('Everyone')
     await expect(page.getByTestId('sandbox-profiles-save')).toBeDisabled()
     await expect(page.getByTestId('sandbox-profile-pin-base')).toBeDisabled()
-    await page.getByTestId('sandbox-profiles-default').selectOption('media')
+    await expect(page.getByTestId('sandbox-profiles-default')).toHaveValue('media')
+    await page.getByTestId('sandbox-profiles-default').selectOption('base')
     await page.getByTestId('sandbox-profile-role-media-admin').check()
     await page.getByTestId('sandbox-profile-users-media').fill('alice, bob')
     await expect(page.getByTestId('sandbox-profile-who-media')).toHaveText('Only the roles and users below')
@@ -185,7 +187,7 @@ test.describe('Sandbox profiles control', () => {
     await shot(page, 'sbp-admin')
     await page.getByTestId('sandbox-profiles-save').click()
     await expect.poll(() => state.log.hostSettings).toEqual([{ sandbox_profiles: {
-      default: 'media', access: { media: { roles: ['admin'], users: ['alice', 'bob'] } }, memory_mib: 4096, disk_mib: 0, pin_previous: ['media'],
+      default: 'base', access: { media: { roles: ['admin'], users: ['alice', 'bob'] } }, memory_mib: 4096, disk_mib: 0, pin_previous: ['media'],
     } }])
     await expect(page.getByTestId('sandbox-profiles-save')).toBeDisabled()
     await expect(page.getByTestId('sandbox-profiles-memory')).toHaveValue('4096')
