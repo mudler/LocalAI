@@ -204,9 +204,10 @@ func (f *switchFrontend) url() string { return fmt.Sprintf("http://127.0.0.1:%d"
 func (s *switchStack) frontend(name string, port int) *switchFrontend {
 	GinkgoHelper()
 	dir := filepath.Join(s.root, name)
-	for _, d := range []string{"models", "data", "backends", "cfg", "gen", "up"} {
+	for _, d := range []string{"models", "backends", "cfg", "gen", "up"} {
 		Expect(os.MkdirAll(filepath.Join(dir, d), 0o755)).To(Succeed())
 	}
+	Expect(os.MkdirAll(filepath.Join(s.root, "shared-data"), 0o755)).To(Succeed())
 	cfg := "name: " + switchModel + "\nbackend: mock\nparameters:\n  model: " + switchModel + ".bin\n"
 	Expect(os.WriteFile(filepath.Join(dir, "models", switchModel+".yaml"), []byte(cfg), 0o644)).To(Succeed())
 
@@ -225,13 +226,19 @@ func (s *switchStack) frontend(name string, port int) *switchFrontend {
 	fe.args = []string{"run",
 		"--address", fmt.Sprintf("127.0.0.1:%d", port),
 		"--models-path", filepath.Join(dir, "models"),
-		"--data-path", filepath.Join(dir, "data"),
+		// The frontends share the data path, as the frontends of a deployment
+		// without S3 share their volume: a frontend refuses to start on a blob
+		// folder that the other frontends of the database do not see.
+		"--data-path", filepath.Join(s.root, "shared-data"),
 		"--backends-path", filepath.Join(dir, "backends"),
 		"--backends-system-path", filepath.Join(dir, "nosys"),
 		"--localai-config-dir", filepath.Join(dir, "cfg"),
 		"--generated-content-path", filepath.Join(dir, "gen"),
 		"--upload-path", filepath.Join(dir, "up"),
 		"--log-level", "debug",
+		// The frontends run on one host, and the add-on owner of each would
+		// take the same loopback port. The switch needs no add-on.
+		"--addons-enabled=false",
 	}
 	fe.switchProc = s.start(name, dir, fe.env, fe.args...)
 	return fe
