@@ -16,11 +16,11 @@ import (
 // add-on right now. A host operation is allowed only while its operation ID
 // is in here, so an add-on cannot act when no user asked it to.
 type InFlight struct {
-	mu           sync.Mutex
-	entries      map[string]*live
+	mu      sync.Mutex
+	entries map[string]*live
 	// reserved counts, per add-on, the places of the leases that starts
 	// in flight may make (ReserveLease).
-	reserved map[string]int
+	reserved     map[string]int
 	observations map[string]*observation
 }
 
