@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>How a request flows</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Under the hood</p>
+<h1>How a request <span class="hl">flows</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="flow big"><div class="node cen" style=""><b>Client</b><span>POST /v1/chat/completions</span></div><div class="ar"></div><div class="node cen" style=""><b>API</b><span>auth, quotas, middleware</span></div><div class="ar"></div><div class="node cen" style=""><b>Model config</b><span>the model name picks a backend</span></div><div class="ar"></div><div class="node core cen" style=""><b>Backend</b><span>its own process, over gRPC</span></div><div class="ar"></div><div class="node cen" style=""><b>Hardware</b><span>CPU or GPU</span></div></div>
+<div class="row" style="margin:20px 0 0;gap:0"><div class="rowlab" style="width:auto;margin-right:20px">Reply</div><div class="ar back" style="width:220px;height:4px"></div><span style="font-size:26px;margin-left:30px">tokens stream back as server-sent events</span></div>
+<div class="panel" style="margin-top:28px;padding:18px 24px"><h3>The first request for a model</h3><span style="font-size:26px">LocalAI starts the backend process on a local port and loads the model. The process stays loaded for the next requests, until it is evicted or stopped.</span></div>
+
+</div>
+<div class="foot">One API in front. <b>Each model runs in its own process.</b></div>
+</body></html>
