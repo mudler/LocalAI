@@ -328,6 +328,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		distStore := nodes.NewDistributedModelStore(
 			model.NewInMemoryModelStore(),
 			distSvc.Registry,
+			nodes.WithClientFactory(distSvc.Clients),
 		)
 		application.modelLoader.SetModelStore(distStore)
 		// Drop the local stub when a model's last replica leaves the registry.
@@ -345,11 +346,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 			go distSvc.Reconciler.Run(options.Context)
 		}
 		go distSvc.ModelCleanup.Run(options.Context)
+		// Follow the cluster carrier row, lead the protocol of a change of carrier when
+		// this replica holds the leadership, and report which carriers it could build.
+		// It starts after the services that use the carrier.
+		distSvc.StartCarrierSwitch(options.Context, application.authDB)
 		// Start ephemeral file cleanup
 		storage.StartEphemeralCleanup(options.Context, distSvc.FileMgr, 0, 0)
 		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
 		if application.galleryService != nil {
-			application.galleryService.SetNATSClient(distSvc.Nats)
+			application.galleryService.SetNATSClient(distSvc.Broadcaster)
 			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
 				// Clean up stale in-progress operations from previous crashed instances
 				if _, err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
@@ -538,7 +543,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// frontend runs its own pass against the shared models directory; the
 	// pass is idempotent, so no leader is needed.
 	if modelConfigResync != nil && distSvc != nil {
-		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
+		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Broadcaster)
 	}
 
 	// Preloads run outside the operation loop, so they do not get the

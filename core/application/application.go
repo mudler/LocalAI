@@ -934,6 +934,9 @@ func (a *Application) start() (startErr error) {
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}
+	if a.distributed != nil && a.distributed.Switch != nil {
+		assistantClient.Carrier = a.distributed.Switch
+	}
 	// PII filter — same nil-or-real wiring.
 	assistantClient.PIIRedactor = a.piiRedactor
 	assistantClient.PIIEvents = a.piiEvents
@@ -985,8 +988,8 @@ func (a *Application) StartCollections() {
 		if d.Registry != nil {
 			a.waitForHealthyWorker()
 		}
-		if d.Nats != nil {
-			bus = d.Nats
+		if d.Broadcaster != nil {
+			bus = d.Broadcaster
 		}
 	}
 	svc, err := collections.New(a.applicationConfig, bus, a.collectionsOptions()...)

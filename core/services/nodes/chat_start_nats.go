@@ -44,12 +44,12 @@ func newChatStartOptions(opts []ChatStartOption) chatStartOptions {
 // NATSChatStarter sends the frontend's chat starts to the chat-workers queue
 // group as NATS request/reply. One worker of the group runs the turn.
 type NATSChatStarter struct {
-	bus     messaging.MessagingClient
+	bus     messaging.RequestReply
 	timeout time.Duration
 }
 
 // NewNATSChatStarter returns a NATSChatStarter on bus.
-func NewNATSChatStarter(bus messaging.MessagingClient, opts ...ChatStartOption) *NATSChatStarter {
+func NewNATSChatStarter(bus messaging.RequestReply, opts ...ChatStartOption) *NATSChatStarter {
 	return &NATSChatStarter{bus: bus, timeout: newChatStartOptions(opts).timeout}
 }
 
@@ -69,12 +69,12 @@ func (c *NATSChatStarter) StartChat(ctx context.Context, req workerctl.ChatStart
 
 // NATSChatStartServer is the chat worker's end of NATSChatStarter.
 type NATSChatStartServer struct {
-	bus     messaging.MessagingClient
+	bus     messaging.RequestReply
 	timeout time.Duration
 }
 
 // NewNATSChatStartServer returns a server on bus.
-func NewNATSChatStartServer(bus messaging.MessagingClient, opts ...ChatStartOption) *NATSChatStartServer {
+func NewNATSChatStartServer(bus messaging.RequestReply, opts ...ChatStartOption) *NATSChatStartServer {
 	return &NATSChatStartServer{bus: bus, timeout: newChatStartOptions(opts).timeout}
 }
 
