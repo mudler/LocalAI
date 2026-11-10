@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -218,6 +221,7 @@ func (j *SandboxJobs) Observe(ctx context.Context, s SandboxJobScope, req bgjob.
 		return bgjob.Observation{}, err
 	}
 	o := s.observation(r)
+	o.Since = since
 	tail := req.TailBytes
 	if tail <= 0 {
 		tail = bgjob.DefaultTailBytes
@@ -298,28 +302,244 @@ func SandboxJobText(err error) (string, bool) {
 	return "", false
 }
 
-// addonJobText is the answer of a chat whose bash the Sandbox add-on serves
-// when that add-on cannot run background jobs: it is older than this LocalAI.
-// A Sandbox chat never falls back to the built-in bash for a job.
-const addonJobText = "The Sandbox add-on here cannot run background jobs: it is older than this LocalAI. An administrator can update it."
+// ---------------------------------------------------------------------------
+// The job tool of a chat whose bash the add-on serves.
 
-// addonJobBackend returns the JobBackend of the add-on that serves bash. The
-// add-on side of the job tool replaces this body; until an add-on declares
-// jobs, the answer is the "too old" text and nothing else happens.
+// addonJobBackend returns the JobBackend of the add-on that serves bash. A
+// server with no add-on job caller (Deps.SandboxJobs nil) answers with the
+// "too old" text, as an add-on that declares no jobs does. A Sandbox chat never
+// falls back to the built-in bash for a job.
 func (s *Service) addonJobBackend(_ context.Context, addon string) JobBackend {
-	return tooOldJobs{addon: addon}
+	return &addonJobs{s: s, j: s.d.SandboxJobs, addon: addon}
 }
 
-// tooOldJobs is the backend of an add-on that declares no jobs.
-type tooOldJobs struct{ addon string }
+// addonJobs adapts SandboxJobs to the job tool. The stubs of its jobs are
+// written through RecordJob, as the built-in writes its own; an end that an
+// answer of the add-on reports is recorded and wakes the waits on the job.
+type addonJobs struct {
+	s     *Service
+	j     *SandboxJobs
+	addon string
+}
 
-func (t tooOldJobs) Provider() string { return t.addon }
+var _ JobBackend = (*addonJobs)(nil)
 
-func (t tooOldJobs) Do(_ context.Context, _ workspace.Actor, c JobCall) (JobResult, error) {
-	if c.Action == JobList {
-		return JobResult{}, nil
+func (b *addonJobs) Provider() string { return b.addon }
+
+func (b *addonJobs) scope(a workspace.Actor) SandboxJobScope {
+	return SandboxJobScope{User: a.Principal, Chat: a.ChatID, AddonID: b.addon}
+}
+
+// errText is the text of an error of the add-on, and false for an outage.
+func (b *addonJobs) errText(err error) (string, bool) {
+	if t, ok := SandboxJobText(err); ok {
+		return t, true
 	}
-	return JobResult{Text: addonJobText}, nil
+	return "", false
 }
 
-func (t tooOldJobs) EndChat(context.Context, workspace.Actor, bgjob.EndReason) error { return nil }
+// noteEnd records a job that an answer reports finished while its stub still
+// says live, and tells the listeners (a wait on the job wakes at once).
+func (b *addonJobs) noteEnd(stub session.JobStub, in bgjob.Info) {
+	if !in.State.Finished() || stub.State.Finished() {
+		return
+	}
+	b.s.jobChanged(in)
+}
+
+func (b *addonJobs) Do(ctx context.Context, a workspace.Actor, c JobCall) (JobResult, error) {
+	switch c.Action {
+	case JobStart:
+		return b.start(ctx, a, c)
+	case JobList:
+		return JobResult{Text: b.list(ctx, a, c)}, nil
+	case JobRead, JobInput, JobKill:
+		return b.act(ctx, a, c)
+	}
+	return JobResult{}, errors.New("job needs an action")
+}
+
+func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (JobResult, error) {
+	if b.j == nil {
+		return JobResult{Text: SandboxJobsTooOld}, nil
+	}
+	// The add-on bounds the jobs of its process; the host bounds those of the
+	// chat, from the chat's own stubs.
+	rec, err := b.s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return JobResult{}, err
+	}
+	live := 0
+	for _, st := range rec.Jobs {
+		if !st.State.Finished() {
+			live++
+		}
+	}
+	if live >= bgjob.PerChat {
+		return JobResult{Text: "Not started: " + (&bgjob.LimitError{Scope: bgjob.ScopeChat, Max: bgjob.PerChat}).Error() + "."}, nil
+	}
+	in, err := b.j.Start(ctx, b.scope(a), c.Command, c.Label)
+	if err != nil {
+		if t, ok := b.errText(err); ok {
+			return JobResult{Text: t}, nil
+		}
+		return JobResult{Text: "Not started: the Sandbox add-on could not be reached; try again."}, nil
+	}
+	in.Parent = c.Parent
+	text := fmt.Sprintf("Started job %s (%q) %s. It ends after 2h at the latest. Read it with job read; to be woken when it ends, use wait_for with job %q and until \"exit\". Show the person this command:\n",
+		in.ID, in.Label, jobWhere(b.addon), in.ID)
+	f := fenceOf(c.Command)
+	text += f + "\n" + c.Command + "\n" + f
+	return JobResult{Text: text, Started: &in}, nil
+}
+
+func (b *addonJobs) list(ctx context.Context, a workspace.Actor, c JobCall) string {
+	now := b.s.now()
+	live := map[string]bgjob.Info{}
+	answered := false
+	if b.j != nil && slices.ContainsFunc(c.Stubs, func(st session.JobStub) bool { return !st.State.Finished() }) {
+		list, err := b.j.List(ctx, b.scope(a))
+		var r *SandboxJobRefusal
+		switch {
+		case err == nil:
+			answered = true
+			for _, in := range list {
+				live[in.ID] = in
+			}
+		case errors.Is(err, bgjob.ErrUnknown), errors.As(err, &r) && r.Code == contract.JobCodeUnknown:
+			answered = true
+		}
+	}
+	stubs := slices.Clone(c.Stubs)
+	slices.SortStableFunc(stubs, func(x, y session.JobStub) int {
+		switch rx, ry := !x.State.Finished(), !y.State.Finished(); {
+		case rx != ry && rx:
+			return -1
+		case rx != ry:
+			return 1
+		}
+		return y.Started.Compare(x.Started)
+	})
+	lines := make([]string, 0, len(stubs))
+	for _, st := range stubs {
+		if in, ok := live[st.ID]; ok {
+			b.noteEnd(st, in)
+			lines = append(lines, jobLine(in, now))
+			continue
+		}
+		if !st.State.Finished() && answered {
+			// The add-on answered and does not know a job its stub calls
+			// live: it restarted.
+			b.s.markJobLost(ctx, a.Principal, a.ChatID, st.ID)
+			st.State = bgjob.StateLost
+		}
+		lines = append(lines, stubLine(st, now))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (b *addonJobs) act(ctx context.Context, a workspace.Actor, c JobCall) (JobResult, error) {
+	st := c.Stub
+	if st.State == bgjob.StateLost {
+		return JobResult{Text: lostText(st.ID)}, nil
+	}
+	if b.j == nil {
+		return JobResult{Text: SandboxJobsTooOld}, nil
+	}
+	sc := b.scope(a)
+	var (
+		res JobResult
+		in  bgjob.Info
+		err error
+	)
+	switch c.Action {
+	case JobRead:
+		var o bgjob.Observation
+		o, err = b.j.Read(ctx, sc, st.ID, c.Since, c.MaxBytes)
+		if err == nil {
+			// The add-on keeps the cursor of the model's reads: with no
+			// offset asked, nothing before From was skipped by this read.
+			o.Since = o.From
+			if c.Since != nil {
+				o.Since = *c.Since
+			}
+			in, res.Text = o.Info, readText(o, b.s.now())
+		}
+	case JobInput:
+		if why := b.sandboxOK(ctx, a); why != "" {
+			return JobResult{Text: "Not written: " + why + "."}, nil
+		}
+		var n int
+		var pending bool
+		n, pending, err = b.j.Input(ctx, sc, st.ID, c.Input, c.CloseInput)
+		res.Text = fmt.Sprintf("Wrote %d bytes to %s.", n, st.ID)
+		if pending {
+			res.Text = fmt.Sprintf("Wrote %d bytes to %s; it has not read them all yet, the rest is written as it reads.", n, st.ID)
+		}
+	case JobKill:
+		in, err = b.j.Kill(ctx, sc, st.ID, c.Signal)
+		res.Text = fmt.Sprintf("Sent %s to %s.", c.Signal, st.ID)
+	}
+	if err != nil {
+		var r *SandboxJobRefusal
+		switch {
+		case errors.As(err, &r) && r.Code == contract.JobCodeUnknown:
+			if st.State.Finished() {
+				return JobResult{Text: fmt.Sprintf("%s %q: %s. Its output is no longer kept.", st.ID, st.Label, endText(st))}, nil
+			}
+			b.s.markJobLost(ctx, a.Principal, a.ChatID, st.ID)
+			return JobResult{Text: lostText(st.ID)}, nil
+		}
+		if t, ok := b.errText(err); ok {
+			return JobResult{Text: t}, nil
+		}
+		return JobResult{Text: fmt.Sprintf("Could not reach the Sandbox add-on that runs %s; try again.", st.ID)}, nil
+	}
+	if in.ID != "" {
+		in.Parent = c.Parent
+		b.noteEnd(st, in)
+	}
+	return res, nil
+}
+
+// sandboxOK says why the chat may not write to its jobs now, or "": the
+// shell group of the chat was switched off. The approval of the start covers
+// the input; the add-on needs no card.
+func (b *addonJobs) sandboxOK(ctx context.Context, a workspace.Actor) string {
+	rec, err := b.s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return "the chat cannot be read"
+	}
+	if b.s.hiddenFor(ctx, rec)[commandTool] {
+		return "commands were switched off for this chat"
+	}
+	return ""
+}
+
+// EndChat kills every live job of the chat in the add-on: the chat is being
+// deleted. The add-on records the end of each.
+func (b *addonJobs) EndChat(ctx context.Context, a workspace.Actor, _ bgjob.EndReason) error {
+	if b.j == nil {
+		return nil
+	}
+	sc := b.scope(a)
+	list, err := b.j.List(ctx, sc)
+	if err != nil {
+		if _, ok := b.errText(err); ok {
+			return nil
+		}
+		return err
+	}
+	var first error
+	for _, in := range list {
+		if in.State.Finished() {
+			continue
+		}
+		if _, err := b.j.Kill(ctx, sc, in.ID, "term"); err != nil && first == nil {
+			if _, ok := b.errText(err); !ok {
+				first = err
+			}
+		}
+	}
+	return first
+}

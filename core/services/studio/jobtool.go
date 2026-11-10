@@ -264,6 +264,11 @@ func (s *Service) setupJobs() {
 	}
 	s.bgJobs = &bgjob.Router{Local: local, Self: s.d.Instance, Carrier: s.d.JobCarrier}
 	s.hostJobs = &hostJobBackend{s: s, hj: hj}
+	// wait_for reads a job where it runs; a test may give its own observer.
+	if s.d.Jobs == nil {
+		s.d.Jobs = jobObserver{s: s}
+	}
+	s.OnJobChange(s.jobsEnded)
 }
 
 // jobChanged is the hook of the registry of this process: it keeps the stub

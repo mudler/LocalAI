@@ -158,6 +158,7 @@ func (a *Application) initStudioService() {
 		Notify:            inbox,
 		Push:              pusher,
 		AddonTools:        lateStudioAddons{a},
+		SandboxJobs:       studio.NewSandboxJobs(lateStudioAddons{a}, studioSandboxJobAudit),
 		Assistant:         studioAssistant{a},
 		ClientTools:       studioAssistant{a},
 		Collections:       studioCollections{a},
@@ -549,6 +550,14 @@ func (a *Application) studioHostExecMode() string {
 		return hostexec.ModeOff
 	}
 	return hostexec.ModeAsk
+}
+
+// studioSandboxJobAudit records the start, input and kill of a job of the
+// Sandbox add-on in the log. The audit of the commands is the built-in bash's
+// (commands on this machine), so these lines stay out of it, and the log never
+// gets the command or the input: they can hold secrets.
+func studioSandboxJobAudit(_ context.Context, ev studio.SandboxJobEvent) {
+	xlog.Info("[sandbox] job", "kind", ev.Kind, "user", ev.User, "chat", ev.Chat, "addon", ev.Addon, "job", ev.Job, "bytes", len(ev.Text))
 }
 
 // studioHostExecAudit opens the audit of the commands run on this machine,

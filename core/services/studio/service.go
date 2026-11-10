@@ -208,6 +208,10 @@ type Deps struct {
 	// to the node that runs the job. Nil: this server has no background jobs,
 	// and a wait on a job is refused.
 	Jobs bgjob.Observer
+	// SandboxJobs runs the job tool of a chat whose bash an add-on serves,
+	// through the add-on's jobs tool. Nil: such a chat is told the add-on
+	// cannot run background jobs, and never gets the built-in instead.
+	SandboxJobs *SandboxJobs
 	// HostExecMode is the setting chats_host_exec as it applies now: off, ask
 	// or on. Nil: off.
 	HostExecMode func() string
