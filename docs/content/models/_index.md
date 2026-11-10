@@ -1,6 +1,7 @@
 +++
 disableToc = false
 title = "Model Gallery"
+linkTitle = "Models and backends"
 weight = 4
 +++
 
