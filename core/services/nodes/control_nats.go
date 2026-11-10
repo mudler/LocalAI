@@ -102,16 +102,35 @@ func controlRequest(bus messaging.RequestReply, subject string, req, reply any, 
 	}
 	replyData, err := bus.Request(subject, data, timeout)
 	if err != nil {
-		err = fmt.Errorf("NATS request to %s: %w", subject, err)
-		if messaging.IsNoResponders(err) {
-			return fmt.Errorf("%w: %v", ErrNoRoute, err)
-		}
-		return err
+		return mapRequestError(subject, err)
 	}
 	if err := json.Unmarshal(replyData, reply); err != nil {
 		return fmt.Errorf("unmarshaling reply from %s: %w", subject, err)
 	}
 	return nil
+}
+
+// mapRequestError is the one place where the carrier's sentinel for "nobody
+// listens" becomes ErrNoRoute. The carrier error stays out of the unwrap chain.
+// messaging.ErrNotDelivered stays in it, as itself: a request that reached no
+// process is not a route that does not exist.
+func mapRequestError(subject string, err error) error {
+	err = fmt.Errorf("request to %s: %w", subject, err)
+	if messaging.IsNoResponders(err) {
+		return fmt.Errorf("%w: %v", ErrNoRoute, err)
+	}
+	return err
+}
+
+// RequestInstance sends data on subject to the process instance (see
+// messaging.RequestInstance) and returns the raw reply. A subject that nobody
+// serves is ErrNoRoute; every other failure keeps its own identity.
+func RequestInstance(bus messaging.Requester, instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	out, err := messaging.RequestInstance(bus, instance, subject, data, timeout)
+	if err != nil {
+		return nil, mapRequestError(subject, err)
+	}
+	return out, nil
 }
 
 // controlRequestJSON is controlRequest with the types of the request and the

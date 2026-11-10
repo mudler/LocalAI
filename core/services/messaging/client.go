@@ -335,10 +335,15 @@ func (c *Client) Close() {
 	}
 }
 
-// ErrNoResponders means that nobody listens on the subject of a request. A
-// carrier with no request and reply between processes returns it for every
-// request.
+// ErrNoResponders means that nobody listens on the subject of a request: the
+// carrier reached the processes that could serve it, and none does.
 var ErrNoResponders = errors.New("messaging: no responders")
+
+// ErrNotDelivered means that a request reached no process that could serve it,
+// so nothing ran: the carrier has no request and reply, the process it was
+// sent to could not be reached, or that process does not serve request and
+// reply. It is not absence. Nobody may conclude from it that a process left.
+var ErrNotDelivered = errors.New("messaging: the request was not delivered")
 
 // IsNoResponders reports whether err says that no subscriber listens on the
 // subject of a request. It is the carrier's own check, so code above the

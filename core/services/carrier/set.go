@@ -57,8 +57,8 @@ type Set struct {
 	// Replies carries request and reply between the processes of the cluster:
 	// the chat start, the replay of chat events and the background jobs of a
 	// turn. It is nil for a carrier that has none, and the holder then answers
-	// every request with messaging.ErrNoResponders, which the callers read as
-	// "nobody listens" and handle in this process.
+	// every request with messaging.ErrNotDelivered. That is not "nobody
+	// listens": the callers handle it as a request that reached no process.
 	Replies messaging.RequestReply
 
 	// ForgetNode drops what the set caches for a node that left or lost its
