@@ -181,6 +181,8 @@ type Application struct {
 	// The list settings of the Sandbox network, each with its last valid
 	// value; see studioEgressSettings.
 	studioEgressListsOnce sync.Once
+	studioAuditOnce       sync.Once
+	studioAudit           hostexec.AuditStore // the audit of the commands, see studioHostExecAudit
 	studioEgressPorts     *lastGood[[]int]
 	studioEgressExtra     *lastGood[[]string]
 	studioEgressAllowed   *lastGood[[]egress.AllowedHost]

@@ -347,7 +347,13 @@ func (t *jobTable) wait(j *job, release, stopEgress func()) {
 		title += ": " + j.label
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), checkpointTimeout)
-	if cerr := t.run.CheckpointJob(ctx, j.req, title); cerr != nil {
+	var ce *runner.ConflictsError
+	switch cerr := t.run.CheckpointJob(ctx, j.req, title); {
+	case errors.As(cerr, &ce):
+		// The files were saved; some conflict with newer changes. That is
+		// not a failure.
+		xlog.Warn("sandbox: the files of a job conflict with newer changes", "job", j.id, "conflicts", len(ce.Conflicts), "error", cerr)
+	case cerr != nil:
 		xlog.Warn("sandbox: the final checkpoint of a job failed", "job", j.id, "error", cerr)
 	}
 	cancel()

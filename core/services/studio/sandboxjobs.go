@@ -378,6 +378,13 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	if live >= bgjob.PerChat {
 		return JobResult{Text: "Not started: " + (&bgjob.LimitError{Scope: bgjob.ScopeChat, Max: bgjob.PerChat}).Error() + "."}, nil
 	}
+	// The jobs of the person's other chats and sub-agents count too: the
+	// limit is by owner, not by chat.
+	if n, err := b.liveJobsOfUser(ctx, a.Principal, bgjob.PerUser); err != nil {
+		return JobResult{}, err
+	} else if n >= bgjob.PerUser {
+		return JobResult{Text: "Not started: " + (&bgjob.LimitError{Scope: bgjob.ScopeUser, Max: bgjob.PerUser}).Error() + "."}, nil
+	}
 	in, err := b.j.Start(ctx, b.scope(a), c.Command, c.Label)
 	if err != nil {
 		if t, ok := b.errText(err); ok {
@@ -391,6 +398,34 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	f := fenceOf(c.Command)
 	text += f + "\n" + c.Command + "\n" + f
 	return JobResult{Text: text, Started: &in}, nil
+}
+
+// liveJobsOfUser counts the live stubs of every chat of the user, sub-agents
+// included, and stops once it has counted stop.
+func (b *addonJobs) liveJobsOfUser(ctx context.Context, user string, stop int) (int, error) {
+	n := 0
+	var cur session.ChatCursor
+	for {
+		page, err := b.s.d.Store.ListChats(ctx, user, cur, 200)
+		if err != nil {
+			return 0, err
+		}
+		for _, rec := range page {
+			for _, st := range rec.Jobs {
+				if !st.State.Finished() {
+					n++
+				}
+			}
+			if n >= stop {
+				return n, nil
+			}
+		}
+		if len(page) < 200 {
+			return n, nil
+		}
+		last := page[len(page)-1]
+		cur = session.ChatCursor{Updated: last.Updated, ID: last.ID}
+	}
 }
 
 func (b *addonJobs) list(ctx context.Context, a workspace.Actor, c JobCall) string {

@@ -139,6 +139,20 @@ var _ = Describe("the job tool of a Sandbox chat", func() {
 		Expect(c.say(alice, id, "start again true")).To(HavePrefix("Started job"), "lost jobs free their places")
 	})
 
+	It("keeps the limit of 8 live jobs per user across chats, counted from the stubs", func() {
+		c, table := newSandboxJobChat()
+		a, b, third := create(c.svc, alice), create(c.svc, alice), create(c.svc, alice)
+		for range bgjob.PerChat {
+			Expect(c.say(alice, a, "start loop sleep 99")).To(HavePrefix("Started job"))
+			Expect(c.say(alice, b, "start loop sleep 99")).To(HavePrefix("Started job"))
+		}
+		Expect(c.say(alice, third, "start one-more true")).To(Equal("Not started: you run 8 jobs, the most you may."))
+		// A finished job frees a place.
+		table.exit("job-aaaaab", 0, "")
+		Expect(c.say(alice, a, "read job-aaaaab")).To(ContainSubstring("exited"))
+		Expect(c.say(alice, third, "start again true")).To(HavePrefix("Started job"))
+	})
+
 	It("wakes a wait on a Sandbox job through the routing observer when the add-on reports its end", func() {
 		table := newAddonJobTable()
 		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: shadowingSandbox()}}
@@ -181,5 +195,38 @@ var _ = Describe("the job tool of a Sandbox chat", func() {
 		rec, err := r.svc.Get(context.Background(), alice, chat)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.Jobs[0].State).To(Equal(bgjob.StateExited), "the observer kept the stub in step")
+	})
+	It("makes a wait on a Sandbox job due soon after the add-on ends it, with no read of the model", func() {
+		defer studio.FastSandboxWatchForTest(20 * time.Millisecond)()
+		table := newAddonJobTable()
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: shadowingSandbox()}}
+		r := newLoopRig(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			switch text {
+			case "start":
+				return []studiotest.ToolStep{{Tool: "job", Args: `{"action":"start","label":"build","command":"make"}`}, {Say: "started"}}
+			case "arm":
+				return []studiotest.ToolStep{{Tool: "wait_for", Args: `{"job":"job-aaaaab","until":"exit","every":"10m","then":"Report."}`}, {Say: "armed"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, studio.LoopOptions{}, func(d *studio.Deps) {
+			d.AddonTools = fa
+			d.HostExecMode = func() string { return "on" }
+			d.SandboxJobs = studio.NewSandboxJobs(table, nil)
+		})
+		chat := create(r.svc, alice)
+		sent(r.svc, alice, chat, "start")
+		idle(r.svc, alice, chat)
+		sent(r.svc, alice, chat, "arm")
+		idle(r.svc, alice, chat)
+		list, err := r.host.List(context.Background(), alice, chat)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		until("the first check to push the wait to its interval", func() bool {
+			r.pass()
+			return r.get(list[0].ID).Next.After(r.sh.clock.Now().UTC())
+		})
+
+		table.exit("job-aaaaab", 0, "PASS\n")
+		until("the wait to be due", func() bool { return !r.get(list[0].ID).Next.After(r.sh.clock.Now().UTC()) })
 	})
 })

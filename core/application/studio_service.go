@@ -158,7 +158,7 @@ func (a *Application) initStudioService() {
 		Notify:            inbox,
 		Push:              pusher,
 		AddonTools:        lateStudioAddons{a},
-		SandboxJobs:       studio.NewSandboxJobs(lateStudioAddons{a}, studioSandboxJobAudit),
+		SandboxJobs:       studio.NewSandboxJobs(lateStudioAddons{a}, sandboxJobAudit(a.studioHostExecAudit)),
 		Assistant:         studioAssistant{a},
 		ClientTools:       studioAssistant{a},
 		Collections:       studioCollections{a},
@@ -552,17 +552,42 @@ func (a *Application) studioHostExecMode() string {
 	return hostexec.ModeAsk
 }
 
-// studioSandboxJobAudit records the start, input and kill of a job of the
-// Sandbox add-on in the log. The audit of the commands is the built-in bash's
-// (commands on this machine), so these lines stay out of it, and the log never
-// gets the command or the input: they can hold secrets.
-func studioSandboxJobAudit(_ context.Context, ev studio.SandboxJobEvent) {
-	xlog.Info("[sandbox] job", "kind", ev.Kind, "user", ev.User, "chat", ev.Chat, "addon", ev.Addon, "job", ev.Job, "bytes", len(ev.Text))
+// sandboxJobAuditKinds maps the kinds of a Sandbox job line to the kinds of
+// the audit store. The Sandbox kinds are their own, so the audit never says
+// that a Sandbox job ran on this machine.
+var sandboxJobAuditKinds = map[string]string{
+	"job_start": hostexec.KindSandboxJobStart,
+	"job_input": hostexec.KindSandboxJobInput,
+	"job_kill":  hostexec.KindSandboxJobKill,
+}
+
+// sandboxJobAudit returns the audit hook of the Sandbox jobs: one line per
+// start, input and kill in the store, the text capped by the caller at 4 KiB,
+// and a log line without the text (a command or an input can hold secrets).
+// The output of a job is never audited.
+func sandboxJobAudit(store func() hostexec.AuditStore) func(context.Context, studio.SandboxJobEvent) {
+	return func(ctx context.Context, ev studio.SandboxJobEvent) {
+		xlog.Info("[sandbox] job", "kind", ev.Kind, "user", ev.User, "chat", ev.Chat, "addon", ev.Addon, "job", ev.Job, "bytes", len(ev.Text))
+		kind, ok := sandboxJobAuditKinds[ev.Kind]
+		if !ok {
+			return
+		}
+		line := hostexec.Event{Kind: kind, User: ev.User, Chat: ev.Chat, Job: ev.Job, Command: ev.Text, Exit: -1, At: ev.At}
+		if err := store().Add(context.WithoutCancel(ctx), line); err != nil {
+			xlog.Error("[sandbox] the audit line of a job was not saved", "error", err)
+		}
+	}
 }
 
 // studioHostExecAudit opens the audit of the commands run on this machine,
-// beside the audit of the shared folders.
+// beside the audit of the shared folders. The Sandbox job lines go to the same
+// store, under kinds of their own; it is opened once.
 func (a *Application) studioHostExecAudit() hostexec.AuditStore {
+	a.studioAuditOnce.Do(func() { a.studioAudit = a.openStudioHostExecAudit() })
+	return a.studioAudit
+}
+
+func (a *Application) openStudioHostExecAudit() hostexec.AuditStore {
 	var (
 		st  hostexec.AuditStore
 		err error
