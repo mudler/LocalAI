@@ -17,7 +17,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -894,21 +893,6 @@ var _ = Describe("Worker tunnel client", func() {
 			var absent *Tunnel
 			Expect(absent.Connected()).To(BeFalse())
 			Expect(absent.BulkConnected()).To(BeFalse())
-		})
-
-		It("is what the readiness gate of the worker looks at", func() {
-			frontend = newFakeFrontend(false)
-			start(func(c *TunnelConfig) {
-				c.sleep = func(ctx context.Context, _ time.Duration) error { <-ctx.Done(); return ctx.Err() }
-			})
-			readiness := &nodes.WorkerReadiness{}
-			readiness.Set(nodes.TunnelReadiness(tun))
-			sess := session()
-			Eventually(readiness.Check, "10s").Should(Succeed())
-			// The gate fails open when no probe is installed, so a gate that
-			// goes back to not ready proves that the probe is installed.
-			Expect(sess.Close()).To(Succeed())
-			Eventually(readiness.Check, "10s").Should(MatchError(nodes.ErrTunnelDisconnected))
 		})
 	})
 

@@ -521,7 +521,7 @@ func (f *Follower) follow(ctx context.Context, c cluster.Carrier, v CarrierView)
 	xlog.Info("The worker attached to a carrier", "carrier", c, "epoch", v.Epoch)
 	// The frontends route by what the worker reports, so tell them once the
 	// carrier answers, and not at the next tick.
-	go f.reportWhenConnected(ctx, c, a)
+	go f.reportWhenConnected(ctx, a)
 	return 0
 }
 
@@ -576,7 +576,7 @@ func (f *Follower) pause(ctx context.Context, c cluster.Carrier, v CarrierView) 
 }
 
 // reportWhenConnected sends a heartbeat as soon as the new carrier answers.
-func (f *Follower) reportWhenConnected(ctx context.Context, c cluster.Carrier, a Attachment) {
+func (f *Follower) reportWhenConnected(ctx context.Context, a Attachment) {
 	deadline := time.Now().Add(followCredentialWait)
 	for !a.Connected() {
 		if time.Now().After(deadline) || ctx.Err() != nil {

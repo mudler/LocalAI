@@ -235,14 +235,6 @@ func awaitShutdown(shutdownCtx context.Context, fatal string) error {
 	}
 }
 
-// agentRPCServer is how the agent worker serves the frontend's MCP requests
-// and hears the node's backend stop events.
-type agentRPCServer interface {
-	ServeMCPTool(h mcpRemote.ToolHandler) error
-	ServeMCPDiscovery(h mcpRemote.DiscoveryHandler) error
-	ServeBackendStop(h func(backend string)) error
-}
-
 // handleMCPToolRequest executes one MCP tool call. The worker creates/caches
 // MCP sessions from the serialized config and executes the tool.
 func handleMCPToolRequest(parent context.Context, req mcpRemote.MCPToolRequest) mcpRemote.MCPToolResponse {

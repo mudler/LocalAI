@@ -487,27 +487,6 @@ func (b *Bus) Subscribe(subject string, handler func([]byte)) (messaging.Subscri
 	return sub, nil
 }
 
-// subscribers reports how many handlers are registered, in every channel. A
-// handler that is counted is live: its channel was listened before it was
-// counted.
-//
-// The count exists to be asserted, because the leak that it shows has no other
-// symptom. Two subscriptions in a deployment are opened and closed for every
-// HTTP request (the progress stream of a job and the event stream of an agent),
-// and only the first subscriber of a channel issues a LISTEN. The others only
-// register a filter in the process. An Unsubscribe that did not remove its filter
-// would leave a replica that served ten thousand requests running ten thousand
-// closures for every notification, and nothing would fail. It would be slower.
-func (b *Bus) subscribers() int {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	n := 0
-	for _, channel := range b.subs {
-		n += len(channel)
-	}
-	return n
-}
-
 // barrier is a seam for tests and does nothing in production.
 //
 // It exists because the order that listenMu enforces cannot be seen from outside

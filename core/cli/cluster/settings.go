@@ -51,7 +51,7 @@ func (c *GetSettingsCommand) Run() error {
 
 func (c *GetSettingsCommand) run(ctx context.Context, out io.Writer) error {
 	var view settingsView
-	_, raw, err := c.do(ctx, c.client(), http.MethodGet, settingsPath, nil, &view)
+	raw, err := c.do(ctx, c.client(), http.MethodGet, settingsPath, nil, &view)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (c *SetSettingsCommand) run(ctx context.Context, out io.Writer) error {
 		} `json:"nats"`
 		Settings settingsView `json:"settings"`
 	}
-	_, raw, err := c.do(ctx, c.client(), http.MethodPut, settingsPath, body, &answer)
+	raw, err := c.do(ctx, c.client(), http.MethodPut, settingsPath, body, &answer)
 	if err != nil {
 		return err
 	}
