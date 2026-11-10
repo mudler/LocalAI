@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
@@ -99,6 +100,7 @@ func (a *Application) initStudioService() {
 	var bus studio.Bus
 	var fan notify.Fanout
 	var replay studio.ReplayCarrier
+	var jobs bgjob.Carrier
 	instance := ""
 	if d := a.Distributed(); d != nil && d.Nats != nil {
 		bus = studio.NewBroadcastBus(d.Nats, nil)
@@ -106,6 +108,9 @@ func (a *Application) initStudioService() {
 		// A client whose event stream reconnects to another frontend gets the
 		// events it missed from the process that runs the turn.
 		replay = studio.NewReplayCarrier(d.Nats, nil)
+		// A turn that runs on another node reads, writes to and kills a
+		// background job on the node that runs it.
+		jobs = bgjob.NewBusCarrier(d.Nats, nil)
 		instance = a.applicationConfig.Distributed.InstanceID
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
@@ -132,6 +137,7 @@ func (a *Application) initStudioService() {
 		CloseTimeout: studioCloseTimeout,
 		Bus:          bus,
 		Replay:       replay,
+		JobCarrier:   jobs,
 		Instance:     instance,
 		Store:        a.studioStore,
 		Provider:     a.studioProvider,
@@ -194,7 +200,7 @@ func (a *Application) initStudioService() {
 		// resolved access, so they are the turn's: a chat whose agent works in
 		// one folder gets a fenced actor, which the runner refuses.
 		a.studioHostExec = hostexec.New(hostexec.Options{
-			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid,
+			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid, Instance: instance,
 			Actor: func(ctx context.Context, user, chat string) (workspace.Actor, error) {
 				svc := svcRef.Load()
 				if svc == nil {

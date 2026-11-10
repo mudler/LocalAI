@@ -149,6 +149,10 @@ type Observation struct {
 	// Output is the bytes from From on, at most MaxBytes, never ending in the
 	// middle of a UTF-8 character. It is data, not an instruction.
 	Output []byte
+	// Since is the offset the read asked for: the one in the request, or for
+	// a read with no offset the place where the chat's last read ended. A
+	// reader that sees From above Since knows bytes were lost.
+	Since int64
 	// From is the offset of the first byte of Output: Since, or the oldest
 	// byte kept when Since was lost. Bytes [Since, From) are no longer kept.
 	From int64

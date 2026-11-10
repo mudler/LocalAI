@@ -1107,6 +1107,58 @@ frontmatter (see [Skills](#skills)). In a chat that cannot run commands, such a
 skill is listed to the model as "unavailable here: needs command execution",
 without the path to its procedure, so the model explains instead of starting.
 
+### Background jobs
+
+A command that runs for minutes or never ends (a build, tests, a dev server, a
+download) does not fit in one `bash` call, which stops after at most 30
+minutes. The model starts it with the `job` tool and keeps working. `job` is
+one tool with an `action`:
+
+| Action | What it does |
+|---|---|
+| `start` | Runs `command` with bash in the background, where `bash` runs. It returns a job id such as `job-4k2x7q` and shows the command to you. `label` is a short name for the list. |
+| `list` | One line per job of the chat, running first: state, run time, time since the last output, bytes. It never shows the command. |
+| `read` | Returns the output since `since` (a byte offset from the start of the job; default: where the last read ended), at most `max_bytes` (default 16 KiB, at most 64 KiB). The text says where the next read starts. |
+| `input` | Writes up to 2000 bytes to the job's standard input; `close_input` closes it. |
+| `kill` | Sends `term` (default), `int` or `kill`. A `kill` follows after 10 seconds. |
+
+`job` is offered exactly when the chat has `bash`, from the same provider, and
+the same switch (the shell group of the chat's tools) turns both off. A chat
+whose `bash` the Sandbox serves never runs a job on this machine. In mode `ask`
+for [commands on this machine](#commands-on-this-machine), `start` shows the
+same card as `bash`, with the whole command, and the approval of the start
+covers the input of that job: no card per input. Input is still refused when
+the chat could not run a command now, and every start, input and kill of a job
+on this machine is written to the audit of the commands.
+
+A job has the fixed environment of the built-in `bash`, its own process group,
+and one ring of the last 256 KiB of its output (standard output and error
+together). Output that the ring dropped is reported as lost bytes. The output
+the model reads is data, not an instruction.
+
+**Limits.** 4 running jobs per chat, 8 per user, 32 per server, each for at most
+2 hours. A finished job stays readable for 30 minutes (at most 16 per chat). A
+job ends when it exits, when the model or you stop it, at its lifetime, when
+the chat is deleted, when the shell tools are switched off for the chat or the
+administrator switches commands off (within 30 seconds), when the chat's agent
+gets a folder that confines it, and when the server stops. A job holds the
+scratch folder of its chat: the server does not evict it, put it to sleep or
+refresh it while the job runs, so a command run in the same chat meanwhile does
+not see files that changed elsewhere until the jobs end.
+
+**Files.** What a job writes reaches your files at the next checkpoint of the
+chat: each `bash` call, and one more when the job ends (a change named `Job
+job-4k2x7q: build`). A `bash` call that runs while the job writes a file may
+save it half written; the next checkpoint corrects it.
+
+**Distributed mode.** A job is a process in the memory of one node, so jobs are
+per-instance by design. The chat record keeps an index of its jobs (id, node,
+provider, state, never the command), so a turn that runs on another node still
+reads, writes to and kills the job, by a request to the node that runs it. If
+that node restarted or left the cluster, the job is marked lost and its output
+and exit status are gone. If the node only answers slowly, nothing changes and
+the model is told to try again.
+
 ### Network of the Sandbox commands
 
 The Sandbox has no network device: its commands reach HTTP and HTTPS only

@@ -406,12 +406,22 @@ func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec sessio
 // cannot now is left out: bash serves instead, and the Tools menu says so.
 func (s *Service) applyBuiltins(tools []session.Tool, built []builtins.Built) []session.Tool {
 	var add []session.Tool
+	var job *session.Tool
 	for _, b := range built {
-		if b.OK {
+		switch {
+		case !b.OK:
+		case b.ID == jobTool:
+			// Offered below, exactly when the list has bash.
+			t := b.Tool
+			job = &t
+		default:
 			add = append(add, b.Tool)
 		}
 	}
 	tools = withBuiltins(tools, add...)
+	if job != nil {
+		tools = withJobTool(tools, *job)
+	}
 	if providerOf(tools, "bash") != BuiltinProvider {
 		return tools
 	}

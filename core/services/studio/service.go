@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/pkg/sandboxpolicy"
 	"log/slog"
 	"maps"
@@ -168,6 +169,9 @@ type Deps struct {
 	Instance string
 	// Replay carries those asks between processes. Nil in one process.
 	Replay ReplayCarrier
+	// JobCarrier carries the asks about a background job to the node that
+	// runs it (chats.jobs.<instance>). Nil in one process: every job is here.
+	JobCarrier bgjob.Carrier
 	// Files is the workspace of the chats. Nil or disabled: the chats have no
 	// files, and everything else works.
 	Files *files.Service
@@ -404,7 +408,15 @@ type Service struct {
 	streams map[string]int
 	// stopServing ends the answers to replay asks (Deps.Replay); nil without.
 	stopServing func()
-	locks       map[string]*keyLock
+	// bgJobs reaches the background jobs of this process and, over Deps.JobCarrier,
+	// of the others; hostJobs is the job backend of the built-in bash; stopJobs
+	// ends the answers to the asks of other nodes. Per instance by design: a job
+	// is a process in the memory of one node, and the stubs on the chat record
+	// say which.
+	bgJobs   *bgjob.Router
+	hostJobs *hostJobBackend
+	stopJobs func()
+	locks    map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
 	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
@@ -522,6 +534,9 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerHostBash(); err != nil {
 		return nil, err
 	}
+	if err := s.registerJobTool(); err != nil {
+		return nil, err
+	}
 	if err := s.registerWebTools(); err != nil {
 		return nil, err
 	}
@@ -594,6 +609,10 @@ func New(d Deps) (*Service, error) {
 		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
 	}
 	if err := s.serveReplay(); err != nil {
+		return nil, err
+	}
+	s.setupJobs()
+	if err := s.serveJobs(); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -669,6 +688,9 @@ func (s *Service) Close(ctx context.Context) error {
 	}
 	if s.stopServing != nil {
 		s.stopServing()
+	}
+	if s.stopJobs != nil {
+		s.stopJobs()
 	}
 	limit := s.d.CloseTimeout
 	if limit < 0 {
@@ -1848,13 +1870,17 @@ func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, model string,
 // session.ErrNotFound.
 func (s *Service) Delete(ctx context.Context, user, conv string) error {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
 		return err
 	}
 	if err := s.Stop(ctx, p, conv); err != nil {
 		return err
 	}
 	s.stopChildren(p, conv)
+	// The jobs end at once, on the nodes the stubs name; the sweep of each
+	// node is the backstop for one that cannot be reached.
+	s.endChatJobs(ctx, rec)
 	// A delete is the person's action: it needs no access of the chat, so a
 	// chat whose agent folder is missing can still be deleted.
 	if err := s.mgr.Delete(ctx, userChatActor(p, conv), conv); err != nil {

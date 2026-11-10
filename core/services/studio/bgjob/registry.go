@@ -575,7 +575,7 @@ func (j *Job) observe(since int64, max, tail int) Observation {
 	}
 	out, from, next := j.ring.Page(since, max)
 	info := j.Info()
-	o := Observation{Info: info, Output: out, From: from, Next: next, Tail: j.ring.Tail(tail)}
+	o := Observation{Info: info, Since: since, Output: out, From: from, Next: next, Tail: j.ring.Tail(tail)}
 	if !info.State.Finished() {
 		o.Idle = max0(j.r.o.Now().Sub(info.LastOutput))
 	}

@@ -61,7 +61,8 @@ const Description = "Run a shell script with bash directly on this machine, with
 	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use relative paths. " +
 	"What it changes in the home and the writable shared folders is saved to the user's files; anything else is lost. " +
 	"It can read what the server can read and reach the internet and the local network. " +
-	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " + workfiles.ToolHint
+	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " +
+	"For a command that runs for minutes or does not end (a server, a watcher), use job start. " + workfiles.ToolHint
 
 // Options configures a Runner.
 type Options struct {
