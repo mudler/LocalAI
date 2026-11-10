@@ -369,17 +369,12 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	if err != nil {
 		return JobResult{}, err
 	}
-	live := 0
-	for _, st := range rec.Jobs {
-		if !st.State.Finished() {
-			live++
-		}
-	}
-	if live >= bgjob.PerChat {
+	if b.liveOf(rec.Jobs) >= bgjob.PerChat {
 		return JobResult{Text: "Not started: " + (&bgjob.LimitError{Scope: bgjob.ScopeChat, Max: bgjob.PerChat}).Error() + "."}, nil
 	}
 	// The jobs of the person's other chats and sub-agents count too: the
-	// limit is by owner, not by chat.
+	// limit is by owner, not by chat. Only this add-on's jobs count, as the
+	// host registry counts only the built-in ones: each bounds its own.
 	if n, err := b.liveJobsOfUser(ctx, a.Principal, bgjob.PerUser); err != nil {
 		return JobResult{}, err
 	} else if n >= bgjob.PerUser {
@@ -400,8 +395,8 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	return JobResult{Text: text, Started: &in}, nil
 }
 
-// liveJobsOfUser counts the live stubs of every chat of the user, sub-agents
-// included, and stops once it has counted stop.
+// liveJobsOfUser counts the live stubs of this add-on in every chat of the
+// user, sub-agents included, and stops once it has counted stop.
 func (b *addonJobs) liveJobsOfUser(ctx context.Context, user string, stop int) (int, error) {
 	n := 0
 	var cur session.ChatCursor
@@ -411,11 +406,7 @@ func (b *addonJobs) liveJobsOfUser(ctx context.Context, user string, stop int) (
 			return 0, err
 		}
 		for _, rec := range page {
-			for _, st := range rec.Jobs {
-				if !st.State.Finished() {
-					n++
-				}
-			}
+			n += b.liveOf(rec.Jobs)
 			if n >= stop {
 				return n, nil
 			}
@@ -426,6 +417,17 @@ func (b *addonJobs) liveJobsOfUser(ctx context.Context, user string, stop int) (
 		last := page[len(page)-1]
 		cur = session.ChatCursor{Updated: last.Updated, ID: last.ID}
 	}
+}
+
+// liveOf counts the stubs of this add-on that have not finished.
+func (b *addonJobs) liveOf(stubs []session.JobStub) int {
+	n := 0
+	for _, st := range stubs {
+		if st.Provider == b.addon && !st.State.Finished() {
+			n++
+		}
+	}
+	return n
 }
 
 func (b *addonJobs) list(ctx context.Context, a workspace.Actor, c JobCall) string {

@@ -153,6 +153,17 @@ var _ = Describe("the job tool of a Sandbox chat", func() {
 		Expect(c.say(alice, third, "start again true")).To(HavePrefix("Started job"))
 	})
 
+	It("counts only the Sandbox jobs against its limits; the host registry bounds the built-in ones", func() {
+		c, _ := newSandboxJobChat()
+		host, id := create(c.svc, alice), create(c.svc, alice)
+		for i := range bgjob.PerUser {
+			c.svc.RecordJob(context.Background(), bgjob.Info{ID: fmt.Sprintf("job-host0%d", i), Owner: alice, Chat: host,
+				Instance: "node-a", Provider: studio.BuiltinProvider, Label: "build", State: bgjob.StateRunning, Started: time.Now()})
+		}
+		Expect(c.stubs(alice, host)).To(HaveLen(bgjob.PerUser))
+		Expect(c.say(alice, id, "start build make")).To(HavePrefix("Started job"))
+	})
+
 	It("wakes a wait on a Sandbox job through the routing observer when the add-on reports its end", func() {
 		table := newAddonJobTable()
 		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: shadowingSandbox()}}
