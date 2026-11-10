@@ -217,6 +217,13 @@ type Watch struct {
 	JobRan     time.Duration `json:"job_ran,omitempty"`
 	JobGone    bool          `json:"job_gone,omitempty"`
 	JobNoMatch bool          `json:"job_no_match,omitempty"`
+	// Agent says that Job is the id of a background sub-agent of the chat, not
+	// a job: the wait reads the sub-agent's transcript from the store, so it
+	// has no Node. AgentSeq is the last transcript row seen and SeenAt when a
+	// new one was first seen; the idle time is measured from SeenAt.
+	Agent    bool      `json:"agent,omitempty"`
+	AgentSeq int64     `json:"agent_seq,omitempty"`
+	SeenAt   time.Time `json:"seen_at,omitzero"`
 	// Mode is UntilChange, UntilMatch or UntilJSONEquals; Pattern, Field and
 	// Equals are its arguments.
 	Mode    string `json:"mode"`
@@ -273,6 +280,11 @@ func (w *Watch) Clone() *Watch {
 // people read.
 func (w *Watch) Describe() string {
 	switch {
+	case w.Agent:
+		if w.Mode == UntilStall {
+			return fmt.Sprintf("sub-agent %s to go quiet for %s", w.Job, ShortDuration(w.Idle))
+		}
+		return fmt.Sprintf("sub-agent %s to finish", w.Job)
 	case w.Job != "":
 		switch w.Mode {
 		case UntilStall:

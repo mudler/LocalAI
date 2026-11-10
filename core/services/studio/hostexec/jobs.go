@@ -36,6 +36,9 @@ type JobSpec struct {
 	Actor workspace.Actor
 	// Parent is the chat that started Actor's chat when that is a sub-agent.
 	Parent string
+	// Sandbox is the chat whose sandbox entry runs the job when it is not the
+	// chat that starts it: a sub-agent's bash runs in its parent's.
+	Sandbox string
 	// Label is the short name the person sees.
 	Label string
 	// Command is run with bash. It never leaves memory but the audit line.
@@ -101,7 +104,11 @@ func (r *Runner) StartJob(ctx context.Context, s JobSpec) (bgjob.Info, error) {
 	}
 	op := make([]byte, 8)
 	_, _ = rand.Read(op)
-	req := runner.Request{User: s.Actor.Principal, Conversation: s.Actor.ChatID, Operation: "hj" + hex.EncodeToString(op), Tool: "job"}
+	conv := s.Actor.ChatID
+	if s.Sandbox != "" {
+		conv = s.Sandbox
+	}
+	req := runner.Request{User: s.Actor.Principal, Conversation: conv, Operation: "hj" + hex.EncodeToString(op), Tool: "job"}
 	// The job saves its files and gives its slot back once its process ended;
 	// the slot is known only after StartJob returns.
 	released := make(chan func(), 1)

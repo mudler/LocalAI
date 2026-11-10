@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
@@ -78,6 +79,10 @@ func (s *Service) holdForLoop(ctx context.Context, p, conv string, status store.
 // endChildLoops ends the loops of a sub-agent chat and tells the parent that
 // the sub-agent was stopped, when it had any.
 func (s *Service) endChildLoops(ctx context.Context, p, conv string) {
+	// The jobs of a stopped sub-agent end with it.
+	if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil {
+		s.endAgentJobs(context.WithoutCancel(ctx), rec, bgjob.EndAgentEnded)
+	}
 	h := s.loops
 	if h == nil {
 		return
