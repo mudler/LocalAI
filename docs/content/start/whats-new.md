@@ -16,6 +16,8 @@ This page lists the main capabilities of LocalAI 5.0. Each one has a tag.
 | **Add-on** | Comes from the add-on library. An administrator installs it. In the current development builds, the add-ons are in the development channel of the library, so they can change. |
 | **Admin on** | Built in, but on a server with accounts an administrator must switch it on for each user. With authentication off, you are the administrator and it is on. |
 
+{{< diagram "assistant-story" "Your assistant sits in the middle, with Files, Collections and Team built in and Sandbox, Office and chat apps as add-ons. Models, backends and your own hardware are underneath." >}}
+
 ## The ten capabilities
 
 1. **[Chats]({{% relref "/features/chats-and-agents/chats" %}})** (Built in). The server keeps your conversations. You can keep typing while the model works. The model can hand work to sub-agents, and long chats are compacted for you.

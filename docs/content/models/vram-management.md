@@ -5,7 +5,7 @@ weight = 100
 aliases = ["/advanced/vram-management/"]
 +++
 
-![VRAM management: least-recently-used eviction and concurrency-group anti-affinity keep hot models warm](/docs/images/diagrams/vram-eviction.png)
+{{< diagram "vram-eviction" "VRAM management: least-recently-used eviction and concurrency-group anti-affinity keep hot models warm" >}}
 
 When running multiple models in LocalAI, especially on systems with limited GPU memory (VRAM), you may encounter situations where loading a new model fails because there isn't enough available VRAM. LocalAI provides several mechanisms to automatically manage model memory allocation and prevent VRAM exhaustion:
 

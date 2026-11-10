@@ -5,7 +5,7 @@ title = "Voice Recognition"
 weight = 36
 +++
 
-![Voice recognition: register, identify, and forget voiceprints in a vector store, for 1:1 verify or 1:N identify](/docs/images/diagrams/voice-recognition-flow.png)
+{{< diagram "voice-recognition-flow" "Voice recognition: register, identify, verify and forget voiceprints in a vector store through the /v1/voice endpoints." >}}
 
 LocalAI supports voice (speaker) recognition: speaker verification
 (1:1), speaker identification (1:N) against a built-in vector store,
