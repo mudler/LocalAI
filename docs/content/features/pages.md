@@ -114,7 +114,7 @@ path is relative to the page's own folder.
 | `localai.on('files.changed', fn)` | Calls `fn({paths})` when files of the page's folder change. `paths` are relative to the folder. When LocalAI cannot tell what changed (for example after the window was in the background), `fn` gets `{paths: [], resync: true}`: read again what you show. Returns a function that removes the listener. |
 | `localai.on('visibility', fn)` | Calls `fn({visible})` when the page goes out of sight (the tab is hidden, or its tile on Home scrolled away) and when it comes back. Pause timers and animations while `visible` is `false`. |
 | `localai.on('mode', fn)` | Calls `fn({mode, size})` when a tile changes size without a reload: a tile in a slot that opens as a card, and back. `localai.page` and the `data-mode` and `data-size` attributes of `<html>` change first. |
-| `localai.page` | `{name, title, mode, size}` of the page. `mode` is `page` in the full view and `widget` in a tile; `size` is the tile's size (`compact`, `small`, `medium`, `large`), empty in the full view. The page cannot set them. |
+| `localai.page` | `{name, title, mode, size}` of the page. `mode` is `page` in the full view and in the dock, `widget` in a tile, and `area` in the page area of Home; `size` is the tile's size (`compact`, `small`, `medium`, `large`), empty in the full view, the dock and the page area. The page cannot set them. |
 
 Example: a counter that keeps its value in `count.json`.
 
@@ -336,8 +336,8 @@ In a tile, a link of the page asks before it opens, as in the full view.
 `chat.send` is refused: open the page to send a message. When a page is gone,
 cannot be read, or has no `widget` block, the tile says so with a link to
 **Customise Home**. A shared page needs your consent first: the tile shows
-**Allow this page**, which opens the trust sheet with **Allow on Home or in a
-slot** (see [Shared pages in a slot and on Home](#shared-pages-in-a-slot-and-on-home)).
+**Allow this page**, which opens the trust sheet with **Allow on Home, in slots
+and in the dock** (see [Shared pages in a slot and on Home](#shared-pages-in-a-slot-and-on-home)).
 
 ## A page in a slot
 
@@ -372,7 +372,8 @@ it live. `chat.send` is refused in a tile. A link asks before it opens.
 ### Live frames and the budget of a tile
 
 The app keeps at most eight page frames running at once, for the page area and
-the tiles on Home and in the slots together. A tile that gets none shows as a card with **Run**;
+the tiles on Home, the tiles in the slots and the page in front of the dock
+together. A tile that gets none shows as a card with **Run**;
 a click runs it and stops the frame that started first, which then shows as a
 card. When a tile goes away, the next waiting tile runs.
 
@@ -399,9 +400,9 @@ stopped only when it answers again.
 
 ### Shared pages in a slot and on Home
 
-A shared page on Home or in a slot starts as soon as the screen shows, so
-allowing it to open is not enough: its tile shows **Allow** and the trust sheet
-offers **Allow on Home or in a slot**. That consent is kept against the hash of
+A shared page on Home, in a slot or in the dock starts as soon as the screen
+shows, so allowing it to open is not enough: its tile shows **Allow** and the
+trust sheet offers **Allow on Home, in slots and in the dock**. That consent is kept against the hash of
 the page like **Allow**, so a change of its code asks again, and **Stop allowing
 this page** removes both. **Allow once** runs the tile for this visit only.
 
@@ -515,10 +516,10 @@ tile](#live-frames-and-the-budget-of-a-tile)). The page in front counts toward
 the eight live frames of the app. A page you open takes a frame at once and
 stops the frame that started first; a page that comes back with a reload waits
 for a free one and shows **Run it here** until then. `localai.page.mode` is
-`page`. `chat.send` from a docked page shows the message in the dock; it goes to
+`page`, as in the full view, with no `size`. `chat.send` from a docked page shows the message in the dock; it goes to
 this chat, as your message, only when you press **Send**. A shared page runs
 in the dock only after you allowed it on Home, in the slots and in the dock
-(**Allow on Home or in a slot**), because the dock starts it again without a
+(**Allow on Home, in slots and in the dock**), because the dock starts it again without a
 click after a reload.
 
 ## Limits
@@ -612,7 +613,7 @@ Escape is Cancel. **View source** shows `index.html` as text.
 |---|---|
 | **Allow** | Kept for this version of this page. It runs now and each time you open it. |
 | **Allow once** | It runs for this visit. You are asked again next time. A visit ends after 12 hours. |
-| **Allow on Home or in a slot** | Shown by a tile on Home or in a slot. Kept for this version, and it also lets the page run there without a click. |
+| **Allow on Home, in slots and in the dock** | Shown by a tile on Home or in a slot, the page area and the dock. Kept for this version, and it also lets the page run there without a click. |
 | **Cancel** | Nothing runs. The frame says "This page has not run", with **Review and allow** and **View source**. |
 
 A consent is kept against the page (the node of its folder, so a rename does
@@ -688,8 +689,8 @@ The UI uses these routes. They need the `chats` and `pages` features (the dock r
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
 | `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `code_files`, `widget`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
-| `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`, and `embed` when you allowed it on Home and in the slots). |
-| `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once, embed}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. `embed` also allows it on Home and in the slots (a lasting consent, so not with `once`: `400`); a lasting consent to the same version keeps `embed`. |
+| `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`, and `embed` when you allowed it on Home, in the slots and in the dock). |
+| `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once, embed}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. `embed` also allows it on Home, in the slots and in the dock (a lasting consent, so not with `once`: `400`); a lasting consent to the same version keeps `embed`. |
 | `DELETE /api/chats/shared-pages/{folder_id}/{name}/consent` | Stop allowing it. |
 | `GET .../files`, `GET` and `PUT .../file`, `POST .../chat` | The bridge of a shared page, as above. Each call sends `X-LocalAI-Page-Hash` (the version that runs) and, for a visit, `X-LocalAI-Page-Visit`. Without a consent: `403 page_not_allowed`. A read of a file of code by a frame of an older version: `409`. |
 

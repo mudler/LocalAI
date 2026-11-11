@@ -53,7 +53,7 @@ The page runs in a frame with no network and no access to LocalAI or other files
 - `localai.on('files.changed', fn)` calls `fn({paths})` when a file of the folder changes, and `fn({paths: [], resync: true})` when it cannot tell what: read again. It returns a function that removes the listener. Your own writes come back too.
 - `localai.chat.send(text)` offers a message to the user, who must press Send. Use it for "Ask the assistant" buttons, never as a way to run the assistant on its own.
 - `localai.on('visibility', fn)` calls `fn({visible})` when the page goes out of sight (hidden tab, or its tile on Home scrolled away) and back. Stop timers while `visible` is false.
-- `localai.page` is `{name, title, mode, size}`: `mode` is `page`, or `widget` in a tile, where `size` is `compact`, `small`, `medium` or `large`. `localai.on('mode', fn)` calls `fn({mode, size})` when the tile changes size; the page is not reloaded.
+- `localai.page` is `{name, title, mode, size}`: `mode` is `page` (full view and dock), `area` (Home page area) or `widget` in a tile, where `size` is `compact`, `small`, `medium` or `large`. `localai.on('mode', fn)` calls `fn({mode, size})` when the tile changes size; the page is not reloaded.
 
 The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`. Define colours as CSS variables and override them under `:root[data-theme="dark"]`.
 
