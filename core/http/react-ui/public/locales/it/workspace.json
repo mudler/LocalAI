@@ -153,13 +153,10 @@
         "noneEligible": "Nessuna pagina ha ancora una vista compatta per la Home. Chiedi all’assistente di aggiungerne una a una pagina.",
         "pick": "Pagina",
         "unavailable": "{{name}} (non disponibile)",
-        "sharedLabel": "condivisa",
-        "sizes": {
-          "small": "Piccolo",
-          "medium": "Medio",
-          "large": "Grande"
-        }
-      }
+        "sharedLabel": "condivisa"
+      },
+      "size": "Dimensione",
+      "preview": "Così la Home disegna i tuoi widget. S è una colonna, M due, L l'intera riga. Un vuoto si chiude da solo."
     },
     "fields": {
       "persona": {

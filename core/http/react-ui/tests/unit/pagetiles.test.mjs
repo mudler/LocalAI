@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import { buildPageSrcdoc, createPageHost } from '../../src/utils/pagesBridge.js'
 import {
-  MAX_PAGE_TILES, createFrameSlots, eligiblePages, nextFrame, refKey, tilePagePath, tileRef, tileSize, tileState, tileTitle,
+  MAX_PAGE_TILES, createFrameSlots, eligiblePages, nextFrame, refKey, tilePagePath, tileRef, tileState, tileTitle,
 } from '../../src/utils/pageTiles.js'
 import { cleanWidgets, widgetList } from '../../src/utils/wellKnown.js'
 
@@ -84,9 +84,6 @@ test('page tiles: the widget names a page, and the tile says what it shows', () 
   assert.deepEqual(tileRef({ page: 'news', folder: '7' }), { name: 'news', folder: 0 })
   for (const bad of ['', 'News', '../x', 'a/b', 7, undefined]) assert.equal(tileRef({ page: bad }), null)
 
-  assert.equal(tileSize({ widget: { size: 'small' } }), 'small')
-  assert.equal(tileSize({ widget: { size: 'huge' } }), 'medium')
-  assert.equal(tileSize(undefined), 'medium')
   assert.equal(tileTitle({ title: ' Mine ' }, { title: 'Page', widget: { title: 'Tile' } }), 'Mine')
   assert.equal(tileTitle({ title: '' }, { title: 'Page', widget: { title: 'Tile' } }), 'Tile')
   assert.equal(tileTitle({}, { title: 'Page', widget: {} }), 'Page')

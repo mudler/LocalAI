@@ -12,7 +12,8 @@ import { refreshSharedPages } from '../../hooks/useSharedPages'
 import { useTheme } from '../../contexts/ThemeContext'
 import { pagesApi, sharedPagesApi } from '../../utils/api'
 import { feedPaths, pageChanges } from '../../utils/pages'
-import { createFrameSlots, nextFrame, tilePagePath, tileRef, tileSize, tileState, tileTitle } from '../../utils/pageTiles'
+import { createFrameSlots, nextFrame, tilePagePath, tileRef, tileState, tileTitle } from '../../utils/pageTiles'
+import { pageSizeOf } from '../../utils/homeGrid'
 import '../../pages/pages.css'
 
 // The frames of page tiles alive on Home, for the whole tab.
@@ -63,9 +64,10 @@ function useHidden() {
 // line with what to do; never a broken frame.
 //
 //   w        the widget of home.json
-//   listed   the page as the pages list knows it (its size before the read)
+//   size     s, m or l: the size of the tile on the Home grid
+//   listed   the page as the pages list knows it (its title and icon before the read)
 //   onFix    opens Customise Home
-export default function PageTile({ w, listed, onFix }) {
+export default function PageTile({ w, size: cell, listed, onFix }) {
   const { t } = useTranslation('workspace')
   const { t: tp } = useTranslation('pages')
   const { theme } = useTheme()
@@ -148,7 +150,7 @@ export default function PageTile({ w, listed, onFix }) {
   useEffect(() => () => slots.release(id), [id])
 
   const page = run?.page || read.page || listed
-  const size = tileSize(read.page || listed)
+  const size = pageSizeOf(cell)
   const title = tileTitle(w, page)
   const icon = page?.icon || (ref?.folder ? 'users' : 'file-code')
   const pagePath = tilePagePath(ref)

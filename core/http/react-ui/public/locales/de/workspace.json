@@ -153,13 +153,10 @@
         "noneEligible": "Noch keine Seite hat eine kompakte Ansicht für die Startseite. Bitte den Assistenten, einer Seite eine hinzuzufügen.",
         "pick": "Seite",
         "unavailable": "{{name}} (nicht verfügbar)",
-        "sharedLabel": "geteilt",
-        "sizes": {
-          "small": "Klein",
-          "medium": "Mittel",
-          "large": "Groß"
-        }
-      }
+        "sharedLabel": "geteilt"
+      },
+      "size": "Größe",
+      "preview": "So zeigt Home deine Widgets. S ist eine Spalte, M zwei, L die volle Zeile. Eine Lücke schließt sich von selbst."
     },
     "fields": {
       "persona": {

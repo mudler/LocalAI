@@ -153,13 +153,10 @@
         "noneEligible": "还没有页面具有用于主页的紧凑视图。请让助手为某个页面添加一个。",
         "pick": "页面",
         "unavailable": "{{name}}（不可用）",
-        "sharedLabel": "共享",
-        "sizes": {
-          "small": "小",
-          "medium": "中",
-          "large": "大"
-        }
-      }
+        "sharedLabel": "共享"
+      },
+      "size": "大小",
+      "preview": "主页会这样排列你的小组件。S 占一列，M 占两列，L 占满一行。空位会自动补上。"
     },
     "fields": {
       "persona": {

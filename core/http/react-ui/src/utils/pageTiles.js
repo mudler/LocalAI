@@ -2,7 +2,6 @@
 // runs a page of the workspace in its compact mode. No React, no network, no
 // DOM here; the tile component and the unit tests use the same functions.
 
-export const PAGE_TILE_SIZES = ['small', 'medium', 'large']
 // The server takes at most this many page widgets in home.json, and Home keeps
 // at most this many frames alive at once.
 export const MAX_PAGE_TILES = 3
@@ -17,12 +16,6 @@ export function tileRef(w) {
   if (!PAGE_NAME.test(name)) return null
   const folder = Number.isInteger(w.folder) && w.folder > 0 ? w.folder : 0
   return { name, folder }
-}
-
-// tileSize is the size of a page's tile: its widget block's, medium otherwise.
-export function tileSize(page) {
-  const s = page?.widget?.size
-  return PAGE_TILE_SIZES.includes(s) ? s : 'medium'
 }
 
 // tileTitle is what the bar of the tile says: the widget's own title, else the

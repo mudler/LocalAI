@@ -5,6 +5,7 @@
 // No browser globals at import time, so the node unit tests load it.
 
 import { pageLinkTarget } from './pageLinks.js'
+import { isSize } from './homeGrid.js'
 import { templateProblem, avatarPath, STRING_KEYS } from './look.js'
 
 // SETTINGS_DIR is the folder of the home that holds the settings files.
@@ -375,6 +376,7 @@ export function cleanWidgets(rows) {
       if (title) w.title = title
       else delete w.title
       if (!(Number.isInteger(r.folder) && r.folder > 0)) delete w.folder
+      if (!isSize(w.size)) delete w.size
       out.push(w)
       continue
     }
@@ -389,6 +391,7 @@ export function cleanWidgets(rows) {
     const source = (r.source || '').trim().replace(/^\/+/, '')
     if (r.type !== 'chats' && source) w.source = source
     if (r.type === 'chats') delete w.trigger
+    if (!isSize(w.size)) delete w.size
     out.push(w)
   }
   return out

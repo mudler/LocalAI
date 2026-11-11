@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
@@ -16,7 +16,11 @@ import WidgetFooter from './WidgetFooter'
 import PageTile from './PageTile'
 import { usePages } from '../../hooks/usePages'
 import { useSharedPages } from '../../hooks/useSharedPages'
-import { MAX_PAGE_TILES, eligiblePages, refKey, tileRef, tileSize } from '../../utils/pageTiles'
+import { MAX_PAGE_TILES, eligiblePages, refKey, tileRef } from '../../utils/pageTiles'
+import { WIDGET_SIZES, pageSizeOf, widgetSize } from '../../utils/homeGrid'
+import { useGridColumns } from '../../hooks/useGridColumns'
+import PackedGrid from './PackedGrid'
+import Segmented from '../ui/Segmented'
 import '../../pages/pages.css'
 import './wellKnown.css'
 
@@ -150,12 +154,11 @@ function ChatsWidget({ w, conversations, onResume }) {
 }
 
 // PagePick chooses the page of a page widget among the pages with a widget
-// block, and shows the size of its tile. A page the widget names that is no
-// longer eligible stays in the list, marked, so a save does not drop it.
+// block. A page the widget names that is no longer eligible stays in the list,
+// marked, so a save does not drop it.
 function PagePick({ r, eligible, byKey, onPick, t }) {
   const key = refKey(tileRef(r))
   const current = byKey.get(key)
-  const size = current ? tileSize(current.page) : ''
   return (
     <span className="wk-wrow__page">
       <span className="dk-select-wrap">
@@ -168,12 +171,6 @@ function PagePick({ r, eligible, byKey, onPick, t }) {
           ))}
         </select>
       </span>
-      {size && (
-        <span className="wk-sizechip" data-size={size} title={t(`wellKnown.home.page.sizes.${size}`)} data-testid="home-layout-page-size">
-          <span className="wk-sizechip__box" aria-hidden="true" />
-          {t(`wellKnown.home.page.sizes.${size}`)}
-        </span>
-      )}
     </span>
   )
 }
@@ -181,14 +178,10 @@ function PagePick({ r, eligible, byKey, onPick, t }) {
 // LayoutEditor edits home.json: add, remove and reorder widgets, and pick the
 // data file of each. The data files offered are the .json files of the home
 // and of its data folder; any other path can be typed.
-function LayoutEditor({ wk, onDone }) {
+function LayoutEditor({ wk, onDone, cols, eligible, byKey }) {
   const { t } = useTranslation('workspace')
   const [rows, setRows] = useState(() => widgetList(wk.doc))
-  // The pages that can be a tile: the ones whose page.json has a widget block.
-  const own = usePages()
-  const shared = useSharedPages()
-  const eligible = useMemo(() => eligiblePages(own.pages, shared.pages), [own.pages, shared.pages])
-  const byKey = useMemo(() => new Map(eligible.map(e => [e.key, e])), [eligible])
+  const sizeOf = (r) => widgetSize(r, byKey.get(refKey(tileRef(r)))?.page)
   const pageRows = rows.filter(r => r.type === 'page').length
   // The version the rows came from: a save starts from it, so a change by
   // someone else while editing is a conflict and not lost. After the conflict
@@ -254,6 +247,19 @@ function LayoutEditor({ wk, onDone }) {
       <h3>{t('wellKnown.home.editLayout')}</h3>
       <datalist id="wk-data-files">{files.map(f => <option key={f} value={f} />)}</datalist>
       {rows.length === 0 && <p className="wk-widget__empty">{t('wellKnown.home.noWidgets')}</p>}
+      {rows.length > 0 && (
+        <div className="wk-preview" data-testid="home-layout-preview">
+          <p className="wk-note">{t('wellKnown.home.preview')}</p>
+          <PackedGrid sizes={rows.map(sizeOf)} cols={cols} className="wk-widgets--preview" testId="home-layout-grid">
+            {rows.map((r, i) => (
+              <div key={i} className="wk-pv" data-testid="home-layout-block" data-size={sizeOf(r)}>
+                <span className="wk-pv__name">{r.title || byKey.get(refKey(tileRef(r)))?.page?.title || t('wellKnown.home.title')}</span>
+                <span className="wk-pv__size">{sizeOf(r).toUpperCase()}</span>
+              </div>
+            ))}
+          </PackedGrid>
+        </div>
+      )}
       {rows.map((r, i) => (
         <div key={i} className="wk-wrow" data-testid="home-layout-row">
           <span className="dk-select-wrap">
@@ -276,6 +282,12 @@ function LayoutEditor({ wk, onDone }) {
             />
           )}
           <span className="wk-wrow__tools">
+            <span className="wk-wrow__size">
+              <Segmented
+                label={t('wellKnown.home.size')} value={sizeOf(r)} onChange={v => set(i, 'size', v)}
+                options={WIDGET_SIZES.map(z => ({ id: z, label: z.toUpperCase() }))} testId="home-layout-size" itemTestId="home-layout-size-"
+              />
+            </span>
             <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveUp')} disabled={i === 0} onClick={() => setRows(move(rows, i, i - 1))}><Icon name="arrow-up" /></button>
             <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveDown')} disabled={i === rows.length - 1} onClick={() => setRows(move(rows, i, i + 1))}><Icon name="arrow-down" /></button>
             <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.remove')} onClick={() => setRows(rows.filter((_, j) => j !== i))}><Icon name="trash" /></button>
@@ -310,12 +322,19 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRe
   const { t } = useTranslation('workspace')
   const [editing, setEditing] = useState(false)
   const own = usePages()
+  const shared = useSharedPages()
+  // The pages that can be a tile: the ones whose page.json has a widget block.
+  const eligible = useMemo(() => eligiblePages(own.pages, shared.pages), [own.pages, shared.pages])
+  const byKey = useMemo(() => new Map(eligible.map(e => [e.key, e])), [eligible])
   const listedPage = (w) => {
     const ref = tileRef(w)
     return ref && !ref.folder ? own.pages.find(p => p.name === ref.name) : undefined
   }
 
   const box = useRef(null)
+  const [boxEl, setBoxEl] = useState(null)
+  const holdBox = useCallback((n) => { box.current = n; setBoxEl(n) }, [])
+  const cols = useGridColumns(boxEl)
   const fix = () => {
     setEditing(true)
     box.current?.scrollIntoView?.({ block: 'nearest' })
@@ -328,24 +347,25 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRe
   const widgets = useMemo(() => widgetList(wk.doc), [wk.doc])
   const triggers = useHomeTriggers(widgets.some(w => w.type !== 'chats' && w.type !== 'page' && w.source))
   if (!wk.doc) return null
+  const sizes = widgets.map(w => widgetSize(w, byKey.get(refKey(tileRef(w)))?.page))
   const scheduled = scheduledCount(widgets.filter(w => w.type !== 'chats' && w.type !== 'page'), triggers.triggers)
 
   return (
-    <div className="wk-home" data-testid="home-widgets" ref={box}>
+    <div className="wk-home" data-testid="home-widgets" ref={holdBox}>
       {wk.doc.exists && !wk.doc.valid && (
         <p className="wk-note wk-note--warn" role="status"><Icon name="warning" /> {t(wk.doc.fallback ? 'wellKnown.home.invalidFallback' : 'wellKnown.home.invalid')}</p>
       )}
       {widgets.length > 0 && (
-        <div className="wk-widgets">
-          {widgets.map(w => (w.type === 'chats'
+        <PackedGrid sizes={sizes} cols={cols} testId="home-widget-grid">
+          {widgets.map((w, i) => (w.type === 'chats'
             ? <ChatsWidget key={w.id} w={w} conversations={conversations} onResume={onResume} />
             : w.type === 'page'
-              ? <PageTile key={w.id} w={w} listed={listedPage(w)} onFix={fix} />
+              ? <PageTile key={w.id} w={w} size={sizes[i]} listed={listedPage(w)} onFix={fix} />
               : <DataWidget key={w.id} w={w} triggers={triggers} />))}
-        </div>
+        </PackedGrid>
       )}
       {editing ? (
-        <LayoutEditor wk={wk} onDone={() => setEditing(false)} />
+        <LayoutEditor wk={wk} onDone={() => setEditing(false)} cols={cols} eligible={eligible} byKey={byKey} />
       ) : (
         <div className="wk-layoutbar">
           <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setEditing(true)} data-testid="home-edit-layout"><Icon name="pencil" /> {t('wellKnown.home.editLayout')}</button>

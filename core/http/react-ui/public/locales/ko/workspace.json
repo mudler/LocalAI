@@ -153,13 +153,10 @@
         "noneEligible": "아직 홈용 간단한 보기가 있는 페이지가 없습니다. 어시스턴트에게 페이지에 추가해 달라고 요청하세요.",
         "pick": "페이지",
         "unavailable": "{{name}} (사용할 수 없음)",
-        "sharedLabel": "공유",
-        "sizes": {
-          "small": "작게",
-          "medium": "보통",
-          "large": "크게"
-        }
-      }
+        "sharedLabel": "공유"
+      },
+      "size": "크기",
+      "preview": "홈은 위젯을 이렇게 배치합니다. S는 한 칸, M은 두 칸, L은 한 줄 전체입니다. 빈 칸은 저절로 메워집니다."
     },
     "fields": {
       "persona": {
