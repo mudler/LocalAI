@@ -2083,6 +2083,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Debug = &trueV
 	}
 
+	// A context_size of 0 means "not set", the same as leaving the key out.
+	// Editors and templates write 0 as a placeholder; kept as an explicit value
+	// it would skip the GGUF-based sizing below and pin the window to the
+	// fallback. A negative value is a different request (full trained context)
+	// and is left alone for the GGUF hook to resolve.
+	if cfg.ContextSize != nil && *cfg.ContextSize == 0 {
+		cfg.ContextSize = nil
+	}
+
 	// If a context size was provided via LoadOptions, apply it before hooks so they
 	// don't override it with their own defaults.
 	if ctx != 0 && cfg.ContextSize == nil {

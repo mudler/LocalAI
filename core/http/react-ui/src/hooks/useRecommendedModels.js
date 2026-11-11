@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { modelsApi } from '../utils/api'
 import { useResources } from './useResources'
 import { modelBudget } from '../utils/modelBudget'
+import { DEFAULT_ESTIMATE_CONTEXT_SIZE } from '../utils/contextDefaults'
 
 // Data-driven "recommended for your hardware" model picks. The gallery exposes
 // no popularity/download signal and the list response carries no size, so we:
@@ -15,7 +16,7 @@ import { modelBudget } from '../utils/modelBudget'
 // resolved (gallery/estimates unavailable) so callers can fall back.
 
 const GB = 1024 * 1024 * 1024
-const DEFAULT_CTX = 4096
+const DEFAULT_CTX = DEFAULT_ESTIMATE_CONTEXT_SIZE
 
 // NVFP4 is a Blackwell/NVIDIA-specific 4-bit format — only worth suggesting on
 // NVIDIA hardware, and to be filtered out elsewhere.

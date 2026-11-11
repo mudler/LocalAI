@@ -70,10 +70,10 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 }
 
 // parseContextSizes parses a comma-separated list of context sizes from a query param.
-// Returns a default of [8192] if the param is empty or unparseable.
+// Returns a default of [config.DefaultEstimateContextSize] if the param is empty or unparseable.
 func parseContextSizes(raw string) []uint32 {
 	if raw == "" {
-		return []uint32{8192}
+		return []uint32{config.DefaultEstimateContextSize}
 	}
 	var sizes []uint32
 	for _, s := range strings.Split(raw, ",") {
@@ -83,7 +83,7 @@ func parseContextSizes(raw string) []uint32 {
 		}
 	}
 	if len(sizes) == 0 {
-		return []uint32{8192}
+		return []uint32{config.DefaultEstimateContextSize}
 	}
 	return sizes
 }
@@ -986,7 +986,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// context sizes. The frontend calls this per-model so the gallery page
 	// can load instantly and fill in estimates asynchronously.
 	// Query params:
-	//   contexts - comma-separated context sizes (default: 8192)
+	//   contexts - comma-separated context sizes (default: config.DefaultEstimateContextSize)
 	app.GET("/api/models/estimate/:id", func(c echo.Context) error {
 		modelID, err := url.QueryUnescape(c.Param("id"))
 		if err != nil {

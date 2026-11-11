@@ -23,6 +23,8 @@
 //             none      the code does not say, so the page says nothing
 //   note     what applying does, only where the handler says it
 
+import { DEFAULT_CONTEXT_SIZE } from './contextDefaults.js'
+
 export const GROUPS = [
   { id: 'memory', label: 'Models in memory', hint: 'When models stop, what gets evicted, GPU budget', icon: 'memory' },
   { id: 'speed', label: 'Speed and defaults', hint: 'Threads, context window, downloads', icon: 'gauge' },
@@ -109,7 +111,7 @@ export const FIELDS = [
   { key: 'threads', group: 'speed', was: 'performance', kind: 'int', label: 'Default threads',
     desc: 'CPU threads for inference. 0 means auto-detect.', placeholder: '0', min: 0 },
   { key: 'context_size', group: 'speed', was: 'performance', kind: 'int', label: 'Default context size',
-    desc: 'Context window size for models that do not set their own.', placeholder: '2048', min: 0 },
+    desc: 'Context window size for models that do not set their own.', placeholder: String(DEFAULT_CONTEXT_SIZE), min: 0 },
   { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
     desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
   { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',

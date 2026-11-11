@@ -68,7 +68,7 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		if cfg.ContextSize != nil {
 			ctxLen = uint32(*cfg.ContextSize)
 		} else {
-			ctxLen = 8192
+			ctxLen = uint32(config.DefaultEstimateContextSize)
 			contextDefaulted = true
 		}
 	}
@@ -100,8 +100,8 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 
 	if contextDefaulted && multi.ModelMaxContext > 0 {
 		resp.ContextNote = fmt.Sprintf(
-			"Estimate used default context_size=8192. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
-			multi.ModelMaxContext,
+			"Estimate used default context_size=%d. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
+			config.DefaultEstimateContextSize, multi.ModelMaxContext,
 		)
 	}
 	return resp, nil

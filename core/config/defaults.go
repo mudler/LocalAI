@@ -30,6 +30,13 @@ const (
 	// step further DOWN when even this cap would not fit (see context_fit.go).
 	DefaultAutoContextSize = 8192
 
+	// DefaultEstimateContextSize is the context the VRAM estimators and the UI
+	// assume when a model sets no context_size and the caller names none. It
+	// follows DefaultAutoContextSize on purpose: a GGUF without an explicit
+	// value is auto-sized up to that cap, so "what will it use" and "what do we
+	// estimate" must move together. It is display-only and never sizes a load.
+	DefaultEstimateContextSize = DefaultAutoContextSize
+
 	// DefaultNGPULayers means "offload all layers"; the backend (fit_params)
 	// clamps to what actually fits in device memory.
 	DefaultNGPULayers = 99999999
