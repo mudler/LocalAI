@@ -38,3 +38,45 @@ var _ = Describe("Reading the header of a file the parser cannot decode", func()
 		Expect(h.ramFootprintAt(32768)).To(BeZero())
 	})
 })
+
+// A header whose attention geometry is missing gives an estimate with no KV
+// cache. Its footprint then barely changes with the window, so the fit checks
+// would see no reason to lower it. The header must report it as unknown.
+var _ = Describe("Reading the header of a file with no usable KV", func() {
+	const gib = uint64(1) << 30
+
+	var origVRAM, origRAM func() uint64
+	BeforeEach(func() {
+		origVRAM, origRAM = perDeviceVRAM, systemTotalRAM
+		perDeviceVRAM = func() uint64 { return 0 }
+		systemTotalRAM = func() uint64 { return 16 * gib }
+	})
+	AfterEach(func() { perDeviceVRAM, systemTotalRAM = origVRAM, origRAM })
+
+	shape := func(kvHeads uint32) ggufShape {
+		return ggufShape{arch: "llama", layers: 64, embd: 5120, heads: 40, kvHeads: kvHeads, headDim: 128, ffn: 25600}
+	}
+
+	It("keeps the footprints of a header with KV", func() {
+		h := readGGUFHeader(shape(8).file())
+		Expect(h.TrainedContext).To(BeNumerically(">", 0))
+		Expect(h.ramFootprintAt(32768)).To(BeNumerically(">", h.ramFootprintAt(4096)))
+	})
+
+	It("treats a header with zero kv heads as unknown", func() {
+		h := readGGUFHeader(shape(0).file())
+		Expect(h.TrainedContext).To(BeNumerically(">", 0))
+		for _, ctx := range []int{4096, 16384, 32768} {
+			Expect(h.footprintAt(ctx)).To(BeZero())
+			Expect(h.ramFootprintAt(ctx)).To(BeZero())
+		}
+		Expect(h.maxCtxFootprint).To(BeZero())
+	})
+
+	It("leaves the base cap alone when the footprint is unknown", func() {
+		h := readGGUFHeader(shape(0).file())
+		// A model that needs about 25 GiB of 16 GiB would be stepped down if the
+		// estimate were believed; unknown means no step-down, the base cap holds.
+		Expect(autoContextSize(h.footprintAt, h.ramFootprintAt, 40960, 32768)).To(Equal(32768))
+	})
+})

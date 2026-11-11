@@ -99,7 +99,15 @@ func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
 	h.MTPLayers, h.HasMTP = HasEmbeddedMTPHead(f)
 
 	h.TrainedContext, h.trainedPanic = safeTrainedContext(f)
-	if h.TrainedContext > 0 {
+	noKV := h.TrainedContext > 0 && hasNoUsableKV(f, min(h.TrainedContext, harnessctx.RecommendedContext))
+	if noKV {
+		// An estimate without a KV cache does not grow with the window, so
+		// every step of the ladder would look as cheap as the first and the
+		// fit checks would never lower it. Treat the footprint as unknown, the
+		// same answer as an estimator failure: the base cap still applies.
+		xlog.Warn("[gguf] the estimator found no KV cache in this header; memory-based context limits are skipped for it",
+			"model", h.Name, "architecture", h.Architecture)
+	} else if h.TrainedContext > 0 {
 		// The snapshot is shared by every model on this file, whatever it
 		// serves, so it holds the base cap of both targets (chat and other)
 		// and every step of the ladder.
@@ -116,10 +124,34 @@ func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
 		}
 	}
 
-	if h.MaxContextLength > 0 {
+	if h.MaxContextLength > 0 && !noKV {
 		h.maxCtxFootprint = estimateNonUMAAt(f, h.MaxContextLength)
 	}
 	return h
+}
+
+// hasNoUsableKV reports whether the estimator sizes no KV cache at all for f at
+// ctx tokens, which a text model never has: it means the attention metadata
+// was missing or not understood. A model that only embeds or reranks keeps no
+// KV cache in the estimator's view either, so it is not flagged.
+func hasNoUsableKV(f *gguf.GGUFFile, ctx int) (none bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			none = false // an estimator failure is handled where it is used
+		}
+	}()
+	est := f.EstimateLLaMACppRun(
+		gguf.WithLLaMACppContextSize(int32(ctx)),
+		gguf.WithLLaMACppOffloadLayers(0),
+	)
+	if est.EmbeddingOnly {
+		return false
+	}
+	var kv uint64
+	for _, d := range est.Devices {
+		kv += uint64(d.KVCache.Sum())
+	}
+	return kv == 0
 }
 
 // safeArchitecture returns the parsed architecture, and false when the parser
