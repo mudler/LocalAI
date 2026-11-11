@@ -523,6 +523,25 @@ var _ = Describe("widget data and home widgets", func() {
 		Expect(errs).To(BeEmpty())
 	})
 
+	DescribeTable("takes the sizes s, m and l on every type of widget and refuses another",
+		func(widget string, ok bool) {
+			_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[`+widget+`]}`))
+			if ok {
+				Expect(errs).To(BeEmpty())
+			} else {
+				Expect(errs).NotTo(BeEmpty())
+			}
+		},
+		Entry("a list, s", `{"id":"a","type":"list","title":"A","source":"data/a.json","size":"s"}`, true),
+		Entry("a metric, m", `{"id":"a","type":"metric","title":"A","source":"data/a.json","size":"m"}`, true),
+		Entry("chats, l", `{"id":"a","type":"chats","title":"Chats","size":"l"}`, true),
+		Entry("a page, l", `{"id":"a","type":"page","page":"news","size":"l"}`, true),
+		Entry("no size, as before", `{"id":"a","type":"list","title":"A","source":"data/a.json"}`, true),
+		Entry("a page size word", `{"id":"a","type":"page","page":"news","size":"medium"}`, false),
+		Entry("a capital", `{"id":"a","type":"chats","title":"Chats","size":"M"}`, false),
+		Entry("a number", `{"id":"a","type":"chats","title":"Chats","size":2}`, false),
+	)
+
 	It("keeps the title required for the other widgets", func() {
 		_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"c","type":"chats"}]}`))
 		Expect(errs).NotTo(BeEmpty())

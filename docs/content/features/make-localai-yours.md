@@ -313,6 +313,26 @@ assistant**. A `home.json` with a headline and no widgets is valid.
 
 Home has at most 12 widgets.
 
+Every widget, whatever its type, has a `size`: `s`, `m` or `l`. Home is a grid
+of 4 columns (2 on a medium window, 1 on a phone), and a size is the room a
+widget takes on it:
+
+| Size | Width | Height |
+|---|---|---|
+| `s` | 1 column | 1 row unit (about 130 px) |
+| `m` | 2 columns | 2 row units |
+| `l` | the full row | 3 row units |
+
+A width never goes past the columns the grid has, so on 2 columns `m` and `l`
+are both 2 wide, and on a phone every widget is 1 wide. A list or a metric
+shows as much of its data as fits and scrolls inside its tile. A later small
+widget fills a hole that a bigger one leaves, and a hole that still remains
+closes by stretching the tiles beside it, so Home never has an empty cell.
+Without `size`, a page widget takes the size of its page's `widget` block
+(`small`, `medium`, `large`), a `list` or `chats` widget takes `m`, and a
+`metric` widget takes `s`. **Edit layout** shows the grid as Home draws it, with
+an S, M and L control on every row.
+
 A `list` or `metric` widget reads its `source`, a data file in your home:
 
 ```json
@@ -352,7 +372,7 @@ Its `title` is optional: without it, the tile shows the title of the page's
 `widget` block, or the page's own title. Only a page whose `page.json` has a
 `widget` block can be a tile, and Home shows at most three page widgets; the
 server refuses a layout with more, and says so. **Customise Home** lists the
-pages that can be a tile, with their size. A tile whose page is gone, or has no
+pages that can be a tile. A tile whose page is gone, or has no
 `widget` block, says so calmly and links to **Customise Home**; a shared page
 you have not allowed shows **Allow this page**.
 

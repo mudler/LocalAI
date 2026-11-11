@@ -283,7 +283,7 @@ does not shrink the full page.
 
 | Field | Meaning |
 |---|---|
-| `widget.size` | The height of the tile: `small` (one line or a number), `medium` (a short list) or `large` (a table or a chart; two columns wide when Home has room). Any other value is `medium`. |
+| `widget.size` | The size of the tile when `home.json` gives the widget no `size`: `small` (one column, one row unit: a line or a number), `medium` (two columns and rows: a short list) or `large` (the full row, three row units: a table or a chart). Any other value is `medium`. |
 | `widget.title` | The title of the tile, when it should be shorter than the page's. |
 
 A page without a `widget` block cannot be a tile. To put a page on Home, add

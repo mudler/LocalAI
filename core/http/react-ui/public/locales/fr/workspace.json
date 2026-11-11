@@ -153,13 +153,10 @@
         "noneEligible": "Aucune page n’a encore de vue compacte pour l’accueil. Demandez à l’assistant d’en ajouter une à une page.",
         "pick": "Page",
         "unavailable": "{{name}} (indisponible)",
-        "sharedLabel": "partagée",
-        "sizes": {
-          "small": "Petit",
-          "medium": "Moyen",
-          "large": "Grand"
-        }
-      }
+        "sharedLabel": "partagée"
+      },
+      "size": "Taille",
+      "preview": "Voici comment l'accueil dessine vos widgets. S prend une colonne, M deux, L toute la ligne. Un trou se comble tout seul."
     },
     "fields": {
       "persona": {

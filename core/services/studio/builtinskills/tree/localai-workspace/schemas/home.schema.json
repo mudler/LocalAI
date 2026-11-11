@@ -45,6 +45,11 @@
             "description": "For a page widget: the name of a page, the folder pages/<name>/ of your home. Its page.json must have a widget block.",
             "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
           },
+          "size": {
+            "enum": ["s", "m", "l"],
+            "title": "Size",
+            "description": "How much of the Home grid the widget takes: s one column and one row, m two columns and two rows, l a full row and three. Left out, a page widget takes the size of its page.json widget block and the other types take m (a list, the chats) or s (a metric)."
+          },
           "folder": {
             "type": "integer",
             "title": "Shared folder",

@@ -251,13 +251,10 @@
         "noneEligible": "No page has a compact view for Home yet. Ask the assistant to add one to a page.",
         "pick": "Page",
         "unavailable": "{{name}} (not available)",
-        "sharedLabel": "shared",
-        "sizes": {
-          "small": "Small",
-          "medium": "Medium",
-          "large": "Large"
-        }
-      }
+        "sharedLabel": "shared"
+      },
+      "size": "Size",
+      "preview": "Home draws your widgets like this. S is one column, M two, L the full row. A gap closes by itself."
     },
     "fields": {
       "persona": {

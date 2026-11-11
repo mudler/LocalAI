@@ -153,13 +153,10 @@
         "noneEligible": "Ninguna página tiene todavía una vista compacta para Inicio. Pide al asistente que añada una a una página.",
         "pick": "Página",
         "unavailable": "{{name}} (no disponible)",
-        "sharedLabel": "compartida",
-        "sizes": {
-          "small": "Pequeño",
-          "medium": "Mediano",
-          "large": "Grande"
-        }
-      }
+        "sharedLabel": "compartida"
+      },
+      "size": "Tamaño",
+      "preview": "Así dibuja Inicio tus widgets. S ocupa una columna, M dos, L la fila entera. Un hueco se cierra solo."
     },
     "fields": {
       "persona": {

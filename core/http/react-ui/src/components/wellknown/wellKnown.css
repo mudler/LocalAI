@@ -92,8 +92,10 @@
 .wk-row--empty { padding: 10px; font-size: var(--text-sm); color: var(--color-text-muted); }
 
 /* Home widgets */
-.wk-widgets { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 16px; }
-.wk-widget { background: var(--color-bg-secondary); border: 1px solid var(--color-border-card); border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-4) var(--sp-3); min-width: 0; display: flex; flex-direction: column; }
+.wk-widgets { --wk-unit: 132px; --wk-gap: 16px; display: grid; grid-template-columns: repeat(var(--wk-cols, 1), minmax(0, 1fr)); grid-auto-rows: var(--wk-unit); grid-auto-flow: dense; gap: var(--wk-gap); }
+.wk-widgets[data-cols="4"] { --wk-cols: 4; }
+.wk-widgets[data-cols="2"] { --wk-cols: 2; }
+.wk-widget { background: var(--color-bg-secondary); border: 1px solid var(--color-border-card); border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-4) var(--sp-3); min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .wk-widget h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-small); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .wk-widget h2 > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wk-widget__aside { font-weight: var(--font-weight-regular); color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
@@ -134,7 +136,14 @@
 .wk-layout h3 { margin: 0; font-size: var(--fs-small); font-weight: var(--font-weight-semibold); }
 .wk-wrow { display: grid; grid-template-columns: 148px minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--sp-2); align-items: center; contain: layout paint; }
 .wk-wrow .dk-input, .wk-wrow .dk-select { height: var(--ctl-h-sm); }
-.wk-wrow__tools { display: flex; gap: 2px; }
+.wk-wrow__tools { display: flex; align-items: center; gap: 2px; }
+.wk-wrow__size { margin-inline-end: var(--sp-2); }
+.wk-preview { display: flex; flex-direction: column; gap: var(--sp-2); }
+.wk-preview .wk-note { margin: 0; }
+.wk-widgets--preview { --wk-unit: 36px; --wk-gap: 8px; }
+.wk-pv { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); min-width: 0; min-height: 0; overflow: hidden; padding: var(--sp-1) var(--sp-2); border: 1px dashed var(--color-border-strong); border-radius: var(--r-md); background: var(--color-bg-tertiary); font-size: var(--text-xs); color: var(--color-text-secondary); }
+.wk-pv__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-pv__size { flex-shrink: 0; font-family: var(--font-mono); color: var(--color-text-muted); }
 @media (max-width: 640px) {
   .wk-wrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .wk-wrow__tools { grid-column: 1 / -1; justify-content: flex-end; }
@@ -227,7 +236,7 @@
 /* The footer of a widget a file or a trigger feeds (mockup 18). One line of
    state with its actions, and a quieter line with the next run and the cost.
    Every tone has an icon and words, never colour alone. */
-.wk-widget__body { min-width: 0; }
+.wk-widget__body { min-width: 0; min-height: 0; flex: 1 1 auto; overflow: auto; }
 .wk-widget--dim .wk-widget__body { opacity: 0.55; }
 .wk-widget__tag { display: inline-flex; align-items: center; gap: 4px; }
 .wk-widget__tag .lai-icon { width: 12px; height: 12px; }
@@ -246,16 +255,9 @@
 .wk-foot--err { background: var(--color-error-light); color: var(--dk-error-text); border-top-color: var(--color-error-border); }
 .wk-foot--err .wk-foot__act { color: var(--dk-error-text); }
 
-/* Page tiles: a page of the workspace in its compact mode. The body has the
-   height of the tile's size from the start, so nothing moves when the frame
-   loads; a large tile spans two columns where the grid has them. */
-.wk-widgets { container-type: inline-size; }
-.wk-ptile { --wk-ptile-h: 240px; padding: 0; overflow: hidden; align-self: start; }
-.wk-ptile--small { --wk-ptile-h: 132px; }
-.wk-ptile--large { --wk-ptile-h: 380px; }
-@container (min-width: 520px) {
-  .wk-ptile--large { grid-column: span 2; }
-}
+/* Page tiles: a page of the workspace in its compact mode. A tile fills the
+   cells the grid gives its size, so nothing moves when the frame loads. */
+.wk-ptile { padding: 0; overflow: hidden; }
 .wk-widget h2.wk-ptile__bar { margin: 0; padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4); align-items: center; min-height: 40px; border-bottom: 1px solid var(--color-border-card); }
 .wk-ptile__name { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .wk-ptile__icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--dk-accent-text); }
@@ -265,8 +267,8 @@
 .wk-ptile__open:hover { text-decoration: underline; }
 .wk-ptile__open:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .wk-ptile__open .lai-icon { width: 12px; height: 12px; }
-.wk-ptile__body { position: relative; height: var(--wk-ptile-h); min-width: 0; }
-.wk-ptile .pg-frame.wk-ptile__frame { display: block; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; background: var(--color-bg-secondary); }
+.wk-ptile__body { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; }
+.wk-ptile .pg-frame.wk-ptile__frame { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; background: var(--color-bg-secondary); }
 .wk-ptile__fill { position: absolute; inset: var(--sp-3); width: auto; height: auto; }
 .wk-ptile__idle { border-radius: var(--r-md); background: var(--color-bg-tertiary); opacity: 0.5; }
 .wk-ptile__calm { height: 100%; box-sizing: border-box; padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: var(--sp-1); overflow: auto; }
@@ -284,10 +286,6 @@
 /* The size of a page's tile, in the layout editor. */
 .wk-wrow__page { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .wk-wrow__page .dk-select-wrap { flex: 1 1 auto; min-width: 0; }
-.wk-sizechip { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; font-size: var(--text-xs); color: var(--color-text-muted); white-space: nowrap; }
-.wk-sizechip__box { width: 14px; height: 8px; border: 1.5px solid var(--color-border-strong); border-radius: var(--r-xs); }
-.wk-sizechip[data-size="medium"] .wk-sizechip__box { height: 12px; }
-.wk-sizechip[data-size="large"] .wk-sizechip__box { width: 22px; height: 16px; }
 
 /* The server's own words about a failed save or a broken setting, folded
    away under the plain sentence of the note. */
@@ -461,3 +459,8 @@
 .wk-lookprev .hljs-built_in { color: var(--dk-text); }
 /* On a phone a list of four scrolls inside the card (the kit segmented) instead of running out of it. */
 .wk-look__pair > div { min-width: 0; max-width: 100%; }
+
+/* A one-unit tile has no room for a stacked number: the note goes beside it,
+   and the sparkline goes. */
+.wk-widget[data-rh="1"] .wk-metric { flex-direction: row; align-items: baseline; gap: var(--sp-2); }
+.wk-widget[data-rh="1"] .wk-spark { display: none; }

@@ -153,13 +153,10 @@
         "noneEligible": "Belum ada halaman dengan tampilan ringkas untuk Beranda. Minta asisten menambahkannya ke sebuah halaman.",
         "pick": "Halaman",
         "unavailable": "{{name}} (tidak tersedia)",
-        "sharedLabel": "bersama",
-        "sizes": {
-          "small": "Kecil",
-          "medium": "Sedang",
-          "large": "Besar"
-        }
-      }
+        "sharedLabel": "bersama"
+      },
+      "size": "Ukuran",
+      "preview": "Beginilah Beranda menggambar widget Anda. S satu kolom, M dua, L satu baris penuh. Celah kosong menutup sendiri."
     },
     "fields": {
       "persona": {

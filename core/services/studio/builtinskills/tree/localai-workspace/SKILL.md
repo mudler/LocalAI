@@ -16,7 +16,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat (`tools` lists names switched off or on); `default` is the `id` a new chat starts with. No prompt, no files. Limits and values: its schema. |
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
-| `LocalAI/home.json` | `{"headline"?, "widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `headline` replaces the greeting at the top. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
+| `LocalAI/home.json` | `{"headline"?, "widgets": [{id, type, title, size?, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `size` is `s` (one column), `m` (two) or `l` (full row); a page widget defaults to its `widget.size`. `headline` replaces the greeting at the top. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
 | `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground` (Home only), `chatBackground` (the chat view only; see "Backgrounds") and `strings` (own text for a few labels). |
 | `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 
@@ -85,7 +85,7 @@ A metric uses `value`, `note` and `series` (numbers for a small line). A `chats`
 
 **Show my open tasks on Home.** Write `data/tasks.json` (widget data, `items`), then add `{"id": "tasks", "type": "list", "title": "Open tasks", "source": "data/tasks.json"}` to `widgets` in `LocalAI/home.json`.
 
-**Put this page on Home.** A page shows on Home only when its `page.json` has a `widget` block. Read `pages/<name>/page.json`, add `"widget": {"size": "medium"}` (`small` for one line or a number, `large` for a table or a chart) and keep its other keys; make sure the page has a compact layout for `localai.page.mode === 'widget'` (the `localai-apps` skill, section "On Home"). Then add `{"id": "<name>", "type": "page", "page": "<name>"}` to `widgets` in `LocalAI/home.json`. Home takes at most 3 page widgets; with 3 already, ask which one to replace.
+**Put this page on Home.** A page shows on Home only when its `page.json` has a `widget` block. Read `pages/<name>/page.json`, add `"widget": {"size": "medium"}` (`small` for one line or a number, `large` for a table or a chart) and keep its other keys; make sure the page has a compact layout for `localai.page.mode === 'widget'` (the `localai-apps` skill, section "On Home"). Then add `{"id": "<name>", "type": "page", "page": "<name>"}` to `widgets` in `LocalAI/home.json`. Home takes at most 3; with 3 already, ask which to replace.
 
 **Call me X and keep answers short.** Set `name` in `LocalAI/user.json` to X. Add "Keep answers short." to `system_prompt` in `LocalAI/persona.json`.
 

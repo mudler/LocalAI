@@ -153,13 +153,10 @@
         "noneEligible": "Nenhuma página tem ainda uma visualização compacta para o Início. Peça ao assistente para adicionar uma a uma página.",
         "pick": "Página",
         "unavailable": "{{name}} (indisponível)",
-        "sharedLabel": "compartilhada",
-        "sizes": {
-          "small": "Pequeno",
-          "medium": "Médio",
-          "large": "Grande"
-        }
-      }
+        "sharedLabel": "compartilhada"
+      },
+      "size": "Tamanho",
+      "preview": "É assim que o Início desenha seus widgets. S ocupa uma coluna, M duas, L a linha inteira. Um vazio se fecha sozinho."
     },
     "fields": {
       "persona": {
