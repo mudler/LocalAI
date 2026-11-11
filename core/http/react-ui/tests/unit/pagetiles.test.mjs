@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import { buildPageSrcdoc, createPageHost } from '../../src/utils/pagesBridge.js'
+import { createFrameWatch } from '../../src/utils/frameWatch.js'
 import {
   MAX_LIVE_FRAMES, MAX_PAGE_TILES, compactOf, createFrameSlots, eligiblePages, nextFrame, refKey, tilePagePath, tileRef, tileState, tileTitle,
 } from '../../src/utils/pageTiles.js'
@@ -9,7 +10,7 @@ import { cleanWidgets, widgetList } from '../../src/utils/wellKnown.js'
 
 // The frame's bootstrap in a VM: the attributes it sets on <html>, the API it
 // defines and the port it talks over.
-function boot(opts, { timers = null } = {}) {
+function boot(opts, { timers = null, clock = null } = {}) {
   const attrs = {}
   let onMessage = null
   const sandbox = {
@@ -24,6 +25,7 @@ function boot(opts, { timers = null } = {}) {
     scrollTo() {},
     addEventListener: (t, fn) => { if (t === 'message') onMessage = fn },
   }
+  if (clock) sandbox.Date = { now: () => clock.t }
   sandbox.window = sandbox
   sandbox.parent = {}
   vm.createContext(sandbox)
@@ -251,9 +253,9 @@ test('frame: a tile changes size without a reload, and only to known sizes', () 
   assert.equal(boot({ name: 'x', mode: 'widget', size: 'compact' }).localai.page.size, 'compact')
 })
 
-test('frame: a tile beats about once a second, a full page does not', () => {
+test('frame: a frame with a budget beats about once a second, a full page does not', () => {
   const timers = []
-  const tile = boot({ name: 'clock', mode: 'widget', size: 'small' }, { timers })
+  const tile = boot({ name: 'clock', mode: 'widget', size: 'small', beat: true }, { timers })
   assert.equal(timers.length, 1)
   assert.equal(timers[0].ms, 1000)
   timers[0].fn()
@@ -264,6 +266,24 @@ test('frame: a tile beats about once a second, a full page does not', () => {
   const page = []
   boot({ name: 'clock' }, { timers: page })
   assert.equal(page.length, 0)
+})
+
+test('frame: a page in the dock keeps beating past the start budget and is not stopped', () => {
+  // The dock runs a page in the page mode with a budget: the host watches it,
+  // so the bridge must beat, or the watch stops it as noStart after 10 s.
+  const clock = { t: 1_000_000 }
+  const timers = []
+  const dock = boot({ name: 'board', mode: 'page', beat: true }, { timers, clock })
+  const watch = createFrameWatch({ now: () => clock.t })
+  let seen = 0
+  for (let s = 0; s < 13; s++) {
+    clock.t += 1000
+    for (const tm of timers) tm.fn()
+    for (const m of dock.posted.slice(seen)) if (m.beat === 1) watch.beat(m.busy)
+    seen = dock.posted.length
+    assert.equal(watch.check(true), '', `still running after ${s + 1} s`)
+  }
+  assert.equal(dock.posted.filter((m) => m.beat === 1).length, 13, 'one beat a second for 13 s')
 })
 
 test('page host: a beat goes to onBeat and gets no answer; mode events are checked', async () => {

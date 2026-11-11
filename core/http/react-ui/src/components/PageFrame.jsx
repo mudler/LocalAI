@@ -32,7 +32,7 @@ import { BEAT_MS, createFrameWatch } from '../utils/frameWatch'
 //                  small, medium, large): the page reads them as
 //                  localai.page.mode and .size. A change after the load goes
 //                  to the page as a 'mode' event: the frame is not reloaded
-//   budget         a tile: the frame is watched (utils/frameWatch.js) and
+//   budget         a tile, the page area or the dock: the frame is watched (utils/frameWatch.js) and
 //                  taken down when it spins or stops answering; onStopped
 //                  (reason) is called, and the caller offers Reload
 //   onReady()      the first beat of the page came: its script runs and keeps
@@ -119,9 +119,9 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     builtMode.current = m
     return buildPageSrcdoc(ready.html, {
       name: page.name, title: page.title, theme, head: ready.head, modules: ready.modules,
-      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode: m.mode, size: m.size, colors: noticeColours(),
+      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode: m.mode, size: m.size, colors: noticeColours(), beat: budget,
     })
-  }, [ready, page.name, page.title, theme, t])
+  }, [ready, page.name, page.title, theme, t, budget])
 
   useImperativeHandle(ref, () => ({
     emit: (event, data) => {

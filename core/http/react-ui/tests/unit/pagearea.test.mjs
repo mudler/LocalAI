@@ -35,14 +35,14 @@ function boot(opts) {
 }
 
 test('page area: the frame knows the mode area, with no size, and beats like a tile', () => {
-  const area = boot({ name: 'today', mode: 'area', size: 'large' })
+  const area = boot({ name: 'today', mode: 'area', size: 'large', beat: true })
   assert.equal(area.localai.page.mode, 'area')
   assert.equal(area.localai.page.size, '', 'the area is the full width: no size')
   assert.equal(area.attrs['data-mode'], 'area')
   assert.equal(area.attrs['data-size'], undefined)
   assert.ok(area.timers.some((t) => t.ms === 1000), 'the area is watched like a tile')
   const page = boot({ name: 'today' })
-  assert.equal(page.timers.length, 0, 'a full page is not watched')
+  assert.equal(page.timers.length, 0, 'a full page with no budget is not watched')
 })
 
 test('page area: a page moves between the area, a tile and its own screen without a reload', () => {

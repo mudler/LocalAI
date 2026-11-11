@@ -377,7 +377,8 @@ together. A tile that gets none shows as a card with **Run**;
 a click runs it and stops the frame that started first, which then shows as a
 card. When a tile goes away, the next waiting tile runs.
 
-A tile runs without a click, so it has a budget. Its bridge sends a beat about
+A tile runs without a click, so it has a budget, and so does the page in
+the dock. Its bridge sends a beat about
 once a second with the time the page kept the browser busy since the last one
 (its long tasks, and how late the beat's timer fired). LocalAI stops the frame
 and shows **Reload** when:

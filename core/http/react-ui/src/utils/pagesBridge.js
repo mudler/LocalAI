@@ -62,8 +62,9 @@ export function pageCsp(modules) {
 // {mode, size}}, the bridge updates localai.page and the data-mode and
 // data-size attributes of <html>, then calls the page's 'mode' listeners.
 //
-// A tile and the page area also have a budget (utils/frameWatch.js): about once a second the
-// bridge sends {beat: 1, busy} over the port, busy being the time in ms that
+// A frame with a budget (utils/frameWatch.js: a tile, the page area and the
+// dock; INFO.beat is true) gets about once a second from the bridge a
+// {beat: 1, busy} over the port, busy being the time in ms that
 // the page kept the thread busy since the last beat (long tasks, and how late
 // the beat's own timer fired). A page that stops the beats is stopped.
 //
@@ -122,9 +123,9 @@ const BOOTSTRAP = `(function () {
     port.onmessage = deliver
     for (var i = 0; i < queue.length; i++) port.postMessage(queue[i])
     queue = []
-    if (info.mode !== 'page') beat()
+    if (info.beat) beat()
   })
-  // The beats of the budget, for a tile and the page area: the time since the last one
+  // The beats of the budget, for a frame with a budget: the time since the last one
   // beyond the timer's own period is time the page held the thread, and so
   // is each long task.
   var busy = 0, lastBeat = 0, now = function () { return Date.now() }
@@ -483,7 +484,9 @@ export function noticeColours() {
   return { bg: read('--dk-warn-wash'), fg: read('--dk-warn-text'), accent: read('--dk-warn') }
 }
 
-export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '', colors = {} } = {}) {
+// beat: the frame has a budget (PageFrame's budget), so the bridge sends the
+// beats whatever the mode: a page in the dock is watched as a tile is.
+export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '', colors = {}, beat = false } = {}) {
   const widget = mode === 'widget'
   const area = mode === 'area'
   const info = scriptJSON({
@@ -493,6 +496,7 @@ export function buildPageSrcdoc(html, { name, title, theme, head = '', modules =
     shift: newlines(BOOTSTRAP) + newlines(head),
     name: String(name || ''), title: String(title || name || ''), theme: theme === 'dark' ? 'dark' : 'light',
     mode: widget ? 'widget' : area ? 'area' : 'page', size: widget ? (TILE_SIZES.includes(size) ? size : 'medium') : '',
+    beat: beat === true,
     notes: (Array.isArray(notes) ? notes : []).slice(0, 50).map((n) => ({ level: n.level === 'error' ? 'error' : 'warn', message: String(n.message || '').slice(0, 500) })),
     banner: String(banner || '').slice(0, 1000), dismiss: String(dismiss || ''),
     colors: Object.fromEntries(['bg', 'fg', 'accent'].filter((k) => /^#[0-9a-fA-F]{3,8}$/.test(colors && colors[k])).map((k) => [k, colors[k]])),
