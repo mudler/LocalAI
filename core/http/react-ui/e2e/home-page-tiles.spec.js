@@ -87,6 +87,9 @@ async function clockFrame(page) {
 
 async function home(page, theme = 'light') {
   await page.route('**/api/chats/triggers*', (r) => r.fulfill({ json: { triggers: [] } }))
+  // Other workers make agents on the same server, and the Home composer
+  // offers them, which moves the tiles; the tiles are checked without them.
+  await page.route('**/api/chats/agents*', (r) => r.fulfill({ json: { agents: [] } }))
   await page.addInitScript((t) => { try { localStorage.setItem('localai-theme', t) } catch { /* private mode */ } }, theme)
   await page.goto('/app')
 }

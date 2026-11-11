@@ -33,19 +33,24 @@ test('an agent exports to the server file and imports back as a new agent', asyn
 })
 
 test('a starter agent of the server is saved and opened for editing', async ({ page }) => {
-  const before = (await api(page.request, '/api/chats/agents')).agents
-  for (const a of before) await page.request.delete(`/api/chats/agents/${a.id}`)
   const templates = (await api(page.request, '/api/chats/agents/templates')).templates
   expect(templates.length).toBeGreaterThan(0)
+  // The starters show only when the user has no agent. Other workers make
+  // agents on the same server, so the page reads an empty list here instead
+  // of deleting theirs; saving the starter still goes to the server.
+  await page.route('**/api/chats/agents', route => (route.request().method() === 'GET'
+    ? route.fulfill({ json: { agents: [] } })
+    : route.fallback()))
   await page.goto('/app/agents')
   const tpl = page.getByTestId('agent-template').first()
   await expect(tpl).toBeVisible()
   await expect(tpl).toContainText(templates[0].name)
   await tpl.getByRole('button').click()
   await page.waitForURL(/\/app\/agents\/[^/]+\/edit$/)
-  const after = (await api(page.request, '/api/chats/agents')).agents
-  expect(after.map(a => a.name)).toContain(templates[0].name)
-  for (const a of after) await page.request.delete(`/api/chats/agents/${a.id}`)
+  const id = decodeURIComponent(page.url().match(/\/app\/agents\/([^/]+)\/edit$/)[1])
+  const saved = (await api(page.request, '/api/chats/agents')).agents.find(a => a.id === id)
+  expect(saved?.name).toBe(templates[0].name)
+  await page.request.delete(`/api/chats/agents/${id}`)
 })
 
 test('an agent task is created, run with a parameter, and its job is listed with its result', async ({ page }) => {
