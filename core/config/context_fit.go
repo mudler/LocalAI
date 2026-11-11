@@ -2,6 +2,7 @@ package config
 
 import (
 	gguf "github.com/gpustack/gguf-parser-go"
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -14,12 +15,60 @@ import (
 // free. /5 (~20% headroom) mirrors the SWA full-cache gate's margin.
 const contextFitHeadroomDivisor = 5
 
-// contextFitCandidates is the descending set of context windows tried when the
-// DefaultAutoContextSize cap itself does not fit per-device VRAM. Only the rare
-// big-model-on-tiny-card case reaches this walk; it is capped at the base
-// choice and floored at DefaultContextSize, and returns the first (largest)
-// candidate that fits.
-var contextFitCandidates = []int{8192, 6144, 4096}
+// contextFitCandidates is the descending ladder of context windows tried when
+// the target window itself does not fit per-device VRAM. The steps from the
+// recommended chat window down to the chat minimum come first, so a card that
+// cannot hold 32768 still reaches 24576 or 16384 before anything below the
+// minimum; 8192, 6144 and 4096 are used only when 16384 does not fit. The walk
+// is capped at the base choice and floored at DefaultContextSize, and returns
+// the first (largest) candidate that fits.
+var contextFitCandidates = []int{
+	harnessctx.RecommendedContext, harnessctx.MinContextAdmin, harnessctx.MinContext,
+	8192, 6144, 4096,
+}
+
+// nonChatArchitectures are GGUF architectures that only embed or rerank text.
+// A model of one of them never serves a chat, so it keeps the conservative
+// window instead of the larger target of a chat model.
+var nonChatArchitectures = map[string]bool{
+	"bert": true, "nomic-bert": true, "nomic-bert-moe": true,
+	"jina-bert-v2": true, "jina-bert-v3": true, "modern-bert": true,
+	"neo-bert": true, "eurobert": true, "t5encoder": true,
+}
+
+// ServesChat reports whether a model may serve a chat, from what is known
+// before it loads: its declared usecases and flags, and the architecture of
+// its GGUF when the caller has it (empty when it does not). Only such a model
+// gets the larger window of a chat; an embedding, rerank, score or other
+// primitive-only model does not, because its window costs memory and buys it
+// nothing.
+func (c *ModelConfig) ServesChat(architecture string) bool {
+	if c.Embeddings != nil && *c.Embeddings || c.Reranking != nil && *c.Reranking {
+		return false
+	}
+	if reservedNonChatModel(c) || nonChatArchitectures[architecture] {
+		return false
+	}
+	known := c.KnownUsecases
+	if known == nil {
+		known = GetUsecasesFromYAML(c.KnownUsecaseStrings)
+	}
+	if known != nil && *known != FLAG_ANY {
+		// The operator declared what the model is for: chat must be in it.
+		return *known&FLAG_CHAT != 0
+	}
+	return true
+}
+
+// AutoContextTarget is the window an unset context_size aims at: the
+// recommended chat window for a model that can serve a chat, the conservative
+// DefaultAutoContextSize for any other.
+func (c *ModelConfig) AutoContextTarget(architecture string) int {
+	if c.ServesChat(architecture) {
+		return harnessctx.RecommendedContext
+	}
+	return DefaultAutoContextSize
+}
 
 // perDeviceVRAM reports the smallest per-GPU VRAM ceiling in bytes (0 = unknown
 // or no GPU). It is a package var so tests can inject a deterministic value —
@@ -90,15 +139,18 @@ func contextFitsVRAM(footprint, vram uint64) bool {
 // set context_size. The choice is deliberately conservative, NOT
 // VRAM-maximizing:
 //
-//  1. Base cap: min(trainedMax, DefaultAutoContextSize). A small model keeps its
-//     trained window; a long-context model (128k / 256k / 1M) is capped so its
-//     KV cache does not default to a size no consumer GPU can hold. This applies
-//     always, including CPU / unknown-VRAM hosts.
+//  1. Base cap: min(trainedMax, target). The target is the recommended chat
+//     window (harnessctx.RecommendedContext) for a model that serves chats and
+//     DefaultAutoContextSize for any other (see AutoContextTarget). A small
+//     model keeps its trained window; a long-context model (128k / 256k / 1M)
+//     is capped so its KV cache does not default to a size no consumer GPU can
+//     hold. This applies always, including CPU / unknown-VRAM hosts.
 //  2. VRAM is only a downward safety: when a per-device VRAM ceiling IS detected
 //     and even the base cap would not fit it (with headroom), step down through
-//     contextFitCandidates to the largest window that fits, floored at
-//     DefaultContextSize. When VRAM is unknown we skip this — the base cap is
-//     already safe and we must not regress CPU / detection-gap hosts.
+//     contextFitCandidates (32768, 24576, 16384, then 8192, 6144, 4096) to the
+//     largest window that fits, floored at DefaultContextSize. When VRAM is
+//     unknown we skip this: the base cap is already bounded and we must not
+//     regress CPU / detection-gap hosts.
 //
 // footprint reports the per-device VRAM footprint of the model at a context; it
 // is a parameter so the caller can supply a snapshot instead of the parsed file.
@@ -106,10 +158,10 @@ func contextFitsVRAM(footprint, vram uint64) bool {
 // trainedMax <= 0 means the estimate yielded nothing usable; the caller keeps
 // its existing DefaultContextSize fallback in that case, so this is only called
 // with a positive trainedMax.
-func autoContextSize(footprint func(ctx int) uint64, trainedMax int) int {
+func autoContextSize(footprint func(ctx int) uint64, trainedMax, target int) int {
 	chosen := trainedMax
-	if chosen > DefaultAutoContextSize {
-		chosen = DefaultAutoContextSize
+	if chosen > target {
+		chosen = target
 	}
 
 	vram := perDeviceVRAM()

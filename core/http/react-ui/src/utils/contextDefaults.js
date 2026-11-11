@@ -9,7 +9,7 @@ export const DEFAULT_CONTEXT_SIZE = 4096
 
 // What the VRAM estimates and the pickers assume when a model sets no context
 // size (DefaultEstimateContextSize). It is display-only.
-export const DEFAULT_ESTIMATE_CONTEXT_SIZE = 8192
+export const DEFAULT_ESTIMATE_CONTEXT_SIZE = 32768
 
 // A context size of 0, negative or not a number means "not set" in a form.
 // -1 is the exception on the server (full trained context), but a form must

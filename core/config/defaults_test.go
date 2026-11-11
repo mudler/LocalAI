@@ -8,6 +8,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 )
 
 var _ = Describe("context_size defaults", func() {
@@ -41,8 +43,8 @@ var _ = Describe("context_size defaults", func() {
 		Expect(cfg.ContextSize).To(HaveValue(Equal(DefaultContextSize)))
 	})
 
-	It("keeps the estimate default in step with the auto-context cap", func() {
-		Expect(DefaultEstimateContextSize).To(Equal(DefaultAutoContextSize))
+	It("keeps the estimate default in step with the chat auto-context target", func() {
+		Expect(DefaultEstimateContextSize).To(Equal(harnessctx.RecommendedContext))
 	})
 })
 

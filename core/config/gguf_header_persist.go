@@ -8,6 +8,8 @@ import (
 	"runtime/debug"
 
 	gguf "github.com/gpustack/gguf-parser-go"
+
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 )
 
 // ggufHeaderCacheSchema is the on-disk format version. A file written with any
@@ -71,8 +73,8 @@ func ggufEstimatorFingerprint() string {
 			}
 		}
 	}
-	return fmt.Sprintf("gguf-parser=%s;candidates=%v;auto=%d;ngl=%d",
-		parser, contextFitCandidates, DefaultAutoContextSize, DefaultNGPULayers)
+	return fmt.Sprintf("gguf-parser=%s;candidates=%v;auto=%d;chat=%d;ngl=%d",
+		parser, contextFitCandidates, DefaultAutoContextSize, harnessctx.RecommendedContext, DefaultNGPULayers)
 }
 
 // decodeGGUFHeader rebuilds a snapshot from its file form. An absent header

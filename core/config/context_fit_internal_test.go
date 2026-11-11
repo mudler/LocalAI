@@ -34,17 +34,17 @@ var _ = Describe("Auto-derived default context (VRAM-aware cap)", func() {
 	Context("autoContextSize", func() {
 		It("caps a long-context model at DefaultAutoContextSize when VRAM is ample", func() {
 			// 1M-context model on an 80 GiB card: we do NOT chase the trained max,
-			// we keep the conservative 8k cap (users opt into more via context_size).
+			// we keep the conservative cap (users opt into more via context_size).
 			perDeviceVRAM = func() uint64 { return 80 * gib }
 			estimateContextVRAM = func(_ *gguf.GGUFFile, _ int) uint64 { return gib } // trivially fits
-			Expect(autoContextSize(nilFileFootprint, 1048576)).To(Equal(DefaultAutoContextSize))
+			Expect(autoContextSize(nilFileFootprint, 1048576, DefaultAutoContextSize)).To(Equal(DefaultAutoContextSize))
 		})
 
 		It("keeps a small model's trained window instead of inflating it", func() {
 			// trained 4096 < 8192: min() keeps 4096, it is not raised to the cap.
 			perDeviceVRAM = func() uint64 { return 80 * gib }
 			estimateContextVRAM = func(_ *gguf.GGUFFile, _ int) uint64 { return gib }
-			Expect(autoContextSize(nilFileFootprint, 4096)).To(Equal(4096))
+			Expect(autoContextSize(nilFileFootprint, 4096, DefaultAutoContextSize)).To(Equal(4096))
 		})
 
 		It("steps below the cap when even 8k would not fit a tiny card", func() {
@@ -55,7 +55,7 @@ var _ = Describe("Auto-derived default context (VRAM-aware cap)", func() {
 			estimateContextVRAM = func(_ *gguf.GGUFFile, ctx int) uint64 {
 				return gib + uint64(ctx)*100000
 			}
-			chosen := autoContextSize(nilFileFootprint, 1048576)
+			chosen := autoContextSize(nilFileFootprint, 1048576, DefaultAutoContextSize)
 			Expect(chosen).To(BeNumerically("<", DefaultAutoContextSize))
 			Expect(chosen).To(BeNumerically(">=", DefaultContextSize))
 			// The chosen context's footprint must actually fit the card with headroom.
@@ -68,7 +68,7 @@ var _ = Describe("Auto-derived default context (VRAM-aware cap)", func() {
 			// than defaulting to a window guaranteed to abort.
 			perDeviceVRAM = func() uint64 { return 1 * gib }
 			estimateContextVRAM = func(_ *gguf.GGUFFile, _ int) uint64 { return 100 * gib }
-			Expect(autoContextSize(nilFileFootprint, 1048576)).To(Equal(DefaultContextSize))
+			Expect(autoContextSize(nilFileFootprint, 1048576, DefaultAutoContextSize)).To(Equal(DefaultContextSize))
 		})
 
 		It("does not clamp when per-device VRAM is unknown", func() {
@@ -76,7 +76,7 @@ var _ = Describe("Auto-derived default context (VRAM-aware cap)", func() {
 			// not regress — keep the conservative base cap regardless of estimate.
 			perDeviceVRAM = func() uint64 { return 0 }
 			estimateContextVRAM = func(_ *gguf.GGUFFile, _ int) uint64 { return 999 * gib }
-			Expect(autoContextSize(nilFileFootprint, 1048576)).To(Equal(DefaultAutoContextSize))
+			Expect(autoContextSize(nilFileFootprint, 1048576, DefaultAutoContextSize)).To(Equal(DefaultAutoContextSize))
 		})
 	})
 

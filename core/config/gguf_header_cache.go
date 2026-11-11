@@ -3,6 +3,8 @@ package config
 
 import (
 	gguf "github.com/gpustack/gguf-parser-go"
+
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 )
 
 // ggufHeaderCacheSize bounds the in-memory header cache. Each entry is a few
@@ -76,11 +78,14 @@ func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
 
 	h.TrainedContext, h.trainedPanic = safeTrainedContext(f)
 	if h.TrainedContext > 0 {
-		chosen := h.TrainedContext
-		if chosen > DefaultAutoContextSize {
-			chosen = DefaultAutoContextSize
+		// The snapshot is shared by every model on this file, whatever it
+		// serves, so it holds the base cap of both targets (chat and other)
+		// and every step of the ladder.
+		h.footprints = map[int]uint64{}
+		for _, target := range []int{harnessctx.RecommendedContext, DefaultAutoContextSize} {
+			chosen := min(h.TrainedContext, target)
+			h.footprints[chosen] = estimateContextVRAM(f, chosen)
 		}
-		h.footprints = map[int]uint64{chosen: estimateContextVRAM(f, chosen)}
 		for _, cand := range contextFitCandidates {
 			h.footprints[cand] = estimateContextVRAM(f, cand)
 		}

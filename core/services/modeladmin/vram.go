@@ -68,7 +68,9 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		if cfg.ContextSize != nil {
 			ctxLen = uint32(*cfg.ContextSize)
 		} else {
-			ctxLen = uint32(config.DefaultEstimateContextSize)
+			// The window an unset context_size loads with, which depends on
+			// whether the model serves chats (see AutoContextTarget).
+			ctxLen = uint32(cfg.AutoContextTarget(""))
 			contextDefaulted = true
 		}
 	}
@@ -86,6 +88,15 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		return nil, fmt.Errorf("vram estimate: %w", err)
 	}
 
+	// A model never loads with more than it was trained for when the window
+	// is automatic, so the estimate must not assume more either.
+	if contextDefaulted && multi.ModelMaxContext > 0 && uint64(ctxLen) > multi.ModelMaxContext {
+		ctxLen = uint32(multi.ModelMaxContext)
+		if multi, err = vram.EstimateMultiContext(subCtx, files, []uint32{ctxLen}, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader()); err != nil {
+			return nil, fmt.Errorf("vram estimate: %w", err)
+		}
+	}
+
 	at := multi.Estimates[fmt.Sprint(ctxLen)]
 	resp := &VRAMResponse{
 		EstimateResult: vram.EstimateResult{
@@ -101,7 +112,7 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 	if contextDefaulted && multi.ModelMaxContext > 0 {
 		resp.ContextNote = fmt.Sprintf(
 			"Estimate used default context_size=%d. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
-			config.DefaultEstimateContextSize, multi.ModelMaxContext,
+			ctxLen, multi.ModelMaxContext,
 		)
 	}
 	return resp, nil
