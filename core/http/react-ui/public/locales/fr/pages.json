@@ -140,5 +140,11 @@
     "open": "Ouvrir {{site}}",
     "cancel": "Annuler",
     "lookalike": "Cette adresse utilise des lettres d'autres alphabets et se lit {{display}}. Elle peut imiter un autre site : vérifiez-la avant de l'ouvrir."
+  },
+  "view": {
+    "startPage": "Page de démarrage",
+    "makeStart": "En faire ma première page épinglée",
+    "startAlone": "C'est votre seule page épinglée.",
+    "startFailed": "La page de démarrage n'a pas pu être enregistrée : {{message}}"
   }
 }

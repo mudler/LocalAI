@@ -140,5 +140,11 @@
     "open": "{{site}} 열기",
     "cancel": "취소",
     "lookalike": "이 주소는 다른 문자 체계의 글자를 사용하며 {{display}}(으)로 읽힙니다. 다른 사이트를 흉내 낼 수 있으니 열기 전에 확인하세요."
+  },
+  "view": {
+    "startPage": "시작 페이지",
+    "makeStart": "첫 번째 고정 페이지로 설정",
+    "startAlone": "고정된 페이지가 이것 하나뿐입니다.",
+    "startFailed": "시작 페이지를 저장하지 못했습니다: {{message}}"
   }
 }

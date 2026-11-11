@@ -82,6 +82,8 @@ pages/
   on its `<html>` element.
 - Pins are kept in `LocalAI/ui.json` of your home, under `pinnedPages` (a list of page
   names). A pin or unpin keeps every other key of the file.
+- The first pinned page is your **start page**: the sidebar marks it with a
+  **Start page** label (see [A start page](#a-start-page)).
 
 ## How the assistant makes a page
 
@@ -367,8 +369,8 @@ it live. `chat.send` is refused in a tile. A link asks before it opens.
 
 ### Live frames and the budget of a tile
 
-The app keeps at most eight page frames running at once, for the tiles on Home
-and in the slots together. A tile that gets none shows as a card with **Run**;
+The app keeps at most eight page frames running at once, for the page area and
+the tiles on Home and in the slots together. A tile that gets none shows as a card with **Run**;
 a click runs it and stops the frame that started first, which then shows as a
 card. When a tile goes away, the next waiting tile runs.
 
@@ -383,6 +385,10 @@ and shows **Reload** when:
 | The page stops answering while it is in sight | no beat for 5 seconds |
 | The page does not start | no first beat within 10 seconds |
 
+The page area of Home is watched the same way, but it must show its first
+beat within 5 seconds of its start, and a failure shows the tile of
+[the page area](#when-the-page-does-not-load) instead of **Reload** in a card.
+
 A tile out of sight (a hidden tab, a tile scrolled away) is not watched,
 because the browser slows its timers. Reload is manual: there is no retry loop.
 The full page view has no budget. The browser decides how much a frame can do
@@ -396,6 +402,73 @@ allowing it to open is not enough: its tile shows **Allow** and the trust sheet
 offers **Allow on Home or in a slot**. That consent is kept against the hash of
 the page like **Allow**, so a change of its code asks again, and **Stop allowing
 this page** removes both. **Allow once** runs the tile for this visit only.
+
+## A page in the page area of Home
+
+`LocalAI/home.json` can name one page that fills a full-width area on Home,
+below the greeting, the composer and the shortcut chips and above the widgets:
+
+```json
+{ "pageArea": "today" }
+```
+
+`pageArea` is the name of one of your pages, `{"page": "today", "folder": 3}`
+for a page of a shared folder (`folder` is the `folder_id` of the shared pages
+list), or `null` (or no key) for no page area. Unlike a tile, the page needs no
+`widget` block. Pick it in **Edit layout** on Home, under **Page area**, or ask
+the assistant. The save is a normal change set, so it shows in the history and
+can be reverted.
+
+The page runs in the same sandbox, with the same bridge and the same budget as
+a tile. It hears `localai.page.mode` `area` (and `<html data-mode="area">`) and
+has no `size`: the area is the full width of Home and about 60% of the window
+high, and the page scrolls inside it. The frame is clipped to the area, so a
+page cannot cover the strip, the composer or the widgets. `chat.send` is
+refused, because the composer is on the same screen. The area counts toward the
+eight live frames of the app. A shared page asks first, like a shared page on
+Home: the area shows **Allow this page** until you allow it.
+
+LocalAI draws a thin strip above the page: its name, who made it (**Page by
+the assistant**, **Page by you** or **Page shared by** an author), **Runs as
+you**, **Reload** and **Edit**, which opens a chat that asks the assistant to
+change the page. The page cannot change the strip.
+
+### When the page does not load
+
+Only the area is replaced: the composer and the widgets keep working. LocalAI
+shows **This page did not load.** with the reason when:
+
+| Reason | What LocalAI saw |
+|---|---|
+| The page is missing | the page was moved, deleted, or you cannot open it any more |
+| The value is not a page | `pageArea` in `home.json` is not a page name |
+| A script error | the script threw before the page's first beat |
+| No first paint | no first beat from the page within 5 seconds |
+| It was stopped | the budget of a tile (busy, no answer) or an attempt to leave its frame |
+
+LocalAI decides from what it sees (the read of the page, the load of the frame,
+the beat of the bridge and a timer), never from what the page says about itself.
+The tile offers **Revert**, **Open the file** and **Remove from Home**.
+**Revert** undoes the last change of the page's folder, or the last change of
+`home.json` when the value is not a page name; it is not offered for a shared
+page, which is not your file. **Remove from Home** writes `"pageArea": null`.
+Both are change sets, so the assistant sees them and you can undo them. There
+is no retry loop: **Reload** in the strip starts the page again.
+
+An administrator can switch the page area off for everyone (the
+`home_page_area_enabled` [runtime setting]({{% relref "features/runtime-settings" %}})).
+The area then shows a note that says so, `pageArea` is ignored, and the files
+are kept.
+
+## A start page
+
+The first entry of `pinnedPages` in `LocalAI/ui.json` is your start page. It has
+its own screen, the page view at `/app/pages/<name>`, and a **Start page** label
+in the sidebar. The Home route does not change. The strip of the page view has
+a switch, **Make this my first pinned page**: turning it on pins the page if
+needed and moves it to the top of the pinned list, and turning it off moves it
+behind the other pins, so the next pin becomes the start page. The change keeps
+the other pins, and every other key of the file.
 
 ## Limits
 

@@ -140,5 +140,11 @@
     "open": "{{site}} öffnen",
     "cancel": "Abbrechen",
     "lookalike": "Diese Adresse nutzt Buchstaben anderer Alphabete und liest sich als {{display}}. Sie kann eine andere Website nachahmen: Prüfen Sie sie vor dem Öffnen."
+  },
+  "view": {
+    "startPage": "Startseite",
+    "makeStart": "Als meine erste angeheftete Seite festlegen",
+    "startAlone": "Es ist deine einzige angeheftete Seite.",
+    "startFailed": "Die Startseite konnte nicht gespeichert werden: {{message}}"
   }
 }

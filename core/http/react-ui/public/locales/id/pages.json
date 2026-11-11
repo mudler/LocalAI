@@ -140,5 +140,11 @@
     "open": "Buka {{site}}",
     "cancel": "Batal",
     "lookalike": "Alamat ini memakai huruf dari alfabet lain dan terbaca sebagai {{display}}. Alamat ini bisa meniru situs lain: periksa sebelum membukanya."
+  },
+  "view": {
+    "startPage": "Halaman awal",
+    "makeStart": "Jadikan halaman sematan pertama saya",
+    "startAlone": "Ini satu-satunya halaman yang Anda sematkan.",
+    "startFailed": "Halaman awal tidak dapat disimpan: {{message}}"
   }
 }

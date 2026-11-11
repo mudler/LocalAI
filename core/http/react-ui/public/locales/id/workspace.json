@@ -156,7 +156,48 @@
         "sharedLabel": "bersama"
       },
       "size": "Ukuran",
-      "preview": "Beginilah Beranda menggambar widget Anda. S satu kolom, M dua, L satu baris penuh. Celah kosong menutup sendiri."
+      "preview": "Beginilah Beranda menggambar widget Anda. S satu kolom, M dua, L satu baris penuh. Celah kosong menutup sendiri.",
+      "area": {
+        "label": "Area halaman",
+        "none": "Tidak ada",
+        "pickHint": "Halaman yang mengisi area di bawah kotak pesan pada Beranda. Halaman ini tidak dapat mengakses jaringan atau berkas Anda yang lain.",
+        "pickOff": "Administrator mematikan area halaman, jadi Beranda tidak menampilkan halaman di sana. Pilihan Anda tetap disimpan.",
+        "off": "Area halaman dimatikan",
+        "offHint": "Administrator mematikannya untuk semua orang di server ini. Halaman yang Anda pilih tetap ada di tata letak Beranda dan akan tampil lagi saat area dinyalakan kembali.",
+        "by": {
+          "assistant": "Halaman dari asisten",
+          "you": "Halaman dari Anda"
+        },
+        "byAuthor": "Halaman dibagikan oleh {{author}}",
+        "edit": "Ubah",
+        "reload": "Muat ulang",
+        "loading": "Memuat halaman",
+        "runsAsYou": "Berjalan atas nama Anda",
+        "runsAsYouHint": "Halaman membaca dan menulis berkas di foldernya dengan hak akses Anda. Halaman tidak dapat mengakses jaringan atau berkas Anda yang lain.",
+        "askPrompt": "Ubah halaman di pages/{{name}}/ agar ",
+        "askTitle": "Minta asisten mengubah halaman ini",
+        "frameTitle": "{{title}} (area halaman di Beranda)",
+        "failedTitle": "Halaman ini gagal dimuat.",
+        "why": {
+          "script": "Skripnya menimbulkan galat dan halaman tidak menampilkan apa pun.",
+          "scriptLine": "Skripnya menimbulkan galat di baris {{line}} dan halaman tidak menampilkan apa pun.",
+          "noPaint": "Halaman tidak menampilkan apa pun dalam 5 detik.",
+          "navigated": "Halaman mencoba keluar dari bingkainya.",
+          "busy": "Halaman membuat komputer sibuk terlalu lama.",
+          "silent": "Halaman berhenti merespons.",
+          "noStart": "Halaman tidak mulai berjalan.",
+          "missing": "Halaman \"{{name}}\" dipindahkan atau dihapus, atau Anda tidak dapat lagi membukanya.",
+          "read": "Halaman tidak dapat dibaca.",
+          "invalid": "Halaman yang dipilih untuk area halaman bukan nama halaman yang valid.",
+          "sharedOff": "Administrator mematikan halaman bersama di server ini."
+        },
+        "revert": "Kembalikan",
+        "openFile": "Buka berkas",
+        "remove": "Hapus dari Beranda",
+        "nothingToRevert": "Tidak ada versi sebelumnya untuk dikembalikan.",
+        "revertFailed": "Pengembalian gagal.",
+        "removeFailed": "Halaman tidak dapat dihapus dari Beranda."
+      }
     },
     "fields": {
       "persona": {

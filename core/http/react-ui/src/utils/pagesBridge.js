@@ -53,7 +53,8 @@ export function pageCsp(modules) {
 }
 
 // The bridge inside the frame. INFO is replaced with the page's name, title,
-// theme, mode ('page', or 'widget' in a tile) and tile size, the notes of the
+// theme, mode ('page', 'widget' in a tile, or 'area' in the page area of Home)
+// and tile size (empty in the area, which is always the full width), the notes of the
 // files that did not go in (written to the console) and the banner that says
 // so in the page. It is plain ES5 and must never contain a closing script tag.
 //
@@ -61,7 +62,7 @@ export function pageCsp(modules) {
 // {mode, size}}, the bridge updates localai.page and the data-mode and
 // data-size attributes of <html>, then calls the page's 'mode' listeners.
 //
-// A tile also has a budget (utils/frameWatch.js): about once a second the
+// A tile and the page area also have a budget (utils/frameWatch.js): about once a second the
 // bridge sends {beat: 1, busy} over the port, busy being the time in ms that
 // the page kept the thread busy since the last beat (long tasks, and how late
 // the beat's own timer fired). A page that stops the beats is stopped.
@@ -75,7 +76,7 @@ export function pageCsp(modules) {
 const BOOTSTRAP = `(function () {
   'use strict'
   var info = INFO
-  var MODES = { page: 1, widget: 1 }, SIZES = { compact: 1, small: 1, medium: 1, large: 1 }
+  var MODES = { page: 1, widget: 1, area: 1 }, SIZES = { compact: 1, small: 1, medium: 1, large: 1 }
   var root = document.documentElement
   function setMode() {
     root.setAttribute('data-mode', info.mode)
@@ -121,9 +122,9 @@ const BOOTSTRAP = `(function () {
     port.onmessage = deliver
     for (var i = 0; i < queue.length; i++) port.postMessage(queue[i])
     queue = []
-    if (info.mode === 'widget') beat()
+    if (info.mode !== 'page') beat()
   })
-  // The beats of the budget, for a tile only: the time since the last one
+  // The beats of the budget, for a tile and the page area: the time since the last one
   // beyond the timer's own period is time the page held the thread, and so
   // is each long task.
   var busy = 0, lastBeat = 0, now = function () { return Date.now() }
@@ -462,7 +463,7 @@ const BOOTSTRAP = `(function () {
 // the page's modules (head, from inlinePageAssets), then the page. All go
 // before the page's own markup, so nothing the page wrote runs first or can
 // hide the policy.
-export const PAGE_MODES = ['page', 'widget']
+export const PAGE_MODES = ['page', 'widget', 'area']
 export const WIDGET_SIZES = ['small', 'medium', 'large']
 // The sizes of a tile: the three of Home, and compact, the strip of a slot.
 export const TILE_SIZES = ['compact', ...WIDGET_SIZES]
@@ -484,13 +485,14 @@ export function noticeColours() {
 
 export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '', colors = {} } = {}) {
   const widget = mode === 'widget'
+  const area = mode === 'area'
   const info = scriptJSON({
     // The lines LocalAI puts before the page: the bridge takes them off the
     // line of an error. The JSON has no line break, so they are these of the
     // bridge and the head.
     shift: newlines(BOOTSTRAP) + newlines(head),
     name: String(name || ''), title: String(title || name || ''), theme: theme === 'dark' ? 'dark' : 'light',
-    mode: widget ? 'widget' : 'page', size: widget ? (TILE_SIZES.includes(size) ? size : 'medium') : '',
+    mode: widget ? 'widget' : area ? 'area' : 'page', size: widget ? (TILE_SIZES.includes(size) ? size : 'medium') : '',
     notes: (Array.isArray(notes) ? notes : []).slice(0, 50).map((n) => ({ level: n.level === 'error' ? 'error' : 'warn', message: String(n.message || '').slice(0, 500) })),
     banner: String(banner || '').slice(0, 1000), dismiss: String(dismiss || ''),
     colors: Object.fromEntries(['bg', 'fg', 'accent'].filter((k) => /^#[0-9a-fA-F]{3,8}$/.test(colors && colors[k])).map((k) => [k, colors[k]])),

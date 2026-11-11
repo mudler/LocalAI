@@ -140,5 +140,11 @@
     "open": "Abrir {{site}}",
     "cancel": "Cancelar",
     "lookalike": "Esta dirección usa letras de otros alfabetos y se lee como {{display}}. Puede imitar otro sitio: revísela antes de abrirla."
+  },
+  "view": {
+    "startPage": "Página de inicio",
+    "makeStart": "Hacer de esta mi primera página fijada",
+    "startAlone": "Es tu única página fijada.",
+    "startFailed": "No se pudo guardar la página de inicio: {{message}}"
   }
 }

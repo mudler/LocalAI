@@ -330,6 +330,9 @@ export const FIELDS = [
   { key: 'shared_pages_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Shared pages',
     desc: 'Let users open the pages of the shared folders they have access to. Each user still allows each page before it runs. Turning it off stops open shared pages at their next action; the files are kept.',
     default: true, fallback: true, apply: 'live' },
+  { key: 'home_page_area_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Page area on Home',
+    desc: 'Let users show one of their pages below the composer on Home. Turning it off hides the area for everyone and says why there; the Home layouts and the pages are kept.',
+    default: true, fallback: true, apply: 'live' },
   { key: 'open_responses_store_ttl', group: 'agents', was: 'responses', kind: 'duration', label: 'Response Store TTL', allowZero: true,
     desc: 'How long stored responses are kept, for example 1h or 30m. 0 means they never expire.', placeholder: '1h', default: '0', apply: 'live' },
 

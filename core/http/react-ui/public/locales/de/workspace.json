@@ -156,7 +156,48 @@
         "sharedLabel": "geteilt"
       },
       "size": "Größe",
-      "preview": "So zeigt Home deine Widgets. S ist eine Spalte, M zwei, L die volle Zeile. Eine Lücke schließt sich von selbst."
+      "preview": "So zeigt Home deine Widgets. S ist eine Spalte, M zwei, L die volle Zeile. Eine Lücke schließt sich von selbst.",
+      "area": {
+        "label": "Seitenbereich",
+        "none": "Keiner",
+        "pickHint": "Eine Seite, die auf der Startseite den Bereich unter dem Eingabefeld füllt. Sie hat keinen Zugriff auf das Netzwerk oder deine anderen Dateien.",
+        "pickOff": "Ein Administrator hat den Seitenbereich ausgeschaltet, daher zeigt die Startseite dort keine Seite. Deine Auswahl bleibt erhalten.",
+        "off": "Der Seitenbereich ist ausgeschaltet",
+        "offHint": "Ein Administrator hat ihn für alle auf diesem Server ausgeschaltet. Die gewählte Seite bleibt in deinem Startseiten-Layout und erscheint wieder, sobald er eingeschaltet wird.",
+        "by": {
+          "assistant": "Seite vom Assistenten",
+          "you": "Seite von dir"
+        },
+        "byAuthor": "Seite geteilt von {{author}}",
+        "edit": "Bearbeiten",
+        "reload": "Neu laden",
+        "loading": "Seite wird geladen",
+        "runsAsYou": "Läuft als du",
+        "runsAsYouHint": "Die Seite liest und schreibt die Dateien ihres Ordners mit deinen Rechten. Sie hat keinen Zugriff auf das Netzwerk oder deine anderen Dateien.",
+        "askPrompt": "Ändere die Seite in pages/{{name}}/ so, dass ",
+        "askTitle": "Den Assistenten bitten, diese Seite zu ändern",
+        "frameTitle": "{{title}} (Seitenbereich der Startseite)",
+        "failedTitle": "Diese Seite konnte nicht geladen werden.",
+        "why": {
+          "script": "Ihr Skript hat einen Fehler ausgelöst und die Seite hat nichts gezeichnet.",
+          "scriptLine": "Ihr Skript hat in Zeile {{line}} einen Fehler ausgelöst und die Seite hat nichts gezeichnet.",
+          "noPaint": "Sie hat innerhalb von 5 Sekunden nichts angezeigt.",
+          "navigated": "Sie hat versucht, ihren Rahmen zu verlassen.",
+          "busy": "Sie hat den Computer zu lange ausgelastet.",
+          "silent": "Sie hat nicht mehr geantwortet.",
+          "noStart": "Sie ist nicht gestartet.",
+          "missing": "Die Seite „{{name}}“ wurde verschoben oder gelöscht, oder du kannst sie nicht mehr öffnen.",
+          "read": "Die Seite konnte nicht gelesen werden.",
+          "invalid": "Die für den Seitenbereich gewählte Seite ist kein gültiger Seitenname.",
+          "sharedOff": "Ein Administrator hat geteilte Seiten auf diesem Server ausgeschaltet."
+        },
+        "revert": "Zurücksetzen",
+        "openFile": "Datei öffnen",
+        "remove": "Von der Startseite entfernen",
+        "nothingToRevert": "Es gibt keine frühere Version, zu der man zurückkehren könnte.",
+        "revertFailed": "Das Zurücksetzen hat nicht funktioniert.",
+        "removeFailed": "Die Seite konnte nicht von der Startseite entfernt werden."
+      }
     },
     "fields": {
       "persona": {

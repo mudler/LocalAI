@@ -156,7 +156,48 @@
         "sharedLabel": "partagée"
       },
       "size": "Taille",
-      "preview": "Voici comment l'accueil dessine vos widgets. S prend une colonne, M deux, L toute la ligne. Un trou se comble tout seul."
+      "preview": "Voici comment l'accueil dessine vos widgets. S prend une colonne, M deux, L toute la ligne. Un trou se comble tout seul.",
+      "area": {
+        "label": "Zone de page",
+        "none": "Aucune",
+        "pickHint": "Une page qui remplit la zone sous la zone de saisie sur l'accueil. Elle n'a accès ni au réseau ni à vos autres fichiers.",
+        "pickOff": "Un administrateur a désactivé la zone de page, donc l'accueil n'y affiche aucune page. Votre choix est conservé.",
+        "off": "La zone de page est désactivée",
+        "offHint": "Un administrateur l'a désactivée pour tous les utilisateurs de ce serveur. La page choisie reste dans la disposition de votre accueil et réapparaîtra une fois la zone réactivée.",
+        "by": {
+          "assistant": "Page de l'assistant",
+          "you": "Page de vous"
+        },
+        "byAuthor": "Page partagée par {{author}}",
+        "edit": "Modifier",
+        "reload": "Recharger",
+        "loading": "Chargement de la page",
+        "runsAsYou": "S'exécute en votre nom",
+        "runsAsYouHint": "La page lit et écrit les fichiers de son dossier avec vos droits. Elle n'a accès ni au réseau ni à vos autres fichiers.",
+        "askPrompt": "Modifie la page de pages/{{name}}/ pour que ",
+        "askTitle": "Demander à l'assistant de modifier cette page",
+        "frameTitle": "{{title}} (zone de page de l'accueil)",
+        "failedTitle": "Cette page ne s'est pas chargée.",
+        "why": {
+          "script": "Son script a produit une erreur et la page n'a rien affiché.",
+          "scriptLine": "Son script a produit une erreur à la ligne {{line}} et la page n'a rien affiché.",
+          "noPaint": "Elle n'a rien affiché en 5 secondes.",
+          "navigated": "Elle a essayé de quitter son cadre.",
+          "busy": "Elle a occupé l'ordinateur trop longtemps.",
+          "silent": "Elle a cessé de répondre.",
+          "noStart": "Elle n'a pas démarré.",
+          "missing": "La page « {{name}} » a été déplacée ou supprimée, ou vous ne pouvez plus l'ouvrir.",
+          "read": "La page n'a pas pu être lue.",
+          "invalid": "La page choisie pour la zone de page n'est pas un nom de page valide.",
+          "sharedOff": "Un administrateur a désactivé les pages partagées sur ce serveur."
+        },
+        "revert": "Rétablir",
+        "openFile": "Ouvrir le fichier",
+        "remove": "Retirer de l'accueil",
+        "nothingToRevert": "Il n'y a pas de version antérieure à rétablir.",
+        "revertFailed": "Le rétablissement n'a pas fonctionné.",
+        "removeFailed": "La page n'a pas pu être retirée de l'accueil."
+      }
     },
     "fields": {
       "persona": {

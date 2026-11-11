@@ -121,6 +121,8 @@
 }
 .sidebar-chats__new:hover { background: var(--dk-hover); color: var(--dk-text); }
 .sidebar-chats__new:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.nav-start { flex: none; margin-left: auto; padding: 1px var(--sp-2); border-radius: var(--radius-full); font-size: var(--text-xs); color: var(--dk-accent-text); background: var(--color-bg-tertiary); white-space: nowrap; }
+.sidebar.collapsed .nav-start { display: none; }
 .nav-chat .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-chat-all__badge {
   flex: none;

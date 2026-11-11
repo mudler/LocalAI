@@ -254,7 +254,48 @@
         "sharedLabel": "shared"
       },
       "size": "Size",
-      "preview": "Home draws your widgets like this. S is one column, M two, L the full row. A gap closes by itself."
+      "preview": "Home draws your widgets like this. S is one column, M two, L the full row. A gap closes by itself.",
+      "area": {
+        "label": "Page area",
+        "none": "None",
+        "pickHint": "A page that fills the area below the composer on Home. It cannot reach the network or your other files.",
+        "pickOff": "An administrator turned the page area off, so Home shows no page there. Your choice is kept.",
+        "off": "The page area is turned off",
+        "offHint": "An administrator turned it off for everyone on this server. The page you chose stays in your Home layout and shows again when it is turned back on.",
+        "by": {
+          "assistant": "Page by the assistant",
+          "you": "Page by you"
+        },
+        "byAuthor": "Page shared by {{author}}",
+        "edit": "Edit",
+        "reload": "Reload",
+        "loading": "Loading the page",
+        "runsAsYou": "Runs as you",
+        "runsAsYouHint": "The page reads and writes the files of its folder with your rights. It cannot reach the network or your other files.",
+        "askPrompt": "Change the page in pages/{{name}}/ so that ",
+        "askTitle": "Ask the assistant to change this page",
+        "frameTitle": "{{title}} (page area on Home)",
+        "failedTitle": "This page did not load.",
+        "why": {
+          "script": "Its script raised an error and the page drew nothing.",
+          "scriptLine": "Its script raised an error at line {{line}} and the page drew nothing.",
+          "noPaint": "It showed nothing within 5 seconds.",
+          "navigated": "It tried to leave its frame.",
+          "busy": "It kept the computer busy for too long.",
+          "silent": "It stopped answering.",
+          "noStart": "It did not start.",
+          "missing": "The page \"{{name}}\" was moved or deleted, or you can no longer open it.",
+          "read": "The page could not be read.",
+          "invalid": "The page chosen for the page area is not a valid page name.",
+          "sharedOff": "An administrator turned shared pages off on this server."
+        },
+        "revert": "Revert",
+        "openFile": "Open the file",
+        "remove": "Remove from Home",
+        "nothingToRevert": "There is no earlier version to go back to.",
+        "revertFailed": "The revert did not work.",
+        "removeFailed": "The page could not be removed from Home."
+      }
     },
     "fields": {
       "persona": {

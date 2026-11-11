@@ -86,7 +86,8 @@ test('the Pages entry is hidden with no page and shows with one, with pinned pag
   await expect(nav(page).getByRole('link', { name: /^Pages( New)?$/ })).toBeVisible()
   const pinned = nav(page).getByTestId('pages-pinned-link')
   await expect(pinned).toHaveCount(1)
-  await expect(pinned).toHaveText('Tasks board')
+  await expect(pinned.locator('.nav-label')).toHaveText('Tasks board')
+  await expect(pinned.getByTestId('pages-start-badge')).toHaveText('Start page') // the first pin is the start page
   await pinned.click()
   await expect(page).toHaveURL(/\/app\/pages\/tasks$/)
 })
@@ -108,7 +109,7 @@ test('the list shows each page with who changed it, and Pin keeps the other keys
   expect(state.puts[0].base).toBe(1)
   expect(state.puts[0].body).toEqual({ values: { pinnedPages: ['tasks'] }, replace: false })
   expect(state.ui).toEqual({ theme: 'light', accent: '#112233', later: { x: 1 }, pinnedPages: ['tasks'] })
-  await expect(nav(page).getByTestId('pages-pinned-link')).toHaveText('Tasks board')
+  await expect(nav(page).getByTestId('pages-pinned-link').locator('.nav-label')).toHaveText('Tasks board')
 
   // Someone else changes ui.json between the read and the write: the unpin
   // gets a 409 with the newer file and is written again on top of it.

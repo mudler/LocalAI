@@ -140,5 +140,11 @@
     "open": "打开 {{site}}",
     "cancel": "取消",
     "lookalike": "此地址使用了其他文字的字母，读作 {{display}}。它可能在模仿其他网站：打开前请先核对。"
+  },
+  "view": {
+    "startPage": "起始页",
+    "makeStart": "设为我的第一个固定页面",
+    "startAlone": "这是你唯一固定的页面。",
+    "startFailed": "无法保存起始页：{{message}}"
   }
 }

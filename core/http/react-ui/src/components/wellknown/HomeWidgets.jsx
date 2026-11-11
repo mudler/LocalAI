@@ -17,12 +17,14 @@ import PageTile from './PageTile'
 import { usePages } from '../../hooks/usePages'
 import { useSharedPages } from '../../hooks/useSharedPages'
 import { MAX_PAGE_TILES, eligiblePages, refKey, tileRef } from '../../utils/pageTiles'
+import { areaChoices, areaKey, areaTarget, areaValue } from '../../utils/pageArea'
 import { WIDGET_SIZES, pageSizeOf, widgetSize } from '../../utils/homeGrid'
 import { useGridColumns } from '../../hooks/useGridColumns'
 import PackedGrid from './PackedGrid'
 import Segmented from '../ui/Segmented'
 import '../../pages/pages.css'
 import './wellKnown.css'
+import './pageArea.css'
 
 function shortTime(ts, locale) {
   if (!ts) return ''
@@ -178,10 +180,18 @@ function PagePick({ r, eligible, byKey, onPick, t }) {
 // LayoutEditor edits home.json: add, remove and reorder widgets, and pick the
 // data file of each. The data files offered are the .json files of the home
 // and of its data folder; any other path can be typed.
-function LayoutEditor({ wk, onDone, cols, eligible, byKey }) {
+function LayoutEditor({ wk, onDone, cols, eligible, byKey, areaPages, areaOn }) {
   const { t } = useTranslation('workspace')
   const [rows, setRows] = useState(() => widgetList(wk.doc))
   const sizeOf = (r) => widgetSize(r, byKey.get(refKey(tileRef(r)))?.page)
+  // The page area: the pageArea of the file as it is, kept as it was unless
+  // the person picks another page.
+  const areaWas = wk.doc?.data?.pageArea
+  const [area, setArea] = useState(areaWas ?? null)
+  const areaRef = areaTarget(area).ref
+  const areaSel = areaKey(areaRef)
+  const areaByKey = useMemo(() => new Map(areaPages.map(e => [e.key, e])), [areaPages])
+  const pickArea = (key) => { setArea(key ? areaValue(areaByKey.get(key)?.ref) : null); setProblem(null) }
   const pageRows = rows.filter(r => r.type === 'page').length
   // The version the rows came from: a save starts from it, so a change by
   // someone else while editing is a conflict and not lost. After the conflict
@@ -231,7 +241,8 @@ function LayoutEditor({ wk, onDone, cols, eligible, byKey }) {
   const save = async () => {
     setBusy(true)
     try {
-      await wk.save({ widgets: cleanWidgets(rows) }, { version: baseVersion.current })
+      const changed = JSON.stringify(area ?? null) !== JSON.stringify(areaWas ?? null)
+      await wk.save({ widgets: cleanWidgets(rows), ...(changed ? { pageArea: area ?? null } : {}) }, { version: baseVersion.current })
       onDone()
     } catch (e) {
       setProblem(e.conflict ? { message: t('wellKnown.conflict'), errors: [] } : wellKnownProblem(e, t))
@@ -246,6 +257,21 @@ function LayoutEditor({ wk, onDone, cols, eligible, byKey }) {
     <div className="wk-layout" data-testid="home-layout-editor">
       <h3>{t('wellKnown.home.editLayout')}</h3>
       <datalist id="wk-data-files">{files.map(f => <option key={f} value={f} />)}</datalist>
+      <div className="wk-area__pick" data-testid="home-layout-area">
+        <span className="wk-area__pick-label" id="wk-area-label">{t('wellKnown.home.area.label')}</span>
+        <span className="dk-select-wrap">
+          <select className="dk-select" aria-labelledby="wk-area-label" value={areaSel} onChange={e => pickArea(e.target.value)} data-testid="home-layout-area-pick">
+            <option value="">{t('wellKnown.home.area.none')}</option>
+            {areaSel && !areaByKey.has(areaSel) && <option value={areaSel}>{t('wellKnown.home.page.unavailable', { name: areaRef?.name || '' })}</option>}
+            {areaPages.map(e => (
+              <option key={e.key} value={e.key}>
+                {e.page.title || e.page.name}{e.ref.folder ? ` (${t('wellKnown.home.page.sharedLabel')})` : ''}
+              </option>
+            ))}
+          </select>
+        </span>
+        <span className="wk-note wk-area__pick-hint" data-testid="home-layout-area-hint">{areaOn === false ? t('wellKnown.home.area.pickOff') : t('wellKnown.home.area.pickHint')}</span>
+      </div>
       {rows.length === 0 && <p className="wk-widget__empty">{t('wellKnown.home.noWidgets')}</p>}
       {rows.length > 0 && (
         <div className="wk-preview" data-testid="home-layout-preview">
@@ -326,6 +352,7 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRe
   // The pages that can be a tile: the ones whose page.json has a widget block.
   const eligible = useMemo(() => eligiblePages(own.pages, shared.pages), [own.pages, shared.pages])
   const byKey = useMemo(() => new Map(eligible.map(e => [e.key, e])), [eligible])
+  const areaPages = useMemo(() => areaChoices(own.pages, shared.pages), [own.pages, shared.pages])
   const listedPage = (w) => {
     const ref = tileRef(w)
     return ref && !ref.folder ? own.pages.find(p => p.name === ref.name) : undefined
@@ -365,7 +392,7 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRe
         </PackedGrid>
       )}
       {editing ? (
-        <LayoutEditor wk={wk} onDone={() => setEditing(false)} cols={cols} eligible={eligible} byKey={byKey} />
+        <LayoutEditor wk={wk} onDone={() => setEditing(false)} cols={cols} eligible={eligible} byKey={byKey} areaPages={areaPages} areaOn={own.pageAreaOn} />
       ) : (
         <div className="wk-layoutbar">
           <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setEditing(true)} data-testid="home-edit-layout"><Icon name="pencil" /> {t('wellKnown.home.editLayout')}</button>
