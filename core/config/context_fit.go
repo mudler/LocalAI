@@ -145,7 +145,7 @@ func contextFitsRAM(footprint, total uint64) bool {
 	return footprint <= total/100*contextFitRAMBudgetPercent
 }
 
-// ramContextSize steps the window down on a host with no VRAM ceiling so that
+// ramContextSizeFor steps the window down on a host with no VRAM ceiling so that
 // the model plus its KV cache do not exhaust system memory. It returns chosen
 // unchanged when memory or the estimate is unknown, or when chosen fits.
 //
@@ -154,13 +154,9 @@ func contextFitsRAM(footprint, total uint64) bool {
 // total memory at all (over budget, but loadable): the chat agent needs that
 // window, and a slower, swap-prone host is better than one that cannot run the
 // agent. Only when even that does not fit does it use the lower steps, again
-// within the budget, down to DefaultContextSize.
-func ramContextSize(footprint func(ctx int) uint64, chosen int) int {
-	return ramContextSizeFor(systemTotalRAM(), footprint, chosen)
-}
-
-// ramContextSizeFor is ramContextSize against a given amount of system memory,
-// so a caller can ask about a host other than the one it runs on.
+// within the budget, down to DefaultContextSize. total is the system memory of
+// the host the question is about, so a caller can ask about a host other than
+// the one it runs on.
 func ramContextSizeFor(total uint64, footprint func(ctx int) uint64, chosen int) int {
 	if footprint == nil {
 		return chosen
