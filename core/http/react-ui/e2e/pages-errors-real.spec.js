@@ -107,15 +107,28 @@ test('a throw in an animation frame is counted and does not flood the server', a
   expect(reports.length).toBeLessThan(10)
 })
 
+// The ids of the chats on the server now. Other specs create chats on the
+// same server in parallel, so the test looks only at the chats that its own
+// page could have started: a new chat that names the page, or a request of
+// this browser page that creates a chat.
+const chatIds = async (request) => new Set(((await (await request.get('/api/chats')).json()).conversations || []).map((c) => c.id))
+
 test('a page without errors reports nothing, and no chat is started by errors', async ({ page, request }) => {
-  const before = (await (await request.get('/api/chats')).json())
+  const before = await chatIds(request)
   const name = `err-clean-${stamp}`
   expect((await put(request, `/pages/${name}/index.html`, '<!doctype html><p id="ok">fine</p>')).ok()).toBeTruthy()
   const reports = watch(page, name)
+  const creates = []
+  page.on('request', (req) => {
+    const path = new URL(req.url()).pathname
+    if (req.method() === 'POST' && (path === '/api/chats' || path.startsWith(`/api/chats/pages/${name}/send`))) creates.push(path)
+  })
   await page.goto(`/app/pages/${name}`)
   await expect(page.frameLocator('[data-testid="page-frame"]').locator('#ok')).toHaveText('fine')
   await page.waitForTimeout(1500)
   expect(reports).toHaveLength(0)
-  const after = (await (await request.get('/api/chats')).json())
-  expect(JSON.stringify(after)).toBe(JSON.stringify(before))
+  expect(creates).toEqual([])
+  const list = (await (await request.get('/api/chats')).json()).conversations || []
+  const mine = list.filter((c) => !before.has(c.id) && JSON.stringify(c).includes(name))
+  expect(mine).toEqual([])
 })
