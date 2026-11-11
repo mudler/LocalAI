@@ -11,6 +11,68 @@ import { tileRef } from './pageTiles.js'
 // The frame must show its first sign of life within this time of its start.
 export const AREA_PAINT_MS = 5000
 
+// The height of the area below its strip. A page can report the height of its
+// content (localai.page.resize): the area follows it between AREA_MIN_PX and
+// about 60% of the window (the cap is in pageArea.css, so it follows the
+// window). Before a report, and for a page that never reports, the area is
+// AREA_DEFAULT_PX high and the page scrolls inside it. AREA_MAX_PX only bounds
+// the number a page can send.
+export const AREA_DEFAULT_PX = 240
+export const AREA_MIN_PX = 160
+export const AREA_MAX_PX = 4000
+// At most one height per this period, the last one asked; a step smaller than
+// AREA_STEP_PX is not applied, so a page that jitters by a pixel causes no
+// layout.
+export const AREA_RESIZE_MS = 250
+export const AREA_STEP_PX = 4
+
+// areaHeight is a height a page reported, in whole pixels within the limits,
+// or null when it is not a height.
+export function areaHeight(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return null
+  return Math.min(AREA_MAX_PX, Math.max(AREA_MIN_PX, Math.ceil(v)))
+}
+
+// createAreaSizer takes the heights a page reports (offer) and gives apply at
+// most one per AREA_RESIZE_MS: the first at once, then the last of a burst at
+// the end of the period. The frame is never reloaded; apply only sets the
+// height of the area. offer returns the clamped height, or null. stop drops
+// what waits.
+export function createAreaSizer({ apply, now = Date.now, timer = setTimeout, clear = clearTimeout, every = AREA_RESIZE_MS }) {
+  let last = -Infinity
+  let shown = null
+  let pending = null
+  let handle = 0
+  const flush = () => {
+    handle = 0
+    if (pending === null) return
+    const h = pending
+    pending = null
+    last = now()
+    if (shown !== null && Math.abs(h - shown) < AREA_STEP_PX) return
+    shown = h
+    apply(h)
+  }
+  return {
+    offer(v) {
+      const h = areaHeight(v)
+      if (h === null) return null
+      pending = h
+      if (!handle) {
+        const wait = last + every - now()
+        if (wait <= 0) flush()
+        else handle = timer(flush, wait)
+      }
+      return h
+    },
+    stop() {
+      if (handle) clear(handle)
+      handle = 0
+      pending = null
+    },
+  }
+}
+
 // areaTarget reads the pageArea value of home.json:
 //
 //   none     no value, or null: no page area

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import { buildPageSrcdoc, createPageHost } from '../../src/utils/pagesBridge.js'
-import { AREA_IDLE, areaKey, areaStep, areaTarget, areaValue, areaView, revertTarget } from '../../src/utils/pageArea.js'
+import { AREA_DEFAULT_PX, AREA_IDLE, AREA_MAX_PX, AREA_MIN_PX, AREA_RESIZE_MS, areaHeight, areaKey, areaStep, areaTarget, areaValue, areaView, createAreaSizer, revertTarget } from '../../src/utils/pageArea.js'
 import { MAX_LIVE_FRAMES, createFrameSlots, tileState } from '../../src/utils/pageTiles.js'
 import { pinsOf, startOf, withStart } from '../../src/utils/pages.js'
 
@@ -183,4 +183,85 @@ test('page area: it holds one of the eight live frames; with all taken it is a c
   assert.equal(slots.take('area-2', () => evicted.push('area2')), true, 'the click runs it and stops the first frame')
   assert.deepEqual(evicted, [0])
   assert.equal(slots.held(), 8)
+})
+
+test('page area: a reported height is clamped to whole pixels between the limits', () => {
+  assert.equal(AREA_DEFAULT_PX, 240)
+  assert.equal(AREA_MIN_PX, 160)
+  assert.equal(areaHeight(300), 300)
+  assert.equal(areaHeight(300.2), 301)
+  assert.equal(areaHeight(12), AREA_MIN_PX)
+  assert.equal(areaHeight(0), AREA_MIN_PX)
+  assert.equal(areaHeight(1e9), AREA_MAX_PX)
+  for (const bad of [-1, NaN, Infinity, '300', null, undefined, {}, [300]]) assert.equal(areaHeight(bad), null, String(bad))
+})
+
+test('page area: the sizer applies at most one height per period, the last one, and skips small steps', () => {
+  let t = 1000
+  const timers = []
+  const applied = []
+  const sizer = createAreaSizer({
+    apply: (h) => applied.push(h), now: () => t,
+    timer: (fn, ms) => { timers.push({ fn, at: t + ms }); return timers.length }, clear: (id) => { timers[id - 1] = null },
+  })
+  const run = () => { for (const k of timers.splice(0)) if (k) { t = Math.max(t, k.at); k.fn() } }
+  // The first report applies at once.
+  assert.equal(sizer.offer(320), 320)
+  assert.deepEqual(applied, [320])
+  // A burst within the period: only the last applies, when the period ends.
+  assert.equal(sizer.offer(500), 500)
+  sizer.offer(900)
+  sizer.offer(410)
+  assert.deepEqual(applied, [320])
+  assert.equal(timers.filter(Boolean).length, 1, 'one timer for the burst')
+  run()
+  assert.deepEqual(applied, [320, 410])
+  assert.ok(t >= 1000 + AREA_RESIZE_MS)
+  // A step of a few pixels changes nothing: no layout for a jitter.
+  t += AREA_RESIZE_MS
+  sizer.offer(412)
+  run()
+  assert.deepEqual(applied, [320, 410])
+  // A value that is not a height is refused and changes nothing.
+  assert.equal(sizer.offer('tall'), null)
+  t += AREA_RESIZE_MS
+  run()
+  assert.deepEqual(applied, [320, 410])
+  // After stop nothing applies.
+  t += AREA_RESIZE_MS
+  sizer.offer(600)
+  sizer.offer(700)
+  sizer.stop()
+  run()
+  assert.deepEqual(applied, [320, 410, 600])
+})
+
+test('page area: the bridge sends page.resize with the height asked, or the height of the document', () => {
+  const area = boot({ name: 'today', mode: 'area', beat: true })
+  area.localai.page.resize(333)
+  const m = area.posted.find((p) => p.method === 'page.resize')
+  assert.deepEqual(JSON.parse(JSON.stringify(m.params)), { height: 333 })
+  area.localai.page.resize()
+  const all = area.posted.filter((p) => p.method === 'page.resize')
+  assert.equal(all.length, 2)
+  assert.equal(typeof all[1].params.height, 'number', 'with no argument the bridge measures the document')
+  assert.equal(Object.isFrozen(area.localai.page), true)
+})
+
+test('page area: the host passes a height to the frame that sizes it, and answers null elsewhere', async () => {
+  const sent = []
+  const asked = []
+  const h = createPageHost({ post: (m) => sent.push(m), files: {}, chat: {}, resize: (v) => { asked.push(v); return 280 } })
+  await h.receive({ id: 1, method: 'page.resize', params: { height: 275.5 } })
+  assert.deepEqual(asked, [275.5])
+  assert.deepEqual(sent.at(-1), { id: 1, result: { height: 280 } })
+  await h.receive({ id: 2, method: 'page.resize', params: { height: 'tall' } })
+  assert.equal(sent.at(-1).error.code, 'invalid')
+  await h.receive({ id: 3, method: 'page.resize', params: { height: -4 } })
+  assert.equal(sent.at(-1).error.code, 'invalid')
+  assert.equal(asked.length, 1)
+  const other = []
+  const tile = createPageHost({ post: (m) => other.push(m), files: {}, chat: {} })
+  await tile.receive({ id: 1, method: 'page.resize', params: { height: 300 } })
+  assert.deepEqual(other.at(-1), { id: 1, result: { height: null } })
 })

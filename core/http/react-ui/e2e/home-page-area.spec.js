@@ -22,6 +22,10 @@ const SB = `asb-${stamp}`
 const TILE = `atile-${stamp}`
 const TILE2 = `atile2-${stamp}`
 const TILE3 = `atile3-${stamp}`
+const SHORT = `ashort-${stamp}`
+const TALL = `atall-${stamp}`
+const GROW = `agrow-${stamp}`
+const SPAM = `aspam-${stamp}`
 const shots = process.env.PAGES_SHOTS || ''
 
 const put = (request, path, body) => request.put(`/api/chats/files/content?path=${encodeURIComponent(path)}&overwrite=1`, {
@@ -60,6 +64,21 @@ const SLOW_HTML = `<!doctype html><html><body><p>slow</p><script>const t = Date.
 const COVER_HTML = `<!doctype html><html><body><div style="position:fixed;top:-2000px;left:-2000px;right:-2000px;bottom:-2000px;background:#c00;z-index:2147483647">covering</div></body></html>`
 const TILE_HTML = `<!doctype html><html><body><p id="m"></p><script>document.getElementById('m').textContent = localai.page.mode + ' ' + localai.page.size</script></body></html>`
 
+// Pages that report their height (localai.page.resize). The token is drawn
+// once per load of the frame: the same token later means no reload.
+const sized = (body, script) => `<!doctype html><html><head>${STYLE}</head><body>${body}<p id="token"></p>
+<script>
+document.getElementById('token').textContent = Math.random().toString(36).slice(2)
+${script}
+</script></body></html>`
+const SHORT_HTML = sized('<div class="card"><h1>Short page</h1><div style="height:220px">Two lines of news.</div></div>', 'localai.page.resize()')
+const TALL_HTML = sized('<div class="card"><h1>Tall page</h1><div style="height:2000px">A long list.</div></div>', 'localai.page.resize()')
+const GROW_HTML = sized('<div class="card"><h1>Growing page</h1><div id="box" style="height:200px"></div></div>',
+  "new ResizeObserver(() => localai.page.resize()).observe(document.body)\nsetTimeout(() => { document.getElementById('box').style.height = '300px' }, 1500)")
+// A burst of a thousand heights, once the host watches, then 420.
+const SPAM_HTML = sized('<div class="card"><h1>Noisy page</h1></div>',
+  "setTimeout(() => { for (let i = 0; i < 1000; i++) localai.page.resize(160 + (i * 37) % 900); localai.page.resize(420) }, 1500)")
+
 const area = (page) => page.getByTestId('page-area')
 const areaFrame = (page) => area(page).frameLocator('[data-testid="page-frame"]')
 const homeJson = (request) => request.get('/api/chats/wellknown/home').then(r => r.json())
@@ -91,12 +110,20 @@ test.beforeAll(async ({ request }) => {
     [`/pages/${TILE2}/page.json`]: { title: 'Tile two', widget: { size: 'small', compact: { width: 120 } } },
     [`/pages/${TILE3}/index.html`]: TILE_HTML,
     [`/pages/${TILE3}/page.json`]: { title: 'Tile three', widget: { size: 'small', compact: { width: 120 } } },
+    [`/pages/${SHORT}/index.html`]: SHORT_HTML,
+    [`/pages/${SHORT}/page.json`]: { title: 'Short page' },
+    [`/pages/${TALL}/index.html`]: TALL_HTML,
+    [`/pages/${TALL}/page.json`]: { title: 'Tall page' },
+    [`/pages/${GROW}/index.html`]: GROW_HTML,
+    [`/pages/${GROW}/page.json`]: { title: 'Growing page' },
+    [`/pages/${SPAM}/index.html`]: SPAM_HTML,
+    [`/pages/${SPAM}/page.json`]: { title: 'Noisy page' },
   }
   for (const [p, body] of Object.entries(files)) expect((await put(request, p, body)).ok(), p).toBeTruthy()
 })
 test.afterAll(async ({ request }) => {
   await request.post('/api/settings', { data: { home_page_area_enabled: true } })
-  for (const p of ['/LocalAI/home.json', '/LocalAI/ui.json', ...[TODAY, BAD, SLOW, COVER, GONE, SA, SB, TILE, TILE2, TILE3].map((n) => `/pages/${n}`)]) await del(request, p)
+  for (const p of ['/LocalAI/home.json', '/LocalAI/ui.json', ...[TODAY, BAD, SLOW, COVER, GONE, SA, SB, TILE, TILE2, TILE3, SHORT, TALL, GROW, SPAM].map((n) => `/pages/${n}`)]) await del(request, p)
 })
 test.afterAll(() => unlockHomeFiles())
 
@@ -348,6 +375,108 @@ test('on a phone the page area fits the width, with no sideways scroll', async (
   const fit2 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
   expect(fit2).toBe(true)
   await shot(page, 'area-failed-phone-light')
+})
+
+const bodyHeight = (page) => area(page).locator('.wk-area__body').evaluate((el) => Math.round(el.getBoundingClientRect().height))
+
+test.describe('the height of the page area', () => {
+  test('a page that never reports keeps the default height and scrolls inside', async ({ page, request }) => {
+    await setHome(request, { pageArea: TODAY, widgets: [chatsWidget] })
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await home(page)
+    await expect(area(page)).toHaveAttribute('data-state', 'run')
+    await page.waitForTimeout(1000)
+    expect(await bodyHeight(page)).toBe(240)
+    await expect(area(page).locator('.wk-area__body')).not.toHaveAttribute('data-height', /./)
+  })
+
+  test('a short page gets the height of its content, above the widgets', async ({ page, request }) => {
+    await setHome(request, { pageArea: SHORT, widgets: [chatsWidget] })
+    for (const [w, h] of [[1280, 900], [390, 844]]) {
+      await page.setViewportSize({ width: w, height: h })
+      await home(page)
+      await expect(area(page).locator('.wk-area__body')).toHaveAttribute('data-height', /\d+/)
+      const want = await areaFrame(page).locator('html').evaluate((el) => Math.ceil(el.getBoundingClientRect().height))
+      expect(want).toBeGreaterThan(240)
+      expect(want).toBeLessThan(h * 0.6)
+      expect(Math.abs((await bodyHeight(page)) - want), `at ${w}`).toBeLessThanOrEqual(2)
+      // The page shows all of it: no scroll inside the frame.
+      expect(await areaFrame(page).locator('html').evaluate((el) => el.scrollHeight <= window.innerHeight + 1)).toBe(true)
+      const body = await area(page).locator('.wk-area__body').boundingBox()
+      const grid = await page.getByTestId('home-widget-grid').boundingBox()
+      expect(grid.y).toBeGreaterThanOrEqual(body.y + body.height)
+      await shot(page, `area-short-${w}-light`)
+    }
+    await home(page, 'dark')
+    await expect(area(page).locator('.wk-area__body')).toHaveAttribute('data-height', /\d+/)
+    await shot(page, 'area-short-390-dark')
+  })
+
+  test('a tall page is capped at about 60% of the window and scrolls inside', async ({ page, request }) => {
+    await setHome(request, { pageArea: TALL, widgets: [chatsWidget] })
+    for (const [w, h] of [[1280, 900], [390, 844]]) {
+      await page.setViewportSize({ width: w, height: h })
+      await home(page)
+      await expect(area(page).locator('.wk-area__body')).toHaveAttribute('data-height', /\d+/)
+      expect(Math.abs((await bodyHeight(page)) - Math.round(h * 0.6)), `at ${w}`).toBeLessThanOrEqual(1)
+      await shot(page, `area-tall-${w}-light`)
+    }
+    // The cap follows the window.
+    await page.setViewportSize({ width: 1280, height: 600 })
+    await expect.poll(() => bodyHeight(page)).toBe(360)
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await home(page, 'dark')
+    await expect(area(page).locator('.wk-area__body')).toHaveAttribute('data-height', /\d+/)
+    await shot(page, 'area-tall-1280-dark')
+  })
+
+  test('the area follows a page that grows, without a reload of the frame', async ({ page, request }) => {
+    await setHome(request, { pageArea: GROW, widgets: [chatsWidget] })
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await home(page)
+    const token = areaFrame(page).locator('#token')
+    await expect(token).not.toBeEmpty()
+    const first = await token.textContent()
+    await expect.poll(() => bodyHeight(page)).toBeGreaterThan(240)
+    const before = await bodyHeight(page)
+    await expect.poll(() => bodyHeight(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(before + 90)
+    expect(await token.textContent()).toBe(first)
+    await expect(area(page)).toHaveAttribute('data-state', 'run')
+  })
+
+  test('a burst of heights applies at most a few, the last one wins, and the page keeps running', async ({ page, request }) => {
+    await setHome(request, { pageArea: SPAM, widgets: [chatsWidget] })
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await home(page)
+    await expect(area(page)).toHaveAttribute('data-state', 'run')
+    // Count the heights the host applies.
+    await area(page).locator('.wk-area__body').evaluate((el) => {
+      window.__areaSizes = []
+      new MutationObserver(() => window.__areaSizes.push(el.getAttribute('data-height'))).observe(el, { attributes: true, attributeFilter: ['data-height'] })
+    })
+    await expect(area(page).locator('.wk-area__body')).toHaveAttribute('data-height', '420', { timeout: 10_000 })
+    expect(await bodyHeight(page)).toBe(420)
+    const applied = await page.evaluate(() => window.__areaSizes.length)
+    expect(applied).toBeGreaterThanOrEqual(1)
+    expect(applied).toBeLessThanOrEqual(3)
+    await page.waitForTimeout(1500)
+    await expect(area(page)).toHaveAttribute('data-state', 'run')
+    await expect(area(page)).toHaveAttribute('data-frame', 'live')
+  })
+
+  test('a failed page shows the failure tile at its own height', async ({ page, request }) => {
+    await put(request, `/pages/${BAD}/index.html`, BAD_HTML)
+    await put(request, `/pages/${BAD}/page.json`, { title: 'Bad page' })
+    await setHome(request, { pageArea: BAD, widgets: [chatsWidget] })
+    for (const theme of ['light', 'dark']) {
+      for (const [w, h] of [[1280, 900], [390, 844]]) {
+        await page.setViewportSize({ width: w, height: h })
+        await home(page, theme)
+        await expect(page.getByTestId('page-area-failed')).toBeVisible({ timeout: 20_000 })
+        await shot(page, `area-failed-${w}-${theme}`)
+      }
+    }
+  })
 })
 
 test('dark theme', async ({ page, request }) => {

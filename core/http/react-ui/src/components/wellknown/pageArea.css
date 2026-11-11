@@ -1,6 +1,9 @@
 /* The page area of Home: a page of the workspace below the composer, under a
    thin strip the shell draws. The frame is clipped to the body, so a page
-   cannot cover the strip, the composer or the widgets. */
+   cannot cover the strip, the composer or the widgets. The body is as high
+   as the page reports (--wk-area-h, set by PageArea), 240px until it does,
+   never less than 160px or more than 60% of the window: the page scrolls
+   inside. */
 .wk-area { display: flex; flex-direction: column; margin: var(--sp-4) 0; border: 1px solid var(--color-border-card); border-radius: var(--r-lg); overflow: hidden; background: var(--color-bg-secondary); }
 .wk-area__bar { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; min-height: 40px; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4); border-bottom: 1px solid var(--color-border-card); background: var(--color-bg-primary); }
 .wk-area__name { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: var(--font-weight-semibold); font-size: var(--text-sm); }
@@ -8,7 +11,7 @@
 .wk-area__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wk-area__pills { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; min-width: 0; }
 .wk-area__tools { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: auto; flex-shrink: 0; }
-.wk-area__body { position: relative; min-width: 0; height: clamp(280px, 60vh, 640px); overflow: hidden; contain: paint; }
+.wk-area__body { position: relative; min-width: 0; height: clamp(160px, var(--wk-area-h, 240px), 60vh); overflow: hidden; contain: paint; }
 .wk-area .pg-frame.wk-area__frame { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; background: var(--color-bg-secondary); }
 .wk-area__fill { position: absolute; inset: var(--sp-4); width: auto; height: auto; }
 .wk-area__idle { border-radius: var(--r-md); background: var(--color-bg-tertiary); opacity: 0.5; }
@@ -27,5 +30,4 @@
 
 @media (max-width: 640px) {
   .wk-area__bar { padding-left: var(--sp-3); gap: var(--sp-2); }
-  .wk-area__body { height: clamp(240px, 55vh, 480px); }
 }

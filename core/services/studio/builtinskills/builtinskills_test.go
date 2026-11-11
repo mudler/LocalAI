@@ -141,7 +141,7 @@ var _ = Describe("the built-in skills", func() {
 // The calls that the Pages bridge offers to a page, from
 // core/http/react-ui/src/utils/pagesBridge.js (the object api in BOOTSTRAP).
 // The test below reads that file, so a change of the bridge fails here.
-var bridgeCalls = []string{"files.read", "files.write", "files.list", "chat.send", "on", "page", "page.name", "page.title", "page.mode", "page.size"}
+var bridgeCalls = []string{"files.read", "files.write", "files.list", "chat.send", "on", "page", "page.name", "page.title", "page.mode", "page.size", "page.resize"}
 
 var apiRE = regexp.MustCompile(`localai\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)`)
 

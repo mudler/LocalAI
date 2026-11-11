@@ -38,6 +38,9 @@ import { BEAT_MS, createFrameWatch } from '../utils/frameWatch'
 //   onReady()      the first beat of the page came: its script runs and keeps
 //                  the thread free. Needs budget; the shell's signal that the
 //                  page started, never the page's own claim
+//   onResize(h)    the page asked for a height (localai.page.resize): returns
+//                  the height the caller applies, in px. Without it the page
+//                  hears {height: null}. The frame is never reloaded for it
 //   onScriptError  the page's script threw (the error is the bridge's own
 //                  report): the page area takes it as a failed page
 //   visible        false while the frame is out of sight (a tile scrolled
@@ -51,11 +54,11 @@ import { BEAT_MS, createFrameWatch } from '../utils/frameWatch'
 //                  takes the frame down
 const plain = (html) => ({ html, head: '', modules: false, notes: [], tooLarge: false })
 
-const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, codeFiles = null, mode = 'page', size = '', budget = false, className = '', visible = true }, ref) {
+const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, onResize, codeFiles = null, mode = 'page', size = '', budget = false, className = '', visible = true }, ref) {
   const frameRef = useRef(null)
   const live = useRef({ host: null, channel: null, loads: 0, doc: '', watch: null, timer: 0 })
-  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError })
-  handlers.current = { onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError }
+  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, onResize })
+  handlers.current = { onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, onResize }
   // The mode the frame shows now. The document is built with the mode of the
   // moment; a later change is sent to the page, so a tile that grows into a
   // card keeps its state.
@@ -215,6 +218,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
         list: (dir) => guard(() => (handlers.current.files || own).list(dir)),
       },
       chat: { send: (text) => handlers.current.onSend(text) },
+      resize: (h) => (handlers.current.onResize ? handlers.current.onResize(h) : null),
       links: { open: (target) => (handlers.current.onLink ? handlers.current.onLink(target) : { opened: false }) },
       // Only the owner's own run records: a viewer of a shared page is not
       // its owner, and the errors are kept in the owner's workspace.

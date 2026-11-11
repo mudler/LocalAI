@@ -14,7 +14,7 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { filesApi } from '../../utils/api'
 import { liveFrames } from '../../utils/liveFrames'
 import { tilePagePath, tileTitle } from '../../utils/pageTiles'
-import { AREA_IDLE, AREA_PAINT_MS, areaStep, areaTarget, areaView, revertTarget } from '../../utils/pageArea'
+import { AREA_IDLE, AREA_PAINT_MS, areaStep, areaTarget, areaView, createAreaSizer, revertTarget } from '../../utils/pageArea'
 import '../../pages/pages.css'
 import './pageArea.css'
 
@@ -100,6 +100,24 @@ function AreaPage({ pageRef: ref, wk, onRemoved, listed }) {
   const [life, dispatch] = useReducer(areaStep, AREA_IDLE)
   const [frameKey, setFrameKey] = useState(0)
   const links = usePageLinks()
+  // The height the page reports (localai.page.resize): the area follows it,
+  // within the limits of pageArea.css. Set on the body as a custom property,
+  // never by a reload of the frame. A page that never reports keeps the
+  // default height and scrolls inside.
+  const [sizer] = useState(() => {
+    const box = { el: null }
+    const s = createAreaSizer({
+      apply: (h) => {
+        box.el?.style.setProperty('--wk-area-h', `${h}px`)
+        box.el?.setAttribute('data-height', String(h))
+      },
+    })
+    s.box = box
+    return s
+  })
+  useEffect(() => { sizer.box.el = el }, [el, sizer])
+  useEffect(() => () => sizer.stop(), [sizer])
+  const onResize = useCallback((h) => sizer.offer(h), [sizer])
 
   const { frame, capped, runNow } = useFrameLife(el, id, { runnable, stopped: life.phase === 'failed' })
   const html = run?.html ?? read.html
@@ -195,6 +213,7 @@ function AreaPage({ pageRef: ref, wk, onRemoved, listed }) {
         onStopped={(reason) => dispatch({ type: 'stopped', reason })}
         onReady={() => dispatch({ type: 'ready' })}
         onScriptError={(e) => dispatch({ type: 'error', detail: { message: e?.message, line: e?.line } })}
+        onResize={onResize}
         onLink={links.onLink}
         onRefused={shared ? onRefused : undefined}
       />

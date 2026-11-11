@@ -114,6 +114,7 @@ path is relative to the page's own folder.
 | `localai.on('files.changed', fn)` | Calls `fn({paths})` when files of the page's folder change. `paths` are relative to the folder. When LocalAI cannot tell what changed (for example after the window was in the background), `fn` gets `{paths: [], resync: true}`: read again what you show. Returns a function that removes the listener. |
 | `localai.on('visibility', fn)` | Calls `fn({visible})` when the page goes out of sight (the tab is hidden, or its tile on Home scrolled away) and when it comes back. Pause timers and animations while `visible` is `false`. |
 | `localai.on('mode', fn)` | Calls `fn({mode, size})` when a tile changes size without a reload: a tile in a slot that opens as a card, and back. `localai.page` and the `data-mode` and `data-size` attributes of `<html>` change first. |
+| `localai.page.resize(height)` | Asks for a height in pixels. Only the page area of Home uses it (see [the page area](#a-page-in-the-page-area-of-home)); elsewhere it resolves to `{height: null}`. Without `height`, the bridge measures the document (the box of `<html>`). Resolves to `{height}`, the height after the limits. |
 | `localai.page` | `{name, title, mode, size}` of the page. `mode` is `page` in the full view and in the dock, `widget` in a tile, and `area` in the page area of Home; `size` is the tile's size (`compact`, `small`, `medium`, `large`), empty in the full view, the dock and the page area. The page cannot set them. |
 
 Example: a counter that keeps its value in `count.json`.
@@ -425,8 +426,21 @@ can be reverted.
 
 The page runs in the same sandbox, with the same bridge and the same budget as
 a tile. It hears `localai.page.mode` `area` (and `<html data-mode="area">`) and
-has no `size`: the area is the full width of Home and about 60% of the window
-high, and the page scrolls inside it. The frame is clipped to the area, so a
+has no `size`: the area is the full width of Home. It is 240 px high until the
+page says how high it is, and stays so for a page that never does; the page
+scrolls inside it. To fit the area to its content, the page calls
+`localai.page.resize()` when its content changes:
+
+```js
+new ResizeObserver(() => localai.page.resize()).observe(document.body)
+```
+
+The area follows, never lower than 160 px or higher than about 60% of the
+window: a longer page scrolls inside. LocalAI applies at most four heights a
+second (the last one asked), ignores a change of a few pixels and never reloads
+the frame for it. A page whose `<html>` or `<body>` fills the frame
+(`height: 100%`) measures the frame, not its content: pass the height of its
+content, `localai.page.resize(el.offsetHeight)`. The frame is clipped to the area, so a
 page cannot cover the strip, the composer or the widgets. `chat.send` is
 refused, because the composer is on the same screen. The area counts toward the
 eight live frames of the app. A shared page asks first, like a shared page on

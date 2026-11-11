@@ -204,11 +204,23 @@ const BOOTSTRAP = `(function () {
       else queue.push(m)
     })
   }
+  // The height of the page's content: the box of <html>, which is as high as
+  // what the page draws unless the page makes it fill the frame.
+  var rootRect = (own(typeof Element === 'function' && Element, 'getBoundingClientRect') || {}).value || null
+  function contentHeight() {
+    try {
+      var r = rootRect ? apply(rootRect, root, []) : root.getBoundingClientRect ? root.getBoundingClientRect() : null
+      return r && r.height > 0 ? Math.ceil(r.height) : 0
+    } catch (err) { return 0 }
+  }
   var api = {
     page: Object.freeze({
       name: info.name, title: info.title,
       get mode() { return info.mode },
-      get size() { return info.size }
+      get size() { return info.size },
+      // Asks the host for a height (the page area of Home follows it, within
+      // its limits); with no argument, the height of the document.
+      resize: function (height) { return call('page.resize', { height: height === undefined ? contentHeight() : height }) }
     }),
     files: Object.freeze({
       read: function (path) { return call('files.read', { path: path }) },
@@ -591,6 +603,9 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 //                     A burst is limited as for links
 //   link.open(url)    resolves to {opened}; only http and https, and the host
 //                     asks the person first (links.open gets the checked target)
+//   page.resize(h)    the page asks for a height in px; resize(h) (the page area)
+//                     clamps it and returns what it applies, and a frame
+//                     without resize answers {height: null}
 //   page.error(...)   the bridge reports what the page's script threw; errors.report
 //                     keeps it for the assistant. Without errors (a shared page)
 //                     it records nothing. Bursts are dropped, and a failure is
@@ -618,7 +633,7 @@ function bucket(now, burst, everyMs) {
   }
 }
 
-export function createPageHost({ post, files, chat, links, errors, onBeat, now = Date.now }) {
+export function createPageHost({ post, files, chat, links, errors, resize, onBeat, now = Date.now }) {
   let closed = false
   let inFlight = 0
   const linkBudget = bucket(now, LINK_BURST, LINK_EVERY_MS)
@@ -662,6 +677,10 @@ export function createPageHost({ post, files, chat, links, errors, onBeat, now =
         // The host shows one question: a new link replaces the one before,
         // which answers {opened: false}.
         return { opened: Boolean((await links.open(target))?.opened) }
+      }
+      case 'page.resize': {
+        if (typeof p.height !== 'number' || !Number.isFinite(p.height) || p.height < 0) throw bad('height must be a number of pixels')
+        return { height: resize ? (resize(p.height) ?? null) : null }
       }
       case 'page.error': {
         // Silent by design: a page that throws gets no error back for it.
