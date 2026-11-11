@@ -759,30 +759,7 @@ func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change
 		if _, err := lock(tx, principal, id, "goal_rev"); err != nil {
 			return err
 		}
-		var raw string
-		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("goal").Row().Scan(&raw); err != nil {
-			return err
-		}
-		var cur *session.Goal
-		if raw != "" {
-			cur = &session.Goal{}
-			if err := json.Unmarshal([]byte(raw), cur); err != nil {
-				return err
-			}
-		}
-		next, err := change(cur)
-		if err != nil {
-			return err
-		}
-		out := ""
-		if next != nil {
-			b, err := json.Marshal(next)
-			if err != nil {
-				return err
-			}
-			out = string(b)
-		}
-		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("goal", out).Error
+		return updateJSONColumn(tx, id, "goal", change)
 	})
 }
 
@@ -792,31 +769,38 @@ func (s *gormStore) UpdateDock(ctx context.Context, principal, id string, change
 		if _, err := lock(tx, principal, id, "dock_rev"); err != nil {
 			return err
 		}
-		var raw string
-		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("dock").Row().Scan(&raw); err != nil {
+		return updateJSONColumn(tx, id, "dock", change)
+	})
+}
+
+// updateJSONColumn runs change on the value that column of chat id holds as
+// JSON, in tx, and writes back what it returns. An empty column reads as nil
+// and a nil result empties it. The caller holds the row lock.
+func updateJSONColumn[T any](tx *gorm.DB, id, column string, change func(*T) (*T, error)) error {
+	var raw string
+	if err := tx.Model(&chatRow{}).Where("id = ?", id).Select(column).Row().Scan(&raw); err != nil {
+		return err
+	}
+	var cur *T
+	if raw != "" {
+		cur = new(T)
+		if err := json.Unmarshal([]byte(raw), cur); err != nil {
 			return err
 		}
-		var cur *session.Dock
-		if raw != "" {
-			cur = &session.Dock{}
-			if err := json.Unmarshal([]byte(raw), cur); err != nil {
-				return err
-			}
-		}
-		next, err := change(cur)
+	}
+	next, err := change(cur)
+	if err != nil {
+		return err
+	}
+	out := ""
+	if next != nil {
+		b, err := json.Marshal(next)
 		if err != nil {
 			return err
 		}
-		out := ""
-		if next != nil {
-			b, err := json.Marshal(next)
-			if err != nil {
-				return err
-			}
-			out = string(b)
-		}
-		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("dock", out).Error
-	})
+		out = string(b)
+	}
+	return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn(column, out).Error
 }
 
 func (s *gormStore) SavePartial(ctx context.Context, id string, turn int, text string) error {
