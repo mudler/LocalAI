@@ -156,10 +156,15 @@ func contextFitsRAM(footprint, total uint64) bool {
 // agent. Only when even that does not fit does it use the lower steps, again
 // within the budget, down to DefaultContextSize.
 func ramContextSize(footprint func(ctx int) uint64, chosen int) int {
+	return ramContextSizeFor(systemTotalRAM(), footprint, chosen)
+}
+
+// ramContextSizeFor is ramContextSize against a given amount of system memory,
+// so a caller can ask about a host other than the one it runs on.
+func ramContextSizeFor(total uint64, footprint func(ctx int) uint64, chosen int) int {
 	if footprint == nil {
 		return chosen
 	}
-	total := systemTotalRAM()
 	if total == 0 || footprint(chosen) == 0 {
 		return chosen
 	}
@@ -279,18 +284,24 @@ func contextFitsVRAM(footprint, vram uint64) bool {
 // its existing DefaultContextSize fallback in that case, so this is only called
 // with a positive trainedMax.
 func autoContextSize(footprint, ramFootprint func(ctx int) uint64, trainedMax, target int) int {
+	return autoContextSizeFor(perDeviceVRAM(), systemTotalRAM(), footprint, ramFootprint, trainedMax, target)
+}
+
+// autoContextSizeFor is autoContextSize against a given per-device VRAM ceiling
+// and amount of system memory (0 = unknown or none), so a caller can ask what
+// window a model would get on a host other than the one it runs on.
+func autoContextSizeFor(vram, totalRAM uint64, footprint, ramFootprint func(ctx int) uint64, trainedMax, target int) int {
 	chosen := trainedMax
 	if chosen > target {
 		chosen = target
 	}
 
-	vram := perDeviceVRAM()
 	if vram == 0 {
 		// No per-device VRAM detected (CPU-only, unified memory reporting nothing,
 		// or a detection gap). The bug is GPU OOM-on-load, so with no GPU budget to
 		// reason about. The base cap already bounds long-context models, and the
 		// system memory (where the model then lives) is checked instead.
-		return ramContextSize(ramFootprint, chosen)
+		return ramContextSizeFor(totalRAM, ramFootprint, chosen)
 	}
 
 	if contextFitsVRAM(footprint(chosen), vram) {

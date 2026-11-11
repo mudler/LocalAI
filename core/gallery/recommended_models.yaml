@@ -1,0 +1,69 @@
+# Curated first-run model choices, one block per hardware tier.
+#
+# Each tier names one default and two alternatives, by the name the model has in
+# the gallery index (gallery/index.yaml). The server ranks them for the machine it
+# runs on, drops the ones that do not fit, and installs the chosen one with the
+# context window the loader would give it there (see docs/content/advanced/
+# recommended-models.md). The list is embedded in the binary.
+#
+# Tiers, by the memory of the smallest GPU, or none for the cpu tier:
+#   cpu        no GPU
+#   gpu-small  under 8 GB
+#   gpu-mid    8 GB up to 24 GB
+#   gpu-large  24 GB and more
+#
+# Rules for an entry: it exists in the gallery index, it serves a chat with tool
+# calling, its licence is permissive (Apache-2.0 or MIT), it fits its tier at the
+# chat window the loader picks, and its own gallery config does not set a
+# context_size under 16384. "reason" is one line, shown to the reader as text.
+# tests in core/gallery/recommended_test.go check the structure and every id.
+version: 1
+tiers:
+  cpu:
+    default:
+      id: qwen3.8-4b-q4
+      name: Qwen3.8 4B
+      reason: Small enough for a laptop, and still follows tools and long instructions.
+    alternatives:
+      - id: qwen3.8-2b-q4
+        name: Qwen3.8 2B
+        reason: The lightest choice, for machines with little memory or a slow processor.
+      - id: granite-4.2-3b-q4
+        name: Granite 4.2 3B
+        reason: A different family at a similar size, tuned for tool use.
+  gpu-small:
+    default:
+      id: qwen3.8-4b-q4
+      name: Qwen3.8 4B
+      reason: The most capable model that fits a small card with a full chat window.
+    alternatives:
+      - id: gemma-4-e4b-it-qat-q4_0
+        name: Gemma 4 E4B
+        reason: Google's efficient 4B model, and it reads images; it also fits a 4 GB card.
+      - id: qwen3.8-2b-q4
+        name: Qwen3.8 2B
+        reason: Leaves most of the card free for other work.
+  gpu-mid:
+    default:
+      id: qwen3.8-9b-q4
+      name: Qwen3.8 9B
+      reason: A strong all-round model that runs fast on a mid-range card.
+    alternatives:
+      - id: gemma-4-12b-it-qat-q4_0
+        name: Gemma 4 12B
+        reason: A larger step up for cards with 12 GB or more, and it reads images.
+      - id: gemma-4-e4b-it-qat-q4_0
+        name: Gemma 4 E4B
+        reason: Fast and light, with room to spare on an 8 GB card.
+  gpu-large:
+    default:
+      id: gemma-4-26b-a4b-it-qat-q4_0
+      name: Gemma 4 26B A4B
+      reason: A mixture-of-experts model that fits a 24 GB card with a full chat window and answers fast.
+    alternatives:
+      - id: qwen3.8-27b-q4
+        name: Qwen3.8 27B
+        reason: The strongest dense model here; it needs about 32 GB for the full window.
+      - id: qwen3.6-35b-a3b
+        name: Qwen3.6 35B A3B
+        reason: A large mixture-of-experts model for cards with 48 GB or more.
