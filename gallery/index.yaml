@@ -82452,3 +82452,64 @@
       model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-31b-it-ara-heretic
+  description: |
+    # This is a decensored version of google/gemma-4-31B-it, made using Heretic v2.0.0
+
+    > [!TIP]
+    > **This model is reproducible!**
+    >
+    > See the README in the `reproduce` directory for more information.
+
+    ## Arbitrary-Rank Ablation (ARA) parameters
+
+    ## Performance
+
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation|
+    Technical Report
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on E2B, E4B, and 12B) and generating text output. This release includes open-weights models in both pre-trained and instruction-tuned variants. Gemma 4 features a context window of up to 256K tokens and maintains multilingual support in over 140 languages.
+
+    Featuring both Dense and Mixture-of-Experts (MoE) architectures, Gemma 4 is well-suited for tasks like text generation, coding, and reasoning. The models are available in five distinct sizes: **E2B**, **E4B**, **12B**, **26B A4B**, and **31B**. Their diverse sizes make them deployable in environments ranging from high-end phones to laptops and servers, democratizing access to state-of-the-art AI.
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/mradermacher/gemma-4-31B-it-ARA-heretic-GGUF
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+  files:
+    - filename: llama-cpp/models/gemma-4-31B-it-ARA-heretic.Q4_K_M/gemma-4-31B-it-ARA-heretic.Q4_K_M.gguf
+      sha256: 305b953a3909ff806b2e9ffee6d8775074ad1eae413a3d1bcd2b09a7cd1ee353
+      uri: https://huggingface.co/mradermacher/gemma-4-31B-it-ARA-heretic-GGUF/resolve/main/gemma-4-31B-it-ARA-heretic.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-31B-it-ARA-heretic.Q4_K_M/gemma-4-31B-it-ARA-heretic.mmproj-f16.gguf
+      sha256: fff3ae7b364154cb835241ee5a436941bee24e982fe270fe9084c0eba7206310
+      uri: https://huggingface.co/mradermacher/gemma-4-31B-it-ARA-heretic-GGUF/resolve/main/gemma-4-31B-it-ARA-heretic.mmproj-f16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-31B-it-ARA-heretic.Q4_K_M/gemma-4-31B-it-ARA-heretic.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-31B-it-ARA-heretic.Q4_K_M/gemma-4-31B-it-ARA-heretic.Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
