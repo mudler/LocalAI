@@ -41,12 +41,29 @@ var _ = Describe("Chats Sandbox network routes", func() {
 			Expect(s.do("", method, path, nil).Code).To(Equal(http.StatusUnauthorized))
 		},
 		Entry("view", http.MethodGet, "/api/chats/c1/egress"),
+		Entry("draft view", http.MethodGet, "/api/chats/draft/egress"),
 		Entry("preset", http.MethodPut, "/api/chats/c1/egress"),
 		Entry("rule", http.MethodDelete, "/api/chats/c1/egress/rules/example.com/443"),
 		Entry("consent", http.MethodPost, "/api/chats/c1/egress/consent"),
 		Entry("admin view", http.MethodGet, "/api/chats/admin/egress"),
 		Entry("audit", http.MethodGet, "/api/chats/admin/egress/events"),
 	)
+
+	It("shows the network a new chat would start with, before the chat exists", func() {
+		rec := s.do("alice", http.MethodGet, "/api/chats/draft/egress?model=test-model", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		v := decodeJSON(rec)
+		Expect(v).To(HaveKeyWithValue("preset", "off"))
+		Expect(v).To(HaveKeyWithValue("ceiling", "registries"))
+		Expect(v).To(HaveKeyWithValue("effective", "off"))
+		Expect(v).To(HaveKeyWithValue("applies", false))
+		Expect(v).To(HaveKeyWithValue("addon", "sandbox"))
+		Expect(v["registries"]).To(ContainElement(HaveKeyWithValue("id", "extra")))
+		Expect(v["rules"]).To(BeEmpty())
+		Expect(v["cards"]).To(BeEmpty())
+		// It is not a chat: the id "draft" does not shadow the route.
+		Expect(s.do("alice", http.MethodGet, "/api/chats/draft/egress?agent_id=nope", nil).Code).To(Equal(http.StatusNotFound))
+	})
 
 	It("shows and sets the preset of a chat up to the ceiling, for its owner only", func() {
 		id := s.create("alice")

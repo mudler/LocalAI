@@ -164,6 +164,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	// What a chat that does not exist yet could switch; "draft" is not a chat id.
 	e.GET(base+"/draft/tools", h.DraftTools)
 	e.GET(base+"/draft/addons", h.DraftAddons)
+	e.GET(base+"/draft/egress", h.DraftEgress)
 	e.PUT(base+"/:id/skills", h.SetChatSkills)
 	e.GET(base+"/:id/addons", h.ListChatAddons)
 	e.PUT(base+"/:id/addons", h.SetChatAddons)

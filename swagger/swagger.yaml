@@ -20497,6 +20497,47 @@ paths:
       summary: List the add-ons a new chat could use.
       tags:
       - chats
+  /api/chats/draft/egress:
+    get:
+      description: 'What GET /api/chats/{id}/egress returns, for a chat that does
+        not exist yet, as GET /api/chats/draft/tools takes it: the preset the chat
+        would start with (the instance default, or the saved agent''s, under the administrator''s
+        ceiling), the ceiling, the add-on that would run its commands and draw the
+        network controls (addon), and applies, which stays false before the chat exists
+        because no sandbox is bound to it yet and so nothing reports enforcement:
+        use addon, and the profiles of GET /api/chats/sandbox-profiles, to decide
+        whether to offer the presets. It has no rules and no cards. The composer of
+        a new chat shows the presets from it and sets the chosen one with PUT /api/chats/{id}/egress
+        after the chat is created.'
+      parameters:
+      - description: the model of the new chat
+        in: query
+        name: model
+        type: string
+      - description: a saved agent of yours
+        in: query
+        name: agent_id
+        type: string
+      responses:
+        "200":
+          description: The network of the new chat
+          schema:
+            $ref: '#/definitions/schema.ChatsEgress'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Refused
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read the network a new chat would start with.
+      tags:
+      - chats
   /api/chats/draft/tools:
     get:
       description: 'What GET /api/chats/{id}/tools lists, for a chat that does not
