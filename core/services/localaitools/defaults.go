@@ -2,6 +2,7 @@ package localaitools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -121,4 +122,4 @@ func (i *Inference) choose(ctx context.Context, given string, spec ClientToolSpe
 	return picked{Model: m}, nil
 }
 
-var errNoModelHere = fmt.Errorf("cannot choose a model here: name one with the model argument")
+var errNoModelHere = errors.New("cannot choose a model here: name one with the model argument")
