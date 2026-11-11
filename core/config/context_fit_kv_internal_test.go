@@ -112,3 +112,70 @@ var _ = Describe("The system-memory estimate of the KV cache", func() {
 		Expect(g).To(BeNumerically("<", analytic(48, 8, 256)/2))
 	})
 })
+
+var _ = Describe("The system-memory estimate for current architectures", func() {
+	const (
+		mib      = uint64(1) << 20
+		from, to = 4096, 32768
+	)
+	growth := func(s ggufShape) uint64 {
+		f := s.file()
+		lo, hi := estimateContextRAM(f, from), estimateContextRAM(f, to)
+		Expect(lo).NotTo(BeZero())
+		Expect(hi).To(BeNumerically(">", lo))
+		return hi - lo
+	}
+	boolArray := func(key string, v []bool) gguf.GGUFMetadataKV {
+		items := make([]any, len(v))
+		for i, b := range v {
+			items[i] = b
+		}
+		return gguf.GGUFMetadataKV{Key: key, ValueType: gguf.GGUFMetadataValueTypeArray,
+			Value: gguf.GGUFMetadataKVArrayValue{Type: gguf.GGUFMetadataValueTypeBool, Len: uint64(len(v)), Array: items}}
+	}
+
+	It("counts only the layers that own a cache when layers share KV (Gemma 4 E4B)", func() {
+		// 42 layers, the last 18 reuse the cache of earlier ones. Of the 24 that
+		// own one, 4 are global (2 kv heads of 512), the rest slide.
+		pattern := make([]bool, 42)
+		for i := range pattern {
+			pattern[i] = (i+1)%6 != 0 // every sixth layer is global
+		}
+		s := ggufShape{
+			arch: "gemma4", layers: 42, embd: 2560, heads: 8, kvHeads: 2, headDim: 512, ffn: 10240,
+			slidingWindow: 512,
+			extra: gguf.GGUFMetadataKVs{
+				ggufKVUint32("gemma4.attention.shared_kv_layers", 18),
+				ggufKVUint32("gemma4.attention.key_length_swa", 256),
+				ggufKVUint32("gemma4.attention.value_length_swa", 256),
+				boolArray("gemma4.attention.sliding_window_pattern", pattern),
+			},
+		}
+		g := growth(s)
+		// 4 global layers x 2 heads x 512 x 2 (K, V) x 2 B x 28672 tokens = 448 MiB.
+		global := uint64(4) * 2 * 512 * 2 * 2 * (to - from)
+		Expect(g).To(BeNumerically(">=", global))
+		// All 42 layers owning a full cache would be far more.
+		Expect(g).To(BeNumerically("<", global+256*mib))
+	})
+
+	It("counts only the full-attention layers of a hybrid model (Qwen 3.5/3.8 style)", func() {
+		// 64 layers, one full-attention layer in four, 4 kv heads of 256. The
+		// others keep a fixed recurrent state.
+		s := ggufShape{
+			arch: "qwen35", layers: 64, embd: 5120, heads: 24, kvHeads: 4, headDim: 256, ffn: 17408,
+			extra: gguf.GGUFMetadataKVs{
+				ggufKVUint32("qwen35.full_attention_interval", 4),
+				ggufKVUint32("qwen35.ssm.conv_kernel", 4),
+				ggufKVUint32("qwen35.ssm.state_size", 128),
+				ggufKVUint32("qwen35.ssm.group_count", 16),
+				ggufKVUint32("qwen35.ssm.time_step_rank", 48),
+				ggufKVUint32("qwen35.ssm.inner_size", 6144),
+			},
+		}
+		g := growth(s)
+		attn := uint64(16) * 4 * 256 * 2 * 2 * (to - from) // 1792 MiB
+		Expect(g).To(BeNumerically(">=", attn))
+		Expect(g).To(BeNumerically("<", attn+256*mib))
+	})
+})

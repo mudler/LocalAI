@@ -118,7 +118,19 @@ var systemTotalRAM = func() uint64 {
 // estimator reports for a CPU run. It leaves out the attention score buffer
 // that llama.cpp allocates when flash attention is off, which grows with the
 // window (about 2 GiB for an 8B model at 32768); the default "auto" mode turns
-// flash attention on for CPU, so this holds unless an operator forces it off. It returns 0 when it cannot produce an estimate, which the
+// flash attention on for CPU, so this holds unless an operator forces it off.
+//
+// Checked on current architectures too (Gemma 4 with per-layer embeddings and
+// shared KV layers, hybrid Qwen models, Nemotron-H, Granite 4, Mistral 3). The
+// per-layer embedding tables count in full as weights, although llama.cpp maps
+// them and touches few rows, and a tied output matrix counts twice, so the
+// estimate errs high there. Layers that reuse an earlier cache are skipped, as
+// llama.cpp does. The sliding-window cache is sized from the 2048 logical
+// batch where llama.cpp uses the micro batch, which is high by up to about
+// 1 GiB for a 30B model. Two parts are left out and are small next to the
+// weights: the indexer cache of sparse-attention models such as Qwen 3.8 Flash
+// (about a quarter of their KV) and the part of an MLA cache that the parser
+// does not size (10 to 30 percent of it, under 200 MiB at 32768). It returns 0 when it cannot produce an estimate, which the
 // caller treats as "cannot confirm", as for estimateContextVRAM. It is a
 // package var so tests can stub it.
 var estimateContextRAM = func(f *gguf.GGUFFile, ctx int) (footprint uint64) {
