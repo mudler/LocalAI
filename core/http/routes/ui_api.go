@@ -1033,6 +1033,25 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, result)
 	}, adminMiddleware)
 
+	// The curated first-run recommendation. Every signed-in user may read it,
+	// so a person who cannot install still sees what to ask an administrator
+	// for; installing stays behind adminMiddleware below.
+	recommended := localai.NewRecommendedModelsService(appConfig, func(ctx context.Context) localai.RecommendedHardware {
+		// In distributed mode the models run on the best single node, the same
+		// reading every other model-sizing surface uses.
+		if reading := resolveClusterMemory(ctx, clusterMemory); reading != nil && reading.TotalMemory > 0 {
+			hw := localai.RecommendedHardware{Scope: "cluster", NodeName: reading.NodeName}
+			if reading.IsGPU {
+				hw.Memory.PerDeviceVRAM = reading.TotalMemory
+			} else {
+				hw.Memory.SystemRAM = reading.TotalMemory
+			}
+			return hw
+		}
+		return localai.LocalRecommendedHardware(ctx)
+	})
+	app.GET("/api/models/recommended", localai.RecommendedModelsEndpoint(recommended))
+
 	// Returns the selectable builds of a single gallery model and which one
 	// auto-selection would install on this host. Companion to estimate/:id and
 	// for the same reason: describing variants probes each referenced entry's
@@ -1093,7 +1112,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// Absent means auto-select, which is what the listing's auto_variant
 		// already told the client would happen.
 		variant := c.QueryParam("variant")
-		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant)
+		// Optional: the context window to install with, as the recommendation
+		// reports it. It is written into the installed config as an explicit
+		// context_size, so a model whose gallery entry sets a window the host
+		// cannot hold still loads. Absent means the entry's own config.
+		contextSize, err := parseInstallContextSize(c.QueryParam("context_size"))
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant, "context_size", contextSize)
 
 		if refused, err := localai.RefuseModelWithoutBackend(c, appConfig, appConfig.Galleries, galleryID, variant, galleryService.BackendManager().BackendAvailable); refused {
 			return err
@@ -1119,6 +1146,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
 			PauseFunc:          pauseFunc,
+		}
+		if contextSize > 0 {
+			op.Req.Overrides = map[string]any{"context_size": contextSize}
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
@@ -2006,3 +2036,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.DELETE("/api/branding/asset/:kind", localai.DeleteBrandingAssetEndpoint(appConfig), adminMiddleware)
 
 }
+
+// parseInstallContextSize reads the optional context_size of an install
+// request. Empty means none (0). A value outside what a model can use is
+// refused rather than written into a config that then fails to load.
+func parseInstallContextSize(raw string) (int, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < minInstallContextSize || n > maxInstallContextSize {
+		return 0, fmt.Errorf("context_size must be a number of tokens from %d to %d", minInstallContextSize, maxInstallContextSize)
+	}
+	return n, nil
+}
+
+const (
+	minInstallContextSize = 512
+	maxInstallContextSize = 4 << 20
+)

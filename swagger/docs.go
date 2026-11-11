@@ -13476,6 +13476,23 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/recommended": {
+            "get": {
+                "description": "Returns the curated models for the hardware tier of the machine, best first, with the context window each would be installed with and whether it fits. Every signed-in user may read it; installing stays admin-only. The hardware is the host, or the best single node of a cluster.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Recommend models for this machine.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RecommendedModelsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/storage": {
             "get": {
                 "description": "Per-model disk usage, shared-file relations and missing references under the models path",
@@ -21806,6 +21823,109 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "origin": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RecommendedHardwareInfo": {
+            "type": "object",
+            "properties": {
+                "detected": {
+                    "description": "Detected is false when no memory figure could be read; the cpu tier is\nthen shown without a fit verdict.",
+                    "type": "boolean"
+                },
+                "kind": {
+                    "description": "Kind is \"gpu\", \"cpu\" or \"unknown\".",
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the per-device VRAM on a GPU host and the system memory\notherwise.",
+                    "type": "integer"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "Scope is \"local\" or \"cluster\"; NodeName names the cluster node sized for.",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RecommendedModel": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "description": "ContextSize is the window the install will use. Pass it as the\ncontext_size parameter of the install route so the installed config\ncarries it. 0 when it could not be computed; then install without it.",
+                    "type": "integer"
+                },
+                "fit": {
+                    "description": "Fit is \"fits\", \"tight\", \"does_not_fit\" or \"unknown\".",
+                    "type": "string"
+                },
+                "fit_reasons": {
+                    "description": "FitReasons are stable keys a client turns into text.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "description": "ID is the gallery name; pass it to the install route.",
+                    "type": "string"
+                },
+                "installed": {
+                    "type": "boolean"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the estimated memory at ContextSize.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is the one-line reason the curated list gives.",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is \"default\" or \"alternative\", as the curated list has it.",
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "description": "SizeBytes is the size of the weights to download.",
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.RecommendedModelsResponse": {
+            "type": "object",
+            "properties": {
+                "hardware": {
+                    "$ref": "#/definitions/localai.RecommendedHardwareInfo"
+                },
+                "min_context": {
+                    "description": "MinContext and RecommendedContext are the chat windows the fit is judged by.",
+                    "type": "integer"
+                },
+                "models": {
+                    "description": "Models are ranked best first. The first one is the recommendation.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.RecommendedModel"
+                    }
+                },
+                "nothing_fits": {
+                    "description": "NothingFits is true when no curated model fits the machine. Models then\nholds the smallest one, with a fit of does_not_fit.",
+                    "type": "boolean"
+                },
+                "recommended_context": {
+                    "type": "integer"
+                },
+                "tier": {
+                    "description": "Tier is the hardware tier: cpu, gpu-small, gpu-mid or gpu-large.",
                     "type": "string"
                 }
             }
