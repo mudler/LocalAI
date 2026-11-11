@@ -232,7 +232,7 @@
     },
     "pinnedPages": {
       "type": "array",
-      "description": "Pages shown in the sidebar. Pages come in a later release.",
+      "description": "Pages pinned in the sidebar, by page name. The first entry is the start page: it has its own screen and is marked Start page.",
       "maxItems": 20,
       "items": { "type": "string", "maxLength": 200 },
       "x-ui": { "hidden": true }

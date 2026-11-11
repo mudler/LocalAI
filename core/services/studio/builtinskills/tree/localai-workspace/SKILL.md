@@ -17,7 +17,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat (`tools` lists names switched off or on); `default` is the `id` a new chat starts with. No prompt, no files. Limits and values: its schema. |
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
 | `LocalAI/home.json` | `{"headline"?, "pageArea"?, "widgets": [{id, type, title, size?, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `size`: `s`, `m` or `l`; a page defaults to its `widget.size`. `pageArea`: a page name (`{page, folder}` if shared) that fills the area under the composer, in mode `area`; `null` none. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
-| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground`, `chatBackground` (see "Backgrounds"), `strings` (own text for a few labels), `sound`, `voice` and `slots` (see "Slots"). |
+| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground`, `chatBackground` (see "Backgrounds"), `strings` (own text for a few labels), `sound`, `voice`, `slots` (see "Slots") and `pinnedPages` (sidebar pages; the first is the start page). |
 | `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 | `LocalAI/commands.json` | `{"commands": [{name, description, type, template?, args?, tool?}]}`: the user's slash commands (see "Commands, sound, voice"). |
 
@@ -44,7 +44,7 @@ Rules:
 
 ## Backgrounds
 
-`homeBackground` (behind Home) and `chatBackground` (behind the chat view) in `LocalAI/ui.json` are independent: set one, both or none. Same shape, every key optional; layers stack picture over gradient over colour:
+`homeBackground` (behind Home) and `chatBackground` (behind the chat view) in `LocalAI/ui.json` are independent. Same shape, every key optional; layers stack picture over gradient over colour:
 
 ```json
 {"homeBackground": {"image": "Pictures/sky.jpg", "fit": "cover", "opacity": 0.9, "blur": 4, "overlay": 0.4}}
@@ -86,7 +86,7 @@ A metric uses `value`, `note` and `series` (numbers for a small line). A `chats`
 - Always set `updatedAt` (RFC 3339): the widget shows it.
 - An item can link: `{"label": "Title", "meta": "source", "url": "https://..."}` opens the site in a new tab; `"url": "/app/pages/<name>"` opens a page of the app (also `/app/chats`, `/app/files`). Other links break the schema.
 - `source` says who wrote the data: `{"kind": "trigger"}` in a trigger run, `{"kind": "page", "page": "<name>"}` for a page's data, `{"kind": "assistant"}` in a chat. `note` is one short line on where the data comes from. Both are fields inside the data file. Never print them as your answer.
-- A file that breaks the schema is not shown: the widget keeps its last good version. Write the whole file once, never half.
+- A file that breaks the schema is not shown: the widget keeps its last good version. Write the whole file at once.
 
 ## Recipes
 
@@ -135,7 +135,7 @@ Put the offer as the last paragraph of a normal reply, in plain words: no button
 Record the answer under `seen` in `LocalAI/user.json` (read the file first and keep every other key, in `seen` too), in `seen.offers.<kind>` with today's date:
 
 - "Yes", "sure": do it (`LocalAI/user.json`, `LocalAI/shortcuts.json`, or `propose_trigger`), then set `{"state": "accepted", "at": "<date>"}`.
-- "No", "no thanks": set `{"state": "declined", "at": "<date>"}` and answer in a few words, for example "Fine." It is never offered again.
+- "No", "no thanks": set `{"state": "declined", "at": "<date>"}` and answer in a few words. It is never offered again.
 - "Not now", or the user ignores it: set `{"state": "later", "at": "<date>", "count": <previous count + 1>}`. LocalAI may allow it again after 14 days; a second "not now" counts as no.
 - "Don't ask me things like that", "stop suggesting things", "never ask": set `seen.offers_off` to `true` and say "Understood. I will not offer to save things again." The user can turn offers back on in Account.
 
