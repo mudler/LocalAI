@@ -10,9 +10,10 @@ import { cleanWidgets, widgetList } from '../../src/utils/wellKnown.js'
 
 // The frame's bootstrap in a VM: the attributes it sets on <html>, the API it
 // defines and the port it talks over.
-function boot(opts, { timers = null, clock = null } = {}) {
+function boot(opts, { timers = null, clock = null, before = null } = {}) {
   const attrs = {}
   let onMessage = null
+  let capture = null
   const sandbox = {
     console: { warn() {}, error() {}, log() {} },
     setTimeout, Promise,
@@ -23,7 +24,7 @@ function boot(opts, { timers = null, clock = null } = {}) {
       addEventListener() {}, getElementById: () => null, getElementsByName: () => [],
     },
     scrollTo() {},
-    addEventListener: (t, fn) => { if (t === 'message') onMessage = fn },
+    addEventListener: (t, fn, c) => { if (t === 'message') { onMessage = fn; capture = c } },
   }
   if (clock) sandbox.Date = { now: () => clock.t }
   sandbox.window = sandbox
@@ -33,8 +34,11 @@ function boot(opts, { timers = null, clock = null } = {}) {
   let deliver = null
   const posted = []
   const port = { postMessage(m) { posted.push(m) }, set onmessage(fn) { deliver = fn } }
-  onMessage({ source: sandbox.parent, data: { type: 'localai:init' }, ports: [port] })
-  return { attrs, posted, localai: sandbox.localai, deliver: (m) => deliver({ data: m }) }
+  // The page's own script runs after the bridge and before the init.
+  before?.(sandbox)
+  let stopped = 0
+  onMessage({ source: sandbox.parent, data: { type: 'localai:init' }, ports: [port], stopImmediatePropagation() { stopped++ } })
+  return { attrs, posted, capture, stopped, localai: sandbox.localai, deliver: (m) => deliver({ data: m }) }
 }
 
 test('frame: a page knows its mode and size, and so does its CSS', () => {
@@ -303,4 +307,25 @@ test('page host: a beat goes to onBeat and gets no answer; mode events are check
     { event: 'mode', data: { mode: 'widget', size: 'medium' } },
     { event: 'mode', data: { mode: 'page', size: '' } },
   ])
+})
+
+test('frame: a page cannot fake its budget with the clock or the timer, nor see the port', () => {
+  const clock = { t: 1_000_000 }
+  const timers = []
+  const tile = boot({ name: 'spin', mode: 'widget', size: 'small', beat: true }, {
+    timers, clock,
+    // The page lies about the time and takes over the timer after the bridge ran.
+    before: (w) => {
+      w.Date.now = () => 0
+      w.setInterval = () => 0
+    },
+  })
+  assert.equal(tile.capture, true, 'the init is taken in the capture phase')
+  assert.equal(tile.stopped, 1, 'and no listener of the page sees it')
+  assert.equal(timers.length, 1, 'the beat runs on the timer saved before the page')
+  // The page held the thread for 800 ms: the beat fires that much late.
+  clock.t += 1800
+  timers[0].fn()
+  const beat = tile.posted.find((m) => m.beat === 1)
+  assert.equal(beat.busy, 800, 'the real clock measures the delay')
 })

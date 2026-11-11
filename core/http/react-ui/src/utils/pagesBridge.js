@@ -56,7 +56,8 @@ export function pageCsp(modules) {
 // theme, mode ('page', 'widget' in a tile, or 'area' in the page area of Home)
 // and tile size (empty in the area, which is always the full width), the notes of the
 // files that did not go in (written to the console) and the banner that says
-// so in the page. It is plain ES5 and must never contain a closing script tag.
+// so in the page. It is plain ES5 (with Reflect.apply) and must never contain
+// a closing script tag.
 //
 // A tile changes size without a reload: the host sends {event: 'mode', data:
 // {mode, size}}, the bridge updates localai.page and the data-mode and
@@ -74,9 +75,49 @@ export function pageCsp(modules) {
 // refused with a TypeError, because the frame has no network. The resolution
 // of a URL is the one of resolvePagePath in pageAssets.js; the unit tests
 // check that both agree.
+//
+// The budget must hold against the page: this script runs before any of the
+// page's, so it keeps here the functions the beats and the port depend on
+// (the clock, the timer, the long task observer, the getters of a message
+// event, the setter and post of a port). A page that replaces them later
+// changes only its own copy. The observer starts here, before the page, and
+// the init message is taken in the capture phase and stopped, so no script
+// of the page sees the port.
 const BOOTSTRAP = `(function () {
   'use strict'
   var info = INFO
+  var apply = Reflect.apply
+  function own(C, key) {
+    try {
+      var d = C && C.prototype && Object.getOwnPropertyDescriptor(C.prototype, key)
+      return d || null
+    } catch (err) { return null }
+  }
+  function getter(C, key) { var d = own(C, key); return d && d.get ? d.get : null }
+  function read(get, obj, key) { return get ? apply(get, obj, []) : obj[key] }
+  var clock = Date.now, every = typeof setInterval === 'function' ? setInterval : null, parentWin = window.parent
+  var evData = getter(typeof MessageEvent === 'function' && MessageEvent, 'data')
+  var evPorts = getter(typeof MessageEvent === 'function' && MessageEvent, 'ports')
+  var evSource = getter(typeof MessageEvent === 'function' && MessageEvent, 'source')
+  var stopEvent = (own(typeof Event === 'function' && Event, 'stopImmediatePropagation') || {}).value || null
+  var portPost = (own(typeof MessagePort === 'function' && MessagePort, 'postMessage') || {}).value || null
+  var portOnMessage = (own(typeof MessagePort === 'function' && MessagePort, 'onmessage') || {}).set || null
+  var listEntries = (own(typeof PerformanceObserverEntryList === 'function' && PerformanceObserverEntryList, 'getEntries') || {}).value || null
+  var entryDuration = getter(typeof PerformanceEntry === 'function' && PerformanceEntry, 'duration')
+  function post(m) {
+    if (portPost) apply(portPost, port, [m])
+    else port.postMessage(m)
+  }
+  // The long tasks of the page, from before its first line.
+  var busy = 0
+  try {
+    if (typeof PerformanceObserver === 'function') {
+      new PerformanceObserver(function (list) {
+        var es = listEntries ? apply(listEntries, list, []) : list.getEntries()
+        for (var k = 0; k < es.length; k++) busy += read(entryDuration, es[k], 'duration')
+      }).observe({ entryTypes: ['longtask'] })
+    }
+  } catch (err) { /* no long tasks here: the late timer still counts */ }
   var MODES = { page: 1, widget: 1, area: 1 }, SIZES = { compact: 1, small: 1, medium: 1, large: 1 }
   var root = document.documentElement
   function setMode() {
@@ -89,7 +130,7 @@ const BOOTSTRAP = `(function () {
   root.style.colorScheme = info.theme
   var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [], 'mode': [] }
   function deliver(ev) {
-    var m = ev.data
+    var m = read(evData, ev, 'data')
     if (!m || typeof m !== 'object') return
     if (typeof m.id === 'number' && waiting[m.id]) {
       var w = waiting[m.id]
@@ -117,35 +158,36 @@ const BOOTSTRAP = `(function () {
       })
     }
   }
+  // Only the parent's init: the page's own messages go on to its listeners.
   window.addEventListener('message', function (e) {
-    if (port || e.source !== window.parent || !e.data || e.data.type !== 'localai:init' || !e.ports || e.ports.length !== 1) return
-    port = e.ports[0]
-    port.onmessage = deliver
-    for (var i = 0; i < queue.length; i++) port.postMessage(queue[i])
+    var d = read(evData, e, 'data')
+    if (read(evSource, e, 'source') !== parentWin || !d || d.type !== 'localai:init') return
+    if (stopEvent) apply(stopEvent, e, [])
+    else if (e.stopImmediatePropagation) e.stopImmediatePropagation()
+    var ports = read(evPorts, e, 'ports')
+    if (port || !ports || ports.length !== 1) return
+    port = ports[0]
+    if (portOnMessage) apply(portOnMessage, port, [deliver])
+    else port.onmessage = deliver
+    for (var i = 0; i < queue.length; i++) post(queue[i])
     queue = []
     if (info.beat) beat()
-  })
+  }, true)
   // The beats of the budget, for a frame with a budget: the time since the last one
   // beyond the timer's own period is time the page held the thread, and so
-  // is each long task.
-  var busy = 0, lastBeat = 0, now = function () { return Date.now() }
+  // is each long task. The load of the page is not counted: a page that never
+  // loads gets no port and the host stops it for no first beat.
+  var lastBeat = 0
   function beat() {
-    if (lastBeat) return
-    lastBeat = now()
-    try {
-      if (typeof PerformanceObserver === 'function') {
-        new PerformanceObserver(function (list) {
-          var es = list.getEntries()
-          for (var k = 0; k < es.length; k++) busy += es[k].duration
-        }).observe({ entryTypes: ['longtask'] })
-      }
-    } catch (err) { /* no long tasks here: the late timer still counts */ }
-    setInterval(function () {
-      var t = now(), late = t - lastBeat - 1000
+    if (lastBeat || !every) return
+    lastBeat = clock()
+    busy = 0
+    every(function () {
+      var t = clock(), late = t - lastBeat - 1000
       lastBeat = t
-      var b = Math.max(busy, late > 50 ? late : 0)
+      var b = late > 50 && late > busy ? late : busy
       busy = 0
-      try { port.postMessage({ beat: 1, busy: Math.round(b) }) } catch (err) { /* the host closed the port */ }
+      try { post({ beat: 1, busy: (b + 0.5) | 0 }) } catch (err) { /* the host closed the port */ }
     }, 1000)
   }
   function call(method, params) {
@@ -153,7 +195,7 @@ const BOOTSTRAP = `(function () {
       var id = ++seq
       waiting[id] = [resolve, reject]
       var m = { id: id, method: method, params: params }
-      if (port) port.postMessage(m)
+      if (port) post(m)
       else queue.push(m)
     })
   }
