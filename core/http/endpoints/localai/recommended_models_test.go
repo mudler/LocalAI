@@ -38,6 +38,7 @@ var _ = Describe("GET /api/models/recommended", func() {
 		"qwen3.8-27b-q4": 194 * gb / 10, "gemma-4-e2b-it-qat-q4_0": 33 * gb / 10,
 		"gemma-4-e4b-it-qat-q4_0": 52 * gb / 10, "gemma-4-12b-it-qat-q4_0": 70 * gb / 10,
 		"gemma-4-26b-a4b-it-qat-q4_0": 144 * gb / 10, "gemma-4-31b-it-qat-q4_0": 177 * gb / 10,
+		"lfm2.5-24b-a2b-ud-q4": 150 * gb / 10,
 	}
 
 	var (
@@ -126,14 +127,16 @@ var _ = Describe("GET /api/models/recommended", func() {
 	)
 
 	It("puts a model that fits before one that only fits tightly, and drops one that does not fit", func() {
-		// 4 GiB of memory: the 4B and the 9B do not hold a chat window, the 2B does.
-		hardware.Memory = config.HostMemory{SystemRAM: 4 * gib}
+		// 8 GiB of memory: the two small models hold a chat window, the 24B
+		// mixture-of-experts model does not and is left out.
+		hardware.Memory = config.HostMemory{SystemRAM: 8 * gib}
 		resp := get()
 		Expect(resp.Tier).To(Equal("cpu"))
 		for _, m := range resp.Models {
 			Expect(m.Fit).To(BeElementOf("fits", "tight"))
 		}
-		Expect(ids(resp)).ToNot(ContainElement("qwen3.8-4b-q4"))
+		Expect(ids(resp)).To(ContainElement("gemma-4-e2b-it-qat-q4_0"))
+		Expect(ids(resp)).ToNot(ContainElement("lfm2.5-24b-a2b-ud-q4"))
 	})
 
 	It("takes the window the loader would pick, never a larger one than the machine holds", func() {
@@ -185,7 +188,7 @@ var _ = Describe("GET /api/models/recommended", func() {
 		resp := get()
 		Expect(resp.NothingFits).To(BeTrue())
 		Expect(resp.Models).To(HaveLen(1))
-		Expect(resp.Models[0].ID).To(Equal("qwen3.8-2b-q4"))
+		Expect(resp.Models[0].ID).To(Equal("qwen3.8-4b-q4"))
 		Expect(resp.Models[0].Fit).To(Equal("does_not_fit"))
 		Expect(resp.Models[0].FitReasons).ToNot(BeEmpty())
 	})

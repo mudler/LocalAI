@@ -15,6 +15,15 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 )
 
+// acceptedLicenceExceptions lists the models on the recommended list whose
+// licence is not Apache-2.0 or MIT. A maintainer has read the licence and
+// accepted it for the list; the value says which licence that is. Adding an id
+// here is that decision, so do it in a reviewed change with the licence named.
+var acceptedLicenceExceptions = map[string]string{
+	// Liquid AI's LFM Open License, listed as "other" in the gallery index.
+	"lfm2.5-24b-a2b-ud-q4": "LFM Open License",
+}
+
 var _ = Describe("curated recommended models", func() {
 	var (
 		list    gallery.RecommendedList
@@ -55,11 +64,16 @@ var _ = Describe("curated recommended models", func() {
 		}
 	})
 
-	It("keeps to chat models with tool calling, a permissive licence and a usable window", func() {
+	It("keeps to chat models with tool calling, an accepted licence and a usable window", func() {
 		for name, tier := range list.Tiers {
 			for _, m := range tier.Models() {
 				e := entries[m.ID]
-				Expect(e.License).To(BeElementOf("apache-2.0", "mit"), "%s in %s", m.ID, name)
+				if reason, ok := acceptedLicenceExceptions[m.ID]; ok {
+					Expect(reason).ToNot(BeEmpty(), m.ID)
+					Expect(e.License).To(Equal("other"), "%s is on the exceptions list, so the index must say so", m.ID)
+				} else {
+					Expect(e.License).To(BeElementOf("apache-2.0", "mit"), "%s in %s needs an entry in acceptedLicenceExceptions", m.ID, name)
+				}
 				Expect(e.Overrides["known_usecases"]).To(ContainElement("chat"), m.ID)
 				Expect(e.Overrides["function"]).ToNot(BeNil(), "%s has no function-calling config", m.ID)
 				// An explicit window in the entry is what the loader keeps; it
@@ -103,7 +117,7 @@ var _ = Describe("curated recommended models", func() {
 		Entry("a schema version it does not know", func(s string) string { return strings.Replace(s, "version: 1", "version: 2", 1) }, "schema version"),
 		Entry("no version", func(s string) string { return strings.Replace(s, "version: 1\n", "", 1) }, "schema version"),
 		Entry("a tier with a missing alternative", func(s string) string {
-			return strings.Replace(s, "    - rank: alternative\n      id: qwen3.8-2b-q4\n      name: Qwen3.8 2B\n      reason: The lightest choice, for machines with little memory or a slow processor.\n", "", 1)
+			return strings.Replace(s, "    - rank: alternative\n      id: lfm2.5-24b-a2b-ud-q4\n      name: LFM2.5 24B A2B\n      reason: A 24B mixture-of-experts model with about 2.45B active parameters, fast on a CPU when the host has 16 GiB or more of RAM.\n", "", 1)
 		}, "1 and 2"),
 		Entry("a rank it does not know", func(s string) string { return strings.Replace(s, "rank: default", "rank: best", 1) }, "rank"),
 		Entry("an unknown tier", func(s string) string { return s + "  gpu-huge: []\n" }, "unknown tier"),

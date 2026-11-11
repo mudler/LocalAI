@@ -14,9 +14,9 @@ tiers:
       name: Qwen3.8 4B
       reason: A step up in quality for machines with more memory; it follows tools and long instructions.
     - rank: alternative
-      id: qwen3.8-2b-q4
-      name: Qwen3.8 2B
-      reason: The lightest choice, for machines with little memory or a slow processor.
+      id: lfm2.5-24b-a2b-ud-q4
+      name: LFM2.5 24B A2B
+      reason: A 24B mixture-of-experts model with about 2.45B active parameters, fast on a CPU when the host has 16 GiB or more of RAM.
   gpu-small:
     - rank: default
       id: qwen3.8-4b-q4

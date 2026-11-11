@@ -25,8 +25,8 @@ export const REC_MODELS = [
   },
 ]
 
-// The CPU tier of the built-in list: Gemma 4 E2B first, then the two Qwen3.8
-// models, with the window and memory the estimator gives on a 16 GiB host.
+// The CPU tier of the built-in list: Gemma 4 E2B first, then Qwen3.8 4B and
+// LFM2.5 24B A2B, with the window and memory the estimator gives on a 16 GiB host.
 export const CPU_REC_MODELS = [
   {
     id: 'gemma-4-e2b-it-qat-q4_0', name: 'Gemma 4 E2B', role: 'default',
@@ -41,9 +41,9 @@ export const CPU_REC_MODELS = [
     fit: 'fits', fit_reasons: [], installed: false,
   },
   {
-    id: 'qwen3.8-2b-q4', name: 'Qwen3.8 2B', role: 'alternative',
-    reason: 'The lightest choice, for machines with little memory or a slow processor.',
-    license: 'apache-2.0', context_size: 32768, memory_bytes: Math.round(3.08 * GB), size_bytes: Math.round(1.31 * GB),
+    id: 'lfm2.5-24b-a2b-ud-q4', name: 'LFM2.5 24B A2B', role: 'alternative',
+    reason: 'A 24B mixture-of-experts model with about 2.45B active parameters, fast on a CPU when the host has 16 GiB or more of RAM.',
+    license: 'other', context_size: 32768, memory_bytes: Math.round(16.4 * GB), size_bytes: Math.round(14.0 * GB),
     fit: 'fits', fit_reasons: [], installed: false,
   },
 ]

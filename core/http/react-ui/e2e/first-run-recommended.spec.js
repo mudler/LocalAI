@@ -103,10 +103,10 @@ test.describe('First run recommendation, as an administrator', () => {
   test('when nothing fits it says so and still names the smallest model', async ({ page }) => {
     await firstRun(page, recommendedAnswer({
       tier: 'cpu', nothing_fits: true,
-      models: [{ ...CPU_REC_MODELS[2], fit: 'does_not_fit', fit_reasons: ['exceeds_memory'], context_size: 4096 }],
+      models: [{ ...CPU_REC_MODELS[1], fit: 'does_not_fit', fit_reasons: ['exceeds_memory'], context_size: 4096 }],
     }))
     await expect(page.getByTestId('starter-nothing-fits')).toContainText('None of the recommended models fits', { timeout: 15_000 })
-    await expect(primary(page)).toContainText('Qwen3.8 2B')
+    await expect(primary(page)).toContainText('Qwen3.8 4B')
     await expect(primary(page)).toContainText('Does not fit')
     await expect(primary(page)).toContainText('more memory than this machine has')
     await expect(page.getByTestId('starter-more-toggle')).toHaveCount(0)

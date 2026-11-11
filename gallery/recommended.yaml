@@ -18,11 +18,14 @@
 #            reason  one line on why it is on the list
 #
 # Rules for an entry: it exists in the gallery index, it is a current model that
-# serves a chat with tool calling, its licence is permissive (Apache-2.0 or MIT),
-# and it fits its tier at the chat window the loader picks. The server drops the
-# entries that do not fit the machine it runs on, so a tier may name a model that
-# only the larger cards in it can hold. core/gallery/recommended_test.go checks
-# the structure and every id against the index.
+# serves a chat with tool calling, its licence is an open-weights licence the
+# maintainers have accepted, and it fits its tier at the chat window the loader
+# picks. Apache-2.0 and MIT are the norm. Any other licence needs an explicit,
+# commented entry in the allowlist of core/gallery/recommended_test.go. The
+# server drops the entries that do not fit the machine it runs on, so a tier may
+# name a model that only the larger cards in it can hold.
+# core/gallery/recommended_test.go checks the structure, the licences and every
+# id against the index.
 version: 1
 tiers:
   cpu:
@@ -35,9 +38,9 @@ tiers:
       name: Qwen3.8 4B
       reason: A step up in quality for machines with more memory; it follows tools and long instructions.
     - rank: alternative
-      id: qwen3.8-2b-q4
-      name: Qwen3.8 2B
-      reason: The lightest choice, for machines with little memory or a slow processor.
+      id: lfm2.5-24b-a2b-ud-q4
+      name: LFM2.5 24B A2B
+      reason: A 24B mixture-of-experts model with about 2.45B active parameters, fast on a CPU when the host has 16 GiB or more of RAM.
   gpu-small:
     - rank: default
       id: qwen3.8-4b-q4
