@@ -25,17 +25,40 @@
 
 .sidebar-logo-icon-img {
   display: block;
-  width: 36px;
-  height: 36px;
+  width: 20px;
+  height: 20px;
   object-fit: contain;
 }
 
-/* The logo is drawn for a light page: its dark triangle and badge vanish on
-   the dark sidebar. In dark, a thin light edge follows the shape of the
-   image (any branding image, not only ours), so the mark keeps its outline
-   without a plate behind it. The edge colour is a token of the theme. */
-[data-theme="dark"] .sidebar-logo-img,
-[data-theme="dark"] .sidebar-logo-icon-img {
+/* The product mark is a tile with its own ground, 32 px beside the name when
+   the sidebar is open and 20 px in the rail, level with the nav icons. An
+   operator-set horizontal logo keeps the wide box above. */
+.sidebar-logo-img--tile {
+  width: 32px;
+  height: 32px;
+  max-height: none;
+  flex: none;
+}
+
+.sidebar-wordmark {
+  margin-left: var(--sp-3);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dk-text);
+  font-size: var(--fs-lead);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* An operator-set logo may be drawn for a light page, so its dark parts can
+   vanish on the dark sidebar. In dark, a thin light edge follows the shape of
+   the image, so the mark keeps its outline without a plate behind it. The
+   product tile has its own ground and needs none. The edge colour is a token
+   of the theme. */
+[data-theme="dark"] .sidebar-logo-img:not(.sidebar-logo-img--tile),
+[data-theme="dark"] .sidebar-logo-icon-img:not([data-brand-default]) {
   --logo-edge: color-mix(in srgb, var(--dk-text) 34%, transparent);
   filter: drop-shadow(0 0 0.5px var(--logo-edge)) drop-shadow(0 0 0.5px var(--logo-edge)) drop-shadow(0 0 1px var(--logo-edge));
 }

@@ -174,3 +174,23 @@ type PagesConsentResponse struct {
 	Token   string     `json:"token,omitempty"`
 	Expires *time.Time `json:"expires,omitempty"`
 }
+
+// PagesErrorRequest is a runtime error that the frame of a page caught, which
+// the UI of the page's owner reports. The server cuts the texts, drops the
+// browser's own noise and counts repeats of the same error.
+type PagesErrorRequest struct {
+	Message string `json:"message"`
+	Stack   string `json:"stack,omitempty"`
+	// File is the script file of the page that threw; empty for index.html.
+	File string `json:"file,omitempty"`
+	// Line and Column are 0 when the browser gave none.
+	Line   int `json:"line,omitempty"`
+	Column int `json:"column,omitempty"`
+	// Count is how many times the frame saw this error since its last report.
+	Count int `json:"count,omitempty"`
+}
+
+// PagesErrorResponse says whether the error was kept.
+type PagesErrorResponse struct {
+	Recorded bool `json:"recorded"`
+}

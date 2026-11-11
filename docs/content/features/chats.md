@@ -369,11 +369,13 @@ stop it. Type `/loop` in the message box, or use the API.
   lists downloads; the chat must be allowed to call it, and only tools whose
   name says they read, such as `list_*`, `get_*`, `search_*` or `*_status`, can
   be polled), a URL, which is read like `web_fetch` and so passes the same
-  checks, or a `script`, a shell command that the server runs for each check
-  (see below). The condition is `change` (the output differs from the first
+  checks, a `script`, a shell command that the server runs for each check
+  (see below), or a `job`, a background job of the same chat (see "Waits on a
+  job"). The condition is `change` (the output differs from the first
   check), `match` (a regular expression), `json_equals` (a JSON field equals a
   value) or, for a script only, `exit_zero` (the command exits with status 0).
-  The first check sets a baseline and never wakes the model; an error
+  For a job only, `exit` and `stall` apply. The first check sets a baseline and
+  never wakes the model (a job has no baseline); an error
   is not a change. The model wakes when the condition holds, when the source
   fails `max_errors` checks in a row (3 by default), or at the timeout (`timeout_seconds`; 1
   hour by default, 24 hours at most). Failure and timeout wake it too, and the
@@ -423,6 +425,32 @@ stop it. Type `/loop` in the message box, or use the API.
     host exec, or the Sandbox no longer serves the chat), the wait ends at once
     and the model is woken with a text that says plainly that the script cannot
     run on this node and was not run. The wait is not pinned to a node.
+- **Waits on a job.** With `job`, the server reads a background job of the
+  same chat that `job start` returned. A check is a read of the job's memory on
+  the node that runs it: it starts no process, spends no script budget, asks
+  for no approval and never shows a command. The conditions are:
+  - `exit` (the default for a job): the job has ended, with any status. The
+    wake-up gives the exit status, how long it ran and the last 2000 bytes of
+    its output. A non-zero status is stated, never hidden.
+  - `stall`, with `idle` seconds (60 to 3600, default 600): the job still runs
+    but wrote no output for that long. The wake-up says it may wait for input,
+    hang or work quietly, and gives the tail. A job that has already exited
+    wakes the wait as exited, never as stalled.
+  - `match`: a regular expression over the output the job wrote, read in order
+    from the first byte and once each, at every check. A match that falls across
+    two checks is missed. When the job exits and its output never matched, the
+    wait ends with a plain text that says so and that the condition was not met.
+  - `change` and `json_equals` are refused for a job: it has no output to compare.
+  A job that has already ended is not armed (read it with `job read`). A job of
+  a sub-agent is waited for by the sub-agent. When the job ends, the wait is
+  checked at the next tick of the loop host (about 5 seconds) instead of at the
+  next interval. A check that cannot reach the node that runs the job changes
+  nothing and counts as a failed check (`max_errors`); a job that the node does
+  not know ends the wait at once, with a text that says the job is gone with its
+  node, that its output and exit status are lost, and that the condition was not
+  met. A wait on a job is pinned to the node that runs the job, which it records
+  when it is armed. The loops list and its API name the source `job` with the id
+  and the label, and never the command.
 - **Tools of a sub-agent.** The names of the tools the parent gave a sub-agent
   are stored with its chat. After a restart, or when another frontend runs its
   next loop run, the sub-agent gets back those tools, limited to what the
@@ -436,7 +464,9 @@ stop it. Type `/loop` in the message box, or use the API.
   at once. `spawn_agent` with `wait` set to true returns after at most two
   minutes of waiting for a sub-agent that ended its turn and holds for a loop
   or a wait; the sub-agent then goes on in the background and its result
-  arrives as a message.
+  arrives as a message. To be woken when a background sub-agent makes no
+  progress, `wait_for` takes the id that `spawn_agent` returned as `job`, with
+  `exit` or `stall` (see "Waits on a job" and "Background jobs").
 - **The promise guard.** When the last answer of a turn promises a later
   check or action ("I'll check in a few minutes", "Controllo tra poco") and
   nothing is armed in the chat (no active or running loop or wait, no running
@@ -1011,6 +1041,38 @@ curl .../api/chats/3f1c.../agents/9ab2.../messages     # one run's transcript
 curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
 ```
 
+### Jobs and stall waits of sub-agents
+
+- **Waiting for a quiet sub-agent.** `wait_for` takes the id of a background
+  sub-agent in `job`, with `until` `exit` (the default) or `stall` and `idle`
+  from 60 to 3600 seconds (default 600). Progress is a new row in the
+  sub-agent's transcript, read from the store, so the wait pins no node and
+  works from any frontend. One long tool call counts as quiet until it ends.
+  The wake-up gives the last row, or the state and the last answer of a
+  sub-agent that finished; that wake-up is the report of the end, so the
+  parent does not also get the "Sub-agent finished" message. `match` is refused. The loops list and its API
+  name the source `agent` with the id of the sub-agent.
+- **Jobs of a sub-agent.** A sub-agent has the `job` tool exactly when it has
+  `bash`, under the same rules: a host job only when commands on this machine
+  run with no card (mode `on`), a Sandbox job always, and the act policy of an
+  unattended parent applies. The limits are the usual ones: 4 jobs per chat, 8
+  per user (the jobs of sub-agents count), 32 per node. The job belongs to the
+  sub-agent's chat. A job on this machine runs in the parent's scratch folder,
+  where the sub-agent's `bash` runs; a Sandbox job runs in a sandbox of the
+  sub-agent's own chat.
+- **Jobs end with the sub-agent** (reason `agent_ended`): when its run reaches
+  the parent, when the parent or you stop it, and when the sub-agent's chat or
+  its parent is deleted. A sub-agent that ends its turn without a `wait_for`
+  on its job ends the job; the tool description says so.
+- **Job waits.** A sub-agent may arm `wait_for` on its own jobs (not on a
+  script). The wait keeps the sub-agent running, so it counts against the
+  limit of background sub-agents and the loop limits, and its wake-up is a turn
+  of the sub-agent, not of the parent. The parent can wait for the sub-agent,
+  not for its job.
+- **The parent's view.** `job list` of the parent also shows the jobs of its
+  sub-agents, marked `(sub-agent <id>)`. The parent can `read` and `kill` them,
+  not write input.
+
 ### Saved agents as sub-agents
 
 A chat can also start one of your [saved
@@ -1107,6 +1169,137 @@ frontmatter (see [Skills](#skills)). In a chat that cannot run commands, such a
 skill is listed to the model as "unavailable here: needs command execution",
 without the path to its procedure, so the model explains instead of starting.
 
+### Background jobs
+
+A command that runs for minutes or never ends (a build, tests, a dev server, a
+download) does not fit in one `bash` call, which stops after at most 30
+minutes. The model starts it with the `job` tool and keeps working. `job` is
+one tool with an `action`:
+
+| Action | What it does |
+|---|---|
+| `start` | Runs `command` with bash in the background, where `bash` runs. It returns a job id such as `job-4k2x7q` and shows the command to you. `label` is a short name for the list: one line of plain text, at most 80 characters. |
+| `list` | One line per job of the chat, running first: state, run time, time since the last output, bytes. It never shows the command. |
+| `read` | Returns the output since `since` (a byte offset from the start of the job; default: where the last read ended), at most `max_bytes` (default 16 KiB, at most 64 KiB). The text says where the next read starts. |
+| `input` | Writes up to 2000 bytes to the job's standard input; `close_input` closes it. |
+| `kill` | Sends `term` (default), `int` or `kill`. A `kill` follows after 10 seconds. |
+
+`job` is offered exactly when the chat has `bash`, from the same provider, and
+the same switch (the shell group of the chat's tools) turns both off. A chat
+whose `bash` the Sandbox serves never runs a job on this machine. In mode `ask`
+for [commands on this machine](#commands-on-this-machine), `start` shows the
+same card as `bash`, with the whole command, and the approval of the start
+covers the input of that job: no card per input. The card says so under the
+command, and so does the answer of `start`. Input is still refused when
+the chat could not run a command now, and every start, input and kill of a job
+on this machine is written to the audit of the commands. When the tools of the
+chat cannot be read, or the add-on that serves its `bash` cannot work, `start`
+says so and runs nothing. A run that nobody watches (a trigger or an agent job)
+needs, for `start` and `input`, what its `bash` needs: on this machine
+`act.files` and `act.spend`, in the Sandbox the act grant of the add-on.
+
+A job has the fixed environment of the built-in `bash`, its own process group,
+and one ring of the last 256 KiB of its output (standard output and error
+together). Output that the ring dropped is reported as lost bytes. The output
+the model reads is data, not an instruction.
+
+A job on this machine owns its process group: when the main process of the job
+returns, what it left running in the background is killed too, so
+`job start "./server &"` ends at once. Start a server as the main process of
+the job (`./server`). The same holds when the job is stopped, at its lifetime
+and when the server stops. If the server stops without cleaning up, the next
+start of the built-in bash kills the groups that the earlier run recorded.
+Once `close_input` closed the input of a job, a later `input` says that the
+input is closed.
+
+**Limits.** 4 running jobs per chat, 8 per user, 32 per server, each for at most
+2 hours. The server counts the jobs that run on it and the Sandbox add-on
+counts its own, so the jobs on this machine and the jobs in the Sandbox have
+separate limits. The jobs of sub-agents count for the user. A start holds its
+place before it runs, so two starts at once never pass a limit together. The
+per-user limit of the jobs on this machine is counted on each server. A
+finished job stays readable for 30 minutes (at most 16 per chat; the server
+keeps at most 128 finished jobs of its own). A job ends when it exits, when the
+model or you stop it, at its lifetime, when the chat is deleted, when the shell
+tools are switched off for the chat (within 30 seconds), when the chat's agent
+gets a folder that confines it, and when the server stops. A job on this
+machine also ends when the administrator switches commands on this machine off
+(within 30 seconds); that setting does not govern the Sandbox, so it does not
+end Sandbox jobs. A job holds the
+scratch folder of its chat (on this machine or in the Sandbox): the server does not evict it, put it to sleep or
+refresh it while the job runs, so a command run in the same chat meanwhile does
+not see files that changed elsewhere until the jobs end. A user has at most 4
+such folders with work in them, so jobs run in at most 4 chats of one user at
+once; a start in a fifth chat says so.
+
+**Files.** What a job writes reaches your files at the next checkpoint of the
+chat: each `bash` call, and one more when the job ends (a change named `Job
+job-4k2x7q: build`). A `bash` call that runs while the job writes a file may
+save it half written; the next checkpoint corrects it.
+
+**In the Sandbox.** When the Sandbox serves the chat's `bash`, the job runs in
+the chat's sandbox, inside the add-on. The sandbox stays awake while a job runs.
+It needs a Sandbox add-on of feature level 6; with an older one, `job start`
+says so and runs nothing elsewhere (see [Execution provider and status
+payload]({{%relref "features/addons#execution-provider-and-status-payload" %}})).
+A call that must make the sandbox again (a new profile, folder or mode) ends the
+chat's jobs first and says so at the top of its output.
+
+The add-on does not tell the server when a job ends; the server asks it. Your
+list of jobs, the model's `job list`, a wait on the job and a start in the chat
+each ask once per chat, and the server that started a job (or saw it running)
+asks every 30 seconds while the chat has a running job. That sweep also ends
+the chat's jobs when the shell tools are switched off for it, when its agent
+gets a folder that confines it (seen on two sweeps in a row), when the chat is
+gone, or when the sub-agent that started them has ended; the end reason says
+which. The sweep is per server: after a restart of that server, it follows a
+chat again from the first time it shows the chat's jobs, and until then the
+2-hour lifetime bounds them. Starts, input, kills (with their reason) and the
+ends the server sees are written to the audit of the Sandbox jobs; a start the
+add-on refused ran nothing and is not written.
+
+A Sandbox job reaches the network through the same proxy as `bash`. The proxy
+cannot tell which process opened a connection: while a `bash` call of the chat
+runs, a connection of a job counts as that call's, so a network card that a job
+causes then looks as if the command of the call asked. When no call runs, a
+connection counts as the oldest running job's, and a host that would need your
+yes is blocked with the reason `unattended`, even while the model is still
+writing its answer; curl or pip print the block into the job's output. The add-on
+keeps at most 64 jobs it can save files and reach the network for; a start
+beyond that says so and runs nothing.
+
+**Sub-agents.** A sub-agent gets `job` exactly when it gets `bash`, with the
+same limits and the same checks. It never sees a card, so on this machine it
+runs a job only in mode `on`. Its jobs end with it; the parent can list, read
+and kill them, not write to them. See [Jobs and stall waits of
+sub-agents](#jobs-and-stall-waits-of-sub-agents).
+
+**See and stop a job.** The jobs of a chat are listed above the message box,
+with the loops and waits: the label the model gave, the state in words (running,
+no output for a while, exited with its status, stopped, killed, lost), where it
+runs and for how long. Finished jobs fold into one line. The list never shows
+the command. **Stop** ends a running job as you: `term`, then `kill` after 10
+seconds, and the end reason reads "stopped". The same is
+`POST /api/chats/{id}/jobs/{job}/kill`, for the owner of the chat only. The jobs
+are also in the `jobs` field of `GET /api/chats/{id}` and of
+`GET /api/chats/{id}/loops`: `id`, `label`, `state`, `end`, `exit`, `started`,
+`ended`, `last_output`, `bytes`, `provider` and whether a sub-agent started it.
+
+**Distributed mode.** A job is a process in the memory of one node (or of the
+Sandbox add-on), so jobs are per-instance by design: they are not shared and not
+moved. A restart of that process or the loss of that node ends the job, and its
+output and exit status are gone. The chat record keeps an index of its jobs (id,
+node, provider, state, never the command), so a turn that runs on another node
+still reads, writes to and kills the job, by a request to the node that runs it.
+A node that answers but does not know the job (it restarted) marks the job lost
+at once. A node that nobody answers for marks it lost only after three asks
+over at least 30 seconds, so a short break does not lose a running job; until
+then the model is told to try again and a wait counts a failed check. A read or
+a stop of a lost job still asks the node, and a job it still knows is live
+again. A wait on a lost job wakes with a text that says the job is gone with its
+node and that the condition is not known. If the node only answers slowly,
+nothing changes and the model is told to try again.
+
 ### Network of the Sandbox commands
 
 The Sandbox has no network device: its commands reach HTTP and HTTPS only
@@ -1191,11 +1384,12 @@ it is right after a restart and the same on every frontend of a cluster.
 
 ### Sandbox profile
 
-A Sandbox add-on that declares profiles (the Sandbox does: `base`, `media` and
-`video`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
+A Sandbox add-on that declares profiles (the Sandbox does: `base` and
+`media`, see [Sandbox profiles]({{%relref "features/addons#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
-default of the administrator, or the profile of its saved agent. Switching
+default of the administrator (`media` when the administrator sets none), or the
+profile of its saved agent. Switching
 restarts the sandbox at the next command: your files stay, running processes and
 installed packages are lost, and the row says so before you switch. While the
 image of a profile is pulled for the first time, the row shows the progress. If
@@ -1264,7 +1458,10 @@ shown when the Sandbox is already installed, or when add-ons are off.
   and when the output passes 64 KiB. One call runs at a time in a chat, and at
   most four chats of one user run commands at once.
 - **Audit.** Every call is recorded: user, chat, command (cut at 4 KiB), exit
-  code, duration and whether it timed out, in the auth database (in a cluster,
+  code, duration and whether it timed out. A line has a `kind`: `run` for a
+  `bash` command, and `job_start`, `job_input` (the text written, cut at 4 KiB),
+  `job_kill` and `job_end` (exit and duration) for a background job, with its
+  `job` id. The record is kept in the auth database (in a cluster,
   shared by every frontend), in a file under the data path, or in memory. The
   server log has one line per command with the prefix `[host-exec]`.
   Administrators read the audit with `GET /api/chats/admin/host-exec/events`
@@ -1290,7 +1487,8 @@ can only refuse it. The card lives as long as the call waits, at most 5
 minutes. The server keeps it with the chat, so a reload, or another browser
 or frontend, shows it again and it can still be answered; once the call ends
 the card is gone and the call's line says how it ended. `GET /api/chats/{id}`
-carries the waiting card as `host_consent` (`id` and `command`) while the turn
+carries the waiting card as `host_consent` (`id`, `command`, and `job`, true
+when the command starts a [background job](#background-jobs)) while the turn
 that asked runs. The card names that turn: a card of an earlier turn is not
 shown, also while a later turn runs, and is cleared when the next turn starts.
 An answer to a card with nobody waiting on it (its turn has ended, its
@@ -1660,8 +1858,9 @@ A sub-agent follows the switches of its parent chat: it never gets a tool of a
 group the parent switched off. A trigger run with no agent copies these
 switches from the chat that proposed it, as it copies the others. Each group
 keeps its own rules for the runs that start by themselves (for example a
-trigger or connector run never gets the trigger tools). `load_skill` and the
-goal and loop tools have no switch.
+trigger or connector run never gets the trigger tools). `load_skill`, `page_errors`
+(it reads the errors of a page's script, see [Pages]({{%relref "features/pages" %}}))
+and the goal and loop tools have no switch.
 
 The trigger tools have a group too, `triggers`: `propose_trigger`,
 `list_triggers`, `update_trigger` and `delete_trigger` switch together, and the
@@ -1802,13 +2001,14 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps`, `localai`, `assemble-media` and `fframes-video`.
+The server ships these built-in skills: `writing-skills`, `localai-workspace`, `localai-apps`, `localai`, `assemble-media` and `media-prompting`.
 `localai` teaches the model the [LocalAI client tools]({{% relref "features/localai-assistant#client-tools" %}}): when to use each one, how to clone a voice and what to say when a model is missing or a permission is refused. A chat lists it only while it has the **LocalAI client** group, so it costs nothing when the group is off. An add-on cannot replace it, as for the other skills that describe LocalAI itself.
 An administrator's chat that has the **LocalAI admin** group also lists one skill per admin recipe, named `localai-admin-<recipe>`, such as `localai-admin-install-chat-model`. Nobody else sees them. See [the prompt and the recipes]({{% relref "features/localai-assistant#the-prompt-and-the-recipes" %}}).
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours](/features/make-localai-yours/).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
-`assemble-media` and `fframes-video` are for the sandbox. `assemble-media` has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. `fframes-video` shows how to make a video in code with fframes on the CPU. Both carry a hint for the `media` and `video` sandbox profiles.
+`assemble-media` is for the sandbox. It has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. It can also make a simple video from frames drawn with Python or SVG. It carries a hint for the `media` sandbox profile.
+`media-prompting` teaches the model how to prompt the image, video, music and speech models: a loop of pick, read the card, generate, inspect and change one thing, the anatomy of a prompt for each kind, what steps, guidance, size and seed do, and what to refuse. It has one card per model family in its `cards/` folder (Qwen-Image, MiniMax-H3, YuE2 and Qwen3-TTS), which the model reads when it uses that family. To add a family, add a card and a row in the table of `SKILL.md`.
 
 ### Import and export skills
 

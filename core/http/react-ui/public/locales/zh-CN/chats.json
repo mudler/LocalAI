@@ -416,6 +416,7 @@
       "deny": "不运行",
       "alwaysHint": "“在此实例上始终允许”会让所有用户的聊天无需询问即可在此运行命令（设置 > 工具）。",
       "askAdmin": "只有管理员可以允许在这台机器上运行命令。请询问管理员，或自己运行该命令。",
+      "job": "这会启动一个后台作业。它在本次调用后继续运行；允许它也就允许模型之后写入该作业的输入，不会再次询问。",
       "expired": "未回应：提出请求的这一轮已结束，因此命令没有运行。"
     },
     "provider": {
@@ -742,6 +743,39 @@
           "addons": "附加组件"
         }
       }
+    },
+    "tabs": {
+      "label": "通知和活动",
+      "notifications": "通知",
+      "activity": "活动"
+    },
+    "ops": {
+      "needsAttention": "需要处理",
+      "inProgress": "进行中",
+      "seeAll": "查看全部活动",
+      "waiting": "等待中",
+      "node": "第 {{current}} 个节点，共 {{total}} 个",
+      "emptyTitle": "没有进行中的操作",
+      "emptyBody": "安装、更新和移除在进行时显示在这里，完成后保留一天。",
+      "title": {
+        "installing": "正在安装 {{name}}",
+        "upgrading": "正在更新 {{name}}",
+        "removing": "正在移除 {{name}}",
+        "staging": "正在传输 {{name}}"
+      },
+      "failedTitle": {
+        "installing": "无法安装 {{name}}",
+        "upgrading": "无法更新 {{name}}",
+        "removing": "无法移除 {{name}}",
+        "staging": "无法传输 {{name}}"
+      },
+      "recent": {
+        "title": "最近",
+        "installed": "已安装 {{name}}",
+        "upgraded": "已更新 {{name}}",
+        "removed": "已移除 {{name}}",
+        "staged": "已传输 {{name}}"
+      }
     }
   },
   "change": {
@@ -905,14 +939,17 @@
       "sources": {
         "tool": "工具 {{name}}",
         "url": "{{name}}",
-        "script": "一个脚本"
+        "script": "一个脚本",
+        "job": "{{name}}",
+        "agent": "子代理 {{name}}"
       },
       "end": {
         "met": "完成：条件已满足",
         "failing_one": "已停止：数据源连续失败 {{count}} 次",
         "failing_other": "已停止：数据源连续失败 {{count}} 次",
         "timedOut": "已超时，条件未满足",
-        "stopped": "等待已停止"
+        "stopped": "等待已停止",
+        "jobGone": "已中止：作业随其节点一起消失"
       },
       "waking": {
         "met": "条件已满足。正在询问模型下一步做什么。",
@@ -942,6 +979,46 @@
         "stopAll": "全部停止",
         "title_one": "{{count}} 个等待",
         "title_other": "{{count}} 个等待"
+      }
+    },
+    "job": {
+      "stop": "停止",
+      "details": "作业详情",
+      "done_one": "{{count}} 个已结束的作业",
+      "done_other": "{{count}} 个已结束的作业",
+      "runTime": "已运行 {{span}}",
+      "ranFor": "运行了 {{span}}",
+      "lastOutput": "{{ago}}前最后输出",
+      "endedAgo": "{{ago}}前结束",
+      "byAgent": "由子代理启动",
+      "where": {
+        "machine": "在本机",
+        "sandbox": "在隔离环境中"
+      },
+      "status": {
+        "starting": "正在启动",
+        "running": "运行中",
+        "ending": "正在停止",
+        "stalled": "运行中，已 {{span}} 没有输出",
+        "lost": "已丢失：其所在节点已消失",
+        "notStarted": "无法启动",
+        "killed": "已被强制终止",
+        "stopped": "已被你停止",
+        "ended": "已结束",
+        "exitedOk": "已退出，状态 0",
+        "exitedCode": "已退出，状态 {{code}}",
+        "exitedUnknown": "已退出，状态未知"
+      },
+      "end": {
+        "lifetime": "已结束：达到时间上限",
+        "chat_deleted": "已结束：对话已被删除",
+        "shell_off": "已结束：命令已被关闭",
+        "group_off": "已结束：此对话的命令工具已被关闭",
+        "fenced": "已结束：此对话不能再运行命令",
+        "sandbox_remade": "已结束：其环境已重新创建",
+        "agent_ended": "已结束：其子代理已完成",
+        "shutdown": "已结束：服务器已停止",
+        "start_failed": "无法启动"
       }
     }
   },

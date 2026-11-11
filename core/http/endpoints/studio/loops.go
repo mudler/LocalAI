@@ -59,6 +59,15 @@ func waitJSON(l loops.Loop) *schema.ChatsWait {
 		// The command is not shown: this list reaches people who may not
 		// read it. It stays in the store of its owner.
 		out.SourceKind, out.Source = "script", "a script"
+	case w.Agent:
+		// A wait on a background sub-agent: Job holds its id, not a job's.
+		out.SourceKind, out.Source = "agent", w.Job
+	case w.Job != "":
+		// The id and the label the model gave; the command is never here.
+		out.SourceKind, out.Source = "job", w.Job
+		if w.JobLabel != "" {
+			out.Source = fmt.Sprintf("%s %q", w.Job, w.JobLabel)
+		}
 	case w.Tool != "":
 		out.SourceKind, out.Source = "tool", w.Tool
 	default:
@@ -94,9 +103,19 @@ func waitCondition(w *loops.Watch) string {
 		}
 		return s
 	}
+	if w.Agent {
+		if w.Mode == loops.UntilStall {
+			return fmt.Sprintf("the sub-agent makes no progress for %s", loops.ShortDuration(w.Idle))
+		}
+		return "the sub-agent finishes"
+	}
 	switch w.Mode {
 	case loops.UntilExitZero:
 		return "the script exits with status 0"
+	case loops.UntilExit:
+		return "the job exits"
+	case loops.UntilStall:
+		return fmt.Sprintf("the job writes no output for %s", loops.ShortDuration(w.Idle))
 	case loops.UntilMatch:
 		return fmt.Sprintf("the output matches %q", short(w.Pattern))
 	case loops.UntilJSONEquals:
@@ -152,7 +171,7 @@ func (h *Handlers) ListLoops(c echo.Context) error {
 	if err != nil {
 		return failLoop(c, err)
 	}
-	return c.JSON(http.StatusOK, schema.ChatsLoopList{Loops: loopsJSON(list)})
+	return c.JSON(http.StatusOK, schema.ChatsLoopList{Loops: loopsJSON(list), Jobs: h.jobsOf(c, userID(c), c.Param("id"))})
 }
 
 // StartLoop starts a loop in a chat.
@@ -246,4 +265,55 @@ func (h *Handlers) StopLoops(c echo.Context) error {
 		return failLoop(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]int{"stopped": n})
+}
+
+// jobJSON is a job as the API gives it: no command, no output, no node.
+func jobJSON(j studiosvc.JobView) schema.ChatsJob {
+	out := schema.ChatsJob{ID: j.ID, Label: j.Label, Chat: j.Chat, Provider: j.Provider, State: string(j.State), End: string(j.End),
+		Exit: j.Exit, Started: j.Started.UTC(), Ended: utcPtr(j.Ended), LastOutput: utcPtr(j.LastOutput), Bytes: j.Total}
+	if out.Provider == "" {
+		out.Provider = studiosvc.BuiltinProvider
+	}
+	return out
+}
+
+// jobsOf lists the jobs of a chat for the list and the chat detail. A failure
+// to read them is an empty list: the jobs are a view, not the chat.
+func (h *Handlers) jobsOf(c echo.Context, user, chat string) []schema.ChatsJob {
+	out := []schema.ChatsJob{}
+	list, err := h.svc.BgJobs(c.Request().Context(), user, chat)
+	if err != nil {
+		return out
+	}
+	for _, j := range list {
+		job := jobJSON(j)
+		job.Agent = j.Chat != chat
+		out = append(out, job)
+	}
+	return out
+}
+
+// StopJob stops a background job of a chat.
+// @Summary Stop a background job.
+// @Description Stops a job that the model started with the job tool (a build, a server): the process gets term, and kill after 10 seconds. The job ends with the reason "stopped". Only the owner of the chat may stop it. The job may belong to a sub-agent of the chat.
+// @Tags chats
+// @Param id path string true "conversation id"
+// @Param job path string true "job id"
+// @Success 200 {object} schema.ChatsJob "The job after the signal"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation or job"
+// @Failure 409 {object} schema.ErrorResponse "The job has ended already"
+// @Router /api/chats/{id}/jobs/{job}/kill [post]
+func (h *Handlers) StopJob(c echo.Context) error {
+	v, err := h.svc.StopJob(c.Request().Context(), userID(c), c.Param("id"), c.Param("job"))
+	if err != nil {
+		return mapErr(c, err, jobRules, failFor)
+	}
+	job := jobJSON(v)
+	job.Agent = v.Chat != c.Param("id")
+	return c.JSON(http.StatusOK, job)
+}
+
+var jobRules = []errRule{
+	fixed(http.StatusNotFound, typeNotFound, "job not found", studiosvc.ErrBgJobNotFound),
+	fixed(http.StatusConflict, typeConflict, "the job has ended already", studiosvc.ErrBgJobEnded),
 }

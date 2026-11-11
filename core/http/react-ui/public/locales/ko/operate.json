@@ -67,6 +67,26 @@
       "upgrade_failed": "Update failed. Check the owner logs for details.",
       "interrupted": "Update interrupted by owner shutdown or restart. It was not replayed.",
       "recovery_required": "Update interrupted. Data recovery is required before this add-on can run."
-    }
+    },
+    "cancel": "취소",
+    "cancelLabel": "{{name}} 취소",
+    "cancelling": "되돌리지 않으면 취소됩니다",
+    "cancellingToast": "{{name}} 취소 중",
+    "cancelNow": "지금 취소",
+    "undo": "실행 취소",
+    "retry": "다시 시도",
+    "retryLabel": "{{name}} 다시 시도",
+    "dismissLabel": "{{name}} 닫기",
+    "moveToHistory": "기록으로 이동",
+    "progressLabel": "{{name}} 진행률",
+    "toNode": "{{node}}(으)로",
+    "phase": {
+      "resolving": "파일 확인 중",
+      "downloading": "다운로드 중",
+      "verifying": "검증 중",
+      "committing": "마무리 중",
+      "persisting": "구성 저장 중"
+    },
+    "retryFailed": "다시 시도 실패: {{message}}"
   }
 }

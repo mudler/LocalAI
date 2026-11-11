@@ -208,8 +208,8 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                     display: 'inline-block', fontSize: '0.6875rem', padding: '1px 6px',
                     borderRadius: 'var(--radius-sm)', fontWeight: 500,
                     background: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-warning, #d97706)',
-                    color: 'var(--color-warning, #d97706)',
+                    border: '1px solid var(--color-warning)',
+                    color: 'var(--color-warning)',
                   }}
                 >
                   override

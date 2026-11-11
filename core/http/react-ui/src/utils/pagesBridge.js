@@ -18,6 +18,18 @@ const MAX_IN_FLIGHT = 8
 // cannot bury the person in questions.
 const LINK_BURST = 5
 const LINK_EVERY_MS = 3000
+// Errors of a page's script that the host records (page.error): the text is cut
+// here and again on the server, and a burst is bounded, so a throw inside a 60
+// fps loop cannot flood the server.
+export const MAX_ERROR_MESSAGE = 500
+export const MAX_ERROR_STACK = 1500
+const ERROR_BURST = 10
+const ERROR_EVERY_MS = 1000
+
+// The browser's own errors say nothing of the page's code.
+export function isNoiseError(message) {
+  return /^ResizeObserver loop/.test(message) || message === 'Script error.' || message === 'Script error'
+}
 
 // The policy of every page: inline script and style, images and fonts as data:
 // URLs, and nothing that reaches out. A page with ES modules of its folder
@@ -113,6 +125,62 @@ const BOOTSTRAP = `(function () {
     }
   }
   Object.defineProperty(window, 'localai', { value: Object.freeze(api), enumerable: true })
+
+  // Errors: what the page's script throws, and the promises it leaves
+  // unhandled, go to the host over the port, which records them for the
+  // assistant to read (page_errors). Nothing is shown in the page and nothing
+  // goes to the chat. The same error is sent once and its repeats are counted
+  // and sent every few seconds, and at most 20 different ones leave the frame,
+  // so a throw in an animation loop costs one message. Line numbers count the
+  // lines that LocalAI put before the page, so they are the page's own.
+  var errSeen = {}, errKinds = 0, errRepeats = {}, errTimer = 0
+  function errCut(v, n) { return String(v == null ? '' : v).slice(0, n) }
+  function flushErrors() {
+    errTimer = 0
+    var list = errRepeats
+    errRepeats = {}
+    for (var k in list) call('page.error', list[k]).then(null, function () {})
+  }
+  function reportError(message, line, col, stack, filename) {
+    try {
+      message = errCut(message, 500)
+      if (!message || /^ResizeObserver loop/.test(message) || message === 'Script error.' || message === 'Script error') return
+      // The document of the page: its lines count the ones put before it. A
+      // script file of the folder (put in as text with its name) and a module
+      // (a blob) count their own lines, so they keep them and name the file.
+      var file = ''
+      var own = typeof filename !== 'string' || filename === '' || /^(about:|https?:|data:)/i.test(filename)
+      if (!own) file = /^blob:/i.test(filename) ? 'a module' : errCut(filename, 100)
+      if (typeof line !== 'number' || line < 1) line = 0
+      else if (own) line = line > info.shift ? line - info.shift : 0
+      col = line && typeof col === 'number' && col > 0 ? col : 0
+      var key = [message, file, line, col].join(' | ')
+      if (errSeen[key]) {
+        var r = errRepeats[key] || (errRepeats[key] = { message: message, stack: '', file: file, line: line, column: col, count: 0 })
+        r.count++
+        if (!errTimer) errTimer = setTimeout(flushErrors, 5000)
+        return
+      }
+      if (errKinds >= 20) return
+      errKinds++
+      errSeen[key] = true
+      call('page.error', { message: message, stack: errCut(stack, 1500), file: file, line: line, column: col, count: 1 }).then(null, function () {})
+    } catch (e) { /* the capture never breaks the page */ }
+  }
+  window.addEventListener('error', function (e) {
+    try {
+      if (!e || typeof e.message !== 'string' || !e.message) return
+      reportError(e.message, e.lineno, e.colno, e.error && e.error.stack, e.filename)
+    } catch (err) { /* a hostile error object */ }
+  })
+  window.addEventListener('unhandledrejection', function (e) {
+    try {
+      var r = e && e.reason, m
+      if (r && typeof r === 'object' && typeof r.message === 'string') m = (r.name ? r.name + ': ' : '') + r.message
+      else m = errCut(r, 500)
+      reportError('Unhandled promise rejection: ' + m, 0, 0, r && r.stack)
+    } catch (err) { /* a hostile reason */ }
+  })
 
   var NET_OFF = 'network is off in pages; put the data in a file next to the page'
   var TYPES = { json: 'application/json', geojson: 'application/geo+json', txt: 'text/plain', md: 'text/markdown', csv: 'text/csv', tsv: 'text/tab-separated-values',
@@ -307,15 +375,18 @@ const BOOTSTRAP = `(function () {
     var show = function () {
       var host = document.createElement('localai-notice')
       var root = host.attachShadow({ mode: 'closed' })
-      var dark = info.theme === 'dark'
+      // The colours come from the host theme (the warning roles); the system
+      // colours cover a caller that gives none.
+      var c = info.colors || {}
+      var accent = c.accent || 'Highlight'
       var style = document.createElement('style')
       style.textContent = ':host{all:initial;position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;display:flex;justify-content:center;pointer-events:none}' +
         '.n{pointer-events:auto;display:flex;gap:12px;align-items:flex-start;max-width:640px;box-sizing:border-box;padding:10px 12px;border-radius:8px;' +
-        'border:1px solid ' + (dark ? '#5c4a1f' : '#e7cf8f') + ';border-left:4px solid ' + (dark ? '#e3b341' : '#b7791f') + ';' +
-        'background:' + (dark ? '#1f1b12' : '#fffaf0') + ';color:' + (dark ? '#f0e6cf' : '#3d2f0f') + ';' +
-        'font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.18)}' +
+        'border:1px solid color-mix(in srgb,' + accent + ' 38%,transparent);border-left:4px solid ' + accent + ';' +
+        'background:' + (c.bg || 'Canvas') + ';color:' + (c.fg || 'CanvasText') + ';' +
+        'font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 6px 24px color-mix(in srgb,CanvasText 18%,transparent)}' +
         'p{margin:0;flex:1;overflow-wrap:anywhere}button{all:unset;cursor:pointer;min-width:24px;min-height:24px;text-align:center;border-radius:4px;font-size:16px;line-height:24px}' +
-        'button:focus-visible{outline:2px solid currentColor;outline-offset:1px}button:hover{background:rgba(127,127,127,.18)}'
+        'button:focus-visible{outline:2px solid currentColor;outline-offset:1px}button:hover{background:color-mix(in srgb,currentColor 18%,transparent)}'
       var box = document.createElement('div')
       box.className = 'n'
       box.setAttribute('role', 'alert')
@@ -342,13 +413,33 @@ const BOOTSTRAP = `(function () {
 export const PAGE_MODES = ['page', 'widget']
 export const WIDGET_SIZES = ['small', 'medium', 'large']
 
-export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '' } = {}) {
+const newlines = (text) => (text.match(/\n/g) || []).length
+
+// The colours of the notice in the frame, read from the host theme: the
+// warning roles, which are plain colour values. A value that is not a plain
+// hex colour is dropped, so nothing else can reach the frame's style.
+export function noticeColours() {
+  if (typeof document === 'undefined') return {}
+  const css = getComputedStyle(document.documentElement)
+  const read = (name) => {
+    const v = css.getPropertyValue(name).trim()
+    return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : undefined
+  }
+  return { bg: read('--dk-warn-wash'), fg: read('--dk-warn-text'), accent: read('--dk-warn') }
+}
+
+export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '', colors = {} } = {}) {
   const widget = mode === 'widget'
   const info = scriptJSON({
+    // The lines LocalAI puts before the page: the bridge takes them off the
+    // line of an error. The JSON has no line break, so they are these of the
+    // bridge and the head.
+    shift: newlines(BOOTSTRAP) + newlines(head),
     name: String(name || ''), title: String(title || name || ''), theme: theme === 'dark' ? 'dark' : 'light',
     mode: widget ? 'widget' : 'page', size: widget ? (WIDGET_SIZES.includes(size) ? size : 'medium') : '',
     notes: (Array.isArray(notes) ? notes : []).slice(0, 50).map((n) => ({ level: n.level === 'error' ? 'error' : 'warn', message: String(n.message || '').slice(0, 500) })),
     banner: String(banner || '').slice(0, 1000), dismiss: String(dismiss || ''),
+    colors: Object.fromEntries(['bg', 'fg', 'accent'].filter((k) => /^#[0-9a-fA-F]{3,8}$/.test(colors && colors[k])).map((k) => [k, colors[k]])),
   })
   const pre = `<meta http-equiv="Content-Security-Policy" content="${pageCsp(modules)}"><script>${BOOTSTRAP.replace('INFO', () => info)}</script>${head}`
   return withHead(html, pre)
@@ -392,14 +483,20 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 //   chat.send(text)   resolves to {sent, chat_id}; the host asks the person first
 //   link.open(url)    resolves to {opened}; only http and https, and the host
 //                     asks the person first (links.open gets the checked target)
+//   page.error(...)   the bridge reports what the page's script threw; errors.report
+//                     keeps it for the assistant. Without errors (a shared page)
+//                     it records nothing. Bursts are dropped, and a failure is
+//                     never shown to the page
 //
 // The server checks every path again with the user's rights; the checks here
 // only refuse a malformed call early.
-export function createPageHost({ post, files, chat, links, now = Date.now }) {
+export function createPageHost({ post, files, chat, links, errors, now = Date.now }) {
   let closed = false
   let inFlight = 0
   let linkTokens = LINK_BURST
   let linkAt = now()
+  let errorTokens = ERROR_BURST
+  let errorAt = now()
 
   const answer = (msg) => { if (!closed) post(msg) }
 
@@ -441,6 +538,29 @@ export function createPageHost({ post, files, chat, links, now = Date.now }) {
         // The host shows one question: a new link replaces the one before,
         // which answers {opened: false}.
         return { opened: Boolean((await links.open(target))?.opened) }
+      }
+      case 'page.error': {
+        // Silent by design: a page that throws gets no error back for it.
+        const message = typeof p.message === 'string' ? p.message.trim().slice(0, MAX_ERROR_MESSAGE) : ''
+        if (message === '') throw bad('message')
+        if (!errors || isNoiseError(message)) return { recorded: false }
+        const t = now()
+        errorTokens = Math.min(ERROR_BURST, errorTokens + Math.floor((t - errorAt) / ERROR_EVERY_MS))
+        if (t - errorAt >= ERROR_EVERY_MS) errorAt = t
+        if (errorTokens < 1) return { recorded: false }
+        errorTokens--
+        const int = (v, max) => (Number.isInteger(v) && v > 0 && v <= max ? v : 0)
+        try {
+          await errors.report({
+            message,
+            stack: typeof p.stack === 'string' ? p.stack.slice(0, MAX_ERROR_STACK) : '',
+            file: typeof p.file === 'string' ? p.file.slice(0, 100) : '',
+            line: int(p.line, 1 << 24), column: int(p.column, 1 << 24), count: int(p.count, 1000) || 1,
+          })
+        } catch {
+          return { recorded: false }
+        }
+        return { recorded: true }
       }
       default:
         throw { code: 'unknown', message: `unknown method: ${method}` }

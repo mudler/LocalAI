@@ -21,33 +21,102 @@
 .lib-file { display: none; }
 
 /* ---- Split ---------------------------------------------------------------- */
-.lib-split { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); }
-.lib-rail { display: flex; flex-direction: column; gap: var(--dk-space-3); padding: var(--dk-space-3); }
-.lib-find { display: block; }
-.lib-filters { display: flex; flex-wrap: wrap; gap: 6px; }
-.lib-rows { padding-top: 2px; }
-.lib-rows .dk-row { text-align: left; }
+.lib-split { grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); align-items: start; }
+/* The rail is a fixed toolbar over a list that scrolls inside it. Its height is
+   bounded by the window, so two hundred items never make the page two hundred
+   rows tall, and it stays in view while the open item scrolls with the page. */
+.lib-rail {
+  display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden;
+  position: sticky; top: var(--dk-space-4);
+  max-height: max(360px, calc(100dvh - 176px));
+}
+.lib-bar { flex: none; display: flex; flex-direction: column; gap: var(--dk-space-2); padding: var(--dk-space-3); border-bottom: 1px solid var(--dk-edge); }
+.lib-bar__row { display: flex; align-items: center; gap: var(--dk-space-2); min-width: 0; }
+.lib-bar__select { flex: 1 1 0; min-width: 0; }
+.lib-bar .ui-search { flex: 1 1 auto; }
+.lib-bar .ui-seg { flex: 1 1 auto; }
+.lib-bar .ui-seg__item { flex: 1 1 auto; justify-content: center; }
+.lib-bar__sort { flex: none; display: inline-flex; }
+.lib-bar__sort .action-menu__trigger { opacity: 1; width: var(--ctl-h); height: var(--ctl-h); border-color: var(--dk-control-edge); background: var(--dk-card); color: var(--dk-text); }
+.lib-bar__sort .action-menu__trigger:hover, .lib-bar__sort .action-menu__trigger.is-open { background: var(--dk-hover); border-color: var(--dk-control-edge); }
+.lib-countline { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: var(--dk-space-3); margin: 0; padding: var(--dk-space-2) var(--dk-space-4); font-size: var(--fs-meta); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.lib-countline__clear { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; white-space: nowrap; }
+.lib-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--dk-space-2) var(--dk-space-2); scrollbar-gutter: stable; }
+.lib-rows { display: flex; flex-direction: column; gap: 1px; margin: 0; padding: 0; list-style: none; }
 .lib-row-count { font-variant-numeric: tabular-nums; }
-.lib-rail__foot { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); padding-top: var(--dk-space-2); border-top: 1px solid var(--dk-edge); }
 .lib-rail__none { margin: 0; padding: var(--dk-space-3); font-size: var(--fs-small); color: var(--dk-muted); }
-.lib-create { display: flex; gap: var(--dk-space-2); }
-.lib-create .dk-input { flex: 1 1 auto; min-width: 0; }
+.lib-nomatch { display: flex; flex-direction: column; align-items: center; gap: var(--dk-space-2); padding: var(--dk-space-6) var(--dk-space-4); text-align: center; color: var(--dk-muted); font-size: var(--fs-small); }
+.lib-nomatch .lai-icon { width: 22px; height: 22px; }
+.lib-nomatch p { margin: 0; max-width: 26ch; }
+
+/* A heading over a run of rows stays at the top of the list while its rows scroll. */
+.lib-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--dk-space-2); padding: var(--dk-space-3) var(--dk-space-3) var(--dk-space-1); background: var(--dk-card); font-size: var(--fs-meta); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dk-muted); }
+.lib-heading__text { margin: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+.lib-heading__count { font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.lib-more-row { display: flex; justify-content: center; padding: var(--dk-space-2) 0; }
+
+/* A row, and the quiet menu of its actions. The menu sits over the right edge:
+   it takes the place of the row's badge while the row is hovered or has focus. */
+.lib-item { position: relative; }
+.lib-row { min-height: 48px; padding-right: var(--dk-space-3); }
+.lib-item__menu { position: absolute; top: 50%; right: var(--dk-space-2); transform: translateY(-50%); }
+.lib-item .action-menu__trigger { opacity: 0; background: var(--dk-card); border-color: var(--dk-edge); }
+.lib-item:hover .action-menu__trigger,
+.lib-item:focus-within .action-menu__trigger,
+.lib-item .action-menu__trigger.is-open { opacity: 1; }
+.lib-item:hover .lib-row__end,
+.lib-item:focus-within .lib-row__end,
+.lib-item:has(.action-menu__trigger.is-open) .lib-row__end { visibility: hidden; }
+.lib-row__end { flex: none; }
+.lib-row__title { min-width: 0; }
+@media (hover: none) {
+  .lib-item .action-menu__trigger { opacity: 1; }
+  .lib-row { padding-right: 44px; }
+  .lib-item:hover .lib-row__end, .lib-item:focus-within .lib-row__end { visibility: visible; }
+}
+
+/* Compact rows: one line each, the note after the name. About twice the rows
+   in the same height. */
+.lib-rail[data-density="compact"] .lib-row { min-height: 36px; padding-block: 4px; gap: var(--dk-space-2); }
+.lib-rail[data-density="compact"] .dk-row-lead { width: 24px; height: 24px; }
+.lib-rail[data-density="compact"] .dk-row-main { flex-direction: row; align-items: baseline; gap: var(--dk-space-3); }
+.lib-rail[data-density="compact"] .lib-row__title { flex: 0 1 auto; }
+.lib-rail[data-density="compact"] .lib-row__meta { flex: 1 1 0; min-width: 0; }
+.lib-rail[data-density="compact"] .share-badge { display: none; }
+
+/* The loading rail has the shape of the loaded one. */
+.lib-skel__search { height: 36px; border-radius: var(--dk-radius-2); }
+.lib-skel__bar { height: 28px; width: 70%; }
+.lib-skel__row { display: flex; align-items: center; gap: var(--dk-space-3); padding: 8px var(--dk-space-3); min-height: 52px; }
+.lib-skel__lead { width: 32px; height: 32px; border-radius: var(--dk-radius-1); flex: none; }
+.lib-skel__text { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; }
+.lib-skel__a { width: 55%; }
+.lib-skel__b { width: 35%; height: 9px; }
+.lib-skel__wide { width: 70%; }
+
 .lib-others { margin-top: var(--dk-space-2); }
 /* The collections that other people shared with the user, under the user's own. */
-.lib-shared { margin-top: var(--dk-space-3); padding-top: var(--dk-space-3); border-top: 1px solid var(--dk-edge); }
-.lib-shared .lib-section__title { padding: 0 var(--dk-space-3); margin: 0 0 var(--dk-space-2); }
+.lib-shared { margin-top: var(--dk-space-2); }
 .lib-rows .dk-row .share-badge { margin-top: 2px; }
 .lib-pane__title .share-badge { margin-top: var(--dk-space-1); }
 .lib-pane { padding: var(--dk-space-5); min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-4); }
 .lib-pane__empty { padding: var(--dk-space-7) var(--dk-space-4); text-align: center; color: var(--dk-muted); }
 .lib-back { display: none; }
 
+@media (max-width: 1200px) {
+  .lib-split { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
+  .lib-bar .ui-seg__item { padding: 0 var(--sp-2); gap: 4px; }
+}
 @media (max-width: 900px) {
   .lib-split { grid-template-columns: minmax(0, 1fr); }
   .lib-split[data-view="pane"] .lib-rail { display: none; }
   .lib-split[data-view="list"] .lib-pane { display: none; }
   .lib-back { display: inline-flex; align-self: flex-start; margin-left: -8px; }
   .lib-pane { padding: var(--dk-space-4); }
+  /* On a phone the page scrolls, not the rail: a list inside a page that
+     scrolls is a trap for a thumb. "Show more" keeps the page short. */
+  .lib-rail { position: static; max-height: none; overflow: visible; }
+  .lib-scroll { overflow: visible; }
 }
 
 /* ---- Pane header ---------------------------------------------------------- */
@@ -139,6 +208,17 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-line__name { font-weight: 600; font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lib-line__meta { font-size: var(--fs-meta); color: var(--dk-muted); }
 .lib-line__acts { display: inline-flex; gap: 4px; align-items: center; }
+.lib-ledger--dense .lib-line { padding: 6px 0; }
+.lib-ledger--dense .lib-line__lead { width: 24px; height: 24px; }
+.lib-ledger--dense .lib-line__name { font-weight: 500; }
+.lib-ledger--dense .lib-line:hover { background: var(--dk-hover); }
+.lib-filebar { display: flex; align-items: center; gap: var(--dk-space-3); flex-wrap: wrap; }
+.lib-filebar .ui-search { flex: 1 1 14rem; max-width: 28rem; }
+.lib-filebar__count { font-size: var(--fs-meta); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.lib-ledger--dense .lib-line__acts .dk-btn { opacity: .6; }
+.lib-ledger--dense .lib-line:hover .lib-line__acts .dk-btn, .lib-ledger--dense .lib-line:focus-within .lib-line__acts .dk-btn { opacity: 1; }
+@media (hover: none) { .lib-ledger--dense .lib-line__acts .dk-btn { opacity: 1; } }
+.lib-more-files { align-self: flex-start; }
 .lib-line[data-state="failed"] .lib-line__meta { color: var(--dk-error-text); }
 .lib-line__err { grid-column: 2 / -1; margin: 0; padding: var(--dk-space-3); border-radius: var(--dk-radius-2); background: var(--dk-error-wash); color: var(--dk-error-text); font-size: var(--fs-small); overflow-wrap: anywhere; }
 .lib-line__prog { grid-column: 2 / -1; }
@@ -204,7 +284,6 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-fine { margin: 0; font-size: var(--fs-meta); }
 .lib-mode { margin: 0 0 var(--dk-space-3); font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
 .lib-mode strong { color: var(--dk-text); font-weight: 600; }
-.lib-create--page { margin-bottom: var(--dk-space-4); max-width: 520px; }
 .lib-more { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; color: var(--dk-accent-text); text-decoration: underline; text-underline-offset: 3px; }
 
 /* Hints under the skill and memory pickers of the agent form */
@@ -215,109 +294,17 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-result .dk-meter-seg { flex: 0 1 var(--dk-w, 0%); }
 
 /* ---- Skill editor ---------------------------------------------------- */
-.skilledit-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  color: var(--color-text-secondary);
-  font-size: var(--fs-small);
-  margin-bottom: var(--spacing-sm);
-  cursor: pointer;
-  text-decoration: none;
-}
-.skilledit-back-link:hover {
-  color: var(--color-primary);
-}
-.skilledit-layout {
-  display: flex;
-  gap: var(--spacing-lg);
-}
-.skilledit-sidebar {
-  flex-shrink: 0;
-  width: 200px;
-}
-.skilledit-sidebar-nav {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.skilledit-sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  font-size: var(--fs-small);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  border-radius: var(--radius-md);
-  transition: all var(--duration-fast) var(--ease-default);
-}
-.skilledit-sidebar-item:hover {
-  color: var(--color-text-primary);
-  background: var(--color-primary-light);
-}
-.skilledit-sidebar-item.active {
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  font-weight: 600;
-}
-.skilledit-form-area {
-  flex: 1;
-  min-width: 0;
-}
-.skilledit-section-title {
-  font-weight: 600;
-  font-size: var(--fs-body);
-  margin-bottom: var(--spacing-md);
-}
-.skilledit-field {
-  margin-bottom: var(--spacing-md);
-}
-.skilledit-field label {
-  display: block;
-  font-size: var(--fs-small);
-  font-weight: 500;
-  margin-bottom: var(--spacing-xs);
-  color: var(--color-text-primary);
-}
-.skilledit-field .required {
-  color: var(--color-error);
-}
-.skilledit-field .help-text {
-  font-size: var(--fs-meta);
-  color: var(--color-text-muted);
-  margin-top: var(--spacing-xs);
-}
-.skilledit-form-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  justify-content: flex-end;
-  margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-md);
-  border-top: 1px solid var(--color-border-subtle);
-}
-@media (max-width: 700px) {
-  .skilledit-layout {
-    flex-direction: column;
-  }
-  .skilledit-sidebar {
-    width: 100%;
-  }
-  .skilledit-sidebar-nav {
-    display: flex;
-    gap: var(--spacing-xs);
-    overflow-x: auto;
-  }
-  .skilledit-sidebar-item {
-    border-bottom: 3px solid transparent;
-    white-space: nowrap;
-  }
-  .skilledit-sidebar-item.active {
-    border-bottom-color: var(--color-primary);
-  }
-}
-.skilledit-body { font-family: var(--font-mono); font-size: var(--fs-small); }
-.skilledit-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.lib-edit { display: flex; flex-direction: column; gap: var(--dk-space-4); max-width: 880px; }
+.ag-edit__head ~ .lib-edit, .ag-edit__head ~ .dk-callout { margin-top: var(--sp-6); }
+.lib-edit__card { display: flex; flex-direction: column; gap: var(--dk-space-4); padding: var(--dk-space-5); }
+.lib-edit__card h2 { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
+.lib-edit__set { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.lib-edit__field { display: flex; flex-direction: column; gap: 6px; }
+.lib-edit__hint { display: flex; justify-content: space-between; gap: var(--dk-space-3); margin: 0; font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-edit__hint--error { color: var(--dk-error-text); }
+.lib-edit__body { font-family: var(--font-mono); font-size: var(--fs-small); min-height: 320px; }
+.lib-edit__bar { position: sticky; bottom: 0; z-index: 2; display: flex; justify-content: flex-end; gap: var(--dk-space-2); padding: var(--dk-space-3) 0; background: var(--dk-page, var(--color-bg-primary)); border-top: 1px solid var(--dk-edge); }
+@media (max-width: 700px) { .lib-edit__card { padding: var(--dk-space-4); } }
 
 /* ---- Motion ------------------------------------------------------------------
    What the person just added enters in place: a collection, a file being
@@ -327,7 +314,6 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-line,
 .lib-rows .dk-row,
 .lib-adding,
-.lib-create--page,
 .lib-pane__head {
   transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
@@ -335,3 +321,4 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
   .lib-line, .lib-rows .dk-row, .lib-adding, .lib-create--page { opacity: 0; transform: translateY(4px); }
   .lib-pane__head { opacity: 0; }
 }
+.lib-rail[data-density="compact"] .dk-row-main { overflow: hidden; }

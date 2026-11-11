@@ -251,6 +251,20 @@
     "cancel": "Cancelar",
     "stop": "Parar depois deste nó",
     "listLabel": "Nós a atualizar",
+    "titleAll_one": "Iniciar {{count}} atualização?",
+    "titleAll_other": "Iniciar {{count}} atualizações?",
+    "confirmPlus_one": "{{label}} e mais {{count}}",
+    "confirmPlus_other": "{{label}} e mais {{count}}",
+    "othersTitle": "Também começa ao confirmar",
+    "othersLabel": "Outras atualizações a iniciar",
+    "othersIntro": "Estas não rodam em nós. Começam uma após a outra quando você confirma. Um complemento para enquanto seus dados são copiados e migrados. Se a nova versão não iniciar, a atual continua em execução.",
+    "otherKind": {
+      "addon": "Complemento",
+      "library": "Backend de biblioteca",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Biblioteca {{library}}",
+    "otherOriginChannel": "Biblioteca {{library}}, canal {{channel}}",
     "runningNote": "Parar impede que os nós que ainda não começaram comecem."
   }
 }

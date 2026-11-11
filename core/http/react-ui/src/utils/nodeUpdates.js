@@ -191,19 +191,37 @@ export function isClusterRow(row) {
   return Boolean(row && row.kind === 'gallery' && Array.isArray(row.nodes) && row.nodes.length > 0)
 }
 
+// The line of the review for a row that is not a cluster backend: what would
+// start when the dialog is confirmed. An add-on carries the library and the
+// channel its upgrade comes from, which its own confirmation shows.
+function otherOf(row) {
+  const rec = row.record || {}
+  return {
+    id: row.id,
+    kind: row.kind,
+    name: row.name || row.id,
+    from: row.from || '',
+    to: row.to || '',
+    sourceId: row.sourceId || '',
+    channel: row.kind === 'addon' ? (rec.channel || rec.selection || '') : '',
+  }
+}
+
 // Splits what the Updates page was asked to update into the nodes to confirm
 // and the rest. `rows` are the page rows, `selected` the ids asked for,
 // `items` the backend read model. The cluster rows become the entries of one
 // combined dialog; every other row (single machine, library, add-on) keeps its
-// own way. A cluster row with no node left to update adds no entry and does
+// own way and is listed in `others`, so the dialog names everything it
+// starts. A cluster row with no node left to update adds no entry and does
 // not fall back to the plain update.
 export function splitUpdate({ rows, selected, items }) {
   const ids = new Set()
   const clusterIds = new Set()
+  const others = []
   for (const row of rows || []) {
     if (!selected.has(row.id)) continue
     if (isClusterRow(row)) clusterIds.add(row.id)
-    else ids.add(row.id)
+    else { ids.add(row.id); others.push(otherOf(row)) }
   }
-  return { entries: planEntries(items, { itemIds: clusterIds }), restIds: ids }
+  return { entries: planEntries(items, { itemIds: clusterIds }), restIds: ids, others }
 }

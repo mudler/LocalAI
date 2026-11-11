@@ -66,6 +66,14 @@ The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`. Define 
 - Show a short "Saved" or "Not saved: ..." status.
 - Write the whole data file at once, never half of it.
 
+## When a page does not work
+
+When the user says a page does not work or looks wrong, call `page_errors` with the name of the page first. It gives the errors that the page's script threw since the page last changed: the message, the line and how often. Fix that error before you rewrite anything. A syntax error or a call before its setup (a variable used before it is made) is the usual cause.
+
+`page_errors` shows only errors that a script throws. A page that throws nothing but looks wrong has no error to read, so ask the user what they see. An empty answer also means the user did not open the page since the last change, so ask them to open it.
+
+After you fix the page, the old errors are gone. Ask the user to open the page again before you call `page_errors` once more.
+
 ## On Home
 
 A page can also be a tile on Home. Add `"widget": {"size": "small"}` to `page.json` (`small`: one line or a number; `medium`: a short list; `large`: a table or a chart; an optional `"title"` for the tile). In a tile the same page runs with `localai.page.mode === 'widget'` and `<html data-mode="widget" data-size="...">`. Give it a compact layout: the few facts that matter, no inputs, no scroll. Do not shrink the full page. The tile has its own bar with the title and an "Open page" link, so leave out the page's header. `chat.send` does not work in a tile.

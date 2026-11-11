@@ -2,13 +2,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useOutletContext } from 'react-router-dom'
-import { useOperations } from '../hooks/useOperations'
+import { useActivityFeed } from '../hooks/useActivityFeed'
 import { useOperationActions, isRetryable } from '../hooks/useOperationActions'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
 import { backendsApi, modelsApi } from '../utils/api'
-import { addonUpgrades } from '../utils/addonUpgrades'
-import { useAddonUpgrades } from '../hooks/useAddonUpgrades'
-import { upgradeFailureWords } from '../components/addons/updateReview'
 import PageHeader from '../components/PageHeader'
 import OperationCard from '../components/OperationCard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
@@ -82,33 +79,9 @@ export default function Activity() {
   const { t } = useTranslation('operate')
   const outlet = useOutletContext()
   const addToast = outlet?.addToast
-  const { t: ta } = useTranslation('addons')
-  const { operations: serverOperations, history: serverHistory, fetchHistory, clearHistory: clearServerHistory, cancelOperation: cancelServerOperation, pauseOperation } = useOperations()
+  const { operations, history, fetchHistory, clearHistory, cancelOperation, pauseOperation } = useActivityFeed()
   const { retry, dismiss } = useOperationActions(addToast)
 
-  // Add-on upgrades are started and followed from this browser (see
-  // addonUpgrades), so they join the operations the server lists here and
-  // behave like them: progress, cancel, retry and dismiss.
-  const upgrades = useAddonUpgrades()
-  const operations = useMemo(() => [
-    ...serverOperations,
-    ...upgrades.live.map((op) => ({
-      ...op,
-      message: op.waiting
-        ? t('activity.upgradeWaiting', { seconds: Math.max(1, Math.round(op.waiting.nextMs / 1000)) })
-        : t('activity.upgradeVersions', { from: op.fromVersion || '?', to: op.toVersion || '?' }),
-      error: op.state === 'failed' ? upgradeFailureWords(op.errorKey, ta) : undefined,
-      isQueued: false,
-    })),
-  ], [serverOperations, upgrades.live, t, ta])
-  const history = useMemo(() => [
-    ...serverHistory,
-    ...upgrades.records.map((r) => ({ ...r, error: r.errorKey ? upgradeFailureWords(r.errorKey, ta) : '' })),
-  ].sort((a, b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()), [serverHistory, upgrades.records, ta])
-  const cancelOperation = useCallback((jobID) => (
-    addonUpgrades.cancel(jobID) || cancelServerOperation(jobID)
-  ), [cancelServerOperation])
-  const clearHistory = useCallback(() => { addonUpgrades.clearRecords(); return clearServerHistory() }, [clearServerHistory])
   const [filter, setFilter] = useState('all')
 
   useEffect(() => { fetchHistory() }, [fetchHistory])
@@ -121,7 +94,8 @@ export default function Activity() {
   const startAgain = useCallback(async (record) => {
     try {
       if (record.nodeID) throw new Error(t('activity.startAgainNode'))
-      if (record.isBackend) await backendsApi.install(record.id || record.name)
+      if (record.isBackend && record.taskType === 'upgrade') await backendsApi.upgrade(record.id || record.name)
+      else if (record.isBackend) await backendsApi.install(record.id || record.name)
       else await modelsApi.install(record.id || record.name)
       addToast?.(t('activity.startedAgain', { name: record.name }), 'info')
     } catch (err) {

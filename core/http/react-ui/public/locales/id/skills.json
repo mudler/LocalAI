@@ -84,7 +84,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "Skill ini hanya-baca di sini. Skill bawaan disertakan dengan server, dan skill dari berkas Anda diubah di Berkas."
+    "readOnly": "Skill ini hanya-baca di sini. Skill bawaan disertakan dengan server, dan skill dari berkas Anda diubah di Berkas.",
+    "counter": "{{count}} dari {{max}}",
+    "nameInvalid": "Gunakan huruf kecil, angka, dan tanda hubung tunggal.",
+    "bodyHelp": "Ditulis dalam markdown. Obrolan membacanya saat tugas cocok dengan deskripsi."
   },
   "load": {
     "title": "Keterampilan Anda tidak dapat dimuat."
@@ -97,5 +100,22 @@
     "done_other": "{{count}} skill diimpor",
     "scriptsStored": "Skrip dan berkas lain disimpan apa adanya. Skrip hanya disimpan, tidak pernah dijalankan oleh impor.",
     "newNote": "Ditandai Baru sampai sebuah obrolan menggunakannya."
+  },
+  "sort": {
+    "label": "Urutkan skill",
+    "name": "Nama, A ke Z",
+    "name-desc": "Nama, Z ke A",
+    "used": "Paling banyak dipakai",
+    "source": "Kelompokkan menurut sumber"
+  },
+  "source": {
+    "label": "Tampilkan skill dari",
+    "all": "Semua sumber ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} skill",
+    "countAll_other": "{{count}} skill",
+    "countOf": "{{shown}} dari {{total}} skill",
+    "menu": "Tindakan untuk {{name}}"
   }
 }

@@ -131,5 +131,11 @@
   "inboxArrivedMany_one": "{{count}} nouvelle notification",
   "inboxArrivedMany_other": "{{count}} nouvelles notifications",
   "updatesBadge_one": "{{count}} mise à jour a besoin de vous",
-  "updatesBadge_other": "{{count}} mises à jour ont besoin de vous"
+  "updatesBadge_other": "{{count}} mises à jour ont besoin de vous",
+  "inboxOps_one": "{{count}} opération en cours",
+  "inboxOps_other": "{{count}} opérations en cours",
+  "inboxOpsFailed_one": "{{count}} opération a échoué",
+  "inboxOpsFailed_other": "{{count}} opérations ont échoué",
+  "inboxOpsFailedAnnounce": "Une opération a échoué. Voir l'onglet Activité dans les notifications.",
+  "activityEntry": "Activité"
 }

@@ -416,6 +416,7 @@
       "deny": "Nicht ausführen",
       "alwaysHint": "„Immer auf dieser Instanz“ lässt die Chats aller Benutzer hier ohne Nachfrage Befehle ausführen (Einstellungen > Werkzeuge).",
       "askAdmin": "Nur ein Administrator kann Befehle auf diesem Rechner erlauben. Fragen Sie einen, oder führen Sie den Befehl selbst aus.",
+      "job": "Dies startet einen Hintergrundjob. Er läuft nach diesem Aufruf weiter, und wenn du ihn erlaubst, erlaubst du auch die Eingaben, die das Modell später an ihn schreibt, ohne erneute Nachfrage.",
       "expired": "Nicht beantwortet: Die Runde, die gefragt hat, ist beendet, daher wurde der Befehl nicht ausgeführt."
     },
     "provider": {
@@ -742,6 +743,39 @@
           "addons": "Add-ons"
         }
       }
+    },
+    "tabs": {
+      "label": "Benachrichtigungen und Aktivität",
+      "notifications": "Benachrichtigungen",
+      "activity": "Aktivität"
+    },
+    "ops": {
+      "needsAttention": "Braucht Aufmerksamkeit",
+      "inProgress": "In Arbeit",
+      "seeAll": "Alle Aktivitäten anzeigen",
+      "waiting": "Wartet",
+      "node": "Knoten {{current}} von {{total}}",
+      "emptyTitle": "Nichts in Arbeit",
+      "emptyBody": "Installationen, Updates und Entfernungen erscheinen hier, solange sie laufen, und einen Tag danach.",
+      "title": {
+        "installing": "{{name}} wird installiert",
+        "upgrading": "{{name}} wird aktualisiert",
+        "removing": "{{name}} wird entfernt",
+        "staging": "{{name}} wird übertragen"
+      },
+      "failedTitle": {
+        "installing": "{{name}} konnte nicht installiert werden",
+        "upgrading": "{{name}} konnte nicht aktualisiert werden",
+        "removing": "{{name}} konnte nicht entfernt werden",
+        "staging": "{{name}} konnte nicht übertragen werden"
+      },
+      "recent": {
+        "title": "Zuletzt",
+        "installed": "{{name}} installiert",
+        "upgraded": "{{name}} aktualisiert",
+        "removed": "{{name}} entfernt",
+        "staged": "{{name}} übertragen"
+      }
     }
   },
   "change": {
@@ -905,14 +939,17 @@
       "sources": {
         "tool": "Tool {{name}}",
         "url": "{{name}}",
-        "script": "ein Skript"
+        "script": "ein Skript",
+        "job": "{{name}}",
+        "agent": "Sub-Agent {{name}}"
       },
       "end": {
         "met": "Fertig: Die Bedingung ist erfüllt",
         "failing_one": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
         "failing_other": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
         "timedOut": "Zeit abgelaufen, die Bedingung wurde nicht erfüllt",
-        "stopped": "Warten beendet"
+        "stopped": "Warten beendet",
+        "jobGone": "Beendet: der Job ist mit seinem Knoten verschwunden"
       },
       "waking": {
         "met": "Die Bedingung ist erfüllt. Das Modell wird gefragt, was zu tun ist.",
@@ -942,6 +979,46 @@
         "stopAll": "Alle beenden",
         "title_one": "{{count}} Wartevorgang",
         "title_other": "{{count}} Wartevorgänge"
+      }
+    },
+    "job": {
+      "stop": "Stoppen",
+      "details": "Details zum Job",
+      "done_one": "{{count}} beendeter Job",
+      "done_other": "{{count}} beendete Jobs",
+      "runTime": "läuft seit {{span}}",
+      "ranFor": "lief {{span}}",
+      "lastOutput": "letzte Ausgabe vor {{ago}}",
+      "endedAgo": "beendet vor {{ago}}",
+      "byAgent": "von einem Sub-Agenten gestartet",
+      "where": {
+        "machine": "auf diesem Rechner",
+        "sandbox": "isoliert"
+      },
+      "status": {
+        "starting": "Startet",
+        "running": "Läuft",
+        "ending": "Wird gestoppt",
+        "stalled": "Läuft, seit {{span}} keine Ausgabe",
+        "lost": "Verloren: sein Knoten ist weg",
+        "notStarted": "Konnte nicht starten",
+        "killed": "Abgebrochen (kill)",
+        "stopped": "Von dir gestoppt",
+        "ended": "Beendet",
+        "exitedOk": "Beendet, Status 0",
+        "exitedCode": "Beendet mit Status {{code}}",
+        "exitedUnknown": "Beendet, Status unbekannt"
+      },
+      "end": {
+        "lifetime": "Beendet: Zeitlimit erreicht",
+        "chat_deleted": "Beendet: der Chat wurde gelöscht",
+        "shell_off": "Beendet: Befehle wurden abgeschaltet",
+        "group_off": "Beendet: die Befehlstools wurden für diesen Chat abgeschaltet",
+        "fenced": "Beendet: dieser Chat darf keine Befehle mehr ausführen",
+        "sandbox_remade": "Beendet: seine Umgebung wurde neu erstellt",
+        "agent_ended": "Beendet: sein Sub-Agent ist fertig",
+        "shutdown": "Beendet: der Server wurde gestoppt",
+        "start_failed": "Konnte nicht starten"
       }
     }
   },

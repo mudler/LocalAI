@@ -343,6 +343,39 @@
           "addons": "add-ons"
         }
       }
+    },
+    "tabs": {
+      "label": "Notifications and activity",
+      "notifications": "Notifications",
+      "activity": "Activity"
+    },
+    "ops": {
+      "needsAttention": "Needs attention",
+      "inProgress": "In progress",
+      "seeAll": "See all activity",
+      "waiting": "Waiting",
+      "node": "Node {{current}} of {{total}}",
+      "emptyTitle": "Nothing running",
+      "emptyBody": "Installs, updates and removals appear here while they run, and for a day after.",
+      "title": {
+        "installing": "Installing {{name}}",
+        "upgrading": "Updating {{name}}",
+        "removing": "Removing {{name}}",
+        "staging": "Staging {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Couldn't install {{name}}",
+        "upgrading": "Couldn't update {{name}}",
+        "removing": "Couldn't remove {{name}}",
+        "staging": "Couldn't stage {{name}}"
+      },
+      "recent": {
+        "title": "Recent",
+        "installed": "Installed {{name}}",
+        "upgraded": "Updated {{name}}",
+        "removed": "Removed {{name}}",
+        "staged": "Staged {{name}}"
+      }
     }
   },
   "connectorsPage": {
@@ -570,6 +603,7 @@
       "deny": "Don't run",
       "alwaysHint": "Always on this instance lets every user's chats run commands here without asking (Settings > Tools).",
       "askAdmin": "Only an administrator can allow commands on this machine. Ask one, or run the command yourself.",
+      "job": "This starts a background job. It keeps running after this call, and allowing it also allows the input the model writes to it later, without asking again.",
       "expired": "Not answered: the turn that asked has ended, so the command did not run."
     },
     "provider": {
@@ -1229,14 +1263,17 @@
       "sources": {
         "tool": "tool {{name}}",
         "url": "{{name}}",
-        "script": "a script"
+        "script": "a script",
+        "job": "{{name}}",
+        "agent": "sub-agent {{name}}"
       },
       "end": {
         "met": "Done: the condition was met",
         "failing_one": "Stopped: the source failed {{count}} time in a row",
         "failing_other": "Stopped: the source failed {{count}} times in a row",
         "timedOut": "Timed out, the condition was not met",
-        "stopped": "Wait stopped"
+        "stopped": "Wait stopped",
+        "jobGone": "Stopped: the job is gone with its node"
       },
       "waking": {
         "met": "The condition was met. Asking the model what to do.",
@@ -1266,6 +1303,46 @@
         "stopAll": "Stop all",
         "title_one": "{{count}} waiting",
         "title_other": "{{count}} waiting"
+      }
+    },
+    "job": {
+      "stop": "Stop",
+      "details": "Job details",
+      "done_one": "{{count}} finished job",
+      "done_other": "{{count}} finished jobs",
+      "runTime": "running {{span}}",
+      "ranFor": "ran for {{span}}",
+      "lastOutput": "last output {{ago}} ago",
+      "endedAgo": "ended {{ago}} ago",
+      "byAgent": "started by a sub-agent",
+      "where": {
+        "machine": "on this machine",
+        "sandbox": "in isolation"
+      },
+      "status": {
+        "starting": "Starting",
+        "running": "Running",
+        "ending": "Stopping",
+        "stalled": "Running, no output for {{span}}",
+        "lost": "Lost: its node is gone",
+        "notStarted": "Could not start",
+        "killed": "Killed",
+        "stopped": "Stopped by you",
+        "ended": "Ended",
+        "exitedOk": "Exited, status 0",
+        "exitedCode": "Exited with status {{code}}",
+        "exitedUnknown": "Exited, status unknown"
+      },
+      "end": {
+        "lifetime": "Ended: reached its time limit",
+        "chat_deleted": "Ended: the chat was deleted",
+        "shell_off": "Ended: commands were switched off",
+        "group_off": "Ended: the command tools were switched off for this chat",
+        "fenced": "Ended: this chat may not run commands now",
+        "sandbox_remade": "Ended: its environment was rebuilt",
+        "agent_ended": "Ended: its sub-agent finished",
+        "shutdown": "Ended: the server stopped",
+        "start_failed": "Could not start"
       }
     }
   },

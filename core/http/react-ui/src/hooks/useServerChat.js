@@ -423,6 +423,7 @@ export function useServerChat({ seed = null } = {}) {
   const setLoopState = useCallback((id, loopId, state) => act(id, () => chatLoopsApi.setState(id, loopId, state)), [act])
   const stopLoop = useCallback((id, loopId) => act(id, () => chatLoopsApi.stop(id, loopId)), [act])
   const stopLoops = useCallback((id) => act(id, () => chatLoopsApi.stopAll(id)), [act])
+  const stopJob = useCallback((id, jobId) => act(id, () => chatLoopsApi.stopJob(id, jobId)), [act])
 
   // A title or a model answers 409 while a turn runs; settings apply from the
   // next turn. The caller gets the error to show where the change was made.
@@ -516,10 +517,12 @@ export function useServerChat({ seed = null } = {}) {
     goal: detail?.goal || null,
     // The loops of the chat, oldest first (pending, active, paused or ended).
     loops: detail?.loops || [],
+    // The background jobs of the chat and of its sub-agents.
+    jobs: detail?.jobs || [],
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
-    hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
-    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
+    hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '', job: !!detail.host_consent.job } : null,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, stopJob, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),
   }

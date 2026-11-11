@@ -157,6 +157,44 @@ its first message was written by a page and not by you.
 
 Tool calls through the bridge are not available.
 
+## When a page does not work
+
+A page that throws an error in its script, or leaves a promise unhandled, shows
+nothing about it: the assistant cannot run JavaScript, so it could not see the
+error. LocalAI now keeps the error for it.
+
+- The frame of the page catches `window.onerror` and unhandled rejections and
+  hands them to LocalAI over the bridge. Nothing shows in the page, no badge or
+  button is added, and nothing goes into a chat.
+- When you say a page does not work, the assistant calls its read-only tool
+  `page_errors` with the page name. The tool gives the message, the line and
+  column when known (the line counts from the top of your `index.html`), how
+  often it happened and when it last happened. Without a name it lists the pages
+  that have recent errors, newest first. The built-in `localai-apps` skill tells
+  the assistant to read the error and fix it before it rewrites the page.
+- A page that throws no error but looks wrong has nothing to read. The
+  assistant then asks you what you see.
+
+What is kept:
+
+| Rule | Value |
+|---|---|
+| Where | On the server, per user and per page name, outside your files. A tile of the page on Home uses the same page name. With a database the errors are in the table `studio_page_errors`, which every frontend shares; without one, in `chats/pages/page-errors.json` under the data path. |
+| Who records | Only you, when you view your own page or its tile. A viewer of a shared page records nothing. |
+| Same error | Counted once: same message at the same file, line and column. |
+| How many | The 10 newest different errors of a page. |
+| Length | A message is cut at 500 bytes and a stack at 1500. |
+| Noise | The browser's own errors, such as `ResizeObserver loop` and `Script error.`, are dropped. |
+| Rate | The frame sends an error once and counts repeats, so a throw in a 60 frames per second loop costs a message every few seconds. The server also limits a page to a burst of 20 reports, then one every 2 seconds. |
+| Cleared | When any file of the page changes (a data file the page saves counts too), so the assistant never reads the error of code that is gone. |
+
+An error message can quote data of your page. The server never writes it to a
+log. The assistant reads it only when it calls `page_errors`, and the tool
+result says that the text is data and not instructions.
+
+The sandbox is as before: the frame has no network and no new right. A page
+cannot read the errors back, and it cannot stop the capture.
+
 ## Files next to the page
 
 A page can name the files of its own folder with relative URLs, as a web page
@@ -453,6 +491,7 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `GET /api/chats/pages/{name}/file?path=` | `files.read`. With `encoding=base64` the file must be an image (by extension) and `content` is its bytes in base64, with `media_type`. The UI uses it to put images into the page; the bridge reads text only. |
 | `PUT /api/chats/pages/{name}/file` | `files.write`, body `{path, content, base}` |
 | `POST /api/chats/pages/{name}/chat` | `chat.send` after you chose Send, body `{text, chat_id, model}` |
+| `POST /api/chats/pages/{name}/errors` | An error that the script of your own page threw, body `{message, stack, file, line, column, count}`. The UI sends it; the assistant reads the errors with `page_errors`. `200` with `recorded` (false for browser noise), `429` when reported too fast. There is no route to read them back and none for shared pages. |
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |

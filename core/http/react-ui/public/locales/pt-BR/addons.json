@@ -149,6 +149,7 @@
   "errors": {
     "auth": "Você saiu da conta. Entre novamente.",
     "denied": "O servidor recusou. Você pode não ter permissão, ou o complemento mudou. A lista foi atualizada.",
+    "operationNotFound": "O status desta atualização não está mais disponível. Confira a versão do complemento.",
     "invalid": "O servidor não pôde aceitar esta solicitação.",
     "network": "Não foi possível alcançar o servidor. Verifique sua conexão.",
     "unavailable": "Os complementos não estão disponíveis agora. Tente de novo em instantes.",
@@ -618,6 +619,7 @@
       "unknownOutcome": "O resultado da atualização é desconhecido. Leia o estado dela de novo; não inicie outra.",
       "auth": "Entre novamente para continuar.",
       "denied": "Somente um administrador pode fazer isso na própria sessão do navegador.",
+      "operationNotFound": "O status desta atualização não está mais disponível. Confira a versão do complemento.",
       "network": "A rede não está acessível.",
       "unavailable": "O serviço de complementos não está disponível. Tente de novo."
     },

@@ -416,6 +416,7 @@
       "deny": "No ejecutar",
       "alwaysHint": "«Siempre en esta instancia» deja que los chats de todos los usuarios ejecuten comandos aquí sin preguntar (Ajustes > Herramientas).",
       "askAdmin": "Solo un administrador puede permitir comandos en esta máquina. Pídeselo a uno o ejecuta tú el comando.",
+      "job": "Esto inicia un trabajo en segundo plano. Sigue ejecutándose después de esta llamada, y permitirlo también permite la entrada que el modelo le escriba después, sin volver a preguntar.",
       "expired": "Sin respuesta: el turno que lo pidió ha terminado, así que el comando no se ejecutó."
     },
     "provider": {
@@ -742,6 +743,39 @@
           "addons": "complementos"
         }
       }
+    },
+    "tabs": {
+      "label": "Notificaciones y actividad",
+      "notifications": "Notificaciones",
+      "activity": "Actividad"
+    },
+    "ops": {
+      "needsAttention": "Requiere atención",
+      "inProgress": "En curso",
+      "seeAll": "Ver toda la actividad",
+      "waiting": "En espera",
+      "node": "Nodo {{current}} de {{total}}",
+      "emptyTitle": "Nada en curso",
+      "emptyBody": "Las instalaciones, actualizaciones y eliminaciones aparecen aquí mientras se ejecutan y durante un día después.",
+      "title": {
+        "installing": "Instalando {{name}}",
+        "upgrading": "Actualizando {{name}}",
+        "removing": "Eliminando {{name}}",
+        "staging": "Transfiriendo {{name}}"
+      },
+      "failedTitle": {
+        "installing": "No se pudo instalar {{name}}",
+        "upgrading": "No se pudo actualizar {{name}}",
+        "removing": "No se pudo eliminar {{name}}",
+        "staging": "No se pudo transferir {{name}}"
+      },
+      "recent": {
+        "title": "Recientes",
+        "installed": "{{name}} instalado",
+        "upgraded": "{{name}} actualizado",
+        "removed": "{{name}} eliminado",
+        "staged": "{{name}} transferido"
+      }
     }
   },
   "change": {
@@ -905,14 +939,17 @@
       "sources": {
         "tool": "herramienta {{name}}",
         "url": "{{name}}",
-        "script": "un script"
+        "script": "un script",
+        "job": "{{name}}",
+        "agent": "subagente {{name}}"
       },
       "end": {
         "met": "Hecho: se cumplió la condición",
         "failing_one": "Detenida: la fuente falló {{count}} vez seguida",
         "failing_other": "Detenida: la fuente falló {{count}} veces seguidas",
         "timedOut": "Tiempo agotado, la condición no se cumplió",
-        "stopped": "Espera detenida"
+        "stopped": "Espera detenida",
+        "jobGone": "Detenida: el trabajo desapareció con su nodo"
       },
       "waking": {
         "met": "Se cumplió la condición. Preguntando al modelo qué hacer.",
@@ -942,6 +979,46 @@
         "stopAll": "Detener todas",
         "title_one": "{{count}} espera",
         "title_other": "{{count}} esperas"
+      }
+    },
+    "job": {
+      "stop": "Detener",
+      "details": "Detalles del trabajo",
+      "done_one": "{{count}} trabajo terminado",
+      "done_other": "{{count}} trabajos terminados",
+      "runTime": "en ejecución desde hace {{span}}",
+      "ranFor": "duró {{span}}",
+      "lastOutput": "última salida hace {{ago}}",
+      "endedAgo": "terminó hace {{ago}}",
+      "byAgent": "iniciado por un subagente",
+      "where": {
+        "machine": "en esta máquina",
+        "sandbox": "aislado"
+      },
+      "status": {
+        "starting": "Iniciando",
+        "running": "En ejecución",
+        "ending": "Deteniendo",
+        "stalled": "En ejecución, sin salida desde hace {{span}}",
+        "lost": "Perdido: su nodo ya no existe",
+        "notStarted": "No se pudo iniciar",
+        "killed": "Eliminado con kill",
+        "stopped": "Detenido por ti",
+        "ended": "Terminado",
+        "exitedOk": "Terminó, estado 0",
+        "exitedCode": "Terminó con estado {{code}}",
+        "exitedUnknown": "Terminó, estado desconocido"
+      },
+      "end": {
+        "lifetime": "Terminado: alcanzó su límite de tiempo",
+        "chat_deleted": "Terminado: se eliminó el chat",
+        "shell_off": "Terminado: se desactivaron los comandos",
+        "group_off": "Terminado: se desactivaron las herramientas de comandos para este chat",
+        "fenced": "Terminado: este chat ya no puede ejecutar comandos",
+        "sandbox_remade": "Terminado: su entorno se creó de nuevo",
+        "agent_ended": "Terminado: su subagente terminó",
+        "shutdown": "Terminado: el servidor se detuvo",
+        "start_failed": "No se pudo iniciar"
       }
     }
   },

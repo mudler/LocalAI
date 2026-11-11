@@ -1,79 +1,79 @@
-/* LocalAI Theme - CSS Variables System */
-/* Based on logo color palette: cyan, teal, navy, purple */
+/* LocalAI legacy page theme.
+   The palette is the one of the app: static/theme-localai.css (generated from
+   the brand theme by react-ui/scripts/gen-theme.mjs) defines the --dk-* roles
+   for light and dark, and this file gives the old variable names to them.
+   Do not write a colour value here. */
 
-/* Dark Theme (Default) - Charcoal Gray Style */
-:root,
-[data-theme="dark"],
-.dark {
-  /* Base Colors - Charcoal Gray */
-  --color-bg-primary: #121212;        /* Main background */
-  --color-bg-secondary: #1A1A1A;      /* Elevated surfaces */
-  --color-bg-tertiary: #222222;       /* Cards, panels */
-  --color-bg-overlay: rgba(18, 18, 18, 0.95); /* Modals, overlays */
-  
-  /* Override tw-elements dark background */
-  background-color: #121212 !important;
-  
+:root {
+  /* Base Colors */
+  --color-bg-primary: var(--dk-canvas);
+  --color-bg-secondary: var(--dk-card);
+  --color-bg-tertiary: var(--dk-inset);
+  --color-bg-overlay: color-mix(in srgb, var(--dk-canvas) 92%, transparent);
+
+  /* Override tw-elements background */
+  background-color: var(--dk-canvas) !important;
+
   /* Brand Colors */
-  --color-primary: #38BDF8;          /* Cyan - primary actions */
-  --color-primary-hover: #0EA5E9;    /* Darker cyan on hover */
-  --color-primary-active: #0284C7;   /* Active state */
-  --color-primary-text: #FFFFFF;     /* Text on primary background */
-  --color-primary-light: rgba(56, 189, 248, 0.08); /* Light cyan backgrounds (reduced) */
-  --color-primary-border: rgba(56, 189, 248, 0.15); /* Cyan borders (reduced) */
-  
-  --color-secondary: #14B8A6;        /* Teal - secondary actions */
-  --color-secondary-hover: #0D9488;  /* Darker teal on hover */
-  --color-secondary-light: rgba(20, 184, 166, 0.1);
-  
-  --color-accent: #8B5CF6;           /* Purple - special states */
-  --color-accent-hover: #7C3AED;     /* Darker purple on hover */
-  --color-accent-light: rgba(139, 92, 246, 0.1);
-  
-  --color-accent-purple: #A78BFA;    /* Light purple for gradients */
-  --color-accent-teal: #2DD4BF;      /* Light teal for gradients */
-  
+  --color-primary: var(--dk-accent);
+  --color-primary-hover: color-mix(in srgb, var(--dk-accent) 88%, var(--dk-text));
+  --color-primary-active: color-mix(in srgb, var(--dk-accent) 76%, var(--dk-text));
+  --color-primary-text: var(--dk-on-accent);
+  --color-primary-light: color-mix(in srgb, var(--dk-accent) 10%, transparent);
+  --color-primary-border: color-mix(in srgb, var(--dk-accent) 38%, transparent);
+
+  --color-secondary: var(--dk-muted);
+  --color-secondary-hover: var(--dk-text);
+  --color-secondary-light: color-mix(in srgb, var(--dk-muted) 14%, transparent);
+
+  --color-accent: var(--dk-accent);
+  --color-accent-hover: color-mix(in srgb, var(--dk-accent) 88%, var(--dk-text));
+  --color-accent-light: color-mix(in srgb, var(--dk-accent) 10%, transparent);
+
+  --color-accent-purple: var(--dk-accent-text);
+  --color-accent-teal: var(--dk-ok-text);
+
   /* Text Colors */
-  --color-text-primary: #E5E7EB;      /* Primary text */
-  --color-text-secondary: #94A3B8;   /* Secondary text */
-  --color-text-muted: #64748B;        /* Tertiary text */
-  --color-text-disabled: #475569;     /* Disabled text */
-  --color-text-inverse: #FFFFFF;      /* Text on light backgrounds */
-  
-  /* Border Colors - Visible on charcoal */
-  --color-border-subtle: rgba(255, 255, 255, 0.08);  /* Minimal borders */
-  --color-border-default: rgba(255, 255, 255, 0.12);  /* Default borders */
-  --color-border-strong: rgba(56, 189, 248, 0.3);    /* Focus borders */
-  --color-border-divider: rgba(255, 255, 255, 0.05);  /* Section dividers */
-  --color-border-primary: rgba(56, 189, 248, 0.2);  /* Primary borders */
-  --color-border-secondary: rgba(255, 255, 255, 0.1);
-  --color-border-focus: rgba(56, 189, 248, 0.4);     /* Focus borders */
-  
+  --color-text-primary: var(--dk-text);
+  --color-text-secondary: color-mix(in srgb, var(--dk-text) 78%, var(--dk-muted));
+  --color-text-muted: var(--dk-muted);
+  --color-text-disabled: color-mix(in srgb, var(--dk-muted) 60%, var(--dk-canvas));
+  --color-text-inverse: var(--dk-on-accent);
+
+  /* Border Colors */
+  --color-border-subtle: color-mix(in srgb, var(--dk-edge) 65%, var(--dk-canvas));
+  --color-border-default: var(--dk-edge);
+  --color-border-strong: var(--dk-control-edge);
+  --color-border-divider: color-mix(in srgb, var(--dk-edge) 75%, var(--dk-canvas));
+  --color-border-primary: color-mix(in srgb, var(--dk-accent) 55%, transparent);
+  --color-border-secondary: var(--dk-edge);
+  --color-border-focus: var(--dk-accent);
+
   /* Status Colors */
-  --color-success: #14B8A6;          /* Use teal for success (aligned with logo) */
-  --color-success-light: rgba(20, 184, 166, 0.1);
-  --color-warning: #F59E0B;
-  --color-warning-light: rgba(245, 158, 11, 0.1);
-  --color-error: #EF4444;
-  --color-error-light: rgba(239, 68, 68, 0.1);
-  --color-info: #38BDF8;              /* Use cyan for info */
-  --color-info-light: rgba(56, 189, 248, 0.1);
-  
-  /* Gradient Definitions */
-  --gradient-primary: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
-  --gradient-hero: linear-gradient(135deg, #121212 0%, #1A1A1A 50%, #121212 100%);
-  --gradient-card: linear-gradient(135deg, rgba(56, 189, 248, 0.04) 0%, rgba(139, 92, 246, 0.04) 100%);
-  --gradient-text: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
-  
-  /* Shadows - Charcoal theme */
+  --color-success: var(--dk-ok);
+  --color-success-light: var(--dk-ok-wash);
+  --color-warning: var(--dk-warn);
+  --color-warning-light: var(--dk-warn-wash);
+  --color-error: var(--dk-error);
+  --color-error-light: var(--dk-error-wash);
+  --color-info: var(--dk-accent-text);
+  --color-info-light: var(--dk-accent-wash);
+
+  /* Gradient Definitions: flat, one accent */
+  --gradient-primary: linear-gradient(135deg, var(--dk-accent) 0%, var(--dk-accent-text) 100%);
+  --gradient-hero: linear-gradient(135deg, var(--dk-canvas) 0%, var(--dk-inset) 50%, var(--dk-canvas) 100%);
+  --gradient-card: linear-gradient(135deg, var(--dk-card) 0%, var(--dk-card) 100%);
+  --gradient-text: linear-gradient(135deg, var(--dk-accent-text) 0%, var(--dk-accent-text) 100%);
+
+  /* Shadows, tinted by the theme */
   --shadow-none: none;
-  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.15), 0 0 12px rgba(56, 189, 248, 0.2);
-  --shadow-sidebar: 1px 0 3px rgba(0, 0, 0, 0.25);
-  
+  --shadow-subtle: 0 1px 2px rgb(var(--dk-shadow-tint) / calc(.08 * var(--dk-shadow-k, 1)));
+  --shadow-sm: 0 1px 3px rgb(var(--dk-shadow-tint) / calc(.1 * var(--dk-shadow-k, 1)));
+  --shadow-md: 0 4px 6px rgb(var(--dk-shadow-tint) / calc(.1 * var(--dk-shadow-k, 1)));
+  --shadow-lg: 0 10px 15px rgb(var(--dk-shadow-tint) / calc(.12 * var(--dk-shadow-k, 1)));
+  --shadow-glow: var(--shadow-md);
+  --shadow-sidebar: 1px 0 3px rgb(var(--dk-shadow-tint) / calc(.1 * var(--dk-shadow-k, 1)));
+
   /* Animation Timing - Minimal */
   --duration-instant: 100ms;
   --duration-fast: 150ms;
@@ -122,77 +122,3 @@
   --sidebar-bg: var(--color-bg-primary);
   --sidebar-border: var(--color-border-subtle);
 }
-
-/* Light Theme */
-[data-theme="light"] {
-  /* Base Colors */
-  --color-bg-primary: #F8FAFC;      /* Soft gray background */
-  --color-bg-secondary: #FFFFFF;     /* Elevated surfaces */
-  --color-bg-tertiary: #FFFFFF;      /* Cards, panels */
-  --color-bg-overlay: rgba(248, 250, 252, 0.9); /* Modals, overlays */
-  
-  /* Brand Colors - Slightly adjusted for light backgrounds */
-  --color-primary: #0EA5E9;          /* Slightly darker cyan for better contrast */
-  --color-primary-hover: #0284C7;    /* Darker on hover */
-  --color-primary-active: #0369A1;   /* Active state */
-  --color-primary-text: #FFFFFF;     /* Text on primary background */
-  --color-primary-light: rgba(14, 165, 233, 0.08); /* Light cyan backgrounds */
-  --color-primary-border: rgba(14, 165, 233, 0.2); /* Cyan borders */
-  
-  --color-secondary: #0D9488;        /* Teal - secondary actions */
-  --color-secondary-hover: #0F766E;  /* Darker teal on hover */
-  --color-secondary-light: rgba(13, 148, 136, 0.1);
-  
-  --color-accent: #7C3AED;           /* Purple - special states */
-  --color-accent-hover: #6D28D9;     /* Darker purple on hover */
-  --color-accent-light: rgba(124, 58, 237, 0.1);
-  
-  --color-accent-purple: #A78BFA;    /* Light purple for gradients */
-  --color-accent-teal: #2DD4BF;      /* Light teal for gradients */
-  
-  /* Text Colors */
-  --color-text-primary: #1E293B;      /* Primary text - dark slate */
-  --color-text-secondary: #64748B;   /* Secondary text */
-  --color-text-muted: #94A3B8;        /* Tertiary text */
-  --color-text-disabled: #CBD5E1;     /* Disabled text */
-  --color-text-inverse: #FFFFFF;      /* Text on dark backgrounds */
-  
-  /* Border Colors */
-  --color-border-subtle: rgba(15, 23, 42, 0.06);  /* Minimal borders */
-  --color-border-default: rgba(15, 23, 42, 0.1);  /* Default borders */
-  --color-border-strong: rgba(14, 165, 233, 0.3); /* Focus borders */
-  --color-border-divider: rgba(15, 23, 42, 0.04); /* Section dividers */
-  --color-border-primary: rgba(14, 165, 233, 0.2);  /* Primary borders */
-  --color-border-secondary: rgba(15, 23, 42, 0.08);
-  --color-border-focus: rgba(14, 165, 233, 0.4);    /* Focus borders */
-  
-  /* Status Colors - Adjusted for light theme */
-  --color-success: #0D9488;
-  --color-success-light: rgba(13, 148, 136, 0.1);
-  --color-warning: #D97706;
-  --color-warning-light: rgba(217, 119, 6, 0.1);
-  --color-error: #DC2626;
-  --color-error-light: rgba(220, 38, 38, 0.1);
-  --color-info: #0EA5E9;
-  --color-info-light: rgba(14, 165, 233, 0.1);
-  
-  /* Gradient Definitions */
-  --gradient-primary: linear-gradient(135deg, #0EA5E9 0%, #7C3AED 50%, #0D9488 100%);
-  --gradient-hero: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 50%, #F8FAFC 100%);
-  --gradient-card: linear-gradient(135deg, rgba(14, 165, 233, 0.03) 0%, rgba(124, 58, 237, 0.03) 100%);
-  --gradient-text: linear-gradient(135deg, #0EA5E9 0%, #7C3AED 50%, #0D9488 100%);
-  
-  /* Shadows - More visible in light theme */
-  --shadow-none: none;
-  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08);
-  --shadow-glow: 0 0 0 1px rgba(14, 165, 233, 0.15), 0 0 8px rgba(14, 165, 233, 0.2);
-  --shadow-sidebar: 1px 0 3px rgba(0, 0, 0, 0.08);
-  
-  /* Sidebar */
-  --sidebar-bg: #FFFFFF;
-  --sidebar-border: rgba(15, 23, 42, 0.06);
-}
-

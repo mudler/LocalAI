@@ -185,6 +185,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/pages/:name/file", h.ReadPageFile)
 	e.PUT(base+"/pages/:name/file", h.WritePageFile)
 	e.POST(base+"/pages/:name/chat", h.SendFromPage)
+	e.POST(base+"/pages/:name/errors", h.ReportPageError)
 	// The pages of the caller's shared folders, by folder id and name, and the
 	// caller's consent to the version that runs.
 	// The folders an administrator, or another person, shared with the caller.
@@ -333,6 +334,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.DELETE(base+"/:id/loops", h.StopLoops)
 	e.PUT(base+"/:id/loops/:loopId", h.SetLoopState)
 	e.DELETE(base+"/:id/loops/:loopId", h.StopLoop)
+	e.POST(base+"/:id/jobs/:job/kill", h.StopJob)
 	e.POST(base+"/:id/compact", h.Compact)
 	e.POST(base+"/:id/clear", h.Clear)
 	e.GET(base+"/:id/events", h.Events)

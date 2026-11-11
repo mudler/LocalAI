@@ -36,3 +36,51 @@
 @media (prefers-reduced-motion: no-preference) {
   .inbox-bell__badge { animation: dk-pop-in var(--dur-base) var(--ease-out) both; }
 }
+
+/* ---- progress ring ------------------------------------------------------ */
+
+/* The ring of the entry and of the bell while operations run: the mean
+   progress of what runs. A failed operation turns it red and adds a dot. It
+   sits around the icon and takes no room of its own, so the entry keeps its
+   size. The same ring is drawn on the tile of an operation in the panel. */
+.ops-ring { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ops-ring__track, .ops-ring__arc { fill: none; stroke-width: 2.5; }
+.ops-ring__track { stroke: currentColor; opacity: 0.2; }
+.ops-ring__arc { stroke: currentColor; stroke-linecap: round; transition: stroke-dasharray var(--dur-slow) var(--ease-out); }
+.ops-ring--failed { color: var(--dk-error-text); }
+@media (prefers-reduced-motion: no-preference) {
+  /* Work that has not started has nothing to fill: the arc turns. */
+  .ops-ring--wait { transform: none; animation: dk-spin 1.4s linear infinite; }
+}
+
+.ops-iconwrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--dk-accent-text);
+}
+.ops-iconwrap.is-failed { color: var(--dk-error-text); }
+.ops-iconwrap .ops-ring--entry {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  pointer-events: none;
+}
+.ops-iconwrap .lai-icon { color: var(--color-text-secondary); }
+.ops-iconwrap__dot {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--dk-error-text);
+  box-shadow: 0 0 0 2px var(--color-bg-primary);
+}
+.mobile-header-btn .ops-iconwrap { color: var(--dk-accent-text); }
+.mobile-header-btn .ops-iconwrap.is-failed { color: var(--dk-error-text); }

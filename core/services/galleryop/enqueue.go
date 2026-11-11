@@ -41,7 +41,7 @@ func (o *OpStatus) IsQueued() bool {
 // handler for the entire duration of the in-flight install (observed as a
 // request that never gets a response while /readyz stays green).
 func (g *GalleryService) EnqueueModelOp(op ManagementOp[gallery.GalleryModel, gallery.ModelConfig]) {
-	g.markQueued(op.ID, op.GalleryElementName, op.Delete)
+	g.markQueued(op.ID, op.GalleryElementName, op.Delete, false)
 	go func() {
 		select {
 		case g.ModelGalleryChannel <- op:
@@ -54,7 +54,7 @@ func (g *GalleryService) EnqueueModelOp(op ManagementOp[gallery.GalleryModel, ga
 // EnqueueBackendOp is the BackendGalleryChannel sibling of EnqueueModelOp.
 // Same rationale — see that comment.
 func (g *GalleryService) EnqueueBackendOp(op ManagementOp[gallery.GalleryBackend, any]) {
-	g.markQueued(op.ID, op.GalleryElementName, op.Delete)
+	g.markQueued(op.ID, op.GalleryElementName, op.Delete, op.Upgrade)
 	go func() {
 		select {
 		case g.BackendGalleryChannel <- op:
@@ -87,7 +87,7 @@ func enqueueContext(ctx context.Context) context.Context {
 // becomes impossible, because DeleteModel and DeleteBackend take no context.
 // Reporting a queued removal as uncancellable hid the Cancel button in the one
 // window where it would have worked.
-func (g *GalleryService) markQueued(id, elementName string, deletion bool) {
+func (g *GalleryService) markQueued(id, elementName string, deletion, upgrade bool) {
 	if id == "" {
 		return
 	}
@@ -96,6 +96,7 @@ func (g *GalleryService) markQueued(id, elementName string, deletion bool) {
 		Phase:              PhaseQueued,
 		GalleryElementName: elementName,
 		Deletion:           deletion,
+		Upgrade:            upgrade,
 		Cancellable:        true,
 	})
 }

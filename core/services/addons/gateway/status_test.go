@@ -98,6 +98,26 @@ var _ = Describe("typed owner failure status", func() {
 		_, e := relay(env, "front-a")
 		Expect(e).To(Equal(ErrForbidden))
 	})
+	It("answers an unknown lifecycle operation with its own type, not as a denial", func() {
+		w := httptest.NewRecorder()
+		typedError(w, fmt.Errorf("lookup: %w", addons.ErrOperationNotFound))
+		Expect(w.Code).To(Equal(http.StatusNotFound))
+		Expect(w.Body.String()).To(ContainSubstring(wireOperationNotFound))
+		// The generic denial keeps its status and its body.
+		w = httptest.NewRecorder()
+		typedError(w, ErrForbidden)
+		Expect(w.Code).To(Equal(http.StatusForbidden))
+		Expect(w.Body.String()).NotTo(ContainSubstring(wireOperationNotFound))
+
+		// A frontend gets the same error as the owner, not the generic denial.
+		// Another user's operation is answered like a missing one (see the
+		// manager tests), so this one id stands for both.
+		starter := contract.Actor{UserID: "admin", CredentialID: "session:a", Mode: "named-user"}
+		env := owner(&Gateway{Manager: ownerManager(starter, true), Revalidate: ok})
+		_, e := env.carriers["front-a"].Dispatch(context.Background(), starter, contract.Request{AddonID: "sample", OperationID: "never-started", Action: "operation-status", Arguments: []byte(`{}`)})
+		Expect(e).To(MatchError(addons.ErrOperationNotFound))
+		Expect(errors.Is(e, ErrForbidden)).To(BeFalse())
+	})
 	// countingOwner counts the mutations that reach the owner so a test can prove
 	// the frontend did not dispatch the same work again.
 	countingOwner := func(dispatches *atomic.Int32, g *Gateway) *fixtureEnv {

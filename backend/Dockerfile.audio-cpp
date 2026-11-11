@@ -77,18 +77,18 @@ WORKDIR /build
 # Noble. The CUDA and ROCm toolkits come from their matching BASE_IMAGE.
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     sh /usr/local/sbin/apt-mirror && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+    sh /usr/local/sbin/apt-mirror apt-get update && \
+    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
         git cmake build-essential pkg-config ca-certificates \
         libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc && \
     if [ "${BUILD_TYPE}" = "vulkan" ]; then \
-        apt-get install -y --no-install-recommends libvulkan-dev glslc; \
+        sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends libvulkan-dev glslc; \
     fi && \
     if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-        apt-get install -y --no-install-recommends hipblas-dev rocblas-dev hipcub-dev; \
+        sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends hipblas-dev rocblas-dev hipcub-dev; \
     fi && \
     if [ "${TARGETARCH}" = "arm64" ]; then \
-        apt-get install -y --no-install-recommends gcc-14 g++-14; \
+        sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends gcc-14 g++-14; \
     fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

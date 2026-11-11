@@ -61,8 +61,24 @@ const (
 
 // Declared is everything the manifest lists under capabilities.tools.
 func Declared() []string {
-	return append(append([]string{}, Tools...), ToolExecutionStatus, ToolStatus, ToolSetBackend, ToolConfirmHost)
+	return append(append([]string{}, Tools...), ToolExecutionStatus, ToolStatus, ToolSetBackend, ToolConfirmHost, ToolJob)
 }
+
+// JobSchema is the arguments schema of the job tool: contract.JobArgs. The
+// host fills it; no model sees it.
+const JobSchema = `{"type":"object","properties":{` +
+	`"verb":{"type":"string","enum":["start","list","read","input","kill"]},` +
+	`"id":{"type":"string","maxLength":16},` +
+	`"command":{"type":"string"},` +
+	`"label":{"type":"string","maxLength":80},` +
+	`"since":{"type":"integer","minimum":0},` +
+	`"maxBytes":{"type":"integer","minimum":256,"maximum":65536},` +
+	`"observe":{"type":"boolean"},` +
+	`"input":{"type":"string","maxLength":2000},` +
+	`"closeInput":{"type":"boolean"},` +
+	`"signal":{"type":"string","enum":["term","int","kill"]},` +
+	`"reason":{"type":"string","enum":["stopped","chat_deleted","agent_ended","shell_off","group_off","fenced"]}},` +
+	`"required":["verb"],"additionalProperties":false}`
 
 // Settings is the choice of backend. *backends.Selector implements all but
 // Reset, which the add-on's main adds: it removes the sandboxes of the old
@@ -109,12 +125,18 @@ type runtime struct {
 	run      Runner
 	settings Settings
 	admin    Admin
+	jobs     *jobTable
 }
 
 // New returns the runtime of the executable. settings and admin may be nil:
-// the settings tools then refuse.
-func New(r Runner, s Settings, a Admin) contract.Runtime {
-	return &runtime{run: r, settings: s, admin: a}
+// the settings tools then refuse. A runner that is also a JobRunner runs the
+// background jobs of the job tool.
+func New(r Runner, s Settings, a Admin, opts ...Option) contract.Runtime {
+	rt := &runtime{run: r, settings: s, admin: a, jobs: newJobTable(r)}
+	for _, o := range opts {
+		o(rt)
+	}
+	return rt
 }
 
 // Close stops every sandbox the runner holds. The add-on process calls it
@@ -184,7 +206,21 @@ func Definitions() []contract.ToolDefinition {
 		Name: ToolConfirmHost, Kind: contract.ToolKindRead, UIOnly: true,
 		Description: "Confirm that commands may run on this host without isolation, by typing the phrase. Administrators only. The Settings page calls it; no model does.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"phrase":{"type":"string"}},"required":["phrase"],"additionalProperties":false}`),
+	}, contract.ToolDefinition{
+		// The background jobs of the host's job tool (ExecutionProvider.Jobs).
+		// An action tool, because a job runs code as the user; page-only, so
+		// no model is offered it.
+		Name: ToolJob, Kind: contract.ToolKindAction, UIOnly: true,
+		Description: "Background jobs of the chat: start, list, read, input, kill. The host's job tool calls it; no model does.",
+		InputSchema: json.RawMessage(JobSchema),
 	})
+}
+
+// ExecutionProvider is what the manifest declares under
+// capabilities.executionProvider: bash runs commands, execution-status tells
+// whether it can, and the job tool runs background jobs (feature level 6).
+func ExecutionProvider() *contract.ExecutionProvider {
+	return &contract.ExecutionProvider{Tools: append([]string{}, Tools...), StatusTool: ToolExecutionStatus, Jobs: &contract.ExecutionJobs{Tool: ToolJob}}
 }
 
 // Read serves the settings tools.
@@ -309,6 +345,9 @@ func (r *runtime) Act(ctx context.Context, env contract.Envelope) (contract.Resu
 	if json.Unmarshal(a["tool"], &tool) != nil || tool == "" {
 		return contract.Result{}, protocol.ErrBadRequest
 	}
+	if tool == ToolJob {
+		return r.actJob(ctx, env, a)
+	}
 	known := false
 	for _, t := range Tools {
 		known = known || t == tool
@@ -343,4 +382,23 @@ func (r *runtime) Act(ctx context.Context, env contract.Envelope) (contract.Resu
 		out = out[:maxAnswer] + "\n[output cut]"
 	}
 	return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true, "output": out})}, nil
+}
+
+// actJob serves the job tool. The user and the chat come from the envelope,
+// as for bash; the arguments are contract.JobArgs from the host.
+func (r *runtime) actJob(ctx context.Context, env contract.Envelope, a map[string]json.RawMessage) (contract.Result, error) {
+	op := env.Request.OperationID
+	user, conv := env.Authority.Actor.UserID, env.Request.ResourceID
+	if user == "" || conv == "" || !operationShape.MatchString(op) {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	delete(a, "tool")
+	var call sandbox.CallOptions
+	if raw, ok := a[sandbox.CallArgKey]; ok {
+		if json.Unmarshal(raw, &call) != nil {
+			return contract.Result{}, protocol.ErrBadRequest
+		}
+		delete(a, sandbox.CallArgKey)
+	}
+	return r.jobs.act(ctx, user, conv, op, call, a)
 }

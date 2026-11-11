@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
-import { mockReadModel } from './operate-fixtures.js'
+import { mockReadModel, mockOperate } from './operate-fixtures.js'
+import { addonRecord, galleryItem, mockUpdates, snapshotOf, updateAvailable } from './updates-fixtures.js'
 
 // Operate overview (src/pages/OperateOverview.jsx).
 //
@@ -65,6 +66,23 @@ test.describe('Administration overview', () => {
     await item.getByTestId('operate-review-updates').click()
     await expect(page).toHaveURL(/\/app\/updates\?filter=ready/)
     expect(started).toBe(0)
+  })
+
+  test('the update item counts and names add-ons with the backends, as the Updates page lists them', async ({ page }) => {
+    await mockOperate(page)
+    await mockUpdates(page, {
+      snapshot: snapshotOf([galleryItem('llama-cpp', '0.9.4', '0.9.7')]),
+      addons: [addonRecord('notes', 'Notes sync', updateAvailable('0.8.2'), { version: '0.8.1' })],
+    })
+    await page.goto('/app/operate')
+    const item = page.locator(ITEM, { hasText: 'updates available' })
+    await expect(item).toContainText('2 updates available')
+    await expect(item).toContainText('llama-cpp')
+    await expect(item).toContainText('Notes sync')
+    await item.getByTestId('operate-review-updates').click()
+    await expect(page).toHaveURL(/\/app\/updates\?filter=ready/)
+    await expect(page.locator('[data-group="ready"] [data-kind="addon"]')).toHaveCount(1)
+    await expect(page.locator('[data-group="ready"] [data-kind="gallery"]')).toHaveCount(1)
   })
 
   test('a failed operation becomes an attention item', async ({ page }) => {

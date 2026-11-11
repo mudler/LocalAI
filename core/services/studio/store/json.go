@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -484,6 +485,7 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
 	r.AllowedTools = append([]string(nil), r.AllowedTools...)
 	r.Connections = connsets.Clone(r.Connections)
+	r.Jobs = slices.Clone(r.Jobs)
 	if r.HostConsent != nil {
 		cp := *r.HostConsent
 		r.HostConsent = &cp
@@ -645,6 +647,17 @@ func (s *jsonStore) UpdateEgress(_ context.Context, principal, id string, change
 			return err
 		}
 		next.Rec.Egress = st
+		return nil
+	})
+}
+
+func (s *jsonStore) UpdateJobs(_ context.Context, principal, id string, change func([]session.JobStub) ([]session.JobStub, error)) error {
+	return s.edit(principal, id, func(next *chatState) error {
+		out, err := change(slices.Clone(next.Rec.Jobs))
+		if err != nil {
+			return err
+		}
+		next.Rec.Jobs = slices.Clone(out)
 		return nil
 	})
 }

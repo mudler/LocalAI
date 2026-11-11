@@ -59,7 +59,11 @@ type chatRow struct {
 	AllowedTools string `gorm:"type:text"` // JSON list of the tool names of a sub-agent
 	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
 	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
-	EgressRev    int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
+	// Jobs and JobsRev came after the table existed: the defaults fill the
+	// rows of chats made before, so AutoMigrate is their migration.
+	Jobs      string `gorm:"type:text;not null;default:''"` // JSON list of session.JobStub
+	JobsRev   int64  `gorm:"not null;default:0"`            // bumped by UpdateJobs; its row lock
+	EgressRev int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
 	// Goal and GoalRev came after the table existed: the defaults fill the
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
@@ -304,6 +308,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 		rec.Goal = &g
+	}
+	if r.Jobs != "" {
+		if err := json.Unmarshal([]byte(r.Jobs), &rec.Jobs); err != nil {
+			return rec, err
+		}
 	}
 	if r.HostConsent != "" {
 		var c session.HostConsent
@@ -689,6 +698,39 @@ func (s *gormStore) UpdateEgress(ctx context.Context, principal, id string, chan
 			out = string(b)
 		}
 		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("egress", out).Error
+	})
+}
+
+func (s *gormStore) UpdateJobs(ctx context.Context, principal, id string, change func([]session.JobStub) ([]session.JobStub, error)) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// As in UpdateGoal: the bump takes the row lock, so a second node's
+		// change waits and then reads what this one wrote.
+		if _, err := lock(tx, principal, id, "jobs_rev"); err != nil {
+			return err
+		}
+		var raw string
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("jobs").Row().Scan(&raw); err != nil {
+			return err
+		}
+		var cur []session.JobStub
+		if raw != "" {
+			if err := json.Unmarshal([]byte(raw), &cur); err != nil {
+				return err
+			}
+		}
+		next, err := change(cur)
+		if err != nil {
+			return err
+		}
+		out := ""
+		if len(next) > 0 {
+			b, err := json.Marshal(next)
+			if err != nil {
+				return err
+			}
+			out = string(b)
+		}
+		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("jobs", out).Error
 	})
 }
 

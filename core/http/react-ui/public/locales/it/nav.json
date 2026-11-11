@@ -128,5 +128,11 @@
   "inboxArrivedMany_one": "{{count}} nuova notifica",
   "inboxArrivedMany_other": "{{count}} nuove notifiche",
   "updatesBadge_one": "{{count}} aggiornamento ha bisogno di te",
-  "updatesBadge_other": "{{count}} aggiornamenti hanno bisogno di te"
+  "updatesBadge_other": "{{count}} aggiornamenti hanno bisogno di te",
+  "inboxOps_one": "{{count}} operazione in corso",
+  "inboxOps_other": "{{count}} operazioni in corso",
+  "inboxOpsFailed_one": "{{count}} operazione non riuscita",
+  "inboxOpsFailed_other": "{{count}} operazioni non riuscite",
+  "inboxOpsFailedAnnounce": "Un'operazione non è riuscita. Guarda la scheda Attività nelle notifiche.",
+  "activityEntry": "Attività"
 }

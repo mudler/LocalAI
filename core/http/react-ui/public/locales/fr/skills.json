@@ -84,7 +84,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "Cette compétence est en lecture seule ici. Une compétence intégrée est fournie avec le serveur, et une compétence de vos fichiers se modifie dans Fichiers."
+    "readOnly": "Cette compétence est en lecture seule ici. Une compétence intégrée est fournie avec le serveur, et une compétence de vos fichiers se modifie dans Fichiers.",
+    "counter": "{{count}} sur {{max}}",
+    "nameInvalid": "Utilisez des minuscules, des chiffres et des tirets simples.",
+    "bodyHelp": "Rédigée en markdown. Un chat la lit lorsqu’une tâche correspond à la description."
   },
   "load": {
     "title": "Impossible de charger vos compétences."
@@ -97,5 +100,22 @@
     "done_other": "{{count}} skills importées",
     "scriptsStored": "Les scripts et les autres fichiers sont enregistrés tels quels. Les scripts sont enregistrés, jamais exécutés par l'import.",
     "newNote": "Elle reste marquée Nouvelle jusqu'à ce qu'un chat l'utilise."
+  },
+  "sort": {
+    "label": "Trier les compétences",
+    "name": "Nom, de A à Z",
+    "name-desc": "Nom, de Z à A",
+    "used": "Les plus utilisées",
+    "source": "Grouper par source"
+  },
+  "source": {
+    "label": "Afficher les compétences de",
+    "all": "Toutes les sources ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} compétence",
+    "countAll_other": "{{count}} compétences",
+    "countOf": "{{shown}} compétences sur {{total}}",
+    "menu": "Actions pour {{name}}"
   }
 }

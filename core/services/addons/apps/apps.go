@@ -247,6 +247,10 @@ type App struct {
 	// UserSettings are the per-person choices the add-on declares, from the
 	// verified manifest. The host keeps the answers; the add-on is not called.
 	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
+	// JobsTool is the tool that runs the background jobs of the add-on's
+	// commands (capabilities.executionProvider.jobs), or empty: the add-on
+	// cannot run them. Not part of the apps API.
+	JobsTool string `json:"-"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
@@ -395,6 +399,9 @@ func build(s Snapshot, admin bool) App {
 	a.ToolCount = len(m.Capabilities.Tools)
 	a.Tools = append(a.Tools, m.Capabilities.Tools[:min(a.ToolCount, MaxTools)]...)
 	a.Shadows = contract.ShadowedTools(m.Capabilities.ToolDefinitions)
+	if p := m.Capabilities.ExecutionProvider; p != nil && p.Jobs != nil {
+		a.JobsTool = p.Jobs.Tool
+	}
 	for _, d := range m.Capabilities.ToolDefinitions {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)

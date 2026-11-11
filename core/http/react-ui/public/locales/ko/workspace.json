@@ -214,13 +214,49 @@
         "defaultModel": {
           "label": "기본 모델",
           "help": "새 채팅이 시작될 때 사용하는 모델입니다."
+        },
+        "homeBackground": {
+          "label": "홈 배경",
+          "help": "홈 페이지 뒤에 색, 그라데이션 또는 내 파일의 이미지를 표시합니다. 다른 페이지는 그대로입니다."
+        },
+        "chatBackground": {
+          "label": "채팅 배경",
+          "help": "채팅 뒤에 색, 그라데이션 또는 내 파일의 이미지를 표시합니다. 다른 페이지는 그대로입니다."
         }
       }
     },
     "saveInvalid": "일부 값이 올바르지 않습니다. 확인한 뒤 다시 저장하세요.",
     "saveTooLarge": "설정이 너무 커서 저장할 수 없습니다. 항목 몇 개를 지우고 다시 시도하세요.",
     "saveFailed": "저장하지 못했습니다. 다시 시도하세요.",
-    "details": "세부 정보"
+    "details": "세부 정보",
+    "bg": {
+      "kind": "배경 종류",
+      "kinds": {
+        "none": "없음",
+        "color": "색",
+        "gradient": "그라데이션",
+        "image": "이미지"
+      },
+      "color": "배경색",
+      "from": "시작",
+      "to": "끝",
+      "angle": "각도: {{n}}도",
+      "imagePath": "내 파일에 있는 이미지 경로",
+      "choose": "이미지 선택",
+      "imageBad": "내 파일에 있는 png, jpg, webp, gif 또는 avif 파일의 경로를 앞의 슬래시와 .. 없이 입력하세요.",
+      "fit": "맞춤",
+      "fits": {
+        "cover": "페이지 채우기",
+        "contain": "이미지 전체 표시"
+      },
+      "opacity": "강도: {{n}}%",
+      "blur": "흐림: {{n}}px",
+      "overlay": "텍스트용 베일: {{n}}%",
+      "clear": "배경 제거",
+      "pickFailed": "폴더를 읽을 수 없습니다.",
+      "pickEmpty": "이미지나 폴더가 없습니다.",
+      "pickClose": "닫기"
+    }
   },
   "discovery": {
     "ex": {

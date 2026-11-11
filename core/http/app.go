@@ -306,9 +306,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 		}
 	}
 
-	// Set renderer
-	e.Renderer = renderEngine()
-
 	// Hide banner
 	e.HideBanner = true
 	e.HidePort = true

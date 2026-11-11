@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
+	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -70,6 +71,8 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			return session.TurnTools{}, err
 		}
 		tools := s.childAllowed(ctx, rec, &px)
+		// The job tool acts for the sub-agent, in the parent's sandbox.
+		tools = s.bindChildJobs(px.Actor(), a, tools)
 		var prompt, work, workNote string
 		cmds := s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools)
 		if cmds.State != CommandsAvailable {
@@ -480,7 +483,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 
 	if !wait {
 		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
-		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
+		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message. To be woken if it goes quiet, use wait_for with job %q and until \"stall\".", childID, childID), nil
 	}
 	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait.get())
 	if errors.Is(err, errChildHeld) {
@@ -585,7 +588,7 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 				kept = append(kept, t)
 			}
 		}
-		return kept, nil
+		return withoutOrphanJob(kept), nil
 	}
 	byName := make(map[string]session.Tool, len(have))
 	for _, t := range have {
@@ -599,7 +602,7 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 		}
 		out = append(out, t)
 	}
-	return out, nil
+	return withoutOrphanJob(out), nil
 }
 
 // registerChild records a running sub-agent, refusing a background one past
@@ -771,6 +774,8 @@ func (s *Service) notifyWaiters(k string, status store.TurnStatus) {
 	for _, w := range ws {
 		w <- status
 	}
+	// The run of a sub-agent reached its parent: its jobs end.
+	s.endAgentRun(k)
 }
 
 // childResult is what the parent's tool call returns for a finished sub-agent.
@@ -842,6 +847,12 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 	if !st.Finished() {
 		return
 	}
+	if s.agentWaitArmed(ctx, a.Principal, a.ChatID, childID) {
+		// A wait of the parent on this sub-agent wakes it with the result
+		// (endAgentRun made it due): a second message would wake the parent
+		// again for the same end.
+		return
+	}
 	msg := fmt.Sprintf("[Sub-agent finished: %s]\n%s", title, s.finalText(ctx, childID))
 	if _, err := s.send(ctx, a.Principal, a.ChatID, session.Message{Text: msg}); err != nil {
 		s.log.Warn("studio: could not tell the parent that a sub-agent finished", "chat", a.ChatID, "error", err)
@@ -878,4 +889,19 @@ func truncate(s string, n int) string {
 // hasTool says whether the list has a tool of that name.
 func hasTool(tools []session.Tool, name string) bool {
 	return slices.ContainsFunc(tools, func(t session.Tool) bool { return t.Name == name })
+}
+
+// agentWaitArmed says whether the chat has a wait on the sub-agent that has
+// not woken it yet, so that the end of the sub-agent already has a wake-up.
+func (s *Service) agentWaitArmed(ctx context.Context, owner, chat, child string) bool {
+	if s.loops == nil {
+		return false
+	}
+	list, err := s.loops.o.Store.ListChat(ctx, principal(owner), chat)
+	if err != nil {
+		return false
+	}
+	return slices.ContainsFunc(list, func(l loops.Loop) bool {
+		return l.Watch != nil && l.Watch.Agent && l.Watch.Job == child && l.Watch.Wake == "" && l.State.Live()
+	})
 }

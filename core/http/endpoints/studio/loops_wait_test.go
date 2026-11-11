@@ -50,6 +50,37 @@ var _ = Describe("a wait in the loops list", func() {
 		}
 	})
 
+	It("names a job by its id and label, in words that never carry a command", func() {
+		l := base()
+		l.Watch.Tool, l.Watch.Args = "", nil
+		l.Watch.Job, l.Watch.JobLabel, l.Watch.Node = "job-ab12cd", "build", "node-a"
+		l.Watch.Mode = loops.UntilStall
+		l.Watch.Idle = 10 * time.Minute
+		l.Prompt = "Wait for " + l.Watch.Describe()
+		out := loopJSON(l)
+		Expect(out.Watch.SourceKind).To(Equal("job"))
+		Expect(out.Watch.Source).To(Equal(`job-ab12cd "build"`))
+		Expect(out.Watch.Mode).To(Equal("stall"))
+		Expect(out.Watch.Condition).To(Equal("the job writes no output for 10m"))
+		Expect(out.Prompt).To(Equal("Wait for job job-ab12cd to go quiet for 10m"))
+		l.Watch.Mode = loops.UntilExit
+		Expect(loopJSON(l).Watch.Condition).To(Equal("the job exits"))
+	})
+
+	It("names a wait on a sub-agent as a sub-agent, not as a job", func() {
+		l := base()
+		l.Watch.Tool, l.Watch.Args = "", nil
+		l.Watch.Job, l.Watch.Agent = "agent-9ab2", true
+		l.Watch.Mode = loops.UntilStall
+		l.Watch.Idle = time.Minute
+		out := loopJSON(l)
+		Expect(out.Watch.SourceKind).To(Equal("agent"))
+		Expect(out.Watch.Source).To(Equal("agent-9ab2"))
+		Expect(out.Watch.Condition).To(Equal("the sub-agent makes no progress for 1m"))
+		l.Watch.Mode = loops.UntilExit
+		Expect(loopJSON(l).Watch.Condition).To(Equal("the sub-agent finishes"))
+	})
+
 	It("names a script by its kind and never shows its command", func() {
 		l := base()
 		l.Prompt = "Wait for " + (&loops.Watch{Script: "x", Mode: loops.UntilExitZero}).Describe()

@@ -214,13 +214,49 @@
         "defaultModel": {
           "label": "Modelo predeterminado",
           "help": "El modelo con el que empieza un chat nuevo."
+        },
+        "homeBackground": {
+          "label": "Fondo de Inicio",
+          "help": "Un color, un degradado o una imagen de tus archivos detrás de la página de inicio. Las demás páginas no cambian."
+        },
+        "chatBackground": {
+          "label": "Fondo del chat",
+          "help": "Un color, un degradado o una imagen de tus archivos detrás de tus chats. Las demás páginas no cambian."
         }
       }
     },
     "saveInvalid": "Algunos valores no son válidos. Revísalos y guarda de nuevo.",
     "saveTooLarge": "Estos ajustes son demasiado grandes para guardarlos. Quita algunas entradas e inténtalo de nuevo.",
     "saveFailed": "No se pudo guardar. Inténtalo de nuevo.",
-    "details": "Detalles"
+    "details": "Detalles",
+    "bg": {
+      "kind": "Tipo de fondo",
+      "kinds": {
+        "none": "Ninguno",
+        "color": "Color",
+        "gradient": "Degradado",
+        "image": "Imagen"
+      },
+      "color": "Color de fondo",
+      "from": "Desde",
+      "to": "Hasta",
+      "angle": "Ángulo: {{n}} grados",
+      "imagePath": "Ruta de la imagen en tus archivos",
+      "choose": "Elegir una imagen",
+      "imageBad": "Usa la ruta de un archivo png, jpg, webp, gif o avif de tus archivos, sin barra inicial y sin ..",
+      "fit": "Ajuste",
+      "fits": {
+        "cover": "Llenar la página",
+        "contain": "Mostrar la imagen entera"
+      },
+      "opacity": "Intensidad: {{n}} %",
+      "blur": "Desenfoque: {{n}} px",
+      "overlay": "Velo para el texto: {{n}} %",
+      "clear": "Quitar el fondo",
+      "pickFailed": "No se pudo leer la carpeta.",
+      "pickEmpty": "Aquí no hay imágenes ni carpetas.",
+      "pickClose": "Cerrar"
+    }
   },
   "discovery": {
     "ex": {

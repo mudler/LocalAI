@@ -198,6 +198,15 @@ func (s *Service) runHostBash(ctx context.Context, a workspace.Actor, run func(c
 // that tells the model why the command did not run; err is set only when the
 // turn was stopped. A wait on a script asks here once, when it is armed.
 func (s *Service) approveHostExec(ctx context.Context, a workspace.Actor, command string) (outcome, refusal string, err error) {
+	return s.approveHostExecCard(ctx, a, command, false)
+}
+
+// approveHostExecCard is approveHostExec for a command that may start a
+// background job. The yes of a job's start covers the input the model writes
+// to the job later (one card per input would make a job that reads input
+// unusable), so the card of a job says so below the command, in the person's
+// language.
+func (s *Service) approveHostExecCard(ctx context.Context, a workspace.Actor, command string, job bool) (outcome, refusal string, err error) {
 	outcome = "ran"
 	switch s.hostExecMode() {
 	case hostexec.ModeOff:
@@ -213,7 +222,7 @@ func (s *Service) approveHostExec(ctx context.Context, a workspace.Actor, comman
 			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "denied"})
 			return "", fmt.Sprintf("Not run: the command is longer than %d bytes, too long for the user to read before they allow it. Do not try again as it is; split it into shorter commands, or put the script in a file first.", hostExecCardLimit), nil
 		}
-		switch d := s.askHostExec(ctx, a, command); d {
+		switch d := s.askHostExec(ctx, a, command, job); d {
 		case HostExecOnce:
 			outcome = "once"
 		case "stopped":
@@ -234,7 +243,7 @@ func (s *Service) approveHostExec(ctx context.Context, a workspace.Actor, comman
 // before it goes on the chat bus; the call wakes on the message, or finds the
 // answer when it reads the card again every two seconds, as the network card
 // does, so a lost message does not cost the person's click.
-func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command string) string {
+func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command string, job bool) string {
 	id := newID()
 	k := key(a.Principal, a.ChatID)
 	wake, cancel := s.listenConsent(k, func(m ControlMsg) bool { return m.HostExec != nil && m.HostExec.ID == id })
@@ -244,7 +253,7 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 	// asked, so a card that a dead frontend leaves behind is not taken for a
 	// waiting one.
 	turn := consentTurn(s.chatTurn(ctx, a.Principal, a.ChatID))
-	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command, Turn: turn, AskedAt: s.now().UTC()})
+	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command, Job: job, Turn: turn, AskedAt: s.now().UTC()})
 	defer s.clearHostConsent(context.WithoutCancel(ctx), a.Principal, a.ChatID, id)
 	s.bus.Publish(k, session.Event{Kind: session.KindHostExecConsent, IDs: []string{id}, Text: command})
 	decision := ""
@@ -406,12 +415,22 @@ func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec sessio
 // cannot now is left out: bash serves instead, and the Tools menu says so.
 func (s *Service) applyBuiltins(tools []session.Tool, built []builtins.Built) []session.Tool {
 	var add []session.Tool
+	var job *session.Tool
 	for _, b := range built {
-		if b.OK {
+		switch {
+		case !b.OK:
+		case b.ID == jobTool:
+			// Offered below, exactly when the list has bash.
+			t := b.Tool
+			job = &t
+		default:
 			add = append(add, b.Tool)
 		}
 	}
 	tools = withBuiltins(tools, add...)
+	if job != nil {
+		tools = withJobTool(tools, *job)
+	}
 	if providerOf(tools, "bash") != BuiltinProvider {
 		return tools
 	}

@@ -403,6 +403,38 @@ type ChatsConversationDetail struct {
 	HostConsent *ChatsHostConsent `json:"host_consent,omitempty"`
 	// Loops are the loops of the chat, oldest first (GET /api/chats/{id}/loops).
 	Loops []ChatsLoop `json:"loops"`
+	// Jobs are the background jobs of the chat and of its sub-agents, running
+	// ones first (POST /api/chats/{id}/jobs/{job}/kill stops one).
+	Jobs []ChatsJob `json:"jobs"`
+}
+
+// ChatsJob is a background job that the model started with the job tool, as the
+// person's list shows it. It never carries the command, the output or the node.
+type ChatsJob struct {
+	ID    string `json:"id"`
+	Label string `json:"label,omitempty"`
+	// Chat is the chat that started the job: this chat, or one of its
+	// sub-agents. Agent is set for a sub-agent's job.
+	Chat  string `json:"chat"`
+	Agent bool   `json:"agent,omitempty"`
+	// Provider is "builtin" (this machine) or the id of the add-on that runs it.
+	Provider string `json:"provider"`
+	// State is starting, running, ending, exited, killed, failed or lost (the
+	// node that ran it is gone).
+	State string `json:"state"`
+	// End says why a finished job ended: exit, killed, stopped, lifetime,
+	// chat_deleted, shell_off, group_off, fenced, sandbox_remade, agent_ended,
+	// shutdown or start_failed.
+	End string `json:"end,omitempty"`
+	// Exit is the exit status of a finished job (128 plus n for signal n);
+	// -1 when it is not known.
+	Exit    int        `json:"exit"`
+	Started time.Time  `json:"started"`
+	Ended   *time.Time `json:"ended,omitempty"`
+	// LastOutput is when a running job last wrote output; Bytes is how much it
+	// wrote. Both are absent when the node that runs it did not answer.
+	LastOutput *time.Time `json:"last_output,omitempty"`
+	Bytes      int64      `json:"bytes,omitempty"`
 }
 
 // ChatsLoop is a loop of a chat: a prompt the chat sends to itself again, at
@@ -447,12 +479,13 @@ type ChatsWait struct {
 	Phase string `json:"phase"`
 	// Reason is the line the model gave for the wait.
 	Reason string `json:"reason,omitempty"`
-	// SourceKind is "tool", "url" or "script". Source is the name of the tool,
-	// the host and path of the URL without the query, or "a script": the text
-	// of a command is never in this object.
+	// SourceKind is "tool", "url", "script", "job" or "agent". Source is the
+	// name of the tool, the host and path of the URL without the query, "a
+	// script", the id and label of the job, or the id of the background
+	// sub-agent: the text of a command is never in this object.
 	SourceKind string `json:"source_kind"`
 	Source     string `json:"source"`
-	// Mode is change, match, json_equals or exit_zero; Condition says it in
+	// Mode is change, match, json_equals, exit_zero, exit or stall; Condition says it in
 	// words.
 	Mode      string `json:"mode"`
 	Condition string `json:"condition"`
@@ -494,6 +527,8 @@ type ChatsLoopStateRequest struct {
 // ChatsLoopList is the loops of a chat.
 type ChatsLoopList struct {
 	Loops []ChatsLoop `json:"loops"`
+	// Jobs are the background jobs of the chat and of its sub-agents.
+	Jobs []ChatsJob `json:"jobs"`
 }
 
 // ChatsLoopMark names the loop run that sent a user line.
@@ -506,6 +541,9 @@ type ChatsLoopMark struct {
 type ChatsHostConsent struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
+	// Job is set when the command starts a background job of the `job` tool:
+	// allowing it also allows the input the model writes to that job later.
+	Job bool `json:"job,omitempty"`
 }
 
 // ChatsSendRequest is a message to a conversation.
@@ -1336,6 +1374,10 @@ type ChatsHostExecEvent struct {
 	DurationMS int64     `json:"duration_ms"`
 	TimedOut   bool      `json:"timed_out,omitempty"`
 	At         time.Time `json:"at"`
+	// Kind is run (a command of bash, also when empty), job_start, job_input,
+	// job_kill or job_end. Job is the job id on the lines of a background job.
+	Kind string `json:"kind,omitempty"`
+	Job  string `json:"job,omitempty"`
 }
 
 // ChatsHostExecEventList is the audit of the commands, newest first.

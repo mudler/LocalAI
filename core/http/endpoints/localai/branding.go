@@ -61,13 +61,10 @@ type BrandingResponse struct {
 }
 
 // brandingAssetURL returns the URL the UI should use for a given asset kind:
-// the dynamic /branding/asset/:kind route when an upload is set, or the
-// bundled default otherwise.
-func brandingAssetURL(kind, file string) string {
-	if file != "" {
-		return "/branding/asset/" + kind
-	}
-	return brandingDefaultURLs[kind]
+// the dynamic /branding/asset/:kind route (with a cache-busting version) when
+// an upload is set, or the bundled default otherwise.
+func brandingAssetURL(appConfig *config.ApplicationConfig, kind, file string) string {
+	return appConfig.BrandingAssetURL(kind, file, brandingDefaultURLs[kind])
 }
 
 // GetBrandingEndpoint exposes the public branding configuration. It is
@@ -87,9 +84,9 @@ func GetBrandingEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 		return c.JSON(http.StatusOK, BrandingResponse{
 			InstanceName:      b.InstanceName,
 			InstanceTagline:   b.InstanceTagline,
-			LogoURL:           brandingAssetURL("logo", b.LogoFile),
-			LogoHorizontalURL: brandingAssetURL("logo_horizontal", b.LogoHorizontalFile),
-			FaviconURL:        brandingAssetURL("favicon", b.FaviconFile),
+			LogoURL:           brandingAssetURL(appConfig, "logo", b.LogoFile),
+			LogoHorizontalURL: brandingAssetURL(appConfig, "logo_horizontal", b.LogoHorizontalFile),
+			FaviconURL:        brandingAssetURL(appConfig, "favicon", b.FaviconFile),
 		})
 	}
 }
@@ -250,9 +247,9 @@ func UploadBrandingAssetEndpoint(appConfig *config.ApplicationConfig) echo.Handl
 		return c.JSON(http.StatusOK, BrandingResponse{
 			InstanceName:      appConfig.Branding.InstanceName,
 			InstanceTagline:   appConfig.Branding.InstanceTagline,
-			LogoURL:           brandingAssetURL("logo", appConfig.Branding.LogoFile),
-			LogoHorizontalURL: brandingAssetURL("logo_horizontal", appConfig.Branding.LogoHorizontalFile),
-			FaviconURL:        brandingAssetURL("favicon", appConfig.Branding.FaviconFile),
+			LogoURL:           brandingAssetURL(appConfig, "logo", appConfig.Branding.LogoFile),
+			LogoHorizontalURL: brandingAssetURL(appConfig, "logo_horizontal", appConfig.Branding.LogoHorizontalFile),
+			FaviconURL:        brandingAssetURL(appConfig, "favicon", appConfig.Branding.FaviconFile),
 		})
 	}
 }
@@ -293,9 +290,9 @@ func DeleteBrandingAssetEndpoint(appConfig *config.ApplicationConfig) echo.Handl
 		return c.JSON(http.StatusOK, BrandingResponse{
 			InstanceName:      appConfig.Branding.InstanceName,
 			InstanceTagline:   appConfig.Branding.InstanceTagline,
-			LogoURL:           brandingAssetURL("logo", appConfig.Branding.LogoFile),
-			LogoHorizontalURL: brandingAssetURL("logo_horizontal", appConfig.Branding.LogoHorizontalFile),
-			FaviconURL:        brandingAssetURL("favicon", appConfig.Branding.FaviconFile),
+			LogoURL:           brandingAssetURL(appConfig, "logo", appConfig.Branding.LogoFile),
+			LogoHorizontalURL: brandingAssetURL(appConfig, "logo_horizontal", appConfig.Branding.LogoHorizontalFile),
+			FaviconURL:        brandingAssetURL(appConfig, "favicon", appConfig.Branding.FaviconFile),
 		})
 	}
 }

@@ -294,3 +294,33 @@
 .wk-details { margin-top: 6px; }
 .wk-details summary { width: max-content; cursor: pointer; }
 .wk-details ul { margin-top: 4px; }
+
+/* Background fields of the Appearance tab */
+.wk-bg { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.wk-bg__row { display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
+.wk-bg__row > .dk-input { flex: 1 1 200px; min-width: 0; }
+.wk-bg__stack { display: flex; flex-direction: column; gap: var(--sp-2); }
+.wk-bg__tune { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.wk-bg__small { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-xs); color: var(--color-text-muted); }
+.wk-bg__small input[type="range"] { width: 100%; }
+.wk-bg__grow { flex: 1 1 160px; }
+.wk-bg__preview { position: relative; height: 96px; overflow: hidden; border-radius: var(--r-md); border: 1px solid var(--color-border-card); background: var(--dk-canvas); isolation: isolate; }
+.wk-bgpick { border: 1px solid var(--color-border-card); border-radius: var(--r-md); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); background: var(--color-bg-primary); }
+.wk-bgpick__path { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.wk-bgpick__list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sp-2); }
+.wk-bgpick__note { grid-column: 1 / -1; font-size: var(--text-sm); color: var(--color-text-muted); }
+.wk-bgpick__item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px; border: 1px solid var(--color-border-card); border-radius: var(--r-md); background: var(--color-bg-secondary); color: inherit; font: inherit; font-size: var(--text-sm); cursor: pointer; text-align: left; }
+.wk-bgpick__item:hover { border-color: var(--dk-accent-text); }
+.wk-bgpick__item img { width: 36px; height: 36px; object-fit: cover; border-radius: var(--r-sm); flex-shrink: 0; }
+.wk-bgpick__item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 520px) {
+  .wk-bg__tune { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The backgrounds of ui.json (homeBackground, chatBackground): a layer under
+   the content of the page, and the preview in the Appearance tab. The scrim is
+   the page colour, so the text keeps its contrast in the light and the dark
+   theme. */
+.bg-layer { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.bg-layer__art { position: absolute; }
+.bg-layer__scrim { position: absolute; inset: 0; background: var(--dk-canvas); }

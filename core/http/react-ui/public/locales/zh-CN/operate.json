@@ -67,6 +67,26 @@
       "upgrade_failed": "Update failed. Check the owner logs for details.",
       "interrupted": "Update interrupted by owner shutdown or restart. It was not replayed.",
       "recovery_required": "Update interrupted. Data recovery is required before this add-on can run."
-    }
+    },
+    "cancel": "取消",
+    "cancelLabel": "取消 {{name}}",
+    "cancelling": "除非撤销，否则将取消",
+    "cancellingToast": "正在取消 {{name}}",
+    "cancelNow": "立即取消",
+    "undo": "撤销",
+    "retry": "重试",
+    "retryLabel": "重试 {{name}}",
+    "dismissLabel": "忽略 {{name}}",
+    "moveToHistory": "移入历史记录",
+    "progressLabel": "{{name}} 的进度",
+    "toNode": "到 {{node}}",
+    "phase": {
+      "resolving": "正在解析文件",
+      "downloading": "正在下载",
+      "verifying": "正在校验",
+      "committing": "正在完成",
+      "persisting": "正在保存配置"
+    },
+    "retryFailed": "重试失败：{{message}}"
   }
 }

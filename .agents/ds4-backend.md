@@ -191,5 +191,5 @@ disables the Go-side automatic tool-parsing fallback (the C++ backend emits
 ChatDelta.tool_calls natively via `DsmlParser`).
 
 ds4 is also listed in `core/http/endpoints/localai/backend.go`'s pref-only
-slice so the `/import-model` UI surfaces it as a manual choice for users who
+slice so the import page (`/app/import-model`) surfaces it as a manual choice for users who
 want to force the backend on a non-canonical URI.

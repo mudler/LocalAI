@@ -416,6 +416,7 @@
       "deny": "Ne pas exécuter",
       "alwaysHint": "« Toujours sur cette instance » laisse les chats de tous les utilisateurs exécuter des commandes ici sans demander (Paramètres > Outils).",
       "askAdmin": "Seul un administrateur peut autoriser des commandes sur cette machine. Demandez à l'un d'eux, ou exécutez la commande vous-même.",
+      "job": "Ceci lance un job en arrière-plan. Il continue après cet appel, et l'autoriser autorise aussi les entrées que le modèle lui écrit ensuite, sans redemander.",
       "expired": "Sans réponse : le tour qui l'a demandé est terminé, la commande n'a donc pas été exécutée."
     },
     "provider": {
@@ -742,6 +743,39 @@
           "addons": "modules complémentaires"
         }
       }
+    },
+    "tabs": {
+      "label": "Notifications et activité",
+      "notifications": "Notifications",
+      "activity": "Activité"
+    },
+    "ops": {
+      "needsAttention": "À traiter",
+      "inProgress": "En cours",
+      "seeAll": "Voir toute l'activité",
+      "waiting": "En attente",
+      "node": "Nœud {{current}} sur {{total}}",
+      "emptyTitle": "Rien en cours",
+      "emptyBody": "Les installations, mises à jour et suppressions apparaissent ici pendant leur exécution, et un jour après.",
+      "title": {
+        "installing": "Installation de {{name}}",
+        "upgrading": "Mise à jour de {{name}}",
+        "removing": "Suppression de {{name}}",
+        "staging": "Transfert de {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Impossible d'installer {{name}}",
+        "upgrading": "Impossible de mettre à jour {{name}}",
+        "removing": "Impossible de supprimer {{name}}",
+        "staging": "Impossible de transférer {{name}}"
+      },
+      "recent": {
+        "title": "Récents",
+        "installed": "{{name}} installé",
+        "upgraded": "{{name}} mis à jour",
+        "removed": "{{name}} supprimé",
+        "staged": "{{name}} transféré"
+      }
     }
   },
   "change": {
@@ -905,14 +939,17 @@
       "sources": {
         "tool": "outil {{name}}",
         "url": "{{name}}",
-        "script": "un script"
+        "script": "un script",
+        "job": "{{name}}",
+        "agent": "sous-agent {{name}}"
       },
       "end": {
         "met": "Terminé : la condition est remplie",
         "failing_one": "Arrêtée : la source a échoué {{count}} fois de suite",
         "failing_other": "Arrêtée : la source a échoué {{count}} fois de suite",
         "timedOut": "Délai dépassé, la condition n'a pas été remplie",
-        "stopped": "Attente arrêtée"
+        "stopped": "Attente arrêtée",
+        "jobGone": "Arrêtée : le job a disparu avec son nœud"
       },
       "waking": {
         "met": "La condition est remplie. Le modèle est sollicité pour la suite.",
@@ -942,6 +979,46 @@
         "stopAll": "Tout arrêter",
         "title_one": "{{count}} attente",
         "title_other": "{{count}} attentes"
+      }
+    },
+    "job": {
+      "stop": "Arrêter",
+      "details": "Détails du job",
+      "done_one": "{{count}} job terminé",
+      "done_other": "{{count}} jobs terminés",
+      "runTime": "en cours depuis {{span}}",
+      "ranFor": "a duré {{span}}",
+      "lastOutput": "dernière sortie il y a {{ago}}",
+      "endedAgo": "terminé il y a {{ago}}",
+      "byAgent": "lancé par un sous-agent",
+      "where": {
+        "machine": "sur cette machine",
+        "sandbox": "en isolation"
+      },
+      "status": {
+        "starting": "Démarrage",
+        "running": "En cours",
+        "ending": "Arrêt en cours",
+        "stalled": "En cours, aucune sortie depuis {{span}}",
+        "lost": "Perdu : son nœud a disparu",
+        "notStarted": "Impossible à démarrer",
+        "killed": "Tué (kill)",
+        "stopped": "Arrêté par vous",
+        "ended": "Terminé",
+        "exitedOk": "Terminé, statut 0",
+        "exitedCode": "Terminé avec le statut {{code}}",
+        "exitedUnknown": "Terminé, statut inconnu"
+      },
+      "end": {
+        "lifetime": "Terminé : limite de durée atteinte",
+        "chat_deleted": "Terminé : la conversation a été supprimée",
+        "shell_off": "Terminé : les commandes ont été désactivées",
+        "group_off": "Terminé : les outils de commande ont été désactivés pour cette conversation",
+        "fenced": "Terminé : cette conversation ne peut plus exécuter de commandes",
+        "sandbox_remade": "Terminé : son environnement a été recréé",
+        "agent_ended": "Terminé : son sous-agent a fini",
+        "shutdown": "Terminé : le serveur s'est arrêté",
+        "start_failed": "Impossible à démarrer"
       }
     }
   },

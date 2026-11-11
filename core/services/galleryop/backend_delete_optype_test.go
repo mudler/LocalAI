@@ -96,6 +96,16 @@ var _ = Describe("backend removal persistence", func() {
 		Expect(inFlight("job-del").OpType).To(Equal("backend_delete"))
 	})
 
+	It("records an upgrade as an upgrade", func() {
+		svc.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 "job-upgrade",
+			GalleryElementName: "vllm",
+			Upgrade:            true,
+		})
+
+		Expect(inFlight("job-upgrade").OpType).To(Equal("backend_upgrade"))
+	})
+
 	It("still records an install as an install", func() {
 		svc.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 "job-install",

@@ -183,7 +183,7 @@
   display: inline-grid;
   place-items: center;
   background: oklch(0.5 0.1 var(--ad-h));
-  color: #fff;
+  color: var(--dk-on-accent);
   font-size: var(--fs-body);
   font-weight: 600;
   line-height: 1;

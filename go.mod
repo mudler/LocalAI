@@ -41,13 +41,12 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/mholt/archives v0.1.5
-	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/mudler/cogito v0.11.1-0.20261106211749-0fc4e5761794
 	github.com/mudler/edgevpn v0.34.0
 	github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
-	github.com/mudler/nib v0.15.3-0.20261109233850-1fe2571bb959
+	github.com/mudler/nib v0.15.3-0.20261110074256-15b2af46c5d9
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/jwt/v2 v2.7.4
 	github.com/nats-io/nats.go v1.52.0
@@ -62,7 +61,6 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.23.2
 	github.com/qdrant/go-client v1.17.1
-	github.com/russross/blackfriday v1.6.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/schollz/progressbar/v3 v3.19.0
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -97,6 +95,7 @@ require (
 	github.com/bodgit/sevenzip v1.6.1 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mikelolasagasti/xz v1.0.1 // indirect
 	github.com/minio/minlz v1.0.1 // indirect
 	github.com/nwaples/rardecode/v2 v2.2.0 // indirect

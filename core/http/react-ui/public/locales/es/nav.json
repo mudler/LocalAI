@@ -128,5 +128,11 @@
   "inboxArrivedMany_one": "{{count}} notificación nueva",
   "inboxArrivedMany_other": "{{count}} notificaciones nuevas",
   "updatesBadge_one": "{{count}} actualización te necesita",
-  "updatesBadge_other": "{{count}} actualizaciones te necesitan"
+  "updatesBadge_other": "{{count}} actualizaciones te necesitan",
+  "inboxOps_one": "{{count}} operación en curso",
+  "inboxOps_other": "{{count}} operaciones en curso",
+  "inboxOpsFailed_one": "{{count}} operación fallida",
+  "inboxOpsFailed_other": "{{count}} operaciones fallidas",
+  "inboxOpsFailedAnnounce": "Una operación falló. Mira la pestaña Actividad en Notificaciones.",
+  "activityEntry": "Actividad"
 }

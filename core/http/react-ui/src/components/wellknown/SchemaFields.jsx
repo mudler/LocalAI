@@ -1,6 +1,8 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { checkField } from '../../utils/wellKnown'
+import BackgroundField from './BackgroundField'
 
 // Common language tags for the language field. The value is free text in the
 // file; a tag that is not here still shows, as its own option.
@@ -69,11 +71,14 @@ export default function SchemaFields({ name, fields, values, onChange, notes = {
         )
         break
       }
+      case 'background':
+        control = <BackgroundField id={id} name={name} bgKey={f.key} value={values?.[f.key]} disabled={disabled} describedBy={describedBy} onChange={v => onChange(f.key, v)} />
+        break
       case 'color':
         control = (
           <span className="wk-color">
-            <input type="color" className="wk-color__swatch" aria-label={label} value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#3f9a91'} disabled={disabled} onChange={e => onChange(f.key, e.target.value)} />
-            <input {...common} type="text" className="dk-input dk-mono" value={value} maxLength={7} placeholder="#3f9a91" onChange={e => onChange(f.key, e.target.value)} />
+            <input type="color" className="wk-color__swatch" aria-label={label} value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#4a5aa0'} disabled={disabled} onChange={e => onChange(f.key, e.target.value)} />
+            <input {...common} type="text" className="dk-input dk-mono" value={value} maxLength={7} placeholder="#4a5aa0" onChange={e => onChange(f.key, e.target.value)} />
           </span>
         )
         break

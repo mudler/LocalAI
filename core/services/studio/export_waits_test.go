@@ -30,3 +30,11 @@ func (s *Service) SetOriginForTest(ctx context.Context, user, conv, origin strin
 	rec.Origin = origin
 	return s.d.Store.UpdateChat(ctx, rec)
 }
+
+// FastSandboxWatchForTest shortens the poll of the Sandbox jobs that a wait
+// watches. It returns the undo.
+func FastSandboxWatchForTest(every time.Duration) func() {
+	p := sandboxWatchEvery.get()
+	sandboxWatchEvery.set(every)
+	return func() { sandboxWatchEvery.set(p) }
+}

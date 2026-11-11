@@ -37,7 +37,30 @@ type Event struct {
 	DurationMS int64     `json:"duration_ms"`
 	TimedOut   bool      `json:"timed_out,omitempty"`
 	At         time.Time `json:"at"`
+	// Kind says what the line records: KindRun (empty reads as it), or one of
+	// the kinds of a background job. Job is the job id for a job line.
+	Kind string `json:"kind,omitempty"`
+	Job  string `json:"job,omitempty"`
 }
+
+// The kinds of an audit line. A command of the model's bash is KindRun.
+const (
+	KindRun      = "run"
+	KindJobStart = "job_start"
+	KindJobInput = "job_input"
+	KindJobKill  = "job_kill"
+	KindJobEnd   = "job_end"
+)
+
+// The kinds of the lines of a background job that runs in the Sandbox add-on,
+// not on this machine. They are kept apart from the kinds above so that a line
+// never claims a command ran on this machine when it ran in a sandbox. Each
+// fits the width of the Kind column.
+const (
+	KindSandboxJobStart = "sbx_job_start"
+	KindSandboxJobInput = "sbx_job_input"
+	KindSandboxJobKill  = "sbx_job_kill"
+)
 
 // AuditStore keeps the audit of the commands.
 type AuditStore interface {
@@ -57,12 +80,16 @@ type eventRow struct {
 	DurationMS int64
 	TimedOut   bool
 	At         time.Time `gorm:"index"`
+	// Kind and Job came after the table existed: nullable columns, so
+	// AutoMigrate adds them and older rows read as a plain run.
+	Kind string `gorm:"size:16"`
+	Job  string `gorm:"size:32"`
 }
 
 func (eventRow) TableName() string { return "studio_host_exec_events" }
 
 func (r eventRow) event() Event {
-	return Event{User: r.User, Chat: r.Chat, Command: r.Command, Exit: r.Exit, DurationMS: r.DurationMS, TimedOut: r.TimedOut, At: r.At.UTC()}
+	return Event{User: r.User, Chat: r.Chat, Command: r.Command, Exit: r.Exit, DurationMS: r.DurationMS, TimedOut: r.TimedOut, At: r.At.UTC(), Kind: r.Kind, Job: r.Job}
 }
 
 type gormAudit struct{ db *gorm.DB }
@@ -79,7 +106,7 @@ func NewGORMAudit(db *gorm.DB) (AuditStore, error) {
 }
 
 func (g *gormAudit) Add(ctx context.Context, ev Event) error {
-	r := eventRow{User: ev.User, Chat: ev.Chat, Command: ev.Command, Exit: ev.Exit, DurationMS: ev.DurationMS, TimedOut: ev.TimedOut, At: ev.At.UTC()}
+	r := eventRow{User: ev.User, Chat: ev.Chat, Command: ev.Command, Exit: ev.Exit, DurationMS: ev.DurationMS, TimedOut: ev.TimedOut, At: ev.At.UTC(), Kind: ev.Kind, Job: ev.Job}
 	return g.db.WithContext(ctx).Create(&r).Error
 }
 

@@ -29,6 +29,72 @@
       "maxLength": 200,
       "x-ui": { "widget": "model" }
     },
+    "homeBackground": {
+      "type": "object",
+      "title": "Home background",
+      "description": "The look behind the Home page: a colour, a gradient or a picture from your files. Layers stack in that order. Only Home changes.",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "A solid colour such as #1e293b.",
+          "pattern": "^$|^#[0-9a-fA-F]{6}$"
+        },
+        "gradient": {
+          "type": "object",
+          "description": "A linear gradient between two colours.",
+          "properties": {
+            "from": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "to": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "angle": { "type": "integer", "minimum": 0, "maximum": 360, "description": "Degrees. 180 runs from top to bottom." }
+          },
+          "required": ["from", "to"]
+        },
+        "image": {
+          "type": "string",
+          "description": "The path of a picture in your files, without a leading slash, such as Pictures/sky.jpg. A png, jpg, jpeg, webp, gif or avif file. No .. and no address.",
+          "maxLength": 400,
+          "pattern": "^$|^[^/\\\\:?#][^\\\\:?#]*$"
+        },
+        "fit": { "enum": ["cover", "contain"], "description": "cover fills the page; contain shows the whole picture." },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "description": "How strong the background is, 0 to 1. Default 1." },
+        "blur": { "type": "integer", "minimum": 0, "maximum": 40, "description": "Blur in pixels. Default 0." },
+        "overlay": { "type": "number", "minimum": 0, "maximum": 1, "description": "A veil in the colour of the theme that keeps the text readable, 0 to 1. Default 0.55 for a picture, 0.35 for a gradient, 0 for a colour." }
+      },
+      "x-ui": { "widget": "background" }
+    },
+    "chatBackground": {
+      "type": "object",
+      "title": "Chat background",
+      "description": "The look behind the chat view: a colour, a gradient or a picture from your files. Layers stack in that order. Only the chat changes.",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "A solid colour such as #1e293b.",
+          "pattern": "^$|^#[0-9a-fA-F]{6}$"
+        },
+        "gradient": {
+          "type": "object",
+          "description": "A linear gradient between two colours.",
+          "properties": {
+            "from": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "to": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+            "angle": { "type": "integer", "minimum": 0, "maximum": 360, "description": "Degrees. 180 runs from top to bottom." }
+          },
+          "required": ["from", "to"]
+        },
+        "image": {
+          "type": "string",
+          "description": "The path of a picture in your files, without a leading slash, such as Pictures/sky.jpg. A png, jpg, jpeg, webp, gif or avif file. No .. and no address.",
+          "maxLength": 400,
+          "pattern": "^$|^[^/\\\\:?#][^\\\\:?#]*$"
+        },
+        "fit": { "enum": ["cover", "contain"], "description": "cover fills the page; contain shows the whole picture." },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "description": "How strong the background is, 0 to 1. Default 1." },
+        "blur": { "type": "integer", "minimum": 0, "maximum": 40, "description": "Blur in pixels. Default 0." },
+        "overlay": { "type": "number", "minimum": 0, "maximum": 1, "description": "A veil in the colour of the theme that keeps the text readable, 0 to 1. Default 0.8 for a picture, 0.6 for a gradient, 0 for a colour." }
+      },
+      "x-ui": { "widget": "background" }
+    },
     "pinnedPages": {
       "type": "array",
       "description": "Pages shown in the sidebar. Pages come in a later release.",

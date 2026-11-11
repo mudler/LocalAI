@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './components/Sidebar'
-import OperationsBar from './components/OperationsBar'
 import { ToastContainer, useToast } from './components/Toast'
 import { systemApi } from './utils/api'
 import { useTheme } from './contexts/ThemeContext'
@@ -127,7 +126,6 @@ export default function App() {
         <AppearanceSync />
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} features={features} />
         <main className="main-content" {...(sidebarOpen ? { 'aria-hidden': 'true', inert: '' } : {})}>
-          <OperationsBar />
           {/* Mobile header — primary actions reachable without opening the
               drawer. Hamburger is the only way to expand the nav on phones;
               theme toggle and account avatar are mirrored from the sidebar

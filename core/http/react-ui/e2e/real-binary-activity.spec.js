@@ -34,13 +34,19 @@ test('a real failed install lands in Needs attention with the real error and a R
   await expect(card.locator('.operation-card__retry')).toBeVisible()
 })
 
-test('the strip shows the real failure on one line and does not widen the page', async ({ page }) => {
+test('the inbox entry wears the red ring and the Activity tab pins the real failure, without widening the page', async ({ page }) => {
   await page.goto('/app/activity')
 
-  const strip = page.locator('.operations-strip')
-  await expect(strip).toHaveCount(1)
-  await expect(strip).toHaveClass(/operations-strip--error/)
-  await expect(strip.locator('.operations-strip__name')).toHaveText(MISSING)
+  const ring = page.getByTestId('inbox-ring')
+  await expect(ring).toHaveAttribute('data-failed', 'true', { timeout: 20_000 })
+  await expect(page.getByTestId('inbox-ring-dot')).toBeVisible()
+  await expect(page.locator('.operations-strip')).toHaveCount(0)
+
+  await page.getByTestId('nav-inbox').click()
+  const failed = page.getByRole('dialog', { name: 'Notifications' }).getByTestId('inbox-op-failed').filter({ hasText: MISSING })
+  await expect(failed).toBeVisible()
+  await expect(failed).toContainText('no model found with name')
+  await expect(failed.getByTestId('inbox-op-retry')).toBeVisible()
 
   const box = await page.evaluate(() => ({
     scroll: document.documentElement.scrollWidth,

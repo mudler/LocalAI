@@ -9,6 +9,12 @@ import { useWellKnown, loadSchema } from '../../hooks/useWellKnown'
 import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText, wellKnownProblem, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import './wellKnown.css'
 
+// shown is a value as the conflict note lists it: text as it is, an object as JSON.
+function shown(v) {
+  if (v === undefined || v === null) return ''
+  return typeof v === 'object' ? JSON.stringify(v) : String(v)
+}
+
 function timeLabel(d, locale) {
   try { return d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }) } catch { return '' }
 }
@@ -246,8 +252,8 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
           <div>
             <p>{t('wellKnown.conflict')}</p>
             <dl className="wk-diff">
-              {fields.filter(f => (conflict.data || {})[f.key] !== values[f.key]).map(f => (
-                <div key={f.key}><dt>{t(`wellKnown.fields.${name}.${f.key}.label`, { defaultValue: f.label })}</dt><dd>{String((conflict.data || {})[f.key] ?? '')}</dd></div>
+              {fields.filter(f => JSON.stringify((conflict.data || {})[f.key] ?? null) !== JSON.stringify(values[f.key] ?? null)).map(f => (
+                <div key={f.key}><dt>{t(`wellKnown.fields.${name}.${f.key}.label`, { defaultValue: f.label })}</dt><dd>{shown((conflict.data || {})[f.key])}</dd></div>
               ))}
             </dl>
             <div className="wk-actions">

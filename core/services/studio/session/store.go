@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
@@ -139,6 +140,29 @@ type ChatRecord struct {
 	// Goal is the chat's persistent objective, or nil. The store's UpdateGoal
 	// changes it; UpdateChat leaves it alone, like the switches.
 	Goal *Goal
+	// Jobs is the index of the chat's background jobs: where each runs and
+	// how it stands. The process that runs a job writes its stub at the start
+	// and at the end (the store's UpdateJobs); UpdateChat leaves it alone,
+	// like the switches. The command never goes in it.
+	Jobs []JobStub
+}
+
+// JobStub is the line of the shared index of the background jobs of a chat.
+// It tells the list, the interface and the routing which jobs a chat has and
+// which node runs each; the output and the process are on that node only.
+type JobStub struct {
+	ID string `json:"id"`
+	// Instance is the node that runs the job, or "addon:<id>@<incarnation>"
+	// for a job of the Sandbox add-on.
+	Instance string `json:"instance"`
+	// Provider is "builtin" or the id of the add-on.
+	Provider string          `json:"provider"`
+	Label    string          `json:"label,omitempty"`
+	State    bgjob.State     `json:"state"`
+	End      bgjob.EndReason `json:"end,omitempty"`
+	Exit     int             `json:"exit,omitempty"`
+	Started  time.Time       `json:"started"`
+	Ended    time.Time       `json:"ended,omitzero"`
 }
 
 // HostConsent is a consent card that waits for an answer: ID is what the
@@ -146,6 +170,9 @@ type ChatRecord struct {
 type HostConsent struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
+	// Job is set when the command starts a background job: the yes also
+	// covers the input the model writes to the job later.
+	Job bool `json:"job,omitempty"`
 	// Turn is the turn that asked and AskedAt when. The card waits only while
 	// that turn holds the chat; one left by a frontend that died is expired.
 	Turn    string    `json:"turn,omitempty"`

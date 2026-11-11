@@ -251,6 +251,20 @@
     "cancel": "Batal",
     "stop": "Berhenti setelah node ini",
     "listLabel": "Node yang akan diperbarui",
+    "titleAll_one": "Mulai {{count}} pembaruan?",
+    "titleAll_other": "Mulai {{count}} pembaruan?",
+    "confirmPlus_one": "{{label}}, ditambah {{count}} lainnya",
+    "confirmPlus_other": "{{label}}, ditambah {{count}} lainnya",
+    "othersTitle": "Juga dimulai saat Anda mengonfirmasi",
+    "othersLabel": "Pembaruan lain yang akan dimulai",
+    "othersIntro": "Ini tidak berjalan di node. Pembaruan dimulai satu per satu saat Anda mengonfirmasi. Add-on berhenti selama datanya dicadangkan dan dimigrasikan. Jika versi baru tidak mulai, versi saat ini tetap berjalan.",
+    "otherKind": {
+      "addon": "Add-on",
+      "library": "Backend pustaka",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Pustaka {{library}}",
+    "otherOriginChannel": "Pustaka {{library}}, kanal {{channel}}",
     "runningNote": "Berhenti mencegah node yang belum mulai agar tidak dimulai."
   }
 }

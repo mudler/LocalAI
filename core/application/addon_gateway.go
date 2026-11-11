@@ -793,6 +793,15 @@ func (l lateStudioAddons) CancelHeld(ctx context.Context, user, id string) error
 	return gateway.ErrUnavailable
 }
 
+// CallJobs runs the jobs tool of an add-on (see studio.AddonJobCaller).
+func (l lateStudioAddons) CallJobs(ctx context.Context, user, conv, addonID string, args contract.JobArgs) (contract.JobReply, error) {
+	b, ok := l.a.StudioAddonTools().(studio.AddonJobCaller)
+	if !ok {
+		return contract.JobReply{}, gateway.ErrUnavailable
+	}
+	return b.CallJobs(ctx, user, conv, addonID, args)
+}
+
 func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	b := l.a.StudioAddonTools()
 	if b == nil {
@@ -1179,6 +1188,20 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 		return "", err
 	}
 	return studioAddonText(ctx, res), nil
+}
+
+// CallJobs runs the jobs tool of an add-on for a chat (see
+// studio.AddonJobCaller). The call is bound to the chat as Call binds it.
+func (s *studioAddons) CallJobs(ctx context.Context, user, conv, addonID string, args contract.JobArgs) (contract.JobReply, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return contract.JobReply{}, err
+	}
+	r, err := s.adapter.ExecuteJobs(ctx, actor, addontools.NewChatCall(user, conv), addonID, args)
+	if errors.Is(err, addontools.ErrNoJobs) {
+		return contract.JobReply{}, studio.ErrAddonNoJobs
+	}
+	return r, err
 }
 
 // HeldState says where the stored proposal of the user is.

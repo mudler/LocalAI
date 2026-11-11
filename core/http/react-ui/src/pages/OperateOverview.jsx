@@ -151,7 +151,7 @@ export default function OperateOverview() {
                   </div>
                   <div className="op-item__acts">
                     {item.kind === 'backend-update' && (
-                      <Link className="dk-btn dk-btn--secondary dk-btn--sm" to="/app/updates?filter=ready" data-testid="operate-review-updates">{tu('row.review')}</Link>
+                      <Link className="dk-btn dk-btn--secondary dk-btn--sm" to={item.ready ? '/app/updates?filter=ready' : '/app/updates?filter=needs-you'} data-testid="operate-review-updates">{tu('row.review')}</Link>
                     )}
                     {item.kind === 'operation-failed' && op && (
                       <>

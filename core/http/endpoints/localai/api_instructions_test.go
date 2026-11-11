@@ -148,6 +148,16 @@ var _ = Describe("API Instructions Endpoints", func() {
 			Expect(string(body)).To(ContainSubstring("agent, a saved agent"))
 		})
 
+		It("describes the background jobs of a chat and their stop route", func() {
+			req := httptest.NewRequest(http.MethodGet, "/api/instructions/chats", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			body, _ := io.ReadAll(rec.Body)
+			Expect(string(body)).To(ContainSubstring("GET .../{id}/loops and GET /api/chats/{id} also give jobs"))
+			Expect(string(body)).To(ContainSubstring("POST /api/chats/{id}/jobs/{job}/kill"))
+		})
+
 		It("should include intro text for instructions that have one", func() {
 			req := httptest.NewRequest(http.MethodGet, "/api/instructions/chat-inference", nil)
 			rec := httptest.NewRecorder()

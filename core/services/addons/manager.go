@@ -1351,7 +1351,7 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 		if m.admin == nil || m.admin(ctx, actor) != nil {
 			return OperationStatus{}, ErrForbidden
 		}
-		if view.Actor != actor {
+		if !sameOperationOwner(view.Actor, actor) {
 			return OperationStatus{}, ErrOperationNotFound
 		}
 		if err := ctx.Err(); err != nil {
@@ -1377,7 +1377,7 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 		return OperationStatus{}, ErrForbidden
 	}
 	op, ok := m.journal.Operations[id]
-	if !ok || op.Actor.UserID == "" || op.Actor.CredentialID == "" || (op.Actor.Mode != "named-user" && op.Actor.Mode != "local-owner") || op.Actor != actor {
+	if !ok || op.Actor.UserID == "" || op.Actor.CredentialID == "" || (op.Actor.Mode != "named-user" && op.Actor.Mode != "local-owner") || !sameOperationOwner(op.Actor, actor) {
 		return OperationStatus{}, ErrOperationNotFound
 	}
 	result := OperationStatus{OperationID: id, AddonID: op.Status.AddonID, Phase: op.Status.Phase, Generation: op.Status.Generation, RuntimeState: "not-observed", HostOperations: copyRequestSummary(op.Status.HostOperations)}
@@ -1388,6 +1388,14 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 }
 
 var ErrOperationNotFound = errors.New("addon lifecycle operation not found")
+
+// sameOperationOwner says whether a reader owns an operation. The owner is the
+// user, not the credential: a browser session id changes at every login, so
+// comparing it would hide the operation of an earlier session from the same
+// administrator. Another user still gets the answer for a missing operation.
+func sameOperationOwner(owner, reader contract.Actor) bool {
+	return owner.Mode == reader.Mode && owner.UserID == reader.UserID
+}
 
 // Apps returns the apps the actor may see. The owner decides who is an
 // administrator from its own check, never from the request; a check that
@@ -1595,6 +1603,10 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	if c.ExecutionProvider != nil {
 		p := *c.ExecutionProvider
 		p.Tools = slices.Clone(p.Tools)
+		if p.Jobs != nil {
+			j := *p.Jobs
+			p.Jobs = &j
+		}
 		out.ExecutionProvider = &p
 	}
 	if c.HostOperations != nil {

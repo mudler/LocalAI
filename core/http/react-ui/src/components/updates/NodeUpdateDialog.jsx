@@ -14,10 +14,14 @@ import './node-updates.css'
 // plainly when the registry names none: the record is best effort and an
 // empty list does not prove that nothing stops.
 //
+// `others` are the rows of the same "Update ready" press that do not run on
+// nodes (add-ons, library or single machine backends). They start when this
+// dialog is confirmed, so the confirm step lists each one with its versions.
+//
 // The same dialog is used from the per-node view, from the Nodes page and
 // from the page of one node. It confirms first, then shows each node's result
 // as it ends, one node after another.
-export default function NodeUpdateDialog({ entries, onClose, onSettled, onStart }) {
+export default function NodeUpdateDialog({ entries, others = [], onClose, onSettled, onStart }) {
   const { t } = useTranslation('updates')
   const nu = useNodeUpdateRun({ entries, onSettled })
   const { run, running, summary } = nu
@@ -40,8 +44,11 @@ export default function NodeUpdateDialog({ entries, onClose, onSettled, onStart 
     ? t('node.stops', { models: e.models.join(', ') })
     : t('node.noneRecorded'))
 
+  const extra = others.length
   let title
-  if (phase === 'confirm') {
+  if (phase === 'confirm' && extra > 0) {
+    title = t('node.titleAll', { count: totals.backends + extra })
+  } else if (phase === 'confirm') {
     title = multi
       ? t('node.titleMany', { count: totals.backends, nodes: t('node.nodes', { count: totals.nodes }) })
       : t('node.title', { backend: entries[0] ? entries[0].backend : '', count: totals.nodes })
@@ -59,6 +66,13 @@ export default function NodeUpdateDialog({ entries, onClose, onSettled, onStart 
   if (kind === 'known') confirmLabel = t('node.confirmStop', { count: totals.nodes, models: models(totals.models) })
   else if (kind === 'partial') confirmLabel = t('node.confirmStopAtLeast', { count: totals.nodes, models: models(totals.models) })
   else confirmLabel = t('node.confirmPlain', { count: totals.nodes })
+
+  if (extra > 0) confirmLabel = t('node.confirmPlus', { label: confirmLabel, count: extra })
+
+  const originOf = (o) => {
+    if (o.kind === 'gallery' || !o.sourceId) return ''
+    return o.channel ? t('node.otherOriginChannel', { library: o.sourceId, channel: o.channel }) : t('node.otherOrigin', { library: o.sourceId })
+  }
 
   let foot
   if (phase === 'confirm') {
@@ -126,6 +140,23 @@ export default function NodeUpdateDialog({ entries, onClose, onSettled, onStart 
             )
           })}
         </ul>
+        {phase === 'confirm' && extra > 0 && (
+          <section className="nu-others" aria-labelledby="nu-others-title" data-testid="node-update-others">
+            <h3 className="nu-others__title" id="nu-others-title">{t('node.othersTitle')} <span className="nu-others__count">{extra}</span></h3>
+            <p className="nu-others__intro">{t('node.othersIntro')}</p>
+            <ul className="nu-list" aria-label={t('node.othersLabel')}>
+              {others.map((o) => (
+                <li key={o.id} className="nu-item" data-testid="node-update-other" data-item={o.id} data-kind={o.kind}>
+                  <div className="nu-item__main">
+                    <strong className="nu-item__name">{o.name}</strong>
+                    <span className="nu-item__backend">{[t(`node.otherKind.${o.kind}`), originOf(o)].filter(Boolean).join(' · ')}</span>
+                    <span className="nu-item__versions">{t('row.versions', { from: o.from || '?', to: o.to || '?' })}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {phase === 'confirm' && <p className="nu-total" data-testid="node-update-total">{stopLine} {t('node.sequence')}</p>}
         {phase === 'running' && (
           <p className="nu-total" role="status" data-testid="node-update-progress">

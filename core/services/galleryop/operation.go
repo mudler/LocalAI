@@ -74,7 +74,11 @@ type ManagementOp[T any, E any] struct {
 }
 
 type OpStatus struct {
-	Deletion           bool    `json:"deletion"` // Deletion is true if the operation is a deletion
+	Deletion bool `json:"deletion"` // Deletion is true if the operation is a deletion
+	// Upgrade is true if the operation re-installs a backend to move it to a
+	// newer build. Without it an upgrade reads as an install: the UI needs the
+	// difference for its wording and for what Retry has to call.
+	Upgrade            bool    `json:"upgrade,omitempty"`
 	FileName           string  `json:"file_name"`
 	Error              error   `json:"-"` // see MarshalJSON: serialized to "error" as a string
 	Processed          bool    `json:"processed"`
@@ -106,6 +110,7 @@ type OpStatus struct {
 // reconstructs it on read.
 type opStatusWire struct {
 	Deletion           bool           `json:"deletion"`
+	Upgrade            bool           `json:"upgrade,omitempty"`
 	FileName           string         `json:"file_name"`
 	ErrorMessage       string         `json:"error,omitempty"`
 	Processed          bool           `json:"processed"`
@@ -125,6 +130,7 @@ type opStatusWire struct {
 func (o OpStatus) MarshalJSON() ([]byte, error) {
 	w := opStatusWire{
 		Deletion:           o.Deletion,
+		Upgrade:            o.Upgrade,
 		FileName:           o.FileName,
 		Processed:          o.Processed,
 		Message:            o.Message,
@@ -151,6 +157,7 @@ func (o *OpStatus) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	o.Deletion = w.Deletion
+	o.Upgrade = w.Upgrade
 	o.FileName = w.FileName
 	o.Processed = w.Processed
 	o.Message = w.Message
@@ -539,6 +546,8 @@ func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
 	if status != nil {
 		if status.Deletion {
 			rec.TaskType = "deletion"
+		} else if status.Upgrade {
+			rec.TaskType = TaskUpgrade
 		}
 		switch {
 		case status.Error != nil:

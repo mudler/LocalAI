@@ -1203,6 +1203,12 @@ button.cx-step__head:hover,
   box-shadow: inset 0 0 0 1px var(--dk-edge);
 }
 .cx-nomodel h2 { margin: 0; font-family: var(--font-sans); font-size: 15px; font-weight: 650; letter-spacing: 0; }
+.cx-nomodel__head { display: flex; align-items: center; gap: var(--sp-4); }
+.cx-nomodel__head > div { min-width: 0; }
+.cx-nomodel__head p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: var(--fs-small); }
+@media (max-width: 480px) {
+  .cx-nomodel__mascot { display: none; }
+}
 .cx-nomodel > p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: 14px; }
 .cx-nomodel .home-starters { margin-top: 0; }
 .cx-nomodel__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
@@ -1444,8 +1450,12 @@ button.cx-step__head:hover,
 .cx-wait__facts { display: flex; flex-wrap: wrap; gap: 0 var(--sp-4); margin: 0; padding: 0 0 0 calc(1em + var(--sp-2)); list-style: none; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 .cx-wait__fact { min-width: 0; overflow-wrap: anywhere; }
 .cx-wait__fact--error { flex: 1 1 100%; color: var(--dk-error-text); }
+/* A background job: the card of a wait, with its id in the code font. */
+.cx-job__id code { font-family: var(--font-mono); font-size: inherit; color: var(--dk-muted); }
 @media (max-width: 640px) {
   .cx-wait__facts { flex-direction: column; }
+  /* A job has short facts: they wrap in rows, so four jobs do not fill a phone. */
+  .cx-job .cx-wait__facts { flex-direction: row; column-gap: var(--sp-3); }
 }
 /* Three or more waits that still wait fold into one chip that opens to the
    cards. The head is a wait card with a toggle and Stop all side by side. */
@@ -2115,3 +2125,26 @@ html[data-handoff='fade']::view-transition-new(root) {
 .cx-hostnote__label { color: var(--color-text-secondary); font-weight: 600; }
 .cx-hostnote__text, .cx-hostnote__more { min-width: 0; overflow-wrap: anywhere; }
 .cx-hostnote__count { font-variant-numeric: tabular-nums; }
+
+/* A background of ui.json (chatBackground) sits under the whole chat view. The
+   thread, which is long text, also gets a panel in the page colour, so the
+   messages, code blocks and tool cards read the same over a busy picture as on
+   the plain page, in the light and the dark theme. The veil of the layer
+   (overlay) sets how much of the picture shows around and through it. */
+.cx-conv:has(> .bg-layer) { isolation: isolate; }
+.cx-conv:has(> .bg-layer) .cx-thread {
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--dk-canvas) 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+/* The shortcuts, the message box and the status line under the thread get the
+   same panel, so their text reads over a picture too. */
+.cx-conv:has(> .bg-layer) .cx-dock__in {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--dk-canvas) 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}

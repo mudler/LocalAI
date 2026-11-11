@@ -1167,8 +1167,8 @@ func (i *Inference) identify(ctx context.Context, spec ClientToolSpec, model str
 	return &out, nil
 }
 
-// maxListedModels bounds what list_models returns: the tool result costs
-// tokens on every call.
+// maxListedModels is the default and the largest page of list_models: the
+// tool result costs tokens on every call.
 const maxListedModels = 60
 
 // maxModelDescription bounds the description of a listed model, in bytes.
@@ -1225,28 +1225,57 @@ func (i *Inference) ListModels(ctx context.Context, req ListModelsRequest) (*Mod
 		return nil, errors.New("the server returned no model list")
 	}
 	want := NormalizeCapability(req.Capability)
-	out := &ModelList{Models: []ModelInfo{}}
+	query := strings.ToLower(strings.TrimSpace(req.Query))
+	if req.Offset < 0 {
+		return nil, errors.New("offset must not be negative")
+	}
+	if req.Limit < 0 {
+		return nil, errors.New("limit must not be negative")
+	}
+	limit := req.Limit
+	if limit == 0 || limit > maxListedModels {
+		limit = maxListedModels
+	}
+	matched := []ModelInfo{}
 	for _, m := range in.Data {
 		if want != "" && !slices.Contains(m.Capabilities, want) {
 			continue
 		}
 		desc := strings.Join(strings.Fields(m.Description), " ")
+		if query != "" && !strings.Contains(strings.ToLower(m.ID), query) && !strings.Contains(strings.ToLower(desc), query) {
+			continue
+		}
 		if len(desc) > maxModelDescription {
 			desc = strings.ToValidUTF8(desc[:maxModelDescription], "") + "..."
 		}
-		out.Models = append(out.Models, ModelInfo{Name: m.ID, Capabilities: m.Capabilities, Description: desc})
+		matched = append(matched, ModelInfo{Name: m.ID, Capabilities: m.Capabilities, Description: desc})
 	}
-	sort.Slice(out.Models, func(a, b int) bool { return out.Models[a].Name < out.Models[b].Name })
-	if len(out.Models) > maxListedModels {
-		out.More = len(out.Models) - maxListedModels
-		out.Models = out.Models[:maxListedModels]
-	}
-	if len(out.Models) == 0 {
-		if want != "" {
-			out.Hint = fmt.Sprintf("no model with capability %q is available to this account. Call list_models without capability to see them all.", want)
-		} else {
-			out.Hint = "no model is available to this account. Tell the person; an administrator can install or allow one."
+	// Case-insensitive, so "Qwen-Image" and "qwen-image" sit together; the
+	// exact name breaks ties and keeps the order the same on every call.
+	sort.SliceStable(matched, func(a, b int) bool {
+		la, lb := strings.ToLower(matched[a].Name), strings.ToLower(matched[b].Name)
+		if la != lb {
+			return la < lb
 		}
+		return matched[a].Name < matched[b].Name
+	})
+	total := len(matched)
+	start := min(req.Offset, total)
+	end := min(start+limit, total)
+	out := &ModelList{Models: matched[start:end], Total: total, Offset: req.Offset, Returned: end - start, More: total - end}
+	switch {
+	case total == 0 && want != "" && query != "":
+		out.Hint = fmt.Sprintf("no model with capability %q matches query %q. Call list_models without query or capability to see more.", want, req.Query)
+	case total == 0 && want != "":
+		out.Hint = fmt.Sprintf("no model with capability %q is available to this account. Call list_models without capability to see them all.", want)
+	case total == 0 && query != "":
+		out.Hint = fmt.Sprintf("no model matches query %q. Call list_models without query to see them all.", req.Query)
+	case total == 0:
+		out.Hint = "no model is available to this account. Tell the person; an administrator can install or allow one."
+	case req.Offset >= total:
+		out.Hint = fmt.Sprintf("offset %d is past the end: %d models match. Call list_models again with offset=0, or a smaller offset.", req.Offset, total)
+	case out.More > 0:
+		out.Hint = fmt.Sprintf("showing %d-%d of %d; call list_models again with offset=%d to continue, or pass capability or query to narrow.", start+1, end, total, end)
 	}
 	return out, nil
 }

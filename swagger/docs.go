@@ -4663,7 +4663,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/host-exec/events": {
             "get": {
-                "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
+                "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the kind of line (run, or job_start, job_input, job_kill and job_end for a background job, with its job id), the command or the input (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
                 "tags": [
                     "chats"
                 ],
@@ -8275,6 +8275,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/pages/{name}/errors": {
+            "post": {
+                "description": "The UI calls this for an error that the script of the caller's own page threw (window.onerror or an unhandled rejection), caught by the frame. Nothing is added to a chat; the assistant reads the errors with its page_errors tool. The texts are cut, the browser's own noise (such as ResizeObserver loop) is dropped, the same error is counted once, and a page keeps its 10 newest errors until any of its files changes. A page that reports too fast gets 429. Shared pages have no such route: only the owner's own view records.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Report a runtime error of a page (bridge error capture).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the error",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesErrorRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "recorded is false for noise",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesErrorResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "No message",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such page of yours",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many reports",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/pages/{name}/file": {
             "get": {
                 "description": "With encoding=base64 the file must be an image (png, jpg, gif, webp, avif, bmp, ico or svg, by extension) and content is its bytes in base64. The UI uses it to put the images next to a page into the page as data: URLs; the bridge of a page reads text only.",
@@ -11208,6 +11261,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/jobs/{job}/kill": {
+            "post": {
+                "description": "Stops a job that the model started with the job tool (a build, a server): the process gets term, and kill after 10 seconds. The job ends with the reason \"stopped\". Only the owner of the chat may stop it. The job may belong to a sub-agent of the chat.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop a background job.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "job id",
+                        "name": "job",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The job after the signal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsJob"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation or job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The job has ended already",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/loops": {
             "get": {
                 "description": "A loop sends a prompt to its chat again and again, as a new message, at an interval or, when it has none, whenever the model asks for the next run. Ended loops stay listed with the reason until you remove them.",
@@ -11972,7 +12070,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/sandbox-profile": {
             "get": {
-                "description": "The profile the next command of the chat runs (the one you picked, else the saved agent's, else the administrator's default, else base), where it comes from, the profiles the Sandbox add-on offers with their tools and limits, whether the administrator's policy lets you use each one (allowed), and where the image of each is on the host (state: pulling shows percent). fallback is true when the next command cannot use the profile because its image failed or is missing, and runs base. newer_image is true when the running sandbox is older than the current image. applies is false when the commands of the chat run in no sandbox with profiles. Another user's chat is 404.",
+                "description": "The profile the next command of the chat runs (the one you picked, else the saved agent's, else the administrator's default, else media, else base), where it comes from, the profiles the Sandbox add-on offers with their tools and limits, whether the administrator's policy lets you use each one (allowed), and where the image of each is on the host (state: pulling shows percent). fallback is true when the next command cannot use the profile because its image failed or is missing, and runs base. newer_image is true when the running sandbox is older than the current image. applies is false when the commands of the chat run in no sandbox with profiles. Another user's chat is 404.",
                 "tags": [
                     "chats"
                 ],
@@ -19743,6 +19841,10 @@ const docTemplate = `{
                 },
                 "total_bytes": {
                     "type": "integer"
+                },
+                "upgrade": {
+                    "description": "Upgrade is true if the operation re-installs a backend to move it to a\nnewer build. Without it an upgrade reads as an install: the UI needs the\ndifference for its wording and for what Retry has to call.",
+                    "type": "boolean"
                 }
             }
         },
@@ -25534,6 +25636,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "jobs": {
+                    "description": "Jobs are the background jobs of the chat and of its sub-agents, running\nones first (POST /api/chats/{id}/jobs/{job}/kill stops one).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsJob"
+                    }
+                },
                 "kind": {
                     "description": "chat or subagent",
                     "type": "string"
@@ -26592,6 +26701,10 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "job": {
+                    "description": "Job is set when the command starts a background job of the ` + "`" + `job` + "`" + ` tool:\nallowing it also allows the input the model writes to that job later.",
+                    "type": "boolean"
                 }
             }
         },
@@ -26627,6 +26740,13 @@ const docTemplate = `{
                 },
                 "exit": {
                     "type": "integer"
+                },
+                "job": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is run (a command of bash, also when empty), job_start, job_input,\njob_kill or job_end. Job is the job id on the lines of a background job.",
+                    "type": "string"
                 },
                 "timed_out": {
                     "type": "boolean"
@@ -26683,6 +26803,53 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsJob": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "boolean"
+                },
+                "bytes": {
+                    "type": "integer"
+                },
+                "chat": {
+                    "description": "Chat is the chat that started the job: this chat, or one of its\nsub-agents. Agent is set for a sub-agent's job.",
+                    "type": "string"
+                },
+                "end": {
+                    "description": "End says why a finished job ended: exit, killed, stopped, lifetime,\nchat_deleted, shell_off, group_off, fenced, sandbox_remade, agent_ended,\nshutdown or start_failed.",
+                    "type": "string"
+                },
+                "ended": {
+                    "type": "string"
+                },
+                "exit": {
+                    "description": "Exit is the exit status of a finished job (128 plus n for signal n);\n-1 when it is not known.",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_output": {
+                    "description": "LastOutput is when a running job last wrote output; Bytes is how much it\nwrote. Both are absent when the node that runs it did not answer.",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider is \"builtin\" (this machine) or the id of the add-on that runs it.",
+                    "type": "string"
+                },
+                "started": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is starting, running, ending, exited, killed, failed or lost (the\nnode that ran it is gone).",
                     "type": "string"
                 }
             }
@@ -26754,6 +26921,13 @@ const docTemplate = `{
         "schema.ChatsLoopList": {
             "type": "object",
             "properties": {
+                "jobs": {
+                    "description": "Jobs are the background jobs of the chat and of its sub-agents.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsJob"
+                    }
+                },
                 "loops": {
                     "type": "array",
                     "items": {
@@ -29311,7 +29485,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "mode": {
-                    "description": "Mode is change, match, json_equals or exit_zero; Condition says it in\nwords.",
+                    "description": "Mode is change, match, json_equals, exit_zero, exit or stall; Condition says it in\nwords.",
                     "type": "string"
                 },
                 "next_check": {
@@ -29333,7 +29507,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source_kind": {
-                    "description": "SourceKind is \"tool\", \"url\" or \"script\". Source is the name of the tool,\nthe host and path of the URL without the query, or \"a script\": the text\nof a command is never in this object.",
+                    "description": "SourceKind is \"tool\", \"url\", \"script\", \"job\" or \"agent\". Source is the\nname of the tool, the host and path of the URL without the query, \"a\nscript\", the id and label of the job, or the id of the background\nsub-agent: the text of a command is never in this object.",
                     "type": "string"
                 }
             }
@@ -32799,6 +32973,40 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.PagesErrorRequest": {
+            "type": "object",
+            "properties": {
+                "column": {
+                    "type": "integer"
+                },
+                "count": {
+                    "description": "Count is how many times the frame saw this error since its last report.",
+                    "type": "integer"
+                },
+                "file": {
+                    "description": "File is the script file of the page that threw; empty for index.html.",
+                    "type": "string"
+                },
+                "line": {
+                    "description": "Line and Column are 0 when the browser gave none.",
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "stack": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesErrorResponse": {
+            "type": "object",
+            "properties": {
+                "recorded": {
+                    "type": "boolean"
                 }
             }
         },

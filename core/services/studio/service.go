@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
@@ -168,6 +169,9 @@ type Deps struct {
 	Instance string
 	// Replay carries those asks between processes. Nil in one process.
 	Replay ReplayCarrier
+	// JobCarrier carries the asks about a background job to the node that
+	// runs it (chats.jobs.<instance>). Nil in one process: every job is here.
+	JobCarrier bgjob.Carrier
 	// Files is the workspace of the chats. Nil or disabled: the chats have no
 	// files, and everything else works.
 	Files *files.Service
@@ -184,6 +188,10 @@ type Deps struct {
 	// PageConsents keeps the consents of the viewers of shared pages. Nil: an
 	// in-memory store, for a single process and tests.
 	PageConsents pages.ConsentStore
+	// PageErrors keeps the runtime errors of the pages, which the UI records
+	// and the page_errors tool reads. Nil: an in-memory store, for a single
+	// process and tests.
+	PageErrors pages.ErrorStore
 	// SharedFolderAudit keeps the audit of the shared folders. Nil: an
 	// in-memory audit, for a single process and tests.
 	SharedFolderAudit sharedfolders.AuditStore
@@ -200,6 +208,14 @@ type Deps struct {
 	Builtins *builtins.Registry
 	// HostExec runs the built-in bash on this machine. Nil: there is none.
 	HostExec HostExec
+	// Jobs reads the background jobs for wait_for with a job. It routes a read
+	// to the node that runs the job. Nil: this server has no background jobs,
+	// and a wait on a job is refused.
+	Jobs bgjob.Observer
+	// SandboxJobs runs the job tool of a chat whose bash an add-on serves,
+	// through the add-on's jobs tool. Nil: such a chat is told the add-on
+	// cannot run background jobs, and never gets the built-in instead.
+	SandboxJobs *SandboxJobs
 	// HostExecMode is the setting chats_host_exec as it applies now: off, ask
 	// or on. Nil: off.
 	HostExecMode func() string
@@ -404,7 +420,20 @@ type Service struct {
 	streams map[string]int
 	// stopServing ends the answers to replay asks (Deps.Replay); nil without.
 	stopServing func()
-	locks       map[string]*keyLock
+	// bgJobs reaches the background jobs of this process and, over Deps.JobCarrier,
+	// of the others; hostJobs is the job backend of the built-in bash; stopJobs
+	// ends the answers to the asks of other nodes. Per instance by design: a job
+	// is a process in the memory of one node, and the stubs on the chat record
+	// say which.
+	bgJobs   *bgjob.Router
+	hostJobs *hostJobBackend
+	stopJobs func()
+	// jobListeners are told of each job that starts or ends here (OnJobChange).
+	jobMu        sync.Mutex
+	jobListeners []func(bgjob.Info)
+	// sandboxWatch polls the live Sandbox jobs that a wait watches (jobobserver.go).
+	sandboxWatch sandboxWatch
+	locks        map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
 	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
@@ -522,6 +551,9 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerHostBash(); err != nil {
 		return nil, err
 	}
+	if err := s.registerJobTool(); err != nil {
+		return nil, err
+	}
 	if err := s.registerWebTools(); err != nil {
 		return nil, err
 	}
@@ -535,6 +567,13 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerHistoryTools(); err != nil {
+		return nil, err
+	}
+	if d.PageErrors == nil {
+		d.PageErrors, _ = pages.NewJSONErrors("")
+		s.d.PageErrors = d.PageErrors
+	}
+	if err := s.registerPageErrors(); err != nil {
 		return nil, err
 	}
 	if err := s.registerTriggerTools(); err != nil {
@@ -594,6 +633,10 @@ func New(d Deps) (*Service, error) {
 		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
 	}
 	if err := s.serveReplay(); err != nil {
+		return nil, err
+	}
+	s.setupJobs()
+	if err := s.serveJobs(); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -669,6 +712,9 @@ func (s *Service) Close(ctx context.Context) error {
 	}
 	if s.stopServing != nil {
 		s.stopServing()
+	}
+	if s.stopJobs != nil {
+		s.stopJobs()
 	}
 	limit := s.d.CloseTimeout
 	if limit < 0 {
@@ -999,6 +1045,10 @@ func (s *Service) ExtractLimits() files.ExtractLimits {
 
 // PageConsents returns the store of the consents to shared pages, or nil.
 func (s *Service) PageConsents() pages.ConsentStore { return s.d.PageConsents }
+
+// PageErrors returns the store of the runtime errors of the pages, shared by
+// the pages endpoints and the page_errors tool.
+func (s *Service) PageErrors() pages.ErrorStore { return s.d.PageErrors }
 
 // SharedPagesOn says whether the pages of shared folders are on now.
 func (s *Service) SharedPagesOn() bool { return s.d.SharedPagesOn == nil || s.d.SharedPagesOn() }
@@ -1848,13 +1898,17 @@ func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, model string,
 // session.ErrNotFound.
 func (s *Service) Delete(ctx context.Context, user, conv string) error {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
 		return err
 	}
 	if err := s.Stop(ctx, p, conv); err != nil {
 		return err
 	}
 	s.stopChildren(p, conv)
+	// The jobs end at once, on the nodes the stubs name; the sweep of each
+	// node is the backstop for one that cannot be reached.
+	s.endChatJobs(ctx, rec)
 	// A delete is the person's action: it needs no access of the chat, so a
 	// chat whose agent folder is missing can still be deleted.
 	if err := s.mgr.Delete(ctx, userChatActor(p, conv), conv); err != nil {

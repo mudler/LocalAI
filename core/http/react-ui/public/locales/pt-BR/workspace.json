@@ -214,13 +214,49 @@
         "defaultModel": {
           "label": "Modelo padrão",
           "help": "O modelo com que um novo chat começa."
+        },
+        "homeBackground": {
+          "label": "Plano de fundo da Início",
+          "help": "Uma cor, um gradiente ou uma imagem dos seus arquivos atrás da página Início. As outras páginas não mudam."
+        },
+        "chatBackground": {
+          "label": "Plano de fundo do chat",
+          "help": "Uma cor, um gradiente ou uma imagem dos seus arquivos atrás dos seus chats. As outras páginas não mudam."
         }
       }
     },
     "saveInvalid": "Alguns valores não são válidos. Confira e salve de novo.",
     "saveTooLarge": "Estas configurações são grandes demais para salvar. Remova algumas entradas e tente de novo.",
     "saveFailed": "Não foi possível salvar. Tente de novo.",
-    "details": "Detalhes"
+    "details": "Detalhes",
+    "bg": {
+      "kind": "Tipo de plano de fundo",
+      "kinds": {
+        "none": "Nenhum",
+        "color": "Cor",
+        "gradient": "Gradiente",
+        "image": "Imagem"
+      },
+      "color": "Cor de fundo",
+      "from": "De",
+      "to": "Para",
+      "angle": "Ângulo: {{n}} graus",
+      "imagePath": "Caminho da imagem nos seus arquivos",
+      "choose": "Escolher uma imagem",
+      "imageBad": "Use o caminho de um arquivo png, jpg, webp, gif ou avif dos seus arquivos, sem barra inicial e sem ..",
+      "fit": "Ajuste",
+      "fits": {
+        "cover": "Preencher a página",
+        "contain": "Mostrar a imagem inteira"
+      },
+      "opacity": "Intensidade: {{n}}%",
+      "blur": "Desfoque: {{n}} px",
+      "overlay": "Véu para o texto: {{n}}%",
+      "clear": "Remover o plano de fundo",
+      "pickFailed": "Não foi possível ler a pasta.",
+      "pickEmpty": "Não há imagens nem pastas aqui.",
+      "pickClose": "Fechar"
+    }
   },
   "discovery": {
     "ex": {

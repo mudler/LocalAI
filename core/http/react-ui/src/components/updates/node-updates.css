@@ -15,6 +15,10 @@
 .nu-item__state[data-phase="failed"] { color: var(--dk-error-text); }
 .nu-item__state[data-phase="upgrading"] { color: var(--dk-accent-text); }
 .nu-item__fail { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); font-size: var(--text-xs); color: var(--dk-error-text); overflow-wrap: anywhere; }
+.nu-others { display: flex; flex-direction: column; gap: var(--sp-2); }
+.nu-others__title { margin: 0; font-size: var(--text-sm); font-weight: var(--font-weight-semibold); }
+.nu-others__count { color: var(--dk-muted); font-weight: normal; }
+.nu-others__intro { margin: 0; font-size: var(--text-xs); color: var(--dk-muted); }
 .nu-total { margin: 0; font-size: var(--text-sm); color: var(--dk-text); }
 .nu-total[data-tone="error"] { color: var(--dk-error-text); }
 .nu-total[data-tone="ok"] { color: var(--dk-ok-text); }

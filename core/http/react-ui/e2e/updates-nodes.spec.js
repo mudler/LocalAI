@@ -391,9 +391,19 @@ test.describe('Updates: every path to a cluster backend asks first', () => {
     const button = page.getByTestId('updates-update-ready')
     await expect(button).toContainText('Update 3 ready')
     await button.click()
-    // The dialog lists the nodes only: the single-machine row and the add-on have no node to stop.
-    await expect(dialog(page).getByRole('heading', { name: 'Update llama-cpp on 2 nodes?' })).toBeVisible()
+    // The dialog lists the nodes, and apart from them the rows that start when it is confirmed.
+    await expect(dialog(page).getByRole('heading', { name: 'Start 3 updates?' })).toBeVisible()
     await expect(page.getByTestId('node-update-item')).toHaveCount(2)
+    await expect(page.getByTestId('node-update-other')).toHaveCount(2)
+    const others = page.getByTestId('node-update-others')
+    await expect(others).toContainText('whisper')
+    await expect(others).toContainText('v1.7.2 to v1.8.0')
+    await expect(others).toContainText('Notes sync')
+    await expect(others).toContainText('Add-on')
+    await expect(others).toContainText('Library official')
+    await expect(others).toContainText('v0.8.1 to v0.8.2')
+    await expect(others).toContainText('backed up and migrated')
+    await expect(page.getByTestId('node-update-confirm')).toContainText('plus 2 more')
     expect(state.api.upgrades).toEqual([])
     expect(addonPosts).toEqual([])
     await page.keyboard.press('Escape')
@@ -407,6 +417,14 @@ test.describe('Updates: every path to a cluster backend asks first', () => {
     await expect.poll(() => addonPosts.length, { timeout: 60_000 }).toBeGreaterThan(0)
     await expect(page.getByTestId('node-update-summary')).toHaveText('2 updated, 0 failed, 0 skipped', { timeout: 60_000 })
     expect(state.posts.map(p => p.id)).toEqual(['a', 'b'])
+  })
+
+  test('only node backends selected: the dialog has no other-updates section', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await expect(dialog(page).getByRole('heading', { name: 'Update llama-cpp on 2 nodes?' })).toBeVisible()
+    await expect(page.getByTestId('node-update-others')).toHaveCount(0)
   })
 
   test('rows without a cluster start at once, with no dialog', async ({ page }) => {

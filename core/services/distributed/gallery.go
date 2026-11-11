@@ -22,7 +22,7 @@ type GalleryOperationRecord struct {
 	GalleryElementName string    `gorm:"size:255" json:"gallery_element_name"`
 	CacheKey           string    `gorm:"index;size:512" json:"cache_key,omitempty"` // OpCache key (galleryID or node:<id>:<backend>)
 	IsBackendOp        bool      `json:"is_backend_op"`                             // true if installed via SetBackend
-	OpType             string    `gorm:"size:32" json:"op_type"`                    // "model_install", "model_delete", "backend_install", "backend_delete"
+	OpType             string    `gorm:"size:32" json:"op_type"`                    // "model_install", "model_delete", "backend_install", "backend_delete", "backend_upgrade"
 	Status             string    `gorm:"size:32;default:pending" json:"status"`     // pending, downloading, processing, completed, failed, cancelled
 	Progress           float64   `json:"progress"`                                  // 0.0 to 1.0
 	Phase              string    `gorm:"size:32" json:"phase,omitempty"`

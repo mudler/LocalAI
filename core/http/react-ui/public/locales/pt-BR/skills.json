@@ -84,7 +84,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "Esta habilidade é somente leitura aqui. Uma habilidade integrada vem com o servidor, e uma dos seus arquivos é alterada em Arquivos."
+    "readOnly": "Esta habilidade é somente leitura aqui. Uma habilidade integrada vem com o servidor, e uma dos seus arquivos é alterada em Arquivos.",
+    "counter": "{{count}} de {{max}}",
+    "nameInvalid": "Use letras minúsculas, dígitos e hifens simples.",
+    "bodyHelp": "Escrita em markdown. Um chat a lê quando uma tarefa corresponde à descrição."
   },
   "load": {
     "title": "Não foi possível carregar suas habilidades."
@@ -97,5 +100,22 @@
     "done_other": "{{count}} skills importadas",
     "scriptsStored": "Scripts e outros arquivos são guardados como estão. Scripts são só guardados, nunca executados pela importação.",
     "newNote": "Fica marcada como Nova até um chat usá-la."
+  },
+  "sort": {
+    "label": "Ordenar habilidades",
+    "name": "Nome, de A a Z",
+    "name-desc": "Nome, de Z a A",
+    "used": "Mais usadas",
+    "source": "Agrupar por origem"
+  },
+  "source": {
+    "label": "Mostrar habilidades de",
+    "all": "Todas as origens ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} habilidade",
+    "countAll_other": "{{count}} habilidades",
+    "countOf": "{{shown}} de {{total}} habilidades",
+    "menu": "Ações de {{name}}"
   }
 }

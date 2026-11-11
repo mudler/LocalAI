@@ -411,6 +411,9 @@ type VoiceProfileList struct {
 // ListModelsRequest is the input for list_models.
 type ListModelsRequest struct {
 	Capability string `json:"capability,omitempty" jsonschema:"image, tts, transcript, sound_generation, embeddings, detection, video, rerank, chat. Empty: all."`
+	Query      string `json:"query,omitempty"      jsonschema:"Part of a name or description."`
+	Offset     int    `json:"offset,omitempty"     jsonschema:"Models to skip."`
+	Limit      int    `json:"limit,omitempty"      jsonschema:"Page size, max 60."`
 }
 
 // ModelInfo is one model the acting user may use.
@@ -423,8 +426,15 @@ type ModelInfo struct {
 // ModelList is the result of list_models, by name.
 type ModelList struct {
 	Models []ModelInfo `json:"models"`
-	// More counts the models left out after the first maxListedModels.
+	// Total counts the models that match the filters, before paging.
+	Total int `json:"total"`
+	// Offset is the number of matching models skipped before this page.
+	Offset int `json:"offset"`
+	// Returned is the number of models in this page.
+	Returned int `json:"returned"`
+	// More counts the matching models after this page.
 	More int `json:"more,omitempty"`
-	// Hint says what to do when the list is empty.
+	// Hint names the next call when more models remain, and says what to do
+	// when the list is empty.
 	Hint string `json:"hint,omitempty"`
 }

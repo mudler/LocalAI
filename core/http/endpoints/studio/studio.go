@@ -61,7 +61,7 @@ type Handlers struct {
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	h := &Handlers{svc: svc, models: models, previews: newPreviewCache()}
 	if svc != nil {
-		h.pages = pages.New(svc.Files())
+		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()))
 		store := svc.PageConsents()
 		if store == nil {
 			store, _ = pages.NewJSONConsents("")
@@ -345,7 +345,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	// The card waits only while the turn that asked holds the chat; a card a
 	// dead frontend left, also under a later turn, is not shown.
 	if hc := h.svc.HostConsent(c.Request().Context(), user, rec, info); hc != nil {
-		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command}
+		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command, Job: hc.Job}
 	}
 	out.Loops = []schema.ChatsLoop{}
 	if host := h.svc.Loops(); host != nil {
@@ -355,6 +355,7 @@ func (h *Handlers) Get(c echo.Context) error {
 		}
 		out.Loops = loopsJSON(list)
 	}
+	out.Jobs = h.jobsOf(c, user, id)
 	return c.JSON(http.StatusOK, out)
 }
 

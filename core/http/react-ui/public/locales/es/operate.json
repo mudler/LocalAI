@@ -67,6 +67,26 @@
       "upgrade_failed": "Update failed. Check the owner logs for details.",
       "interrupted": "Update interrupted by owner shutdown or restart. It was not replayed.",
       "recovery_required": "Update interrupted. Data recovery is required before this add-on can run."
-    }
+    },
+    "cancel": "Cancelar",
+    "cancelLabel": "Cancelar {{name}}",
+    "cancelling": "Se cancela salvo que lo deshagas",
+    "cancellingToast": "Cancelando {{name}}",
+    "cancelNow": "Cancelar ahora",
+    "undo": "Deshacer",
+    "retry": "Reintentar",
+    "retryLabel": "Reintentar {{name}}",
+    "dismissLabel": "Descartar {{name}}",
+    "moveToHistory": "Mover al historial",
+    "progressLabel": "Progreso de {{name}}",
+    "toNode": "a {{node}}",
+    "phase": {
+      "resolving": "Resolviendo archivos",
+      "downloading": "Descargando",
+      "verifying": "Verificando",
+      "committing": "Finalizando",
+      "persisting": "Guardando la configuración"
+    },
+    "retryFailed": "Error al reintentar: {{message}}"
   }
 }

@@ -160,6 +160,11 @@ func (s *Service) EgressCheck(ctx context.Context, user, rid, op string, r egres
 	if err != nil {
 		return egress.Verdict{Action: egress.Block, Reason: "chat"}, err
 	}
+	if unattendedEgress(ctx) {
+		// A background job's connection while no turn runs: nobody can
+		// answer a card, so a host that needs the person's yes is blocked.
+		pol.chat.Attended = false
+	}
 	set, err := s.egressSettings(ctx)
 	if err != nil {
 		return egress.Verdict{Action: egress.Block, Reason: "policy_unavailable"}, err
@@ -175,6 +180,19 @@ func (s *Service) EgressCheck(ctx context.Context, user, rid, op string, r egres
 	line.Verdict, line.Reason = v.Action, v.Reason
 	s.auditEgress(ctx, line)
 	return v, err
+}
+
+type unattendedEgressKey struct{}
+
+// WithUnattendedEgress marks an egress check that no turn of the chat waits
+// on: the connection of a background job after the call that started it.
+func WithUnattendedEgress(ctx context.Context) context.Context {
+	return context.WithValue(ctx, unattendedEgressKey{}, true)
+}
+
+func unattendedEgress(ctx context.Context) bool {
+	v, _ := ctx.Value(unattendedEgressKey{}).(bool)
+	return v
 }
 
 // claimGrant ties a late "allow once" to the call that used it first, so it

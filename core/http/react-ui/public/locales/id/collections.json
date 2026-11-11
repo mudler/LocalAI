@@ -10,7 +10,8 @@
     "viewDetails": "Lihat detail",
     "resetCollection": "Reset koleksi",
     "deleteCollection": "Hapus koleksi",
-    "cancel": "Batal"
+    "cancel": "Batal",
+    "save": "Simpan"
   },
   "sections": {
     "yourCollections": "Koleksi Anda",
@@ -47,7 +48,12 @@
     "noneShared": "Tidak ada sumber web."
   },
   "entries": {
-    "loadFailed": "File tidak dapat dimuat."
+    "loadFailed": "File tidak dapat dimuat.",
+    "filter": "Filter berkas",
+    "countAll_one": "{{count}} berkas",
+    "countAll_other": "{{count}} berkas",
+    "countOf": "{{shown}} dari {{total}} berkas",
+    "noMatch": "Tidak ada berkas yang cocok."
   },
   "starting": {
     "title": "Pengetahuan sedang dimulai.",
@@ -83,5 +89,25 @@
     },
     "noteViewer": "Anda dapat mencarinya dan membaca filenya.",
     "noteEditor": "Anda dapat mencarinya dan menambah atau menghapus file."
+  },
+  "create": {
+    "title": "Koleksi baru",
+    "hint": "Beri nama yang mudah Anda kenali. Anda menambahkan berkas dan halaman web setelah koleksi dibuat."
+  },
+  "sort": {
+    "label": "Urutkan koleksi",
+    "name": "Nama, A ke Z",
+    "name-desc": "Nama, Z ke A",
+    "used": "Paling banyak dipakai",
+    "unused": "Belum dipakai dulu"
+  },
+  "list": {
+    "countAll_one": "{{count}} koleksi",
+    "countAll_other": "{{count}} koleksi",
+    "countOf": "{{shown}} dari {{total}} koleksi",
+    "menu": "Tindakan untuk {{name}}"
+  },
+  "menu": {
+    "try": "Coba pertanyaan"
   }
 }

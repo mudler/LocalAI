@@ -236,6 +236,8 @@ export const chatLoopsApi = {
   setState: (chat, id, state) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ state }) }),
   stop: (chat, id) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   stopAll: (chat) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops`, { method: 'DELETE' }),
+  // Stops a background job (term, then kill); the job ends as "stopped".
+  stopJob: (chat, job) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/jobs/${encodeURIComponent(job)}/kill`, { method: 'POST' }),
 }
 
 // MCP Apps of a chat: the page that a tool's MCP server offers, and the tool
@@ -338,6 +340,8 @@ export const pagesApi = {
   send: (name, text, chatId, model) => postJSON(`${pageUrl(name)}/chat`, {
     text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}),
   }),
+  // An error that the page's script threw, for the assistant to read later.
+  reportError: (name, error) => postJSON(`${pageUrl(name)}/errors`, error),
   starters: () => fetchJSON('/api/chats/page-starters'),
   copyStarter: (id) => postJSON(`/api/chats/page-starters/${encodeURIComponent(id)}/copy`, {}),
 }

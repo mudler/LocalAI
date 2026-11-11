@@ -65,6 +65,41 @@ var _ = Describe("Chats pages endpoints", func() {
 		Expect(s.do("", http.MethodGet, "/api/chats/pages", nil).Code).To(Equal(http.StatusUnauthorized))
 	})
 
+	It("records the errors of the caller's own page, counts repeats, and keeps them apart per user", func() {
+		url := "/api/chats/pages/tasks/errors"
+		rec := s.do("alice", http.MethodPost, url, map[string]any{"message": "TypeError: x is null", "line": 4, "column": 9, "stack": "at go (<anonymous>:4:9)"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["recorded"]).To(BeTrue())
+		Expect(s.do("alice", http.MethodPost, url, map[string]any{"message": "TypeError: x is null", "line": 4, "column": 9, "count": 5}).Code).To(Equal(http.StatusOK))
+
+		noise := s.do("alice", http.MethodPost, url, map[string]any{"message": "ResizeObserver loop completed with undelivered notifications."})
+		Expect(noise.Code).To(Equal(http.StatusOK))
+		Expect(decodeJSON(noise)["recorded"]).To(BeFalse())
+		Expect(s.do("alice", http.MethodPost, url, map[string]any{"message": " "}).Code).To(Equal(http.StatusBadRequest))
+
+		// Only the owner's own page: another user has no such page, and a
+		// shared page has no route.
+		Expect(s.do("bob", http.MethodPost, url, map[string]any{"message": "boom"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("dave", http.MethodPost, url, map[string]any{"message": "boom"}).Code).To(Equal(http.StatusForbidden), "the pages feature is off")
+		Expect(s.do("", http.MethodPost, url, map[string]any{"message": "boom"}).Code).To(Equal(http.StatusUnauthorized))
+		Expect(s.do("alice", http.MethodPost, "/api/chats/shared-pages/x/tasks/errors", map[string]any{"message": "boom"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("alice", http.MethodGet, url, nil).Code).To(Equal(http.StatusMethodNotAllowed), "the UI cannot read them back; the assistant's tool does")
+	})
+
+	It("stops a page that reports on every frame", func() {
+		url := "/api/chats/pages/tasks/errors"
+		limited := 0
+		for i := 0; i < 60; i++ {
+			rec := s.do("alice", http.MethodPost, url, map[string]any{"message": "frame error", "line": i + 1})
+			if rec.Code == http.StatusTooManyRequests {
+				limited++
+			} else {
+				Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			}
+		}
+		Expect(limited).To(BeNumerically(">", 30))
+	})
+
 	It("reads, writes and lists the page's own files through the bridge routes", func() {
 		rec := s.do("alice", http.MethodPut, "/api/chats/pages/tasks/file", map[string]any{"path": "tasks.json", "content": `[{"t":1}]`})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())

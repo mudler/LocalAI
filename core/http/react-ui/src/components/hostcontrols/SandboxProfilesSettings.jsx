@@ -23,6 +23,7 @@ export default function SandboxProfilesSettings() {
   const owner = useHostSettings(client, 'sandbox-profiles')
   const saved = owner.snapshot?.policy.sandbox_profiles
   const [view, setView] = useState(null)
+  const [builtinDefault, setBuiltinDefault] = useState('')
   const [loadError, setLoadError] = useState(false)
   const [draft, setDraft] = useState(null)
   const [memory, setMemory] = useState('')
@@ -32,6 +33,8 @@ export default function SandboxProfilesSettings() {
   useEffect(() => {
     let live = true
     chatSandboxProfileApi.admin().then(r => { if (live) setView(r) }).catch(() => { if (live) setLoadError(true) })
+    // The default a chat gets while the policy names none: the server decides.
+    chatSandboxProfileApi.list().then(r => { if (live) setBuiltinDefault(r?.default || '') }).catch(() => {})
     return () => { live = false }
   }, [saved])
   useEffect(() => {
@@ -62,9 +65,9 @@ export default function SandboxProfilesSettings() {
       <p className="st-note">{t('sandboxProfile.admin.intro')}</p>
       <label className="sbp__field">
         <span>{t('sandboxProfile.admin.default')}</span>
-        <select className="input" value={draft.default} disabled={locked} onChange={e => setDraft({ ...draft, default: e.target.value })} data-testid="sandbox-profiles-default">
-          <option value="">{t('sandboxProfile.admin.defaultBase')}</option>
-          {profiles.slice(1).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+        <select className="input" value={draft.default || builtinDefault} disabled={locked} onChange={e => setDraft({ ...draft, default: e.target.value })} data-testid="sandbox-profiles-default">
+          {!draft.default && !builtinDefault && <option value="" />}
+          {profiles.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
         </select>
       </label>
       <ul className="sbp__list" aria-label={t('sandboxProfile.admin.profiles')}>

@@ -215,7 +215,7 @@ var _ = Describe("Sandbox tools", func() {
 	// chat's own file tools. Its bash replaces the chat's built-in bash.
 	It("offers bash and the settings tools only, and bash shadows the built-in", func() {
 		Expect(tools.Tools).To(Equal([]string{"bash"}))
-		Expect(tools.Declared()).To(Equal([]string{"bash", "execution-status", "status", "set-backend", "confirm-host"}))
+		Expect(tools.Declared()).To(Equal([]string{"bash", "execution-status", "status", "set-backend", "confirm-host", "job"}))
 		for _, d := range tools.Definitions() {
 			if d.Name == "bash" {
 				Expect(d.Shadows).To(Equal("bash"))
@@ -286,6 +286,9 @@ var _ = Describe("Sandbox tools", func() {
 		// add-on's own page, with the default grant of egress.check.
 		Expect(m.Capabilities.UI.Controls).To(Equal([]string{contract.ControlNetworkPolicy, contract.ControlToolProviders, contract.ControlSandboxProfiles}))
 		Expect(contract.EntitledControls(m, []string{"workspace.", "egress."})).To(Equal(m.Capabilities.UI.Controls))
+		// The jobs of the host's job tool need feature level 6.
+		Expect(m.Capabilities.ExecutionProvider).To(Equal(tools.ExecutionProvider()))
+		Expect(m.RequiredFeatureLevel()).To(Equal(uint64(6)))
 		want := tools.Definitions()
 		Expect(m.Capabilities.ToolDefinitions).To(HaveLen(len(want)))
 		for i, d := range m.Capabilities.ToolDefinitions {
@@ -305,6 +308,9 @@ var _ = Describe("Sandbox tools", func() {
 			switch d.Name {
 			case "status":
 				Expect(d.Kind).To(Equal(contract.ToolKindRead), "status must be a read tool")
+			case "job":
+				Expect(d.Kind).To(Equal(contract.ToolKindAction), "job runs code as the user")
+				Expect(d.UIOnly).To(BeTrue(), "no model calls the job tool")
 			case "execution-status", "set-backend", "confirm-host":
 				Expect(d.Kind).To(Equal(contract.ToolKindRead), "%s must be a read tool for the settings page only", d.Name)
 				Expect(d.UIOnly).To(BeTrue(), "%s must be a read tool for the settings page only", d.Name)
@@ -381,6 +387,11 @@ var _ = Describe("Sandbox tools", func() {
 		for _, d := range tools.Definitions() {
 			if d.UIOnly {
 				ui[d.Name] = true
+				if d.Name == tools.ToolJob {
+					// The one page-only action tool: the host's job tool calls it.
+					Expect(d.Kind).To(Equal(contract.ToolKindAction))
+					continue
+				}
 				Expect(contract.IsResourceless(d)).To(BeTrue(), "%s names a resource", d.Name)
 			}
 		}

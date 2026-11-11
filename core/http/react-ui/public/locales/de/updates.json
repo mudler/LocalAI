@@ -251,6 +251,20 @@
     "cancel": "Abbrechen",
     "stop": "Nach diesem Knoten anhalten",
     "listLabel": "Zu aktualisierende Knoten",
+    "titleAll_one": "{{count}} Aktualisierung starten?",
+    "titleAll_other": "{{count}} Aktualisierungen starten?",
+    "confirmPlus_one": "{{label}} und {{count}} weitere",
+    "confirmPlus_other": "{{label}} und {{count}} weitere",
+    "othersTitle": "Startet bei der Bestätigung ebenfalls",
+    "othersLabel": "Weitere Aktualisierungen, die starten",
+    "othersIntro": "Diese laufen nicht auf Knoten. Sie starten nacheinander, sobald Sie bestätigen. Ein Add-on stoppt, während seine Daten gesichert und migriert werden. Startet die neue Version nicht, läuft die aktuelle weiter.",
+    "otherKind": {
+      "addon": "Add-on",
+      "library": "Bibliotheks-Backend",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Bibliothek {{library}}",
+    "otherOriginChannel": "Bibliothek {{library}}, Kanal {{channel}}",
     "runningNote": "Anhalten verhindert, dass die noch nicht gestarteten Knoten starten."
   }
 }

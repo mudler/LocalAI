@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
@@ -99,6 +100,7 @@ func (a *Application) initStudioService() {
 	var bus studio.Bus
 	var fan notify.Fanout
 	var replay studio.ReplayCarrier
+	var jobs bgjob.Carrier
 	instance := ""
 	if d := a.Distributed(); d != nil && d.Nats != nil {
 		bus = studio.NewBroadcastBus(d.Nats, nil)
@@ -106,6 +108,9 @@ func (a *Application) initStudioService() {
 		// A client whose event stream reconnects to another frontend gets the
 		// events it missed from the process that runs the turn.
 		replay = studio.NewReplayCarrier(d.Nats, nil)
+		// A turn that runs on another node reads, writes to and kills a
+		// background job on the node that runs it.
+		jobs = studio.NewJobCarrier(d.Nats, nil)
 		instance = a.applicationConfig.Distributed.InstanceID
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
@@ -132,6 +137,7 @@ func (a *Application) initStudioService() {
 		CloseTimeout: studioCloseTimeout,
 		Bus:          bus,
 		Replay:       replay,
+		JobCarrier:   jobs,
 		Instance:     instance,
 		Store:        a.studioStore,
 		Provider:     a.studioProvider,
@@ -152,12 +158,14 @@ func (a *Application) initStudioService() {
 		Notify:            inbox,
 		Push:              pusher,
 		AddonTools:        lateStudioAddons{a},
+		SandboxJobs:       studio.NewSandboxJobs(lateStudioAddons{a}, sandboxJobAudit(a.studioHostExecAudit)),
 		Assistant:         studioAssistant{a},
 		ClientTools:       studioAssistant{a},
 		Collections:       studioCollections{a},
 		ContextTokens:     a.studioContextTokens,
 		RemoteModel:       a.studioRemoteModel,
 		PageConsents:      a.studioPageConsents(),
+		PageErrors:        a.studioPageErrors(),
 		SharedFolderAudit: a.studioSharedFolderAudit(),
 		Proposals:         a.studioProposalStore(),
 		UserSetting:       a.studioUserSetting,
@@ -194,7 +202,7 @@ func (a *Application) initStudioService() {
 		// resolved access, so they are the turn's: a chat whose agent works in
 		// one folder gets a fenced actor, which the runner refuses.
 		a.studioHostExec = hostexec.New(hostexec.Options{
-			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid,
+			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid, Instance: instance,
 			Actor: func(ctx context.Context, user, chat string) (workspace.Actor, error) {
 				svc := svcRef.Load()
 				if svc == nil {
@@ -545,9 +553,42 @@ func (a *Application) studioHostExecMode() string {
 	return hostexec.ModeAsk
 }
 
+// sandboxJobAuditKinds maps the kinds of a Sandbox job line to the kinds of
+// the audit store. The Sandbox kinds are their own, so the audit never says
+// that a Sandbox job ran on this machine.
+var sandboxJobAuditKinds = map[string]string{
+	"job_start": hostexec.KindSandboxJobStart,
+	"job_input": hostexec.KindSandboxJobInput,
+	"job_kill":  hostexec.KindSandboxJobKill,
+}
+
+// sandboxJobAudit returns the audit hook of the Sandbox jobs: one line per
+// start, input and kill in the store, the text capped by the caller at 4 KiB,
+// and a log line without the text (a command or an input can hold secrets).
+// The output of a job is never audited.
+func sandboxJobAudit(store func() hostexec.AuditStore) func(context.Context, studio.SandboxJobEvent) {
+	return func(ctx context.Context, ev studio.SandboxJobEvent) {
+		xlog.Info("[sandbox] job", "kind", ev.Kind, "user", ev.User, "chat", ev.Chat, "addon", ev.Addon, "job", ev.Job, "bytes", len(ev.Text))
+		kind, ok := sandboxJobAuditKinds[ev.Kind]
+		if !ok {
+			return
+		}
+		line := hostexec.Event{Kind: kind, User: ev.User, Chat: ev.Chat, Job: ev.Job, Command: ev.Text, Exit: -1, At: ev.At}
+		if err := store().Add(context.WithoutCancel(ctx), line); err != nil {
+			xlog.Error("[sandbox] the audit line of a job was not saved", "error", err)
+		}
+	}
+}
+
 // studioHostExecAudit opens the audit of the commands run on this machine,
-// beside the audit of the shared folders.
+// beside the audit of the shared folders. The Sandbox job lines go to the same
+// store, under kinds of their own; it is opened once.
 func (a *Application) studioHostExecAudit() hostexec.AuditStore {
+	a.studioAuditOnce.Do(func() { a.studioAudit = a.openStudioHostExecAudit() })
+	return a.studioAudit
+}
+
+func (a *Application) openStudioHostExecAudit() hostexec.AuditStore {
 	var (
 		st  hostexec.AuditStore
 		err error
@@ -802,6 +843,29 @@ func (a *Application) studioPageConsents() pages.ConsentStore {
 	if err != nil {
 		xlog.Warn("Chats: the consents to shared pages are kept in memory", "error", err)
 		st, _ = pages.NewJSONConsents("")
+	}
+	return st
+}
+
+// studioPageErrors opens the store of the runtime errors of the pages, like the
+// consents: the auth database (shared by the frontends of a cluster), a file
+// under the data path, or memory.
+func (a *Application) studioPageErrors() pages.ErrorStore {
+	var (
+		st  pages.ErrorStore
+		err error
+	)
+	switch {
+	case a.authDB != nil:
+		st, err = pages.NewGORMErrors(a.authDB)
+	case a.applicationConfig.DataPath != "":
+		st, err = pages.NewJSONErrors(filepath.Join(a.applicationConfig.DataPath, "chats", "pages"))
+	default:
+		st, err = pages.NewJSONErrors("")
+	}
+	if err != nil {
+		xlog.Warn("Chats: the errors of the pages are kept in memory", "error", err)
+		st, _ = pages.NewJSONErrors("")
 	}
 	return st
 }

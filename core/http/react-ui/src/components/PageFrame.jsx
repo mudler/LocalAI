@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useTranslation } from 'react-i18next'
 import Icon from './Icon'
 import { pagesApi } from '../utils/api'
-import { buildPageSrcdoc, createPageHost } from '../utils/pagesBridge'
+import { buildPageSrcdoc, createPageHost, noticeColours } from '../utils/pagesBridge'
 import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAssets'
 
 // One page of the workspace in its sandbox: an iframe with scripts and nothing
@@ -31,6 +31,9 @@ import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAsset
 //   visible        false while the frame is out of sight (a tile scrolled
 //                  away): with a hidden tab, the page gets a visibility event
 //                  ({visible}) so it can pause its timers
+//   (errors)       the page's script errors are recorded for the assistant
+//                  (page_errors) only when the page is the user's own: no
+//                  files and no codeFiles. They never go to the chat.
 //   onRefused(err) a bridge call was refused because the page may no longer
 //                  run (a shared page whose consent was revoked): the caller
 //                  takes the frame down
@@ -91,7 +94,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       : failed.length ? t('frame.filesFailed', { files: failed.slice(0, 5).join(', '), count: failed.length }) : ''
     return buildPageSrcdoc(ready.html, {
       name: page.name, title: page.title, theme, head: ready.head, modules: ready.modules,
-      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode, size,
+      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode, size, colors: noticeColours(),
     })
   }, [ready, page.name, page.title, theme, t, mode, size])
 
@@ -166,6 +169,9 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       },
       chat: { send: (text) => handlers.current.onSend(text) },
       links: { open: (target) => (handlers.current.onLink ? handlers.current.onLink(target) : { opened: false }) },
+      // Only the owner's own run records: a viewer of a shared page is not
+      // its owner, and the errors are kept in the owner's workspace.
+      errors: handlers.current.files || codeFiles !== null ? undefined : { report: (e) => pagesApi.reportError(name, e) },
     })
     channel.port1.onmessage = (e) => { host.receive(e.data) }
     live.current.host = host

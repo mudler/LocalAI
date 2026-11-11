@@ -40,8 +40,8 @@ type Limits struct {
 	Header            time.Duration // reading a request head
 	Hello             time.Duration // reading the TLS ClientHello
 	HeaderBytes       int           // size of a request head
-	UpBytes           int64         // bytes from the guest, per call
-	DownBytes         int64         // bytes to the guest, per call
+	UpBytes           int64         // bytes from the guest, per call or per job
+	DownBytes         int64         // bytes to the guest, per call or per job
 	CheckTimeout      time.Duration // one egress.check, card wait included
 }
 
@@ -207,20 +207,38 @@ func (p *Proxy) learn(v Verdict) {
 // Key names the sandbox of a user and a conversation.
 func Key(user, conv string) string { return user + "\x00" + conv }
 
-// box is the state of one sandbox: the call in progress and what it used.
+// box is the state of one sandbox: the call in progress, the background jobs
+// that run in it, and what they used.
 type box struct {
-	mu      sync.Mutex
-	op      string
-	callCtx context.Context
-	cancel  context.CancelFunc // ends the tunnels of the call
-	conns   sync.WaitGroup     // handlers of the call
+	mu sync.Mutex
+	// call is the meter of the call in progress, or nil.
+	call *meter
+	// jobs are the meters of the live background jobs, oldest first.
+	jobs    []*meter
 	tunnels int
 	tokens  float64
 	last    time.Time
-	up      int64
-	down    int64
-	events  []Event // audit lines of the call, not sent yet
-	idle    []Event // connections while no call ran
+	idle    []Event // connections while neither a call nor a job ran
+}
+
+// meter is what one call or one background job may use and has used. Each
+// has the operation the host knows it by, and its own byte caps.
+type meter struct {
+	op     string
+	job    bool
+	ctx    context.Context
+	cancel context.CancelFunc // ends the tunnels of the call or the job
+	conns  sync.WaitGroup     // handlers of the call or the job
+	up     int64              // guarded by box.mu
+	down   int64              // guarded by box.mu
+	events []Event            // audit lines not sent yet, guarded by box.mu
+}
+
+// use is a connection's view of its sandbox: the box, for the tunnel count
+// and the rate, and the meter the connection counts against.
+type use struct {
+	*box
+	m *meter
 }
 
 func (p *Proxy) box(key string) *box {
@@ -249,9 +267,9 @@ func (p *Proxy) Ports(user, conv string) map[int]sandbox.PortHandler {
 func (p *Proxy) Begin(ctx context.Context, user, conv, op string) (end func()) {
 	b := p.box(Key(user, conv))
 	callCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	m := &meter{op: op, ctx: callCtx, cancel: cancel}
 	b.mu.Lock()
-	b.op, b.callCtx, b.cancel = op, callCtx, cancel
-	b.up, b.down = 0, 0
+	b.call = m
 	idle := b.idle
 	b.idle = nil
 	b.mu.Unlock()
@@ -261,23 +279,65 @@ func (p *Proxy) Begin(ctx context.Context, user, conv, op string) (end func()) {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			cancel()
-			done := make(chan struct{})
-			go func() { b.conns.Wait(); close(done) }()
-			select {
-			case <-done:
-			case <-time.After(2 * time.Second):
-			}
+			evs := p.close(b, m)
 			b.mu.Lock()
-			evs := b.events
-			b.events = nil
-			b.op, b.callCtx, b.cancel = "", nil, nil
+			if b.call == m {
+				b.call = nil
+			}
 			b.mu.Unlock()
 			if len(evs) > 0 {
 				p.send(ctx, op, evs)
 			}
 		})
 	}
+}
+
+// BeginJob marks a background job of a sandbox, under the operation the host
+// keeps live for it (the job lease). While no call runs, a connection of the
+// sandbox counts against the oldest live job: the proxy cannot tell which
+// process opened it. Each job has its own byte caps. The returned end closes
+// the job's tunnels and sends its audit; it may be called more than once.
+func (p *Proxy) BeginJob(user, conv, op string) (end func()) {
+	b := p.box(Key(user, conv))
+	jobCtx, cancel := context.WithCancel(context.Background())
+	m := &meter{op: op, job: true, ctx: jobCtx, cancel: cancel}
+	b.mu.Lock()
+	b.jobs = append(b.jobs, m)
+	b.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			evs := p.close(b, m)
+			b.mu.Lock()
+			for i, j := range b.jobs {
+				if j == m {
+					b.jobs = append(b.jobs[:i:i], b.jobs[i+1:]...)
+					break
+				}
+			}
+			b.mu.Unlock()
+			if len(evs) > 0 {
+				p.send(context.Background(), op, evs)
+			}
+		})
+	}
+}
+
+// close ends the tunnels of a meter, waits a little for their handlers and
+// returns the audit lines they left.
+func (p *Proxy) close(b *box, m *meter) []Event {
+	m.cancel()
+	done := make(chan struct{})
+	go func() { m.conns.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	evs := m.events
+	m.events = nil
+	return evs
 }
 
 // send reports audit lines, in calls of at most MaxAuditEvents. A failure is
@@ -292,18 +352,21 @@ func (p *Proxy) send(ctx context.Context, op string, evs []Event) {
 	}
 }
 
-// record keeps an audit line of the call, or of the idle time.
-func (b *box) record(ev Event, idle bool) {
+// recordIdle keeps an audit line of a connection while nothing ran.
+func (b *box) recordIdle(ev Event) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if idle {
-		if len(b.idle) < MaxAuditEvents {
-			b.idle = append(b.idle, ev)
-		}
-		return
+	if len(b.idle) < MaxAuditEvents {
+		b.idle = append(b.idle, ev)
 	}
-	if len(b.events) < 4*MaxAuditEvents {
-		b.events = append(b.events, ev)
+}
+
+// record keeps an audit line of the call or the job of a connection.
+func (u *use) record(ev Event, _ bool) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if len(u.m.events) < 4*MaxAuditEvents {
+		u.m.events = append(u.m.events, ev)
 	}
 }
 
@@ -343,22 +406,27 @@ func (p *Proxy) release(b *box) {
 	b.mu.Unlock()
 }
 
-// call returns the operation and the context of the call in progress, and
-// joins its wait group; done leaves it.
-func (b *box) call() (op string, ctx context.Context, done func()) {
+// meterOf returns the meter a new connection counts against, and joins its
+// wait group; done leaves it. During a call it is the call's; otherwise it is
+// the oldest live job's; nil when neither runs.
+func (b *box) meterOf() (m *meter, done func()) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.op == "" {
-		return "", nil, func() {}
+	m = b.call
+	if m == nil && len(b.jobs) > 0 {
+		m = b.jobs[0]
 	}
-	b.conns.Add(1)
-	return b.op, b.callCtx, b.conns.Done
+	if m == nil {
+		return nil, func() {}
+	}
+	m.conns.Add(1)
+	return m, m.conns.Done
 }
 
 // verdict asks the host for every new upstream connection, including HTTP
 // requests on a kept-alive guest connection. No verdict is cached: a previous
 // allow must not bypass a policy change, consumed grant, or unavailable owner.
-func (p *Proxy) verdict(ctx context.Context, b *box, op string, a CheckArgs) Verdict {
+func (p *Proxy) verdict(ctx context.Context, b *use, op string, a CheckArgs) Verdict {
 	cctx, cancel := context.WithTimeout(ctx, p.o.Limits.CheckTimeout)
 	defer cancel()
 	v, err := p.o.Host.Check(cctx, op, a)
@@ -395,7 +463,7 @@ func dialReason(err error) string {
 // answers and the verdict did not allow them, the host is asked again with
 // Private set: only an administrator's rule or answer, with the private
 // switch on, lets it through.
-func (p *Proxy) dial(ctx context.Context, b *box, op string, a CheckArgs, v Verdict) (net.Conn, Verdict, error) {
+func (p *Proxy) dial(ctx context.Context, b *use, op string, a CheckArgs, v Verdict) (net.Conn, Verdict, error) {
 	dctx, cancel := context.WithTimeout(ctx, p.o.Limits.Dial)
 	conn, err := p.guard(a.Port, v.AllowPrivate).DialContext(dctx, "tcp", net.JoinHostPort(a.Host, strconv.Itoa(a.Port)))
 	cancel()

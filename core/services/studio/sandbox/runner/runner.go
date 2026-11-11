@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -29,6 +30,19 @@ const (
 
 // ErrBusy says the runner holds as many sandboxes as it may.
 var ErrBusy = errors.New("as many sandboxes run as may; try again later")
+
+// ErrBusyTotal says the server as a whole holds as many sandboxes as it may,
+// all of them in use. It is an ErrBusy, so a caller that does not tell the
+// two apart still handles it; the text differs because the user's own
+// sandboxes are not the cause.
+var ErrBusyTotal error = busyTotal{}
+
+type busyTotal struct{}
+
+func (busyTotal) Error() string {
+	return "this server runs as many sandboxes as it may; try again later"
+}
+func (busyTotal) Is(target error) bool { return target == ErrBusy }
 
 // Store is the workspace of the sandboxes: the store itself in the server,
 // or the host operations in the add-on (workspace.materialize,
@@ -157,6 +171,14 @@ type entry struct {
 	// profile and image are what the sandbox was made with. notice is the
 	// line of the current call (guarded by the entry lock).
 	profile, image, notice string
+	// jobs are the background jobs that run in the sandbox (see StartJob),
+	// guarded by Manager.mu. An entry with a job is not evicted, suspended,
+	// refreshed or expired.
+	jobs map[*liveJob]struct{}
+	// top and tail are notes of the current call that jobs caused: the
+	// sandbox was made again, or it is not up to date. Guarded by the entry
+	// lock.
+	top, tail string
 }
 
 // New returns a manager. It removes what an earlier run left in StateDir.
@@ -290,7 +312,7 @@ func (m *Manager) find(user, conv string, ro bool) (*entry, error) {
 			if !c.mu.TryLock() {
 				continue
 			}
-			if c.sb != nil {
+			if c.sb != nil || len(c.jobs) > 0 {
 				c.mu.Unlock()
 				continue
 			}
@@ -300,7 +322,7 @@ func (m *Manager) find(user, conv string, ro bool) (*entry, error) {
 		}
 		if len(victims) == 0 {
 			m.mu.Unlock()
-			return nil, ErrBusy
+			return nil, ErrBusyTotal
 		}
 	}
 	own := make([]*entry, 0, m.o.PerUser)
@@ -313,6 +335,9 @@ func (m *Manager) find(user, conv string, ro bool) (*entry, error) {
 		sort.Slice(own, func(i, j int) bool { return own[i].lastUse.Before(own[j].lastUse) })
 		evicted := false
 		for _, c := range own {
+			if len(c.jobs) > 0 {
+				continue // a job runs in it: the sandbox is not ours to take
+			}
 			if c.mu.TryLock() { // an idle one; a busy one is not touched
 				victims = append(victims, c)
 				delete(m.entries, ekey(c.user, c.conv, c.ro))
@@ -431,11 +456,12 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 	if err != nil {
 		return err
 	}
+	e.top, e.tail = "", ""
 	if (e.sb != nil || e.snap != nil) && (!sameActor(e.actor, a) || !slices.Equal(e.mounts, v.Mounts)) {
 		// The chat's agent changed its folder or mode, or the chat's folders
 		// changed: the sandbox must not keep the old ones. What the earlier
 		// calls did is committed already.
-		m.destroy(ctx, e)
+		m.remade(ctx, e)
 		e.trk = nil
 	}
 	var ch *Choice
@@ -450,7 +476,7 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 		if (e.sb != nil || e.snap != nil) && e.profile != c.ID {
 			// The chat switched profile, or the one it had fell back. The
 			// files are committed already; processes and packages are lost.
-			m.destroy(ctx, e)
+			m.remade(ctx, e)
 			e.trk = nil
 		}
 	}
@@ -464,6 +490,11 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 	switch {
 	case e.sb != nil:
 		if e.trk.stale(ctx, a) {
+			if m.hasJobs(e) {
+				// A refresh removes the work folder under the jobs.
+				e.tail = StaleNote
+				return nil
+			}
 			if err := e.sb.Refresh(ctx); err != nil {
 				return fmt.Errorf("could not bring the sandbox up to date with your files: %w", err)
 			}
@@ -555,6 +586,9 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	}
 	e.suspendFails, e.suspendAfter = 0, time.Time{}
 	out, runErr := tool.Run(ctx, r.Args)
+	if e.top != "" {
+		out = e.top + "\n" + out
+	}
 	if e.notice != "" {
 		out = e.notice + "\n" + out
 	}
@@ -570,11 +604,25 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	case len(conflicts) > 0:
 		out += ConflictNote(conflicts, e.mounts)
 	}
+	if e.tail != "" {
+		out += "\n" + e.tail
+	}
 	end()
 	m.mu.Lock()
 	e.lastUse = m.o.Now()
 	m.mu.Unlock()
 	return out, runErr
+}
+
+// remade destroys the sandbox of an entry that must be made again. Its jobs
+// end first, so none of them runs against a sandbox that is going away. The
+// entry's lock is held.
+func (m *Manager) remade(ctx context.Context, e *entry) {
+	if m.hasJobs(e) {
+		m.endJobs(e, bgjob.EndSandboxRemade)
+		e.top = RemadeNote
+	}
+	m.destroy(ctx, e)
 }
 
 // suspendBackoff is the wait after n failed suspends of one sandbox: the
@@ -598,6 +646,12 @@ func (m *Manager) Sweep(ctx context.Context) {
 	for _, e := range list {
 		if !e.mu.TryLock() {
 			continue // in use
+		}
+		if m.hasJobs(e) {
+			// A job needs the guest awake, and the guest's exit status is
+			// lost to a suspend. The job's lifetime bounds this delay.
+			e.mu.Unlock()
+			continue
 		}
 		m.mu.Lock()
 		idle := now.Sub(e.lastUse)
@@ -668,8 +722,12 @@ func (m *Manager) Close(ctx context.Context) error {
 	var wg sync.WaitGroup
 	for _, e := range list {
 		wg.Go(func() {
+			// The jobs end before the entry lock is taken: a call that holds
+			// it may be waiting for one of them.
+			m.endJobs(e, bgjob.EndShutdown)
 			e.mu.Lock()
 			defer e.mu.Unlock()
+			m.endJobs(e, bgjob.EndShutdown) // one that started while we waited
 			e.gone = true
 			m.destroy(ctx, e)
 		})

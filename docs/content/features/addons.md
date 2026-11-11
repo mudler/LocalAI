@@ -228,6 +228,57 @@ The current chat binding requires each bound tool to shadow `bash` through
 rule. This declaration neither grants shadow authority nor changes provider
 arbitration or execution authorization.
 
+`jobs` is optional, feature level 6: `{"jobs": {"tool": "job"}}` names the
+tool that runs the background jobs of the host's `job` tool. It is a declared
+`kind: "action"`, `uiOnly: true` tool that shadows nothing, is not an admin tool
+and is neither a bound execution tool nor the status tool. It is the only
+page-only tool that may be an action tool. No model is offered it and no page
+can call it: the host calls it through the act path, with the chat as the
+resource and the person as the actor, and with the arguments and answer below.
+A provider without `jobs` cannot run background jobs. The host then answers
+`job start` with "The add-on here cannot run background jobs: it is
+older than this LocalAI. An administrator can update it." and does not run the
+job anywhere else. A manifest with `jobs` and a lower `featureLevel` is
+refused; an older host refuses the add-on with "needs a newer LocalAI".
+
+The arguments of the jobs tool are `contract.JobArgs`: `verb` (`start`,
+`list`, `read`, `input` or `kill`; the key is `verb` because `action` is a name
+no tool schema may use), `id` (`job-` and six base32 characters), `command` and
+`label` (start; the label is one line of at most 80 characters), `since` (an
+absolute byte offset; omitted, the read goes on where the model's last read
+ended), `maxBytes` (256 to 65536, default 16384), `observe` (a read that does
+not move the model's cursor and carries the last 2000 bytes as `tail`: the
+check of a wait), `input` (at most 2000 bytes) and `closeInput`, and for a kill
+`signal` (`term`, the default, `int` or `kill`) and `reason`. `reason` is why
+the host ends the job: `stopped` (the person's Stop), `chat_deleted`,
+`agent_ended`, `shell_off`, `group_off` or `fenced`. The add-on records it as
+the job's `end` (`stopped` with the state `killed`, the others `exited`);
+without it the end is `killed`. The host's `execution` call options are
+added as for `bash`. The answer is `contract.JobReply`: `ok`, `job` or `jobs`
+(`id`, `label`, `state`, `end`, `exit`, `started`, `ended`, `lastOutput`,
+`total`, `idleMs`; never the command), and for a read `output`, `from` and
+`next`. A refusal is `ok: false` with `code` (`unknown`, `ended`, `limit`,
+`busy`, `invalid`, `failed`) and an `error` the model reads. The host checks
+every answer against its arguments (sizes, offsets, states, job IDs) and shows
+nothing of one that fails, and a job of another person or chat is `unknown`.
+
+While the add-on reports a started job as running, the owner keeps the
+start's request live as a **job lease**, so the job's final checkpoint
+(`workspace.commit`, `workspace.changes`) and its network checks (`egress.check`,
+`egress.audit`) still find a live request after the call returned. The lease
+has the actor, scope, resource and chat of the start. It ends when an answer of
+the jobs tool reports the job finished, two hours and five minutes after the
+start, or when the add-on process stops. A kill does not end the lease: the
+job's final checkpoint runs after the kill. The host asks the jobs tool every
+30 seconds while a chat it follows has a running job, so a finished job's lease
+ends soon after the job. Under a lease the channel allows only those four
+operations, and an add-on holds at most 64 leases. The owner takes the place
+of a lease before it sends a start; with every place taken or held by a start
+in flight, it does not send the start and answers it as a refusal with the code
+`limit`. The in-flight
+table, and so the lease, lives in the owner process, where every act of a
+frontend is forwarded.
+
 `statusTool` is a separately declared `kind: "read"`, `uiOnly: true` tool,
 not an execution binding or admin tool. Its input schema is an object accepting
 `{}`, with no required inputs, no resource, and `additionalProperties: false`.
@@ -2010,7 +2061,7 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 5.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 6.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
@@ -2019,6 +2070,7 @@ level**: one integer that counts the additive manifest features it understands.
   `featureLevel: 2`. `capabilities.ownerData` is level 3.
   The setup text (`setup` on the manifest, `kinds[].setup` and the `setup` of a kind translation) is level 4.
   `kinds[].toolOnly` is level 5.
+  `capabilities.executionProvider.jobs` is level 6.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -2184,7 +2236,7 @@ refreshed:
 | Skills per add-on | 16 |
 | Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
 | A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
-| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, `assemble-media`, `fframes-video`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
+| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, `assemble-media`, `media-prompting`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
 | `shadows` | optional; must repeat `name` and name a slot: one the skill declares with `slot` (needs `api` 2), or a default slot (`xlsx`, `docx`, `pptx`, `pdf`) |
 | `slot` | optional, needs `shadows` and `api` 2; see Document skill providers |
 
@@ -4210,7 +4262,10 @@ unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` respo
 status `503` and also carries the original `operationId`. Keep that `operationId` after
 an `outcome_unknown` response. Query
 `operation-status`; do not create another mutation. The carrier never retries mutations.
-`Manager.OperationStatus` binds the lookup to the original actor and current administrator.
+`Manager.OperationStatus` binds the lookup to the user who started the operation and to
+the current administrator. A later browser session or another key of the same user reads
+it. Another user, or an unknown ID, gets status `404` with `type` `operation_not_found`,
+which is not a refusal of the role.
 It does not submit, repair, start processes, or write the journal. `completed` describes
 durable lifecycle publication, not runtime health. `runtimeState: not-observed` makes
 that distinction explicit. Ambiguous legacy actor bindings deny lookup.
@@ -6439,7 +6494,7 @@ The binding stays on the host. It is kept next to the envelope of the live reque
 An add-on that holds `sandbox=egress.` in the host operation setting (the default) can ask about the network connections of the commands it runs (see [Network access](#network-access)):
 
 - `egress.check` (`act`, feature `chats`) takes `{host, port, kind, tls}`, with `kind` `connect` or `http`, and answers `{action, reason, allowPrivate, self}`, with `action` `allow` or `block`. An allow carries `self`: the addresses of the server as CIDR strings (its interfaces, loopback, and the addresses of the host of the external base URL), the same list `web_fetch` refuses. The add-on refuses them on every dial, besides the interfaces of its own machine, so a command cannot reach the LocalAI API through the server's public name or address. When a card asks the person (see the cards under [Network access](#network-access)), the call waits for the answer, at most 60 seconds, before it answers. The chat is the resource of the live envelope and the user is its actor: arguments named `chat`, `user`, `preset` or `allow`, or any other unknown name, are refused. The host writes the audit line of the verdict itself. The operation may wait up to 60 seconds for a card and has a 75-second timeout.
-- `egress.audit` (`act`, feature `chats`) takes `{events: [...]}`, at most 500 lines of `{host, port, kind, verdict, reason, addr, bytesUp, bytesDown, durationMs, at}`. `verdict` is `done` (an allowed connection ended; the bytes it moved) or `block` (the add-on refused it itself: an address that is private, the server's own or a metadata address, a TLS name that is not the host, a limit, or a connection while no call ran).
+- `egress.audit` (`act`, feature `chats`) takes `{events: [...]}`, at most 500 lines of `{host, port, kind, verdict, reason, addr, bytesUp, bytesDown, durationMs, at}`. `verdict` is `done` (an allowed connection ended; the bytes it moved) or `block` (the add-on refused it itself: an address that is private, the server's own or a metadata address, a TLS name that is not the host, a limit, or a connection while no call ran). A call made under a job lease (see [Execution provider and status payload](#execution-provider-and-status-payload)) is unattended: `egress.check` blocks a host that would need a card with the reason `unattended` instead of asking.
 
 ## Simple Office
 
@@ -6509,6 +6564,8 @@ An older package of the add-on also served `read`, `write`, `edit`, `glob` and `
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
 - **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, their version stays and the sandbox's version is saved as a copy; the answer names the file and the copy. A file written outside `/workspace/home` (where `bash` starts) is not saved, and the answer names it too. In a chat whose agent works in [one folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}), `/workspace/home` is that folder (read only when the agent can only read it), and the chat's own folder is at `/workspace/chat`, where files are saved as well; nothing else of the user's files is in the sandbox. The change set belongs to the chat that ran the command, so the chat lists the files it saved (see [Files that a command saved]({{%relref "features/chats#files-that-a-command-saved" %}})). A file change by someone else makes the sandbox rebuild its view of the files before the next call.
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When the add-on stops (it is disabled, or the server shuts down) it first stops all its sandboxes, for at most 8 seconds. The supervisor waits for that before it kills the add-on process; a server that is killed with SIGKILL cannot do this, and the next start removes what was left. When a suspended sandbox is removed, the host backend also stops the processes it left running.
+- **Background jobs.** The add-on runs the jobs of the chat's `job` tool (see [Execution provider and status payload](#execution-provider-and-status-payload)) in the chat's sandbox, in the add-on process. A job's output (stdout and stderr together, the last 256 KiB, with absolute byte offsets) and its exit status come from the process, not from any connection of the host, so they stay when the call that started the job returns. While a job runs, its sandbox is not given way to another chat, not suspended, not refreshed and not removed at its age. Input goes to the job's standard input; a call waits at most 5 seconds for the job to read it. A kill sends SIGTERM (or SIGINT) to the job's process group and SIGKILL 10 seconds later; a job ends after 2 hours the same way. When a job ends, what it wrote is committed as one change set (`Job job-3: build`) before the sandbox is let go; a file it writes is also in the next `bash` call's change set. At most 32 jobs run in the add-on process; the host keeps the limits per chat and per user. A finished job stays readable for 30 minutes, at most 16 per chat. An add-on restart ends every job: the host reads the jobs as gone. A call that must make the sandbox again (a new profile, agent folder or mode) ends the chat's jobs first and says so at the top of its output.
+- **The network of a job.** While no call of the chat runs, the proxy lets a connection through under the operation of the oldest live job of the sandbox (the proxy cannot tell which process opened it; during a call, every connection counts against the call). Each job has its own 64 MiB up and 4 GiB down. A host that the chat's preset or an always-allowed rule allows passes. A host that needs the person's yes is blocked, since nobody is there to answer a card: the job's output gets *Blocked by LocalAI: host:port needs the user's approval, and nobody can be asked while no turn of this chat runs (a background job)*, and the audit line has the reason `unattended`. With neither a call nor a job, every connection is refused as before.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. Without the add-on, or with it switched off for a chat, the chat's model is told that it cannot run commands, and the chat's Tools menu says so to the user; see [Running commands]({{%relref "features/chats#running-commands" %}}). A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
 - **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.
@@ -6566,7 +6623,7 @@ The **Host** backend is for a machine that can run neither of the others. Choosi
 
 The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
 
-The guest image, `runsc` and the KVM programs are not part of the add-on's source. A release sets `main.guestImage` (the image of the `base` profile, by digest) at build time. It sets `main.profileImages` (`media=<ref>,video=<ref>`) for the images of the other profiles. A profile without an image is not offered by that release. The checksums of the `runsc` and of the Cloud Hypervisor and `virtiofsd` it was tested with are compiled into the add-on (`runscPins` and `kvmPins` in `addons/sandbox/cmd/sandbox`), and tests keep them equal to `package/runsc.json` and `package/kvm.json`. A build without a guest image reports that on the page, and only the host backend can run.
+The guest image, `runsc` and the KVM programs are not part of the add-on's source. A release sets `main.guestImage` (the image of the `base` profile, by digest) at build time. It sets `main.profileImages` (`media=<ref>`) for the image of the `media` profile. A profile without an image is not offered by that release. The checksums of the `runsc` and of the Cloud Hypervisor and `virtiofsd` it was tested with are compiled into the add-on (`runscPins` and `kvmPins` in `addons/sandbox/cmd/sandbox`), and tests keep them equal to `package/runsc.json` and `package/kvm.json`. A build without a guest image reports that on the page, and only the host backend can run.
 
 ### Sandbox profiles
 
@@ -6576,8 +6633,7 @@ A profile is an environment a sandbox can run in: a name, what it is for, the li
 | Profile | For | Programs | CPUs | Memory | Disk |
 |---|---|---|---|---|---|
 | `base` | Python, documents, PDF and the usual command-line tools. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl | 2 | 2048 MiB | 10240 MiB |
-| `media` | Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl, ffmpeg (with ffprobe), sox, ImageMagick (magick, convert) | 2 | 4096 MiB | 20480 MiB |
-| `video` | Media plus a Rust toolchain and the fframes renderer to make videos from code. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl, ffmpeg (with ffprobe), sox, ImageMagick (magick, convert), Rust (rustc and cargo, 1.88 or newer), fframes (cargo fframes, renders video from code) | 4 | 8192 MiB | 30720 MiB |
+| `media` | Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl, ffmpeg (with ffprobe), sox, ImageMagick (magick, convert), rsvg-convert (renders SVG to PNG, also the SVG reader of ImageMagick) | 2 | 4096 MiB | 20480 MiB |
 <!-- sandbox-profiles:end -->
 
 `base` is the fallback and is always allowed. The model is told the profile its chat runs, the programs it has and the programs the other profiles add, in the prompt of each turn, and the description of `bash` names the profile. The text is built from the manifest, so it never differs from the image. The command line runs as an unprivileged user and `apt` is blocked by the proxy, so nothing can be installed from inside the guest with a system package manager. `pip` can install Python packages within the chat's network setting (see [Network access](#network-access)). Adding a program means a new guest image. The build of each image fails when a program of its profile is missing or does not start (`addons/sandbox/images/guest/check-tools.sh <profile>` reads the checks from the manifest).
@@ -6588,7 +6644,7 @@ matplotlib draws charts without a display: it writes PNG and SVG files, and the 
 
 1. The profile the person picked in the chat. The picker sits next to the network switcher in the Tools menu of the chat.
 2. The profile of the saved agent of the chat (`sandbox_profile`). Unattended runs of an agent (triggers, jobs, connectors) use it too.
-3. The default profile of the administrator (`default` of the policy below), then `base`.
+3. The default profile of the administrator (`default` of the policy below), then `media`, then `base`. With media as the default, each sandbox reserves the limits of `media` (2 CPUs, 4 GiB of memory, 20 GiB of disk); an administrator who wants the smaller `base` sets it as the default.
 
 Switching the profile restarts the sandbox at the next command. The user's files stay. Running processes and installed packages are lost, and the picker says so before you switch. The model can switch too with one tool, `sandbox_profile`: the action `list` shows the profiles with their programs, and the action `use` switches. It is in the *Run commands* group of the chat and follows the rules of the picker: the user's own chat and the policy of the administrator. A skill can name the profile it wants with the frontmatter field `sandbox: media` (see [Chats](/features/chats/)). It is a hint: the model is told, may offer the switch and never switches without the person's yes.
 
@@ -6596,7 +6652,7 @@ Switching the profile restarts the sandbox at the next command. The user's files
 
 | Key | Meaning |
 |---|---|
-| `default` | The profile a new chat gets. Empty: `base`. |
+| `default` | The profile a new chat gets. Empty: `media`, or `base` when the add-on has no `media` profile. |
 | `access` | For a profile, the `roles` (`admin`, `user`) and the `users` who may use it. A profile that is not listed, or has no roles and no users, is open to everyone. |
 | `memory_mib`, `disk_mib` | The most memory and disk one sandbox may have, whatever the profile asks. `0` is no cap. |
 | `pin_previous` | The profiles that run their previous image. See below. |
@@ -6703,9 +6759,8 @@ The Sandbox package is for Linux on amd64 and arm64. The macOS platforms are lis
   ```
 
   The profile names the binary by path, so a new `runsc` at a new path needs a new profile. Inside a container, AppArmor is that of the host: use a profile that allows user namespaces for the container (or `--security-opt apparmor=unconfined`), together with a seccomp profile that allows `unshare` and `clone` with `CLONE_NEWUSER`.
-- **The guest images.** The guest runs a Debian userland, the guest kernel and the guest agent. There is one image for each sandbox profile, and the Dockerfile has one target for each: `base` (the default target), `media` (base plus ffmpeg, sox and ImageMagick) and `video` (media plus a Rust toolchain of version 1.88 or newer, the build prerequisites of Skia and ffmpeg, the `cargo fframes` command, the ALSA development files that the project template needs, and the software Vulkan driver). The `sandbox guest image` workflow (`.github/workflows/sandbox-images.yml`) builds `addons/sandbox/images/guest/Dockerfile` for amd64 and arm64, pushes the three images to the project registry (`quay.io/go-skynet/sandbox-guest`, `-media` and `-video`, which must allow anonymous pulls) and outputs each reference by digest. The package build passes them in `SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest>` (base) and, optionally, `SANDBOX_GUEST_IMAGE_MEDIA` and `SANDBOX_GUEST_IMAGE_VIDEO`. `scripts/addons/package.sh` builds the add-on with `-ldflags "-X main.guestImage=... -X main.profileImages=media=...,video=..."`. `package.sh` refuses a Sandbox build without the base variable; `--local-check` builds with a stand-in reference no registry serves, for a check that does not publish. To build an image by hand: `docker buildx build -f addons/sandbox/images/guest/Dockerfile --target <base|media|video> .` from the repository root.
+- **The guest images.** The guest runs a Debian userland, the guest kernel and the guest agent. There is one image for each sandbox profile, and the Dockerfile has one target for each: `base` (the default target) and `media` (base plus ffmpeg, sox, ImageMagick and `rsvg-convert`). The `sandbox guest image` workflow (`.github/workflows/sandbox-images.yml`) builds `addons/sandbox/images/guest/Dockerfile` for amd64 and arm64, pushes the two images to the project registry (`quay.io/go-skynet/sandbox-guest` and `-media`, which must allow anonymous pulls) and outputs each reference by digest. The package build passes them in `SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest>` (base) and, optionally, `SANDBOX_GUEST_IMAGE_MEDIA`. `scripts/addons/package.sh` builds the add-on with `-ldflags "-X main.guestImage=... -X main.profileImages=media=..."`. `package.sh` refuses a Sandbox build without the base variable; `--local-check` builds with a stand-in reference no registry serves, for a check that does not publish. To build an image by hand: `docker buildx build -f addons/sandbox/images/guest/Dockerfile --target <base|media> .` from the repository root.
 - **The build check of a profile.** The tools of each profile, with the command that proves each one works, are in the add-on manifest (`execution.profiles`). The Dockerfile copies the manifest into the image and runs `check-tools.sh <profile>` in each target, so an image does not build when a listed tool is missing. `sh addons/sandbox/images/guest/check-tools_test.sh` tests the script.
-- **Network needs of the video profile.** The Rust and fframes builds of a chat fetch crates and sources. The network preset of the chat must allow `crates.io`, `github.com` and `release-assets.githubusercontent.com`. The `video` image is about 3.2 GB on disk (about 0.76 GB compressed). A first build of a project compiles ffmpeg and Skia: with 4 CPUs it takes about 13 minutes, the build folder of the project grows to about 4 GB, and the guest uses about 2.3 GiB of memory at most. The guest has no GPU, so fframes draws with Skia on the software Vulkan driver (lavapipe). A render of 3 seconds at 720p takes a few seconds.
 - **KVM.** `addons/sandbox/package/kvm.json` pins Cloud Hypervisor v54.0 (amd64 and arm64) and virtiofsd v1.14.0 (amd64) with checksums, and `fetch-runtime.sh` puts them in the package. The add-on checks each against the checksum compiled into it and copies it, as an executable file, to `kvm-bin/` in its data directory. Upstream publishes no static virtiofsd for arm64, so on arm64 install virtiofsd 1.13 or later in a system folder. The KVM backend also needs `mke2fs` and `debugfs` from e2fsprogs (the LocalAI image installs them) and access to `/dev/kvm` for the user LocalAI runs as. Bubblewrap is optional in a container: the add-on does not use it when it finds `/.dockerenv` or `/run/.containerenv`, or when `SANDBOX_NO_BWRAP=1` is set in its environment (`SANDBOX_NO_BWRAP=0` forces it). `addons/sandbox/images/host/Dockerfile` still builds an image with the same programs for a product that wants them in one place.
 - **Tests in CI.** The `sandbox tests` workflow (`.github/workflows/sandbox-tests.yml`) runs the Go tests and the end-to-end suite, the gVisor integration suite on amd64 and arm64 (with the pinned `runsc` and its profile loaded), the KVM integration suite on a runner that has `/dev/kvm` (it skips, and says so, on one without), and the release smoke test.
 - **Release smoke test.** `scripts/addons/sandbox_smoke.sh` takes the package that `package.sh` made, starts the add-on from the extracted files under the real supervisor with the default settings, and runs a command through the tool path of a chat. It passes when the command ran in gVisor or KVM, or, on a host that cannot, when every tool answers "This host cannot run commands." and nothing ran. `--require isolated` makes the second case a failure.

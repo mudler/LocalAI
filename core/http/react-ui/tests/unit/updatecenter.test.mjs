@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  addonRows, addonSource, ageParts, applyLocal, backendRows, badgeOf, breakdownOf, bulkItemsOf, currentBackendRows,
+  addonRows, addonSource, ageParts, applyLocal, backendRows, badgeOf, needsPersonRows, breakdownOf, bulkItemsOf, currentBackendRows,
   filterCounts, filterRows, galleryUpdateMap, groupOf, groupRows, headlineOf, normalizeFilter, sourceViews, trackJob, verdictOf, addonStillListed,
 } from '../../src/utils/updates.js'
 
@@ -326,4 +326,18 @@ test('updates: the badge counts the backend items like the server digest', () =>
     const rows = backendRows(c.snapshot, { auto: c.auto })
     assert.equal(badgeOf(rows).count, c.count, c.name)
   }
+})
+
+test('needsPersonRows: backends and add-ons are in one list, and its length is the badge', () => {
+  const rows = [
+    { id: 'gallery:llama-cpp', kind: 'gallery', name: 'llama-cpp', state: 'ready' },
+    { id: 'addon:notes', kind: 'addon', name: 'Notes sync', state: 'ready' },
+    { id: 'addon:tables', kind: 'addon', name: 'Tables', state: 'held' },
+    { id: 'addon:mail', kind: 'addon', name: 'Mail', state: 'ready', covered: true },
+    { id: 'gallery:whisper', kind: 'gallery', name: 'whisper', state: 'current' },
+  ]
+  const list = needsPersonRows(rows)
+  assert.deepEqual(list.map(r => r.name), ['llama-cpp', 'Notes sync', 'Tables'])
+  assert.equal(list.length, badgeOf(rows).count)
+  assert.deepEqual(needsPersonRows(null), [])
 })

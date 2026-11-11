@@ -251,6 +251,20 @@
     "cancel": "Cancel",
     "stop": "Stop after this node",
     "listLabel": "Nodes to update",
+    "titleAll_one": "Start {{count}} update?",
+    "titleAll_other": "Start {{count}} updates?",
+    "confirmPlus_one": "{{label}}, plus {{count}} more",
+    "confirmPlus_other": "{{label}}, plus {{count}} more",
+    "othersTitle": "Also starts when you confirm",
+    "othersLabel": "Other updates to start",
+    "othersIntro": "These do not run on nodes. They start one after another when you confirm. An add-on stops while its data is backed up and migrated. If the new version does not start, the current one keeps running.",
+    "otherKind": {
+      "addon": "Add-on",
+      "library": "Library backend",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Library {{library}}",
+    "otherOriginChannel": "Library {{library}}, channel {{channel}}",
     "runningNote": "Stop keeps the nodes that have not started from starting."
   }
 }

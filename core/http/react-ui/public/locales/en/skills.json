@@ -57,7 +57,11 @@
   },
   "list": {
     "label": "Skills",
-    "none": "No skill matches."
+    "none": "No skill matches.",
+    "countAll_one": "{{count}} skill",
+    "countAll_other": "{{count}} skills",
+    "countOf": "{{shown}} of {{total}} skills",
+    "menu": "Actions for {{name}}"
   },
   "pane": {
     "back": "All skills",
@@ -107,7 +111,10 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a skill from your files is changed in Files."
+    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a skill from your files is changed in Files.",
+    "counter": "{{count}} of {{max}}",
+    "nameInvalid": "Use lowercase letters, digits and single hyphens.",
+    "bodyHelp": "Written in markdown. A chat reads it when a task matches the description."
   },
   "load": {
     "title": "Could not load your skills."
@@ -120,5 +127,16 @@
     "done_other": "Imported {{count}} skills",
     "scriptsStored": "Scripts and other files are stored as they are. Scripts are stored, never run by the import.",
     "newNote": "It is marked New until a chat uses it."
+  },
+  "sort": {
+    "label": "Sort skills",
+    "name": "Name, A to Z",
+    "name-desc": "Name, Z to A",
+    "used": "Most used",
+    "source": "Group by source"
+  },
+  "source": {
+    "label": "Show skills from",
+    "all": "All sources ({{count}})"
   }
 }

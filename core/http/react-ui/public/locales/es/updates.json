@@ -251,6 +251,20 @@
     "cancel": "Cancelar",
     "stop": "Parar tras este nodo",
     "listLabel": "Nodos que se actualizarán",
+    "titleAll_one": "¿Iniciar {{count}} actualización?",
+    "titleAll_other": "¿Iniciar {{count}} actualizaciones?",
+    "confirmPlus_one": "{{label}} y {{count}} más",
+    "confirmPlus_other": "{{label}} y {{count}} más",
+    "othersTitle": "También se inicia al confirmar",
+    "othersLabel": "Otras actualizaciones que se iniciarán",
+    "othersIntro": "Estas no se ejecutan en nodos. Se inician una tras otra al confirmar. Un complemento se detiene mientras se respaldan y migran sus datos. Si la nueva versión no arranca, la actual sigue en marcha.",
+    "otherKind": {
+      "addon": "Complemento",
+      "library": "Backend de biblioteca",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Biblioteca {{library}}",
+    "otherOriginChannel": "Biblioteca {{library}}, canal {{channel}}",
     "runningNote": "Parar evita que arranquen los nodos que aún no han empezado."
   }
 }
