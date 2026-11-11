@@ -47,11 +47,8 @@ func voiceErrors(raw any) []string {
 	if !ok {
 		return nil
 	}
-	v, _ := m["voice"].(string)
-	for _, r := range v {
-		if r < 0x20 || r == 0x7f {
-			return []string{"voice.voice: a voice name is plain text without control characters"}
-		}
+	if v, _ := m["voice"].(string); hasControlChar(v) {
+		return []string{"voice.voice: a voice name is plain text without control characters"}
 	}
 	return nil
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
+	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -225,10 +226,8 @@ func BackgroundImageOK(p string) bool {
 	if p == "" || len(p) > 400 || strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\\:?#") {
 		return false
 	}
-	for _, r := range p {
-		if r < 0x20 || r == 0x7f {
-			return false
-		}
+	if hasControlChar(p) {
+		return false
 	}
 	for _, seg := range strings.Split(p, "/") {
 		if seg == "" || seg == "." || seg == ".." {
@@ -458,8 +457,8 @@ func navErrors(obj map[string]any) []string {
 					continue
 				}
 			}
-			if ts == "page" && !pageNameRE.MatchString(target) {
-				out = append(out, fmt.Sprintf("items[%d].page: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", i, clip(target, 80)))
+			if ts == "page" && !pages.ValidName(target) {
+				out = append(out, pageNameError(fmt.Sprintf("items[%d].page", i), target))
 			}
 			if ts == "url" && !NavURLOK(target) {
 				out = append(out, fmt.Sprintf("items[%d].url: %q is not an http or https address without a user name; a link that opens a site needs one, such as https://localai.io/docs", i, clip(target, 80)))
@@ -596,8 +595,6 @@ func slotErrors(raw any) []string {
 // in a frame of its own.
 const MaxPageWidgets = 3
 
-var pageNameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
-
 // pageWidgetErrors says, in words, what is wrong with the page widgets of
 // home.json: too many of them, or a page that is not a page name.
 func pageWidgetErrors(obj map[string]any) []string {
@@ -615,8 +612,8 @@ func pageWidgetErrors(obj map[string]any) []string {
 		switch {
 		case !ok || (isString && name == ""):
 			out = append(out, fmt.Sprintf("widgets[%d].page: a page widget names its page, such as \"news\" for the folder pages/news/ of your home", i))
-		case !isString || !pageNameRE.MatchString(name):
-			out = append(out, fmt.Sprintf("widgets[%d].page: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", i, clip(fmt.Sprint(raw), 80)))
+		case !isString || !pages.ValidName(name):
+			out = append(out, pageNameError(fmt.Sprintf("widgets[%d].page", i), raw))
 		}
 	}
 	if count > MaxPageWidgets {
@@ -636,13 +633,13 @@ func pageAreaErrors(obj map[string]any) []string {
 	const hint = "pageArea names a page: a string such as \"today\" for the folder pages/today/ of your home, {\"page\": \"today\", \"folder\": 3} for a page of a shared folder, or null for no page area"
 	switch v := raw.(type) {
 	case string:
-		if !pageNameRE.MatchString(v) {
-			return []string{fmt.Sprintf("pageArea: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", clip(v, 80))}
+		if !pages.ValidName(v) {
+			return []string{pageNameError("pageArea", v)}
 		}
 	case map[string]any:
 		name, isString := v["page"].(string)
-		if !isString || !pageNameRE.MatchString(name) {
-			return []string{fmt.Sprintf("pageArea.page: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", clip(fmt.Sprint(v["page"]), 80))}
+		if !isString || !pages.ValidName(name) {
+			return []string{pageNameError("pageArea.page", v["page"])}
 		}
 		if f, has := v["folder"]; has {
 			n, isNum := f.(float64)
@@ -710,6 +707,16 @@ func ItemURLOK(u string) bool {
 		}
 	}
 	return false
+}
+
+// hasControlChar says whether s holds an ASCII control character (C0 or DEL).
+func hasControlChar(s string) bool {
+	return strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f })
+}
+
+// pageNameError says that v, at field, is not a page name.
+func pageNameError(field string, v any) string {
+	return fmt.Sprintf("%s: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", field, clip(fmt.Sprint(v), 80))
 }
 
 func clip(s string, n int) string {
