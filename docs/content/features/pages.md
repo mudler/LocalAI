@@ -461,8 +461,10 @@ is no retry loop: **Reload** in the strip starts the page again.
 
 An administrator can switch the page area off for everyone (the
 `home_page_area_enabled` [runtime setting]({{% relref "features/runtime-settings" %}})).
-The area then shows a note that says so, `pageArea` is ignored, and the files
-are kept.
+The area then shows a note that says so, and the server leaves `pageArea` out
+of the `home.json` it serves (`GET /api/chats/wellknown/home` names it in
+`withheld`). The file keeps its value: a write of the whole file that does not
+name `pageArea` keeps it too, so the page comes back when the area is on again.
 
 ## A start page
 

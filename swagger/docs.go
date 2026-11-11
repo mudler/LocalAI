@@ -29794,6 +29794,13 @@ const docTemplate = `{
                 "version": {
                     "description": "Version is what a write sends back in If-Match. It is 0 when the file\ndoes not exist.",
                     "type": "integer"
+                },
+                "withheld": {
+                    "description": "Withheld names the keys of the file that the server leaves out of data\nbecause an administrator turned their feature off (pageArea of home\nwhile the page area of Home is off). The file keeps them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

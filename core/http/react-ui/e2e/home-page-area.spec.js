@@ -271,13 +271,17 @@ test('an administrator switches the page area off for everyone: pageArea is igno
     await expect(page.locator('iframe[data-testid="page-frame"]')).toHaveCount(0)
     await expect(page.getByTestId('home-widget-chats')).toBeVisible()
     await shot(page, 'area-off-light')
-    // The picker says so too, and the file keeps its page.
+    // The picker says so too. The server serves no pageArea while the area
+    // is off and names it as withheld; the file keeps its page.
     await page.getByTestId('home-edit-layout').click()
     await expect(page.getByTestId('home-layout-area-hint')).toContainText('administrator')
-    expect((await homeJson(request)).data.pageArea).toBe(TODAY)
+    const held = await homeJson(request)
+    expect(held.data.pageArea).toBeUndefined()
+    expect(held.withheld).toEqual(['pageArea'])
   } finally {
     await request.post('/api/settings', { data: { home_page_area_enabled: true } })
   }
+  expect((await homeJson(request)).data.pageArea).toBe(TODAY)
   await home(page)
   await expect(area(page)).toBeVisible()
 })

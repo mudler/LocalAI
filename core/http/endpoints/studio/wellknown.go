@@ -29,6 +29,12 @@ var wellKnownRules = []errRule{
 }
 
 func failWellKnown(c echo.Context, err error) error {
+	return failWellKnownDoc(c, err, false)
+}
+
+// failWellKnownDoc is failWellKnown for an answer that may hold the file:
+// areaOff leaves its pageArea out, as answerDoc does.
+func failWellKnownDoc(c echo.Context, err error, areaOff bool) error {
 	var inv *wellknown.InvalidError
 	if errors.As(err, &inv) {
 		return c.JSON(http.StatusBadRequest, schema.ChatsWellKnownError{
@@ -40,7 +46,7 @@ func failWellKnown(c echo.Context, err error) error {
 	if errors.As(err, &cf) {
 		out := schema.ChatsWellKnownError{Error: &schema.APIError{Message: "the file changed since you read it", Code: http.StatusConflict, Type: typeConflict}}
 		if cf.Current.Name != "" {
-			cur := docOut(c, cf.Current)
+			cur := docOut(c, cf.Current, areaOff)
 			out.Current = &cur
 		}
 		return c.JSON(http.StatusConflict, out)
@@ -50,7 +56,9 @@ func failWellKnown(c echo.Context, err error) error {
 
 // docOut is the answer for a document. user.json gets the account's name when
 // it has none, marked as prefilled, so the settings page shows where it came from.
-func docOut(c echo.Context, d wellknown.Doc) schema.ChatsWellKnownFile {
+// With areaOff, the pageArea of home.json is left out and named in withheld:
+// the page area of Home is off, so no client gets a page to run there.
+func docOut(c echo.Context, d wellknown.Doc, areaOff bool) schema.ChatsWellKnownFile {
 	out := schema.ChatsWellKnownFile{
 		Name: string(d.Name), Path: d.Path, Exists: d.Exists, Version: d.Version, Rev: d.Rev, Data: d.Data,
 		Valid: d.Valid, Errors: d.Errors, Fallback: d.Fallback, FallbackRev: d.FallbackRev,
@@ -66,7 +74,20 @@ func docOut(c echo.Context, d wellknown.Doc) schema.ChatsWellKnownFile {
 			out.Data, out.Prefilled = data, map[string]string{"name": "account"}
 		}
 	}
+	if _, ok := out.Data[pageAreaKey]; ok && areaOff && d.Name == wellknown.Home {
+		data := maps.Clone(out.Data)
+		delete(data, pageAreaKey)
+		out.Data, out.Withheld = data, []string{pageAreaKey}
+	}
 	return out
+}
+
+// pageAreaKey is the key of home.json that names the page of the page area.
+const pageAreaKey = "pageArea"
+
+// areaOff says whether the page area of Home is off for the file n.
+func (h *Handlers) areaOff(n wellknown.Name) bool {
+	return n == wellknown.Home && !h.svc.PageAreaOn()
 }
 
 // wellKnown resolves the name of the route. On failure it has answered.
@@ -101,7 +122,7 @@ func ifMatch(c echo.Context) (*int64, bool) {
 func (h *Handlers) answerDoc(c echo.Context, d wellknown.Doc) error {
 	c.Response().Header().Set("ETag", strconv.Quote(strconv.FormatInt(d.Version, 10)))
 	c.Response().Header().Set("Cache-Control", "no-store")
-	return c.JSON(http.StatusOK, docOut(c, d))
+	return c.JSON(http.StatusOK, docOut(c, d, h.areaOff(d.Name)))
 }
 
 // GetWellKnown reads a well-known file.
@@ -155,11 +176,27 @@ func (h *Handlers) PutWellKnown(c echo.Context) error {
 	if req.Values == nil {
 		return fail(c, http.StatusBadRequest, typeInvalid, "values is required")
 	}
-	d, err := h.svc.WellKnown().Write(c.Request().Context(), fc.p, wellknown.WriteRequest{
+	ctx := c.Request().Context()
+	areaOff := h.areaOff(n)
+	if _, named := req.Values[pageAreaKey]; areaOff && req.Replace && !named {
+		// The client read the file without its pageArea: a whole-file write
+		// keeps the value the file holds, which counts again once the area
+		// is back on.
+		cur, err := h.svc.WellKnown().Read(ctx, fc.p, n, "")
+		if err != nil {
+			return failWellKnown(c, err)
+		}
+		if v, ok := cur.Data[pageAreaKey]; ok && cur.Valid {
+			values := maps.Clone(req.Values)
+			values[pageAreaKey] = v
+			req.Values = values
+		}
+	}
+	d, err := h.svc.WellKnown().Write(ctx, fc.p, wellknown.WriteRequest{
 		Name: n, Path: c.QueryParam("path"), Values: req.Values, Replace: req.Replace, Base: base,
 	})
 	if err != nil {
-		return failWellKnown(c, err)
+		return failWellKnownDoc(c, err, areaOff)
 	}
 	return h.answerDoc(c, d)
 }

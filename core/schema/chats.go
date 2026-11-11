@@ -3003,6 +3003,10 @@ type ChatsWellKnownFile struct {
 	// Prefilled names the keys of data that do not come from the file, and
 	// where they come from ("account").
 	Prefilled map[string]string `json:"prefilled,omitempty"`
+	// Withheld names the keys of the file that the server leaves out of data
+	// because an administrator turned their feature off (pageArea of home
+	// while the page area of Home is off). The file keeps them.
+	Withheld []string `json:"withheld,omitempty"`
 }
 
 // ChatsWellKnownWrite changes a well-known file. The keys of values replace
