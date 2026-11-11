@@ -651,6 +651,7 @@
     "allowedHostsOff": "Ils s’appliquent quand le réseau est activé.",
     "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur.",
     "limitNote": "Réseau de cette conversation. L’administrateur fixe le maximum qu’une conversation peut atteindre.",
+    "draftNote": "La conversation démarre avec ce réglage. L’administrateur fixe le maximum qu’une conversation peut atteindre, et cette limite s’applique.",
     "asksAbove": "Cette conversation demande {{choice}} ; la limite de l’administrateur est {{limit}}.",
     "unverified": "L’application de la politique réseau n’est pas vérifiée pour le fournisseur réel. Ces paramètres ne s’appliquent pas à ses commandes.",
     "configuredPolicy": "Politique réseau configurée : {{preset}} (non appliquée)."
@@ -1433,7 +1434,7 @@
     "notAllowed": "Votre administrateur ne vous a pas donné ce profil",
     "absent": "Cette version n'a pas d'image pour ce profil",
     "unavailable": "{{title}} n'est pas disponible : {{reason}}.",
-    "draft": "Une nouvelle conversation démarre dans {{title}}. Vous pouvez changer le profil dans la conversation.",
+    "draft": "La nouvelle conversation démarre dans {{title}}. Choisissez un profil ici, ou changez-le plus tard dans la conversation.",
     "source": {
       "chat": "Cette conversation utilise {{title}}, à votre choix.",
       "agent": "Cette conversation utilise {{title}}, défini par son agent.",

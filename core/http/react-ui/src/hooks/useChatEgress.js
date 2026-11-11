@@ -1,28 +1,42 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatEgressApi } from '../utils/api'
+import { draftEgressView, draftPresetToSave } from '../utils/chatEgress'
 
 const empty = { preset: 'off', ceiling: 'off', effective: 'off', applies: false, applies_reason: '', registries: [], allowed_hosts: [], rules: [], cards: [] }
 
 // The network of a chat's isolated commands (GET /api/chats/{id}/egress), read
 // again when tick changes (an egress_consent or egress_card event). setPreset,
 // removeRule and answer change it on the server and keep the answer.
-export function useChatEgress(chatId, tick) {
+//
+// Before the chat exists (no chatId) draft, { model, agentId, profilesApply },
+// names the new chat: the view comes from GET /api/chats/draft/egress, setPreset
+// only keeps the choice on the screen, and saveDraft(id) sends it to the chat
+// once it is created. Without draft a chat with no id has no view.
+export function useChatEgress(chatId, tick, draft = null) {
   const [state, setState] = useState(empty)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
   const [own, setOwn] = useState(0)
+  const [choice, setChoice] = useState('')
+  const draftOn = !chatId && !!draft
+  const draftModel = draft?.model || ''
+  const draftAgent = draft?.agentId || ''
+  const latest = useRef({ state, choice })
+  latest.current = { state, choice }
 
   useEffect(() => {
-    if (!chatId) { setState(empty); setLoaded(false); return undefined }
+    if (!chatId && !draftOn) { setState(empty); setLoaded(false); return undefined }
     let live = true
-    chatEgressApi.get(chatId)
+    const read = chatId ? chatEgressApi.get(chatId) : chatEgressApi.draft(draftModel, draftAgent)
+    read
       .then((res) => { if (live) { setState({ ...empty, ...res }); setLoaded(true); setError('') } })
-      .catch(() => { if (live) { setState(empty); setLoaded(true) } })
+      .catch(() => { if (live) { setState(empty); setLoaded(!draftOn) } })
     return () => { live = false }
-  }, [chatId, tick, own])
+  }, [chatId, draftOn, draftModel, draftAgent, tick, own])
 
   const setPreset = useCallback(async (preset) => {
     setError('')
+    if (!chatId) { setChoice(preset); return }
     try {
       const res = await chatEgressApi.setPreset(chatId, preset)
       setState({ ...empty, ...res })
@@ -58,5 +72,21 @@ export function useChatEgress(chatId, tick) {
     }
   }, [chatId])
 
-  return { ...state, loaded, error, setPreset, removeRule, refresh, answer }
+  // Sends the preset picked in the draft to the chat just created. It returns
+  // an error text, or '' when there was nothing to send or it was saved.
+  const saveDraft = useCallback(async (id) => {
+    const { state: res, choice: picked } = latest.current
+    const preset = draftPresetToSave(res, picked)
+    setChoice('')
+    if (!id || !preset) return ''
+    try {
+      await chatEgressApi.setPreset(id, preset)
+      return ''
+    } catch (e) {
+      return e.message || 'error'
+    }
+  }, [])
+
+  const view = draftOn ? draftEgressView({ ...state }, Boolean(draft?.profilesApply), choice) : state
+  return { ...view, loaded, error, setPreset, removeRule, refresh, answer, saveDraft }
 }

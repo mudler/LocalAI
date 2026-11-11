@@ -651,6 +651,7 @@
     "allowedHostsOff": "Eles valem quando a rede está ligada.",
     "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador.",
     "limitNote": "Rede deste chat. O administrador define o máximo que um chat pode alcançar.",
+    "draftNote": "O chat começa com esta configuração. O administrador define o máximo que um chat pode alcançar, e esse limite se aplica.",
     "asksAbove": "Este chat pede {{choice}}; o limite do administrador é {{limit}}.",
     "unverified": "A aplicação da política de rede não foi verificada para o provedor real. Estas configurações não se aplicam aos comandos dele.",
     "configuredPolicy": "Política de rede configurada: {{preset}} (não aplicada)."
@@ -1433,7 +1434,7 @@
     "notAllowed": "Seu administrador não liberou este perfil para você",
     "absent": "Esta versão não tem imagem para este perfil",
     "unavailable": "{{title}} não está disponível: {{reason}}.",
-    "draft": "Um novo chat começa em {{title}}. Você pode mudar o perfil no chat.",
+    "draft": "O novo chat começa em {{title}}. Escolha um perfil aqui ou mude depois no chat.",
     "source": {
       "chat": "Este chat usa {{title}}, por sua escolha.",
       "agent": "Este chat usa {{title}}, definido pelo agente.",

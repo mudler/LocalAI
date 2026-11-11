@@ -651,6 +651,7 @@
     "allowedHostsOff": "Berlaku saat jaringan aktif.",
     "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda.",
     "limitNote": "Jaringan chat ini. Administrator menetapkan batas maksimum yang dapat dijangkau sebuah chat.",
+    "draftNote": "Obrolan dimulai dengan pengaturan ini. Administrator menetapkan batas jangkauan obrolan, dan batas itu berlaku.",
     "asksAbove": "Chat ini meminta {{choice}}; batas administrator adalah {{limit}}.",
     "unverified": "Penerapan kebijakan jaringan untuk penyedia sebenarnya belum diverifikasi. Pengaturan ini tidak berlaku untuk perintahnya.",
     "configuredPolicy": "Kebijakan jaringan terkonfigurasi: {{preset}} (tidak diterapkan)."
@@ -1433,7 +1434,7 @@
     "notAllowed": "Administrator belum memberi Anda profil ini",
     "absent": "Rilis ini tidak punya image untuk profil ini",
     "unavailable": "{{title}} tidak tersedia: {{reason}}.",
-    "draft": "Obrolan baru dimulai di {{title}}. Anda dapat mengubah profil di dalam obrolan.",
+    "draft": "Obrolan baru dimulai di {{title}}. Pilih profil di sini, atau ubah nanti di dalam obrolan.",
     "source": {
       "chat": "Obrolan ini berjalan di {{title}}, pilihan Anda.",
       "agent": "Obrolan ini berjalan di {{title}}, ditetapkan oleh agennya.",

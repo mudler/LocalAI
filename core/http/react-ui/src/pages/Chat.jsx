@@ -326,10 +326,12 @@ function ChatPage() {
   }, [])
 
   const model = activeChat ? activeChat.model : draftModel
-  // The network of the chat's isolated commands, read again on its events.
-  const egress = useChatEgress(activeId, chat.ticks.egress)
-  // The sandbox profile of the chat's commands, with the progress of its image.
+  // The network of the chat's isolated commands, read again on its events, and
+  // the sandbox profile of the commands, with the progress of its image.
+  // A new chat has the same two rows from the draft endpoints; its choices are
+  // saved with the chat when it is created (createWithDraft).
   const sandboxProfile = useChatSandboxProfile(activeId, chat.ticks.egress)
+  const egress = useChatEgress(activeId, chat.ticks.egress, { model: draftModel, agentId, profilesApply: Boolean(sandboxProfile.applies) })
   // Switching an add-on or a tool group on or off changes who runs the commands
   // and whether the network controls apply, so the network view is read again.
   const { refresh: refreshEgress } = egress
@@ -1014,6 +1016,11 @@ function ChatPage() {
   // effort picked before it existed.
   const createWithDraft = async () => {
     const id = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+    // The sandbox profile and the network picked before the chat existed.
+    const profileError = await sandboxProfile.saveDraft(id)
+    if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
+    const networkError = await egress.saveDraft(id)
+    if (networkError) addToast(networkError, 'error')
     if (draftEffort) {
       try { await chat.update(id, { settings: settingsWithEffort(null, draftEffort) }) } catch (e) { addToast(e.message || t('settings.saveFailed'), 'error') }
       setDraftEffort('')
@@ -1474,7 +1481,7 @@ function ChatPage() {
               imageModel={chat.imageModel}
               onPickModel={pickModel}
               pickerRef={pickerRef}
-              egress={activeId ? egress : null}
+              egress={egress}
               sandboxProfile={sandboxProfile}
               toolsExtra={subAgents}
               chips={composerChips}

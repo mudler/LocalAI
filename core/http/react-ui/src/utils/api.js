@@ -462,6 +462,7 @@ export const chatHostExecApi = {
 // the chat's owner; the settings and the audit, for administrators.
 export const chatEgressApi = {
   get: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/egress`),
+  draft: (model, agentId) => fetchJSON(`/api/chats/draft/egress${draftQuery(model, agentId)}`),
   setPreset: (chat, preset) => fetchJSON(`/api/chats/${enc2(chat)}/egress`, { method: 'PUT', body: JSON.stringify({ preset }) }),
   deleteRule: (chat, host, port) => fetchJSON(`/api/chats/${enc2(chat)}/egress/rules/${enc2(host)}/${enc2(String(port))}`, { method: 'DELETE' }),
   consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/egress/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),

@@ -72,6 +72,23 @@ export function draftView(list) {
   }
 }
 
+// The draft view with the profile the person picked in the new chat. choice is
+// '' for none, or an id the list does not offer or the administrator does not
+// allow, which is ignored.
+export function withDraftChoice(view, choice) {
+  const p = profileById(view, choice)
+  if (!p || disabledReason(p)) return view
+  return { ...view, profile: p.id, selected: p.id, source: 'chat' }
+}
+
+// The profile to save once the chat exists: the draft's choice when it differs
+// from the profile a new chat starts with, else ''.
+export function draftProfileToSave(list, choice) {
+  const p = profileById(list, choice)
+  if (!p || disabledReason(p)) return ''
+  return p.id === list?.default ? '' : p.id
+}
+
 // ---- The administrator's settings (owner policy key sandbox_profiles) ----
 
 export const emptyPolicy = () => ({ default: '', access: {}, memory_mib: 0, disk_mib: 0, pin_previous: [] })

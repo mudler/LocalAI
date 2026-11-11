@@ -651,6 +651,7 @@
     "allowedHostsOff": "网络开启时生效。",
     "allowedHostsNote": "管理员始终允许 {{count}} 个主机。",
     "limitNote": "此对话的网络。管理员决定对话最多能访问的范围。",
+    "draftNote": "聊天将以此设置开始。管理员决定聊天最多能访问的范围，该限制同样适用。",
     "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。",
     "unverified": "尚未验证实际提供程序是否实施网络策略。这些设置目前不适用于其命令。",
     "configuredPolicy": "已配置的网络策略：{{preset}}（未实施）。"
@@ -1433,7 +1434,7 @@
     "notAllowed": "管理员没有授权你使用此配置",
     "absent": "此版本没有该配置的镜像",
     "unavailable": "{{title}} 不可用：{{reason}}。",
-    "draft": "新聊天从 {{title}} 开始。你可以在聊天中更改配置。",
+    "draft": "新聊天从 {{title}} 开始。你可以在此选择配置，也可以稍后在聊天中更改。",
     "source": {
       "chat": "此聊天使用 {{title}}，由你选择。",
       "agent": "此聊天使用 {{title}}，由其智能体设定。",

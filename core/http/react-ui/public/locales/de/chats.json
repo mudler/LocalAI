@@ -651,6 +651,7 @@
     "allowedHostsOff": "Sie gelten, wenn das Netzwerk eingeschaltet ist.",
     "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt.",
     "limitNote": "Netzwerk dieses Chats. Der Administrator legt fest, was ein Chat höchstens erreichen darf.",
+    "draftNote": "Der Chat startet mit dieser Einstellung. Der Administrator legt fest, was ein Chat höchstens erreichen darf; diese Grenze gilt.",
     "asksAbove": "Dieser Chat verlangt {{choice}}; das Limit des Administrators ist {{limit}}.",
     "unverified": "Die Durchsetzung der Netzwerkrichtlinie ist für den tatsächlichen Anbieter nicht bestätigt. Diese Einstellungen gelten nicht für seine Befehle.",
     "configuredPolicy": "Konfigurierte Netzwerkrichtlinie: {{preset}} (nicht durchgesetzt)."
@@ -1433,7 +1434,7 @@
     "notAllowed": "Dein Administrator hat dir dieses Profil nicht freigegeben",
     "absent": "Diese Version hat kein Image dafür",
     "unavailable": "{{title}} ist nicht verfügbar: {{reason}}.",
-    "draft": "Ein neuer Chat startet in {{title}}. Du kannst das Profil im Chat ändern.",
+    "draft": "Der neue Chat startet in {{title}}. Wähle hier ein Profil oder ändere es später im Chat.",
     "source": {
       "chat": "Dieser Chat läuft in {{title}}, nach deiner Wahl.",
       "agent": "Dieser Chat läuft in {{title}}, vom Agenten festgelegt.",

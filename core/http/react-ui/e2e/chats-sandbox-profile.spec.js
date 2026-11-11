@@ -158,6 +158,103 @@ test.describe('Sandbox profile of the commands', () => {
   })
 })
 
+// A new chat has no id yet. The profile is picked in the Tools menu, kept on
+// the page and saved with the chat once it is created.
+async function stubDraft(page, { applies = true } = {}) {
+  await mockAddons(page, { apps: [RUNNER], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' })] })
+  const state = { calls: [], created: 0 }
+  await page.route('**/api/chats/sandbox-profiles', route => route.fulfill({ json: { addon: applies ? 'sandbox' : '', default: 'base', profiles: applies ? PROFILES() : [] } }))
+  await page.route('**/api/chats/draft/addons*', route => route.fulfill({ json: sandboxAddons }))
+  await page.route('**/api/chats/draft/egress*', route => route.fulfill({ json: { ...egress, applies: false, applies_reason: 'none' } }))
+  await page.route('**/api/chats/c1/events', route => route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: '' }).catch(() => {}))
+  await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => {
+    if (route.request().method() === 'POST') { state.calls.push('send'); return route.fulfill({ json: { started: true } }) }
+    return route.fulfill({ json: { messages: [] } })
+  })
+  await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: sandboxAddons }))
+  await page.route('**/api/chats/c1/egress', route => route.fulfill({ json: egress }))
+  await page.route('**/api/chats/c1/sandbox-profile', route => {
+    if (route.request().method() === 'PUT') {
+      const { profile: id } = route.request().postDataJSON()
+      state.calls.push(`profile:${id}`)
+      return route.fulfill({ json: spView({ profile: id, selected: id, source: 'chat' }) })
+    }
+    return route.fulfill({ json: spView() })
+  })
+  await page.route('**/api/chats/c1', route => route.fulfill({ json: DETAIL }))
+  await page.route(/\/api\/chats(\?.*)?$/, route => {
+    if (route.request().method() === 'POST') { state.calls.push('create'); return route.fulfill({ json: DETAIL }) }
+    return route.fulfill({ json: { conversations: [], persistent: true, files: true, files_reason: '' } })
+  })
+  return state
+}
+
+test.describe('Sandbox profile of a new chat', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  test('the profiles can be picked before the first message, with no restart warning', async ({ page }) => {
+    const state = await stubDraft(page)
+    await page.goto('/app')
+    await page.getByTestId('chat-tools-button').click()
+    const row = page.getByTestId('chat-sandbox-profile')
+    await expect(row.getByRole('radio', { name: 'Base' })).toHaveAttribute('aria-checked', 'true')
+    await expect(row.getByTestId('chat-sandbox-profile-media')).toBeEnabled()
+    await expect(row.getByTestId('chat-sandbox-profile-heavy')).toBeDisabled()
+    await expect(row.getByTestId('chat-sandbox-profile-draft')).toHaveText('The new chat starts in Base. Pick a profile here, or change it later in the chat.')
+    await row.getByTestId('chat-sandbox-profile-media').click()
+    await expect(row.getByRole('radio', { name: 'Media' })).toHaveAttribute('aria-checked', 'true')
+    await expect(row.getByTestId('chat-sandbox-profile-tools')).toContainText('ffmpeg')
+    await expect(row.getByTestId('chat-sandbox-profile-draft')).toHaveText('The new chat starts in Media. Pick a profile here, or change it later in the chat.')
+    await expect(row.getByTestId('chat-sandbox-profile-confirm')).toHaveCount(0)
+    expect(state.calls).toEqual([])
+    await shot(page, 'sbp-draft')
+  })
+
+  test('the pick is saved right after the chat is created, before the message goes', async ({ page }) => {
+    const state = await stubDraft(page)
+    await page.goto('/app')
+    await page.getByTestId('chat-tools-button').click()
+    await page.getByTestId('chat-sandbox-profile-media').click()
+    await page.getByTestId('home-input').fill('convert this video')
+    await page.getByTestId('home-input').press('Enter')
+    await expect.poll(() => state.calls).toEqual(['create', 'profile:media', 'send'])
+  })
+
+  test('the empty chat page saves the pick too', async ({ page }) => {
+    const state = await stubDraft(page)
+    await page.goto('/app')
+    // The app opens the empty chat page with a navigation state (see ChatsRoute).
+    await page.evaluate(() => {
+      window.history.pushState({ usr: { agentId: '' }, key: 'draft', idx: 1 }, '', '/app/chats')
+      window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }))
+    })
+    await expect(page.getByTestId('chat-input')).toBeVisible()
+    await page.getByTestId('chat-tools-button').click()
+    await page.getByTestId('chat-sandbox-profile-media').click()
+    await page.getByTestId('chat-input').fill('convert this video')
+    await page.getByTestId('chat-input').press('Enter')
+    await expect.poll(() => state.calls).toEqual(['create', 'profile:media', 'send'])
+  })
+
+  test('choosing the default again saves nothing', async ({ page }) => {
+    const state = await stubDraft(page)
+    await page.goto('/app')
+    await page.getByTestId('chat-tools-button').click()
+    await page.getByTestId('chat-sandbox-profile-media').click()
+    await page.getByTestId('chat-sandbox-profile-base').click()
+    await page.getByTestId('home-input').fill('hello')
+    await page.getByTestId('home-input').press('Enter')
+    await expect.poll(() => state.calls).toEqual(['create', 'send'])
+  })
+
+  test('is not drawn when no sandbox with profiles runs the commands', async ({ page }) => {
+    await stubDraft(page, { applies: false })
+    await page.goto('/app')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-sandbox-profile')).toHaveCount(0)
+  })
+})
+
 test.describe('Sandbox profiles control', () => {
   const ADMIN = { addon: 'sandbox', roles: ['admin', 'user'], profiles: [
     { ...profile('base', 'Base', 'The usual tools.', ['jq', 'git']), cpus: 2, memory_mib: 2048, disk_mib: 10240, has_previous: false },

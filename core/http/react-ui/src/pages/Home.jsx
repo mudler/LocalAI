@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
+import { useChatEgress } from '../hooks/useChatEgress'
 import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 // eslint-disable-next-line no-unused-vars
 import { SlashHelpCard } from '../components/chat/CommandCards'
@@ -120,12 +121,16 @@ export default function Home() {
   const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '' })
   // The composer is the chat page's (useChatComposer): the draft is Home's,
   // the switches are a draft that goes with the new chat.
-  // A new chat shows the default sandbox profile; the choice is made in the chat.
-  const sandboxProfile = useChatSandboxProfile(null, 0)
   const composer = useChatComposer({
     draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
   })
+  // The sandbox profile and the network of the new chat: picked here, saved
+  // with the chat when it is created (createChat).
+  const sandboxProfile = useChatSandboxProfile(null, 0)
+  const egress = useChatEgress(null, 0, { model: composer.draftModel, agentId: composer.agentId, profilesApply: Boolean(sandboxProfile.applies) })
+  const { saveDraft: saveProfileDraft } = sandboxProfile
+  const { saveDraft: saveNetworkDraft } = egress
   const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
   const { text: message, setText: setMessage, files } = drafts
   // The reasoning effort picked before the chat exists; the new chat gets it
@@ -423,6 +428,10 @@ export default function Home() {
   // switches, then the reasoning effort in its settings.
   const createChat = useCallback(async () => {
     const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+    const profileError = await saveProfileDraft(chat.id)
+    if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
+    const networkError = await saveNetworkDraft(chat.id)
+    if (networkError) addToast(networkError, 'error')
     if (draftEffort) {
       const settings = settingsWithEffort(null, draftEffort)
       try {
@@ -433,7 +442,7 @@ export default function Home() {
       }
     }
     return chat
-  }, [draftModel, agentId, draftEffort, switches, addToast, tch])
+  }, [draftModel, agentId, draftEffort, switches, addToast, tch, tc, saveProfileDraft, saveNetworkDraft])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -769,6 +778,7 @@ export default function Home() {
           <ChatComposer
             composer={composer}
             sandboxProfile={sandboxProfile}
+            egress={egress}
             filesOn={chatServer.files}
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
