@@ -66,6 +66,7 @@ export const API_CONFIG = {
     chatStop: (id) => `/api/chats/${encodeURIComponent(id)}/stop`,
     chatGoal: (id) => `/api/chats/${encodeURIComponent(id)}/goal`,
     chatGoalResume: (id) => `/api/chats/${encodeURIComponent(id)}/goal/resume`,
+    chatDock: (id) => `/api/chats/${encodeURIComponent(id)}/dock`,
     chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
     files: '/api/chats/files',
     filesContent: '/api/chats/files/content',

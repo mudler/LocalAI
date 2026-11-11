@@ -10721,6 +10721,89 @@
                 }
             }
         },
+        "/api/chats/{id}/dock": {
+            "get": {
+                "description": "The dock is the panel of pages that the interface shows beside the chat. It is stored with the chat, so every browser and every frontend shows the same one. The assistant opens a page of your home in it with its open_page tool.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get a chat's dock.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The dock, or null",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDockResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replaces the dock: its tabs (at most 6 pages, each once; folder is the id of a shared folder, absent for a page of your home), the index of the tab in front, whether the panel is open and its width in CSS pixels (0 for the default, else 320 to 4096). A dock with no tab clears it. The page names are not checked here: a page that is gone shows as missing in the interface, and a shared page still needs your consent before it runs. Watchers of the chat get a dock event. A sub-agent run has no dock (409).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set a chat's dock.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the dock",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The dock as stored, or null when it was cleared",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDockResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The dock is out of its bounds",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A sub-agent run has no dock",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/egress": {
             "get": {
                 "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no add-on serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
@@ -25535,6 +25618,14 @@
                 "created": {
                     "type": "string"
                 },
+                "dock": {
+                    "description": "Dock is the panel of pages the interface shows beside the chat, when\nsomething opened one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    ]
+                },
                 "goal": {
                     "description": "Goal is the chat's goal, when it has one.",
                     "allOf": [
@@ -25613,6 +25704,14 @@
                 },
                 "created": {
                     "type": "string"
+                },
+                "dock": {
+                    "description": "Dock is the panel of pages the interface shows beside the chat, when\nsomething opened one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    ]
                 },
                 "goal": {
                     "description": "Goal is the chat's goal, when it has one.",
@@ -25824,6 +25923,46 @@
                 },
                 "title": {
                     "description": "Title is optional; the conversation is named after its first message otherwise.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsDock": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer"
+                },
+                "open": {
+                    "type": "boolean"
+                },
+                "tabs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsDockTab"
+                    }
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsDockResponse": {
+            "type": "object",
+            "properties": {
+                "dock": {
+                    "$ref": "#/definitions/schema.ChatsDock"
+                }
+            }
+        },
+        "schema.ChatsDockTab": {
+            "type": "object",
+            "properties": {
+                "folder": {
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the folder name of the page (^[a-z0-9][a-z0-9-]{0,63}$).",
                     "type": "string"
                 }
             }

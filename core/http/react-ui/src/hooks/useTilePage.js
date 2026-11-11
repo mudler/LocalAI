@@ -14,12 +14,13 @@ const errorOf = (e) => ({ status: e?.status || 0, type: e?.body?.error?.type || 
 // runs the version the viewer allowed, and only once they allowed it on Home
 // and in the slots (the embed consent of the trust sheet).
 //
-//   ref  {name, folder} of tileRef, or null
+//   ref     {name, folder} of tileRef, or null
+//   widget  false for the dock, which shows a page without a widget block
 //
 // It returns {read, state, run, files, frameRef, load, allow, onRefused,
 // sheet}: frameRef goes to the PageFrame, allow(once) records the consent
 // (embed unless once), and sheet holds the trust sheet's state.
-export function useTilePage(ref) {
+export function useTilePage(ref, { widget = true } = {}) {
   const { t: tp } = useTranslation('pages')
   const [read, setRead] = useState({ loading: true })
   const [run, setRun] = useState(null) // shared: {html, page, hash, token}
@@ -48,7 +49,7 @@ export function useTilePage(ref) {
 
   useEffect(() => { setRun(null); load() }, [load])
 
-  const state = tileState(read)
+  const state = tileState(read, { widget })
   // A shared page runs the version the viewer allowed, as read then.
   useEffect(() => {
     if (state === 'ready' && ref?.folder && !run) setRun({ html: read.html, page: read.page, hash: read.page.hash, token: '' })

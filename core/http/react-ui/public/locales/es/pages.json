@@ -140,5 +140,41 @@
     "open": "Abrir {{site}}",
     "cancel": "Cancelar",
     "lookalike": "Esta dirección usa letras de otros alfabetos y se lee como {{display}}. Puede imitar otro sitio: revísela antes de abrirla."
+  },
+  "dock": {
+    "button": "Panel",
+    "buttonTitle": "Mostrar u ocultar el panel (Ctrl+\\)",
+    "region": "Páginas junto al chat",
+    "tabs": "Páginas en el panel",
+    "closeTab": "Cerrar {{title}}",
+    "add": "Abrir otra página en el panel",
+    "hide": "Ocultar el panel",
+    "hideKeys": "Ocultar el panel (Ctrl+\\)",
+    "openFull": "Abrir {{title}} como página completa",
+    "by": {
+      "assistant": "Página creada por el asistente",
+      "you": "Página creada por ti"
+    },
+    "shared": "Compartida: {{folder}}",
+    "askPrompt": "Cambia la página {{title}} en pages/{{name}}/ para que ",
+    "live": "En vivo: se actualiza cuando cambian los archivos",
+    "liveShort": "En vivo",
+    "sandboxed": "Aislada, sin red",
+    "resize": "Ancho del panel",
+    "resizeHint": "Arrastra el borde o usa las flechas. Doble clic o Intro restablece el ancho.",
+    "fullScreen": "Panel a pantalla completa",
+    "halfScreen": "Panel a media pantalla",
+    "sheetHint": "Arrastra el asa hacia arriba para pantalla completa, hacia abajo para cerrar",
+    "pickTitle": "Abrir una página en el panel",
+    "pickEmpty": "Aún no tienes páginas. Pide al asistente que cree una.",
+    "missing": "La página {{name}} ya no existe o no puedes leerla ahora.",
+    "off": "Un administrador desactivó las páginas compartidas.",
+    "error": "No se pudo cargar la página.",
+    "allowText": "Esta página viene de una carpeta compartida. Solo se ejecuta aquí después de que la permitas.",
+    "allow": "Revisar y permitir",
+    "run": "Ejecutarla aquí",
+    "sendLabel": "La página quiere enviar este mensaje a este chat:",
+    "saveFailed": "El panel no se guardó: {{message}}",
+    "openInDock": "Abrir en el panel"
   }
 }

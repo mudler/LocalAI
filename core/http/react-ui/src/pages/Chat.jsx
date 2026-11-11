@@ -51,6 +51,9 @@ import { isTyping } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
 import ChatHeader from '../components/chat/ChatHeader'
 import WorkspaceSlot from '../components/slots/WorkspaceSlot'
+import PageDock from '../components/dock/PageDock'
+import DockButton from '../components/dock/DockButton'
+import { usePageDock } from '../hooks/useChatDock'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
@@ -147,6 +150,7 @@ function ChatPage() {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const { t: tw } = useTranslation('workspace')
+  const { t: tp } = useTranslation('pages')
   // How the assistant shows itself (persona.json) and the text overrides of
   // ui.json: shared copies of the files, live through the change feed.
   const identity = useIdentity()
@@ -178,6 +182,21 @@ function ChatPage() {
   const { drafts, draftModel, agentId, pickedAgent, effectiveModel, switches } = composer
   const { models: chatModels, modelsLoading: chatModelsLoading } = composer
   const { text: input, setText: setInput, files } = drafts
+
+  // The dock: pages beside the chat, kept with the chat (usePageDock). There
+  // is none until something opens it.
+  const dockOn = hasFeature('pages')
+  const pageDock = usePageDock({
+    chatId: activeId, server: chat.detail?.dock, serverFor: chat.detail?.id, enabled: dockOn,
+    onError: (e) => addToast?.(tp('dock.saveFailed', { message: e?.message || '' }), 'error'),
+  })
+  // A page the Pages list sent to the dock opens in this (new) chat.
+  const dockAsk = location.state?.dock
+  useEffect(() => {
+    if (!dockAsk || !dockOn) return
+    pageDock.open(dockAsk)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: { ...location.state, dock: undefined } })
+  }, [dockAsk, dockOn]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live: hands-free voice with the open chat. It needs a chat that has an id,
   // so a new chat does not offer it; Home creates the chat first and opens it
@@ -1239,7 +1258,12 @@ function ChatPage() {
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
-          extra={<WorkspaceSlot name="chatHeader" onTool={handleSend} onCommand={fillComposer} />}
+          extra={(
+            <>
+              {dockOn && <DockButton open={pageDock.dock.open} onToggle={pageDock.toggle} />}
+              <WorkspaceSlot name="chatHeader" onTool={handleSend} onCommand={fillComposer} />
+            </>
+          )}
         />
 
         {find.open && (
@@ -1511,6 +1535,17 @@ function ChatPage() {
           </div>
         )}
       </div>
+      {dockOn && (
+        <PageDock
+          dock={pageDock.dock}
+          update={pageDock.update}
+          onOpen={pageDock.open}
+          chatId={activeId}
+          fresh={pageDock.fresh}
+          phone={pageDock.phone}
+          onAsk={fillComposer}
+        />
+      )}
       {pane.open && activeId && (
         <ChatFilesPane
           state={chatFiles}

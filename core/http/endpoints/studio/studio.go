@@ -157,6 +157,8 @@ var chatRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrGoalNotAllowed, studiosvc.ErrGoalReached),
 	verbatim(http.StatusNotFound, typeNotFound, "", studiosvc.ErrNoGoal),
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrGoalText),
+	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", session.ErrInvalidDock),
+	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrDockNotAllowed),
 }
 
 // failFor maps a service error to a response.
@@ -191,6 +193,7 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
 		WillResume: info.WillResume, ResumeAttempts: info.ResumeAttempts,
 		Settings: settingsJSON(rec.Settings),
+		Dock:     dockJSON(rec.Dock),
 	}
 }
 

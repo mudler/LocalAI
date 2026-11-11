@@ -138,7 +138,7 @@ other are not sent again, and the ones the client had are cut off. The server
 keeps the last 2048 events or 4 MiB of each running chat, and the ring stays
 for 30 seconds after the turn ends, so a client that reconnects at once also
 gets `turn_end`. Events that do not come from the turn itself (`files`, `goal`,
-`loops`, `cleared` and the cards) have no id and are not replayed: they tell
+`dock`, `loops`, `cleared` and the cards) have no id and are not replayed: they tell
 the client to read the record again.
 
 When the server cannot give what was missed, the stream starts with a `resync`
@@ -1859,8 +1859,9 @@ group the parent switched off. A trigger run with no agent copies these
 switches from the chat that proposed it, as it copies the others. Each group
 keeps its own rules for the runs that start by themselves (for example a
 trigger or connector run never gets the trigger tools). `load_skill`, `page_errors`
-(it reads the errors of a page's script, see [Pages]({{%relref "features/pages" %}}))
-and the goal and loop tools have no switch.
+(it reads the errors of a page's script, see [Pages]({{%relref "features/pages" %}})),
+`open_page` (it opens a page of your home in the dock beside the chat) and the
+goal and loop tools have no switch.
 
 The trigger tools have a group too, `triggers`: `propose_trigger`,
 `list_triggers`, `update_trigger` and `delete_trigger` switch together, and the

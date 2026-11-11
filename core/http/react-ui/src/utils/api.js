@@ -225,6 +225,9 @@ export const chatsApi = {
   setGoal: (id, text) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'PUT', body: JSON.stringify({ text }) }),
   clearGoal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'DELETE' }),
   resumeGoal: (id) => postJSON(API_CONFIG.endpoints.chatGoalResume(id), {}),
+  // The dock: the pages shown beside the chat, kept with the chat.
+  dock: (id) => fetchJSON(API_CONFIG.endpoints.chatDock(id)),
+  setDock: (id, dock) => fetchJSON(API_CONFIG.endpoints.chatDock(id), { method: 'PUT', body: JSON.stringify(dock) }),
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 

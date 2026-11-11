@@ -227,6 +227,13 @@ type Store interface {
 	// not lose either change. UpdateChat leaves the goal alone.
 	UpdateGoal(ctx context.Context, principal, chatID string, change func(cur *session.Goal) (*session.Goal, error)) error
 
+	// UpdateDock changes the dock of a chat in one atomic step, as UpdateGoal
+	// does the goal: change gets a copy of the current dock (nil when the
+	// chat has none) and returns the dock to keep (nil clears it). The
+	// assistant and the person can dock a page at once without losing either.
+	// UpdateChat leaves the dock alone.
+	UpdateDock(ctx context.Context, principal, chatID string, change func(cur *session.Dock) (*session.Dock, error)) error
+
 	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
 	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)
 

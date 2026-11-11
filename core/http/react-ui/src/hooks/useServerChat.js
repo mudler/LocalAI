@@ -12,7 +12,7 @@ const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused', 'loops', 'cleared', 'goal', 'resync',
+  'paused', 'loops', 'cleared', 'goal', 'dock', 'resync',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -238,6 +238,9 @@ export function useServerChat({ seed = null } = {}) {
       // The goal changed, here or in another tab: the chat carries it and the
       // transcript its line.
       goal: () => refreshChat(id),
+      // The dock changed: a page was docked here, in another tab or by the
+      // assistant. The chat's detail carries it.
+      dock: () => refreshDetail(id),
       // The loops of the chat changed (in this tab, another one, or a run).
       loops: () => refreshDetail(id),
       sub_agent_started: () => setTicks(t => ({ ...t, subAgents: t.subAgents + 1 })),

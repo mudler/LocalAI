@@ -173,8 +173,10 @@ export function tileMode(open, page) {
   return { mode: 'widget', size: open ? cardSize(page) : 'compact' }
 }
 
-// The seam of the dock (built later): a page button of a slot opens the page
-// with the opener the dock registers, and in the full page view until then.
+// The seam of the dock: a page button of a slot, and the Open of a compact
+// tile's card, open the page with the opener the chat page registers while it
+// shows (usePageDock: the page goes into the dock of the open chat), and in
+// the full page view anywhere else.
 let opener = null
 export function setPageOpener(fn) {
   opener = typeof fn === 'function' ? fn : null

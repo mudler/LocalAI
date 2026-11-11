@@ -140,5 +140,41 @@
     "open": "Buka {{site}}",
     "cancel": "Batal",
     "lookalike": "Alamat ini memakai huruf dari alfabet lain dan terbaca sebagai {{display}}. Alamat ini bisa meniru situs lain: periksa sebelum membukanya."
+  },
+  "dock": {
+    "button": "Dok",
+    "buttonTitle": "Tampilkan atau sembunyikan dok (Ctrl+\\)",
+    "region": "Halaman di samping obrolan",
+    "tabs": "Halaman di dok",
+    "closeTab": "Tutup {{title}}",
+    "add": "Buka halaman lain di dok",
+    "hide": "Sembunyikan dok",
+    "hideKeys": "Sembunyikan dok (Ctrl+\\)",
+    "openFull": "Buka {{title}} sebagai halaman penuh",
+    "by": {
+      "assistant": "Halaman dari asisten",
+      "you": "Halaman dari Anda"
+    },
+    "shared": "Dibagikan: {{folder}}",
+    "askPrompt": "Ubah halaman {{title}} di pages/{{name}}/ agar ",
+    "live": "Langsung: diperbarui saat file berubah",
+    "liveShort": "Langsung",
+    "sandboxed": "Terisolasi, tanpa jaringan",
+    "resize": "Lebar dok",
+    "resizeHint": "Seret tepinya atau gunakan tombol panah. Klik dua kali atau tekan Enter untuk mengatur ulang lebar.",
+    "fullScreen": "Jadikan dok layar penuh",
+    "halfScreen": "Jadikan dok setengah layar",
+    "sheetHint": "Seret pegangan ke atas untuk layar penuh, ke bawah untuk menutup",
+    "pickTitle": "Buka halaman di dok",
+    "pickEmpty": "Anda belum punya halaman. Minta asisten untuk membuatnya.",
+    "missing": "Halaman {{name}} sudah tidak ada, atau Anda tidak dapat membacanya sekarang.",
+    "off": "Administrator mematikan halaman bersama.",
+    "error": "Halaman tidak dapat dimuat.",
+    "allowText": "Halaman ini berasal dari folder bersama. Halaman ini berjalan di sini hanya setelah Anda mengizinkannya.",
+    "allow": "Tinjau dan izinkan",
+    "run": "Jalankan di sini",
+    "sendLabel": "Halaman ini meminta untuk mengirim pesan ini ke obrolan ini:",
+    "saveFailed": "Dok tidak disimpan: {{message}}",
+    "openInDock": "Buka di dok"
   }
 }

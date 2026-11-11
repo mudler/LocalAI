@@ -423,6 +423,56 @@ func Run(newStore New) {
 		Expect(rec.Goal).To(BeNil(), "a nil goal clears it")
 	})
 
+	It("keeps the dock, survives a chat update, belongs to the owner and loses no concurrent page", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Dock).To(BeNil(), "a new chat has no dock")
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(cur *session.Dock) (*session.Dock, error) {
+			Expect(cur).To(BeNil())
+			return &session.Dock{Open: true, Width: 500, Tabs: []session.DockTab{{Page: "task-board"}, {Page: "news", Folder: 3}}, Active: 1}, nil
+		})).To(Succeed())
+		stale := rec
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock).NotTo(BeNil(), "UpdateChat keeps the dock")
+		Expect(*rec.Dock).To(Equal(session.Dock{Open: true, Width: 500, Tabs: []session.DockTab{{Page: "task-board"}, {Page: "news", Folder: 3}}, Active: 1}))
+		rec.Dock.Tabs[0].Page = "changed-on-the-copy"
+		again, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(again.Dock.Tabs[0].Page).To(Equal("task-board"), "GetChat returns a copy")
+
+		Expect(s.UpdateDock(ctx(), "bob", "c1", func(d *session.Dock) (*session.Dock, error) { return d, nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(d *session.Dock) (*session.Dock, error) {
+			d.Open = false
+			return d, boom
+		})).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock.Open).To(BeTrue(), "a failed change leaves the dock")
+
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(*session.Dock) (*session.Dock, error) { return &session.Dock{}, nil })).To(Succeed())
+		var wg sync.WaitGroup
+		for i := range session.MaxDockTabs {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateDock(ctx(), "alice", "c1", func(d *session.Dock) (*session.Dock, error) {
+					return d.OpenTab(session.DockTab{Page: fmt.Sprintf("page-%d", i)}), nil
+				})).To(Succeed())
+			}()
+		}
+		wg.Wait()
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock.Tabs).To(HaveLen(session.MaxDockTabs), "no page was lost")
+
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(*session.Dock) (*session.Dock, error) { return nil, nil })).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock).To(BeNil(), "a nil dock clears it")
+	})
+
 	It("creates a chat with its goal", func() {
 		s := newStore()
 		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "c1", Principal: "alice", Title: "New chat", Created: t0, Updated: t0,

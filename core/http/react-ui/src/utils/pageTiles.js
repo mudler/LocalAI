@@ -5,7 +5,7 @@
 // The server takes at most this many page widgets in home.json.
 export const MAX_PAGE_TILES = 3
 // The whole app keeps at most this many page frames alive at once: the tiles
-// on Home, the tiles in the slots of ui.json and, later, the dock. Each one
+// on Home, the tiles in the slots of ui.json and the dock. Each one
 // runs a page's script, so the rest show as static cards that run on a click.
 export const MAX_LIVE_FRAMES = 8
 
@@ -44,8 +44,9 @@ export function tileTitle(w, page) {
 // read is {loading, error, page, consent, embed} where error carries the HTTP
 // status and the error type of the server. A tile starts its page without a
 // click, so a shared page needs the viewer's consent for that too (embed), not
-// only the consent that lets them open it.
-export function tileState(read) {
+// only the consent that lets them open it. The dock shows any page, so it
+// passes widget false: a page without a widget block is ready there.
+export function tileState(read, { widget = true } = {}) {
   if (!read || read.loading) return 'loading'
   const e = read.error
   if (e) {
@@ -56,7 +57,7 @@ export function tileState(read) {
   }
   const p = read.page
   if (!p) return 'missing'
-  if (!p.widget) return 'noWidget'
+  if (widget && !p.widget) return 'noWidget'
   if (p.source === 'shared' && (read.consent !== 'allowed' || read.embed !== true)) return 'needsAllow'
   return 'ready'
 }

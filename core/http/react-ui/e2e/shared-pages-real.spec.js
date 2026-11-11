@@ -229,3 +229,34 @@ test('a shared page in a slot runs only after the viewer allows it on Home or in
     await request.delete(`/api/chats/files?path=${encodeURIComponent('/LocalAI/ui.json')}`)
   }
 })
+
+test('a shared page opened in the dock runs only after the viewer allowed it there', async ({ page, request }) => {
+  const board = pages.find(p => p.name === 'board')
+  const consent = `/api/chats/shared-pages/${board.folder_id}/board/consent`
+  await request.delete(consent)
+  try {
+    await page.goto('/app/pages')
+    await page.getByTestId('shared-group').locator('[data-testid="shared-card"][data-page="board"]').getByTestId('shared-dock').click()
+    const dock = page.getByTestId('page-dock')
+    await expect(dock.getByTestId('dock-tab')).toHaveCount(1)
+    await expect(dock.getByTestId('dock-origin')).toHaveAttribute('data-by', 'shared')
+    await expect(dock.getByTestId('dock-allow')).toBeVisible()
+    await expect(dock.locator('iframe')).toHaveCount(0)
+    await expect(dock.getByTestId('dock-ask')).toHaveCount(0)
+    await dock.getByTestId('dock-allow-open').click()
+    const sheet = page.getByTestId('trust-sheet')
+    await expect(sheet).toHaveAttribute('data-embed', 'true')
+    await shot(page, 'dock-shared-sheet')
+    await sheet.getByTestId('trust-cancel').click()
+    await expect(dock.locator('iframe')).toHaveCount(0)
+
+    await dock.getByTestId('dock-allow-open').click()
+    await page.getByTestId('trust-allow-embed').click()
+    await expect(dock.getByTestId('dock-body')).toHaveAttribute('data-frame', 'live')
+    await expect(dock.locator('iframe[data-testid="page-frame"]')).toHaveCount(1)
+    expect((await api(request, `/api/chats/shared-pages/${board.folder_id}/board`)).consent.embed).toBe(true)
+    await shot(page, 'dock-shared-running')
+  } finally {
+    await request.delete(consent)
+  }
+})
