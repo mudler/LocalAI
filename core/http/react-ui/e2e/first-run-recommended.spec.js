@@ -95,8 +95,9 @@ test.describe('First run recommendation, as an administrator', () => {
     await expect(page.getByTestId('starter-undetected')).toContainText('could not detect your hardware', { timeout: 15_000 })
     await expect(page.getByTestId('starter-tier')).toContainText('CPU only')
     await expect(primary(page)).toContainText('Qwen3.8 4B')
-    // No window is promised when nothing was checked.
+    // No window is promised when nothing was checked, and the notice is not repeated on the row.
     await expect(primary(page)).not.toContainText('context')
+    await expect(primary(page)).not.toContainText('could not be read')
   })
 
   test('when nothing fits it says so and still names the smallest model', async ({ page }) => {

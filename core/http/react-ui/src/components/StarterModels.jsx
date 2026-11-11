@@ -17,6 +17,10 @@ import Icon from './Icon'
 
 const MORE_ID = 'home-starters-more'
 
+// Reasons the page already says in another way: the window is on the row, and
+// an unreadable machine has its own notice above the list.
+const SHOWN_ELSEWHERE = new Set(['window_reduced', 'hardware_unknown'])
+
 // What a model costs, in the words a person weighs it by: the download, the
 // window it will get and, when the server could say, the memory that window
 // needs.
@@ -78,7 +82,7 @@ export default function StarterModels({ addToast, onInstallStarted }) {
           {model.fit !== 'fits' && model.fit !== 'unknown' && (
             <StatusChip tone={fitTone(model.fit)} label={t(`starters.fit.${model.fit}`)} />
           )}
-          {(model.fit_reasons || []).filter(k => k !== 'window_reduced').map(k => (
+          {(model.fit_reasons || []).filter(k => !SHOWN_ELSEWHERE.has(k)).map(k => (
             <span key={k} className="home-starters-why">{t(`starters.reasons.${k}`)}</span>
           ))}
         </div>
