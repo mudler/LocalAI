@@ -343,6 +343,31 @@ type ChatsConversation struct {
 	// Place is set on a chat that a messaging connection started, when the
 	// connection kept where it lives.
 	Place *ChatsPlace `json:"place,omitempty"`
+	// Harness says whether the chat has the context window the chat agent
+	// needs. It is set when a single chat is opened, created or changed.
+	Harness *ChatsHarness `json:"harness,omitempty"`
+}
+
+// ChatsHarness is the window check of a chat for the user who asks. The
+// chat agent sends a fixed block of tokens with every request, so a model
+// with a smaller window fails every turn.
+type ChatsHarness struct {
+	// OK is false when the window of the chat is below Minimum.
+	OK bool `json:"ok"`
+	// Window is the window the chat runs with, in tokens (0 when unknown).
+	Window int `json:"window"`
+	// Minimum is the smallest window that works for this user's role, and
+	// Recommended is the window to aim at.
+	Minimum     int `json:"minimum"`
+	Recommended int `json:"recommended"`
+	// CanFix is true when this user may change what limits the window: an
+	// administrator for the model's window, the chat's owner for the chat's
+	// own context size.
+	CanFix bool `json:"can_fix"`
+	// Admin is true when Minimum is the administrator's.
+	Admin bool `json:"admin"`
+	// Source is what limits the window when OK is false: "model" or "chat".
+	Source string `json:"source,omitempty"`
 }
 
 // ChatsGoal is the persistent objective of a chat. While State is active the

@@ -63,10 +63,29 @@ var _ = ginkgo.Describe("the cause of a failed turn", func() {
 	})
 
 	ginkgo.It("tells the size of the window when the conversation does not fit", func() {
-		f := Classify(errors.New("context window full: the prompt is about 3746 tokens of a 4096-token window, leaving less than 1024 for the reply"))
+		f := Classify(errors.New("context window full: the prompt is about 19746 tokens of a 20480-token window, leaving less than 1024 for the reply"))
 		Expect(f.Code).To(Equal(CodeContext))
-		Expect(f.Reason).To(ContainSubstring("3746 tokens of a 4096-token window"))
+		Expect(f.Reason).To(ContainSubstring("19746 tokens of a 20480-token window"))
+		Expect(f.Reason).To(ContainSubstring("Start a new chat"))
 	})
+
+	// A window below the chat minimum fails on every turn, from the first one:
+	// a new chat is no remedy, so the text names the window and the minimum.
+	ginkgo.DescribeTable("explains a window that is too small for the chat itself",
+		func(window string) {
+			f := Classify(errors.New("context window full: the prompt is about 7400 tokens of a " + window + "-token window, leaving less than 1024 for the reply"))
+			Expect(f.Code).To(Equal(CodeContext))
+			Expect(f.Reason).To(HavePrefix(reasonContextPrefix))
+			Expect(f.Reason).To(ContainSubstring("a window of " + window + " tokens"))
+			Expect(f.Reason).To(ContainSubstring("at least 16384"))
+			Expect(f.Reason).To(ContainSubstring("administrator"))
+			Expect(f.Reason).NotTo(ContainSubstring("Start a new chat"))
+			Expect(fixedReason(f.Reason)).To(Equal(f.Reason))
+		},
+		ginkgo.Entry("8192", "8192"),
+		ginkgo.Entry("4096", "4096"),
+		ginkgo.Entry("12288", "12288"),
+	)
 
 	ginkgo.It("names a refused tool definition", func() {
 		f := Classify(errors.New("invalid tool schema for http://10.0.0.1/x"))
