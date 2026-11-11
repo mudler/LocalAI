@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"path"
 	"regexp"
 	"slices"
@@ -307,7 +308,8 @@ func stringErrors(raw any) []string {
 		return nil
 	}
 	var out []string
-	for k, v := range m {
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		v := m[k]
 		allowed, known := overridableStrings[k]
 		if !known {
 			out = append(out, fmt.Sprintf("strings.%q: this text cannot be changed; the keys that can are %s", clip(k, 60), strings.Join(StringKeys(), ", ")))
@@ -528,7 +530,8 @@ func slotErrors(raw any) []string {
 		return nil
 	}
 	var out []string
-	for name, v := range slots {
+	for _, name := range slices.Sorted(maps.Keys(slots)) {
+		v := slots[name]
 		limit, known := SlotCaps[name]
 		if !known {
 			out = append(out, fmt.Sprintf("slots.%s: not a slot; the slots are %s", clip(name, 60), strings.Join(SlotNames, ", ")))
@@ -553,7 +556,7 @@ func slotErrors(raw any) []string {
 			if !known {
 				continue // the schema names the type that is wrong
 			}
-			for k := range m {
+			for _, k := range slices.Sorted(maps.Keys(m)) {
 				if !slices.Contains(fields, k) {
 					out = append(out, fmt.Sprintf("%s: an item of type %s has no %s; it takes %s", at, ty, clip(k, 40), strings.Join(fields, ", ")))
 				}
@@ -647,7 +650,7 @@ func pageAreaErrors(obj map[string]any) []string {
 				return []string{"pageArea.folder: the folder_id of a shared folder, a whole number from 1; leave it out for a page of your home"}
 			}
 		}
-		for k := range v {
+		for _, k := range slices.Sorted(maps.Keys(v)) {
 			if k != "page" && k != "folder" {
 				return []string{fmt.Sprintf("pageArea.%s: no such key; %s", clip(k, 40), hint)}
 			}

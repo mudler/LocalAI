@@ -29,11 +29,8 @@ func soundErrors(raw any) []string {
 		}
 	}
 	if ev, ok := m["events"].(map[string]any); ok {
-		for k, v := range ev {
-			if !slices.Contains(SoundEvents, k) {
-				continue
-			}
-			if s, ok := v.(string); ok && !slices.Contains(SoundNames, s) {
+		for _, k := range SoundEvents {
+			if s, ok := ev[k].(string); ok && !slices.Contains(SoundNames, s) {
 				out = append(out, fmt.Sprintf("sound.events.%s: %q is not a sound; use one of %s", k, clip(s, 40), strings.Join(SoundNames, ", ")))
 			}
 		}
