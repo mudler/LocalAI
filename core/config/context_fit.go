@@ -123,7 +123,10 @@ var estimateContextRAM = func(f *gguf.GGUFFile, ctx int) (footprint uint64) {
 		gguf.WithLLaMACppContextSize(int32(ctx)),
 		gguf.WithLLaMACppOffloadLayers(0),
 	)
-	sum := est.Summarize(true, 0, 0)
+	// mmap is false on purpose: with it the estimator leaves the weights out of
+	// the system-memory figure because they are mapped, not allocated. They are
+	// resident all the same once the model runs, and they are the biggest part.
+	sum := est.Summarize(false, 0, 0)
 	if len(sum.Items) == 0 {
 		return 0
 	}
