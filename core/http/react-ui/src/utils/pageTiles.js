@@ -5,8 +5,9 @@
 // The server takes at most this many page widgets in home.json.
 export const MAX_PAGE_TILES = 3
 // The whole app keeps at most this many page frames alive at once: the tiles
-// on Home, the tiles in the slots of ui.json and the dock. Each one
-// runs a page's script, so the rest show as static cards that run on a click.
+// on Home, the tiles in the slots of ui.json, the page area of Home and the
+// tab in front of the dock. Each one runs a page's script, so the rest show as
+// static cards that run on a click.
 export const MAX_LIVE_FRAMES = 8
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
@@ -103,7 +104,7 @@ export const refKey = (ref) => (ref ? (ref.folder ? `${ref.folder}/${ref.name}` 
 // way off (out of the near margin) is taken down, and one that is near but out
 // of sight, or in a hidden tab, stays and hears that it is not visible so the
 // page can pause. The app keeps at most MAX_LIVE_FRAMES frames alive, for the
-// Home tiles and the slots together (liveFrames).
+// Home tiles, the slots, the page area and the dock together (liveFrames).
 //
 //   prev      {alive, visible} of the frame now
 //   inView    the tile is on screen
