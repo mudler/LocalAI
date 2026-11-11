@@ -573,7 +573,9 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
   default. `settings` replaces all of them, so send the whole object; `{}`
   clears it.
 - `context_size` is the window, in tokens, that the loop plans with when it
-  decides to compact the conversation. It does not reload the model.
+  decides to compact the conversation. It does not reload the model and does
+  not change the window the backend loads, so it cannot make a small model
+  large enough; only the model's own `context_size` does that.
 - A new `title` (1 to 80 characters) or `model` needs a chat with no turn running (409 otherwise).
   The history stays when the model changes.
 
@@ -1621,6 +1623,51 @@ When a chat fills the model's context window, the older part is
 compacted so the model can go on. The transcript keeps every message; only what
 the model sees shrinks. A `compacted` event reports the size before and after.
 The window comes from `context_size` in the model's configuration.
+
+### The context window a chat needs
+
+Before you type, a chat already sends a fixed block to the model: the system
+message, the always-on tools, the LocalAI tools (or the three tool-search
+tools when they are deferred) and the chat template. That block is about 7,000
+tokens for a regular user and more for an administrator, and the chat loop
+needs at least 1,024 tokens free for the reply. A model with a smaller window
+fails every turn with the failure code `context_too_small`, and so would every
+new chat. A window that is only just large enough makes the chat compact its
+conversation on every turn.
+
+| Who | Minimum | Recommended |
+|-----|---------|-------------|
+| Regular user | 16384 | 32768 |
+| Administrator (the chat has the LocalAI management tools) | 24576 | 32768 |
+
+You do not have to do anything for a model that sets no `context_size`. When
+the model can serve chats, LocalAI aims at 32768 tokens, capped by the
+window the model was trained for, and steps down through 24576 and 16384 (and
+only then 8192, 6144 and 4096) when the next window does not fit the memory of
+the machine. Embedding, rerank and other models that cannot serve a chat keep
+the smaller automatic window of 8192.
+
+A `context_size` that you set is never changed, even when it is below the
+minimum: it stays as you wrote it. The chat tells you instead. When the window
+of the chat's model is below the minimum, a banner appears above the message
+box, and `GET /api/chats/{id}` returns a `harness` object with `ok`, `window`,
+`minimum`, `recommended`, `can_fix`, `admin` and `source`.
+
+- An administrator sees whether the recommended window fits the memory of the
+  machine and a button that sets the model's `context_size` to it, or to the
+  largest step that fits and reaches the minimum. When nothing fits, the banner
+  suggests a smaller model.
+- A regular user cannot change a model. The banner lists the installed models
+  whose window is large enough, to move the chat with one click, or says to ask
+  an administrator.
+- `source` is `model` when the model's window is too small, and `chat` when the
+  chat's own `context_size` setting is below the minimum. The owner of the chat
+  can change that setting.
+
+Changing the `context_size` of a model needs an administrator; the server
+refuses it for anyone else, whatever the page shows. A turn that fails because
+the window is too small ends with the failure code `context_too_small` and a
+message that names the window and the minimum.
 
 ### Compact or clear the context yourself
 
