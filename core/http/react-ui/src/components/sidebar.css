@@ -150,6 +150,13 @@
 .sidebar.collapsed .nav-chat-all { position: relative; }
 .sidebar.collapsed .nav-chat-all__badge,
 .sidebar.collapsed .nav-chat-all__dot { position: absolute; top: 2px; right: 2px; margin: 0; }
+/* The tablet rail is collapsed too: in the flow, the badge pushes the icon
+   off the column. */
+@media (max-width: 1023px) and (min-width: 640px) {
+  .sidebar:not(.open) .nav-chat-all { position: relative; }
+  .sidebar:not(.open) .nav-chat-all__badge,
+  .sidebar:not(.open) .nav-chat-all__dot { position: absolute; top: 2px; right: 2px; margin: 0; }
+}
 @media (max-width: 639px) {
   .sidebar.collapsed .nav-chat-all__badge,
   .sidebar.collapsed .nav-chat-all__dot { position: static; margin-left: auto; }
@@ -178,6 +185,20 @@
 }
 .nav-item--link .nav-external { margin-left: auto; }
 .sidebar.collapsed .nav-item--link .nav-external { display: none; }
+/* In the rail an entry takes a wider margin (App.css). A link entry takes off
+   the same width, or its centred icon sits right of the icon column. */
+.sidebar.collapsed .nav-item--link {
+  width: calc(100% - (var(--sidebar-width-collapsed) - var(--control-h)));
+}
+@media (max-width: 1023px) and (min-width: 640px) {
+  .sidebar:not(.open) .nav-item--link {
+    width: calc(100% - (var(--sidebar-width-collapsed) - var(--control-h)));
+  }
+}
+/* The phone drawer always shows the whole entry, with the usual margin. */
+@media (max-width: 639px) {
+  .sidebar.collapsed .nav-item--link { width: calc(100% - 2 * var(--spacing-sm)); }
+}
 
 /* The question before an address of nav.json opens: over the page, at the
    bottom left, so it fits whether the rail is open, collapsed or a drawer. */
