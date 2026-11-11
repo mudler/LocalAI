@@ -16,7 +16,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat (`tools` lists names switched off or on); `default` is the `id` a new chat starts with. No prompt, no files. Limits and values: its schema. |
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
-| `LocalAI/home.json` | `{"headline"?, "widgets": [{id, type, title, size?, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `size`: `s`, `m` or `l` (one column, two, full row); a page defaults to its `widget.size`. `headline` replaces the greeting at the top. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
+| `LocalAI/home.json` | `{"headline"?, "pageArea"?, "widgets": [{id, type, title, size?, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `size`: `s`, `m` or `l`; a page defaults to its `widget.size`. `pageArea`: a page name (`{page, folder}` if shared) that fills the area under the composer, in mode `area`; `null` none. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
 | `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground`, `chatBackground` (see "Backgrounds"), `strings` (own text for a few labels), `sound`, `voice` and `slots` (see "Slots"). |
 | `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 | `LocalAI/commands.json` | `{"commands": [{name, description, type, template?, args?, tool?}]}`: the user's slash commands (see "Commands, sound, voice"). |
@@ -40,7 +40,7 @@ Rules:
 
 ## Slots
 
-`LocalAI/ui.json` `slots`: `chatHeader`, `sidebarFooter`, `composerToolbar`: lists of `page`, `tool` or `command` items (fields and caps: the schema). A page runs in the 40 px strip only if its widget block has `"compact": true` (`localai-apps`, "On Home"); else it is a button that opens it. A tool button asks the user before it runs; a command item (a name in `commands.json`) puts its text in the message box.
+`LocalAI/ui.json` `slots`: `chatHeader`, `sidebarFooter`, `composerToolbar`: lists of `page`, `tool` or `command` items (fields and caps: the schema). A page runs in the 40 px strip only if its widget block has `"compact": true` (`localai-apps`, "On Home"); else it is a button that opens it. A tool button asks the user first; a command item (a name in `commands.json`) puts its text in the message box.
 
 ## Backgrounds
 

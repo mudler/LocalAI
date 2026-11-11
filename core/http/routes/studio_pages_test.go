@@ -6,6 +6,9 @@ package routes_test
 import (
 	"net/http"
 	"strings"
+	"sync/atomic"
+
+	"github.com/mudler/LocalAI/core/services/studio"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -232,5 +235,27 @@ var _ = Describe("Chats pages endpoints", func() {
 		Expect(decodeJSON(rec)["name"]).To(Equal("task-board"))
 		Expect(s.do("bob", http.MethodGet, "/api/chats/pages/task-board", nil).Code).To(Equal(http.StatusOK))
 		Expect(s.do("bob", http.MethodPost, "/api/chats/page-starters/nope/copy", nil).Code).To(Equal(http.StatusNotFound))
+	})
+})
+
+var _ = Describe("The page area switch in the list of pages", func() {
+	It("says whether an administrator turned the page area of Home off", func() {
+		var on atomic.Bool
+		on.Store(true)
+		s := newStudioServerWith(newTestFiles(), func(d *studio.Deps) { d.PageAreaOn = on.Load })
+		list := func() map[string]any {
+			rec := s.do("alice", http.MethodGet, "/api/chats/pages", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			return decodeJSON(rec)
+		}
+		Expect(list()).To(HaveKeyWithValue("page_area_enabled", true))
+		on.Store(false)
+		Expect(list()).To(HaveKeyWithValue("page_area_enabled", false))
+	})
+
+	It("is on when the server does not say", func() {
+		s := newStudioServer()
+		rec := s.do("alice", http.MethodGet, "/api/chats/pages", nil)
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("page_area_enabled", true))
 	})
 })

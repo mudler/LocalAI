@@ -171,6 +171,11 @@ type RuntimeSettings struct {
 	// request, so switching them off stops open pages at their next call.
 	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
 
+	// The page area of Home: a page of the user's workspace that fills the
+	// area below the composer. Read live on every list of pages, so switching
+	// it off hides the area at the next read.
+	HomePageAreaEnabled *bool `json:"home_page_area_enabled,omitempty"` // negation of DisablePageArea
+
 	// Built-in chat tools (Settings > Tools) — read live at every turn.
 	// ChatsHostExec is who gets the built-in bash that runs commands on this
 	// machine with no isolation: off, ask or on; empty is the default (off

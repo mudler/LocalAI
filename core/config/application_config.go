@@ -348,6 +348,12 @@ type ApplicationConfig struct {
 	// Runtime-toggleable via /api/settings (shared_pages_enabled).
 	DisableSharedPages bool
 
+	// DisablePageArea turns off the page area of Home for every user: a
+	// pageArea of home.json is ignored and the area says an administrator
+	// turned it off. Runtime-toggleable via /api/settings
+	// (home_page_area_enabled).
+	DisablePageArea bool
+
 	// ChatsHostExec is who gets the chats' built-in bash, which runs commands
 	// on this machine with no isolation: off, ask (administrators, with a card
 	// for each command) or on. Empty: off with accounts, ask without.
@@ -1521,6 +1527,13 @@ func WithChatsHostExec(mode string) AppOption {
 func WithDisableSharedPages(disabled bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableSharedPages = disabled
+	}
+}
+
+// WithDisablePageArea turns off the page area of Home.
+func WithDisablePageArea(disabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisablePageArea = disabled
 	}
 }
 

@@ -163,6 +163,7 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 		// The schema says the same, but its message names a keyword; these
 		// say what to change. They are checked even when the schema passes.
 		errs = append(errs, pageWidgetErrors(obj)...)
+		errs = append(errs, pageAreaErrors(obj)...)
 		errs = append(errs, templateErrors("headline", obj["headline"], identityPlaceholders)...)
 	}
 	if n == Persona {
@@ -622,6 +623,42 @@ func pageWidgetErrors(obj map[string]any) []string {
 		out = append(out, fmt.Sprintf("widgets: Home shows at most %d page widgets, because each one runs its page; this layout has %d, so remove %d", MaxPageWidgets, count, count-MaxPageWidgets))
 	}
 	return out
+}
+
+// pageAreaErrors says, in words, what is wrong with the pageArea of home.json:
+// null (or no key) shows no page area; a page name shows a page of your home;
+// {page, folder} shows a page of a shared folder.
+func pageAreaErrors(obj map[string]any) []string {
+	raw, ok := obj["pageArea"]
+	if !ok || raw == nil {
+		return nil
+	}
+	const hint = "pageArea names a page: a string such as \"today\" for the folder pages/today/ of your home, {\"page\": \"today\", \"folder\": 3} for a page of a shared folder, or null for no page area"
+	switch v := raw.(type) {
+	case string:
+		if !pageNameRE.MatchString(v) {
+			return []string{fmt.Sprintf("pageArea: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", clip(v, 80))}
+		}
+	case map[string]any:
+		name, isString := v["page"].(string)
+		if !isString || !pageNameRE.MatchString(name) {
+			return []string{fmt.Sprintf("pageArea.page: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", clip(fmt.Sprint(v["page"]), 80))}
+		}
+		if f, has := v["folder"]; has {
+			n, isNum := f.(float64)
+			if !isNum || n < 1 || n != float64(int64(n)) {
+				return []string{"pageArea.folder: the folder_id of a shared folder, a whole number from 1; leave it out for a page of your home"}
+			}
+		}
+		for k := range v {
+			if k != "page" && k != "folder" {
+				return []string{fmt.Sprintf("pageArea.%s: no such key; %s", clip(k, 40), hint)}
+			}
+		}
+	default:
+		return []string{"pageArea: " + hint}
+	}
+	return nil
 }
 
 // itemURLErrors says, in words, which item url of widget data breaks the

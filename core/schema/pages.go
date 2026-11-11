@@ -66,6 +66,9 @@ type PagesCompact struct {
 // PagesList is the user's pages, sorted by name.
 type PagesList struct {
 	Pages []PagesPage `json:"pages"`
+	// PageAreaEnabled is false when an administrator turned the page area of
+	// Home off: a pageArea of home.json is then ignored.
+	PageAreaEnabled bool `json:"page_area_enabled"`
 }
 
 // PagesSource is a page with the text of its index.html.
