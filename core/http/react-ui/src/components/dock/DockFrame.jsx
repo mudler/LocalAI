@@ -19,6 +19,9 @@ let nextFrame = 0
 // The messages a docked page may have waiting for the person at once.
 const MAX_ASKS = 3
 let nextAsk = 0
+// Send of a message the page asks for works only after this delay, so a page
+// cannot put the button under a click the person meant for the page.
+const ASK_ARM_MS = 500
 
 // DockFrame runs the page of one tab of the dock: the same frame, sandbox,
 // bridge and budget as a tile, in the page mode. Its frame counts toward the
@@ -28,7 +31,9 @@ let nextAsk = 0
 // in the dock, because the dock starts it again without a click on a reload.
 //
 // chat.send from the page goes to this chat as a message the person sees,
-// sends and can dismiss; nothing is sent by the page alone.
+// sends and can dismiss; nothing is sent by the page alone. The questions lie
+// over the top of the frame, so the frame does not move when one comes, and
+// their Send works after ASK_ARM_MS.
 //
 //   tabRef   {name, folder} of the page
 //   title    the name of the page for the frame
@@ -102,9 +107,10 @@ const DockFrame = forwardRef(function DockFrame({ tabRef, title, chatId, visible
       reject(new Error('too many messages are waiting'))
       return
     }
-    const item = { id: ++nextAsk, text, resolve, status: 'idle', error: '' }
+    const item = { id: ++nextAsk, text, resolve, status: 'idle', error: '', armed: false }
     asksRef.current = [...asksRef.current, item]
     setAsks((list) => [...list, item])
+    setTimeout(() => setAsks((list) => list.map((a) => (a.id === item.id ? { ...a, armed: true } : a))), ASK_ARM_MS)
   }), [chatId])
   // Leaving the chat or the page answers what still waits.
   useEffect(() => () => { for (const a of asksRef.current) a.resolve({ sent: false }) }, [chatId, tabRef])
@@ -167,20 +173,24 @@ const DockFrame = forwardRef(function DockFrame({ tabRef, title, chatId, visible
 
   return (
     <div className="pd-body" data-testid="dock-body" data-state={state} data-frame={body ? 'none' : 'live'}>
-      {asks.map((a) => (
-        <div key={a.id} className="pd-ask" role="group" aria-label={t('dock.sendLabel')} data-testid="dock-send-ask">
-          <span className="pd-ask__label">{t('dock.sendLabel')}</span>
-          <q className="pd-ask__text">{a.text}</q>
-          <span className="pd-ask__acts">
-            <Button size="sm" variant="primary" busy={a.status === 'sending'} onClick={() => sendAsk(a)} data-testid="dock-send">{t('send.send')}</Button>
-            <Button size="sm" variant="ghost" onClick={() => dismissAsk(a)}>{t('send.dismiss')}</Button>
-          </span>
-          {a.error && <span className="pd-ask__error" role="alert">{t('send.failed', { message: a.error })}</span>}
-        </div>
-      ))}
-      {links.link && (
-        <div className="pd-ask">
-          <PageLinkAsk key={links.link.id} link={links.link} t={t} onOpen={links.open} onCancel={links.cancel} />
+      {(asks.length > 0 || links.link) && (
+        <div className="pd-asks" data-testid="dock-asks">
+          {asks.map((a) => (
+            <div key={a.id} className="pd-ask" role="group" aria-label={t('dock.sendLabel')} data-testid="dock-send-ask">
+              <span className="pd-ask__label">{t('dock.sendLabel')}</span>
+              <q className="pd-ask__text">{a.text}</q>
+              <span className="pd-ask__acts">
+                <Button size="sm" variant="primary" disabled={!a.armed} busy={a.status === 'sending'} onClick={() => sendAsk(a)} data-testid="dock-send">{t('send.send')}</Button>
+                <Button size="sm" variant="ghost" onClick={() => dismissAsk(a)}>{t('send.dismiss')}</Button>
+              </span>
+              {a.error && <span className="pd-ask__error" role="alert">{t('send.failed', { message: a.error })}</span>}
+            </div>
+          ))}
+          {links.link && (
+            <div className="pd-ask">
+              <PageLinkAsk key={links.link.id} link={links.link} t={t} onOpen={links.open} onCancel={links.cancel} />
+            </div>
+          )}
         </div>
       )}
       {body || (

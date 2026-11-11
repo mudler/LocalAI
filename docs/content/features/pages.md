@@ -520,7 +520,10 @@ the eight live frames of the app. A page you open takes a frame at once and
 stops the frame that started first; a page that comes back with a reload waits
 for a free one and shows **Run it here** until then. `localai.page.mode` is
 `page`, as in the full view, with no `size`. `chat.send` from a docked page shows the message in the dock; it goes to
-this chat, as your message, only when you press **Send**. A shared page runs
+this chat, as your message, only when you press **Send**. The message lies
+over the top of the page, so the page does not move, and **Send** works half
+a second after it shows. A page that asks more than 3 times at once waits, as
+in [Limits](#limits). A shared page runs
 in the dock only after you allowed it on Home, in the slots and in the dock
 (**Allow on Home, in slots and in the dock**), because the dock starts it again without a
 click after a reload.

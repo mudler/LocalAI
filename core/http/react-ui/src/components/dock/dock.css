@@ -203,7 +203,18 @@
 }
 .pd-state__icon { width: 20px; height: 20px; }
 
-/* A message the page asks to send, and a link it asks to open. */
+/* A message the page asks to send, and a link it asks to open: they lie over
+   the top of the frame, so the frame never moves under the pointer. */
+.pd-asks {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: var(--dk-z-sticky);
+  display: flex;
+  flex-direction: column;
+  max-height: 60%;
+  overflow-y: auto;
+  padding-bottom: var(--dk-space-2);
+}
 .pd-ask {
   flex: none;
   display: flex;
@@ -214,7 +225,8 @@
   padding: var(--dk-space-2) var(--dk-space-3);
   border: 1px solid var(--dk-accent);
   border-radius: var(--dk-radius-2);
-  background: var(--dk-accent-wash);
+  background: linear-gradient(var(--dk-accent-wash), var(--dk-accent-wash)), var(--dk-card);
+  box-shadow: var(--dk-shadow-float);
   font-size: var(--dk-text-13);
 }
 .pd-ask__label { color: var(--dk-muted); }

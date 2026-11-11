@@ -18,6 +18,11 @@ const MAX_IN_FLIGHT = 8
 // cannot bury the person in questions.
 const LINK_BURST = 5
 const LINK_EVERY_MS = 3000
+// Messages a page asks to send (chat.send), as the server limits them after
+// Send (see the Limits of docs/content/features/pages.md): each one is a question to the
+// person, so a burst is small and the rest wait.
+const SEND_BURST = 3
+const SEND_EVERY_MS = 20000
 // Errors of a page's script that the host records (page.error): the text is cut
 // here and again on the server, and a burst is bounded, so a throw inside a 60
 // fps loop cannot flood the server.
@@ -582,7 +587,8 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 // {id, result} or {id, error}. What a page can reach is the four handlers:
 //
 //   files.read(path), files.write(path, content, base), files.list(dir)
-//   chat.send(text)   resolves to {sent, chat_id}; the host asks the person first
+//   chat.send(text)   resolves to {sent, chat_id}; the host asks the person first.
+//                     A burst is limited as for links
 //   link.open(url)    resolves to {opened}; only http and https, and the host
 //                     asks the person first (links.open gets the checked target)
 //   page.error(...)   the bridge reports what the page's script threw; errors.report
@@ -595,13 +601,29 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 //
 // A message {beat: 1, busy} is the frame's beat (see BOOTSTRAP): it goes to
 // onBeat(busy) and gets no answer.
+// bucket is a token bucket on the clock now: take() says whether one more
+// call fits in a burst of burst, with one token back every everyMs.
+function bucket(now, burst, everyMs) {
+  let tokens = burst
+  let at = now()
+  return {
+    take() {
+      const t = now()
+      tokens = Math.min(burst, tokens + Math.floor((t - at) / everyMs))
+      if (t - at >= everyMs) at = t
+      if (tokens < 1) return false
+      tokens--
+      return true
+    },
+  }
+}
+
 export function createPageHost({ post, files, chat, links, errors, onBeat, now = Date.now }) {
   let closed = false
   let inFlight = 0
-  let linkTokens = LINK_BURST
-  let linkAt = now()
-  let errorTokens = ERROR_BURST
-  let errorAt = now()
+  const linkBudget = bucket(now, LINK_BURST, LINK_EVERY_MS)
+  const errorBudget = bucket(now, ERROR_BURST, ERROR_EVERY_MS)
+  const sendBudget = bucket(now, SEND_BURST, SEND_EVERY_MS)
 
   const answer = (msg) => { if (!closed) post(msg) }
 
@@ -629,17 +651,14 @@ export function createPageHost({ post, files, chat, links, errors, onBeat, now =
       case 'chat.send': {
         const text = typeof p.text === 'string' ? p.text.trim() : ''
         if (text === '' || text.length > MAX_TEXT) throw bad('text is empty or longer than 4000 characters')
+        if (!sendBudget.take()) throw { code: 'busy', message: 'too many messages at once; wait a moment' }
         return chat.send(text)
       }
       case 'link.open': {
         const target = pageLinkTarget(p.url)
         if (target.error) throw { code: 'invalid', message: LINK_ERRORS[target.error] }
         if (!links) throw { code: 'unavailable', message: 'links do not open here' }
-        const t = now()
-        linkTokens = Math.min(LINK_BURST, linkTokens + Math.floor((t - linkAt) / LINK_EVERY_MS))
-        if (t - linkAt >= LINK_EVERY_MS) linkAt = t
-        if (linkTokens < 1) throw { code: 'busy', message: 'too many links at once; wait a moment' }
-        linkTokens--
+        if (!linkBudget.take()) throw { code: 'busy', message: 'too many links at once; wait a moment' }
         // The host shows one question: a new link replaces the one before,
         // which answers {opened: false}.
         return { opened: Boolean((await links.open(target))?.opened) }
@@ -649,11 +668,7 @@ export function createPageHost({ post, files, chat, links, errors, onBeat, now =
         const message = typeof p.message === 'string' ? p.message.trim().slice(0, MAX_ERROR_MESSAGE) : ''
         if (message === '') throw bad('message')
         if (!errors || isNoiseError(message)) return { recorded: false }
-        const t = now()
-        errorTokens = Math.min(ERROR_BURST, errorTokens + Math.floor((t - errorAt) / ERROR_EVERY_MS))
-        if (t - errorAt >= ERROR_EVERY_MS) errorAt = t
-        if (errorTokens < 1) return { recorded: false }
-        errorTokens--
+        if (!errorBudget.take()) return { recorded: false }
         const int = (v, max) => (Number.isInteger(v) && v > 0 && v <= max ? v : 0)
         try {
           await errors.report({

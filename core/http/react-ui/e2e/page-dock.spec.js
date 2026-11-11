@@ -303,9 +303,15 @@ test('a docked page is live, sandboxed, and its chat.send waits for the person t
   await expect(composer(page)).toHaveValue(`Change the page Task board in pages/${BOARD}/ so that `)
   await composer(page).fill('')
 
+  const frameBox = await dock(page).getByTestId('page-frame').boundingBox()
   await dockFrame(page).locator('#ask').click()
   const ask = dock(page).getByTestId('dock-send-ask')
   await expect(ask).toContainText('Move the dentist to Friday')
+  // Send works only after a short delay, and the question lies over the
+  // frame: the frame does not move under the pointer.
+  await expect(ask.getByTestId('dock-send')).toBeDisabled()
+  expect(await dock(page).getByTestId('page-frame').boundingBox()).toEqual(frameBox)
+  await expect(ask.getByTestId('dock-send')).toBeEnabled()
   await shot(page, 'dock-send-light')
   const before = (await api(request, `/api/chats/${id}/messages`)).messages.length
   await page.waitForTimeout(500)
@@ -316,6 +322,19 @@ test('a docked page is live, sandboxed, and its chat.send waits for the person t
   await expect.poll(async () => (await api(request, `/api/chats/${id}`)).running, { timeout: 60_000 }).toBe(false)
   await expect(dockFrame(page).locator('#count')).toHaveText('7')
   await put(request, `/pages/${BOARD}/tasks.json`, TASKS())
+  await request.delete(`/api/chats/${id}`)
+})
+
+test('a docked page keeps running past the start budget of its frame', async ({ page, request }) => {
+  const id = await newChat(request, 'Long look')
+  await request.put(`/api/chats/${id}/dock`, { data: { open: true, tabs: [{ page: BOARD }], active: 0 } })
+  await page.goto(`/app/chats/${id}`)
+  await expect(dockFrame(page).locator('#count')).toHaveText('6')
+  // The watch stops a frame with no first beat after 10 s.
+  await page.waitForTimeout(13_000)
+  await expect(dock(page).getByTestId('dock-stopped')).toHaveCount(0)
+  await expect(dock(page).getByTestId('dock-body')).toHaveAttribute('data-frame', 'live')
+  await expect(dockFrame(page).locator('#count')).toHaveText('6')
   await request.delete(`/api/chats/${id}`)
 })
 
