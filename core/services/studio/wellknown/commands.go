@@ -96,6 +96,7 @@ func promptCommandErrors(at string, m map[string]any) []string {
 	var out []string
 	args, _ := m["args"].([]any)
 	declared := make(map[string]bool, len(args))
+	var order []string // the declared names, in the order of args
 	for j, a := range args {
 		am, ok := a.(map[string]any)
 		if !ok {
@@ -105,6 +106,8 @@ func promptCommandErrors(at string, m map[string]any) []string {
 		if argNameRE.MatchString(name) {
 			if declared[name] {
 				out = append(out, fmt.Sprintf("%s.args[%d].name: %q is listed twice; list each argument once", at, j, name))
+			} else {
+				order = append(order, name)
 			}
 			declared[name] = true
 		}
@@ -122,7 +125,7 @@ func promptCommandErrors(at string, m map[string]any) []string {
 			out = append(out, fmt.Sprintf("%s.template: {{%s}} is not listed in args; add an argument %q with a default, or remove the placeholder", at, clip(use, 40), clip(use, 40)))
 		}
 	}
-	for name := range declared {
+	for _, name := range order {
 		if !slices.Contains(used, name) {
 			out = append(out, fmt.Sprintf("%s.args: %q is not used in the template; remove it, or write {{%s}} in the template", at, name, name))
 		}

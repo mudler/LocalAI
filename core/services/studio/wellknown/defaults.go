@@ -83,13 +83,7 @@ func defaultsErrors(obj map[string]any) []string {
 		if !ok {
 			continue
 		}
-		bad := strings.TrimSpace(v) == ""
-		for _, r := range v {
-			if r < 0x20 || r == 0x7f {
-				bad = true
-			}
-		}
-		if bad {
+		if strings.TrimSpace(v) == "" || hasControlChar(v) {
 			errs = append(errs, fmt.Sprintf("%s: use the name of an installed model, \"ask\" or null; %q is neither", key, clip(v, 80)))
 		}
 	}
