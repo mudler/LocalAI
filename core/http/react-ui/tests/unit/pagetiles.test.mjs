@@ -3,21 +3,22 @@ import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import { buildPageSrcdoc, createPageHost } from '../../src/utils/pagesBridge.js'
 import {
-  MAX_PAGE_TILES, createFrameSlots, eligiblePages, nextFrame, refKey, tilePagePath, tileRef, tileSize, tileState, tileTitle,
+  MAX_LIVE_FRAMES, MAX_PAGE_TILES, compactOf, createFrameSlots, eligiblePages, nextFrame, refKey, tilePagePath, tileRef, tileSize, tileState, tileTitle,
 } from '../../src/utils/pageTiles.js'
 import { cleanWidgets, widgetList } from '../../src/utils/wellKnown.js'
 
 // The frame's bootstrap in a VM: the attributes it sets on <html>, the API it
 // defines and the port it talks over.
-function boot(opts) {
+function boot(opts, { timers = null } = {}) {
   const attrs = {}
   let onMessage = null
   const sandbox = {
     console: { warn() {}, error() {}, log() {} },
-    setTimeout, Promise, Response, Request, Blob, TextEncoder, DOMException, JSON, Object, String, Error, TypeError, URL,
+    setTimeout, Promise,
+    setInterval: (fn, ms) => { if (timers) timers.push({ fn, ms }); return 1 }, Response, Request, Blob, TextEncoder, DOMException, JSON, Object, String, Error, TypeError, URL,
     document: {
       baseURI: 'http://localai.test/app', readyState: 'complete',
-      documentElement: { setAttribute: (k, v) => { attrs[k] = v }, style: {} },
+      documentElement: { setAttribute: (k, v) => { attrs[k] = v }, removeAttribute: (k) => { delete attrs[k] }, style: {} },
       addEventListener() {}, getElementById: () => null, getElementsByName: () => [],
     },
     scrollTo() {},
@@ -28,9 +29,10 @@ function boot(opts) {
   vm.createContext(sandbox)
   vm.runInContext(/<script>([\s\S]*?)<\/script>/.exec(buildPageSrcdoc('', opts))[1], sandbox)
   let deliver = null
-  const port = { postMessage() {}, set onmessage(fn) { deliver = fn } }
+  const posted = []
+  const port = { postMessage(m) { posted.push(m) }, set onmessage(fn) { deliver = fn } }
   onMessage({ source: sandbox.parent, data: { type: 'localai:init' }, ports: [port] })
-  return { attrs, localai: sandbox.localai, deliver: (m) => deliver({ data: m }) }
+  return { attrs, posted, localai: sandbox.localai, deliver: (m) => deliver({ data: m }) }
 }
 
 test('frame: a page knows its mode and size, and so does its CSS', () => {
@@ -107,7 +109,9 @@ test('page tiles: the widget names a page, and the tile says what it shows', () 
   const shared = { source: 'shared', widget: { size: 'large' } }
   assert.equal(tileState({ page: shared, consent: 'none' }), 'needsAllow')
   assert.equal(tileState({ page: shared, consent: 'changed' }), 'needsAllow')
-  assert.equal(tileState({ page: shared, consent: 'allowed' }), 'ready')
+  assert.equal(tileState({ page: shared, consent: 'allowed' }), 'needsAllow', 'opening a page is not running it on Home or in a slot')
+  assert.equal(tileState({ page: shared, consent: 'allowed', embed: true }), 'ready')
+  assert.equal(tileState({ page: shared, consent: 'changed', embed: true }), 'needsAllow', 'a changed page asks again')
   assert.equal(tileState({ page: { source: 'shared' }, consent: 'allowed' }), 'noWidget')
 })
 
@@ -165,7 +169,7 @@ test('page tiles: a frame loads in view, pauses out of sight and goes far away',
 
 test('page tiles: at most three frames are alive, and a release wakes the waiting', () => {
   assert.equal(MAX_PAGE_TILES, 3)
-  const slots = createFrameSlots()
+  const slots = createFrameSlots(3)
   let woke = 0
   const off = slots.subscribe(() => { woke++ })
   assert.ok(slots.acquire('a'))
@@ -183,4 +187,99 @@ test('page tiles: at most three frames are alive, and a release wakes the waitin
   off()
   slots.release('d')
   assert.equal(woke, 1)
+})
+
+test('frame cap: the app keeps at most eight live frames, and a click on a static card takes the oldest', () => {
+  assert.equal(MAX_LIVE_FRAMES, 8)
+  const slots = createFrameSlots()
+  assert.equal(slots.max(), 8)
+  const evicted = []
+  for (let i = 1; i <= 8; i++) assert.ok(slots.acquire(`t${i}`, () => evicted.push(`t${i}`)))
+  assert.equal(slots.acquire('t9', () => evicted.push('t9')), false, 'the ninth waits as a static card')
+  assert.equal(slots.held(), 8)
+  let woke = 0
+  slots.subscribe(() => { woke++ })
+  // The click on the ninth: the frame that started first stops.
+  assert.ok(slots.take('t9', () => evicted.push('t9')))
+  assert.deepEqual(evicted, ['t1'])
+  assert.equal(slots.holds('t1'), false)
+  assert.ok(slots.holds('t9'))
+  assert.equal(slots.held(), 8, 'the cap holds')
+  assert.equal(woke, 0, 'a take does not wake the waiting: the slot went to the click')
+  // The next click takes the next oldest.
+  assert.ok(slots.take('t1', () => evicted.push('t1')))
+  assert.deepEqual(evicted, ['t1', 't2'])
+  assert.ok(slots.take('t1'), 'a holder takes again for free')
+  assert.equal(slots.held(), 8)
+  // A holder that gave no way to stop it is never taken.
+  const fixed = createFrameSlots(1)
+  assert.ok(fixed.acquire('a'))
+  assert.equal(fixed.take('b', () => {}), false)
+  // A release wakes the waiting.
+  slots.release('t3')
+  assert.equal(woke, 1)
+  assert.ok(slots.acquire('t2'))
+})
+
+test('compact tiles: a page has a strip only with compact in its widget block', () => {
+  assert.equal(compactOf({ widget: { size: 'small' } }), null)
+  assert.equal(compactOf(null), null)
+  assert.deepEqual(compactOf({ widget: { compact: { width: 160 } } }), { width: 160 })
+  assert.deepEqual(compactOf({ widget: { compact: {} } }), { width: 120 })
+  assert.deepEqual(compactOf({ widget: { compact: { width: 5 } } }), { width: 72 })
+  assert.deepEqual(compactOf({ widget: { compact: { width: 999 } } }), { width: 220 })
+})
+
+test('frame: a tile changes size without a reload, and only to known sizes', () => {
+  const tile = boot({ name: 'weather', mode: 'widget', size: 'compact' })
+  assert.equal(tile.localai.page.size, 'compact')
+  assert.equal(tile.attrs['data-size'], 'compact')
+  const heard = []
+  tile.localai.on('mode', (d) => heard.push(`${d.mode}/${d.size}`))
+  tile.deliver({ event: 'mode', data: { mode: 'widget', size: 'medium' } })
+  assert.equal(tile.localai.page.size, 'medium', 'localai.page follows')
+  assert.equal(tile.attrs['data-size'], 'medium', 'and so does the CSS')
+  tile.deliver({ event: 'mode', data: { mode: 'widget', size: 'medium' } })
+  tile.deliver({ event: 'mode', data: { mode: 'widget', size: '"><img>' } })
+  tile.deliver({ event: 'mode', data: { mode: 'fullscreen', size: 'large' } })
+  tile.deliver({ event: 'mode', data: { mode: 'page', size: 'large' } })
+  assert.equal(tile.localai.page.size, 'medium', 'an unknown mode or size changes nothing')
+  tile.deliver({ event: 'mode', data: { mode: 'widget', size: 'compact' } })
+  assert.deepEqual(heard, ['widget/medium', 'widget/compact'], 'one call per change')
+  assert.throws(() => { 'use strict'; tile.localai.page.size = 'large' }, TypeError, 'the page cannot set its size')
+  assert.equal(boot({ name: 'x', mode: 'widget', size: 'compact' }).localai.page.size, 'compact')
+})
+
+test('frame: a tile beats about once a second, a full page does not', () => {
+  const timers = []
+  const tile = boot({ name: 'clock', mode: 'widget', size: 'small' }, { timers })
+  assert.equal(timers.length, 1)
+  assert.equal(timers[0].ms, 1000)
+  timers[0].fn()
+  const beat = tile.posted.find((m) => m.beat === 1)
+  assert.ok(beat, 'a beat goes over the port')
+  assert.equal(typeof beat.busy, 'number')
+  assert.equal(beat.id, undefined, 'a beat is not a call')
+  const page = []
+  boot({ name: 'clock' }, { timers: page })
+  assert.equal(page.length, 0)
+})
+
+test('page host: a beat goes to onBeat and gets no answer; mode events are checked', async () => {
+  const sent = []
+  const beats = []
+  const h = createPageHost({ post: (m) => sent.push(m), files: {}, chat: {}, onBeat: (b) => beats.push(b) })
+  await h.receive({ beat: 1, busy: 120 })
+  await h.receive({ beat: 1, busy: -5 })
+  await h.receive({ beat: 1, busy: 'x' })
+  assert.deepEqual(beats, [120, 0, 0])
+  assert.deepEqual(sent, [], 'no answer to a beat')
+  h.emit('mode', { mode: 'widget', size: 'compact' })
+  h.emit('mode', { mode: 'widget', size: '<b>' })
+  h.emit('mode', { mode: 'evil', size: 'large' })
+  assert.deepEqual(sent, [
+    { event: 'mode', data: { mode: 'widget', size: 'compact' } },
+    { event: 'mode', data: { mode: 'widget', size: 'medium' } },
+    { event: 'mode', data: { mode: 'page', size: '' } },
+  ])
 })

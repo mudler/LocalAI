@@ -425,6 +425,94 @@
       "yoursFor": "Seu texto para {{key}}",
       "same": "Igual ao padrão",
       "hint": "Mantenha os marcadores de um texto, como {model}. Um errado é marcado antes de salvar. Uma caixa vazia mantém o padrão."
+    },
+    "frames": {
+      "stopped": "Esta página foi parada",
+      "why": {
+        "busy": "Ela ocupou o computador por tempo demais (mais de 3 segundos de trabalho em 10 segundos).",
+        "silent": "Ela parou de responder por mais de 5 segundos.",
+        "noStart": "Ela não começou em 10 segundos.",
+        "navigated": "Ela tentou sair do seu quadro."
+      },
+      "capped": "Pausada: no app rodam no máximo {{max}} páginas ao mesmo tempo.",
+      "run": "Rodar"
+    },
+    "slots": {
+      "title": "Espaços",
+      "lede": "Pequenos lugares do app que mostram seus blocos de páginas, botões de ferramentas e comandos, da esquerda para a direita. Eles nunca escondem o título, o modelo ou as configurações.",
+      "where": "Onde ficam os espaços",
+      "map": "Mapa dos espaços",
+      "editing": "Editando",
+      "count": "{{count}} de {{max}}",
+      "names": {
+        "chatHeader": "Cabeçalho do chat",
+        "sidebarFooter": "Rodapé da barra lateral",
+        "composerToolbar": "Barra da mensagem"
+      },
+      "badge": {
+        "chatHeader": "No cabeçalho do chat",
+        "sidebarFooter": "Na barra lateral",
+        "composerToolbar": "Na mensagem"
+      },
+      "hint": {
+        "chatHeader": "A barra acima de cada chat. Uma página com layout compacto roda em uma faixa de 40 px de altura; um clique a abre como cartão abaixo do bloco.",
+        "sidebarFooter": "O rodapé da barra lateral, em todas as telas. Uma barra recolhida o esconde.",
+        "composerToolbar": "Ao lado do botão de anexar da caixa de mensagem. Bom para botões de ferramentas."
+      },
+      "empty": "Nada aqui ainda. Adicione um bloco de página, um botão de ferramenta ou um comando.",
+      "addItem": "Adicionar item",
+      "full": "Este espaço está cheio ({{max}} itens).",
+      "incomplete": "Preencha cada item novo antes de salvar: uma página, uma ferramenta e seu texto, ou um comando.",
+      "add": {
+        "page": "Bloco de página",
+        "pageHint": "Uma página sua ou compartilhada com você",
+        "tool": "Botão de ferramenta",
+        "toolHint": "Roda uma ferramenta, pergunta antes",
+        "command": "Comando",
+        "commandHint": "Um dos seus comandos"
+      },
+      "kind": {
+        "tool": "Botão de ferramenta, pergunta antes",
+        "command": "Comando",
+        "pageMissing": "Página não encontrada",
+        "pageCompact": "Bloco de página, compacto",
+        "pageButton": "Página, abre com um clique"
+      },
+      "form": {
+        "page": "Página",
+        "pickPage": "Escolha uma página",
+        "shared": "compartilhada",
+        "pageHint": "Uma página com layout compacto roda no espaço. Qualquer outra aparece como um botão que a abre.",
+        "tool": "Nome da ferramenta",
+        "arguments": "Argumentos fixos (opcional)",
+        "argumentsHint": "Nomes com valores simples, no máximo {{max}}: texto, números, true ou false, como no exemplo.",
+        "argumentsBad": "Inválido: escreva nomes com valores simples, como no exemplo, no máximo {{max}}.",
+        "command": "Nome do comando",
+        "commandHint": "Sem a barra. Os comandos aparecem aqui quando existirem.",
+        "label": "Texto (opcional)",
+        "labelNeeded": "Texto do botão",
+        "icon": "Ícone (opcional)"
+      },
+      "tool": {
+        "title": "Roda a ferramenta {{tool}} depois da sua aprovação",
+        "confirmTitle": "Rodar {{label}}?",
+        "confirmChat": "Isto envia a este chat uma mensagem que pede ao assistente para rodar esta ferramenta:",
+        "confirmDraft": "Isto abre um novo chat com uma mensagem que pede ao assistente para rodar esta ferramenta. Você a envia.",
+        "tool": "Ferramenta",
+        "arguments": "Argumentos",
+        "stillAsks": "Se a ferramenta precisar da sua aprovação, o chat ainda pede.",
+        "run": "Rodar"
+      },
+      "tile": {
+        "missing": "A página {{name}} não existe mais. Mude os espaços nas suas configurações.",
+        "off": "As páginas compartilhadas estão desligadas neste servidor.",
+        "error": "Não foi possível ler a página {{name}}. Mude os espaços nas suas configurações.",
+        "open": "Abrir {{title}}",
+        "allow": "Permitir que {{title}} rode aqui",
+        "expand": "Mostrar {{title}}",
+        "close": "Fechar {{title}}",
+        "sandboxed": "Isolada, sem rede"
+      }
     }
   },
   "discovery": {

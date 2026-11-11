@@ -185,7 +185,8 @@ var _ = Describe("the localai-apps skill", func() {
 			case "on", "page":
 				Expect(bridge).To(MatchRegexp(`\b`+c+`:`), "the bridge has no %q", c)
 			case "page.name", "page.title", "page.mode", "page.size":
-				Expect(bridge).To(MatchRegexp(`page: Object\.freeze\(\{[^}]*\b`+strings.TrimPrefix(c, "page.")+`:`), "the bridge has no %q", c)
+				// A field, or a getter for the mode and size a tile can change.
+				Expect(bridge).To(MatchRegexp(`page: Object\.freeze\(\{[\s\S]{0,300}?\b(?:get )?`+strings.TrimPrefix(c, "page.")+`(?::|\(\))`), "the bridge has no %q", c)
 			default:
 				parent, name, _ := strings.Cut(c, ".")
 				Expect(bridge).To(MatchRegexp(`\b`+name+`: function`), "the bridge has no %q", c)

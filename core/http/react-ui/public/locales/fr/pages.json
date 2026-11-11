@@ -122,7 +122,13 @@
     "sourceTitle": "Source de « {{title}} »",
     "sourceLines_one": "{{count}} ligne",
     "sourceLines_other": "{{count}} lignes",
-    "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici."
+    "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici.",
+    "embed": {
+      "desc": "Vous avez autorisé l'ouverture de cette page. Sur l'accueil et dans un emplacement, elle s'exécute dès que l'écran s'affiche, sans clic : il lui faut donc un accord à part.",
+      "item": "S'exécuter sur l'accueil et dans les emplacements de l'app",
+      "note": "Elle démarre à l'affichage de l'écran, sans clic. Une modification de son auteur redemande l'accord.",
+      "allow": "Autoriser sur l'accueil ou dans un emplacement"
+    }
   },
   "frame": {
     "filesFailed": "Des fichiers à côté de cette page ne se sont pas chargés : {{files}}. La console du navigateur indique pourquoi.",

@@ -358,9 +358,14 @@ const frameHeaders = ({ hash, token }) => ({
 export const sharedPagesApi = {
   list: () => fetchJSON('/api/chats/shared-pages'),
   get: (folder, name) => fetchJSON(sharedUrl(folder, name)),
-  allow: (folder, name, hash, once) => fetchJSON(`${sharedUrl(folder, name)}/consent`, {
-    method: 'PUT', body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }),
-  }),
+  // opts is once (a boolean, for one visit) or {once, embed}: embed also
+  // allows the version on Home and in the slots, where it runs without a click.
+  allow: (folder, name, hash, opts) => {
+    const { once = false, embed = false } = typeof opts === 'object' && opts ? opts : { once: !!opts }
+    return fetchJSON(`${sharedUrl(folder, name)}/consent`, {
+      method: 'PUT', body: JSON.stringify({ hash, ...(once ? { once: true } : {}), ...(embed && !once ? { embed: true } : {}) }),
+    })
+  },
   revoke: (folder, name) => fetchJSON(`${sharedUrl(folder, name)}/consent`, { method: 'DELETE' }),
   // frame is {hash, token}: the version the frame runs and its visit token.
   read: (folder, name, frame, path) => fetchJSON(`${sharedUrl(folder, name)}/file${q({ path })}`, { headers: frameHeaders(frame) }),

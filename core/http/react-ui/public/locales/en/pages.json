@@ -169,7 +169,13 @@
     "sourceTitle": "Source of \"{{title}}\"",
     "sourceLines_one": "{{count}} line",
     "sourceLines_other": "{{count}} lines",
-    "sourceNote": "The source is shown as text. Nothing in it runs here."
+    "sourceNote": "The source is shown as text. Nothing in it runs here.",
+    "embed": {
+      "desc": "You allowed this page to open. On Home and in a slot it runs as soon as the screen shows, without a click, so it needs its own yes.",
+      "item": "Run on Home and in the slots of the app",
+      "note": "It starts when the screen shows, without a click. A change by its author asks again.",
+      "allow": "Allow on Home or in a slot"
+    }
   },
   "frame": {
     "filesFailed": "Files next to this page did not load: {{files}}. The browser console says why.",

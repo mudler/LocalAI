@@ -53,7 +53,7 @@ The page runs in a frame with no network and no access to LocalAI or other files
 - `localai.on('files.changed', fn)` calls `fn({paths})` when a file of the folder changes, and `fn({paths: [], resync: true})` when it cannot tell what: read again. It returns a function that removes the listener. Your own writes come back too.
 - `localai.chat.send(text)` offers a message to the user, who must press Send. Use it for "Ask the assistant" buttons, never as a way to run the assistant on its own.
 - `localai.on('visibility', fn)` calls `fn({visible})` when the page goes out of sight (hidden tab, or its tile on Home scrolled away) and back. Stop timers while `visible` is false.
-- `localai.page` is `{name, title, mode, size}`: `mode` is `page`, or `widget` in a tile on Home, where `size` is `small`, `medium` or `large`.
+- `localai.page` is `{name, title, mode, size}`: `mode` is `page`, or `widget` in a tile, where `size` is `compact`, `small`, `medium` or `large`. `localai.on('mode', fn)` calls `fn({mode, size})` when the tile changes size; the page is not reloaded.
 
 The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`. Define colours as CSS variables and override them under `:root[data-theme="dark"]`.
 
@@ -77,6 +77,8 @@ After you fix the page, the old errors are gone. Ask the user to open the page a
 ## On Home
 
 A page can also be a tile on Home. Add `"widget": {"size": "small"}` to `page.json` (`small`: one line or a number; `medium`: a short list; `large`: a table or a chart; an optional `"title"` for the tile). In a tile the same page runs with `localai.page.mode === 'widget'` and `<html data-mode="widget" data-size="...">`. Give it a compact layout: the few facts that matter, no inputs, no scroll. Do not shrink the full page. The tile has its own bar with the title and an "Open page" link, so leave out the page's header. `chat.send` does not work in a tile.
+
+A slot (chat header, sidebar foot, composer bar) is a strip about 40 px high. Add `"compact": true` to the widget block (or `{"width": 160}`, 72 to 220 px) and draw one short line for `data-size="compact"`: a value and a word. A click opens it as a card at its `size`, then back to `compact`; follow `<html data-size>` in CSS. Without `compact` a slot shows a button that opens the page. A tile that keeps the CPU busy (3 s of work in 10 s) or stops answering for 5 s is stopped.
 
 A news ticker that is a list in its own view and one rotating line on Home:
 

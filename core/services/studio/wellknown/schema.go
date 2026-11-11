@@ -179,6 +179,7 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 		// with a path that climbs out of the home or is not a picture.
 		errs = append(errs, backgroundErrors(obj)...)
 		errs = append(errs, stringErrors(obj["strings"])...)
+		errs = append(errs, slotErrors(obj["slots"])...)
 	}
 	if n == Defaults {
 		errs = append(errs, defaultsErrors(obj)...)
@@ -472,6 +473,111 @@ func navErrors(obj map[string]any) []string {
 	}
 	if links > MaxNavLinks {
 		out = append(out, fmt.Sprintf("items: at most %d custom links; this list has %d", MaxNavLinks, links))
+	}
+	return out
+}
+
+// SlotNames are the slots of ui.json, in the order the Slots tab shows them.
+var SlotNames = []string{"chatHeader", "sidebarFooter", "composerToolbar"}
+
+// SlotCaps bounds the items of each slot. A slot is a strip about 40 px high
+// in a bar that also holds the shell's own controls, so it is small; the
+// schema says the same with maxItems, and a test keeps the two in step.
+var SlotCaps = map[string]int{"chatHeader": 4, "sidebarFooter": 3, "composerToolbar": 6}
+
+// slotFields are the fields each type of slot item may have.
+var slotFields = map[string][]string{
+	"page":    {"type", "page", "folder", "label", "icon"},
+	"tool":    {"type", "tool", "arguments", "label", "icon"},
+	"command": {"type", "command", "label", "icon"},
+}
+
+// maxSlotArguments bounds the fixed arguments of a tool button, as JSON.
+const maxSlotArguments = 2048
+
+// slotKey names an item the way the Slots tab merges a slot: a page by its
+// folder and name, a tool by its name and arguments, a command by its name.
+func slotKey(m map[string]any) string {
+	switch m["type"] {
+	case "page":
+		return fmt.Sprintf("page:%v/%v", m["folder"], m["page"])
+	case "tool":
+		args, _ := json.Marshal(m["arguments"]) // map keys are sorted
+		return fmt.Sprintf("tool:%v:%s", m["tool"], args)
+	case "command":
+		return fmt.Sprintf("command:%v", m["command"])
+	}
+	return ""
+}
+
+// slotErrors says, in words, what the schema cannot: an unknown slot, a slot
+// over its cap, an item without the field of its type or with the field of
+// another type, the same item twice in a slot, and arguments that are too big.
+func slotErrors(raw any) []string {
+	slots, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for name, v := range slots {
+		limit, known := SlotCaps[name]
+		if !known {
+			out = append(out, fmt.Sprintf("slots.%s: not a slot; the slots are %s", clip(name, 60), strings.Join(SlotNames, ", ")))
+			continue
+		}
+		list, ok := v.([]any)
+		if !ok {
+			continue
+		}
+		if len(list) > limit {
+			out = append(out, fmt.Sprintf("slots.%s: this slot takes at most %d items; it has %d, so remove %d", name, limit, len(list), len(list)-limit))
+		}
+		seen := map[string]int{}
+		for i, it := range list {
+			m, ok := it.(map[string]any)
+			if !ok {
+				continue
+			}
+			at := fmt.Sprintf("slots.%s[%d]", name, i)
+			ty, _ := m["type"].(string)
+			fields, known := slotFields[ty]
+			if !known {
+				continue // the schema names the type that is wrong
+			}
+			for k := range m {
+				if !slices.Contains(fields, k) {
+					out = append(out, fmt.Sprintf("%s: an item of type %s has no %s; it takes %s", at, ty, clip(k, 40), strings.Join(fields, ", ")))
+				}
+			}
+			switch ty {
+			case "page":
+				if p, _ := m["page"].(string); p == "" {
+					out = append(out, fmt.Sprintf("%s.page: a page tile names its page, such as \"weather\" for the folder pages/weather/ of your home", at))
+				}
+			case "tool":
+				if t, _ := m["tool"].(string); t == "" {
+					out = append(out, fmt.Sprintf("%s.tool: a tool button names the tool it runs", at))
+				}
+				if l, _ := m["label"].(string); strings.TrimSpace(l) == "" {
+					out = append(out, fmt.Sprintf("%s.label: a tool button needs the text it shows, such as \"Summarize chat\"", at))
+				}
+				if args, has := m["arguments"]; has {
+					if b, err := json.Marshal(args); err == nil && len(b) > maxSlotArguments {
+						out = append(out, fmt.Sprintf("%s.arguments: at most %d bytes of JSON; these are %d", at, maxSlotArguments, len(b)))
+					}
+				}
+			case "command":
+				if c, _ := m["command"].(string); c == "" {
+					out = append(out, fmt.Sprintf("%s.command: a command item names the command, without the slash", at))
+				}
+			}
+			key := slotKey(m)
+			if j, dup := seen[key]; dup {
+				out = append(out, fmt.Sprintf("%s: the same item as slots.%s[%d]; list each item once in a slot", at, name, j))
+				continue
+			}
+			seen[key] = i
+		}
 	}
 	return out
 }

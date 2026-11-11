@@ -192,3 +192,40 @@ test('a shared page split into files runs with the consent and rights of the vie
   expect(reads.some((r) => r.url.includes('path=dot.svg') && r.url.includes('encoding=base64'))).toBeTruthy()
   expect(reads.some((r) => r.url.includes('board'))).toBeFalsy()
 })
+
+test('a shared page in a slot runs only after the viewer allows it on Home or in a slot', async ({ page, request }) => {
+  const standup = (await api(request, '/api/chats/shared-pages')).pages.find((p) => p.name === 'standup')
+  const consent = `/api/chats/shared-pages/${standup.folder_id}/standup/consent`
+  // The viewer allowed the page to open; that does not let it run in a slot.
+  expect((await request.put(consent, { data: { hash: standup.hash } })).ok()).toBeTruthy()
+  const slots = { sidebarFooter: [{ type: 'page', page: 'standup', folder: standup.folder_id }] }
+  expect((await request.put('/api/chats/wellknown/ui', { data: { values: { slots } } })).ok()).toBeTruthy()
+  try {
+    await page.goto('/app/pages')
+    const bar = page.getByTestId('slot-sidebarFooter')
+    const allow = bar.getByTestId('slot-tile-allow')
+    await expect(allow).toBeVisible()
+    await expect(bar.locator('iframe')).toHaveCount(0)
+    await allow.click()
+    const sheet = page.getByTestId('trust-sheet')
+    await expect(sheet).toHaveAttribute('data-embed', 'true')
+    await expect(sheet.getByTestId('trust-embed-item')).toBeVisible()
+    await expect(sheet.getByTestId('trust-allow-once')).toHaveCount(0)
+    await expect(sheet.getByTestId('trust-allow-embed')).toHaveText('Allow on Home or in a slot')
+    await shot(page, 'slot-embed-sheet')
+    await sheet.getByTestId('trust-cancel').click()
+    await expect(sheet).toHaveCount(0)
+    await expect(bar.locator('iframe')).toHaveCount(0)
+    expect((await api(request, `/api/chats/shared-pages/${standup.folder_id}/standup`)).consent.embed).toBeUndefined()
+
+    await allow.click()
+    await page.getByTestId('trust-allow-embed').click()
+    const tile = bar.locator('[data-testid="slot-tile"]')
+    await expect(tile).toHaveAttribute('data-frame', 'live')
+    await expect(tile.frameLocator('[data-testid="page-frame"]').locator('#read')).toHaveText('{"n":1}', { timeout: 15_000 })
+    expect((await api(request, `/api/chats/shared-pages/${standup.folder_id}/standup`)).consent.embed).toBe(true)
+  } finally {
+    await request.delete(consent)
+    await request.delete(`/api/chats/files?path=${encodeURIComponent('/LocalAI/ui.json')}`)
+  }
+})

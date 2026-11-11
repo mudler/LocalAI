@@ -49,6 +49,7 @@ import { ChatAboutCard, ContextMarker, GoalCard, SlashHelpCard } from '../compon
 import { isTyping } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
 import ChatHeader from '../components/chat/ChatHeader'
+import WorkspaceSlot from '../components/slots/WorkspaceSlot'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
@@ -1229,6 +1230,7 @@ function ChatPage() {
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
+          extra={<WorkspaceSlot name="chatHeader" onTool={handleSend} />}
         />
 
         {find.open && (
@@ -1444,6 +1446,7 @@ function ChatPage() {
               toolsExtra={subAgents}
               chips={composerChips}
               slotContext={composerSlotContext}
+              toolbarSlot={<WorkspaceSlot name="composerToolbar" onTool={handleSend} />}
               onDictateError={(m) => addToast(m, 'error')}
               live={activeId && !liveOn ? <LiveButton live={liveVoice} onNeedSetup={openLiveSetup} buttonRef={liveButtonRef} /> : null}
               dock={activeId && liveOn ? <LiveDock live={liveVoice} waiting={chat.running} onTypeInstead={typeInsteadOfLive} onEnd={endLive} /> : null}

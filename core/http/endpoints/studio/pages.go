@@ -74,7 +74,11 @@ func widgetJSON(w *pages.Widget) *schema.PagesWidget {
 	if w == nil {
 		return nil
 	}
-	return &schema.PagesWidget{Size: w.Size, Title: w.Title}
+	out := &schema.PagesWidget{Size: w.Size, Title: w.Title}
+	if w.Compact != nil {
+		out.Compact = &schema.PagesCompact{Width: w.Compact.Width}
+	}
+	return out
 }
 
 func pageFileJSON(f pages.File) schema.PagesFile {

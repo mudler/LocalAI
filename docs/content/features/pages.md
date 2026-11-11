@@ -110,7 +110,8 @@ path is relative to the page's own folder.
 | `localai.chat.send(text)` | `{sent: true, chat_id}` or `{sent: false}`. See below. |
 | `localai.on('files.changed', fn)` | Calls `fn({paths})` when files of the page's folder change. `paths` are relative to the folder. When LocalAI cannot tell what changed (for example after the window was in the background), `fn` gets `{paths: [], resync: true}`: read again what you show. Returns a function that removes the listener. |
 | `localai.on('visibility', fn)` | Calls `fn({visible})` when the page goes out of sight (the tab is hidden, or its tile on Home scrolled away) and when it comes back. Pause timers and animations while `visible` is `false`. |
-| `localai.page` | `{name, title, mode, size}` of the page. `mode` is `page` in the full view and `widget` in a tile on Home; `size` is the tile's size (`small`, `medium`, `large`), empty in the full view. |
+| `localai.on('mode', fn)` | Calls `fn({mode, size})` when a tile changes size without a reload: a tile in a slot that opens as a card, and back. `localai.page` and the `data-mode` and `data-size` attributes of `<html>` change first. |
+| `localai.page` | `{name, title, mode, size}` of the page. `mode` is `page` in the full view and `widget` in a tile; `size` is the tile's size (`compact`, `small`, `medium`, `large`), empty in the full view. The page cannot set them. |
 
 Example: a counter that keeps its value in `count.json`.
 
@@ -285,6 +286,7 @@ does not shrink the full page.
 |---|---|
 | `widget.size` | The height of the tile: `small` (one line or a number), `medium` (a short list) or `large` (a table or a chart; two columns wide when Home has room). Any other value is `medium`. |
 | `widget.title` | The title of the tile, when it should be shorter than the page's. |
+| `widget.compact` | `true`, or `{"width": 160}`: the page also has a layout for a slot (see [A page in a slot](#a-page-in-a-slot)). The width is in CSS pixels, 72 to 220 (120 by default); a value outside is clamped. |
 
 A page without a `widget` block cannot be a tile. To put a page on Home, add
 the block and a widget `{"id": "clock", "type": "page", "page": "clock"}` to
@@ -321,7 +323,8 @@ A small clock that is a full page in its own view and one line on Home:
 The tile has a bar with the page's icon and title, **Open page** and a refresh
 button. Its frame is made only when the tile scrolls into view, and it is taken
 down when the tile is far off screen; nearer, or in a hidden tab, the page gets
-`visibility` `false` and should pause. Home keeps at most three frames alive.
+`visibility` `false` and should pause. A tile counts toward the eight live
+frames of the app (see [Live frames and the budget of a tile](#live-frames-and-the-budget-of-a-tile)).
 The height of each tile is fixed by its size, so nothing moves when a page
 loads. A tile reads its data as the full page does, with `fetch` or
 `localai.files.read`, and `files.changed` keeps it live.
@@ -330,7 +333,69 @@ In a tile, a link of the page asks before it opens, as in the full view.
 `chat.send` is refused: open the page to send a message. When a page is gone,
 cannot be read, or has no `widget` block, the tile says so with a link to
 **Customise Home**. A shared page needs your consent first: the tile shows
-**Allow this page**, which opens the same trust sheet as the full view.
+**Allow this page**, which opens the trust sheet with **Allow on Home or in a
+slot** (see [Shared pages in a slot and on Home](#shared-pages-in-a-slot-and-on-home)).
+
+## A page in a slot
+
+The slots of `LocalAI/ui.json` (the chat header, the sidebar footer and the
+composer toolbar, see [Make LocalAI yours](/features/make-localai-yours/#slots))
+show page tiles. A slot is a strip about 40 px high, so a page runs there only
+when its widget block has `compact`: `<html>` then has `data-size="compact"`
+and `localai.page.size` is `compact`. Draw one short line: a value and a word.
+
+```json
+{ "title": "Weather", "widget": { "size": "medium", "compact": { "width": 140 } } }
+```
+
+```css
+:root[data-size="compact"] .full { display: none; }
+:root[data-size="compact"] .strip { display: flex; height: 32px; align-items: center; }
+```
+
+A click on the tile opens it as a card under the tile (above it in the sidebar
+and the message box), at the size of `widget.size`. The card is the same frame
+in a bigger box: the bridge sends `mode` with the new size and the page keeps
+its state; it is never reloaded. Escape, a click outside or the close button
+puts it back in the strip. The card has the page's title, **Open**, and the line
+"Sandboxed, no network". In the strip the page is shown, not used: a click
+opens the card. A page without `compact` is a button that opens the page, in
+the page view (and later in the dock beside the chat).
+
+A tile in a slot reads its data as the full page does, and `files.changed` keeps
+it live. `chat.send` is refused in a tile. A link asks before it opens.
+
+### Live frames and the budget of a tile
+
+The app keeps at most eight page frames running at once, for the tiles on Home
+and in the slots together. A tile that gets none shows as a card with **Run**;
+a click runs it and stops the frame that started first, which then shows as a
+card. When a tile goes away, the next waiting tile runs.
+
+A tile runs without a click, so it has a budget. Its bridge sends a beat about
+once a second with the time the page kept the browser busy since the last one
+(its long tasks, and how late the beat's timer fired). LocalAI stops the frame
+and shows **Reload** when:
+
+| Reason | Limit |
+|---|---|
+| The page keeps the browser busy | more than 3 seconds of work within 10 seconds |
+| The page stops answering while it is in sight | no beat for 5 seconds |
+| The page does not start | no first beat within 10 seconds |
+
+A tile out of sight (a hidden tab, a tile scrolled away) is not watched,
+because the browser slows its timers. Reload is manual: there is no retry loop.
+The full page view has no budget. The browser decides how much a frame can do
+before LocalAI can stop it; a frame that blocks the browser completely is
+stopped only when it answers again.
+
+### Shared pages in a slot and on Home
+
+A shared page on Home or in a slot starts as soon as the screen shows, so
+allowing it to open is not enough: its tile shows **Allow** and the trust sheet
+offers **Allow on Home or in a slot**. That consent is kept against the hash of
+the page like **Allow**, so a change of its code asks again, and **Stop allowing
+this page** removes both. **Allow once** runs the tile for this visit only.
 
 ## Limits
 
@@ -423,6 +488,7 @@ Escape is Cancel. **View source** shows `index.html` as text.
 |---|---|
 | **Allow** | Kept for this version of this page. It runs now and each time you open it. |
 | **Allow once** | It runs for this visit. You are asked again next time. A visit ends after 12 hours. |
+| **Allow on Home or in a slot** | Shown by a tile on Home or in a slot. Kept for this version, and it also lets the page run there without a click. |
 | **Cancel** | Nothing runs. The frame says "This page has not run", with **Review and allow** and **View source**. |
 
 A consent is kept against the page (the node of its folder, so a rename does
@@ -496,8 +562,8 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
 | `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `code_files`, `widget`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
-| `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`). |
-| `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. |
+| `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`, and `embed` when you allowed it on Home and in the slots). |
+| `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once, embed}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. `embed` also allows it on Home and in the slots (a lasting consent, so not with `once`: `400`); a lasting consent to the same version keeps `embed`. |
 | `DELETE /api/chats/shared-pages/{folder_id}/{name}/consent` | Stop allowing it. |
 | `GET .../files`, `GET` and `PUT .../file`, `POST .../chat` | The bridge of a shared page, as above. Each call sends `X-LocalAI-Page-Hash` (the version that runs) and, for a visit, `X-LocalAI-Page-Visit`. Without a consent: `403 page_not_allowed`. A read of a file of code by a frame of an older version: `409`. |
 

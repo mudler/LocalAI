@@ -122,7 +122,13 @@
     "sourceTitle": "Código de \"{{title}}\"",
     "sourceLines_one": "{{count}} linha",
     "sourceLines_other": "{{count}} linhas",
-    "sourceNote": "O código é mostrado como texto. Nada dele roda aqui."
+    "sourceNote": "O código é mostrado como texto. Nada dele roda aqui.",
+    "embed": {
+      "desc": "Você permitiu abrir esta página. No Início e em um espaço ela roda assim que a tela aparece, sem um clique, por isso precisa de uma permissão própria.",
+      "item": "Rodar no Início e nos espaços do app",
+      "note": "Ela começa quando a tela aparece, sem um clique. Uma mudança do autor pede de novo.",
+      "allow": "Permitir no Início ou em um espaço"
+    }
   },
   "frame": {
     "filesFailed": "Arquivos ao lado desta página não carregaram: {{files}}. O console do navegador mostra o motivo.",

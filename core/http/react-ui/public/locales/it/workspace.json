@@ -425,6 +425,94 @@
       "yoursFor": "Il tuo testo per {{key}}",
       "same": "Come il predefinito",
       "hint": "Mantieni i segnaposto di un testo, come {model}. Uno sbagliato viene segnalato prima del salvataggio. Una casella vuota mantiene il predefinito."
+    },
+    "frames": {
+      "stopped": "Questa pagina è stata fermata",
+      "why": {
+        "busy": "Ha tenuto occupato il computer troppo a lungo (più di 3 secondi di lavoro in 10 secondi).",
+        "silent": "Ha smesso di rispondere per più di 5 secondi.",
+        "noStart": "Non è partita entro 10 secondi.",
+        "navigated": "Ha provato a uscire dal suo riquadro."
+      },
+      "capped": "In pausa: nell'app girano al massimo {{max}} pagine insieme.",
+      "run": "Avvia"
+    },
+    "slots": {
+      "title": "Slot",
+      "lede": "Piccoli spazi dell'app che mostrano i riquadri delle tue pagine, i pulsanti degli strumenti e i comandi, da sinistra a destra. Non nascondono mai il titolo, il modello o le impostazioni.",
+      "where": "Dove sono gli slot",
+      "map": "Mappa degli slot",
+      "editing": "In modifica",
+      "count": "{{count}} di {{max}}",
+      "names": {
+        "chatHeader": "Intestazione della chat",
+        "sidebarFooter": "Fondo della barra laterale",
+        "composerToolbar": "Barra del messaggio"
+      },
+      "badge": {
+        "chatHeader": "Nell'intestazione",
+        "sidebarFooter": "Nella barra laterale",
+        "composerToolbar": "Nel messaggio"
+      },
+      "hint": {
+        "chatHeader": "La barra sopra ogni chat. Una pagina con un layout compatto gira in una striscia alta 40 px; un clic la apre come scheda sotto il riquadro.",
+        "sidebarFooter": "Il fondo della barra laterale, in ogni schermata. Una barra chiusa lo nasconde.",
+        "composerToolbar": "Accanto al pulsante per allegare della casella del messaggio. Adatto ai pulsanti degli strumenti."
+      },
+      "empty": "Ancora niente. Aggiungi un riquadro di pagina, un pulsante di strumento o un comando.",
+      "addItem": "Aggiungi elemento",
+      "full": "Questo slot è pieno ({{max}} elementi).",
+      "incomplete": "Completa ogni nuovo elemento prima di salvare: una pagina, oppure uno strumento e il suo testo, oppure un comando.",
+      "add": {
+        "page": "Riquadro di pagina",
+        "pageHint": "Una pagina tua o condivisa con te",
+        "tool": "Pulsante di strumento",
+        "toolHint": "Esegue uno strumento, chiede prima",
+        "command": "Comando",
+        "commandHint": "Uno dei tuoi comandi"
+      },
+      "kind": {
+        "tool": "Pulsante di strumento, chiede prima",
+        "command": "Comando",
+        "pageMissing": "Pagina non trovata",
+        "pageCompact": "Riquadro di pagina, compatto",
+        "pageButton": "Pagina, si apre con un clic"
+      },
+      "form": {
+        "page": "Pagina",
+        "pickPage": "Scegli una pagina",
+        "shared": "condivisa",
+        "pageHint": "Una pagina con un layout compatto gira nello slot. Le altre pagine sono un pulsante che le apre.",
+        "tool": "Nome dello strumento",
+        "arguments": "Argomenti fissi (facoltativo)",
+        "argumentsHint": "Nomi con valori semplici, al massimo {{max}}: testo, numeri, true o false, come nell'esempio.",
+        "argumentsBad": "Non valido: scrivi nomi con valori semplici, come nell'esempio, al massimo {{max}}.",
+        "command": "Nome del comando",
+        "commandHint": "Senza la barra. I comandi compaiono qui quando esistono.",
+        "label": "Testo (facoltativo)",
+        "labelNeeded": "Testo del pulsante",
+        "icon": "Icona (facoltativa)"
+      },
+      "tool": {
+        "title": "Esegue lo strumento {{tool}} dopo la tua approvazione",
+        "confirmTitle": "Eseguire {{label}}?",
+        "confirmChat": "Questo invia a questa chat un messaggio che chiede all'assistente di eseguire questo strumento:",
+        "confirmDraft": "Questo apre una nuova chat con un messaggio che chiede all'assistente di eseguire questo strumento. Lo invii tu.",
+        "tool": "Strumento",
+        "arguments": "Argomenti",
+        "stillAsks": "Se lo strumento richiede la tua approvazione, la chat la chiede comunque.",
+        "run": "Esegui"
+      },
+      "tile": {
+        "missing": "La pagina {{name}} non esiste più. Modifica gli slot nelle impostazioni.",
+        "off": "Le pagine condivise sono disattivate su questo server.",
+        "error": "Impossibile leggere la pagina {{name}}. Modifica gli slot nelle impostazioni.",
+        "open": "Apri {{title}}",
+        "allow": "Consenti a {{title}} di funzionare qui",
+        "expand": "Mostra {{title}}",
+        "close": "Chiudi {{title}}",
+        "sandboxed": "Isolata, senza rete"
+      }
     }
   },
   "discovery": {

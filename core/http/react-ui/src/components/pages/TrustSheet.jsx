@@ -54,9 +54,12 @@ function Changes({ src, t }) {
 //
 //   src         the answer of GET /api/chats/shared-pages/{folder}/{name}
 //   changed     the viewer allowed an earlier version: the sheet says what changed
+//   embed       asked by a tile on Home or in a slot, which runs the page as soon
+//               as the screen shows: the main button is "Allow on Home or in a
+//               slot", kept against the hash like Allow (onAllow records it)
 //   onCancel, onAllowOnce, onAllow, onSource
 //   covered     the source sheet is open over it: its keys belong to that sheet
-export default function TrustSheet({ src, changed, busy, error, covered, onCancel, onAllowOnce, onAllow, onSource }) {
+export default function TrustSheet({ src, changed, embed = false, busy, error, covered, onCancel, onAllowOnce, onAllow, onSource }) {
   const { t, i18n } = useTranslation('pages')
   const ref = useRef(null)
   const cancelRef = useRef(null)
@@ -97,17 +100,19 @@ export default function TrustSheet({ src, changed, busy, error, covered, onCance
   }, [])
 
   const title = changed ? t('trust.changed.title', { title: p.title }) : t('trust.title', { title: p.title })
+  // Allowed to open, not yet to run on its own on Home or in a slot.
+  const onlyEmbed = embed && !changed && src.consent?.state === 'allowed'
   return createPortal(
     <div className="dk-veil pg-trust-veil" data-state="open" onMouseDown={() => { if (!busy) onCancel() }}>
       <div
         ref={ref} className="dk-dialog pg-trust" role="dialog" aria-modal="true" aria-labelledby="pg-trust-title" aria-describedby="pg-trust-desc"
-        data-state="open" data-testid="trust-sheet" data-variant={changed ? 'changed' : 'first'} onMouseDown={e => e.stopPropagation()}
+        data-state="open" data-testid="trust-sheet" data-variant={changed ? 'changed' : 'first'} data-embed={embed || undefined} onMouseDown={e => e.stopPropagation()}
       >
         <span className="pg-trust__grip" aria-hidden="true" />
         <div className="dk-dialog-head">
           <div>
             <h2 className="dk-dialog-title pg-trust__title" id="pg-trust-title">{title}</h2>
-            <p className="dk-dialog-desc" id="pg-trust-desc">{changed ? t('trust.changed.desc') : t('trust.desc')}</p>
+            <p className="dk-dialog-desc" id="pg-trust-desc">{onlyEmbed ? t('trust.embed.desc') : changed ? t('trust.changed.desc') : t('trust.desc')}</p>
           </div>
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('trust.close')} onClick={onCancel} disabled={busy}>
             <Icon name="close" />
@@ -138,6 +143,7 @@ export default function TrustSheet({ src, changed, busy, error, covered, onCance
           <ul className="pg-trust__list">
             <li><Icon name="check-circle" className="tone-ok" /><span>{t('trust.items.files')}<code>{pageFolder}</code>{!p.writable && <small>{t('trust.items.readOnly')}</small>}</span></li>
             <li><Icon name="check-circle" className="tone-ok" /><span>{t('trust.items.chat')}<small>{t('trust.items.chatNote')}</small></span></li>
+            {embed && <li data-testid="trust-embed-item"><Icon name="check-circle" className="tone-ok" /><span>{t('trust.embed.item')}<small>{t('trust.embed.note')}</small></span></li>}
           </ul>
           {!changed && (
             <>
@@ -158,8 +164,10 @@ export default function TrustSheet({ src, changed, busy, error, covered, onCance
           </button>
           <span className="pg-trust__acts">
             <button ref={cancelRef} type="button" className="dk-btn dk-btn--secondary" onClick={onCancel} disabled={busy} data-testid="trust-cancel">{t('trust.cancel')}</button>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={onAllowOnce} disabled={busy} data-testid="trust-allow-once">{t('trust.allowOnce')}</button>
-            <button type="button" className="dk-btn dk-btn--primary" onClick={onAllow} disabled={busy} data-testid="trust-allow">{t('trust.allow')}</button>
+            {!onlyEmbed && <button type="button" className="dk-btn dk-btn--secondary" onClick={onAllowOnce} disabled={busy} data-testid="trust-allow-once">{t('trust.allowOnce')}</button>}
+            {embed
+              ? <button type="button" className="dk-btn dk-btn--primary" onClick={onAllow} disabled={busy} data-testid="trust-allow-embed">{t('trust.embed.allow')}</button>
+              : <button type="button" className="dk-btn dk-btn--primary" onClick={onAllow} disabled={busy} data-testid="trust-allow">{t('trust.allow')}</button>}
           </span>
         </div>
       </div>

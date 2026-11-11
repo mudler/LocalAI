@@ -425,6 +425,94 @@
       "yoursFor": "{{key}} 的文字",
       "same": "与默认相同",
       "hint": "请保留文字中的占位符，例如 {model}。错误的占位符会在保存前标出。留空则使用默认文字。"
+    },
+    "frames": {
+      "stopped": "此页面已停止",
+      "why": {
+        "busy": "它占用电脑的时间过长（10 秒内工作超过 3 秒）。",
+        "silent": "它超过 5 秒没有响应。",
+        "noStart": "它没有在 10 秒内启动。",
+        "navigated": "它试图离开自己的框架。"
+      },
+      "capped": "已暂停：应用中最多同时运行 {{max}} 个页面。",
+      "run": "运行"
+    },
+    "slots": {
+      "title": "插槽",
+      "lede": "应用中的小位置，从左到右显示你的页面磁贴、工具按钮和命令。它们不会遮住标题、模型或设置。",
+      "where": "插槽的位置",
+      "map": "插槽地图",
+      "editing": "编辑中",
+      "count": "{{count}} / {{max}}",
+      "names": {
+        "chatHeader": "聊天标题栏",
+        "sidebarFooter": "侧边栏底部",
+        "composerToolbar": "输入框工具栏"
+      },
+      "badge": {
+        "chatHeader": "在聊天标题栏中",
+        "sidebarFooter": "在侧边栏中",
+        "composerToolbar": "在输入框中"
+      },
+      "hint": {
+        "chatHeader": "每个聊天上方的栏。带紧凑布局的页面在 40 像素高的条中运行；点击后在磁贴下方以卡片打开。",
+        "sidebarFooter": "每个界面的侧边栏底部。折叠侧边栏时会隐藏。",
+        "composerToolbar": "在消息框的附件按钮旁边。适合放工具按钮。"
+      },
+      "empty": "这里还没有内容。添加一个页面磁贴、工具按钮或命令。",
+      "addItem": "添加项目",
+      "full": "此插槽已满（{{max}} 个项目）。",
+      "incomplete": "保存前请填写每个新项目：一个页面、一个工具及其文字，或一个命令。",
+      "add": {
+        "page": "页面磁贴",
+        "pageHint": "你创建或与你共享的页面",
+        "tool": "工具按钮",
+        "toolHint": "运行一个工具，先询问",
+        "command": "命令",
+        "commandHint": "你的一个命令"
+      },
+      "kind": {
+        "tool": "工具按钮，先询问",
+        "command": "命令",
+        "pageMissing": "找不到页面",
+        "pageCompact": "页面磁贴，紧凑",
+        "pageButton": "页面，点击后打开"
+      },
+      "form": {
+        "page": "页面",
+        "pickPage": "选择页面",
+        "shared": "共享",
+        "pageHint": "带紧凑布局的页面在插槽中运行。其他页面显示为打开它的按钮。",
+        "tool": "工具名称",
+        "arguments": "固定参数（可选）",
+        "argumentsHint": "名称及简单值，最多 {{max}} 个：文本、数字、true 或 false，参照示例。",
+        "argumentsBad": "无效：请参照示例写名称及简单值，最多 {{max}} 个。",
+        "command": "命令名称",
+        "commandHint": "不带斜杠。命令存在后会显示在这里。",
+        "label": "文字（可选）",
+        "labelNeeded": "按钮文字",
+        "icon": "图标（可选）"
+      },
+      "tool": {
+        "title": "在你批准后运行工具 {{tool}}",
+        "confirmTitle": "运行 {{label}}？",
+        "confirmChat": "这会向此聊天发送一条消息，请助手运行此工具：",
+        "confirmDraft": "这会打开一个新聊天，其中有一条请助手运行此工具的消息。由你发送。",
+        "tool": "工具",
+        "arguments": "参数",
+        "stillAsks": "如果工具需要你的批准，聊天仍会询问。",
+        "run": "运行"
+      },
+      "tile": {
+        "missing": "页面 {{name}} 已不存在。请在设置中修改插槽。",
+        "off": "此服务器已关闭共享页面。",
+        "error": "无法读取页面 {{name}}。请在设置中修改插槽。",
+        "open": "打开 {{title}}",
+        "allow": "允许 {{title}} 在此运行",
+        "expand": "显示 {{title}}",
+        "close": "关闭 {{title}}",
+        "sandboxed": "沙盒隔离，无网络"
+      }
     }
   },
   "discovery": {

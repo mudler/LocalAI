@@ -1,0 +1,7 @@
+import { createFrameSlots, MAX_LIVE_FRAMES } from './pageTiles.js'
+
+// The live page frames of the whole tab: the tiles on Home, the tiles in the
+// slots of ui.json and, later, the dock share one budget of MAX_LIVE_FRAMES.
+// A tile that gets no slot shows as a static card that runs on a click (take),
+// which stops the frame that started first.
+export const liveFrames = createFrameSlots(MAX_LIVE_FRAMES)

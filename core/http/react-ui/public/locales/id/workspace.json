@@ -425,6 +425,94 @@
       "yoursFor": "Teks Anda untuk {{key}}",
       "same": "Sama dengan bawaan",
       "hint": "Pertahankan placeholder sebuah teks, seperti {model}. Placeholder yang salah ditandai sebelum disimpan. Kotak kosong memakai teks bawaan."
+    },
+    "frames": {
+      "stopped": "Halaman ini dihentikan",
+      "why": {
+        "busy": "Halaman membuat komputer sibuk terlalu lama (lebih dari 3 detik kerja dalam 10 detik).",
+        "silent": "Halaman berhenti merespons lebih dari 5 detik.",
+        "noStart": "Halaman tidak mulai dalam 10 detik.",
+        "navigated": "Halaman mencoba keluar dari bingkainya."
+      },
+      "capped": "Dijeda: aplikasi menjalankan paling banyak {{max}} halaman sekaligus.",
+      "run": "Jalankan"
+    },
+    "slots": {
+      "title": "Slot",
+      "lede": "Tempat kecil di aplikasi yang menampilkan ubin halaman, tombol alat, dan perintah Anda, dari kiri ke kanan. Slot tidak pernah menutupi judul, model, atau pengaturan.",
+      "where": "Letak slot",
+      "map": "Peta slot",
+      "editing": "Sedang diedit",
+      "count": "{{count}} dari {{max}}",
+      "names": {
+        "chatHeader": "Kepala chat",
+        "sidebarFooter": "Kaki bilah samping",
+        "composerToolbar": "Bilah kotak pesan"
+      },
+      "badge": {
+        "chatHeader": "Di kepala chat",
+        "sidebarFooter": "Di bilah samping",
+        "composerToolbar": "Di kotak pesan"
+      },
+      "hint": {
+        "chatHeader": "Bilah di atas setiap chat. Halaman dengan tata letak ringkas berjalan dalam strip setinggi 40 px; klik membukanya sebagai kartu di bawah ubin.",
+        "sidebarFooter": "Kaki bilah samping, di setiap layar. Bilah samping yang diciutkan menyembunyikannya.",
+        "composerToolbar": "Di samping tombol lampiran kotak pesan. Cocok untuk tombol alat."
+      },
+      "empty": "Belum ada apa-apa. Tambahkan ubin halaman, tombol alat, atau perintah.",
+      "addItem": "Tambah item",
+      "full": "Slot ini penuh ({{max}} item).",
+      "incomplete": "Lengkapi setiap item baru sebelum menyimpan: halaman, alat beserta teksnya, atau perintah.",
+      "add": {
+        "page": "Ubin halaman",
+        "pageHint": "Halaman buatan Anda atau yang dibagikan kepada Anda",
+        "tool": "Tombol alat",
+        "toolHint": "Menjalankan satu alat, bertanya dulu",
+        "command": "Perintah",
+        "commandHint": "Salah satu perintah Anda"
+      },
+      "kind": {
+        "tool": "Tombol alat, bertanya dulu",
+        "command": "Perintah",
+        "pageMissing": "Halaman tidak ditemukan",
+        "pageCompact": "Ubin halaman, ringkas",
+        "pageButton": "Halaman, terbuka saat diklik"
+      },
+      "form": {
+        "page": "Halaman",
+        "pickPage": "Pilih halaman",
+        "shared": "dibagikan",
+        "pageHint": "Halaman dengan tata letak ringkas berjalan di slot. Halaman lain tampil sebagai tombol yang membukanya.",
+        "tool": "Nama alat",
+        "arguments": "Argumen tetap (opsional)",
+        "argumentsHint": "Nama dengan nilai sederhana, paling banyak {{max}}: teks, angka, true atau false, seperti contoh.",
+        "argumentsBad": "Tidak valid: tulis nama dengan nilai sederhana seperti contoh, paling banyak {{max}}.",
+        "command": "Nama perintah",
+        "commandHint": "Tanpa garis miring. Perintah muncul di sini setelah ada.",
+        "label": "Teks (opsional)",
+        "labelNeeded": "Teks tombol",
+        "icon": "Ikon (opsional)"
+      },
+      "tool": {
+        "title": "Menjalankan alat {{tool}} setelah Anda menyetujuinya",
+        "confirmTitle": "Jalankan {{label}}?",
+        "confirmChat": "Ini mengirim pesan ke chat ini yang meminta asisten menjalankan alat ini:",
+        "confirmDraft": "Ini membuka chat baru dengan pesan yang meminta asisten menjalankan alat ini. Anda yang mengirimnya.",
+        "tool": "Alat",
+        "arguments": "Argumen",
+        "stillAsks": "Jika alat memerlukan persetujuan Anda, chat tetap memintanya.",
+        "run": "Jalankan"
+      },
+      "tile": {
+        "missing": "Halaman {{name}} sudah tidak ada. Ubah slot di pengaturan Anda.",
+        "off": "Halaman bersama dimatikan di server ini.",
+        "error": "Halaman {{name}} tidak dapat dibaca. Ubah slot di pengaturan Anda.",
+        "open": "Buka {{title}}",
+        "allow": "Izinkan {{title}} berjalan di sini",
+        "expand": "Tampilkan {{title}}",
+        "close": "Tutup {{title}}",
+        "sandboxed": "Terisolasi, tanpa jaringan"
+      }
     }
   },
   "discovery": {

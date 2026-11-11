@@ -425,6 +425,94 @@
       "yoursFor": "Tu texto para {{key}}",
       "same": "Igual que el predeterminado",
       "hint": "Mantén los marcadores de un texto, como {model}. Uno incorrecto se marca antes de guardar. Un cuadro vacío mantiene el predeterminado."
+    },
+    "frames": {
+      "stopped": "Esta página se detuvo",
+      "why": {
+        "busy": "Mantuvo ocupado el ordenador demasiado tiempo (más de 3 segundos de trabajo en 10 segundos).",
+        "silent": "Dejó de responder durante más de 5 segundos.",
+        "noStart": "No empezó en 10 segundos.",
+        "navigated": "Intentó salir de su marco."
+      },
+      "capped": "En pausa: en la app funcionan como máximo {{max}} páginas a la vez.",
+      "run": "Ejecutar"
+    },
+    "slots": {
+      "title": "Ranuras",
+      "lede": "Pequeños lugares de la app que muestran tus mosaicos de páginas, botones de herramientas y comandos, de izquierda a derecha. Nunca ocultan el título, el modelo ni los ajustes.",
+      "where": "Dónde están las ranuras",
+      "map": "Mapa de las ranuras",
+      "editing": "Editando",
+      "count": "{{count}} de {{max}}",
+      "names": {
+        "chatHeader": "Cabecera del chat",
+        "sidebarFooter": "Pie de la barra lateral",
+        "composerToolbar": "Barra del mensaje"
+      },
+      "badge": {
+        "chatHeader": "En la cabecera del chat",
+        "sidebarFooter": "En la barra lateral",
+        "composerToolbar": "En el mensaje"
+      },
+      "hint": {
+        "chatHeader": "La barra sobre cada chat. Una página con diseño compacto funciona en una franja de 40 px de alto; un clic la abre como tarjeta bajo el mosaico.",
+        "sidebarFooter": "El pie de la barra lateral, en todas las pantallas. Una barra plegada lo oculta.",
+        "composerToolbar": "Junto al botón de adjuntar del cuadro de mensaje. Ideal para botones de herramientas."
+      },
+      "empty": "Aún no hay nada. Añade un mosaico de página, un botón de herramienta o un comando.",
+      "addItem": "Añadir elemento",
+      "full": "Esta ranura está llena ({{max}} elementos).",
+      "incomplete": "Completa cada elemento nuevo antes de guardar: una página, una herramienta con su texto o un comando.",
+      "add": {
+        "page": "Mosaico de página",
+        "pageHint": "Una página tuya o compartida contigo",
+        "tool": "Botón de herramienta",
+        "toolHint": "Ejecuta una herramienta, pregunta antes",
+        "command": "Comando",
+        "commandHint": "Uno de tus comandos"
+      },
+      "kind": {
+        "tool": "Botón de herramienta, pregunta antes",
+        "command": "Comando",
+        "pageMissing": "Página no encontrada",
+        "pageCompact": "Mosaico de página, compacto",
+        "pageButton": "Página, se abre con un clic"
+      },
+      "form": {
+        "page": "Página",
+        "pickPage": "Elige una página",
+        "shared": "compartida",
+        "pageHint": "Una página con diseño compacto funciona en la ranura. Cualquier otra se muestra como un botón que la abre.",
+        "tool": "Nombre de la herramienta",
+        "arguments": "Argumentos fijos (opcional)",
+        "argumentsHint": "Nombres con valores simples, como máximo {{max}}: texto, números, true o false, como en el ejemplo.",
+        "argumentsBad": "No válido: escribe nombres con valores simples, como en el ejemplo, como máximo {{max}}.",
+        "command": "Nombre del comando",
+        "commandHint": "Sin la barra. Los comandos aparecen aquí cuando existen.",
+        "label": "Texto (opcional)",
+        "labelNeeded": "Texto del botón",
+        "icon": "Icono (opcional)"
+      },
+      "tool": {
+        "title": "Ejecuta la herramienta {{tool}} cuando la apruebes",
+        "confirmTitle": "¿Ejecutar {{label}}?",
+        "confirmChat": "Esto envía a este chat un mensaje que pide al asistente ejecutar esta herramienta:",
+        "confirmDraft": "Esto abre un chat nuevo con un mensaje que pide al asistente ejecutar esta herramienta. Tú lo envías.",
+        "tool": "Herramienta",
+        "arguments": "Argumentos",
+        "stillAsks": "Si la herramienta necesita tu aprobación, el chat la sigue pidiendo.",
+        "run": "Ejecutar"
+      },
+      "tile": {
+        "missing": "La página {{name}} ya no existe. Cambia las ranuras en tus ajustes.",
+        "off": "Las páginas compartidas están desactivadas en este servidor.",
+        "error": "No se pudo leer la página {{name}}. Cambia las ranuras en tus ajustes.",
+        "open": "Abrir {{title}}",
+        "allow": "Permitir que {{title}} funcione aquí",
+        "expand": "Mostrar {{title}}",
+        "close": "Cerrar {{title}}",
+        "sandboxed": "Aislada, sin red"
+      }
     }
   },
   "discovery": {

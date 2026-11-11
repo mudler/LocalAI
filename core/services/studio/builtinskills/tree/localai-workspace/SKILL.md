@@ -17,7 +17,7 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat (`tools` lists names switched off or on); `default` is the `id` a new chat starts with. No prompt, no files. Limits and values: its schema. |
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
 | `LocalAI/home.json` | `{"headline"?, "widgets": [{id, type, title, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `headline` replaces the greeting at the top. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
-| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground` (Home only), `chatBackground` (the chat view only; see "Backgrounds") and `strings` (own text for a few labels). |
+| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground`, `chatBackground` (see "Backgrounds"), `strings` (own text for a few labels) and `slots` (see "Slots"). |
 | `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 
 Rules:
@@ -32,9 +32,13 @@ Rules:
 
 `LocalAI/nav.json` `items`, in order: a built-in entry `{"id": "files", "label"?, "hidden"?}` (ids in `schemas/nav.schema.json`; Home cannot be hidden), a `{"group": "Create"}` title, or a link to a `page`, a `chat` or a `url`. New chat, Chats, settings and search always show. An entry left out goes at the end; a gone page or chat is skipped; an address asks the person first. Keep the other items and keys.
 
+## Slots
+
+`LocalAI/ui.json` `slots`: `chatHeader`, `sidebarFooter`, `composerToolbar`, each a list of `{"type": "page", "page", "folder"?}`, `{"type": "tool", "tool", "label", "icon"?, "arguments"?}` or `{"type": "command", "command"}` (caps and fields: the schema). A page runs in the 40 px strip only if its widget block has `"compact": true` (`localai-apps`, "On Home"); else it is a button that opens it. A tool button asks the user before it runs.
+
 ## Backgrounds
 
-`homeBackground` in `LocalAI/ui.json` sets what is behind the Home page; `chatBackground` sets what is behind the chat view (the messages and the message box). Each changes only its own page, and they are independent: set one, both or none. Both are an object of the same shape; every key is optional, and layers stack as picture over gradient over colour:
+`homeBackground` (behind Home) and `chatBackground` (behind the chat view) in `LocalAI/ui.json` are independent: set one, both or none. Both have the same shape; every key is optional, and layers stack as picture over gradient over colour:
 
 ```json
 {"homeBackground": {"image": "Pictures/sky.jpg", "fit": "cover", "opacity": 0.9, "blur": 4, "overlay": 0.4}}
@@ -44,9 +48,8 @@ Rules:
 
 - `color`, `gradient` (`from`, `to`, `angle`), `fit`, `opacity`, `blur`, `overlay`: values and ranges in `schemas/ui.schema.json`. Write no CSS.
 - `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`, not `/Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, no address (`https://`, `data:`), no backslash. The picture is read with the user's own rights, so a path they cannot read shows nothing. Check that the file exists first (list the folder).
-- `overlay` (0 to 1) is a veil in the theme colour that keeps text readable; raise it for a busy or bright picture. In the chat the messages also sit on a panel, so they stay readable.
+- Raise `overlay` (a veil, 0 to 1) for a busy or bright picture.
 - To remove a background, delete its key (a save with `null` does the same).
-- A file that breaks these rules is not used: the pages keep the last good version and the Appearance tab says the file has an error. Keep the other keys of `ui.json` when you change one.
 
 ## Default models
 

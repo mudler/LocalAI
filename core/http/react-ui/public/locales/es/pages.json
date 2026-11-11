@@ -122,7 +122,13 @@
     "sourceTitle": "Código de «{{title}}»",
     "sourceLines_one": "{{count}} línea",
     "sourceLines_other": "{{count}} líneas",
-    "sourceNote": "El código se muestra como texto. Nada de él se ejecuta aquí."
+    "sourceNote": "El código se muestra como texto. Nada de él se ejecuta aquí.",
+    "embed": {
+      "desc": "Permitiste abrir esta página. En Inicio y en una ranura se ejecuta en cuanto aparece la pantalla, sin un clic, así que necesita su propio permiso.",
+      "item": "Ejecutarse en Inicio y en las ranuras de la app",
+      "note": "Empieza cuando aparece la pantalla, sin un clic. Un cambio de su autor vuelve a preguntar.",
+      "allow": "Permitir en Inicio o en una ranura"
+    }
   },
   "frame": {
     "filesFailed": "No se cargaron archivos junto a esta página: {{files}}. La consola del navegador indica el motivo.",

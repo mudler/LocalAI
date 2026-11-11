@@ -53,9 +53,18 @@ export function pageCsp(modules) {
 }
 
 // The bridge inside the frame. INFO is replaced with the page's name, title,
-// theme, mode ('page', or 'widget' in a tile on Home) and tile size, the notes of the files that did not go in (written to the console)
-// and the banner that says so in the page. It is plain ES5 and must never
-// contain a closing script tag.
+// theme, mode ('page', or 'widget' in a tile) and tile size, the notes of the
+// files that did not go in (written to the console) and the banner that says
+// so in the page. It is plain ES5 and must never contain a closing script tag.
+//
+// A tile changes size without a reload: the host sends {event: 'mode', data:
+// {mode, size}}, the bridge updates localai.page and the data-mode and
+// data-size attributes of <html>, then calls the page's 'mode' listeners.
+//
+// A tile also has a budget (utils/frameWatch.js): about once a second the
+// bridge sends {beat: 1, busy} over the port, busy being the time in ms that
+// the page kept the thread busy since the last beat (long tasks, and how late
+// the beat's own timer fired). A page that stops the beats is stopped.
 //
 // It also gives fetch() and XMLHttpRequest the files of the page's folder: a
 // relative URL (data.json, ./data/x.json?v=2) is read with files.read and
@@ -66,11 +75,17 @@ export function pageCsp(modules) {
 const BOOTSTRAP = `(function () {
   'use strict'
   var info = INFO
-  document.documentElement.setAttribute('data-theme', info.theme)
-  document.documentElement.setAttribute('data-mode', info.mode)
-  if (info.size) document.documentElement.setAttribute('data-size', info.size)
-  document.documentElement.style.colorScheme = info.theme
-  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [] }
+  var MODES = { page: 1, widget: 1 }, SIZES = { compact: 1, small: 1, medium: 1, large: 1 }
+  var root = document.documentElement
+  function setMode() {
+    root.setAttribute('data-mode', info.mode)
+    if (info.size) root.setAttribute('data-size', info.size)
+    else if (root.removeAttribute) root.removeAttribute('data-size')
+  }
+  root.setAttribute('data-theme', info.theme)
+  setMode()
+  root.style.colorScheme = info.theme
+  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [], 'mode': [] }
   function deliver(ev) {
     var m = ev.data
     if (!m || typeof m !== 'object') return
@@ -85,6 +100,15 @@ const BOOTSTRAP = `(function () {
       } else w[0](m.result)
       return
     }
+    if (m.event === 'mode') {
+      var d = m.data || {}
+      if (!MODES[d.mode] || (d.mode === 'widget' ? !SIZES[d.size] : d.size)) return
+      if (d.mode === info.mode && (d.size || '') === info.size) return
+      info.mode = d.mode
+      info.size = d.size || ''
+      setMode()
+      m = { event: 'mode', data: { mode: info.mode, size: info.size } }
+    }
     if (typeof m.event === 'string' && listeners[m.event]) {
       listeners[m.event].slice().forEach(function (fn) {
         try { fn(m.data) } catch (err) { setTimeout(function () { throw err }) }
@@ -97,7 +121,31 @@ const BOOTSTRAP = `(function () {
     port.onmessage = deliver
     for (var i = 0; i < queue.length; i++) port.postMessage(queue[i])
     queue = []
+    if (info.mode === 'widget') beat()
   })
+  // The beats of the budget, for a tile only: the time since the last one
+  // beyond the timer's own period is time the page held the thread, and so
+  // is each long task.
+  var busy = 0, lastBeat = 0, now = function () { return Date.now() }
+  function beat() {
+    if (lastBeat) return
+    lastBeat = now()
+    try {
+      if (typeof PerformanceObserver === 'function') {
+        new PerformanceObserver(function (list) {
+          var es = list.getEntries()
+          for (var k = 0; k < es.length; k++) busy += es[k].duration
+        }).observe({ entryTypes: ['longtask'] })
+      }
+    } catch (err) { /* no long tasks here: the late timer still counts */ }
+    setInterval(function () {
+      var t = now(), late = t - lastBeat - 1000
+      lastBeat = t
+      var b = Math.max(busy, late > 50 ? late : 0)
+      busy = 0
+      try { port.postMessage({ beat: 1, busy: Math.round(b) }) } catch (err) { /* the host closed the port */ }
+    }, 1000)
+  }
   function call(method, params) {
     return new Promise(function (resolve, reject) {
       var id = ++seq
@@ -108,7 +156,11 @@ const BOOTSTRAP = `(function () {
     })
   }
   var api = {
-    page: Object.freeze({ name: info.name, title: info.title, mode: info.mode, size: info.size }),
+    page: Object.freeze({
+      name: info.name, title: info.title,
+      get mode() { return info.mode },
+      get size() { return info.size }
+    }),
     files: Object.freeze({
       read: function (path) { return call('files.read', { path: path }) },
       write: function (path, content, opts) { return call('files.write', { path: path, content: content, base: opts && opts.base }) },
@@ -412,6 +464,8 @@ const BOOTSTRAP = `(function () {
 // hide the policy.
 export const PAGE_MODES = ['page', 'widget']
 export const WIDGET_SIZES = ['small', 'medium', 'large']
+// The sizes of a tile: the three of Home, and compact, the strip of a slot.
+export const TILE_SIZES = ['compact', ...WIDGET_SIZES]
 
 const newlines = (text) => (text.match(/\n/g) || []).length
 
@@ -436,7 +490,7 @@ export function buildPageSrcdoc(html, { name, title, theme, head = '', modules =
     // bridge and the head.
     shift: newlines(BOOTSTRAP) + newlines(head),
     name: String(name || ''), title: String(title || name || ''), theme: theme === 'dark' ? 'dark' : 'light',
-    mode: widget ? 'widget' : 'page', size: widget ? (WIDGET_SIZES.includes(size) ? size : 'medium') : '',
+    mode: widget ? 'widget' : 'page', size: widget ? (TILE_SIZES.includes(size) ? size : 'medium') : '',
     notes: (Array.isArray(notes) ? notes : []).slice(0, 50).map((n) => ({ level: n.level === 'error' ? 'error' : 'warn', message: String(n.message || '').slice(0, 500) })),
     banner: String(banner || '').slice(0, 1000), dismiss: String(dismiss || ''),
     colors: Object.fromEntries(['bg', 'fg', 'accent'].filter((k) => /^#[0-9a-fA-F]{3,8}$/.test(colors && colors[k])).map((k) => [k, colors[k]])),
@@ -490,7 +544,10 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 //
 // The server checks every path again with the user's rights; the checks here
 // only refuse a malformed call early.
-export function createPageHost({ post, files, chat, links, errors, now = Date.now }) {
+//
+// A message {beat: 1, busy} is the frame's beat (see BOOTSTRAP): it goes to
+// onBeat(busy) and gets no answer.
+export function createPageHost({ post, files, chat, links, errors, onBeat, now = Date.now }) {
   let closed = false
   let inFlight = 0
   let linkTokens = LINK_BURST
@@ -569,7 +626,12 @@ export function createPageHost({ post, files, chat, links, errors, now = Date.no
 
   return {
     async receive(data) {
-      if (closed || !isObject(data) || !Number.isInteger(data.id) || data.id < 1) return
+      if (closed || !isObject(data)) return
+      if (data.beat === 1 && data.id === undefined) {
+        onBeat?.(Number.isFinite(data.busy) && data.busy > 0 ? data.busy : 0)
+        return
+      }
+      if (!Number.isInteger(data.id) || data.id < 1) return
       const { id, method } = data
       if (typeof method !== 'string' || method.length > 40) return answer({ id, error: bad('method') })
       if (inFlight >= MAX_IN_FLIGHT) return answer({ id, error: { code: 'busy', message: 'too many calls at once' } })
@@ -588,11 +650,17 @@ export function createPageHost({ post, files, chat, links, errors, now = Date.no
       }
       return undefined
     },
-    // Sends an event to the page: files.changed ({paths}) and visibility
-    // ({visible}: the tab or the tile went out of sight, or came back).
+    // Sends an event to the page: files.changed ({paths}), visibility
+    // ({visible}: the tab or the tile went out of sight, or came back) and
+    // mode ({mode, size}: the tile changed size; only known values pass).
     emit(event, payload) {
       if (event === 'files.changed') answer({ event, data: payload })
       else if (event === 'visibility') answer({ event, data: { visible: Boolean(payload?.visible) } })
+      else if (event === 'mode') {
+        const mode = PAGE_MODES.includes(payload?.mode) ? payload.mode : 'page'
+        const size = mode === 'widget' ? (TILE_SIZES.includes(payload?.size) ? payload.size : 'medium') : ''
+        answer({ event, data: { mode, size } })
+      }
     },
     close() { closed = true },
   }
