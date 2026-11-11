@@ -380,12 +380,25 @@ func setupErrors(obj map[string]any) []string {
 // entries and the search are not here on purpose: nav.json cannot touch them.
 var NavBuiltinIDs = []string{"home", "files", "pages", "agents", "connections", "memory", "skills", "models", "addons"}
 
+// NavAlwaysShown are the built-in entries nav.json can move and rename but not
+// hide: Home is where a chat starts. The UI keeps the same list
+// (NAV_ALWAYS_SHOWN in utils/nav.js).
+var NavAlwaysShown = []string{"home"}
+
 // The bounds of nav.json: the whole list, the groups in it and the custom links.
 const (
 	MaxNavItems  = 60
 	MaxNavGroups = 12
 	MaxNavLinks  = 30
 )
+
+// navTitle is the name of a built-in entry in an error: its id with a capital.
+func navTitle(id string) string {
+	if id == "" {
+		return id
+	}
+	return strings.ToUpper(id[:1]) + id[1:]
+}
 
 // NavURLOK says whether u may be the address of a custom link: an http or
 // https address with a host and no user name or password. The sidebar asks the
@@ -448,6 +461,9 @@ func navErrors(obj map[string]any) []string {
 		}
 		if g, has := m["group"]; has && g != "" {
 			groups++
+		}
+		if id, _ := m["id"].(string); m["hidden"] == true && slices.Contains(NavAlwaysShown, id) {
+			out = append(out, fmt.Sprintf("items[%d]: %s cannot be hidden; leave out hidden or set it to false", i, navTitle(id)))
 		}
 		if t, has := m["type"]; has {
 			links++

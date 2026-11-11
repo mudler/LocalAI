@@ -599,7 +599,8 @@ An item is exactly one of three kinds:
 
 Some things never change. New chat, Chats (the recent chats and All chats), the
 settings entries and the search are not items, so the file cannot move, rename
-or hide them. Home can be moved and renamed but not hidden; its `nav.json` label wins over
+or hide them. Home can be moved and renamed but not hidden (a file with
+`{"id": "home", "hidden": true}` breaks the schema); its `nav.json` label wins over
 the `nav.home` text of `ui.json`. A built-in entry
 that the list does not name is added after the last item, in the default order,
 so a short list never loses an entry. An entry that your account or this server

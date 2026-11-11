@@ -874,6 +874,13 @@ var _ = Describe("the sidebar order of nav.json", func() {
 		Expect(check(item("id", "files", "x_future", 1))).To(BeEmpty())
 	})
 
+	It("refuses to hide Home, the one built-in entry that always shows", func() {
+		Expect(wellknown.NavAlwaysShown).To(ConsistOf("home"))
+		Expect(check(item("id", "home", "hidden", true))).To(ContainElement(ContainSubstring("items[0]: Home cannot be hidden")))
+		Expect(check(item("id", "home", "hidden", false))).To(BeEmpty())
+		Expect(check(item("id", "files", "hidden", true))).To(BeEmpty())
+	})
+
 	DescribeTable("refuses a bad list",
 		func(items []any, want string) {
 			Expect(check(items...)).To(ContainElement(ContainSubstring(want)))

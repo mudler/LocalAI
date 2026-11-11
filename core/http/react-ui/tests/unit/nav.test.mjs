@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  NAV_BUILTIN_IDS, NAV_LIMITS, canAdd, cleanRows, defaultRows, editorRows, entryLabel, itemKey, itemKind, mergeItems, navUrlOk,
+  NAV_ALWAYS_SHOWN, NAV_BUILTIN_IDS, NAV_LIMITS, canAdd, cleanRows, defaultRows, editorRows, entryLabel, itemKey, itemKind, mergeItems, navUrlOk,
   mergeNav, readItems, rename, rowKind, sections, setHidden, withGroup, withLink,
 } from '../../src/utils/nav.js'
 import { move, WELL_KNOWN_FILES } from '../../src/utils/wellKnown.js'
@@ -231,4 +231,14 @@ test('nav: a nav.json label beats the ui.json strings text, which beats the buil
   // Only Home has a strings key among the entries nav.json lists.
   assert.equal(entryLabel('files', undefined, () => 'Never'), '')
   assert.equal(entryLabel('files', 'Docs', text), 'Docs')
+})
+
+test('nav: the editor never writes Home hidden, which the server refuses', () => {
+  assert.deepEqual([...NAV_ALWAYS_SHOWN], ['home'])
+  const rows = [{ id: 'files' }, { id: 'home' }]
+  const tried = setHidden(rows, 1, true)
+  assert.equal(tried[1].hidden, undefined, 'the hide of Home is a no-op')
+  // A row that came in hidden (an older file) is saved without it.
+  const saved = cleanRows([{ id: 'files', hidden: true }, { id: 'home', hidden: true }], [], false)
+  assert.deepEqual(saved, [{ id: 'files', hidden: true }, { id: 'home' }])
 })

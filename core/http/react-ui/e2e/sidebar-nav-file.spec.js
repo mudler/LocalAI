@@ -79,7 +79,11 @@ test('nav.json: the assistant writes the order, a name, a hidden entry, a group 
 })
 
 test('nav.json: every fixed entry stays when the file hides everything', async ({ page, request }) => {
-  await writeNav(request, ['home', 'pages', 'files', 'agents', 'connections', 'memory', 'skills', 'models', 'addons', 'new-chat', 'chats', 'settings', 'palette'].map(id => ({ id, hidden: true })))
+  // Home cannot be hidden: the server refuses a file that tries.
+  const refused = await request.put('/api/chats/wellknown/nav', { data: { values: { items: [{ id: 'home', hidden: true }] }, replace: true } })
+  expect(refused.status()).toBe(400)
+  expect((await refused.json()).errors.join(' ')).toContain('Home cannot be hidden')
+  await writeNav(request, [{ id: 'home' }, ...['pages', 'files', 'agents', 'connections', 'memory', 'skills', 'models', 'addons', 'new-chat', 'chats', 'settings', 'palette'].map(id => ({ id, hidden: true }))])
   await page.goto('/app')
   await expect(rail(page).getByTestId('nav-section')).toHaveCount(1)
   await expect(entries(page).first()).toHaveText('Home')
