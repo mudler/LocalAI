@@ -2488,7 +2488,7 @@ private:
             if (!translator) {
                 return;
             }
-            events = translator->on_result(res.text, res.audio, res.response_done, res.cancelled, res.n_decoded);
+            events = translator->on_result(res.content.text, res.audio, res.response_done, res.cancelled, res.n_decoded);
             if (translator->done()) {
                 translator.reset();
                 response_active = false;
