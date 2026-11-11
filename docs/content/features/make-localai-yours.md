@@ -338,8 +338,10 @@ widget takes on it:
 A width never goes past the columns the grid has, so on 2 columns `m` and `l`
 are both 2 wide, and on a phone every widget is 1 wide. A list or a metric
 shows as much of its data as fits and scrolls inside its tile. A later small
-widget fills a hole that a bigger one leaves, and a hole that still remains
-closes by stretching the tiles beside it, so Home never has an empty cell.
+widget fills a hole that a bigger one leaves. A hole in the last row closes:
+the tiles of that row stretch over it, so Home never ends in a partial row. A
+hole higher up, which no later widget fits, stays; **Edit layout** shows it,
+and another order or size closes it.
 Without `size`, a page widget takes the size of its page's `widget` block
 (`small`, `medium`, `large`), a `list` or `chats` widget takes `m`, and a
 `metric` widget takes `s`. **Edit layout** shows the grid as Home draws it, with

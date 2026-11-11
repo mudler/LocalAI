@@ -3,7 +3,8 @@ import { holdHomeFiles, unlockHomeFiles } from './home-files-lock.js'
 
 // The Home grid, against the real test server: every widget has a size (s, m,
 // l), the grid has 4, 2 or 1 columns, and any mix of 12 widgets in any order
-// fills it with no empty cell. The layout editor draws the same grid and puts
+// packs with no overlap and a full last row (dense flow fills what it can; a
+// hole higher up stays). The layout editor draws the same grid and puts
 // an S/M/L control on every row. HOME_SHOTS names a folder for screenshots.
 
 test.describe.configure({ mode: 'serial', timeout: 90_000 })
@@ -45,10 +46,11 @@ const shuffle = () => {
 }
 const pick = () => Array.from({ length: 12 }, () => ['s', 'm', 'l'][Math.floor(rnd() * 3)])
 const MIXES = [
-  { name: 'all s', sizes: Array(12).fill('s'), order: [...Array(12).keys()] },
-  { name: 'all m', sizes: Array(12).fill('m'), order: [...Array(12).keys()] },
-  { name: 'all l', sizes: Array(12).fill('l'), order: [...Array(12).keys()] },
-  { name: 'alternating m and s', sizes: Array.from({ length: 12 }, (_, i) => (i % 2 ? 's' : 'm')), order: [...Array(12).keys()] },
+  { name: 'all s', sizes: Array(12).fill('s'), order: [...Array(12).keys()], full: true },
+  { name: 'all m', sizes: Array(12).fill('m'), order: [...Array(12).keys()], full: true },
+  { name: 'all l', sizes: Array(12).fill('l'), order: [...Array(12).keys()], full: true },
+  { name: 'alternating m and s', sizes: Array.from({ length: 12 }, (_, i) => (i % 2 ? 's' : 'm')), order: [...Array(12).keys()], full: true },
+  { name: 'an s before an l', sizes: ['s', 'l', ...Array(10).fill('m')], order: [...Array(12).keys()] },
   ...[1, 2, 3, 4, 5].map(n => ({ name: `random ${n}`, sizes: pick(), order: shuffle() })),
 ]
 
@@ -80,9 +82,9 @@ async function cellsOf(page, gridId, tileSel) {
   }, [gridId, tileSel])
 }
 
-// Every cell is covered exactly once: no empty cell between tiles and no
-// overlap, so there is no partial row at all.
-function expectFull(c, label) {
+// No cell is covered twice, the last row is full, and the grid says how many
+// cells are empty: a hole above the last row stays, as dense flow left it.
+function expectPacked(c, label) {
   expect(c.cols, `${label}: columns`).toBe(c.datacols)
   const seen = new Map()
   for (const t of c.tiles) {
@@ -95,7 +97,8 @@ function expectFull(c, label) {
       seen.set(k, t.id)
     }
   }
-  for (let y = 0; y < c.rows; y++) for (let x = 0; x < c.cols; x++) expect(seen.has(`${y},${x}`), `${label}: empty cell at row ${y}, column ${x}`).toBe(true)
+  for (let x = 0; x < c.cols; x++) expect(seen.has(`${c.rows - 1},${x}`), `${label}: empty cell in the last row, column ${x}`).toBe(true)
+  expect(c.holes, `${label}: holes`).toBe(c.rows * c.cols - seen.size)
 }
 
 async function openHome(page, theme = 'light') {
@@ -122,7 +125,7 @@ test.afterAll(async ({ request }) => {
 test.afterAll(() => unlockHomeFiles())
 
 for (const mix of MIXES) {
-  test(`12 widgets, ${mix.name}: no empty cell at 1280, 900 and 390 px`, async ({ page, request }) => {
+  test(`12 widgets, ${mix.name}: a full last row at 1280, 900 and 390 px`, async ({ page, request }) => {
     const widgets = twelve(mix.sizes, mix.order)
     expect((await put(request, '/LocalAI/home.json', { widgets })).ok()).toBeTruthy()
     await page.setViewportSize({ width: 1280, height: 900 })
@@ -132,8 +135,8 @@ for (const mix of MIXES) {
       await expect(page.getByTestId('home-widget-grid')).toHaveAttribute('data-cols', String(cols))
       const c = await cellsOf(page, 'home-widget-grid', '.wk-widget')
       expect(c.tiles).toHaveLength(12)
-      expect(c.holes).toBe(0)
-      expectFull(c, `${mix.name} at ${w}`)
+      if (mix.full) expect(c.holes, `${mix.name} at ${w}`).toBe(0)
+      expectPacked(c, `${mix.name} at ${w}`)
       // An l fills a full row, whatever its place in the order.
       widgets.forEach((wd, i) => {
         if (wd.size === 'l') {
@@ -165,7 +168,7 @@ test('old home.json without size renders with the page size and the defaults of 
   expect(byId.pg1.cw).toBe(4)
   expect(byId.pg1.rh).toBeGreaterThanOrEqual(3)
   expect(byId.pg0.cw).toBeGreaterThanOrEqual(1)
-  expectFull(c, 'old file')
+  expectPacked(c, 'old file')
 })
 
 test('the layout editor draws the grid of Home and sets the size of every kind of widget', async ({ page, request }) => {
@@ -179,7 +182,7 @@ test('the layout editor draws the grid of Home and sets the size of every kind o
     const home = await cellsOf(page, 'home-widget-grid', '.wk-widget')
     const pv = await cellsOf(page, 'home-layout-grid', '.wk-pv')
     expect(pv.tiles).toHaveLength(12)
-    expectFull(pv, `editor at ${w}`)
+    expectPacked(pv, `editor at ${w}`)
     // The same cell for every widget, in Home and in the preview.
     expect(pv.tiles.map(t => [t.col, t.row, t.cw, t.rh])).toEqual(home.tiles.map(t => [t.col, t.row, t.cw, t.rh]))
     expect(await page.getByTestId('home-layout-row').count()).toBe(12)
@@ -221,7 +224,7 @@ test('the S M L control of a row changes its block and Home, and Save writes siz
   expect((await read(request, '/LocalAI/home.json')).widgets.map(w => w.size)).toEqual(['s', 'l', 'l', 'm'])
   const c = await cellsOf(page, 'home-widget-grid', '.wk-widget')
   expect(c.tiles.map(t => t.cw)).toContain(4)
-  expectFull(c, 'after save')
+  expectPacked(c, 'after save')
   const byId = Object.fromEntries(c.tiles.map(t => [t.id.replace('home-widget-', ''), t]))
   expect(byId.mt.cw).toBe(4)
   expect(byId.ch.cw).toBe(4)

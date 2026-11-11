@@ -1,5 +1,5 @@
 // Pure layout rules of the Home grid: one size scale (s, m, l) for every
-// widget, a fixed column grid, and a packing that leaves no hole. No React, no
+// widget, a fixed column grid, and a dense packing whose last row is full. No React, no
 // DOM here; Home, the layout editor and the unit tests use the same functions.
 
 export const WIDGET_SIZES = ['s', 'm', 'l']
@@ -53,13 +53,14 @@ const free = (g, r, c, w, h) => {
 }
 
 // packGrid places sizes (in order) on a grid of cols columns the way CSS
-// `grid-auto-flow: dense` does, each at the first place it fits, then closes
-// every hole: a tile next to an empty cell grows into it, left and right
-// first, so the last row's tiles stretch to the full width. Returns
+// `grid-auto-flow: dense` does, each at the first place it fits. Dense flow
+// already fills a hole that a later, smaller tile fits in; a hole it leaves
+// higher up stays. A hole in the last row closes: a tile that ends in that
+// row grows into it sideways (from the left first, then the right), or the
+// tile right above it grows down, so the last row is full. Returns
 //   cells  [{col, row, cw, rh}] one per size, 0-based, in the order of sizes
 //   rows   the height of the grid in units
-//   holes  empty cells that no tile could grow into (0 for every mix of sizes
-//          the unit tests try)
+//   holes  the empty cells left (none in the last row)
 export function packGrid(sizes, cols) {
   const n = Math.max(1, cols | 0)
   const cells = []
@@ -77,6 +78,7 @@ export function packGrid(sizes, cols) {
     }
   })
   const rows = g.length
+  const last = rows - 1
   const empty = (r, c) => r >= 0 && r < rows && c >= 0 && c < n && g[r][c] === -1
   const strip = (r0, c0, w, h) => {
     for (let y = r0; y < r0 + h; y++) for (let x = c0; x < c0 + w; x++) if (!empty(y, x)) return false
@@ -85,22 +87,19 @@ export function packGrid(sizes, cols) {
   const claim = (i, r0, c0, w, h) => {
     for (let y = r0; y < r0 + h; y++) for (let x = c0; x < c0 + w; x++) g[y][x] = i
   }
-  let changed = true
+  const endsLast = (t) => t && t.row + t.rh === rows
+  let changed = rows > 0
   while (changed) {
     changed = false
-    for (let r = 0; r < rows && !changed; r++) {
-      for (let c = 0; c < n && !changed; c++) {
-        if (g[r][c] !== -1) continue
-        const left = c > 0 ? g[r][c - 1] : -1
-        const right = c + 1 < n ? g[r][c + 1] : -1
-        const above = r > 0 ? g[r - 1][c] : -1
-        const below = r + 1 < rows ? g[r + 1][c] : -1
-        const L = left >= 0 ? cells[left] : null
-        const R = right >= 0 ? cells[right] : null
-        const A = above >= 0 ? cells[above] : null
-        const B = below >= 0 ? cells[below] : null
-        if (L && L.col + L.cw === c && strip(L.row, c, 1, L.rh)) { claim(left, L.row, c, 1, L.rh); L.cw++; changed = true } else if (R && R.col === c + 1 && strip(R.row, c, 1, R.rh)) { claim(right, R.row, c, 1, R.rh); R.col--; R.cw++; changed = true } else if (A && A.row + A.rh === r && strip(r, A.col, A.cw, 1)) { claim(above, r, A.col, A.cw, 1); A.rh++; changed = true } else if (B && B.row === r + 1 && strip(r, B.col, B.cw, 1)) { claim(below, r, B.col, B.cw, 1); B.row--; B.rh++; changed = true }
-      }
+    for (let c = 0; c < n && !changed; c++) {
+      if (g[last][c] !== -1) continue
+      const left = c > 0 ? g[last][c - 1] : -1
+      const right = c + 1 < n ? g[last][c + 1] : -1
+      const above = last > 0 ? g[last - 1][c] : -1
+      const L = left >= 0 ? cells[left] : null
+      const R = right >= 0 ? cells[right] : null
+      const A = above >= 0 ? cells[above] : null
+      if (endsLast(L) && L.col + L.cw === c && strip(L.row, c, 1, L.rh)) { claim(left, L.row, c, 1, L.rh); L.cw++; changed = true } else if (endsLast(R) && R.col === c + 1 && strip(R.row, c, 1, R.rh)) { claim(right, R.row, c, 1, R.rh); R.col--; R.cw++; changed = true } else if (A && A.row + A.rh === last && strip(last, A.col, A.cw, 1)) { claim(above, last, A.col, A.cw, 1); A.rh++; changed = true }
     }
   }
   let holes = 0

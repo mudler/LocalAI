@@ -43,13 +43,26 @@ test('home grid: a widget takes its own size, then the page default, then the de
 
 test('home grid: dense packing puts a later small tile in the hole a bigger one leaves', () => {
   // m l s on 4 columns: the l cannot go beside the m, so it takes the rows
-  // under it; the s goes up beside the m, and the hole that leaves closes by
-  // stretching the s to two columns and two rows.
+  // under it; the s goes up beside the m. The cells left beside it are not in
+  // the last row, so they stay and the s keeps its size.
   const p = packGrid(['m', 'l', 's'], 4)
   assert.deepEqual(p.cells[0], { col: 0, row: 0, cw: 2, rh: 2 })
   assert.deepEqual(p.cells[1], { col: 0, row: 2, cw: 4, rh: 3 })
-  assert.deepEqual(p.cells[2], { col: 2, row: 0, cw: 2, rh: 2 })
-  assert.equal(p.holes, 0)
+  assert.deepEqual(p.cells[2], { col: 2, row: 0, cw: 1, rh: 1 })
+  assert.equal(p.holes, 3)
+})
+
+test('home grid: a hole above the last row stays, only the last row stretches', () => {
+  // s then l: the l needs a full row, so it goes under the s; the three cells
+  // beside the s stay empty, and the s keeps its size.
+  const p = packGrid(['s', 'l'], 4)
+  assert.deepEqual(p.cells[0], { col: 0, row: 0, cw: 1, rh: 1 })
+  assert.deepEqual(p.cells[1], { col: 0, row: 1, cw: 4, rh: 3 })
+  assert.equal(p.holes, 3)
+  // m m s: the s is alone in the last row and stretches over it.
+  const q = packGrid(['m', 'm', 's'], 4)
+  assert.deepEqual(q.cells[2], { col: 0, row: 2, cw: 4, rh: 1 })
+  assert.equal(q.holes, 0)
 })
 
 test('home grid: an l fills a full row at every width', () => {
@@ -72,7 +85,7 @@ test('home grid: the last row stretches to the full width', () => {
   assert.deepEqual(covered(q, 4).flat().filter(n => n !== 1), [])
 })
 
-test('home grid: no mix of up to 12 widgets in any order leaves a hole', () => {
+test('home grid: no mix of up to 12 widgets in any order leaves a hole in the last row', () => {
   let seed = 12345
   const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296 }
   for (let run = 0; run < 3000; run++) {
@@ -80,9 +93,11 @@ test('home grid: no mix of up to 12 widgets in any order leaves a hole', () => {
     const sizes = Array.from({ length: n }, () => WIDGET_SIZES[Math.floor(rnd() * 3)])
     for (const cols of [1, 2, 4]) {
       const p = packGrid(sizes, cols)
-      assert.equal(p.holes, 0, `${sizes.join('')} on ${cols}`)
-      // every cell of the grid is covered exactly once: no hole, no overlap
-      assert.ok(covered(p, cols).flat().every(c => c === 1), `${sizes.join('')} on ${cols}`)
+      const g = covered(p, cols)
+      // no overlap, the last row full, and holes counts the empty cells
+      assert.ok(g.flat().every(c => c <= 1), `${sizes.join('')} on ${cols}`)
+      assert.ok(g[p.rows - 1].every(c => c === 1), `${sizes.join('')} on ${cols}: last row`)
+      assert.equal(p.holes, g.flat().filter(c => c === 0).length)
       for (const c of p.cells) assert.ok(c.col >= 0 && c.col + c.cw <= cols)
     }
   }
