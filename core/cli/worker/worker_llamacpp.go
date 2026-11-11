@@ -66,7 +66,7 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState, requ
 func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 
 	if len(os.Args) < 4 {
-		return fmt.Errorf("usage: local-ai worker llama-cpp-rpc -- <llama-rpc-server-args>")
+		return fmt.Errorf("usage: local-ai p2p-worker llama-cpp-rpc -- <llama-rpc-server-args>")
 	}
 
 	systemState, err := system.GetSystemState(
