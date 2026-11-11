@@ -147,6 +147,8 @@
     "disabled": "已停用",
     "pinned": "已固定",
     "useTyped": "使用 \"{{name}}\"",
+    "chooseModel": "请选择模型",
+    "defaultMissing": "您的默认模型 {{model}} 未安装。请选择模型。",
     "empty": "没有可用模型",
     "add": "添加模型",
     "remove": "移除 {{name}}",

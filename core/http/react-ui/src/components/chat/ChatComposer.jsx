@@ -123,6 +123,7 @@ export default function ChatComposer({
       onOpen={onPickerOpen}
       disabled={pickerDisabled || (!chatId && !!pickedAgent?.model)}
       autoSelect={!chatId && !pickedAgent?.model}
+      startsChat={!chatId}
       rememberSelection={!chatId}
       placeholder={pickerPlaceholder}
       footer={memoryNumbers && (

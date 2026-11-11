@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import { useWellKnown } from '../../hooks/useWellKnown'
-import { setPreferredModel } from '../../utils/lastModel'
-import { chatStartModel } from '../../utils/defaults'
+import { setChatStart } from '../../utils/lastModel'
+import { defaultChoice } from '../../utils/defaults'
 import { lookAttributes, lookOf, accentCheck, onAccentRole } from '../../utils/look'
 import { pageMode, paletteOf } from './contrast'
 import './wellKnown.css'
@@ -79,11 +79,11 @@ export default function AppearanceSync() {
     applied.current = doc.version
     applyAppearance(doc.data, setTheme)
   }, [doc, setTheme])
-  // The model a new chat starts with: the chat default of defaults.json, or
-  // the older defaultModel of ui.json when that file has none.
+  // What a new chat starts with: the chat default of defaults.json (a model or
+  // ask), or the older defaultModel of ui.json when that file has none.
   useEffect(() => {
     if (!doc || !defaults) return
-    setPreferredModel(chatStartModel(defaults.data, doc.data))
+    setChatStart(defaultChoice(defaults.data, doc.data, 'chat'))
   }, [doc, defaults])
   useEffect(() => {
     if (doc) applyAccent(doc.data?.accent, theme === 'light' ? 'light' : 'dark')

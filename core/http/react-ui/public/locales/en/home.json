@@ -158,6 +158,8 @@
     "loading": "Loading models",
     "none": "No chat model",
     "noneSelected": "No model selected",
+    "chooseModel": "Choose a model",
+    "defaultMissing": "Your default {{model}} is not installed. Choose a model.",
     "title": "Choose the model for this message",
     "filter": "Filter models",
     "label": "Model",

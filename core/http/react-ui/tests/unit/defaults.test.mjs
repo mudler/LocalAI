@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ASK, DEFAULT_KINDS, defaultChoice, chatStartModel, modelsFor, rowState, valueFor } from '../../src/utils/defaults.js'
+import { ASK, DEFAULT_KINDS, defaultChoice, chatStartModel, modelsFor, rowState, startPick, valueFor } from '../../src/utils/defaults.js'
 import { WELL_KNOWN_FILES } from '../../src/utils/wellKnown.js'
 
 test('defaults: the file is a well-known file and the kinds are the keys of its schema', () => {
@@ -63,4 +63,21 @@ test('defaults: a pick saves a name, ask, or null that removes the key', () => {
   assert.equal(valueFor(ASK), 'ask')
   assert.equal(valueFor(''), null)
   assert.equal(valueFor(undefined), null)
+})
+
+test('defaults: the picker of a new chat never guesses over ask or a default that is gone', () => {
+  const usable = ['a', 'b', 'c']
+  const ask = defaultChoice({ chat: ASK }, null, 'chat')
+  assert.deepEqual(startPick(ask, usable, 'b'), { model: '', note: 'ask', missing: '' }, 'ask: nothing chosen, the person chooses')
+  const gone = defaultChoice({ chat: 'removed' }, null, 'chat')
+  assert.deepEqual(startPick(gone, usable, 'b'), { model: '', note: 'missing', missing: 'removed' }, 'a removed default is not replaced by the last model')
+  assert.deepEqual(startPick(defaultChoice({ chat: 'c' }, null, 'chat'), usable, 'b'), { model: 'c', note: '', missing: '' })
+  // No chat key and no defaultModel: as before, the last model used, else the first.
+  const unset = defaultChoice({}, {}, 'chat')
+  assert.deepEqual(startPick(unset, usable, 'b'), { model: 'b', note: '', missing: '' })
+  assert.deepEqual(startPick(unset, usable, 'gone'), { model: 'a', note: '', missing: '' })
+  assert.deepEqual(startPick(null, usable, null), { model: 'a', note: '', missing: '' }, 'before the files are read')
+  // The older defaultModel of ui.json keeps its old fallback when it is gone.
+  assert.deepEqual(startPick(defaultChoice({}, { defaultModel: 'old' }, 'chat'), usable, 'b'), { model: 'b', note: '', missing: '' })
+  assert.deepEqual(startPick(defaultChoice({}, { defaultModel: 'c' }, 'chat'), usable, 'b'), { model: 'c', note: '', missing: '' })
 })

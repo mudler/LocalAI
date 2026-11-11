@@ -37,11 +37,31 @@ export function defaultChoice(defaults, ui, key) {
 }
 
 // chatStartModel is the model a new chat starts with: the chat default, or ''
-// when the user wants to be asked or made no choice (the last model used
-// applies then).
+// when the user wants to be asked or made no choice. What the picker of a new
+// chat does then is startPick.
 export function chatStartModel(defaults, ui) {
   const c = defaultChoice(defaults, ui, 'chat')
   return c.mode === 'model' ? c.model : ''
+}
+
+// startPick is what the model picker of a new chat starts with, from the chat
+// choice (defaultChoice for chat, or null before the files are read), the
+// models that can be chosen and the last model used. It answers
+// { model, note, missing }:
+//   ask      defaults.json says ask: no model, the person chooses
+//   missing  defaults.json names a model that is not installed: no model, and
+//            the note names it, so the picker never sends to another model
+//            without a word
+// With no chat key in defaults.json (and the older defaultModel of ui.json
+// absent or gone), it is the last model used, else the first one.
+export function startPick(choice, usable, remembered) {
+  if (choice?.mode === 'ask') return { model: '', note: 'ask', missing: '' }
+  if (choice?.mode === 'model') {
+    if (usable.includes(choice.model)) return { model: choice.model, note: '', missing: '' }
+    if (choice.from === 'defaults') return { model: '', note: 'missing', missing: choice.model }
+  }
+  const model = remembered && usable.includes(remembered) ? remembered : (usable[0] || '')
+  return { model, note: '', missing: '' }
 }
 
 // modelsFor lists the usable models of a kind (not disabled, with its

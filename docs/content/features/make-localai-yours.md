@@ -275,7 +275,12 @@ changed and never edits the file on its own.
 If the model of a default is not installed any more, or is switched off, the
 assistant does not use another one. It tells you, asks which model to use for
 this request and offers to set a new default. The Defaults tab marks such a row
-"Not installed". A row with no installed model shows **Install one**, which
+"Not installed".
+
+The model picker of a new chat follows `chat` too. With `"ask"` it chooses no
+model and says **Choose a model**. With a model that is not installed it
+chooses no other model and names the missing one. With no `chat` key it starts
+with the last model you used, as before. A row with no installed model shows **Install one**, which
 opens the model gallery.
 
 Each row of the tab lists only the installed models that can do that kind of

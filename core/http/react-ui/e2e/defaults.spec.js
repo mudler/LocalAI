@@ -177,3 +177,59 @@ test('defaults: the tab is a phone layout without sideways scroll', async ({ pag
   expect(overflow).toBeLessThanOrEqual(0)
   await expect(page.getByTestId('df-select-image')).toBeVisible()
 })
+
+// The picker of a new chat on Home starts as defaults.json says. DEFAULTS_SHOTS
+// names a folder for screenshots.
+const shots = process.env.DEFAULTS_SHOTS || ''
+async function homeWith(page, { theme = 'light', last = '' } = {}) {
+  await page.addInitScript(([t, m]) => {
+    try {
+      localStorage.setItem('localai-theme', t)
+      if (m) localStorage.setItem('localai_last_model:FLAG_CHAT', m)
+      else localStorage.removeItem('localai_last_model:FLAG_CHAT')
+    } catch { /* private mode */ }
+  }, [theme, last])
+  await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: MODELS.map(m => ({ pinned: false, disabled: false, ...m })) } }))
+  await page.goto('/app')
+  await expect(page.getByTestId('home-model-chip')).toBeVisible()
+}
+
+for (const theme of ['light', 'dark']) {
+  test(`defaults: with ask, a new chat on Home chooses no model and says so (${theme})`, async ({ page, request }) => {
+    expect((await write(request, 'defaults', { chat: 'ask' })).ok()).toBeTruthy()
+    await homeWith(page, { theme, last: 'llama-3.2-3b' })
+    const chip = page.getByTestId('home-model-chip')
+    await expect(chip.getByTestId('model-picker-note')).toHaveText('Choose a model')
+    await expect(chip).toHaveAttribute('data-note', 'ask')
+    await expect(chip).not.toContainText('llama-3.2-3b')
+    if (shots) await page.screenshot({ path: `${shots}/picker-ask-${theme}.png` })
+    // A pick is the person's: the note goes and the model stays.
+    await chip.click()
+    await page.getByRole('option', { name: /qwen3-8b-instruct/ }).click()
+    await expect(chip).toContainText('qwen3-8b-instruct')
+    await expect(chip.getByTestId('model-picker-note')).toHaveCount(0)
+  })
+
+  test(`defaults: a default that is not installed is named, and no other model is switched in (${theme})`, async ({ page, request }) => {
+    expect((await write(request, 'defaults', { chat: 'gone-model-7b' })).ok()).toBeTruthy()
+    await homeWith(page, { theme, last: 'llama-3.2-3b' })
+    const chip = page.getByTestId('home-model-chip')
+    await expect(chip.getByTestId('model-picker-note')).toHaveText('Your default gone-model-7b is not installed. Choose a model.')
+    await expect(chip).toHaveAttribute('data-note', 'missing')
+    await expect(chip).not.toContainText('llama-3.2-3b')
+    if (shots) await page.screenshot({ path: `${shots}/picker-missing-${theme}.png` })
+  })
+}
+
+test('defaults: with no chat default, a new chat starts with the last model used, as before', async ({ page }) => {
+  await homeWith(page, { last: 'llama-3.2-3b' })
+  const chip = page.getByTestId('home-model-chip')
+  await expect(chip).toContainText('llama-3.2-3b')
+  await expect(chip.getByTestId('model-picker-note')).toHaveCount(0)
+})
+
+test('defaults: an installed chat default is what a new chat starts with', async ({ page, request }) => {
+  expect((await write(request, 'defaults', { chat: 'qwen3-8b-instruct' })).ok()).toBeTruthy()
+  await homeWith(page, { last: 'llama-3.2-3b' })
+  await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-8b-instruct')
+})
