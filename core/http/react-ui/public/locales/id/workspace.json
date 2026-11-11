@@ -1171,7 +1171,7 @@
       "descriptionEmpty": "Tulis deskripsi singkat untuk menu.",
       "descriptionLong": "Deskripsi paling banyak {{max}} karakter.",
       "toolEmpty": "Sebutkan alatnya.",
-      "toolFormat": "Nama alat hanya berisi huruf, angka, titik, tanda hubung, dan garis bawah.",
+      "toolFormat": "Nama alat hanya berisi huruf, angka, titik, titik dua, tanda hubung, dan garis bawah, paling banyak 128.",
       "templateEmpty": "Tulis prompt-nya.",
       "templateLong": "Prompt paling banyak {{template}} karakter.",
       "argFormat": "Nama argumen diawali huruf dan hanya berisi huruf kecil, angka, dan garis bawah.",

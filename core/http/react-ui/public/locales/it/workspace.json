@@ -1171,7 +1171,7 @@
       "descriptionEmpty": "Scrivi una breve descrizione per il menu.",
       "descriptionLong": "La descrizione ha al massimo {{max}} caratteri.",
       "toolEmpty": "Indica lo strumento.",
-      "toolFormat": "Il nome di uno strumento ha solo lettere, cifre, punti, trattini e trattini bassi.",
+      "toolFormat": "Il nome di uno strumento ha solo lettere, cifre, punti, due punti, trattini e trattini bassi, al massimo 128.",
       "templateEmpty": "Scrivi il prompt.",
       "templateLong": "Il prompt ha al massimo {{template}} caratteri.",
       "argFormat": "Il nome di un argomento inizia con una lettera e ha solo lettere minuscole, cifre e trattini bassi.",

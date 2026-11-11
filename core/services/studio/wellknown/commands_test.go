@@ -49,6 +49,12 @@ var _ = Describe("the slash commands of commands.json", func() {
 		Expect(check()).To(BeEmpty())
 	})
 
+	It("takes the tool names of a slot tool item: an MCP name with a colon, up to 128 characters", func() {
+		Expect(check(cmd("name", "issue", "description", "x", "type", "tool", "tool", "github:create_issue"))).To(BeEmpty())
+		Expect(check(cmd("name", "long", "description", "x", "type", "tool", "tool", strings.Repeat("t", 128)))).To(BeEmpty())
+		Expect(check(cmd("name", "long", "description", "x", "type", "tool", "tool", strings.Repeat("t", 129)))).NotTo(BeEmpty())
+	})
+
 	It("lists the same built-in command names in the schema and in the server", func() {
 		data, err := wellknown.Schema(wellknown.Commands)
 		Expect(err).NotTo(HaveOccurred())

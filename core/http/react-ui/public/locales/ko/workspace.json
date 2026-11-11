@@ -1171,7 +1171,7 @@
       "descriptionEmpty": "메뉴에 보일 짧은 설명을 쓰세요.",
       "descriptionLong": "설명은 최대 {{max}}자입니다.",
       "toolEmpty": "도구 이름을 입력하세요.",
-      "toolFormat": "도구 이름에는 글자, 숫자, 점, 하이픈, 밑줄만 쓸 수 있습니다.",
+      "toolFormat": "도구 이름에는 글자, 숫자, 점, 콜론, 하이픈, 밑줄만 쓸 수 있으며 최대 128자입니다.",
       "templateEmpty": "프롬프트를 쓰세요.",
       "templateLong": "프롬프트는 최대 {{template}}자입니다.",
       "argFormat": "인수 이름은 글자로 시작하며 소문자, 숫자, 밑줄만 쓸 수 있습니다.",

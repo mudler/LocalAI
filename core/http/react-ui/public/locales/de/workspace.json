@@ -1171,7 +1171,7 @@
       "descriptionEmpty": "Schreibe eine kurze Beschreibung für das Menü.",
       "descriptionLong": "Die Beschreibung hat höchstens {{max}} Zeichen.",
       "toolEmpty": "Gib das Werkzeug an.",
-      "toolFormat": "Ein Werkzeugname besteht nur aus Buchstaben, Ziffern, Punkten, Bindestrichen und Unterstrichen.",
+      "toolFormat": "Ein Werkzeugname besteht nur aus Buchstaben, Ziffern, Punkten, Doppelpunkten, Bindestrichen und Unterstrichen, höchstens 128.",
       "templateEmpty": "Schreibe den Prompt.",
       "templateLong": "Der Prompt hat höchstens {{template}} Zeichen.",
       "argFormat": "Ein Argumentname beginnt mit einem Buchstaben und besteht nur aus Kleinbuchstaben, Ziffern und Unterstrichen.",

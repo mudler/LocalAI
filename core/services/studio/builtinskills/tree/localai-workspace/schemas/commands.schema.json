@@ -31,7 +31,7 @@
               "additionalProperties": false
             }
           },
-          "tool": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$", "description": "For a tool command: the name of a tool the user already has." }
+          "tool": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$", "description": "For a tool command: the name of a tool the user already has (the same names as a tool item of the slots in ui.json)." }
         },
         "required": ["name", "description", "type"],
         "additionalProperties": false,

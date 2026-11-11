@@ -1171,7 +1171,7 @@
       "descriptionEmpty": "Escreva uma descrição curta para o menu.",
       "descriptionLong": "A descrição tem no máximo {{max}} caracteres.",
       "toolEmpty": "Informe a ferramenta.",
-      "toolFormat": "O nome de uma ferramenta só tem letras, dígitos, pontos, hifens e sublinhados.",
+      "toolFormat": "O nome de uma ferramenta só tem letras, dígitos, pontos, dois-pontos, hifens e sublinhados, no máximo 128.",
       "templateEmpty": "Escreva o prompt.",
       "templateLong": "O prompt tem no máximo {{template}} caracteres.",
       "argFormat": "O nome de um argumento começa com uma letra e só tem letras minúsculas, dígitos e sublinhados.",

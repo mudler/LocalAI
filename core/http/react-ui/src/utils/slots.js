@@ -4,7 +4,7 @@
 // tab and the unit tests use the same functions. The server validates the file
 // with the same rules (core/services/studio/wellknown/schema.go, slotErrors).
 
-import { commandNameOk } from './userCommands.js'
+import { TOOL_NAME_RE, commandNameOk } from './userCommands.js'
 
 export const SLOT_NAMES = ['chatHeader', 'sidebarFooter', 'composerToolbar']
 export const SLOT_CAPS = { chatHeader: 4, sidebarFooter: 3, composerToolbar: 6 }
@@ -12,7 +12,6 @@ export const SLOT_ITEM_TYPES = ['page', 'tool', 'command']
 export const SLOT_LIMITS = { label: 40, arguments: 2048, argumentKeys: 16 }
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
-const TOOL_NAME = /^[A-Za-z0-9_.:-]{1,128}$/
 const ICON_NAME = /^[a-z0-9-]{1,40}$/
 
 const FIELDS = {
@@ -47,7 +46,7 @@ export function slotItemOk(it) {
       return typeof it.page === 'string' && PAGE_NAME.test(it.page) &&
         (it.folder === undefined || (Number.isInteger(it.folder) && it.folder > 0))
     case 'tool':
-      return typeof it.tool === 'string' && TOOL_NAME.test(it.tool) && typeof it.label === 'string' && toolArguments(it.arguments)
+      return typeof it.tool === 'string' && TOOL_NAME_RE.test(it.tool) && typeof it.label === 'string' && toolArguments(it.arguments)
     default:
       return commandNameOk(it.command)
   }

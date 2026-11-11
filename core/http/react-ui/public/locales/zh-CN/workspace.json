@@ -1171,7 +1171,7 @@
       "descriptionEmpty": "请为菜单写一句简短的说明。",
       "descriptionLong": "说明最多 {{max}} 个字符。",
       "toolEmpty": "请填写工具名称。",
-      "toolFormat": "工具名称只能包含字母、数字、点、连字符和下划线。",
+      "toolFormat": "工具名称只能包含字母、数字、点、冒号、连字符和下划线，最多 128 个字符。",
       "templateEmpty": "请写出提示词。",
       "templateLong": "提示词最多 {{template}} 个字符。",
       "argFormat": "参数名以字母开头，只能包含小写字母、数字和下划线。",

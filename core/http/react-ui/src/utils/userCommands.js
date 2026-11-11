@@ -8,7 +8,7 @@
 // tool command only asks the assistant to use a tool: the tool keeps its own
 // approval step.
 
-export const COMMAND_LIMITS = Object.freeze({ commands: 30, args: 8, description: 120, template: 2000, default: 200, tool: 64 })
+export const COMMAND_LIMITS = Object.freeze({ commands: 30, args: 8, description: 120, template: 2000, default: 200, tool: 128 })
 
 // The built-in commands a user command cannot take. The schema and the server
 // list the same names; tests keep the three lists in step with the registry of
@@ -21,12 +21,15 @@ export const RESERVED_COMMANDS = Object.freeze([
 
 const NAME_RE = /^[a-z][a-z0-9-]{0,31}$/
 const ARG_RE = /^[a-z][a-z0-9_]{0,23}$/
-const TOOL_RE = /^[A-Za-z0-9_.-]{1,64}$/
+// The name of a tool: the same for a tool command and a tool item of the
+// slots (utils/slots.js), as in commands.schema.json and ui.schema.json. An
+// MCP tool name has a colon.
+export const TOOL_NAME_RE = /^[A-Za-z0-9_.:-]{1,128}$/
 const USE_RE = /\{\{\s*([^{}]*?)\s*\}\}/g
 
 export const commandNameOk = (name) => typeof name === 'string' && NAME_RE.test(name)
 export const argNameOk = (name) => typeof name === 'string' && ARG_RE.test(name)
-export const toolNameOk = (name) => typeof name === 'string' && TOOL_RE.test(name)
+export const toolNameOk = (name) => typeof name === 'string' && TOOL_NAME_RE.test(name)
 
 // templateArgs lists the argument names a template uses, in order of first use.
 export function templateArgs(template) {

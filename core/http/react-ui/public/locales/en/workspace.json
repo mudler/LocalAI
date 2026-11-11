@@ -1192,7 +1192,7 @@
       "descriptionEmpty": "Write a short description for the menu.",
       "descriptionLong": "The description has at most {{max}} characters.",
       "toolEmpty": "Name the tool.",
-      "toolFormat": "A tool name has only letters, digits, dots, dashes and underscores.",
+      "toolFormat": "A tool name has only letters, digits, dots, colons, dashes and underscores, at most 128.",
       "templateEmpty": "Write the prompt.",
       "templateLong": "The prompt has at most {{template}} characters.",
       "argFormat": "An argument name starts with a letter and has only lowercase letters, digits and underscores.",

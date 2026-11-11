@@ -8,6 +8,7 @@ import {
 } from '../../src/utils/userCommands.js'
 import { availableCommands, commandGroups, expandTypedUserCommand, filterCommands, reservedNames, slashQuery, userCommandEntries } from '../../src/utils/slashCommands.js'
 import { WELL_KNOWN_FILES } from '../../src/utils/wellKnown.js'
+import { slotItemOk } from '../../src/utils/slots.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const schema = JSON.parse(readFileSync(join(here, '../../../../services/studio/builtinskills/tree/localai-workspace/schemas/commands.schema.json'), 'utf8'))
@@ -187,4 +188,19 @@ test('commands in the slash menu: a skill with the name of a command of yours is
 test('commands in the slash menu: without commands the menu is the one it was', () => {
   const none = availableCommands('chat', { hasModels: true, hasThread: true, hasChat: true })
   assert.ok(!none.some(c => c.group === 'yours'))
+})
+
+test('commands: a tool command and a slot tool item take the same tool names, in the schemas and the UI', () => {
+  const ui = JSON.parse(readFileSync(join(here, '../../../../services/studio/builtinskills/tree/localai-workspace/schemas/ui.schema.json'), 'utf8'))
+  const slotPatterns = new Set(Object.values(ui.properties.slots.properties).map((s) => s.items.properties.tool.pattern))
+  assert.equal(slotPatterns.size, 1, 'one pattern for every slot')
+  const [slotPattern] = slotPatterns
+  assert.equal(schema.properties.commands.items.properties.tool.pattern, slotPattern, 'commands.json and ui.json agree')
+  assert.equal(slotPattern, '^[A-Za-z0-9_.:-]{1,128}$')
+  // An MCP tool name has a colon, and a long one fits.
+  const named = (tool) => commandProblems({ name: 'a1', description: 'x', type: 'tool', tool })
+  assert.deepEqual(named('github:create_issue'), [])
+  assert.deepEqual(named('t'.repeat(128)), [])
+  assert.deepEqual(named('t'.repeat(129)), ['toolFormat'])
+  assert.ok(slotItemOk({ type: 'tool', tool: 'github:create_issue', label: 'Issue' }))
 })

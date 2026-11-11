@@ -1171,7 +1171,7 @@
       "descriptionEmpty": "Écrivez une courte description pour le menu.",
       "descriptionLong": "La description fait {{max}} caractères au plus.",
       "toolEmpty": "Indiquez l'outil.",
-      "toolFormat": "Un nom d'outil ne contient que des lettres, des chiffres, des points, des tirets et des tirets bas.",
+      "toolFormat": "Un nom d'outil ne contient que des lettres, des chiffres, des points, des deux-points, des tirets et des tirets bas, 128 au plus.",
       "templateEmpty": "Écrivez le prompt.",
       "templateLong": "Le prompt fait {{template}} caractères au plus.",
       "argFormat": "Un nom d'argument commence par une lettre et ne contient que des lettres minuscules, des chiffres et des tirets bas.",
