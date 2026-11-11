@@ -108,7 +108,7 @@ var _ = Describe("curated recommended models", func() {
 		Entry("a rank it does not know", func(s string) string { return strings.Replace(s, "rank: default", "rank: best", 1) }, "rank"),
 		Entry("an unknown tier", func(s string) string { return s + "  gpu-huge: []\n" }, "unknown tier"),
 		Entry("an entry without a reason", func(s string) string {
-			return strings.Replace(s, "      reason: Small enough for a laptop, and still follows tools and long instructions.\n", "", 1)
+			return strings.Replace(s, "      reason: Google's smallest Gemma 4, built for devices without a GPU; it fits an 8 GB machine and reads images.\n", "", 1)
 		}, "without id, name or reason"),
 		Entry("not YAML at all", func(string) string { return "<html>captive portal</html>" }, "recommended models"),
 	)
@@ -128,7 +128,7 @@ var _ = Describe("loading the recommended models", func() {
 	}
 
 	It("finds the file next to the index of a gallery", func() {
-		changed := strings.Replace(string(served()), "name: Qwen3.8 4B", "name: Served Name", 1)
+		changed := strings.Replace(string(served()), "name: Gemma 4 E2B", "name: Served Name", 1)
 		Expect(os.WriteFile(filepath.Join(dir, "recommended.yaml"), []byte(changed), 0o600)).To(Succeed())
 
 		list, source := gallery.LoadRecommendedModels(context.Background(), galleryAt("file://"+filepath.Join(dir, "index.yaml")), dir, false)

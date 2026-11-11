@@ -119,7 +119,7 @@ var _ = Describe("GET /api/models/recommended", func() {
 			Expect(resp.MinContext).To(Equal(16384))
 			Expect(resp.RecommendedContext).To(Equal(32768))
 		},
-		Entry("a laptop with no GPU", uint64(0), 32*gib, "cpu", "qwen3.8-4b-q4"),
+		Entry("a laptop with no GPU", uint64(0), 32*gib, "cpu", "gemma-4-e2b-it-qat-q4_0"),
 		Entry("a small card", 6*gib, 16*gib, "gpu-small", "qwen3.8-4b-q4"),
 		Entry("a mid-range card", 16*gib, 32*gib, "gpu-mid", "qwen3.8-9b-q4"),
 		Entry("a large card", 80*gib, 128*gib, "gpu-large", "gemma-4-26b-a4b-it-qat-q4_0"),

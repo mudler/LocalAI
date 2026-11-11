@@ -25,6 +25,29 @@ export const REC_MODELS = [
   },
 ]
 
+// The CPU tier of the built-in list: Gemma 4 E2B first, then the two Qwen3.8
+// models, with the window and memory the estimator gives on a 16 GiB host.
+export const CPU_REC_MODELS = [
+  {
+    id: 'gemma-4-e2b-it-qat-q4_0', name: 'Gemma 4 E2B', role: 'default',
+    reason: "Google's smallest Gemma 4, built for devices without a GPU; it fits an 8 GB machine and reads images.",
+    license: 'apache-2.0', context_size: 32768, memory_bytes: Math.round(4.75 * GB), size_bytes: Math.round(3.35 * GB),
+    fit: 'fits', fit_reasons: [], installed: false,
+  },
+  {
+    id: 'qwen3.8-4b-q4', name: 'Qwen3.8 4B', role: 'alternative',
+    reason: 'A step up in quality for machines with more memory; it follows tools and long instructions.',
+    license: 'apache-2.0', context_size: 32768, memory_bytes: Math.round(5.21 * GB), size_bytes: Math.round(2.78 * GB),
+    fit: 'fits', fit_reasons: [], installed: false,
+  },
+  {
+    id: 'qwen3.8-2b-q4', name: 'Qwen3.8 2B', role: 'alternative',
+    reason: 'The lightest choice, for machines with little memory or a slow processor.',
+    license: 'apache-2.0', context_size: 32768, memory_bytes: Math.round(3.08 * GB), size_bytes: Math.round(1.31 * GB),
+    fit: 'fits', fit_reasons: [], installed: false,
+  },
+]
+
 // recommendedAnswer builds an answer; pass fields to change it.
 export function recommendedAnswer(over = {}) {
   return {

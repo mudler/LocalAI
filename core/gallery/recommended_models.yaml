@@ -6,17 +6,17 @@ version: 1
 tiers:
   cpu:
     - rank: default
+      id: gemma-4-e2b-it-qat-q4_0
+      name: Gemma 4 E2B
+      reason: Google's smallest Gemma 4, built for devices without a GPU; it fits an 8 GB machine and reads images.
+    - rank: alternative
       id: qwen3.8-4b-q4
       name: Qwen3.8 4B
-      reason: Small enough for a laptop, and still follows tools and long instructions.
+      reason: A step up in quality for machines with more memory; it follows tools and long instructions.
     - rank: alternative
       id: qwen3.8-2b-q4
       name: Qwen3.8 2B
       reason: The lightest choice, for machines with little memory or a slow processor.
-    - rank: alternative
-      id: gemma-4-e2b-it-qat-q4_0
-      name: Gemma 4 E2B
-      reason: Google's smallest Gemma 4, built for devices without a GPU, and it reads images.
   gpu-small:
     - rank: default
       id: qwen3.8-4b-q4

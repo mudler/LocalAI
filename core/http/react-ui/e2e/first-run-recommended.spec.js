@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockHome, mockUser } from './home-fixtures.js'
-import { mockRecommended, recommendedAnswer, REC_MODELS } from './recommended-fixtures.js'
+import { mockRecommended, recommendedAnswer, REC_MODELS, CPU_REC_MODELS } from './recommended-fixtures.js'
 
 // First run: nothing is installed, and the page recommends one model for this
 // machine. The server decides the model, the window it installs with and the
@@ -90,11 +90,11 @@ test.describe('First run recommendation, as an administrator', () => {
   test('with no hardware detected it says so and shows the CPU tier', async ({ page }) => {
     await firstRun(page, recommendedAnswer({
       tier: 'cpu', hardware: { detected: false, kind: 'unknown', memory_bytes: 0, scope: 'local' },
-      models: REC_MODELS.map(m => ({ ...m, fit: 'unknown', fit_reasons: ['hardware_unknown'], context_size: 0, memory_bytes: 0 })),
+      models: CPU_REC_MODELS.map(m => ({ ...m, fit: 'unknown', fit_reasons: ['hardware_unknown'], context_size: 0, memory_bytes: 0 })),
     }))
     await expect(page.getByTestId('starter-undetected')).toContainText('could not detect your hardware', { timeout: 15_000 })
     await expect(page.getByTestId('starter-tier')).toContainText('CPU only')
-    await expect(primary(page)).toContainText('Qwen3.8 4B')
+    await expect(primary(page)).toContainText('Gemma 4 E2B')
     // No window is promised when nothing was checked, and the notice is not repeated on the row.
     await expect(primary(page)).not.toContainText('context')
     await expect(primary(page)).not.toContainText('could not be read')
@@ -103,7 +103,7 @@ test.describe('First run recommendation, as an administrator', () => {
   test('when nothing fits it says so and still names the smallest model', async ({ page }) => {
     await firstRun(page, recommendedAnswer({
       tier: 'cpu', nothing_fits: true,
-      models: [{ ...REC_MODELS[2], fit: 'does_not_fit', fit_reasons: ['exceeds_memory'], context_size: 4096 }],
+      models: [{ ...CPU_REC_MODELS[2], fit: 'does_not_fit', fit_reasons: ['exceeds_memory'], context_size: 4096 }],
     }))
     await expect(page.getByTestId('starter-nothing-fits')).toContainText('None of the recommended models fits', { timeout: 15_000 })
     await expect(primary(page)).toContainText('Qwen3.8 2B')
