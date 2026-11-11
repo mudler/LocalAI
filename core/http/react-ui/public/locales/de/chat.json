@@ -93,7 +93,8 @@
     "selectModel": "Bitte wählen Sie ein Modell",
     "copied": "In die Zwischenablage kopiert",
     "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
-    "newChatForModel": "Ein Chat behält sein Modell. Neuer Chat mit {{model}} gestartet."
+    "newChatForModel": "Ein Chat behält sein Modell. Neuer Chat mit {{model}} gestartet.",
+    "windowSet": "Das Kontextfenster von {{model}} beträgt jetzt {{window}} Token."
   },
   "menu": {
     "trigger": "Chats",

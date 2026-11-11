@@ -93,7 +93,8 @@
     "selectModel": "Por favor selecciona un modelo",
     "copied": "Copiado al portapapeles",
     "copyFailed": "No se pudo copiar al portapapeles",
-    "newChatForModel": "Un chat conserva su modelo. Se inició un chat nuevo con {{model}}."
+    "newChatForModel": "Un chat conserva su modelo. Se inició un chat nuevo con {{model}}.",
+    "windowSet": "La ventana de contexto de {{model}} ahora es de {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",

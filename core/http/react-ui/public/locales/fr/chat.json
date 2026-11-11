@@ -90,7 +90,8 @@
     "copied": "Copié dans le presse-papiers",
     "copyFailed": "Impossible de copier dans le presse-papiers",
     "chatCopied": "Conversation copiée dans le presse-papiers",
-    "newChatForModel": "Un chat garde son modèle. Nouveau chat lancé avec {{model}}."
+    "newChatForModel": "Un chat garde son modèle. Nouveau chat lancé avec {{model}}.",
+    "windowSet": "La fenêtre de contexte de {{model}} est maintenant de {{window}} jetons."
   },
   "menu": {
     "trigger": "Conversations",

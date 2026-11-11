@@ -93,7 +93,8 @@
     "selectModel": "Seleziona un modello",
     "copied": "Copiato negli appunti",
     "copyFailed": "Impossibile copiare negli appunti",
-    "newChatForModel": "Una chat mantiene il suo modello. Avviata una nuova chat con {{model}}."
+    "newChatForModel": "Una chat mantiene il suo modello. Avviata una nuova chat con {{model}}.",
+    "windowSet": "La finestra di contesto di {{model}} ora è di {{window}} token."
   },
   "menu": {
     "trigger": "Chat",

@@ -66,6 +66,7 @@ import FindBar from '../components/chat/FindBar'
 import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
 import ChatFoot from '../components/chat/ChatFoot'
+import HarnessBanner from '../components/chat/HarnessBanner'
 import GoalBar from '../components/chat/GoalBar'
 import GoalMarker from '../components/chat/GoalMarker'
 // eslint-disable-next-line no-unused-vars
@@ -884,6 +885,30 @@ function ChatPage() {
     },
   })
 
+  // The window of the chat's model is too small for the chat agent (the
+  // server's harness block). An administrator raises the window of the model;
+  // anyone else moves the chat to another model, or resets the chat's own
+  // context size setting.
+  const harnessModel = activeChat?.model || ''
+  const setModelWindow = async (value) => {
+    try {
+      await modelsApi.patchConfig(harnessModel, { context_size: value })
+      addToast(t('toasts.windowSet', { model: harnessModel, window: value }), 'success', 3000)
+      await chat.refreshChat(activeId)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+  const resetChatWindow = async () => {
+    const rest = { ...(activeChat?.settings || {}) }
+    delete rest.context_size
+    try {
+      await chat.update(activeId, { settings: rest })
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+
   const promptDelete = () => activeChat && requestDelete({ id: activeChat.id, name: title })
 
   // Picking another model in a chat moves the chat to it from the next turn.
@@ -1420,6 +1445,16 @@ function ChatPage() {
           {/* The toast stack stays above the whole dock, so a toast never
               covers the shortcut row it talks about. */}
           <div className="cx-dock__in" data-toast-anchor="">
+            {activeId && (
+              <HarnessBanner
+                harness={chat.detail?.harness}
+                model={harnessModel}
+                models={chatModels}
+                onSetModelWindow={setModelWindow}
+                onSwitchModel={pickModel}
+                onResetChatWindow={resetChatWindow}
+              />
+            )}
             {!chat.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
             {!chat.files.on && <p className="cx-notice" role="note">{chat.files.reason || tc('attach.off')}</p>}
             {browserStores.length > 0 && (

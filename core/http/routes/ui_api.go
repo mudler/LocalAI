@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -829,14 +830,19 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
-			UpscaleScale     int                            `json:"upscaleScale,omitempty"`
-			ThreeDOperations []schema.ThreeDOperation       `json:"three_d_operations,omitempty"`
-			ID               string                         `json:"id"`
-			Capabilities     []string                       `json:"capabilities"`
-			Backend          string                         `json:"backend"`
-			Disabled         bool                           `json:"disabled"`
-			Pinned           bool                           `json:"pinned"`
-			VoiceCloning     *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
+			UpscaleScale     int                      `json:"upscaleScale,omitempty"`
+			ThreeDOperations []schema.ThreeDOperation `json:"three_d_operations,omitempty"`
+			ID               string                   `json:"id"`
+			Capabilities     []string                 `json:"capabilities"`
+			Backend          string                   `json:"backend"`
+			// ContextSize is the window one request can use, in tokens. The
+			// chat page reads it to offer a model whose window is large
+			// enough for the chat agent. Absent when the model has no
+			// config here (a remote or loose model).
+			ContextSize  int                            `json:"context_size,omitempty"`
+			Disabled     bool                           `json:"disabled"`
+			Pinned       bool                           `json:"pinned"`
+			VoiceCloning *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
 			// LoadedOn is populated only when the node registry is active
 			// (distributed mode). Lets the UI show "loaded on worker-1" without
 			// the operator having to expand every node manually. An empty slice
@@ -909,6 +915,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			entry.UpscaleScale = config.UpscaleScaleFromOptions(*effective)
 			entry.ThreeDOperations = effective.ThreeDOperations()
 			entry.Backend = effective.Backend
+			sized := *effective
+			if sized.ContextSize == nil && appConfig.ContextSize > 0 {
+				sized.ContextSize = &appConfig.ContextSize
+			}
+			entry.ContextSize = corebackend.EffectiveRequestContextSize(sized)
 			entry.VoiceCloning = config.VoiceCloningForModel(effective)
 			entry.LoadedOn = loadedByModel[effective.Name]
 			entry.MCP = !appConfig.DisableMCP && effective.MCP.HasMCPServers()

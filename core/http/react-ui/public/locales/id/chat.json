@@ -124,7 +124,8 @@
     "copied": "Berhasil disalin ke papan klip",
     "copyFailed": "Gagal menyalin ke papan klip",
     "newChatForModel": "Obrolan mempertahankan modelnya. Obrolan baru dimulai dengan {{model}}.",
-    "chatCopied": "Obrolan disalin ke papan klip"
+    "chatCopied": "Obrolan disalin ke papan klip",
+    "windowSet": "Jendela konteks {{model}} sekarang {{window}} token."
   },
   "menu": {
     "trigger": "Obrolan",

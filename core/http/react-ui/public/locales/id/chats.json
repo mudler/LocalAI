@@ -1479,5 +1479,28 @@
       "save": "Simpan",
       "loadError": "Profil sandbox tidak dapat dibaca."
     }
+  },
+  "harness": {
+    "title": "Jendela konteks model ini terlalu kecil untuk chat",
+    "admin": {
+      "reason": "Ukurannya {{window}} token dan chat membutuhkan minimal {{minimum}}; {{recommended}} lebih baik.",
+      "checking": "Memeriksa apakah {{target}} token muat di memori mesin ini…",
+      "fits": "{{target}} token muat di memori mesin ini (sekitar {{need}}).",
+      "fitsLess": "{{recommended}} token tidak muat di memori mesin ini. {{target}} muat (sekitar {{need}}).",
+      "unknown": "Memori yang dibutuhkan tidak dapat diperkirakan.",
+      "none": "Bahkan {{minimum}} token tidak muat di memori mesin ini. Pilih model yang lebih kecil.",
+      "fix": "Atur jendela ke {{target}}"
+    },
+    "user": {
+      "reason": "Ukurannya {{window}} token dan chat membutuhkan minimal {{minimum}}.",
+      "switch": "Pindahkan chat ini ke model terpasang dengan jendela yang lebih besar.",
+      "askAdmin": "Tidak ada model terpasang yang dapat Anda pakai dengan jendela yang cukup besar. Minta administrator untuk menaikkannya atau memasang model lain.",
+      "use": "Pakai {{model}} ({{window}} token)"
+    },
+    "chat": {
+      "title": "Ukuran konteks chat ini terlalu kecil",
+      "reason": "Pengaturan chat ini adalah {{window}} token dan chat membutuhkan minimal {{minimum}}.",
+      "fix": "Pakai jendela model"
+    }
   }
 }

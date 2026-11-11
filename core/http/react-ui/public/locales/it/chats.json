@@ -1479,5 +1479,28 @@
       "save": "Salva",
       "loadError": "Non è stato possibile leggere i profili sandbox."
     }
+  },
+  "harness": {
+    "title": "La finestra di contesto di questo modello è troppo piccola per la chat",
+    "admin": {
+      "reason": "Ha {{window}} token e la chat ne richiede almeno {{minimum}}; {{recommended}} è meglio.",
+      "checking": "Controllo se {{target}} token entrano nella memoria di questa macchina…",
+      "fits": "{{target}} token entrano nella memoria di questa macchina (circa {{need}}).",
+      "fitsLess": "{{recommended}} token non entrano nella memoria di questa macchina. {{target}} entrano (circa {{need}}).",
+      "unknown": "Non è stato possibile stimare la memoria necessaria.",
+      "none": "Nemmeno {{minimum}} token entrano nella memoria di questa macchina. Scegli un modello più piccolo.",
+      "fix": "Imposta la finestra a {{target}}"
+    },
+    "user": {
+      "reason": "Ha {{window}} token e la chat ne richiede almeno {{minimum}}.",
+      "switch": "Passa questa chat a un modello installato con una finestra più grande.",
+      "askAdmin": "Nessun modello installato che puoi usare ha una finestra abbastanza grande. Chiedi a un amministratore di ampliarla o di installare un altro modello.",
+      "use": "Usa {{model}} ({{window}} token)"
+    },
+    "chat": {
+      "title": "La dimensione del contesto di questa chat è troppo piccola",
+      "reason": "L'impostazione di questa chat è di {{window}} token e la chat ne richiede almeno {{minimum}}.",
+      "fix": "Usa la finestra del modello"
+    }
   }
 }

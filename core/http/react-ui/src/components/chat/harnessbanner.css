@@ -1,0 +1,12 @@
+/* The banner of a chat whose model window is too small for the chat agent.
+   It sits in the dock above the composer, so it takes the dock's width. */
+.cx-harness {
+  margin-bottom: var(--sp-2);
+}
+/* The model buttons wrap under the text; each one names a model and its window. */
+.cx-harness__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}

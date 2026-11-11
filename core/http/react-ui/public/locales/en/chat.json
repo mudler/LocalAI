@@ -147,7 +147,8 @@
     "notAChat": "This file is not a chat export.",
     "imported": "Imported \"{{title}}\".",
     "importFailed": "The chat could not be imported: {{message}}",
-    "modelChanged": "The next turn uses {{model}}."
+    "modelChanged": "The next turn uses {{model}}.",
+    "windowSet": "The context window of {{model}} is now {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",
