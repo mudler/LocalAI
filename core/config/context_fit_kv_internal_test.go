@@ -35,6 +35,7 @@ type ggufShape struct {
 	layers, embd, heads   uint32
 	kvHeads, headDim, ffn uint32
 	slidingWindow         uint32 // 0 for full attention in every layer
+	extra                 gguf.GGUFMetadataKVs
 }
 
 func (s ggufShape) file() *gguf.GGUFFile {
@@ -53,6 +54,7 @@ func (s ggufShape) file() *gguf.GGUFFile {
 	if s.slidingWindow > 0 {
 		kv = append(kv, ggufKVUint32(a+".attention.sliding_window", s.slidingWindow))
 	}
+	kv = append(kv, s.extra...)
 	tensors := gguf.GGUFTensorInfos{
 		{Name: "token_embd.weight", NDimensions: 2, Dimensions: []uint64{uint64(s.embd), 32000}, Type: gguf.GGMLTypeF16},
 		{Name: "output.weight", NDimensions: 2, Dimensions: []uint64{uint64(s.embd), 32000}, Type: gguf.GGMLTypeF16},

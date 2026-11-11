@@ -5,6 +5,7 @@ import (
 	gguf "github.com/gpustack/gguf-parser-go"
 
 	"github.com/mudler/LocalAI/core/config/harnessctx"
+	"github.com/mudler/xlog"
 )
 
 // ggufHeaderCacheSize bounds the in-memory header cache. Each entry is a few
@@ -70,10 +71,7 @@ func (h ggufHeader) ramFootprintAt(ctx int) uint64 {
 // the parser output is consumed on the defaults path.
 func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
 	var h ggufHeader
-	arch := f.Architecture()
 	h.Name = f.Metadata().Name
-	h.Architecture = arch.Architecture
-	h.MaxContextLength = int(arch.MaximumContextLength)
 	tok := f.Tokenizer()
 	h.BOSTokenID = tok.BOSTokenID
 	h.EOSTokenID = tok.EOSTokenID
@@ -82,6 +80,21 @@ func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
 		h.ChatTemplate = t.ValueString()
 		h.HasChatTemplate = true
 	}
+
+	arch, ok := safeArchitecture(f)
+	if !ok {
+		// The parser cannot read the attention geometry of this file; a newer
+		// architecture whose metadata has a shape it does not expect makes it
+		// panic. The template, the name and the tokenizer above are still good,
+		// so keep them. The context stays unknown, which the defaults path
+		// handles as a model without an estimate.
+		h.Architecture = rawGGUFArchitecture(f)
+		xlog.Warn("[gguf] architecture metadata could not be read; the context size cannot be estimated for this model",
+			"model", h.Name, "architecture", h.Architecture)
+		return h
+	}
+	h.Architecture = arch.Architecture
+	h.MaxContextLength = int(arch.MaximumContextLength)
 
 	h.MTPLayers, h.HasMTP = HasEmbeddedMTPHead(f)
 
@@ -107,6 +120,26 @@ func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
 		h.maxCtxFootprint = estimateNonUMAAt(f, h.MaxContextLength)
 	}
 	return h
+}
+
+// safeArchitecture returns the parsed architecture, and false when the parser
+// panics on the file's metadata.
+func safeArchitecture(f *gguf.GGUFFile) (arch gguf.GGUFArchitecture, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+		}
+	}()
+	return f.Architecture(), true
+}
+
+// rawGGUFArchitecture reads general.architecture without the parser's
+// architecture decoding, for the log line and the non-chat check.
+func rawGGUFArchitecture(f *gguf.GGUFFile) string {
+	if kv, ok := f.Header.MetadataKV.Get("general.architecture"); ok && kv.ValueType == gguf.GGUFMetadataValueTypeString {
+		return kv.ValueString()
+	}
+	return ""
 }
 
 // safeTrainedContext returns the estimator's default context size and, when the
