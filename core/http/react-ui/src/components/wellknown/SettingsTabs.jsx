@@ -8,6 +8,7 @@ import ShortcutsEditor from './ShortcutsEditor'
 import HelpCard from './HelpCard'
 import NavigationEditor from './NavigationEditor'
 import CommandsEditor from './CommandsEditor'
+import SlotsEditor from './SlotsEditor'
 import { IdentityPreview, LookPreview, StringsPreview } from './Previews'
 import Icon from '../Icon'
 
@@ -97,6 +98,16 @@ export function NavigationTab() {
   return (
     <div className="wk-grid wk-grid--wide" data-testid="account-navigation">
       <NavigationEditor />
+    </div>
+  )
+}
+
+// The Account tab "Slots": the slots of ui.json, page tiles, tool buttons and
+// commands in the chat header, the sidebar footer and the composer toolbar.
+export function SlotsTab() {
+  return (
+    <div className="wk-grid wk-grid--wide" data-testid="account-slots">
+      <SlotsEditor />
     </div>
   )
 }

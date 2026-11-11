@@ -12042,6 +12042,12 @@ definitions:
       title:
         type: string
     type: object
+  schema.PagesCompact:
+    properties:
+      width:
+        description: Width is the width of the tile in CSS pixels, 72 to 220.
+        type: integer
+    type: object
   schema.PagesConsent:
     properties:
       allowed_at:
@@ -12049,6 +12055,11 @@ definitions:
           The version you allowed: when, and the size of its index.html and
           page.json and the lines of its index.html, to say what changed.
         type: string
+      embed:
+        description: |-
+          Embed is true when you also allowed this version to run on Home and in
+          the slots of the app (ui.json slots), where it starts without a click.
+        type: boolean
       lines:
         type: integer
       meta_size:
@@ -12062,6 +12073,11 @@ definitions:
     type: object
   schema.PagesConsentRequest:
     properties:
+      embed:
+        description: |-
+          Embed also allows the version on Home and in the slots of the app. It
+          is a lasting consent: it cannot go with once.
+        type: boolean
       hash:
         type: string
       once:
@@ -12069,6 +12085,8 @@ definitions:
     type: object
   schema.PagesConsentResponse:
     properties:
+      embed:
+        type: boolean
       expires:
         type: string
       hash:
@@ -12270,6 +12288,13 @@ definitions:
     type: object
   schema.PagesWidget:
     properties:
+      compact:
+        allOf:
+        - $ref: '#/definitions/schema.PagesCompact'
+        description: |-
+          Compact is set when the page has a layout for a slot, a strip about
+          40 px high (ui.json slots). Without it a slot shows a button that opens
+          the page.
       size:
         description: 'Size is the height of the tile: small, medium or large.'
         type: string
@@ -22046,7 +22071,10 @@ paths:
     put:
       description: 'hash is the hash you reviewed; a page that changed since is refused
         with 409. once allows one visit: the answer has a token that the bridge calls
-        of that visit send. Each consent and revoke is audited.'
+        of that visit send. embed is a lasting consent that also lets the version
+        run on Home and in the slots of ui.json, where it starts without a click;
+        it cannot go with once (400). A lasting consent to the same version keeps
+        embed. Each consent and revoke is audited.'
       parameters:
       - description: shared folder id
         in: path

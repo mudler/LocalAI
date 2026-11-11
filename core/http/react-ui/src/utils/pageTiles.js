@@ -2,9 +2,12 @@
 // runs a page of the workspace in its compact mode. No React, no network, no
 // DOM here; the tile component and the unit tests use the same functions.
 
-// The server takes at most this many page widgets in home.json, and Home keeps
-// at most this many frames alive at once.
+// The server takes at most this many page widgets in home.json.
 export const MAX_PAGE_TILES = 3
+// The whole app keeps at most this many page frames alive at once: the tiles
+// on Home, the tiles in the slots of ui.json and, later, the dock. Each one
+// runs a page's script, so the rest show as static cards that run on a click.
+export const MAX_LIVE_FRAMES = 8
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
 
@@ -33,12 +36,15 @@ export function tileTitle(w, page) {
 //   missing     no such page, or the user cannot read it any more
 //   noWidget    the page exists but its page.json has no widget block
 //   needsAllow  a shared page whose current version the viewer has not allowed
+//               to run on Home and in the slots (the embed consent)
 //   off         an administrator turned shared pages off
 //   error       the read failed for another reason (Retry)
 //   ready       the page runs
 //
-// read is {loading, error, page, consent} where error carries the HTTP status
-// and the error type of the server.
+// read is {loading, error, page, consent, embed} where error carries the HTTP
+// status and the error type of the server. A tile starts its page without a
+// click, so a shared page needs the viewer's consent for that too (embed), not
+// only the consent that lets them open it.
 export function tileState(read) {
   if (!read || read.loading) return 'loading'
   const e = read.error
@@ -51,8 +57,17 @@ export function tileState(read) {
   const p = read.page
   if (!p) return 'missing'
   if (!p.widget) return 'noWidget'
-  if (p.source === 'shared' && read.consent !== 'allowed') return 'needsAllow'
+  if (p.source === 'shared' && (read.consent !== 'allowed' || read.embed !== true)) return 'needsAllow'
   return 'ready'
+}
+
+// compactOf is the compact tile of a page in a slot, {width}, or null when the
+// page has no layout for a strip and shows as a button that opens it.
+export function compactOf(page) {
+  const c = page?.widget?.compact
+  if (!c || typeof c !== 'object') return null
+  const w = Number.isFinite(c.width) ? Math.round(c.width) : 120
+  return { width: Math.min(220, Math.max(72, w)) }
 }
 
 // tilePagePath is the route of the full page.
@@ -85,7 +100,8 @@ export const refKey = (ref) => (ref ? (ref.folder ? `${ref.folder}/${ref.name}` 
 // makes its frame only once it scrolls into view; a frame that scrolls a long
 // way off (out of the near margin) is taken down, and one that is near but out
 // of sight, or in a hidden tab, stays and hears that it is not visible so the
-// page can pause. Home keeps at most MAX_PAGE_TILES frames alive.
+// page can pause. The app keeps at most MAX_LIVE_FRAMES frames alive, for the
+// Home tiles and the slots together (liveFrames).
 //
 //   prev      {alive, visible} of the frame now
 //   inView    the tile is on screen
@@ -105,22 +121,45 @@ export function nextFrame(prev, { inView, near, hidden, slot }) {
 // createFrameSlots hands out at most max frame slots. A tile that gets none
 // waits; a release tells the waiting tiles (subscribe), and the first of them
 // to ask again gets the slot.
-export function createFrameSlots(max = MAX_PAGE_TILES) {
-  const held = new Set()
+//
+// take is the click on a static card: it gets a slot even when all are held,
+// by stopping the frame that started first (its onEvict is called; it shows
+// as a static card again). A holder can be evicted only once it passed its
+// onEvict to acquire or take.
+export function createFrameSlots(max = MAX_LIVE_FRAMES) {
+  const held = new Map() // id -> onEvict, in the order the slots were taken
   const listeners = new Set()
+  const wake = () => { for (const fn of [...listeners]) fn() }
   return {
-    acquire(id) {
-      if (held.has(id)) return true
+    acquire(id, onEvict) {
+      if (held.has(id)) {
+        if (onEvict) held.set(id, onEvict)
+        return true
+      }
       if (held.size >= max) return false
-      held.add(id)
+      held.set(id, onEvict || null)
+      return true
+    },
+    take(id, onEvict) {
+      if (held.has(id)) return true
+      if (held.size >= max) {
+        const victim = [...held.entries()].find(([, fn]) => typeof fn === 'function')
+        if (!victim) return false
+        held.delete(victim[0])
+        held.set(id, onEvict || null)
+        victim[1]()
+        return true
+      }
+      held.set(id, onEvict || null)
       return true
     },
     release(id) {
       if (!held.delete(id)) return
-      for (const fn of [...listeners]) fn()
+      wake()
     },
     holds: (id) => held.has(id),
     held: () => held.size,
+    max: () => max,
     subscribe(fn) {
       listeners.add(fn)
       return () => listeners.delete(fn)

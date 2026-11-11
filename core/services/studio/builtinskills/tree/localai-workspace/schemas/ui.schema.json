@@ -164,6 +164,72 @@
       },
       "x-ui": { "widget": "voice" }
     },
+    "slots": {
+      "type": "object",
+      "title": "Slots",
+      "description": "Small places of the app that show your page tiles, tool buttons and commands, drawn left to right: chatHeader (at most 4, the bar over a chat), sidebarFooter (at most 3, the foot of the sidebar), composerToolbar (at most 6, beside the attach button). A slot is about 40 px high: a page whose widget block has compact runs in that strip; another page is a button that opens it.",
+      "properties": {
+        "chatHeader": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {"enum": ["page", "tool", "command"], "description": "page: a page tile; tool: a button that runs one tool after you approve it; command: one of your commands."},
+              "page": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "type page: the folder name of the page under pages/."},
+              "folder": {"type": "integer", "minimum": 1, "description": "type page: the id of the shared folder of the page; leave it out for a page of your home."},
+              "tool": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$", "description": "type tool: the name of a tool you have."},
+              "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
+              "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
+              "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
+              "command": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$", "description": "type command: the name of one of your commands, without the slash."}
+            },
+            "additionalProperties": false
+          }
+        },
+        "sidebarFooter": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {"enum": ["page", "tool", "command"], "description": "page: a page tile; tool: a button that runs one tool after you approve it; command: one of your commands."},
+              "page": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "type page: the folder name of the page under pages/."},
+              "folder": {"type": "integer", "minimum": 1, "description": "type page: the id of the shared folder of the page; leave it out for a page of your home."},
+              "tool": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$", "description": "type tool: the name of a tool you have."},
+              "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
+              "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
+              "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
+              "command": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$", "description": "type command: the name of one of your commands, without the slash."}
+            },
+            "additionalProperties": false
+          }
+        },
+        "composerToolbar": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {"enum": ["page", "tool", "command"], "description": "page: a page tile; tool: a button that runs one tool after you approve it; command: one of your commands."},
+              "page": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "type page: the folder name of the page under pages/."},
+              "folder": {"type": "integer", "minimum": 1, "description": "type page: the id of the shared folder of the page; leave it out for a page of your home."},
+              "tool": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$", "description": "type tool: the name of a tool you have."},
+              "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
+              "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
+              "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
+              "command": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$", "description": "type command: the name of one of your commands, without the slash."}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-ui": { "widget": "slots", "hidden": true }
+    },
     "pinnedPages": {
       "type": "array",
       "description": "Pages shown in the sidebar. Pages come in a later release.",

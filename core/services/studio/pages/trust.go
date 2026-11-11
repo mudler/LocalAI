@@ -49,6 +49,9 @@ func (t *Trust) WithNow(now func() time.Time) *Trust { t.now = now; return t }
 type Review struct {
 	State   string
 	Allowed *Consent // the lasting consent, when there is one
+	// Embed is true when the viewer allowed this version on Home and in the
+	// slots too (AllowEmbed).
+	Embed bool
 }
 
 // State says whether the viewer allowed the current version of p.
@@ -61,15 +64,29 @@ func (t *Trust) State(ctx context.Context, principal string, p Page) (Review, er
 	case !ok:
 		return Review{State: StateNone}, nil
 	case c.Hash == p.Hash:
-		return Review{State: StateAllowed, Allowed: &c}, nil
+		return Review{State: StateAllowed, Allowed: &c, Embed: c.Embed}, nil
 	}
 	return Review{State: StateChanged, Allowed: &c}, nil
 }
 
 // Allow records the viewer's consent to the version hash of a shared page,
 // for good (once false) or for one visit (once true, whose token the result
-// carries). The hash must be the page's current one.
+// carries). The hash must be the page's current one. A lasting consent keeps
+// the Home and slot consent (AllowEmbed) of the same version.
 func (t *Trust) Allow(ctx context.Context, principal string, folderID int64, name, hash string, once bool) (Consent, error) {
+	return t.allow(ctx, principal, folderID, name, hash, once, false)
+}
+
+// AllowEmbed records a lasting consent to the version hash of a shared page
+// that also lets it run on Home and in the slots of the app (ui.json slots).
+// There a page starts as soon as the screen shows, without a click, so the
+// viewer says yes to that apart from opening the page. A changed page needs a
+// new consent, as for Allow.
+func (t *Trust) AllowEmbed(ctx context.Context, principal string, folderID int64, name, hash string) (Consent, error) {
+	return t.allow(ctx, principal, folderID, name, hash, false, true)
+}
+
+func (t *Trust) allow(ctx context.Context, principal string, folderID int64, name, hash string, once, embed bool) (Consent, error) {
 	p, html, err := t.pages.SharedSource(ctx, principal, folderID, name)
 	if err != nil {
 		return Consent{}, err
@@ -81,14 +98,25 @@ func (t *Trust) Allow(ctx context.Context, principal string, folderID int64, nam
 	c := Consent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Kind: ConsentAlways,
 		Size: p.Size, MetaSize: p.MetaSize, Lines: strings.Count(html, "\n") + 1, At: now}
 	action := "allow"
-	if once {
+	switch {
+	case once:
 		c.Kind, c.Token, c.Expires, action = ConsentOnce, NewToken(), now.Add(OnceTTL), "allow_once"
+	case embed:
+		c.Embed, action = true, "allow_embed"
+	default:
+		// Allowing the same version again keeps its consent for Home and
+		// the slots: the viewer already said yes to this code there.
+		prev, ok, err := t.store.Always(ctx, principal, p.PageID)
+		if err != nil {
+			return Consent{}, err
+		}
+		c.Embed = ok && prev.Embed && prev.Hash == p.Hash
 	}
 	ev := ConsentEvent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Action: action, At: now}
 	if err := t.store.Put(ctx, c, ev); err != nil {
 		return Consent{}, err
 	}
-	xlog.Info("pages: a shared page was allowed", "user", principal, "folder", p.Folder, "page", p.Name, "hash", p.Hash, "kind", c.Kind)
+	xlog.Info("pages: a shared page was allowed", "user", principal, "folder", p.Folder, "page", p.Name, "hash", p.Hash, "kind", c.Kind, "embed", c.Embed)
 	return c, nil
 }
 

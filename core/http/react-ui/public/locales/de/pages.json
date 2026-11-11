@@ -122,7 +122,13 @@
     "sourceTitle": "Quelltext von „{{title}}“",
     "sourceLines_one": "{{count}} Zeile",
     "sourceLines_other": "{{count}} Zeilen",
-    "sourceNote": "Der Quelltext wird als Text gezeigt. Nichts davon läuft hier."
+    "sourceNote": "Der Quelltext wird als Text gezeigt. Nichts davon läuft hier.",
+    "embed": {
+      "desc": "Du hast erlaubt, diese Seite zu öffnen. Auf der Startseite und in einem Slot läuft sie, sobald der Bildschirm erscheint, ohne Klick. Dafür braucht sie eine eigene Zustimmung.",
+      "item": "Auf der Startseite und in den Slots der App laufen",
+      "note": "Sie startet, sobald der Bildschirm erscheint, ohne Klick. Eine Änderung durch die Autorin oder den Autor fragt erneut.",
+      "allow": "Auf der Startseite oder in einem Slot erlauben"
+    }
   },
   "frame": {
     "filesFailed": "Dateien neben dieser Seite wurden nicht geladen: {{files}}. Die Browserkonsole nennt den Grund.",

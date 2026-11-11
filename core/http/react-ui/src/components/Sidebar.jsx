@@ -27,6 +27,7 @@ import SidebarNavLink from './SidebarNavLinks'
 import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
 import { sections as navSections, entryLabel } from '../utils/nav'
 import { useUiString } from './wellknown/Identity'
+import WorkspaceSlot from './slots/WorkspaceSlot'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -387,6 +388,10 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
             />
           </nav>
         )}
+
+        {/* The sidebarFooter slot of ui.json: page tiles and tool buttons.
+            A collapsed sidebar has no room for them. */}
+        {!collapsed && <WorkspaceSlot name="sidebarFooter" />}
 
         {/* Footer */}
         <div className="sidebar-footer">

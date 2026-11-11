@@ -155,11 +155,29 @@ const (
 	maxWidgetTitle = 60
 )
 
+// The width of a compact tile in a slot, in CSS pixels: a slot is about 40 px
+// high, so the width is the only room a page can ask for.
+const (
+	CompactWidthMin     = 72
+	CompactWidthDefault = 120
+	CompactWidthMax     = 220
+)
+
 // Widget is the "widget" block of page.json: the page can be a tile on Home,
 // where it runs in its compact mode at Size.
 type Widget struct {
 	Size  string // WidgetSmall, WidgetMedium or WidgetLarge
 	Title string // optional short title of the tile
+	// Compact is set when the page also has a layout for a slot (the chat
+	// header, the sidebar footer, the composer toolbar): a strip about 40 px
+	// high. Without it a slot shows the page as a button that opens it.
+	Compact *Compact
+}
+
+// Compact is the "compact" entry of the widget block: true, or an object with
+// the width the tile wants.
+type Compact struct {
+	Width int // CSS pixels, CompactWidthMin to CompactWidthMax
 }
 
 // ValidWidgetSize says whether s is a widget size.
@@ -453,8 +471,9 @@ func parseWidget(raw json.RawMessage) *Widget {
 		return nil
 	}
 	var w struct {
-		Size  any `json:"size"`
-		Title any `json:"title"`
+		Size    any             `json:"size"`
+		Title   any             `json:"title"`
+		Compact json.RawMessage `json:"compact"`
 	}
 	if raw[0] != '{' || json.Unmarshal(raw, &w) != nil {
 		return nil
@@ -465,6 +484,33 @@ func parseWidget(raw json.RawMessage) *Widget {
 	}
 	if title, ok := w.Title.(string); ok {
 		out.Title = clip(title, maxWidgetTitle)
+	}
+	out.Compact = parseCompact(w.Compact)
+	return out
+}
+
+// parseCompact reads the compact entry of the widget block: true or an object
+// makes the page a compact tile, anything else does not. A width out of its
+// bounds is clamped, so a typo still shows a tile.
+func parseCompact(raw json.RawMessage) *Compact {
+	raw = bytes.TrimSpace(raw)
+	switch {
+	case len(raw) == 0:
+		return nil
+	case bytes.Equal(raw, []byte("true")):
+		return &Compact{Width: CompactWidthDefault}
+	case raw[0] != '{':
+		return nil
+	}
+	var c struct {
+		Width any `json:"width"`
+	}
+	if json.Unmarshal(raw, &c) != nil {
+		return nil
+	}
+	out := &Compact{Width: CompactWidthDefault}
+	if w, ok := c.Width.(float64); ok {
+		out.Width = min(max(int(w), CompactWidthMin), CompactWidthMax)
 	}
 	return out
 }

@@ -422,6 +422,94 @@
       "yoursFor": "Ihr Text für {{key}}",
       "same": "Wie Standard",
       "hint": "Behalten Sie die Platzhalter eines Textes, etwa {model}. Ein falscher wird vor dem Speichern markiert. Ein leeres Feld behält den Standard."
+    },
+    "frames": {
+      "stopped": "Diese Seite wurde angehalten",
+      "why": {
+        "busy": "Sie hat den Computer zu lange beschäftigt (mehr als 3 Sekunden Arbeit in 10 Sekunden).",
+        "silent": "Sie hat mehr als 5 Sekunden nicht geantwortet.",
+        "noStart": "Sie ist nicht innerhalb von 10 Sekunden gestartet.",
+        "navigated": "Sie hat versucht, ihren Rahmen zu verlassen."
+      },
+      "capped": "Pausiert: In der App laufen höchstens {{max}} Seiten gleichzeitig.",
+      "run": "Starten"
+    },
+    "slots": {
+      "title": "Slots",
+      "lede": "Kleine Stellen der App, die deine Seitenkacheln, Werkzeug-Buttons und Befehle von links nach rechts zeigen. Sie verdecken nie den Titel, das Modell oder die Einstellungen.",
+      "where": "Wo die Slots sind",
+      "map": "Karte der Slots",
+      "editing": "Wird bearbeitet",
+      "count": "{{count}} von {{max}}",
+      "names": {
+        "chatHeader": "Chat-Kopfzeile",
+        "sidebarFooter": "Fuß der Seitenleiste",
+        "composerToolbar": "Leiste des Eingabefelds"
+      },
+      "badge": {
+        "chatHeader": "In der Chat-Kopfzeile",
+        "sidebarFooter": "In der Seitenleiste",
+        "composerToolbar": "Im Eingabefeld"
+      },
+      "hint": {
+        "chatHeader": "Die Leiste über jedem Chat. Eine Seite mit kompaktem Layout läuft in einem 40 px hohen Streifen; ein Klick öffnet sie als Karte unter der Kachel.",
+        "sidebarFooter": "Der Fuß der Seitenleiste, auf jedem Bildschirm. Eine eingeklappte Seitenleiste blendet ihn aus.",
+        "composerToolbar": "Neben dem Anhängen-Button des Eingabefelds. Gut für Werkzeug-Buttons."
+      },
+      "empty": "Noch nichts hier. Füge eine Seitenkachel, einen Werkzeug-Button oder einen Befehl hinzu.",
+      "addItem": "Element hinzufügen",
+      "full": "Dieser Slot ist voll ({{max}} Elemente).",
+      "incomplete": "Fülle jedes neue Element aus, bevor du speicherst: eine Seite, ein Werkzeug mit Text oder einen Befehl.",
+      "add": {
+        "page": "Seitenkachel",
+        "pageHint": "Eine eigene oder mit dir geteilte Seite",
+        "tool": "Werkzeug-Button",
+        "toolHint": "Führt ein Werkzeug aus, fragt vorher",
+        "command": "Befehl",
+        "commandHint": "Einer deiner Befehle"
+      },
+      "kind": {
+        "tool": "Werkzeug-Button, fragt vorher",
+        "command": "Befehl",
+        "pageMissing": "Seite nicht gefunden",
+        "pageCompact": "Seitenkachel, kompakt",
+        "pageButton": "Seite, öffnet sich per Klick"
+      },
+      "form": {
+        "page": "Seite",
+        "pickPage": "Seite wählen",
+        "shared": "geteilt",
+        "pageHint": "Eine Seite mit kompaktem Layout läuft im Slot. Jede andere Seite ist ein Button, der sie öffnet.",
+        "tool": "Name des Werkzeugs",
+        "arguments": "Feste Argumente (optional)",
+        "argumentsHint": "Namen mit einfachen Werten, höchstens {{max}}: Text, Zahlen, true oder false, wie im Beispiel.",
+        "argumentsBad": "Ungültig: Schreibe Namen mit einfachen Werten wie im Beispiel, höchstens {{max}}.",
+        "command": "Name des Befehls",
+        "commandHint": "Ohne Schrägstrich. Befehle erscheinen hier, sobald es sie gibt.",
+        "label": "Text (optional)",
+        "labelNeeded": "Text des Buttons",
+        "icon": "Symbol (optional)"
+      },
+      "tool": {
+        "title": "Führt das Werkzeug {{tool}} aus, nachdem du zugestimmt hast",
+        "confirmTitle": "{{label}} ausführen?",
+        "confirmChat": "Das sendet eine Nachricht an diesen Chat, die den Assistenten bittet, dieses Werkzeug auszuführen:",
+        "confirmDraft": "Das öffnet einen neuen Chat mit einer Nachricht, die den Assistenten bittet, dieses Werkzeug auszuführen. Du sendest sie.",
+        "tool": "Werkzeug",
+        "arguments": "Argumente",
+        "stillAsks": "Braucht das Werkzeug deine Zustimmung, fragt der Chat trotzdem danach.",
+        "run": "Ausführen"
+      },
+      "tile": {
+        "missing": "Die Seite {{name}} gibt es nicht mehr. Ändere die Slots in deinen Einstellungen.",
+        "off": "Geteilte Seiten sind auf diesem Server ausgeschaltet.",
+        "error": "Die Seite {{name}} konnte nicht gelesen werden. Ändere die Slots in deinen Einstellungen.",
+        "open": "{{title}} öffnen",
+        "allow": "{{title}} hier laufen lassen",
+        "expand": "{{title}} zeigen",
+        "close": "{{title}} schließen",
+        "sandboxed": "Abgeschottet, ohne Netzwerk"
+      }
     }
   },
   "discovery": {

@@ -422,6 +422,94 @@
       "yoursFor": "Votre texte pour {{key}}",
       "same": "Comme par défaut",
       "hint": "Gardez les espaces réservés d'un texte, comme {model}. Une erreur est signalée avant l'enregistrement. Une zone vide garde le texte par défaut."
+    },
+    "frames": {
+      "stopped": "Cette page a été arrêtée",
+      "why": {
+        "busy": "Elle a occupé l'ordinateur trop longtemps (plus de 3 secondes de travail sur 10 secondes).",
+        "silent": "Elle n'a plus répondu pendant plus de 5 secondes.",
+        "noStart": "Elle n'a pas démarré en 10 secondes.",
+        "navigated": "Elle a essayé de quitter son cadre."
+      },
+      "capped": "En pause : l'app exécute au plus {{max}} pages à la fois.",
+      "run": "Lancer"
+    },
+    "slots": {
+      "title": "Emplacements",
+      "lede": "De petites zones de l'app qui affichent vos tuiles de pages, boutons d'outils et commandes, de gauche à droite. Elles ne masquent jamais le titre, le modèle ni les réglages.",
+      "where": "Où sont les emplacements",
+      "map": "Plan des emplacements",
+      "editing": "En cours de modification",
+      "count": "{{count}} sur {{max}}",
+      "names": {
+        "chatHeader": "En-tête du chat",
+        "sidebarFooter": "Pied de la barre latérale",
+        "composerToolbar": "Barre du message"
+      },
+      "badge": {
+        "chatHeader": "Dans l'en-tête du chat",
+        "sidebarFooter": "Dans la barre latérale",
+        "composerToolbar": "Dans le message"
+      },
+      "hint": {
+        "chatHeader": "La barre au-dessus de chaque chat. Une page avec une mise en page compacte s'exécute dans une bande de 40 px de haut ; un clic l'ouvre en carte sous la tuile.",
+        "sidebarFooter": "Le pied de la barre latérale, sur chaque écran. Une barre repliée le masque.",
+        "composerToolbar": "À côté du bouton de pièce jointe de la zone de message. Idéal pour les boutons d'outils."
+      },
+      "empty": "Rien ici pour l'instant. Ajoutez une tuile de page, un bouton d'outil ou une commande.",
+      "addItem": "Ajouter un élément",
+      "full": "Cet emplacement est plein ({{max}} éléments).",
+      "incomplete": "Complétez chaque nouvel élément avant d'enregistrer : une page, un outil et son texte, ou une commande.",
+      "add": {
+        "page": "Tuile de page",
+        "pageHint": "Une page à vous ou partagée avec vous",
+        "tool": "Bouton d'outil",
+        "toolHint": "Exécute un outil, demande d'abord",
+        "command": "Commande",
+        "commandHint": "Une de vos commandes"
+      },
+      "kind": {
+        "tool": "Bouton d'outil, demande d'abord",
+        "command": "Commande",
+        "pageMissing": "Page introuvable",
+        "pageCompact": "Tuile de page, compacte",
+        "pageButton": "Page, s'ouvre au clic"
+      },
+      "form": {
+        "page": "Page",
+        "pickPage": "Choisir une page",
+        "shared": "partagée",
+        "pageHint": "Une page avec une mise en page compacte s'exécute dans l'emplacement. Les autres pages sont un bouton qui les ouvre.",
+        "tool": "Nom de l'outil",
+        "arguments": "Arguments fixes (facultatif)",
+        "argumentsHint": "Des noms avec des valeurs simples, au plus {{max}} : texte, nombres, true ou false, comme dans l'exemple.",
+        "argumentsBad": "Non valide : écrivez des noms avec des valeurs simples, comme dans l'exemple, au plus {{max}}.",
+        "command": "Nom de la commande",
+        "commandHint": "Sans la barre oblique. Les commandes s'affichent ici dès qu'elles existent.",
+        "label": "Texte (facultatif)",
+        "labelNeeded": "Texte du bouton",
+        "icon": "Icône (facultatif)"
+      },
+      "tool": {
+        "title": "Exécute l'outil {{tool}} après votre accord",
+        "confirmTitle": "Exécuter {{label}} ?",
+        "confirmChat": "Cela envoie à ce chat un message qui demande à l'assistant d'exécuter cet outil :",
+        "confirmDraft": "Cela ouvre un nouveau chat avec un message qui demande à l'assistant d'exécuter cet outil. C'est vous qui l'envoyez.",
+        "tool": "Outil",
+        "arguments": "Arguments",
+        "stillAsks": "Si l'outil demande votre accord, le chat le demande quand même.",
+        "run": "Exécuter"
+      },
+      "tile": {
+        "missing": "La page {{name}} n'existe plus. Modifiez les emplacements dans vos réglages.",
+        "off": "Les pages partagées sont désactivées sur ce serveur.",
+        "error": "Impossible de lire la page {{name}}. Modifiez les emplacements dans vos réglages.",
+        "open": "Ouvrir {{title}}",
+        "allow": "Autoriser {{title}} à s'exécuter ici",
+        "expand": "Afficher {{title}}",
+        "close": "Fermer {{title}}",
+        "sandboxed": "Isolée, sans réseau"
+      }
     }
   },
   "discovery": {

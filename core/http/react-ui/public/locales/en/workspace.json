@@ -520,6 +520,94 @@
       "yoursFor": "Your text for {{key}}",
       "same": "Same as default",
       "hint": "Keep the placeholders of a text, such as {model}. A wrong one is flagged before you save. An empty box keeps the default."
+    },
+    "frames": {
+      "stopped": "This page was stopped",
+      "why": {
+        "busy": "It kept the computer busy for too long (more than 3 seconds of work in 10 seconds).",
+        "silent": "It stopped answering for more than 5 seconds.",
+        "noStart": "It did not start within 10 seconds.",
+        "navigated": "It tried to leave its frame."
+      },
+      "capped": "Paused: at most {{max}} pages run at once in the app.",
+      "run": "Run"
+    },
+    "slots": {
+      "title": "Slots",
+      "lede": "Small places of the app that show your page tiles, tool buttons and commands, from left to right. They never hide the title, the model or the settings.",
+      "where": "Where the slots are",
+      "map": "Map of the slots",
+      "editing": "Editing",
+      "count": "{{count}} of {{max}}",
+      "names": {
+        "chatHeader": "Chat header",
+        "sidebarFooter": "Sidebar footer",
+        "composerToolbar": "Composer toolbar"
+      },
+      "badge": {
+        "chatHeader": "In the chat header",
+        "sidebarFooter": "In the sidebar",
+        "composerToolbar": "In the composer"
+      },
+      "hint": {
+        "chatHeader": "The bar over every chat. A page with a compact layout runs in a strip 40 px high; a click opens it as a card under the tile.",
+        "sidebarFooter": "The foot of the sidebar, on every screen. A collapsed sidebar hides it.",
+        "composerToolbar": "Beside the attach button of the message box. Good for tool buttons."
+      },
+      "empty": "Nothing here yet. Add a page tile, a tool button or a command.",
+      "addItem": "Add item",
+      "full": "This slot is full ({{max}} items).",
+      "incomplete": "Fill in each new item before you save: a page, or a tool and its text, or a command.",
+      "add": {
+        "page": "Page tile",
+        "pageHint": "A page you made or were shared",
+        "tool": "Tool button",
+        "toolHint": "Runs one tool, asks first",
+        "command": "Command",
+        "commandHint": "One of your commands"
+      },
+      "kind": {
+        "tool": "Tool button, asks first",
+        "command": "Command",
+        "pageMissing": "Page not found",
+        "pageCompact": "Page tile, compact",
+        "pageButton": "Page, opens when clicked"
+      },
+      "form": {
+        "page": "Page",
+        "pickPage": "Choose a page",
+        "shared": "shared",
+        "pageHint": "A page with a compact layout runs in the slot. Any other page shows as a button that opens it.",
+        "tool": "Tool name",
+        "arguments": "Fixed arguments (optional)",
+        "argumentsHint": "Names with plain values, at most {{max}}: text, numbers, true or false, as in the example.",
+        "argumentsBad": "Not valid: write names with plain values, as in the example, at most {{max}}.",
+        "command": "Command name",
+        "commandHint": "Without the slash. Commands show here once they exist.",
+        "label": "Text (optional)",
+        "labelNeeded": "Text of the button",
+        "icon": "Icon (optional)"
+      },
+      "tool": {
+        "title": "Runs the tool {{tool}} after you approve it",
+        "confirmTitle": "Run {{label}}?",
+        "confirmChat": "This sends a message to this chat that asks the assistant to run this tool:",
+        "confirmDraft": "This opens a new chat with a message that asks the assistant to run this tool. You send it.",
+        "tool": "Tool",
+        "arguments": "Arguments",
+        "stillAsks": "If the tool needs your approval, the chat still asks for it.",
+        "run": "Run"
+      },
+      "tile": {
+        "missing": "The page {{name}} is gone. Change the slots in your settings.",
+        "off": "Shared pages are off on this server.",
+        "error": "The page {{name}} could not be read. Change the slots in your settings.",
+        "open": "Open {{title}}",
+        "allow": "Allow {{title}} to run here",
+        "expand": "Show {{title}}",
+        "close": "Close {{title}}",
+        "sandboxed": "Sandboxed, no network"
+      }
     }
   },
   "discovery": {

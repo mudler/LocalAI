@@ -7,7 +7,7 @@ description: Use to personalise LocalAI for the user - persona, profile, shortcu
 
 Do the work with files, but talk to the user in plain words: say what changed ("I saved your shortcuts", "I added a Reading list page", "Home now shows your open tasks"), not file names, folders, formats or JSON. Name a file only if the user named it or asks where something is, or when you give them a file as a result (a document they asked for).
 
-A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/LocalAI/`) change LocalAI for this user. LocalAI reads them; the settings pages edit the same files. Use these paths: a settings file at the top of the home is in the old place, and LocalAI moves it into `LocalAI/`. Write them with your file tools. Each has a JSON Schema in the `schemas/` folder of this skill, `/workspace/shared-builtin-skills/localai-workspace/schemas/`: read it with read_file before you write, and keep to it. A file that breaks its schema is ignored and LocalAI uses its last good version, so check your JSON.
+A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/LocalAI/`) change LocalAI for this user. LocalAI reads them; the settings pages edit the same files. Use these paths: a settings file at the top of the home is in the old place, and LocalAI moves it into `LocalAI/`. Each has a JSON Schema in the `schemas/` folder of this skill, `/workspace/shared-builtin-skills/localai-workspace/schemas/`: read it with read_file before you write, and keep to it. A file that breaks its schema is ignored and LocalAI uses its last good version, so check your JSON.
 
 | File | What it does |
 |---|---|
@@ -16,8 +16,8 @@ A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/L
 | `LocalAI/shortcuts.json` | `{"shortcuts": [{label, prompt, icon?, send?}]}`: the prompts above the composer. Without it the chat shows its default starters. |
 | `LocalAI/setups.json` | `{"default"?, "setups": [{id, name, model?, effort?, tools}]}`: named starting points for a new chat (`tools` lists names switched off or on); `default` is the `id` a new chat starts with. No prompt, no files. Limits and values: its schema. |
 | `LocalAI/defaults.json` | The model for each kind of work (a model name, `"ask"` or `null`). See "Default models". |
-| `LocalAI/home.json` | `{"headline"?, "widgets": [{id, type, title, size?, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `size` is `s` (one column), `m` (two) or `l` (full row); a page widget defaults to its `widget.size`. `headline` replaces the greeting at the top. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
-| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground`, `chatBackground` (see "Backgrounds"), `strings` (own text for a few labels), `sound` and `voice`. |
+| `LocalAI/home.json` | `{"headline"?, "widgets": [{id, type, title, size?, source?, trigger?, page?, folder?}]}`: the Home page, at most 12 widgets. `size`: `s`, `m` or `l` (one column, two, full row); a page defaults to its `widget.size`. `headline` replaces the greeting at the top. `type` is `list`, `metric`, `chats` or `page`. LocalAI sets `trigger`. A `page` widget names a page (`page`, its folder name; `folder` only for a shared folder), may leave out `title`; at most 3. |
+| `LocalAI/ui.json` | `theme` (`dark`, `light`, `system`), `accent` (`#rrggbb`), `density` (`comfortable`, `compact`), `look`, `homeBackground`, `chatBackground` (see "Backgrounds"), `strings` (own text for a few labels), `sound`, `voice` and `slots` (see "Slots"). |
 | `LocalAI/nav.json` | the sidebar order, names, groups and links (see "Sidebar"). |
 | `LocalAI/commands.json` | `{"commands": [{name, description, type, template?, args?, tool?}]}`: the user's slash commands (see "Commands, sound, voice"). |
 
@@ -38,9 +38,13 @@ Rules:
 - `commands.json`: a `prompt` command (`template` with `{{arg}}`, each listed in `args` with a default) fills the message box; a `tool` command names a tool the user has and only asks you to use it. The user reads the text and sends it. A command has no system prompt. A name is lowercase, unique and not built in (`x-reserved-names`).
 - `ui.json` `sound` (off unless `enabled`) and `voice` (`readAloud` off, button or auto): ranges in the schema. Replies read aloud go to the `tts` default of `defaults.json`; if it is not local, say so.
 
+## Slots
+
+`LocalAI/ui.json` `slots`: `chatHeader`, `sidebarFooter`, `composerToolbar`: lists of `page`, `tool` or `command` items (fields and caps: the schema). A page runs in the 40 px strip only if its widget block has `"compact": true` (`localai-apps`, "On Home"); else it is a button that opens it. A tool button asks the user before it runs.
+
 ## Backgrounds
 
-`homeBackground` in `LocalAI/ui.json` sets what is behind the Home page; `chatBackground` sets what is behind the chat view (the messages and the message box). Each changes only its own page, and they are independent: set one, both or none. Both are an object of the same shape; every key is optional, and layers stack as picture over gradient over colour:
+`homeBackground` (behind Home) and `chatBackground` (behind the chat view) in `LocalAI/ui.json` are independent: set one, both or none. Same shape, every key optional; layers stack picture over gradient over colour:
 
 ```json
 {"homeBackground": {"image": "Pictures/sky.jpg", "fit": "cover", "opacity": 0.9, "blur": 4, "overlay": 0.4}}
@@ -49,10 +53,9 @@ Rules:
 ```
 
 - `color`, `gradient` (`from`, `to`, `angle`), `fit`, `opacity`, `blur`, `overlay`: values and ranges in `schemas/ui.schema.json`. Write no CSS.
-- `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`, not `/Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, no address (`https://`, `data:`), no backslash. The picture is read with the user's own rights, so a path they cannot read shows nothing. Check the file exists first.
-- `overlay` is a veil in the theme colour that keeps text readable; raise it for a busy or bright picture.
+- `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`, not `/Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, no address (`https://`, `data:`), no backslash. A path the user cannot read shows nothing; check the file exists first.
+- Raise `overlay` (a veil, 0 to 1) for a busy or bright picture.
 - To remove a background, delete its key (a save with `null` does the same).
-- A file that breaks these rules is not used; pages keep the last good version. Keep the other keys of `ui.json`.
 
 ## Default models
 
@@ -97,11 +100,11 @@ A metric uses `value`, `note` and `series` (numbers for a small line). A `chats`
 
 LocalAI runs a trigger as the user: a new chat that gets the trigger's prompt, on a schedule or when a file arrives in a folder. You never create a trigger yourself. You propose it with `propose_trigger`, a card shows the user what it does, and nothing runs until they press Create trigger. Never say a trigger is on before they do. A run that nobody watches only reads unless the proposal lists `acts` (`act.files`, `act.addons`, `act.send`, `act.spend`); ask for the fewest the task needs, only ones you hold, and tell the user which you asked for. Nothing changes them after the user confirms. To change a trigger the user has, call `list_triggers` for its `ref`, then `update_trigger` or `delete_trigger`: an edit or a delete waits for the user to press Apply or Delete on its card, so never say it is done before they do; a change that only pauses or resumes applies at once and the user can undo it.
 
-Every proposal fills `reads` (a few words), `writes` (the data file), `widget` (the id of the widget in `LocalAI/home.json`) and `estimated_tokens` (one run: its prompt, what it reads, and the answer; a run that reads a day of mail is about 1,500 tokens). The card shows them, with the cost and how to stop it. When the user confirms, LocalAI writes the trigger's id into the widget as `trigger`, and the widget shows when it runs, its last run and a Pause button.
+Every proposal fills `reads` (a few words), `writes` (the data file), `widget` (the id of the widget in `LocalAI/home.json`) and `estimated_tokens` (one run: its prompt, what it reads, and the answer; a run that reads a day of mail is about 1,500 tokens). When the user confirms, LocalAI writes the trigger's id into the widget as `trigger`, and the widget shows when it runs, its last run and a Pause button.
 
 Costs: every run is a chat turn on the user's model, so it uses tokens and, on a remote model, sends data out. A schedule runs at most once every 5 minutes. A trigger that runs more often than hourly is switched off after 3 runs in a row that hit its daily limit, and any schedule trigger after 3 failed runs in a row. Suggest the slowest schedule that does the job (once a day is usually enough), and say what one run costs.
 
-The prompt of a run is all the run knows. Write it so it stands alone: what to read, which file to rewrite, and the widget-data shape (the run puts `source` and `note` inside that file). End it by telling the run to finish with one short plain sentence about what changed: the user reads it in the inbox and in the chat. Never ask the run for JSON as its answer; LocalAI adds the closing sentence rule to every run anyway.
+The prompt of a run is all the run knows. Write it so it stands alone: what to read, which file to rewrite, and the widget-data shape (the run puts `source` and `note` inside that file). End it by telling the run to finish with one short plain sentence about what changed: the user reads it in the inbox and in the chat. Never ask the run for JSON as its answer.
 
 **Every morning update this.**
 1. Pick the data file: the `source` of the widget the user means. With no widget, write `data/<name>.json` with today's data and add the widget to `LocalAI/home.json` (`{"id": "inbox", "type": "list", "title": "Inbox this morning", "source": "data/inbox.json"}`).

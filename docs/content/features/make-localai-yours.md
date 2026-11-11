@@ -33,6 +33,7 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | The sidebar | "Hide Agents and rename Skills to Recipes" | `LocalAI/nav.json` |
 | Your own slash commands | "Add a /standup command that writes my standup" | `LocalAI/commands.json` |
 | Sounds and reading replies aloud | "Play a chime when a reply is ready, but not at night" | `LocalAI/ui.json` |
+| Small tiles and buttons in the chat header, the sidebar or the message box | "Put the weather page in the chat header" | `LocalAI/ui.json` (`slots`) |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
 | Updates on a schedule | "Every morning, update this widget" | a trigger you confirm |
 
@@ -703,6 +704,59 @@ service (a remote model) sends the text there, and the tab says so. With `tts`
 set to `ask`, or a model that is not installed, nothing is read and the tab says
 why. Without a `tts` default, LocalAI uses the first installed text-to-speech
 model.
+
+## Slots
+
+`slots` in `LocalAI/ui.json`, edited in **Account > Slots**, puts small items
+in three places of the app, left to right:
+
+| Slot | Where | Items |
+|---|---|---|
+| `chatHeader` | The bar over a chat, before find and settings | at most 4 |
+| `sidebarFooter` | The foot of the sidebar, on every screen (hidden while the sidebar is collapsed) | at most 3 |
+| `composerToolbar` | Beside the attach button of the message box of a chat | at most 6 |
+
+```json
+{
+  "slots": {
+    "chatHeader": [
+      { "type": "page", "page": "weather" },
+      { "type": "page", "page": "standup", "folder": 4 }
+    ],
+    "sidebarFooter": [{ "type": "page", "page": "focus-timer" }],
+    "composerToolbar": [
+      { "type": "tool", "tool": "summarize_chat", "label": "Summarize chat", "icon": "sparkles", "arguments": { "words": 120 } },
+      { "type": "command", "command": "translate" }
+    ]
+  }
+}
+```
+
+An item is one of three kinds. Each kind takes only its own fields; `label`
+and `icon` are optional on all of them except that a tool button needs a
+`label`.
+
+| Item | What it does |
+|---|---|
+| `{ "type": "page", "page": "weather" }` | A page tile. A page whose `page.json` widget block has `compact` runs in the slot, in a strip about 40 px high, and a click opens it as a card under the tile, at its widget size. The card is the same frame: the page is told its new size and is not reloaded. A page without `compact` is a button that opens the page. `folder` names the shared folder of a shared page. |
+| `{ "type": "tool", "tool": "summarize_chat", "label": "Summarize chat" }` | A tool button with fixed `arguments` (at most 16 plain values, 2 KiB). A click first asks you, and shows the tool and its arguments. In a chat it then sends a visible message that asks the assistant to run that tool; in the sidebar it opens a new chat with that message as a draft for you to send. The tool's own approval in the chat still applies. |
+| `{ "type": "command", "command": "translate" }` | One of your commands. Commands come in a later release: until then the item is kept in the file and shows nothing. |
+
+A slot never hides the shell: the chat's title, the model, find and settings
+stay. The same item can be in two slots, but only once in one slot. The server
+refuses a file with an unknown slot, a slot over its cap, an item without the
+field of its kind or with the field of another kind, or an item listed twice.
+A save from the tab sends only `slots`, merged item by item with the file as it
+is then, so a change that the assistant made while the tab was open is not lost.
+Without `slots` the app looks as before.
+
+Pages in slots and on Home run in the same sandbox as everywhere, and the app
+keeps at most eight page frames running at once (the Home tiles and the slots
+together); the others show as a card that runs on a click, which stops the
+frame that started first. A page frame that keeps the computer busy or stops
+answering is stopped with **Reload**; see
+[Pages](/features/pages/#a-page-in-a-slot). A page of a shared folder runs in a
+slot only after you allow it there, apart from opening it.
 
 ## The LocalAI folder
 

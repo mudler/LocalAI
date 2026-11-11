@@ -70,11 +70,13 @@ import '../../pages/chat.css'
 //                  and the staged files
 //   onRunAction    (id, item) for the commands the page runs; the composer
 //                  runs /model with a name, /models, and "turn on saved agents"
+//   toolbarSlot    the composerToolbar slot of ui.json, drawn before the
+//                  add-on slot
 // The other props go to HomeComposer as they are.
 export default function ChatComposer({
   composer, chatId = null, activeChat = null, filesOn = true, loadedIds, imageModel = '',
   onPickModel, pickerRef, pickerDisabled = false, pickerPlaceholder, egress = null, sandboxProfile = null, toolsExtra, chips,
-  slotContext, placeholder, onDictateError, slashSurface = 'chat', slashContext, onRunAction, ...rest
+  slotContext, placeholder, onDictateError, slashSurface = 'chat', slashContext, onRunAction, toolbarSlot = null, ...rest
 }) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
@@ -250,7 +252,7 @@ export default function ChatComposer({
             {chips}
           </>
         )}
-        extras={<AddonSlot slot="chat.composer.actions" context={slotContext} />}
+        extras={<>{toolbarSlot}<AddonSlot slot="chat.composer.actions" context={slotContext} /></>}
         files={files}
         onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
         onAttach={filesOn ? attach : undefined}

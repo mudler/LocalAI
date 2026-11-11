@@ -72,6 +72,20 @@ var _ = Describe("consent stores", func() {
 			Expect(evs[3].Hash).To(Equal("h1"))
 		})
 
+		It(name+": keeps the Home and slot consent with the lasting one", func() {
+			s := open()
+			c := pages.Consent{Principal: "marta", PageID: 7, Hash: "h1", Kind: pages.ConsentAlways, Embed: true, At: at}
+			Expect(s.Put(ctx, c, pages.ConsentEvent{Principal: "marta", PageID: 7, Action: "allow_embed", Hash: "h1", At: at})).To(Succeed())
+			got, ok, err := s.Always(ctx, "marta", 7)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(got.Embed).To(BeTrue())
+			c.Embed = false
+			Expect(s.Put(ctx, c, pages.ConsentEvent{Principal: "marta", PageID: 7, Action: "allow", Hash: "h1", At: at})).To(Succeed())
+			got, _, _ = s.Always(ctx, "marta", 7)
+			Expect(got.Embed).To(BeFalse(), "a new lasting consent replaces the old one, embed included")
+		})
+
 		It(name+": revokes every viewer's consents to a set of pages and audits each one", func() {
 			s := open()
 			for _, c := range []pages.Consent{
