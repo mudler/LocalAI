@@ -573,6 +573,38 @@ var _ = Describe("widget data and home widgets", func() {
 		Entry("a number", `{"id":"p","type":"page","page":7}`, `widgets[1].page: "7" is not a page name`),
 	)
 
+	DescribeTable("takes a pageArea that is null, a page name or a page of a shared folder",
+		func(area string) {
+			_, errs := wellknown.Validate(wellknown.Home, []byte(`{"pageArea":`+area+`,"widgets":[]}`))
+			Expect(errs).To(BeEmpty())
+		},
+		Entry("null", `null`),
+		Entry("a page of your home", `"today"`),
+		Entry("a page of a shared folder", `{"page":"today","folder":3}`),
+		Entry("an object without a folder", `{"page":"today"}`),
+	)
+
+	It("takes a home.json without a pageArea, as before", func() {
+		_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[]}`))
+		Expect(errs).To(BeEmpty())
+	})
+
+	DescribeTable("refuses a pageArea that is not a page, in words",
+		func(area, want string) {
+			_, errs := wellknown.Validate(wellknown.Home, []byte(`{"pageArea":`+area+`}`))
+			Expect(strings.Join(errs, "\n")).To(ContainSubstring(want))
+		},
+		Entry("a path", `"../x"`, `pageArea: "../x" is not a page name`),
+		Entry("capitals", `"Today"`, `pageArea: "Today" is not a page name`),
+		Entry("an empty name", `""`, `pageArea: "" is not a page name`),
+		Entry("a number", `7`, `pageArea names a page`),
+		Entry("a list", `["today"]`, `pageArea names a page`),
+		Entry("an object without a page", `{"folder":3}`, `pageArea.page:`),
+		Entry("a folder that is not an id", `{"page":"today","folder":"team"}`, `pageArea.folder:`),
+		Entry("a folder below one", `{"page":"today","folder":0}`, `pageArea.folder:`),
+		Entry("a key it does not know", `{"page":"today","size":"l"}`, `pageArea.size: no such key`),
+	)
+
 	It("refuses a shared folder that is not a folder id", func() {
 		_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"p","type":"page","page":"news","folder":"team"}]}`))
 		Expect(errs).NotTo(BeEmpty())

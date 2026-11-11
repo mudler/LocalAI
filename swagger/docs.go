@@ -33095,6 +33095,10 @@ const docTemplate = `{
         "schema.PagesList": {
             "type": "object",
             "properties": {
+                "page_area_enabled": {
+                    "description": "PageAreaEnabled is false when an administrator turned the page area of\nHome off: a pageArea of home.json is then ignored.",
+                    "type": "boolean"
+                },
                 "pages": {
                     "type": "array",
                     "items": {

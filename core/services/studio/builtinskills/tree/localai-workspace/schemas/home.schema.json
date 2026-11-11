@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/home.json",
   "title": "LocalAI/home.json",
-  "description": "The headline and the widgets of the Home page, in order.",
+  "description": "The headline, the page area and the widgets of the Home page, in order.",
   "type": "object",
   "properties": {
     "headline": {
@@ -12,6 +12,23 @@
       "maxLength": 120,
       "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"],
       "x-ui": { "widget": "template" }
+    },
+    "pageArea": {
+      "title": "Page area",
+      "description": "A page that fills a full-width area on Home, below the greeting, the composer and the shortcut chips. A string is a page of your home (pages/<name>/); {page, folder} is a page of a shared folder (folder is its folder_id). null or no key shows nothing. The page gets mode area. An administrator can turn the area off for everyone.",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+        {
+          "type": "object",
+          "properties": {
+            "page": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+            "folder": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["page"],
+          "additionalProperties": false
+        }
+      ]
     },
     "widgets": {
       "type": "array",

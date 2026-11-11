@@ -27,13 +27,19 @@ import { BEAT_MS, createFrameWatch } from '../utils/frameWatch'
 //                  pageLinkTarget; resolves to {opened} after the person chose
 //   codeFiles      a shared page: the files of code its consent covers; no
 //                  other text file goes into the page
-//   mode, size     'page' (the default) or 'widget', and the size of a tile
-//                  (compact, small, medium, large): the page reads them as
+//   mode, size     'page' (the default), 'widget' or 'area' (the page area of
+//                  Home, with no size), and the size of a tile (compact,
+//                  small, medium, large): the page reads them as
 //                  localai.page.mode and .size. A change after the load goes
 //                  to the page as a 'mode' event: the frame is not reloaded
 //   budget         a tile: the frame is watched (utils/frameWatch.js) and
 //                  taken down when it spins or stops answering; onStopped
 //                  (reason) is called, and the caller offers Reload
+//   onReady()      the first beat of the page came: its script runs and keeps
+//                  the thread free. Needs budget; the shell's signal that the
+//                  page started, never the page's own claim
+//   onScriptError  the page's script threw (the error is the bridge's own
+//                  report): the page area takes it as a failed page
 //   visible        false while the frame is out of sight (a tile scrolled
 //                  away): with a hidden tab, the page gets a visibility event
 //                  ({visible}) so it can pause its timers
@@ -45,11 +51,11 @@ import { BEAT_MS, createFrameWatch } from '../utils/frameWatch'
 //                  takes the frame down
 const plain = (html) => ({ html, head: '', modules: false, notes: [], tooLarge: false })
 
-const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, codeFiles = null, mode = 'page', size = '', budget = false, className = '', visible = true }, ref) {
+const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, codeFiles = null, mode = 'page', size = '', budget = false, className = '', visible = true }, ref) {
   const frameRef = useRef(null)
   const live = useRef({ host: null, channel: null, loads: 0, doc: '', watch: null, timer: 0 })
-  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped })
-  handlers.current = { onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped }
+  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError })
+  handlers.current = { onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError }
   // The mode the frame shows now. The document is built with the mode of the
   // moment; a later change is sent to the page, so a tile that grows into a
   // card keeps its state.
@@ -189,8 +195,15 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     }
     const guard = guarded
     const watch = budget ? createFrameWatch() : null
+    let beaten = false
     const host = createPageHost({
-      onBeat: watch ? (busy) => watch.beat(busy) : undefined,
+      onBeat: watch ? (busy) => {
+        watch.beat(busy)
+        if (!beaten) {
+          beaten = true
+          handlers.current.onReady?.()
+        }
+      } : undefined,
       post: (m) => channel.port1.postMessage(m),
       files: {
         read: (path) => guard(() => (handlers.current.files || own).read(path)),
@@ -205,7 +218,9 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       links: { open: (target) => (handlers.current.onLink ? handlers.current.onLink(target) : { opened: false }) },
       // Only the owner's own run records: a viewer of a shared page is not
       // its owner, and the errors are kept in the owner's workspace.
-      errors: handlers.current.files || codeFiles !== null ? undefined : { report: (e) => pagesApi.reportError(name, e) },
+      errors: handlers.current.files || codeFiles !== null
+        ? (handlers.current.onScriptError ? { report: (e) => { handlers.current.onScriptError(e); return Promise.resolve() } } : undefined)
+        : { report: (e) => { handlers.current.onScriptError?.(e); return pagesApi.reportError(name, e) } },
     })
     channel.port1.onmessage = (e) => { host.receive(e.data) }
     live.current.host = host
@@ -232,7 +247,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   }
 
   if (srcDoc === null) {
-    if (mode === 'widget') return <div className="skeleton skeleton--block wk-ptile__fill" role="status" aria-label={t('view.loading')} data-testid="page-frame-loading" />
+    if (mode !== 'page') return <div className="skeleton skeleton--block wk-ptile__fill" role="status" aria-label={t('view.loading')} data-testid="page-frame-loading" />
     return <div className="pg-stage__state" role="status" data-testid="page-frame-loading"><Icon name="spinner" spin /> {t('view.loading')}</div>
   }
 

@@ -229,3 +229,39 @@ test('a shared page in a slot runs only after the viewer allows it on Home or in
     await request.delete(`/api/chats/files?path=${encodeURIComponent('/LocalAI/ui.json')}`)
   }
 })
+
+test('a shared page in the page area of Home shows its consent state, and runs only after the viewer allows it on Home', async ({ page, request }) => {
+  const standup = (await api(request, '/api/chats/shared-pages')).pages.find((p) => p.name === 'standup')
+  const consent = `/api/chats/shared-pages/${standup.folder_id}/standup/consent`
+  // The viewer allowed the page to open; that does not let it run on Home.
+  expect((await request.put(consent, { data: { hash: standup.hash } })).ok()).toBeTruthy()
+  const home = { pageArea: { page: 'standup', folder: standup.folder_id } }
+  expect((await request.put('/api/chats/wellknown/home', { data: { values: home } })).ok()).toBeTruthy()
+  try {
+    await page.route('**/api/chats/triggers*', (r) => r.fulfill({ json: { triggers: [] } }))
+    await page.goto('/app')
+    const area = page.getByTestId('page-area')
+    const allow = area.getByTestId('page-area-allow')
+    await expect(allow).toBeVisible()
+    await expect(allow).toContainText('You have not allowed this page yet')
+    await expect(area.locator('iframe')).toHaveCount(0)
+    await area.getByTestId('page-area-allow-open').click()
+    const sheet = page.getByTestId('trust-sheet')
+    await expect(sheet).toHaveAttribute('data-embed', 'true')
+    await expect(sheet.getByTestId('trust-allow-once')).toHaveCount(0)
+    await shot(page, 'area-embed-sheet')
+    await sheet.getByTestId('trust-cancel').click()
+    await expect(area.locator('iframe')).toHaveCount(0)
+    expect((await api(request, `/api/chats/shared-pages/${standup.folder_id}/standup`)).consent.embed).toBeUndefined()
+    await area.getByTestId('page-area-allow-open').click()
+    await page.getByTestId('trust-allow-embed').click()
+    await expect(area).toHaveAttribute('data-frame', 'live')
+    await expect(area.frameLocator('[data-testid="page-frame"]').locator('#read')).toHaveText('{"n":1}', { timeout: 15_000 })
+    await expect(page.getByTestId('page-area-origin')).toContainText('Page shared by')
+    // A shared page is not the viewer's file: no Revert, and no Edit.
+    await expect(page.getByTestId('page-area-edit')).toHaveCount(0)
+  } finally {
+    await request.delete(consent)
+    await request.delete(`/api/chats/files?path=${encodeURIComponent('/LocalAI/home.json')}`)
+  }
+})

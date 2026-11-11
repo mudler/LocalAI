@@ -156,7 +156,48 @@
         "sharedLabel": "compartida"
       },
       "size": "Tamaño",
-      "preview": "Así dibuja Inicio tus widgets. S ocupa una columna, M dos, L la fila entera. Un hueco se cierra solo."
+      "preview": "Así dibuja Inicio tus widgets. S ocupa una columna, M dos, L la fila entera. Un hueco se cierra solo.",
+      "area": {
+        "label": "Área de página",
+        "none": "Ninguna",
+        "pickHint": "Una página que ocupa el área bajo el cuadro de mensaje en Inicio. No puede acceder a la red ni a tus otros archivos.",
+        "pickOff": "Un administrador desactivó el área de página, así que Inicio no muestra ninguna página ahí. Tu elección se conserva.",
+        "off": "El área de página está desactivada",
+        "offHint": "Un administrador la desactivó para todos en este servidor. La página que elegiste sigue en el diseño de tu Inicio y volverá a mostrarse cuando se active de nuevo.",
+        "by": {
+          "assistant": "Página del asistente",
+          "you": "Página tuya"
+        },
+        "byAuthor": "Página compartida por {{author}}",
+        "edit": "Editar",
+        "reload": "Recargar",
+        "loading": "Cargando la página",
+        "runsAsYou": "Se ejecuta como tú",
+        "runsAsYouHint": "La página lee y escribe los archivos de su carpeta con tus permisos. No puede acceder a la red ni a tus otros archivos.",
+        "askPrompt": "Cambia la página de pages/{{name}}/ para que ",
+        "askTitle": "Pedir al asistente que cambie esta página",
+        "frameTitle": "{{title}} (área de página de Inicio)",
+        "failedTitle": "Esta página no se cargó.",
+        "why": {
+          "script": "Su script produjo un error y la página no dibujó nada.",
+          "scriptLine": "Su script produjo un error en la línea {{line}} y la página no dibujó nada.",
+          "noPaint": "No mostró nada en 5 segundos.",
+          "navigated": "Intentó salir de su marco.",
+          "busy": "Mantuvo el equipo ocupado demasiado tiempo.",
+          "silent": "Dejó de responder.",
+          "noStart": "No se inició.",
+          "missing": "La página «{{name}}» se movió o se eliminó, o ya no puedes abrirla.",
+          "read": "No se pudo leer la página.",
+          "invalid": "La página elegida para el área de página no es un nombre de página válido.",
+          "sharedOff": "Un administrador desactivó las páginas compartidas en este servidor."
+        },
+        "revert": "Revertir",
+        "openFile": "Abrir el archivo",
+        "remove": "Quitar de Inicio",
+        "nothingToRevert": "No hay una versión anterior a la que volver.",
+        "revertFailed": "No se pudo revertir.",
+        "removeFailed": "No se pudo quitar la página de Inicio."
+      }
     },
     "fields": {
       "persona": {

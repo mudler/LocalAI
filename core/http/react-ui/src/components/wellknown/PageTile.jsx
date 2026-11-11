@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
@@ -8,39 +8,14 @@ import PageLinkAsk from '../PageLinkAsk'
 import TrustSheet, { SourceSheet } from '../pages/TrustSheet'
 import { usePageLinks } from '../../hooks/usePageLinks'
 import { useTilePage } from '../../hooks/useTilePage'
-import { useHidden } from '../../hooks/useHidden'
+import { useFrameLife } from '../../hooks/useFrameLife'
 import { useTheme } from '../../contexts/ThemeContext'
 import { liveFrames } from '../../utils/liveFrames'
-import { nextFrame, tilePagePath, tileRef, tileTitle } from '../../utils/pageTiles'
+import { tilePagePath, tileRef, tileTitle } from '../../utils/pageTiles'
 import { pageSizeOf } from '../../utils/homeGrid'
 import '../../pages/pages.css'
 
 let nextTile = 0
-
-// The margin around the screen within which a tile that scrolled away keeps
-// its frame (paused); further off, the frame is taken down.
-const NEAR = '100% 0px'
-
-// useInView watches el: inView while any of it is on screen, near while it is
-// within NEAR of the screen. Without IntersectionObserver a tile counts as in
-// view, so it still loads.
-function useInView(el) {
-  const [view, setView] = useState({ inView: false, near: false })
-  useEffect(() => {
-    if (!el) return undefined
-    if (typeof IntersectionObserver !== 'function') {
-      setView({ inView: true, near: true })
-      return undefined
-    }
-    const seen = new IntersectionObserver(([e]) => setView((v) => ({ ...v, inView: e.isIntersecting })))
-    const near = new IntersectionObserver(([e]) => setView((v) => ({ ...v, near: e.isIntersecting })), { rootMargin: NEAR })
-    seen.observe(el)
-    near.observe(el)
-    return () => { seen.disconnect(); near.disconnect() }
-  }, [el])
-  return view
-}
-
 
 // PageTile is a widget of type page: a page of the workspace in its compact
 // mode, in the same sandbox and bridge as the full page. The tile reserves the
@@ -63,44 +38,15 @@ export default function PageTile({ w, size: cell, listed, onFix }) {
   const ref = useMemo(() => tileRef(w), [w.page, w.folder]) // eslint-disable-line react-hooks/exhaustive-deps
   const id = useRef(`tile-${++nextTile}`).current
   const [el, setEl] = useState(null)
-  const view = useInView(el)
-  const hidden = useHidden()
   const tile = useTilePage(ref)
   const { read, state, run, runnable, files, frameRef, load, onRefused, sheet } = tile
-  const [frame, setFrame] = useState({ alive: false, visible: false })
   const [frameKey, setFrameKey] = useState(0)
   const [failed, setFailed] = useState(false) // the frame left its page
   const [stopped, setStopped] = useState('') // the frame went over its budget
-  const [capped, setCapped] = useState(false) // every live frame of the app is taken
-  const [wake, setWake] = useState(0)
   const links = usePageLinks()
 
   // The frame: built in view, paused out of sight, taken down far away.
-  const frameNow = useRef(frame)
-  const onEvict = useCallback(() => {
-    frameNow.current = { alive: false, visible: false }
-    setFrame(frameNow.current)
-    setCapped(true)
-  }, [])
-  useEffect(() => liveFrames.subscribe(() => setWake((n) => n + 1)), [])
-  useEffect(() => {
-    const prev = frameNow.current
-    let next = { alive: false, visible: false }
-    let full = false
-    if (runnable && !stopped) {
-      const want = !prev.alive && view.inView && !hidden
-      const slot = liveFrames.holds(id) || (want && liveFrames.acquire(id, onEvict))
-      full = want && !slot
-      next = nextFrame(prev, { ...view, hidden, slot })
-    }
-    if (!next.alive) liveFrames.release(id)
-    setCapped(full)
-    if (next.alive !== prev.alive || next.visible !== prev.visible) {
-      frameNow.current = next
-      setFrame(next)
-    }
-  }, [runnable, stopped, id, view, hidden, wake, onEvict])
-  useEffect(() => () => liveFrames.release(id), [id])
+  const { frame, capped, runNow } = useFrameLife(el, id, { runnable, stopped })
 
   const page = run?.page || read.page || listed
   const size = pageSizeOf(cell)
@@ -118,12 +64,6 @@ export default function PageTile({ w, size: cell, listed, onFix }) {
     load({ quiet: true })
   }
   const retry = () => { setFailed(false); load() }
-  const runNow = () => {
-    if (liveFrames.take(id, onEvict)) {
-      setCapped(false)
-      setWake((n) => n + 1)
-    }
-  }
   const allow = async (once) => {
     if (await tile.allow(once)) setFrameKey((k) => k + 1)
   }

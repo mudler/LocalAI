@@ -135,5 +135,6 @@
   "inboxOpsFailedAnnounce": "An operation failed. See the Activity tab in Notifications.",
   "activityEntry": "Activity",
   "navLinkExternal": "Opens {{site}} in a new tab after you confirm",
-  "navLinkAsk": "Open this link?"
+  "navLinkAsk": "Open this link?",
+  "startPage": "Start page"
 }

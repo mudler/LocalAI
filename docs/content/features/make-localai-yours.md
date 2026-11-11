@@ -298,6 +298,10 @@ of the greeting (`{user.name}`, `{time_of_day}`, `{date}`), and an empty value
 keeps the greeting of the time of day. Edit it in **Account > About you and the
 assistant**. A `home.json` with a headline and no widgets is valid.
 
+`pageArea` puts one of your pages in a full-width area below the composer, above
+the widgets. Pick it in **Edit layout** under **Page area**, or ask the
+assistant. See [A page in the page area of Home](/features/pages/#a-page-in-the-page-area-of-home).
+
 ```json
 { "headline": "{time_of_day}, {user.name}" }
 ```

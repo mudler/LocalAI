@@ -65,7 +65,11 @@
     "failed": "The page could not be loaded: {{message}}",
     "back": "All pages",
     "navigated": "The page tried to open another address and was stopped. Reload to start it again.",
-    "untrusted": "This page comes from a shared folder. It does not run until you allow it."
+    "untrusted": "This page comes from a shared folder. It does not run until you allow it.",
+    "startPage": "Start page",
+    "makeStart": "Make this my first pinned page",
+    "startAlone": "It is your only pinned page.",
+    "startFailed": "The start page could not be saved: {{message}}"
   },
   "send": {
     "label": "This page wants to send a message to the assistant",

@@ -851,6 +851,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
 		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
 
+	// The page area of Home: stored as the negation, like shared pages.
+	field("home_page_area_enabled",
+		func(s *RuntimeSettings) **bool { return &s.HomePageAreaEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisablePageArea },
+		func(o *ApplicationConfig, v bool) { o.DisablePageArea = !v }),
+
 	// Built-in chat tools: the host-commands mode and the add-on pins.
 	field("chats_host_exec",
 		func(s *RuntimeSettings) **string { return &s.ChatsHostExec },

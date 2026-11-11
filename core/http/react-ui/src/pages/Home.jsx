@@ -44,6 +44,8 @@ import HomeFirstRun from '../components/home/HomeFirstRun'
 // eslint-disable-next-line no-unused-vars
 import HomeWidgets from '../components/wellknown/HomeWidgets'
 // eslint-disable-next-line no-unused-vars
+import PageAreaHost from '../components/wellknown/PageAreaHost'
+// eslint-disable-next-line no-unused-vars
 import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
 // eslint-disable-next-line no-unused-vars
 import BackgroundLayer from '../components/wellknown/BackgroundLayer'
@@ -855,6 +857,14 @@ export default function Home() {
           )}
           <span className="sr-only" aria-live="polite">{liveNote}</span>
         </div>
+
+        {/* The page area of home.json: a page below the composer, under a strip
+            the shell draws. A failure of the page replaces only this area. */}
+        {chatsOn && !firstRun && (
+          <Suspense fallback={null}>
+            <PageAreaHost wk={homeFile} />
+          </Suspense>
+        )}
 
         {/* The examples and the widgets read the pages strings, which load
             when they first show. Their own boundary keeps that wait to them:

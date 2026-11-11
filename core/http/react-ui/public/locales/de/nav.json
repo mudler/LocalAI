@@ -136,5 +136,6 @@
   "inboxOpsFailedAnnounce": "Ein Vorgang ist fehlgeschlagen. Siehe den Tab Aktivität in den Benachrichtigungen.",
   "activityEntry": "Aktivität",
   "navLinkExternal": "Öffnet {{site}} nach Bestätigung in einem neuen Tab",
-  "navLinkAsk": "Diesen Link öffnen?"
+  "navLinkAsk": "Diesen Link öffnen?",
+  "startPage": "Startseite"
 }

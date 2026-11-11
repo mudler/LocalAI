@@ -102,7 +102,7 @@ func (h *Handlers) ListPages(c echo.Context) error {
 	if err != nil {
 		return failPage(c, err)
 	}
-	out := schema.PagesList{Pages: make([]schema.PagesPage, 0, len(list))}
+	out := schema.PagesList{Pages: make([]schema.PagesPage, 0, len(list)), PageAreaEnabled: h.svc.PageAreaOn()}
 	for _, p := range list {
 		out.Pages = append(out.Pages, pageJSON(p))
 	}

@@ -156,7 +156,48 @@
         "sharedLabel": "condivisa"
       },
       "size": "Dimensione",
-      "preview": "Così la Home disegna i tuoi widget. S è una colonna, M due, L l'intera riga. Un vuoto si chiude da solo."
+      "preview": "Così la Home disegna i tuoi widget. S è una colonna, M due, L l'intera riga. Un vuoto si chiude da solo.",
+      "area": {
+        "label": "Area pagina",
+        "none": "Nessuna",
+        "pickHint": "Una pagina che riempie l'area sotto il campo di scrittura nella Home. Non può raggiungere la rete né i tuoi altri file.",
+        "pickOff": "Un amministratore ha disattivato l'area pagina, quindi la Home non mostra nessuna pagina lì. La tua scelta resta salvata.",
+        "off": "L'area pagina è disattivata",
+        "offHint": "Un amministratore l'ha disattivata per tutti su questo server. La pagina scelta resta nel layout della tua Home e riappare quando l'area viene riattivata.",
+        "by": {
+          "assistant": "Pagina dell'assistente",
+          "you": "Pagina tua"
+        },
+        "byAuthor": "Pagina condivisa da {{author}}",
+        "edit": "Modifica",
+        "reload": "Ricarica",
+        "loading": "Caricamento della pagina",
+        "runsAsYou": "Gira come te",
+        "runsAsYouHint": "La pagina legge e scrive i file della sua cartella con i tuoi permessi. Non può raggiungere la rete né i tuoi altri file.",
+        "askPrompt": "Modifica la pagina in pages/{{name}}/ in modo che ",
+        "askTitle": "Chiedi all'assistente di modificare questa pagina",
+        "frameTitle": "{{title}} (area pagina della Home)",
+        "failedTitle": "Questa pagina non si è caricata.",
+        "why": {
+          "script": "Il suo script ha generato un errore e la pagina non ha disegnato nulla.",
+          "scriptLine": "Il suo script ha generato un errore alla riga {{line}} e la pagina non ha disegnato nulla.",
+          "noPaint": "Non ha mostrato nulla entro 5 secondi.",
+          "navigated": "Ha provato a uscire dal suo riquadro.",
+          "busy": "Ha tenuto il computer occupato troppo a lungo.",
+          "silent": "Ha smesso di rispondere.",
+          "noStart": "Non è partita.",
+          "missing": "La pagina «{{name}}» è stata spostata o eliminata, oppure non puoi più aprirla.",
+          "read": "Non è stato possibile leggere la pagina.",
+          "invalid": "La pagina scelta per l'area pagina non è un nome di pagina valido.",
+          "sharedOff": "Un amministratore ha disattivato le pagine condivise su questo server."
+        },
+        "revert": "Ripristina",
+        "openFile": "Apri il file",
+        "remove": "Rimuovi dalla Home",
+        "nothingToRevert": "Non c'è una versione precedente da ripristinare.",
+        "revertFailed": "Il ripristino non è riuscito.",
+        "removeFailed": "Non è stato possibile rimuovere la pagina dalla Home."
+      }
     },
     "fields": {
       "persona": {

@@ -139,5 +139,6 @@
   "inboxOpsFailedAnnounce": "Une opération a échoué. Voir l'onglet Activité dans les notifications.",
   "activityEntry": "Activité",
   "navLinkExternal": "Ouvre {{site}} dans un nouvel onglet après confirmation",
-  "navLinkAsk": "Ouvrir ce lien ?"
+  "navLinkAsk": "Ouvrir ce lien ?",
+  "startPage": "Page de démarrage"
 }

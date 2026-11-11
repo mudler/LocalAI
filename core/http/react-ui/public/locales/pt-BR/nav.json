@@ -136,5 +136,6 @@
   "inboxOpsFailedAnnounce": "Uma operação falhou. Veja a aba Atividade em Notificações.",
   "activityEntry": "Atividade",
   "navLinkExternal": "Abre {{site}} em uma nova guia após você confirmar",
-  "navLinkAsk": "Abrir este link?"
+  "navLinkAsk": "Abrir este link?",
+  "startPage": "Página inicial"
 }
