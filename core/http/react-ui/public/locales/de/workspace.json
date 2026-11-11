@@ -993,5 +993,145 @@
       "title": "Vorschau",
       "sidebar": "Seitenleiste"
     }
+  },
+  "commands": {
+    "title": "Befehle",
+    "lede": "Deine eigenen Slash-Befehle. Ein Befehl setzt einen Prompt in das Nachrichtenfeld. Du liest ihn und sendest ihn selbst ab.",
+    "form": "Befehl",
+    "new": "Neuer Befehl",
+    "empty": "Noch keine Befehle. Füge einen hinzu, dann erscheint er im Slash-Menü.",
+    "type": {
+      "prompt": "Wird zu einem Prompt",
+      "tool": "Ruft ein Werkzeug auf"
+    },
+    "field": {
+      "name": "Name",
+      "description": "Beschreibung",
+      "what": "Was er tut",
+      "template": "Prompt-Vorlage",
+      "tool": "Werkzeug",
+      "args": "Argumente"
+    },
+    "nameHint": "Kleinbuchstaben, Ziffern und Bindestriche.",
+    "templateHint": "Schreibe {{example}} an die Stelle eines Arguments.",
+    "noArgs": "Diese Vorlage hat keine Argumente.",
+    "argKind": {
+      "number": "Zahl",
+      "text": "Text"
+    },
+    "argDefault": "Standard",
+    "argsHint": "Tippe {{example}}, um die Argumente der Reihe nach zu füllen. Fehlende nehmen den Standardwert.",
+    "toolHint": "Ein Werkzeug, das du schon hast. Der Befehl bittet den Assistenten, es zu benutzen, und das Werkzeug behält seinen eigenen Freigabeschritt.",
+    "toolUnknown": "Dieses Werkzeug gehört derzeit nicht zu den Werkzeugen eines Chats.",
+    "expands": "Setzt Folgendes in das Nachrichtenfeld",
+    "valid": "Gültig",
+    "invalid": "Muss korrigiert werden",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "preview": {
+      "title": "Vorschau des Slash-Menüs",
+      "builtin": "Eingebaut",
+      "none": "Noch keine Befehle.",
+      "keys": "Enter füllt das Feld"
+    },
+    "problem": {
+      "nameEmpty": "Gib dem Befehl einen Namen.",
+      "nameFormat": "Ein Name beginnt mit einem Buchstaben und besteht nur aus Kleinbuchstaben, Ziffern und Bindestrichen, höchstens 32.",
+      "nameBuiltin": "Dieser Name gehört zu einem eingebauten Befehl. Wähle einen anderen.",
+      "nameTaken": "Ein anderer Befehl hat diesen Namen schon.",
+      "descriptionEmpty": "Schreibe eine kurze Beschreibung für das Menü.",
+      "descriptionLong": "Die Beschreibung hat höchstens {{max}} Zeichen.",
+      "toolEmpty": "Gib das Werkzeug an.",
+      "toolFormat": "Ein Werkzeugname besteht nur aus Buchstaben, Ziffern, Punkten, Bindestrichen und Unterstrichen.",
+      "templateEmpty": "Schreibe den Prompt.",
+      "templateLong": "Der Prompt hat höchstens {{template}} Zeichen.",
+      "argFormat": "Ein Argumentname beginnt mit einem Buchstaben und besteht nur aus Kleinbuchstaben, Ziffern und Unterstrichen.",
+      "argTwice": "Ein Argument ist doppelt aufgeführt.",
+      "argDefault": "Jedes Argument braucht einen Standardwert.",
+      "argDefaultLong": "Ein Standardwert hat höchstens 200 Zeichen.",
+      "argMissing": "Ein Argument der Vorlage hat keinen gültigen Namen.",
+      "argUnused": "Ein Argument kommt in der Vorlage nicht vor.",
+      "braces": "Eine doppelte Klammer ist nicht geschlossen.",
+      "argCount": "Ein Befehl hat höchstens {{args}} Argumente."
+    }
+  },
+  "sound": {
+    "title": "Ton",
+    "play": "Ton für {{event}} abspielen",
+    "volume": "Lautstärke",
+    "volumeReset": "Standardlautstärke verwenden",
+    "names": {
+      "none": "Keiner",
+      "soft-chime": "Sanftes Glockenspiel",
+      "double-tap": "Doppeltipp",
+      "bell": "Glocke",
+      "pop": "Pop",
+      "low-tone": "Tiefer Ton"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Antwort fertig",
+        "hint": "Eine lange Antwort ist bereit"
+      },
+      "approval": {
+        "label": "Braucht deine Freigabe",
+        "hint": "Ein Werkzeug oder eine Änderung fragt vor dem Start"
+      },
+      "taskDone": {
+        "label": "Aufgabe oder Zeitplan erledigt",
+        "hint": "Ein Trigger oder ein Agentenauftrag ist beendet"
+      },
+      "error": {
+        "label": "Fehler",
+        "hint": "Eine Anfrage oder ein Auftrag ist fehlgeschlagen"
+      }
+    },
+    "notify": {
+      "title": "Benachrichtigungstöne",
+      "lede": "Kurze Töne, wenn etwas deine Aufmerksamkeit braucht. Sie bleiben aus, bis du sie einschaltest.",
+      "rule": "Ein Ton startet erst, nachdem du die Seite benutzt hast. Eine Antwort, eine Freigabe oder ein Fehler spielt nur, solange dieser Tab im Hintergrund ist. In den Ruhezeiten spielt nichts."
+    },
+    "quiet": {
+      "title": "Ruhezeiten",
+      "between": "Keine Töne zwischen {{from}} und {{to}}",
+      "none": "Keine Ruhezeiten. Schalte ein, um einen Zeitraum zu wählen.",
+      "from": "Von",
+      "to": "Bis"
+    },
+    "voice": {
+      "title": "Stimme für Antworten",
+      "lede": "Antworten laut vorlesen lassen.",
+      "readAloud": "Antworten vorlesen",
+      "mode": {
+        "off": "Nie",
+        "button": "Wenn ich den Lautsprecher drücke",
+        "auto": "Jede Antwort"
+      },
+      "modeHint": {
+        "off": "Antworten werden nicht vorgelesen.",
+        "button": "Unter jeder Antwort erscheint eine Lautsprecher-Taste.",
+        "auto": "Jede fertige Antwort wird sofort vorgelesen. Der Browser verlangt eventuell zuerst einen Klick auf die Seite."
+      },
+      "voice": "Stimme",
+      "voicePlaceholder": "Standard des Modells",
+      "voiceHint": "Der Stimmenname, den dein Sprachausgabe-Modell annimmt. Leer lassen für die Stimme, mit der das Modell startet.",
+      "speed": "Geschwindigkeit",
+      "speedReset": "Normale Geschwindigkeit verwenden",
+      "skipCode": "Code und Tabellen überspringen",
+      "skipCodeHint": "Sagt stattdessen \"Codeblock ausgelassen\".",
+      "sample": "Probe abspielen",
+      "stop": "Stopp",
+      "sampleText": "Hallo, so klingen deine Antworten.",
+      "sampleFailed": "Die Probe konnte nicht abgespielt werden.",
+      "madeBy": "Die Sprache kommt von {{model}}, deinem Standardmodell für Sprachausgabe.",
+      "madeByAuto": "Die Sprache kommt von {{model}}, dem ersten installierten Sprachausgabe-Modell. Du hast keinen Standard gewählt.",
+      "change": "In den Standards ändern",
+      "model": {
+        "ask": "Deine Standards sagen, jedes Mal zu fragen, also gibt es kein Modell zum Vorlesen. Wähle ein Sprachausgabe-Modell.",
+        "missing": "{{model}} ist dein Standardmodell für Sprachausgabe, aber es ist nicht installiert.",
+        "none": "Es ist kein Sprachausgabe-Modell installiert."
+      },
+      "remote": "{{model}} ist kein lokales Modell. Der Text jeder Antwort, die du vorlesen lässt, wird an einen anderen Server gesendet."
+    }
   }
 }

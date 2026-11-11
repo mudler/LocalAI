@@ -7,11 +7,14 @@ import { useTheme } from '../../contexts/ThemeContext'
 import ShortcutsEditor from './ShortcutsEditor'
 import HelpCard from './HelpCard'
 import NavigationEditor from './NavigationEditor'
+import CommandsEditor from './CommandsEditor'
 import { IdentityPreview, LookPreview, StringsPreview } from './Previews'
 import Icon from '../Icon'
 
 const HEADLINE_KEYS = ['headline']
 const TEXT_KEYS = ['strings']
+// The keys of ui.json that have a tab of their own: the generic Appearance form leaves them out.
+const OWN_TAB_KEYS = ['strings', 'sound', 'voice']
 
 function browserLanguage() {
   try { return navigator.language || '' } catch { return '' }
@@ -83,7 +86,7 @@ export function AppearanceTab() {
 
   return (
     <div className="wk-grid wk-grid--preview" data-testid="account-appearance">
-      <WellKnownCard name="ui" title={t('wellKnown.ui.title')} lede={t('wellKnown.ui.lede')} onChange={onChange} onSaved={onSaved} prefill={prefill} omit={TEXT_KEYS} footer />
+      <WellKnownCard name="ui" title={t('wellKnown.ui.title')} lede={t('wellKnown.ui.lede')} onChange={onChange} onSaved={onSaved} prefill={prefill} omit={OWN_TAB_KEYS} footer />
       <LookPreview />
     </div>
   )
@@ -98,15 +101,19 @@ export function NavigationTab() {
   )
 }
 
-// The Account tab "Text": the text overrides of ui.json (strings). Only the
-// keys of the server's list show, and a save keeps every other key of the file.
+// The Account tab "Text and commands": the text overrides of ui.json (strings)
+// and the slash commands of commands.json. Only the keys of the server's list
+// show, and a save keeps every other key of the file.
 export function StringsTab() {
   const { t } = useTranslation('workspace')
   const [ui, setUi] = useState(null)
   return (
-    <div className="wk-grid wk-grid--preview" data-testid="account-strings">
-      <WellKnownCard name="ui" testId="wk-card-strings" title={t('wellKnown.strings.title')} lede={t('wellKnown.strings.lede')} only={TEXT_KEYS} onChange={setUi} footer />
-      <StringsPreview ui={ui} />
+    <div data-testid="account-strings">
+      <div className="wk-grid wk-grid--preview">
+        <WellKnownCard name="ui" testId="wk-card-strings" title={t('wellKnown.strings.title')} lede={t('wellKnown.strings.lede')} only={TEXT_KEYS} onChange={setUi} footer />
+        <StringsPreview ui={ui} />
+      </div>
+      <CommandsEditor />
     </div>
   )
 }

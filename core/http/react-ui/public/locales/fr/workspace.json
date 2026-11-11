@@ -993,5 +993,145 @@
       "title": "Aperçu",
       "sidebar": "Barre latérale"
     }
+  },
+  "commands": {
+    "title": "Commandes",
+    "lede": "Vos propres commandes avec barre oblique. Une commande place un prompt dans la zone du message. Vous le lisez et vous l'envoyez vous-même.",
+    "form": "Commande",
+    "new": "Nouvelle commande",
+    "empty": "Aucune commande pour l'instant. Ajoutez-en une et elle apparaîtra dans le menu à barre oblique.",
+    "type": {
+      "prompt": "Se développe en prompt",
+      "tool": "Appelle un outil"
+    },
+    "field": {
+      "name": "Nom",
+      "description": "Description",
+      "what": "Ce qu'elle fait",
+      "template": "Modèle du prompt",
+      "tool": "Outil",
+      "args": "Arguments"
+    },
+    "nameHint": "Lettres minuscules, chiffres et tirets.",
+    "templateHint": "Écrivez {{example}} à l'endroit d'un argument.",
+    "noArgs": "Ce modèle n'a pas d'argument.",
+    "argKind": {
+      "number": "nombre",
+      "text": "texte"
+    },
+    "argDefault": "par défaut",
+    "argsHint": "Tapez {{example}} pour remplir les arguments dans l'ordre. Ceux qui manquent prennent la valeur par défaut.",
+    "toolHint": "Un outil que vous avez déjà. La commande demande à l'assistant de l'utiliser, et l'outil garde sa propre étape d'approbation.",
+    "toolUnknown": "Cet outil ne fait pas partie des outils d'une conversation pour le moment.",
+    "expands": "Place ceci dans la zone du message",
+    "valid": "Valide",
+    "invalid": "À corriger",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "preview": {
+      "title": "Aperçu du menu à barre oblique",
+      "builtin": "Intégrées",
+      "none": "Aucune commande pour l'instant.",
+      "keys": "Entrée remplit la zone"
+    },
+    "problem": {
+      "nameEmpty": "Donnez un nom à la commande.",
+      "nameFormat": "Un nom commence par une lettre et ne contient que des lettres minuscules, des chiffres et des tirets, 32 au plus.",
+      "nameBuiltin": "Ce nom appartient à une commande intégrée. Choisissez-en un autre.",
+      "nameTaken": "Une autre commande porte déjà ce nom.",
+      "descriptionEmpty": "Écrivez une courte description pour le menu.",
+      "descriptionLong": "La description fait {{max}} caractères au plus.",
+      "toolEmpty": "Indiquez l'outil.",
+      "toolFormat": "Un nom d'outil ne contient que des lettres, des chiffres, des points, des tirets et des tirets bas.",
+      "templateEmpty": "Écrivez le prompt.",
+      "templateLong": "Le prompt fait {{template}} caractères au plus.",
+      "argFormat": "Un nom d'argument commence par une lettre et ne contient que des lettres minuscules, des chiffres et des tirets bas.",
+      "argTwice": "Un argument est listé deux fois.",
+      "argDefault": "Chaque argument a besoin d'une valeur par défaut.",
+      "argDefaultLong": "Une valeur par défaut fait 200 caractères au plus.",
+      "argMissing": "Un argument du modèle n'a pas de nom valide.",
+      "argUnused": "Un argument n'est pas utilisé dans le modèle.",
+      "braces": "Une double accolade n'est pas fermée.",
+      "argCount": "Une commande a {{args}} arguments au plus."
+    }
+  },
+  "sound": {
+    "title": "Son",
+    "play": "Jouer le son de {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Utiliser le volume par défaut",
+    "names": {
+      "none": "Aucun",
+      "soft-chime": "Carillon doux",
+      "double-tap": "Double tape",
+      "bell": "Cloche",
+      "pop": "Pop",
+      "low-tone": "Ton grave"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Réponse terminée",
+        "hint": "Une longue réponse est prête"
+      },
+      "approval": {
+        "label": "Votre approbation est nécessaire",
+        "hint": "Un outil ou une modification demande avant de s'exécuter"
+      },
+      "taskDone": {
+        "label": "Tâche ou planification terminée",
+        "hint": "Un déclencheur ou une tâche d'agent est terminé"
+      },
+      "error": {
+        "label": "Erreur",
+        "hint": "Une requête ou une tâche a échoué"
+      }
+    },
+    "notify": {
+      "title": "Sons de notification",
+      "lede": "De courts sons quand quelque chose a besoin de vous. Ils restent désactivés tant que vous ne les activez pas.",
+      "rule": "Le son ne démarre qu'après que vous avez utilisé la page. Une réponse, une approbation ou une erreur ne sonne que lorsque cet onglet est en arrière-plan. Rien ne sonne pendant les heures calmes."
+    },
+    "quiet": {
+      "title": "Heures calmes",
+      "between": "Pas de son entre {{from}} et {{to}}",
+      "none": "Pas d'heures calmes. Activez pour choisir une plage horaire.",
+      "from": "De",
+      "to": "À"
+    },
+    "voice": {
+      "title": "Voix pour les réponses",
+      "lede": "Faites lire les réponses à voix haute.",
+      "readAloud": "Lire les réponses à voix haute",
+      "mode": {
+        "off": "Jamais",
+        "button": "Quand j'appuie sur le haut-parleur",
+        "auto": "Chaque réponse"
+      },
+      "modeHint": {
+        "off": "Les réponses ne sont pas lues à voix haute.",
+        "button": "Un bouton haut-parleur apparaît sous chaque réponse.",
+        "auto": "Chaque réponse terminée est lue aussitôt. Le navigateur peut vous demander de cliquer d'abord sur la page."
+      },
+      "voice": "Voix",
+      "voicePlaceholder": "Celle du modèle",
+      "voiceHint": "Le nom de voix que prend votre modèle de synthèse vocale. Laissez vide pour la voix par laquelle le modèle commence.",
+      "speed": "Vitesse",
+      "speedReset": "Utiliser la vitesse normale",
+      "skipCode": "Ignorer le code et les tableaux",
+      "skipCodeHint": "Dit « bloc de code omis » à la place.",
+      "sample": "Jouer un exemple",
+      "stop": "Arrêter",
+      "sampleText": "Bonjour, voici à quoi ressembleront vos réponses.",
+      "sampleFailed": "L'exemple n'a pas pu être joué.",
+      "madeBy": "La voix est produite par {{model}}, votre modèle de synthèse vocale par défaut.",
+      "madeByAuto": "La voix est produite par {{model}}, le premier modèle de synthèse vocale installé. Vous n'avez pas choisi de modèle par défaut.",
+      "change": "Changer dans Valeurs par défaut",
+      "model": {
+        "ask": "Vos valeurs par défaut disent de demander à chaque fois, il n'y a donc pas de modèle pour lire. Choisissez un modèle de synthèse vocale.",
+        "missing": "{{model}} est votre modèle de synthèse vocale par défaut, mais il n'est pas installé.",
+        "none": "Aucun modèle de synthèse vocale n'est installé."
+      },
+      "remote": "{{model}} n'est pas un modèle local. Le texte de chaque réponse que vous faites lire à voix haute est envoyé à un autre serveur."
+    }
   }
 }

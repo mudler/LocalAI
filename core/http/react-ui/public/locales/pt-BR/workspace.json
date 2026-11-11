@@ -993,5 +993,145 @@
       "title": "Prévia",
       "sidebar": "Barra lateral"
     }
+  },
+  "commands": {
+    "title": "Comandos",
+    "lede": "Seus próprios comandos com barra. Um comando coloca um prompt na caixa de mensagem. Você lê e envia por conta própria.",
+    "form": "Comando",
+    "new": "Novo comando",
+    "empty": "Ainda não há comandos. Adicione um e ele aparece no menu de barra.",
+    "type": {
+      "prompt": "Expande para um prompt",
+      "tool": "Chama uma ferramenta"
+    },
+    "field": {
+      "name": "Nome",
+      "description": "Descrição",
+      "what": "O que faz",
+      "template": "Modelo do prompt",
+      "tool": "Ferramenta",
+      "args": "Argumentos"
+    },
+    "nameHint": "Letras minúsculas, dígitos e hifens.",
+    "templateHint": "Escreva {{example}} onde um argumento deve entrar.",
+    "noArgs": "Este modelo não tem argumentos.",
+    "argKind": {
+      "number": "número",
+      "text": "texto"
+    },
+    "argDefault": "padrão",
+    "argsHint": "Digite {{example}} para preencher os argumentos em ordem. Os que faltarem usam o valor padrão.",
+    "toolHint": "Uma ferramenta que você já tem. O comando pede ao assistente que a use, e a ferramenta mantém a sua própria etapa de aprovação.",
+    "toolUnknown": "Esta ferramenta não está entre as ferramentas de um chat neste momento.",
+    "expands": "Coloca isto na caixa de mensagem",
+    "valid": "Válido",
+    "invalid": "Precisa de correção",
+    "save": "Salvar",
+    "delete": "Excluir",
+    "preview": {
+      "title": "Prévia do menu de barra",
+      "builtin": "Embutidos",
+      "none": "Ainda não há comandos.",
+      "keys": "Enter preenche a caixa"
+    },
+    "problem": {
+      "nameEmpty": "Dê um nome ao comando.",
+      "nameFormat": "Um nome começa com uma letra e só tem letras minúsculas, dígitos e hifens, no máximo 32.",
+      "nameBuiltin": "Este nome pertence a um comando embutido. Escolha outro.",
+      "nameTaken": "Outro comando já tem este nome.",
+      "descriptionEmpty": "Escreva uma descrição curta para o menu.",
+      "descriptionLong": "A descrição tem no máximo {{max}} caracteres.",
+      "toolEmpty": "Informe a ferramenta.",
+      "toolFormat": "O nome de uma ferramenta só tem letras, dígitos, pontos, hifens e sublinhados.",
+      "templateEmpty": "Escreva o prompt.",
+      "templateLong": "O prompt tem no máximo {{template}} caracteres.",
+      "argFormat": "O nome de um argumento começa com uma letra e só tem letras minúsculas, dígitos e sublinhados.",
+      "argTwice": "Um argumento está listado duas vezes.",
+      "argDefault": "Cada argumento precisa de um valor padrão.",
+      "argDefaultLong": "Um valor padrão tem no máximo 200 caracteres.",
+      "argMissing": "Um argumento do modelo não tem um nome válido.",
+      "argUnused": "Um argumento não é usado no modelo.",
+      "braces": "Uma chave dupla não foi fechada.",
+      "argCount": "Um comando tem no máximo {{args}} argumentos."
+    }
+  },
+  "sound": {
+    "title": "Som",
+    "play": "Tocar o som de {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Usar o volume padrão",
+    "names": {
+      "none": "Nenhum",
+      "soft-chime": "Sino suave",
+      "double-tap": "Toque duplo",
+      "bell": "Sineta",
+      "pop": "Pop",
+      "low-tone": "Tom grave"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Resposta concluída",
+        "hint": "Uma resposta longa está pronta"
+      },
+      "approval": {
+        "label": "Precisa da sua aprovação",
+        "hint": "Uma ferramenta ou uma alteração pergunta antes de executar"
+      },
+      "taskDone": {
+        "label": "Tarefa ou agendamento concluído",
+        "hint": "Um gatilho ou um trabalho de agente terminou"
+      },
+      "error": {
+        "label": "Erro",
+        "hint": "Uma solicitação ou um trabalho falhou"
+      }
+    },
+    "notify": {
+      "title": "Sons de notificação",
+      "lede": "Sons curtos quando algo precisa de você. Ficam desligados até você ligá-los.",
+      "rule": "O som só começa depois que você usar a página. Uma resposta, uma aprovação ou um erro só tocam enquanto esta aba está em segundo plano. Nada toca nas horas de silêncio."
+    },
+    "quiet": {
+      "title": "Horas de silêncio",
+      "between": "Sem sons entre {{from}} e {{to}}",
+      "none": "Sem horas de silêncio. Ative para escolher um intervalo.",
+      "from": "De",
+      "to": "Até"
+    },
+    "voice": {
+      "title": "Voz para as respostas",
+      "lede": "Faça as respostas serem lidas em voz alta.",
+      "readAloud": "Ler as respostas em voz alta",
+      "mode": {
+        "off": "Nunca",
+        "button": "Quando eu apertar o alto-falante",
+        "auto": "Toda resposta"
+      },
+      "modeHint": {
+        "off": "As respostas não são lidas em voz alta.",
+        "button": "Um botão de alto-falante aparece sob cada resposta.",
+        "auto": "Cada resposta concluída é lida na hora. O navegador pode pedir que você clique na página antes."
+      },
+      "voice": "Voz",
+      "voicePlaceholder": "Padrão do modelo",
+      "voiceHint": "O nome de voz que o seu modelo de texto para fala aceita. Deixe vazio para a voz com que o modelo começa.",
+      "speed": "Velocidade",
+      "speedReset": "Usar a velocidade normal",
+      "skipCode": "Pular código e tabelas",
+      "skipCodeHint": "Diz \"bloco de código omitido\" no lugar.",
+      "sample": "Tocar amostra",
+      "stop": "Parar",
+      "sampleText": "Olá, é assim que as suas respostas vão soar.",
+      "sampleFailed": "Não foi possível tocar a amostra.",
+      "madeBy": "A fala é produzida por {{model}}, o seu modelo de texto para fala padrão.",
+      "madeByAuto": "A fala é produzida por {{model}}, o primeiro modelo de texto para fala instalado. Você não escolheu um padrão.",
+      "change": "Alterar em Padrões",
+      "model": {
+        "ask": "Seus padrões dizem para perguntar a cada vez, então não há modelo para ler. Escolha um modelo de texto para fala.",
+        "missing": "{{model}} é o seu modelo de texto para fala padrão, mas não está instalado.",
+        "none": "Nenhum modelo de texto para fala está instalado."
+      },
+      "remote": "{{model}} não é um modelo local. O texto de cada resposta que você manda ler em voz alta é enviado a outro servidor."
+    }
   }
 }

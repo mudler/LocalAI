@@ -11,7 +11,7 @@ test.describe('Account', () => {
 
   test('has its tabs, opens on the profile and keeps the tab in the address', async ({ page }) => {
     const tabs = await page.getByRole('tab').allTextContents()
-    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage', 'About you and the assistant', 'Memory', 'Appearance', 'Defaults', 'Navigation', 'Text'])
+    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage', 'About you and the assistant', 'Memory', 'Appearance', 'Defaults', 'Navigation', 'Text and commands', 'Sound'])
     await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true')
     await page.getByRole('tab', { name: 'Usage' }).click()
     await expect(page).toHaveURL(/tab=usage/)
@@ -101,7 +101,7 @@ test.describe('Account: other people and states', () => {
     await page.route('**/api/auth/status', route => route.fulfill({ json: { authEnabled: false, staticApiKeyRequired: false, providers: [] } }))
     await page.goto('/app/account')
     await expect(page.getByTestId('account-about')).toBeVisible()
-    expect(await page.getByRole('tab').allTextContents()).toEqual(['About you and the assistant', 'Memory', 'Appearance', 'Defaults', 'Navigation', 'Text'])
+    expect(await page.getByRole('tab').allTextContents()).toEqual(['About you and the assistant', 'Memory', 'Appearance', 'Defaults', 'Navigation', 'Text and commands', 'Sound'])
     await expect(page.getByTestId('sidebar-your-settings')).toBeVisible()
   })
 

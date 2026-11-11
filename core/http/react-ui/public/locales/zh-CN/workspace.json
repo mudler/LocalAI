@@ -993,5 +993,145 @@
       "title": "预览",
       "sidebar": "侧边栏"
     }
+  },
+  "commands": {
+    "title": "命令",
+    "lede": "你自己的斜杠命令。命令会把一段提示词放进消息框，由你阅读后自己发送。",
+    "form": "命令",
+    "new": "新建命令",
+    "empty": "还没有命令。添加一个，它就会出现在斜杠菜单里。",
+    "type": {
+      "prompt": "展开为提示词",
+      "tool": "调用工具"
+    },
+    "field": {
+      "name": "名称",
+      "description": "说明",
+      "what": "作用",
+      "template": "提示词模板",
+      "tool": "工具",
+      "args": "参数"
+    },
+    "nameHint": "小写字母、数字和连字符。",
+    "templateHint": "在参数的位置写 {{example}}。",
+    "noArgs": "这个模板没有参数。",
+    "argKind": {
+      "number": "数字",
+      "text": "文本"
+    },
+    "argDefault": "默认值",
+    "argsHint": "输入 {{example}} 可按顺序填写参数。缺少的参数使用默认值。",
+    "toolHint": "你已有的工具。命令会请助手使用它，工具仍保留自己的批准步骤。",
+    "toolUnknown": "这个工具目前不在聊天的工具之中。",
+    "expands": "会放进消息框的内容",
+    "valid": "有效",
+    "invalid": "需要修正",
+    "save": "保存",
+    "delete": "删除",
+    "preview": {
+      "title": "斜杠菜单预览",
+      "builtin": "内置",
+      "none": "还没有命令。",
+      "keys": "按 Enter 填入消息框"
+    },
+    "problem": {
+      "nameEmpty": "请给命令起个名字。",
+      "nameFormat": "名称以字母开头，只能包含小写字母、数字和连字符，最多 32 个字符。",
+      "nameBuiltin": "这个名称属于内置命令，请换一个。",
+      "nameTaken": "已有另一个命令使用这个名称。",
+      "descriptionEmpty": "请为菜单写一句简短的说明。",
+      "descriptionLong": "说明最多 {{max}} 个字符。",
+      "toolEmpty": "请填写工具名称。",
+      "toolFormat": "工具名称只能包含字母、数字、点、连字符和下划线。",
+      "templateEmpty": "请写出提示词。",
+      "templateLong": "提示词最多 {{template}} 个字符。",
+      "argFormat": "参数名以字母开头，只能包含小写字母、数字和下划线。",
+      "argTwice": "有参数被重复列出。",
+      "argDefault": "每个参数都需要默认值。",
+      "argDefaultLong": "默认值最多 200 个字符。",
+      "argMissing": "模板中有参数的名称无效。",
+      "argUnused": "有参数没有在模板中使用。",
+      "braces": "有一对双大括号没有闭合。",
+      "argCount": "一个命令最多有 {{args}} 个参数。"
+    }
+  },
+  "sound": {
+    "title": "声音",
+    "play": "播放“{{event}}”的声音",
+    "volume": "音量",
+    "volumeReset": "使用默认音量",
+    "names": {
+      "none": "无",
+      "soft-chime": "轻柔铃声",
+      "double-tap": "双击声",
+      "bell": "铃铛",
+      "pop": "啵声",
+      "low-tone": "低音"
+    },
+    "events": {
+      "replyDone": {
+        "label": "回复完成",
+        "hint": "较长的回答已经准备好"
+      },
+      "approval": {
+        "label": "需要你的批准",
+        "hint": "某个工具或更改在运行前请求确认"
+      },
+      "taskDone": {
+        "label": "任务或计划完成",
+        "hint": "某个触发器或智能体任务已结束"
+      },
+      "error": {
+        "label": "错误",
+        "hint": "某个请求或任务失败"
+      }
+    },
+    "notify": {
+      "title": "通知声音",
+      "lede": "有事需要你时播放简短的声音。在你打开之前保持关闭。",
+      "rule": "声音只在你操作过页面之后才会响起。回复、批准和错误的声音只在此标签页位于后台时播放。静音时段内不会播放任何声音。"
+    },
+    "quiet": {
+      "title": "静音时段",
+      "between": "{{from}} 到 {{to}} 之间不播放声音",
+      "none": "没有静音时段。打开后可选择时间段。",
+      "from": "从",
+      "to": "到"
+    },
+    "voice": {
+      "title": "回复的语音",
+      "lede": "让回复被朗读出来。",
+      "readAloud": "朗读回复",
+      "mode": {
+        "off": "从不",
+        "button": "点按喇叭时",
+        "auto": "每条回复"
+      },
+      "modeHint": {
+        "off": "回复不会被朗读。",
+        "button": "每条回复下方会显示一个喇叭按钮。",
+        "auto": "每条完成的回复会立即朗读。浏览器可能要求你先点击一下页面。"
+      },
+      "voice": "声音",
+      "voicePlaceholder": "模型默认",
+      "voiceHint": "你的语音合成模型接受的声音名称。留空则使用模型一开始的声音。",
+      "speed": "语速",
+      "speedReset": "使用正常语速",
+      "skipCode": "跳过代码和表格",
+      "skipCodeHint": "改为说“代码块已省略”。",
+      "sample": "播放示例",
+      "stop": "停止",
+      "sampleText": "你好，你的回复听起来就是这样。",
+      "sampleFailed": "无法播放示例。",
+      "madeBy": "语音由 {{model}} 生成，它是你的默认语音合成模型。",
+      "madeByAuto": "语音由 {{model}} 生成，它是已安装的第一个语音合成模型。你还没有选择默认模型。",
+      "change": "在默认值中更改",
+      "model": {
+        "ask": "你的默认值设为每次询问，所以没有可用于朗读的模型。请选择一个语音合成模型。",
+        "missing": "{{model}} 是你的默认语音合成模型，但它没有安装。",
+        "none": "没有安装语音合成模型。"
+      },
+      "remote": "{{model}} 不是本地模型。你让朗读的每条回复的文本都会发送到另一台服务器。"
+    }
   }
 }

@@ -993,5 +993,145 @@
       "title": "Pratinjau",
       "sidebar": "Bilah samping"
     }
+  },
+  "commands": {
+    "title": "Perintah",
+    "lede": "Perintah garis miring milik Anda. Sebuah perintah menaruh prompt di kotak pesan. Anda membacanya dan mengirimnya sendiri.",
+    "form": "Perintah",
+    "new": "Perintah baru",
+    "empty": "Belum ada perintah. Tambahkan satu dan perintah itu muncul di menu garis miring.",
+    "type": {
+      "prompt": "Diperluas menjadi prompt",
+      "tool": "Memanggil alat"
+    },
+    "field": {
+      "name": "Nama",
+      "description": "Deskripsi",
+      "what": "Fungsinya",
+      "template": "Templat prompt",
+      "tool": "Alat",
+      "args": "Argumen"
+    },
+    "nameHint": "Huruf kecil, angka, dan tanda hubung.",
+    "templateHint": "Tulis {{example}} di tempat argumen berada.",
+    "noArgs": "Templat ini tidak punya argumen.",
+    "argKind": {
+      "number": "angka",
+      "text": "teks"
+    },
+    "argDefault": "bawaan",
+    "argsHint": "Ketik {{example}} untuk mengisi argumen secara berurutan. Argumen yang kosong memakai nilai bawaan.",
+    "toolHint": "Alat yang sudah Anda miliki. Perintah ini meminta asisten memakainya, dan alat itu tetap punya langkah persetujuannya sendiri.",
+    "toolUnknown": "Alat ini saat ini tidak termasuk alat dalam sebuah obrolan.",
+    "expands": "Menaruh ini di kotak pesan",
+    "valid": "Valid",
+    "invalid": "Perlu diperbaiki",
+    "save": "Simpan",
+    "delete": "Hapus",
+    "preview": {
+      "title": "Pratinjau menu garis miring",
+      "builtin": "Bawaan sistem",
+      "none": "Belum ada perintah.",
+      "keys": "Enter mengisi kotak"
+    },
+    "problem": {
+      "nameEmpty": "Beri nama pada perintah.",
+      "nameFormat": "Nama diawali huruf dan hanya berisi huruf kecil, angka, dan tanda hubung, paling banyak 32.",
+      "nameBuiltin": "Nama ini milik perintah bawaan sistem. Pilih nama lain.",
+      "nameTaken": "Perintah lain sudah memakai nama ini.",
+      "descriptionEmpty": "Tulis deskripsi singkat untuk menu.",
+      "descriptionLong": "Deskripsi paling banyak {{max}} karakter.",
+      "toolEmpty": "Sebutkan alatnya.",
+      "toolFormat": "Nama alat hanya berisi huruf, angka, titik, tanda hubung, dan garis bawah.",
+      "templateEmpty": "Tulis prompt-nya.",
+      "templateLong": "Prompt paling banyak {{template}} karakter.",
+      "argFormat": "Nama argumen diawali huruf dan hanya berisi huruf kecil, angka, dan garis bawah.",
+      "argTwice": "Ada argumen yang tercantum dua kali.",
+      "argDefault": "Setiap argumen perlu nilai bawaan.",
+      "argDefaultLong": "Nilai bawaan paling banyak 200 karakter.",
+      "argMissing": "Ada argumen di templat yang namanya tidak valid.",
+      "argUnused": "Ada argumen yang tidak dipakai di templat.",
+      "braces": "Ada kurung kurawal ganda yang belum ditutup.",
+      "argCount": "Sebuah perintah punya paling banyak {{args}} argumen."
+    }
+  },
+  "sound": {
+    "title": "Suara",
+    "play": "Putar suara untuk {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Pakai volume bawaan",
+    "names": {
+      "none": "Tidak ada",
+      "soft-chime": "Denting lembut",
+      "double-tap": "Ketuk ganda",
+      "bell": "Lonceng",
+      "pop": "Pop",
+      "low-tone": "Nada rendah"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Balasan selesai",
+        "hint": "Jawaban panjang sudah siap"
+      },
+      "approval": {
+        "label": "Perlu persetujuan Anda",
+        "hint": "Sebuah alat atau perubahan meminta izin sebelum berjalan"
+      },
+      "taskDone": {
+        "label": "Tugas atau jadwal selesai",
+        "hint": "Sebuah pemicu atau pekerjaan agen telah berakhir"
+      },
+      "error": {
+        "label": "Kesalahan",
+        "hint": "Sebuah permintaan atau pekerjaan gagal"
+      }
+    },
+    "notify": {
+      "title": "Suara notifikasi",
+      "lede": "Suara singkat saat ada yang butuh perhatian Anda. Suara tetap mati sampai Anda menyalakannya.",
+      "rule": "Suara baru mulai setelah Anda memakai halaman. Balasan, persetujuan, atau kesalahan hanya berbunyi saat tab ini berada di latar belakang. Tidak ada yang berbunyi pada jam tenang."
+    },
+    "quiet": {
+      "title": "Jam tenang",
+      "between": "Tidak ada suara antara {{from}} dan {{to}}",
+      "none": "Tidak ada jam tenang. Nyalakan untuk memilih rentang waktu.",
+      "from": "Dari",
+      "to": "Sampai"
+    },
+    "voice": {
+      "title": "Suara untuk balasan",
+      "lede": "Bacakan balasan dengan suara.",
+      "readAloud": "Bacakan balasan",
+      "mode": {
+        "off": "Tidak pernah",
+        "button": "Saat saya menekan speaker",
+        "auto": "Setiap balasan"
+      },
+      "modeHint": {
+        "off": "Balasan tidak dibacakan.",
+        "button": "Tombol speaker muncul di bawah setiap balasan.",
+        "auto": "Setiap balasan yang selesai langsung dibacakan. Browser mungkin meminta Anda mengeklik halaman dulu."
+      },
+      "voice": "Suara",
+      "voicePlaceholder": "Bawaan model",
+      "voiceHint": "Nama suara yang diterima model teks-ke-suara Anda. Kosongkan untuk memakai suara awal model.",
+      "speed": "Kecepatan",
+      "speedReset": "Pakai kecepatan normal",
+      "skipCode": "Lewati kode dan tabel",
+      "skipCodeHint": "Mengucapkan \"blok kode dilewati\" sebagai gantinya.",
+      "sample": "Putar contoh",
+      "stop": "Berhenti",
+      "sampleText": "Halo, beginilah suara balasan Anda nanti.",
+      "sampleFailed": "Contoh tidak dapat diputar.",
+      "madeBy": "Suara dibuat oleh {{model}}, model teks-ke-suara bawaan Anda.",
+      "madeByAuto": "Suara dibuat oleh {{model}}, model teks-ke-suara pertama yang terpasang. Anda belum memilih model bawaan.",
+      "change": "Ubah di Bawaan",
+      "model": {
+        "ask": "Pengaturan bawaan Anda meminta untuk bertanya setiap kali, jadi tidak ada model untuk membaca. Pilih model teks-ke-suara.",
+        "missing": "{{model}} adalah model teks-ke-suara bawaan Anda, tetapi belum terpasang.",
+        "none": "Belum ada model teks-ke-suara yang terpasang."
+      },
+      "remote": "{{model}} bukan model lokal. Teks setiap balasan yang Anda bacakan dikirim ke server lain."
+    }
   }
 }

@@ -17,7 +17,7 @@ const scope = {
   ...Object.fromEntries(names.map(n => [n, leaf])), ...slash,
   React, useCallback, useMemo, useState,
   useTranslation: () => ({ t: k => k }), useAuth: () => ({ isAdmin: true, user: { id: 'a' } }),
-  useModelFit: () => ({ resources: null }), useCommandsNotice: () => ({}),
+  useModelFit: () => ({ resources: null }), useCommandsNotice: () => ({}), useUserCommands: () => [],
   hostMemory: () => null, agentFolderLine: () => '', CAP_CHAT: 'chat',
   CHAT_SLASH_ACTIONS: [], SLASH_ACTIONS: [],
   HomeComposer: props => { captured = props; return React.createElement('textarea', { defaultValue: props.message }) },

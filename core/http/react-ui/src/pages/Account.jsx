@@ -10,6 +10,7 @@ import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows,
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
 import { AboutYouTab, AppearanceTab, NavigationTab, StringsTab } from '../components/wellknown/SettingsTabs'
 import DefaultsTab from '../components/wellknown/DefaultsTab'
+import SoundTab from '../components/wellknown/SoundTab'
 import MemoryTab from '../components/MemoryTab'
 import MemorySettings from '../components/MemorySettings'
 import './access.css'
@@ -25,10 +26,11 @@ const TABS = [
   { id: 'defaults', labelKey: 'account.tabs.defaults', files: true },
   { id: 'navigation', labelKey: 'account.tabs.navigation', files: true },
   { id: 'strings', labelKey: 'account.tabs.strings', files: true },
+  { id: 'sound', labelKey: 'account.tabs.sound', files: true },
 ]
 
 // Wide tabs hold two cards side by side, or a form and its preview.
-const WIDE_TABS = new Set(['about', 'appearance', 'defaults', 'navigation', 'strings'])
+const WIDE_TABS = new Set(['about', 'appearance', 'defaults', 'navigation', 'strings', 'sound'])
 
 const WINDOW_WORDS = { '1m': 'minute', '5m': '5 minutes', '1h': 'hour', '6h': '6 hours', '1d': 'day', '7d': 'week', '30d': '30 days' }
 
@@ -310,6 +312,7 @@ export default function Account() {
         {tab === 'defaults' && <DefaultsTab />}
         {tab === 'navigation' && <NavigationTab />}
         {tab === 'strings' && <StringsTab />}
+        {tab === 'sound' && <SoundTab />}
       </div>
     </Page>
   )

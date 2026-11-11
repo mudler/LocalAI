@@ -297,7 +297,8 @@
       "skills": "Skill dan agen",
       "help": "Bantuan",
       "chat": "Obrolan",
-      "view": "Lihat"
+      "view": "Lihat",
+      "yours": "Milik Anda"
     },
     "models": {
       "label": "Model",
@@ -350,7 +351,9 @@
       "builtin": "bawaan",
       "addon": "add-on",
       "shared": "bersama",
-      "yours": "milik Anda"
+      "yours": "milik Anda",
+      "prompt": "prompt",
+      "tool": "alat"
     },
     "collides": "hanya dengan /skill",
     "errors": {
@@ -396,7 +399,9 @@
     "effort": {
       "label": "Upaya penalaran",
       "desc": "Pilih seberapa keras model berpikir"
-    }
+    },
+    "userTool": "Gunakan alat {{tool}}.",
+    "unavailable": "alat tidak tersedia"
   },
   "shortcuts": {
     "onMessage": "Pada pesan: salin, ubah, buat ulang",
@@ -1006,6 +1011,18 @@
       "start": "Mulai Live",
       "close": "Tutup",
       "notShown": "Terpasang, tetapi modelnya tidak muncul. Coba lagi atau muat ulang."
+    }
+  },
+  "readAloud": {
+    "read": "Bacakan",
+    "stop": "Hentikan pembacaan",
+    "ask": "Model teks-ke-suara bawaan Anda diatur untuk bertanya setiap kali. Pilih model di Bawaan untuk membacakan.",
+    "none": "Belum ada model teks-ke-suara yang terpasang.",
+    "missing": "Model teks-ke-suara bawaan Anda belum terpasang. Pilih model lain di Bawaan.",
+    "failed": "Ini tidak dapat dibacakan.",
+    "omitted": {
+      "code": "Blok kode dilewati.",
+      "table": "Tabel dilewati."
     }
   }
 }

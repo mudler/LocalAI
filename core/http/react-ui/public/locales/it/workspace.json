@@ -993,5 +993,145 @@
       "title": "Anteprima",
       "sidebar": "Barra laterale"
     }
+  },
+  "commands": {
+    "title": "Comandi",
+    "lede": "I tuoi comandi con la barra. Un comando inserisce un prompt nella casella del messaggio. Lo leggi e lo invii tu.",
+    "form": "Comando",
+    "new": "Nuovo comando",
+    "empty": "Ancora nessun comando. Aggiungine uno e comparirà nel menu con la barra.",
+    "type": {
+      "prompt": "Si espande in un prompt",
+      "tool": "Chiama uno strumento"
+    },
+    "field": {
+      "name": "Nome",
+      "description": "Descrizione",
+      "what": "Cosa fa",
+      "template": "Modello del prompt",
+      "tool": "Strumento",
+      "args": "Argomenti"
+    },
+    "nameHint": "Lettere minuscole, cifre e trattini.",
+    "templateHint": "Scrivi {{example}} dove va un argomento.",
+    "noArgs": "Questo modello non ha argomenti.",
+    "argKind": {
+      "number": "numero",
+      "text": "testo"
+    },
+    "argDefault": "predefinito",
+    "argsHint": "Scrivi {{example}} per riempire gli argomenti in ordine. Quelli mancanti usano il valore predefinito.",
+    "toolHint": "Uno strumento che hai già. Il comando chiede all'assistente di usarlo e lo strumento mantiene il proprio passaggio di approvazione.",
+    "toolUnknown": "Questo strumento non è tra gli strumenti di una chat in questo momento.",
+    "expands": "Inserisce questo nella casella del messaggio",
+    "valid": "Valido",
+    "invalid": "Da correggere",
+    "save": "Salva",
+    "delete": "Elimina",
+    "preview": {
+      "title": "Anteprima del menu con la barra",
+      "builtin": "Integrati",
+      "none": "Ancora nessun comando.",
+      "keys": "Invio riempie la casella"
+    },
+    "problem": {
+      "nameEmpty": "Dai un nome al comando.",
+      "nameFormat": "Un nome inizia con una lettera e ha solo lettere minuscole, cifre e trattini, al massimo 32.",
+      "nameBuiltin": "Questo nome appartiene a un comando integrato. Scegline un altro.",
+      "nameTaken": "Un altro comando ha già questo nome.",
+      "descriptionEmpty": "Scrivi una breve descrizione per il menu.",
+      "descriptionLong": "La descrizione ha al massimo {{max}} caratteri.",
+      "toolEmpty": "Indica lo strumento.",
+      "toolFormat": "Il nome di uno strumento ha solo lettere, cifre, punti, trattini e trattini bassi.",
+      "templateEmpty": "Scrivi il prompt.",
+      "templateLong": "Il prompt ha al massimo {{template}} caratteri.",
+      "argFormat": "Il nome di un argomento inizia con una lettera e ha solo lettere minuscole, cifre e trattini bassi.",
+      "argTwice": "Un argomento è elencato due volte.",
+      "argDefault": "Ogni argomento ha bisogno di un valore predefinito.",
+      "argDefaultLong": "Un valore predefinito ha al massimo 200 caratteri.",
+      "argMissing": "Un argomento del modello non ha un nome valido.",
+      "argUnused": "Un argomento non è usato nel modello.",
+      "braces": "Una doppia graffa non è chiusa.",
+      "argCount": "Un comando ha al massimo {{args}} argomenti."
+    }
+  },
+  "sound": {
+    "title": "Suoni",
+    "play": "Riproduci il suono per {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Usa il volume predefinito",
+    "names": {
+      "none": "Nessuno",
+      "soft-chime": "Campanella dolce",
+      "double-tap": "Doppio tocco",
+      "bell": "Campana",
+      "pop": "Pop",
+      "low-tone": "Tono basso"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Risposta finita",
+        "hint": "Una risposta lunga è pronta"
+      },
+      "approval": {
+        "label": "Serve la tua approvazione",
+        "hint": "Uno strumento o una modifica chiede prima di partire"
+      },
+      "taskDone": {
+        "label": "Attività o pianificazione completata",
+        "hint": "Un trigger o un lavoro di un agente è terminato"
+      },
+      "error": {
+        "label": "Errore",
+        "hint": "Una richiesta o un lavoro non è riuscito"
+      }
+    },
+    "notify": {
+      "title": "Suoni di notifica",
+      "lede": "Brevi suoni quando qualcosa ha bisogno di te. Restano spenti finché non li attivi.",
+      "rule": "Il suono parte solo dopo che hai usato la pagina. Una risposta, un'approvazione o un errore suonano solo mentre questa scheda è in secondo piano. Durante le ore di silenzio non suona nulla."
+    },
+    "quiet": {
+      "title": "Ore di silenzio",
+      "between": "Nessun suono tra le {{from}} e le {{to}}",
+      "none": "Nessuna ora di silenzio. Attiva per scegliere un intervallo.",
+      "from": "Dalle",
+      "to": "Alle"
+    },
+    "voice": {
+      "title": "Voce per le risposte",
+      "lede": "Fai leggere le risposte ad alta voce.",
+      "readAloud": "Leggi le risposte ad alta voce",
+      "mode": {
+        "off": "Mai",
+        "button": "Quando premo l'altoparlante",
+        "auto": "Ogni risposta"
+      },
+      "modeHint": {
+        "off": "Le risposte non vengono lette ad alta voce.",
+        "button": "Sotto ogni risposta compare un pulsante con l'altoparlante.",
+        "auto": "Ogni risposta finita viene letta subito. Il browser può chiederti prima di fare clic sulla pagina."
+      },
+      "voice": "Voce",
+      "voicePlaceholder": "Predefinita del modello",
+      "voiceHint": "Il nome della voce che accetta il tuo modello di sintesi vocale. Lascia vuoto per la voce con cui parte il modello.",
+      "speed": "Velocità",
+      "speedReset": "Usa la velocità normale",
+      "skipCode": "Salta codice e tabelle",
+      "skipCodeHint": "Dice \"blocco di codice omesso\" al suo posto.",
+      "sample": "Riproduci un esempio",
+      "stop": "Ferma",
+      "sampleText": "Ciao, ecco come suoneranno le tue risposte.",
+      "sampleFailed": "Non è stato possibile riprodurre l'esempio.",
+      "madeBy": "La voce è generata da {{model}}, il tuo modello di sintesi vocale predefinito.",
+      "madeByAuto": "La voce è generata da {{model}}, il primo modello di sintesi vocale installato. Non hai scelto un modello predefinito.",
+      "change": "Cambia in Predefiniti",
+      "model": {
+        "ask": "I tuoi predefiniti dicono di chiedere ogni volta, quindi non c'è un modello con cui leggere. Scegli un modello di sintesi vocale.",
+        "missing": "{{model}} è il tuo modello di sintesi vocale predefinito, ma non è installato.",
+        "none": "Nessun modello di sintesi vocale è installato."
+      },
+      "remote": "{{model}} non è un modello locale. Il testo di ogni risposta che fai leggere ad alta voce viene inviato a un altro server."
+    }
   }
 }

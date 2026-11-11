@@ -297,7 +297,8 @@
       "view": "View",
       "context": "Context",
       "skills": "Skills and agents",
-      "help": "Help"
+      "help": "Help",
+      "yours": "Yours"
     },
     "model": {
       "label": "Switch model",
@@ -382,7 +383,9 @@
       "builtin": "built-in",
       "addon": "add-on",
       "shared": "shared",
-      "yours": "yours"
+      "yours": "yours",
+      "prompt": "prompt",
+      "tool": "tool"
     },
     "collides": "only with /skill",
     "errors": {
@@ -408,7 +411,9 @@
     "effort": {
       "label": "Reasoning effort",
       "desc": "Choose how hard the model thinks"
-    }
+    },
+    "userTool": "Use the {{tool}} tool.",
+    "unavailable": "tool not available"
   },
   "shortcuts": {
     "title": "Keyboard shortcuts",
@@ -1039,6 +1044,18 @@
       "start": "Start Live",
       "close": "Close",
       "notShown": "Installed, but the model did not show up. Retry or reload."
+    }
+  },
+  "readAloud": {
+    "read": "Read aloud",
+    "stop": "Stop reading",
+    "ask": "Your default text-to-speech model is set to ask each time. Pick a model in Defaults to read aloud.",
+    "none": "No text-to-speech model is installed.",
+    "missing": "Your default text-to-speech model is not installed. Pick another in Defaults.",
+    "failed": "This could not be read aloud.",
+    "omitted": {
+      "code": "Code block omitted.",
+      "table": "Table omitted."
     }
   }
 }

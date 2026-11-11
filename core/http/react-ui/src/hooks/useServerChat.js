@@ -5,6 +5,7 @@ import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWa
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
 import { savedFailure } from '../utils/chatFailure'
+import { emitSound } from '../utils/soundBus'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -188,6 +189,8 @@ export function useServerChat({ seed = null } = {}) {
     const source = new EventSource(resumeUrl(chatsApi.eventsUrl(id), lastEventRef.current, id))
     sourceRef.current = source
 
+    // A turn that failed says so once: the error, not the end of the turn, sounds.
+    let turnFailed = false
     const on = {
       turn_start: () => {
         epochRef.current++
@@ -248,7 +251,7 @@ export function useServerChat({ seed = null } = {}) {
         setUsage(e.usage)
         setUsageHistory(h => pushUsage(h, e.usage))
       },
-      trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
+      trigger_proposed: () => { setTicks(t => ({ ...t, proposals: t.proposals + 1 })); emitSound('approval') },
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
       // The network of the chat's isolated commands changed: a card asked or
       // was answered, or the preset or a rule changed. The network panel and
@@ -256,15 +259,21 @@ export function useServerChat({ seed = null } = {}) {
       egress_consent: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       egress_card: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       // A command of the built-in bash waits for a yes (chats_host_exec ask).
-      host_exec_consent: (e) => { if (e.ids?.[0]) setLive(l => consentAsk(l, id, e.ids[0], e.text)) },
+      host_exec_consent: (e) => { if (e.ids?.[0]) { setLive(l => consentAsk(l, id, e.ids[0], e.text)); emitSound('approval') } },
       error: (e) => {
         if (!e.text) return
         setError(e.text)
         // Only the error that ended the turn has a code.
-        if (e.code) setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+        if (e.code) {
+          setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+          turnFailed = true
+          emitSound('error')
+        }
       },
       turn_end: async () => {
         notifyTurnEnd()
+        if (!turnFailed) emitSound('replyDone')
+        turnFailed = false
         // The server publishes the end of a turn just before it records it, so
         // a read at once can still say running. Read again, a few times, until
         // the record agrees, unless a new turn started meanwhile.

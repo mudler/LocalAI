@@ -245,7 +245,8 @@
     "group": {
       "context": "Contexto",
       "skills": "Skills y agentes",
-      "help": "Ayuda"
+      "help": "Ayuda",
+      "yours": "Tuyos"
     },
     "models": {
       "label": "Modelos",
@@ -298,7 +299,9 @@
       "builtin": "integrada",
       "addon": "complemento",
       "shared": "compartida",
-      "yours": "tuya"
+      "yours": "tuya",
+      "prompt": "prompt",
+      "tool": "herramienta"
     },
     "collides": "solo con /skill",
     "errors": {
@@ -324,7 +327,9 @@
     "effort": {
       "label": "Esfuerzo de razonamiento",
       "desc": "Cuánto piensa el modelo"
-    }
+    },
+    "userTool": "Usa la herramienta {{tool}}.",
+    "unavailable": "herramienta no disponible"
   },
   "shortcuts": {
     "onMessage": "En un mensaje: copiar, editar, regenerar",
@@ -896,6 +901,18 @@
       "start": "Iniciar Live",
       "close": "Cerrar",
       "notShown": "Instalado, pero el modelo no apareció. Reintenta o recarga la página."
+    }
+  },
+  "readAloud": {
+    "read": "Leer en voz alta",
+    "stop": "Dejar de leer",
+    "ask": "Tu modelo de texto a voz por defecto está en \"preguntar cada vez\". Elige un modelo en Predeterminados para leer en voz alta.",
+    "none": "No hay ningún modelo de texto a voz instalado.",
+    "missing": "Tu modelo de texto a voz por defecto no está instalado. Elige otro en Predeterminados.",
+    "failed": "No se pudo leer en voz alta.",
+    "omitted": {
+      "code": "Bloque de código omitido.",
+      "table": "Tabla omitida."
     }
   }
 }
