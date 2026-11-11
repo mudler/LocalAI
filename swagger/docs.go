@@ -25686,6 +25686,14 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "harness": {
+                    "description": "Harness says whether the chat has the context window the chat agent\nneeds. It is set when a single chat is opened, created or changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHarness"
+                        }
+                    ]
+                },
                 "id": {
                     "type": "string"
                 },
@@ -25770,6 +25778,14 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsGoal"
+                        }
+                    ]
+                },
+                "harness": {
+                    "description": "Harness says whether the chat has the context window the chat agent\nneeds. It is set when a single chat is opened, created or changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHarness"
                         }
                     ]
                 },
@@ -26840,6 +26856,38 @@ const docTemplate = `{
                 },
                 "replaced": {
                     "$ref": "#/definitions/schema.ChatsGoal"
+                }
+            }
+        },
+        "schema.ChatsHarness": {
+            "type": "object",
+            "properties": {
+                "admin": {
+                    "description": "Admin is true when Minimum is the administrator's.",
+                    "type": "boolean"
+                },
+                "can_fix": {
+                    "description": "CanFix is true when this user may change what limits the window: an\nadministrator for the model's window, the chat's owner for the chat's\nown context size.",
+                    "type": "boolean"
+                },
+                "minimum": {
+                    "description": "Minimum is the smallest window that works for this user's role, and\nRecommended is the window to aim at.",
+                    "type": "integer"
+                },
+                "ok": {
+                    "description": "OK is false when the window of the chat is below Minimum.",
+                    "type": "boolean"
+                },
+                "recommended": {
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "Source is what limits the window when OK is false: \"model\" or \"chat\".",
+                    "type": "string"
+                },
+                "window": {
+                    "description": "Window is the window the chat runs with, in tokens (0 when unknown).",
+                    "type": "integer"
                 }
             }
         },

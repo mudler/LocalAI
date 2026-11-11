@@ -6593,6 +6593,12 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsGoal'
         description: Goal is the chat's goal, when it has one.
+      harness:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsHarness'
+        description: |-
+          Harness says whether the chat has the context window the chat agent
+          needs. It is set when a single chat is opened, created or changed.
       id:
         type: string
       kind:
@@ -6661,6 +6667,12 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsGoal'
         description: Goal is the chat's goal, when it has one.
+      harness:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsHarness'
+        description: |-
+          Harness says whether the chat has the context window the chat agent
+          needs. It is set when a single chat is opened, created or changed.
       host_consent:
         allOf:
         - $ref: '#/definitions/schema.ChatsHostConsent'
@@ -7458,6 +7470,35 @@ definitions:
         $ref: '#/definitions/schema.ChatsGoal'
       replaced:
         $ref: '#/definitions/schema.ChatsGoal'
+    type: object
+  schema.ChatsHarness:
+    properties:
+      admin:
+        description: Admin is true when Minimum is the administrator's.
+        type: boolean
+      can_fix:
+        description: |-
+          CanFix is true when this user may change what limits the window: an
+          administrator for the model's window, the chat's owner for the chat's
+          own context size.
+        type: boolean
+      minimum:
+        description: |-
+          Minimum is the smallest window that works for this user's role, and
+          Recommended is the window to aim at.
+        type: integer
+      ok:
+        description: OK is false when the window of the chat is below Minimum.
+        type: boolean
+      recommended:
+        type: integer
+      source:
+        description: 'Source is what limits the window when OK is false: "model" or
+          "chat".'
+        type: string
+      window:
+        description: Window is the window the chat runs with, in tokens (0 when unknown).
+        type: integer
     type: object
   schema.ChatsHistory:
     properties:
