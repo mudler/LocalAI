@@ -118,7 +118,7 @@ func guessGGUFFromFile(cfg *ModelConfig, f ggufHeader, defaultCtx int) {
 		}
 		trainedMax := f.TrainedContext
 		if trainedMax > 0 {
-			cSize := autoContextSize(f.footprintAt, trainedMax, cfg.AutoContextTarget(f.Architecture))
+			cSize := autoContextSize(f.footprintAt, f.ramFootprintAt, trainedMax, cfg.AutoContextTarget(f.Architecture))
 			cfg.ContextSize = &cSize
 			cfg.ContextAutoSized = true
 			if cfg.ServesChat(f.Architecture) && cSize < harnessctx.MinContext {

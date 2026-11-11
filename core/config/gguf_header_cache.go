@@ -46,6 +46,9 @@ type ggufHeader struct {
 	// auto-context logic may ask about. It is filled only when TrainedContext
 	// is positive, the same condition under which that logic runs.
 	footprints map[int]uint64
+	// ramFootprints is the same for a CPU-resident model (system memory), used
+	// on hosts with no VRAM ceiling.
+	ramFootprints map[int]uint64
 	// maxCtxFootprint is the VRAM estimate at MaxContextLength used by the
 	// context_size=-1 warning.
 	maxCtxFootprint uint64
@@ -55,6 +58,12 @@ type ggufHeader struct {
 // precomputed reports 0, the same "cannot confirm" answer as an estimate gap.
 func (h ggufHeader) footprintAt(ctx int) uint64 {
 	return h.footprints[ctx]
+}
+
+// ramFootprintAt returns the precomputed system-memory footprint at ctx, 0 when
+// it was not precomputed.
+func (h ggufHeader) ramFootprintAt(ctx int) uint64 {
+	return h.ramFootprints[ctx]
 }
 
 // readGGUFHeader converts a parsed file into a snapshot. It is the only place
@@ -82,12 +91,15 @@ func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
 		// serves, so it holds the base cap of both targets (chat and other)
 		// and every step of the ladder.
 		h.footprints = map[int]uint64{}
+		h.ramFootprints = map[int]uint64{}
 		for _, target := range []int{harnessctx.RecommendedContext, DefaultAutoContextSize} {
 			chosen := min(h.TrainedContext, target)
 			h.footprints[chosen] = estimateContextVRAM(f, chosen)
+			h.ramFootprints[chosen] = estimateContextRAM(f, chosen)
 		}
 		for _, cand := range contextFitCandidates {
 			h.footprints[cand] = estimateContextVRAM(f, cand)
+			h.ramFootprints[cand] = estimateContextRAM(f, cand)
 		}
 	}
 

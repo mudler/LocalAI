@@ -54,7 +54,7 @@ var _ = Describe("Auto context for the chat agent", func() {
 	DescribeTable("the ladder of a model that serves chats",
 		func(trained int, vramGiB uint64, footprint func(int) uint64, want int) {
 			perDeviceVRAM = func() uint64 { return vramGiB * gib }
-			Expect(autoContextSize(footprint, trained, harnessctx.RecommendedContext)).To(Equal(want))
+			Expect(autoContextSize(footprint, nil, trained, harnessctx.RecommendedContext)).To(Equal(want))
 		},
 		Entry("long-context model on a large card takes the recommended window",
 			1048576, uint64(80), kvPerToken(gib, 1<<10), 32768),
@@ -84,7 +84,7 @@ var _ = Describe("Auto context for the chat agent", func() {
 	It("takes the first rung that fits, never skipping a larger one", func() {
 		perDeviceVRAM = func() uint64 { return 10 * gib }
 		fp := kvPerToken(4*gib, 160<<10)
-		got := autoContextSize(fp, 1048576, harnessctx.RecommendedContext)
+		got := autoContextSize(fp, nil, 1048576, harnessctx.RecommendedContext)
 		for _, larger := range contextFitCandidates {
 			if larger > got {
 				Expect(contextFitsVRAM(fp(larger), 10*gib)).To(BeFalse(), "%d fits but %d was chosen", larger, got)
@@ -95,7 +95,7 @@ var _ = Describe("Auto context for the chat agent", func() {
 	It("keeps the old cap for a model that does not serve chats", func() {
 		perDeviceVRAM = func() uint64 { return 80 * gib }
 		fp := kvPerToken(gib, 1<<10)
-		Expect(autoContextSize(fp, 1048576, DefaultAutoContextSize)).To(Equal(DefaultAutoContextSize))
+		Expect(autoContextSize(fp, nil, 1048576, DefaultAutoContextSize)).To(Equal(DefaultAutoContextSize))
 	})
 
 	Describe("which models get the chat target", func() {

@@ -81,6 +81,116 @@ var perDeviceVRAM = func() uint64 {
 	return v
 }
 
+// contextFitRAMBudgetPercent is the share of total system memory that the model
+// weights plus the KV cache and compute buffers may take on a host with no
+// usable VRAM ceiling. 60% leaves 40% for the operating system, the page cache,
+// the server process itself, the other models and backends that may be loaded
+// at the same time, and the transient peak of a load. Memory pressure there
+// ends in swapping or the kernel OOM killer, which is worse than a smaller
+// window, so this is deliberately more generous than the 20% VRAM headroom.
+const contextFitRAMBudgetPercent = 60
+
+// systemTotalRAM reports the total system memory in bytes (0 = unknown). It is
+// container-aware: inside a container it is bounded by the cgroup limit. It is
+// a package var so tests can inject a deterministic value.
+var systemTotalRAM = func() uint64 {
+	info, err := xsysinfo.GetSystemRAMInfo()
+	if err != nil || info == nil {
+		return 0
+	}
+	return info.Total
+}
+
+// estimateContextRAM returns the estimated system-memory footprint (bytes) of
+// running f with every layer on the CPU at ctx tokens: weights, KV cache and
+// compute buffer. It returns 0 when it cannot produce an estimate, which the
+// caller treats as "cannot confirm", as for estimateContextVRAM. It is a
+// package var so tests can stub it.
+var estimateContextRAM = func(f *gguf.GGUFFile, ctx int) (footprint uint64) {
+	if f == nil {
+		return 0
+	}
+	if ctx <= 0 {
+		ctx = DefaultContextSize
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			xlog.Debug("[context_fit] system memory estimate failed; treating as unknown", "error", r)
+			footprint = 0
+		}
+	}()
+	est := f.EstimateLLaMACppRun(
+		gguf.WithLLaMACppContextSize(int32(ctx)),
+		gguf.WithLLaMACppOffloadLayers(0),
+	)
+	sum := est.Summarize(true, 0, 0)
+	if len(sum.Items) == 0 {
+		return 0
+	}
+	// NonUMA is the larger of the two figures, which keeps the check
+	// conservative.
+	return uint64(sum.Items[0].RAM.NonUMA)
+}
+
+// contextFitsRAM reports whether a footprint stays within the memory budget of
+// a host: at most contextFitRAMBudgetPercent of its total memory. Unknown
+// inputs (0) are "cannot confirm", so they never clamp the window.
+func contextFitsRAM(footprint, total uint64) bool {
+	if footprint == 0 || total == 0 {
+		return false
+	}
+	return footprint <= total/100*contextFitRAMBudgetPercent
+}
+
+// ramContextSize steps the window down on a host with no VRAM ceiling so that
+// the model plus its KV cache do not exhaust system memory. It returns chosen
+// unchanged when memory or the estimate is unknown, or when chosen fits.
+//
+// Otherwise it takes the largest ladder step that fits the budget. It never goes
+// below harnessctx.MinContext while the model plus that window still fits in the
+// total memory at all (over budget, but loadable): the chat agent needs that
+// window, and a slower, swap-prone host is better than one that cannot run the
+// agent. Only when even that does not fit does it use the lower steps, again
+// within the budget, down to DefaultContextSize.
+func ramContextSize(footprint func(ctx int) uint64, chosen int) int {
+	if footprint == nil {
+		return chosen
+	}
+	total := systemTotalRAM()
+	if total == 0 || footprint(chosen) == 0 {
+		return chosen
+	}
+	if contextFitsRAM(footprint(chosen), total) {
+		return chosen
+	}
+	for _, cand := range contextFitCandidates {
+		if cand >= chosen || cand < harnessctx.MinContext {
+			continue
+		}
+		if contextFitsRAM(footprint(cand), total) {
+			xlog.Debug("[context_fit] capped auto context to fit system memory",
+				"context", cand, "base_cap", chosen, "ram_gib", total>>30)
+			return cand
+		}
+	}
+	if chosen >= harnessctx.MinContext {
+		if f := footprint(harnessctx.MinContext); f != 0 && f <= total {
+			xlog.Warn("[context_fit] auto context set to the chat minimum; it leaves little free memory",
+				"context", harnessctx.MinContext, "ram_gib", total>>30)
+			return harnessctx.MinContext
+		}
+	}
+	for _, cand := range contextFitCandidates {
+		if cand >= chosen || cand >= harnessctx.MinContext || cand < DefaultContextSize {
+			continue
+		}
+		if contextFitsRAM(footprint(cand), total) {
+			return cand
+		}
+	}
+	return DefaultContextSize
+}
+
 // estimateContextVRAM returns the estimated per-device VRAM footprint (bytes) of
 // running f fully offloaded at ctx tokens — weights + KV cache + compute buffer.
 // It returns 0 when it cannot produce an estimate (nil file, no tensors, or a
@@ -145,6 +255,7 @@ func contextFitsVRAM(footprint, vram uint64) bool {
 //     model keeps its trained window; a long-context model (128k / 256k / 1M)
 //     is capped so its KV cache does not default to a size no consumer GPU can
 //     hold. This applies always, including CPU / unknown-VRAM hosts.
+//
 //  2. VRAM is only a downward safety: when a per-device VRAM ceiling IS detected
 //     and even the base cap would not fit it (with headroom), step down through
 //     contextFitCandidates (32768, 24576, 16384, then 8192, 6144, 4096) to the
@@ -152,13 +263,19 @@ func contextFitsVRAM(footprint, vram uint64) bool {
 //     unknown we skip this: the base cap is already bounded and we must not
 //     regress CPU / detection-gap hosts.
 //
-// footprint reports the per-device VRAM footprint of the model at a context; it
-// is a parameter so the caller can supply a snapshot instead of the parsed file.
+//  3. With no VRAM ceiling the model runs from system memory, so ramContextSize
+//     steps the window down when weights plus KV exceed 60% of total memory (see
+//     contextFitRAMBudgetPercent), but not below the chat minimum while the model
+//     fits in memory at all.
+//
+// footprint reports the per-device VRAM footprint of the model at a context and
+// ramFootprint the system-memory one; they are parameters so the caller can
+// supply a snapshot instead of the parsed file.
 //
 // trainedMax <= 0 means the estimate yielded nothing usable; the caller keeps
 // its existing DefaultContextSize fallback in that case, so this is only called
 // with a positive trainedMax.
-func autoContextSize(footprint func(ctx int) uint64, trainedMax, target int) int {
+func autoContextSize(footprint, ramFootprint func(ctx int) uint64, trainedMax, target int) int {
 	chosen := trainedMax
 	if chosen > target {
 		chosen = target
@@ -168,9 +285,9 @@ func autoContextSize(footprint func(ctx int) uint64, trainedMax, target int) int
 	if vram == 0 {
 		// No per-device VRAM detected (CPU-only, unified memory reporting nothing,
 		// or a detection gap). The bug is GPU OOM-on-load, so with no GPU budget to
-		// reason about we must not clamp — the base cap already bounds long-context
-		// models.
-		return chosen
+		// reason about. The base cap already bounds long-context models, and the
+		// system memory (where the model then lives) is checked instead.
+		return ramContextSize(ramFootprint, chosen)
 	}
 
 	if contextFitsVRAM(footprint(chosen), vram) {
