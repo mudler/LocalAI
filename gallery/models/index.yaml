@@ -6629,7 +6629,7 @@
     files:
       - filename: ds4flash.gguf
         uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-        sha256: 64f8bc8d801c93daa8614db48e2718e400e585026e19b6d9e7c7d7b40cfe36f4
+        sha256: 835a9a50adc457721b8d5daf823907185083bfe27fd90aaa452bf3d1c81c2669
     overrides:
       backend: ds4
       function:
@@ -7455,8 +7455,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/Qwen3.8-27B-UD-Q4_K_M/Qwen3.8-27B-UD-Q4_K_M.gguf
-        sha256: 322e194ff79741c7baa497c240f677f54b201b0efab44ca8e50f122b39123482
         uri: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_M.gguf
+        sha256: 1bce504dfecd84153666928a41d8a66706f0158d3a317bc5196b72819d7dc529
       - filename: llama-cpp/mmproj/Qwen3.8-27B-UD-Q4_K_M/mmproj-F16.gguf
         sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
         uri: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/mmproj-F16.gguf
@@ -10364,8 +10364,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q4_K_XL.gguf
-        sha256: d1ad2472a147caa1111bae5ec710331dc50692d62ebbdb3fbc54d421c4e209bc
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/Dirk-Qwen3.8-27B-UD-Q4_K_XL.gguf
+        sha256: 711530303357f26d02539354f44bf60685045607d065ca78e83b84e112dd25be
       - filename: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
         sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/mmproj-F16.gguf
@@ -10432,8 +10432,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q8_K_XL.gguf
-        sha256: be2f08a260021fb471f91f2c5a52aa4afe143688e8b412beb5a36cad2d47c4cd
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/Dirk-Qwen3.8-27B-UD-Q8_K_XL.gguf
+        sha256: 98312534b556f750c636b638d2bfe498a2f305609f7b6ab53e5edb9abff9f964
       - filename: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
         sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/mmproj-F16.gguf
