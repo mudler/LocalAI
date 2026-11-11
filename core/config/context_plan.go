@@ -66,54 +66,78 @@ type ContextPlan struct {
 	Reasons     []string
 }
 
-// ModelProfile is what the context planner needs from the header of a GGUF
-// file. It is a few hundred bytes and a property of the file bytes, so a caller
-// may keep it for as long as the file does not change.
+// MemoryModel is what the planner needs to know about a model: how much memory
+// it takes at a context window. It is the one seam of the fit calculation. The
+// implementation here reads a GGUF header; one that reads numbers the gallery
+// publishes for each entry can replace it without touching the planner.
+type MemoryModel interface {
+	// WeightsBytes is the size of the weights, 0 when unknown.
+	WeightsBytes() uint64
+	// TrainedContext is the largest window the model was trained for, 0 when
+	// unknown.
+	TrainedContext() int
+	// Architecture names the model architecture, "" when unknown. It tells an
+	// embedding model, which gets no chat window, from a chat model.
+	Architecture() string
+	// VRAMAt is the per-device VRAM the model takes fully offloaded at the
+	// window, 0 when unknown.
+	VRAMAt(window int) uint64
+	// RAMAt is the system memory the model takes on the CPU at the window, 0
+	// when unknown.
+	RAMAt(window int) uint64
+}
+
+// ModelProfile is a MemoryModel read from the header of a GGUF file. It is a
+// few hundred bytes and a property of the file bytes, so a caller may keep it
+// for as long as the file does not change.
 type ModelProfile struct {
-	// FileSize is the size of the GGUF file, the weights the plan counts.
-	FileSize uint64
+	fileSize uint64
 	h        ggufHeader
-	hasChat  bool
-	trained  int
-	hasTrain bool
 }
 
 // NewModelProfile reduces a parsed GGUF to a ModelProfile. It fails when the
 // estimator cannot read the file, never by panicking.
-func NewModelProfile(f *gguf.GGUFFile) (profile ModelProfile, err error) {
+func NewModelProfile(f *gguf.GGUFFile) (profile *ModelProfile, err error) {
 	if f == nil {
-		return ModelProfile{}, fmt.Errorf("no GGUF file")
+		return nil, fmt.Errorf("no GGUF file")
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			profile, err = ModelProfile{}, fmt.Errorf("GGUF estimate failed: %v", r)
+			profile, err = nil, fmt.Errorf("GGUF estimate failed: %v", r)
 		}
 	}()
 	h := readGGUFHeader(f)
 	if h.trainedPanic != nil {
-		return ModelProfile{}, fmt.Errorf("GGUF estimate failed: %v", h.trainedPanic)
+		return nil, fmt.Errorf("GGUF estimate failed: %v", h.trainedPanic)
 	}
-	return ModelProfile{FileSize: uint64(f.Size), h: h, hasChat: (&ModelConfig{}).ServesChat(h.Architecture), trained: h.TrainedContext, hasTrain: h.TrainedContext > 0}, nil
+	return &ModelProfile{fileSize: uint64(f.Size), h: h}, nil
 }
 
-// PlanContext says what window the loader gives this model on a host and
+func (p *ModelProfile) WeightsBytes() uint64     { return p.fileSize }
+func (p *ModelProfile) TrainedContext() int      { return p.h.TrainedContext }
+func (p *ModelProfile) Architecture() string     { return p.h.Architecture }
+func (p *ModelProfile) VRAMAt(window int) uint64 { return p.h.footprintAt(window) }
+func (p *ModelProfile) RAMAt(window int) uint64  { return p.h.ramFootprintAt(window) }
+
+// PlanContext says what window the loader gives a model on a host and
 // whether the model fits there.
 //
 // The window is chosen by the same code as at load time, for a model that sets
 // no context_size: autoContextSizeFor, with the chat target and the same ladder
 // and memory budgets. It is not a second formula. Only the verdict is new: the
 // loader never refuses a model, a client that recommends one has to.
-func (p ModelProfile) PlanContext(hw HostMemory) ContextPlan {
-	if !p.hasTrain {
+func PlanContext(m MemoryModel, hw HostMemory) ContextPlan {
+	trained := m.TrainedContext()
+	if trained <= 0 {
 		return ContextPlan{ContextSize: DefaultContextSize, Fit: FitUnknown, Reasons: []string{ReasonEstimateUnavailable}}
 	}
 	cfg := &ModelConfig{}
-	ctx := autoContextSizeFor(hw.PerDeviceVRAM, hw.SystemRAM, p.h.footprintAt, p.h.ramFootprintAt, p.trained, cfg.AutoContextTarget(p.h.Architecture))
+	ctx := autoContextSizeFor(hw.PerDeviceVRAM, hw.SystemRAM, m.VRAMAt, m.RAMAt, trained, cfg.AutoContextTarget(m.Architecture()))
 
 	onGPU := hw.PerDeviceVRAM > 0
-	footprint, budget := p.h.ramFootprintAt(ctx), hw.SystemRAM
+	footprint, budget := m.RAMAt(ctx), hw.SystemRAM
 	if onGPU {
-		footprint, budget = p.h.footprintAt(ctx), hw.PerDeviceVRAM
+		footprint, budget = m.VRAMAt(ctx), hw.PerDeviceVRAM
 	}
 	plan := ContextPlan{ContextSize: ctx, MemoryBytes: footprint}
 	if budget == 0 {

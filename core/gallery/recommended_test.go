@@ -1,13 +1,16 @@
 package gallery_test
 
 import (
+	"context"
 	"os"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/config/harnessctx"
 	"github.com/mudler/LocalAI/core/gallery"
 )
@@ -20,7 +23,7 @@ var _ = Describe("curated recommended models", func() {
 
 	BeforeEach(func() {
 		var err error
-		list, err = gallery.RecommendedModels()
+		list, err = gallery.BuiltinRecommendedModels()
 		Expect(err).ToNot(HaveOccurred())
 
 		data, err := os.ReadFile("../../gallery/index.yaml")
@@ -69,14 +72,98 @@ var _ = Describe("curated recommended models", func() {
 		}
 	})
 
-	It("rejects a list that is not complete", func() {
-		_, err := gallery.ParseRecommendedModels([]byte("version: 1\ntiers: {}\n"))
-		Expect(err).To(HaveOccurred())
-
-		broken := strings.Replace(string(recommendedYAMLForTest()), "      - id: qwen3.8-2b-q4\n        name: Qwen3.8 2B\n        reason: The lightest choice, for machines with little memory or a slow processor.\n", "", 1)
-		_, err = gallery.ParseRecommendedModels([]byte(broken))
-		Expect(err).To(MatchError(ContainSubstring("alternatives")))
+	It("serves the same list as the file in the gallery, so the fallback does not drift", func() {
+		served, err := os.ReadFile("../../gallery/recommended.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		fromGallery, err := gallery.ParseRecommendedModels(served)
+		Expect(err).ToNot(HaveOccurred())
+		// The two may diverge later on purpose (that is what serving the file
+		// is for). Until then they are one list, and a divergence should be a
+		// decision, not an accident.
+		Expect(fromGallery).To(Equal(list))
 	})
+
+	It("names only models that exist in the gallery index, in the served file too", func() {
+		served, err := os.ReadFile("../../gallery/recommended.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		fromGallery, err := gallery.ParseRecommendedModels(served)
+		Expect(err).ToNot(HaveOccurred())
+		for name, tier := range fromGallery.Tiers {
+			for _, m := range tier.Models() {
+				Expect(entries).To(HaveKey(m.ID), "tier %s", name)
+			}
+		}
+	})
+
+	DescribeTable("rejects a file that is not valid",
+		func(mutate func(string) string, want string) {
+			_, err := gallery.ParseRecommendedModels([]byte(mutate(string(recommendedYAMLForTest()))))
+			Expect(err).To(MatchError(ContainSubstring(want)))
+		},
+		Entry("a schema version it does not know", func(s string) string { return strings.Replace(s, "version: 1", "version: 2", 1) }, "schema version"),
+		Entry("no version", func(s string) string { return strings.Replace(s, "version: 1\n", "", 1) }, "schema version"),
+		Entry("a tier with a missing alternative", func(s string) string {
+			return strings.Replace(s, "    - rank: alternative\n      id: qwen3.8-2b-q4\n      name: Qwen3.8 2B\n      reason: The lightest choice, for machines with little memory or a slow processor.\n", "", 1)
+		}, "1 and 2"),
+		Entry("a rank it does not know", func(s string) string { return strings.Replace(s, "rank: default", "rank: best", 1) }, "rank"),
+		Entry("an unknown tier", func(s string) string { return s + "  gpu-huge: []\n" }, "unknown tier"),
+		Entry("an entry without a reason", func(s string) string {
+			return strings.Replace(s, "      reason: Small enough for a laptop, and still follows tools and long instructions.\n", "", 1)
+		}, "without id, name or reason"),
+		Entry("not YAML at all", func(string) string { return "<html>captive portal</html>" }, "recommended models"),
+	)
+})
+
+var _ = Describe("loading the recommended models", func() {
+	var dir string
+	BeforeEach(func() { dir = GinkgoT().TempDir() })
+
+	galleryAt := func(url string, mirrors ...string) []config.Gallery {
+		return []config.Gallery{{Name: "test", URL: url, Mirrors: mirrors}}
+	}
+	served := func() []byte {
+		data, err := os.ReadFile("../../gallery/recommended.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		return data
+	}
+
+	It("finds the file next to the index of a gallery", func() {
+		changed := strings.Replace(string(served()), "name: Qwen3.8 4B", "name: Served Name", 1)
+		Expect(os.WriteFile(filepath.Join(dir, "recommended.yaml"), []byte(changed), 0o600)).To(Succeed())
+
+		list, source := gallery.LoadRecommendedModels(context.Background(), galleryAt("file://"+filepath.Join(dir, "index.yaml")), dir, false)
+		Expect(source).To(Equal("test"))
+		Expect(list.Tiers[gallery.TierCPU].Default.DisplayName).To(Equal("Served Name"))
+	})
+
+	It("takes it from a mirror when the primary has no sibling file", func() {
+		Expect(os.WriteFile(filepath.Join(dir, "recommended.yaml"), served(), 0o600)).To(Succeed())
+		_, source := gallery.LoadRecommendedModels(context.Background(),
+			galleryAt("https://example.invalid/models", "file://"+filepath.Join(dir, "index.yaml")), dir, false)
+		Expect(source).To(Equal("test"))
+	})
+
+	DescribeTable("falls back to the built-in list",
+		func(prepare func(dir string) []config.Gallery, strict bool) {
+			_, source := gallery.LoadRecommendedModels(context.Background(), prepare(dir), dir, strict)
+			Expect(source).To(Equal(gallery.RecommendedSourceBuiltin))
+		},
+		Entry("when the file is missing", func(dir string) []config.Gallery {
+			return galleryAt("file://" + filepath.Join(dir, "index.yaml"))
+		}, false),
+		Entry("when the file is not valid", func(dir string) []config.Gallery {
+			Expect(os.WriteFile(filepath.Join(dir, "recommended.yaml"), []byte("version: 9\ntiers: {}\n"), 0o600)).To(Succeed())
+			return galleryAt("file://" + filepath.Join(dir, "index.yaml"))
+		}, false),
+		Entry("when no gallery has an index file", func(dir string) []config.Gallery {
+			return galleryAt("https://example.invalid/models")
+		}, false),
+		Entry("when there is no gallery", func(string) []config.Gallery { return nil }, false),
+		Entry("when strict integrity is on, as the file is not signed", func(dir string) []config.Gallery {
+			Expect(os.WriteFile(filepath.Join(dir, "recommended.yaml"), served(), 0o600)).To(Succeed())
+			return galleryAt("file://" + filepath.Join(dir, "index.yaml"))
+		}, true),
+	)
 })
 
 var _ = Describe("hardware tiers", func() {

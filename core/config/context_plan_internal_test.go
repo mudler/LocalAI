@@ -15,13 +15,13 @@ var _ = Describe("ModelProfile.PlanContext", func() {
 
 	// A model of 5.5 GiB of weights and a KV cache of 128 KiB per token, for
 	// the VRAM and the system-memory figures alike.
-	profile := func(weights, kvPerToken uint64) ModelProfile {
+	profile := func(weights, kvPerToken uint64) *ModelProfile {
 		h := ggufHeader{Architecture: "llama", TrainedContext: 131072, footprints: map[int]uint64{}, ramFootprints: map[int]uint64{}}
 		for _, c := range append([]int{harnessctx.RecommendedContext}, contextFitCandidates...) {
 			h.footprints[c] = weights + uint64(c)*kvPerToken
 			h.ramFootprints[c] = weights + uint64(c)*kvPerToken
 		}
-		return ModelProfile{h: h, hasChat: true, trained: h.TrainedContext, hasTrain: true}
+		return &ModelProfile{h: h}
 	}
 	model8B := profile(5*gib+gib/2, 128<<10)
 
@@ -38,13 +38,13 @@ var _ = Describe("ModelProfile.PlanContext", func() {
 			{SystemRAM: 64 * gib},
 		} {
 			want := autoContextSizeFor(hw.PerDeviceVRAM, hw.SystemRAM, model8B.h.footprintAt, model8B.h.ramFootprintAt, 131072, harnessctx.RecommendedContext)
-			Expect(model8B.PlanContext(hw).ContextSize).To(Equal(want))
+			Expect(PlanContext(model8B, hw).ContextSize).To(Equal(want))
 		}
 	})
 
 	DescribeTable("the verdict",
 		func(hw HostMemory, window int, fit ContextFit, reasons ...string) {
-			plan := model8B.PlanContext(hw)
+			plan := PlanContext(model8B, hw)
 			Expect(plan.ContextSize).To(Equal(window))
 			Expect(plan.Fit).To(Equal(fit))
 			Expect(plan.Reasons).To(ConsistOf(reasons))
@@ -61,15 +61,31 @@ var _ = Describe("ModelProfile.PlanContext", func() {
 		Entry("a host with too little memory", HostMemory{SystemRAM: 5 * gib}, 4096, FitNone, ReasonExceedsMemory),
 	)
 
+	It("plans from any MemoryModel, not only a GGUF header", func() {
+		plan := PlanContext(tableModel{weights: 4 * gib, perToken: 64 << 10}, HostMemory{PerDeviceVRAM: 16 * gib})
+		Expect(plan.ContextSize).To(Equal(32768))
+		Expect(plan.Fit).To(Equal(FitFits))
+	})
+
 	It("does not claim a verdict when the host memory is unknown", func() {
-		plan := model8B.PlanContext(HostMemory{})
+		plan := PlanContext(model8B, HostMemory{})
 		Expect(plan.Fit).To(Equal(FitUnknown))
 		Expect(plan.Reasons).To(ConsistOf(ReasonHardwareUnknown))
 	})
 
 	It("does not claim a verdict for a file the estimator could not read", func() {
-		plan := ModelProfile{}.PlanContext(HostMemory{PerDeviceVRAM: 24 * gib})
+		plan := PlanContext(&ModelProfile{}, HostMemory{PerDeviceVRAM: 24 * gib})
 		Expect(plan.Fit).To(Equal(FitUnknown))
 		Expect(plan.ContextSize).To(Equal(DefaultContextSize))
 	})
 })
+
+// tableModel is a MemoryModel from two numbers, as a table of published
+// figures would give.
+type tableModel struct{ weights, perToken uint64 }
+
+func (t tableModel) WeightsBytes() uint64 { return t.weights }
+func (t tableModel) TrainedContext() int  { return 131072 }
+func (t tableModel) Architecture() string { return "llama" }
+func (t tableModel) VRAMAt(w int) uint64  { return t.weights + uint64(w)*t.perToken }
+func (t tableModel) RAMAt(w int) uint64   { return t.weights + uint64(w)*t.perToken }
