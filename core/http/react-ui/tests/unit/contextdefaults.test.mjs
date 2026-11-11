@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isUnsetContextSize, DEFAULT_CONTEXT_SIZE } from '../../src/utils/contextDefaults.js'
+import { isUnsetContextSize } from '../../src/utils/contextDefaults.js'
 import MODEL_TEMPLATES from '../../src/utils/modelTemplates.js'
 import { FIELD_BY_KEY } from '../../src/utils/settingsSchema.js'
 
@@ -17,6 +17,7 @@ test('context size: the LLM template starts from an unset value', () => {
   assert.equal(isUnsetContextSize(llm.fields.context_size), true)
 })
 
-test('context size: the Settings placeholder shows the effective default', () => {
-  assert.equal(FIELD_BY_KEY.context_size.placeholder, String(DEFAULT_CONTEXT_SIZE))
+test('context size: the Settings placeholder says an unset value is automatic', () => {
+  // An unset value is sized from the model and the host, so a number would be wrong.
+  assert.equal(FIELD_BY_KEY.context_size.placeholder, 'Automatic')
 })
