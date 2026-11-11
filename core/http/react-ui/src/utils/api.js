@@ -75,12 +75,17 @@ export const modelsApi = {
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   // variant is optional. Omitting it lets the server auto-select the best
   // build for this host, which is what the listing's auto_variant predicted.
-  install: (id, variant) => postJSON(
-    variant
-      ? `${API_CONFIG.endpoints.installModel(id)}?variant=${encodeURIComponent(variant)}`
-      : API_CONFIG.endpoints.installModel(id),
+  // contextSize is optional too: the window to write into the installed config,
+  // as the recommendation reports it.
+  install: (id, variant, contextSize) => postJSON(
+    buildUrl(API_CONFIG.endpoints.installModel(id), {
+      ...(variant ? { variant } : {}),
+      ...(contextSize > 0 ? { context_size: contextSize } : {}),
+    }),
     {}
   ),
+  // The curated first-run choice for this machine. Open to every signed-in user.
+  recommended: () => fetchJSON(API_CONFIG.endpoints.modelsRecommended),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
   estimate: (id, contexts) => fetchJSON(
     buildUrl(API_CONFIG.endpoints.modelEstimate(id),

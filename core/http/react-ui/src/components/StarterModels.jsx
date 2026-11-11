@@ -1,108 +1,154 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
-import { useRecommendedModels, isNvfp4Name } from '../hooks/useRecommendedModels'
+import { formatBytes } from '../utils/format'
+import { installRequest, windowLabel, fitTone } from '../utils/recommendedModels'
+import { useRecommendedModels } from '../hooks/useRecommendedModels'
 import { useOperations } from '../hooks/useOperations'
+import { useAuth } from '../context/AuthContext'
 import { fillStyle } from './home/memory'
+// eslint-disable-next-line no-unused-vars
+import Button from './ui/Button'
+// eslint-disable-next-line no-unused-vars
+import Callout from './ui/Callout'
+// eslint-disable-next-line no-unused-vars
+import StatusChip from './ui/StatusChip'
 import Icon from './Icon'
 
-// Offline CPU suggestions do not claim a measured GPU fit.
-const CPU_FALLBACK = [
-  { name: 'gemma-4-e2b-it-qat-q4_0', size: '~1.5 GB' },
-  { name: 'qwen3.5-4b-claude-4.6-opus-reasoning-distilled', size: '~2.5 GB' },
-  { name: 'gemma-4-e4b-it-qat-q4_0', size: '~3 GB' },
-  { name: 'lfm2.5-1.2b-instruct', size: '~0.8 GB' },
-]
+const MORE_ID = 'home-starters-more'
 
+// What a model costs, in the words a person weighs it by: the download, the
+// window it will get and, when the server could say, the memory that window
+// needs.
+// eslint-disable-next-line no-unused-vars
+function Facts({ model, t }) {
+  const window = windowLabel(model.context_size)
+  return (
+    <small className="home-starters-meta">
+      {model.size_bytes > 0 && <span>{t('starters.facts.size', { size: formatBytes(model.size_bytes) })}</span>}
+      {window && <span>{t('starters.facts.window', { window })}</span>}
+      {model.memory_bytes > 0 && <span>{t('starters.facts.memory', { memory: formatBytes(model.memory_bytes) })}</span>}
+    </small>
+  )
+}
+
+// First run: the model recommended for this machine, with a disclosure for the
+// two alternatives. An administrator can install; everyone else sees the same
+// names and is told to ask one. The server decides what is listed and what
+// window an install gets, and refuses an install from anyone else.
 export default function StarterModels({ addToast, onInstallStarted }) {
   const { t } = useTranslation('home')
-  const { recommended, tier, loading } = useRecommendedModels({ count: 4 })
+  const { isAdmin } = useAuth()
+  const { primary, alternatives, tier, detected, scope, nodeName, nothingFits, loading } = useRecommendedModels()
   const { operations } = useOperations()
   const [installing, setInstalling] = useState(() => new Set())
+  const [more, setMore] = useState(false)
 
-  // While the hardware probe + gallery query are in flight, render nothing
-  // rather than flashing fallback content that may be replaced a moment later.
-  if (loading) return null
+  // Draw nothing while the answer is on its way, and when there is none, rather
+  // than flash content that may be replaced a moment later.
+  if (loading || !primary) return null
 
-  // Prefer live recommendations; fall back to the static list only when the
-  // gallery yielded nothing on a CPU host. Static GPU picks have no measured
-  // fit and must not replace an empty set of fitting recommendations.
-  const items = (recommended && recommended.length > 0)
-    ? recommended.map(r => ({ name: r.name, size: r.sizeDisplay }))
-    : tier.id === 'cpu' ? CPU_FALLBACK : []
-
-  if (items.length === 0) return null
-
-  const install = async (name) => {
-    setInstalling(prev => new Set(prev).add(name))
+  const install = async (model) => {
+    setInstalling(prev => new Set(prev).add(model.id))
     try {
-      await modelsApi.install(name)
-      addToast?.(t('starters.installStarted', { model: name }), 'success')
-      onInstallStarted?.(name)
+      await modelsApi.install(...installRequest(model))
+      addToast?.(t('starters.installStarted', { model: model.name }), 'success')
+      onInstallStarted?.(model.id)
     } catch (err) {
       addToast?.(t('starters.installFailed', { message: err.message }), 'error')
       setInstalling(prev => {
         const next = new Set(prev)
-        next.delete(name)
+        next.delete(model.id)
         return next
       })
     }
   }
 
+  const row = (model, isPrimary) => {
+    // The install shows up in the operations list once the server has taken
+    // it. Its progress is the only progress there is to show.
+    const op = operations.find(o => o.name === model.id && !o.isBackend && !o.isDeletion)
+    const busy = installing.has(model.id) || !!op
+    return (
+      <li key={model.id} className={`home-starters-item${isPrimary ? ' home-starters-item--primary' : ''}`} data-testid={isPrimary ? 'starter-primary' : 'starter-alt'}>
+        <div className="home-starters-info">
+          <span className="home-starters-name" title={model.id}>{model.name}</span>
+          {isPrimary && <span className="home-starters-reason">{model.reason}</span>}
+          <Facts model={model} t={t} />
+          {model.fit !== 'fits' && model.fit !== 'unknown' && (
+            <StatusChip tone={fitTone(model.fit)} label={t(`starters.fit.${model.fit}`)} />
+          )}
+          {(model.fit_reasons || []).filter(k => k !== 'window_reduced').map(k => (
+            <span key={k} className="home-starters-why">{t(`starters.reasons.${k}`)}</span>
+          ))}
+        </div>
+        {isAdmin && (
+          <Button
+            variant={isPrimary ? 'primary' : 'secondary'}
+            size="sm"
+            icon="download"
+            busy={busy}
+            onClick={() => install(model)}
+            aria-label={t('starters.installModel', { model: model.name })}
+          >
+            {busy ? t('starters.installing') : t('starters.install')}
+          </Button>
+        )}
+        {op && op.progress > 0 && (
+          <span
+            className="home-bar home-bar--thin home-starters-progress"
+            role="progressbar"
+            aria-valuenow={Math.round(op.progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={t('strip.progress', { name: model.id })}
+          >
+            <span className="home-bar__fill" style={fillStyle(op.progress)} />
+          </span>
+        )}
+      </li>
+    )
+  }
+
   return (
-    <section className="home-starters" aria-label={t('starters.title')}>
+    <section className="home-starters" aria-label={t('starters.title')} data-testid="starter-models">
       <div className="home-starters-head">
         <span className="home-starters-title">{t('starters.title')}</span>
-        <span className="home-starters-tier">
-          <Icon name={tier.id === 'cpu' ? 'memory' : 'cpu'} />
-          {t(`starters.tier.${tier.id}`)}
+        <span className="home-starters-tier" data-testid="starter-tier">
+          <Icon name={tier === 'cpu' ? 'memory' : 'cpu'} />
+          {t(`starters.tier.${tier}`)}
         </span>
       </div>
-      <p className="home-starters-sub">
-        {tier.id === 'cpu' ? t('starters.cpuNote') : t('starters.gpuNote')}
-      </p>
-      <ul className="home-starters-list">
-        {items.map((c, i) => {
-          // The install shows up in the operations list once the server has
-          // taken it. Its progress is the only progress there is to show.
-          const op = operations.find(o => o.name === c.name && !o.isBackend && !o.isDeletion)
-          const busy = installing.has(c.name) || !!op
-          return (
-            <li key={c.name} className="home-starters-item">
-              <div className="home-starters-info">
-                <code className="home-starters-name" title={c.name}>{c.name}</code>
-                <small className="home-starters-meta">
-                  {c.size}
-                  {isNvfp4Name(c.name) && <span className="home-starters-badge">NVFP4</span>}
-                </small>
-              </div>
-              <button
-                type="button"
-                className={i === 0 ? 'home-primary home-primary--sm' : 'home-secondary home-secondary--sm'}
-                disabled={busy}
-                aria-busy={busy || undefined}
-                onClick={() => install(c.name)}
-              >
-                {busy
-                  ? (<><Icon name="spinner" spin /> {t('starters.installing')}</>)
-                  : (<><Icon name="download" /> {t('starters.install')}</>)}
-              </button>
-              {op && op.progress > 0 && (
-                <span
-                  className="home-bar home-bar--thin home-starters-progress"
-                  role="progressbar"
-                  aria-valuenow={Math.round(op.progress)}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={t('strip.progress', { name: c.name })}
-                >
-                  <span className="home-bar__fill" style={fillStyle(op.progress)} />
-                </span>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      {!detected && (
+        <Callout tone="info" testId="starter-undetected">{t('starters.undetected')}</Callout>
+      )}
+      {detected && (
+        <p className="home-starters-sub">
+          {scope === 'cluster' ? t('starters.cluster', { node: nodeName }) : tier === 'cpu' ? t('starters.cpuNote') : t('starters.gpuNote')}
+        </p>
+      )}
+      {nothingFits && (
+        <Callout tone="warn" testId="starter-nothing-fits">{t('starters.nothingFits')}</Callout>
+      )}
+      <ul className="home-starters-list">{row(primary, true)}</ul>
+      {!isAdmin && <p className="home-starters-ask" data-testid="starter-ask-admin">{t('starters.askAdmin')}</p>}
+      {alternatives.length > 0 && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={more ? 'chevron-up' : 'chevron-down'}
+            className="home-starters-toggle"
+            data-testid="starter-more-toggle"
+            aria-expanded={more}
+            aria-controls={MORE_ID}
+            onClick={() => setMore(v => !v)}
+          >
+            {more ? t('starters.fewer') : t('starters.more')}
+          </Button>
+          {more && <ul className="home-starters-list" id={MORE_ID}>{alternatives.map(m => row(m, false))}</ul>}
+        </>
+      )}
     </section>
   )
 }

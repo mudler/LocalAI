@@ -4287,9 +4287,15 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 }
 .home-starters-item:first-child { border-top: 0; }
 .home-starters-info { min-width: 0; }
-.home-starters-name { display: block; padding: 0; background: none; color: var(--dk-text); font-family: var(--font-mono); font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-starters-meta { display: flex; align-items: center; gap: 6px; color: var(--dk-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
-.home-starters-badge { padding: 2px 6px; border-radius: 5px; background: var(--dk-accent-wash); color: var(--dk-accent-text); font-size: 10px; font-weight: 600; }
+.home-starters-name { display: block; padding: 0; background: none; color: var(--dk-text); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.home-starters-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 2px; color: var(--dk-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
+.home-starters-reason { display: block; margin-top: 2px; color: var(--dk-text); font-size: var(--text-sm); line-height: 1.45; }
+.home-starters-why { display: block; margin-top: 4px; color: var(--dk-muted); font-size: var(--text-xs); line-height: 1.4; }
+.home-starters-item--primary .home-starters-name { font-size: var(--text-base); }
+.home-starters-ask { margin: 6px 0 0; color: var(--dk-muted); font-size: var(--text-sm); }
+.home-starters-toggle { margin-top: 4px; }
+.home-starters > .ui-callout { margin: 6px 0; }
+.home-starters-info > .ui-chip { margin-top: 4px; }
 .home-starters-progress { grid-column: 1 / -1; }
 
 /* Non-admin, nothing installed */

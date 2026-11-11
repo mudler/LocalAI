@@ -137,6 +137,8 @@
     "installing": "Installation",
     "installStarted": "Installation de {{model}}…",
     "installFailed": "Échec de l'installation : {{message}}",
+    "window": "{{window}} de contexte",
+    "memory": "environ {{memory}} de mémoire",
     "dismiss": "Ignorer les recommandations",
     "summary": "{{n}} modèles suggérés",
     "bestFit": "Meilleur choix",

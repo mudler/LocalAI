@@ -85,19 +85,42 @@
     "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter."
   },
   "starters": {
-    "title": "Recommandé pour votre matériel",
+    "title": "Recommandé pour votre machine",
     "tier": {
-      "cpu": "CPU uniquement",
-      "gpu-small": "GPU",
-      "gpu-mid": "GPU",
-      "gpu-large": "GPU"
+      "cpu": "CPU seul",
+      "gpu-small": "Petit GPU",
+      "gpu-mid": "GPU milieu de gamme",
+      "gpu-large": "Grand GPU"
     },
-    "cpuNote": "Aucun GPU détecté — ces petits modèles restent réactifs sur CPU.",
-    "gpuNote": "Sélectionnés pour tenir dans votre VRAM disponible, avec de la marge pour le contexte.",
+    "cpuNote": "Aucun GPU détecté. Ces modèles restent réactifs sur un processeur.",
+    "gpuNote": "Choisis pour tenir sur votre carte graphique avec de la place pour un chat complet.",
     "install": "Installer",
     "installing": "Installation",
     "installStarted": "Installation de {{model}}…",
-    "installFailed": "Échec de l'installation : {{message}}"
+    "installFailed": "Échec de l'installation : {{message}}",
+    "undetected": "Nous n'avons pas pu détecter votre matériel : voici donc les modèles pour un ordinateur sans GPU.",
+    "cluster": "Dimensionné pour la meilleure machine de votre cluster.",
+    "nothingFits": "Aucun des modèles recommandés ne tient sur cette machine. Voici le plus petit ; il peut être lent ou ne pas se charger.",
+    "facts": {
+      "size": "{{size}} à télécharger",
+      "window": "{{window}} de contexte",
+      "memory": "environ {{memory}} de mémoire"
+    },
+    "fit": {
+      "tight": "Juste",
+      "does_not_fit": "Ne tient pas"
+    },
+    "reasons": {
+      "little_headroom": "Il tient, mais laisse peu de mémoire libre.",
+      "below_chat_minimum": "La fenêtre de contexte serait trop petite pour le chat.",
+      "exceeds_memory": "Il demande plus de mémoire que cette machine n'en a.",
+      "estimate_unavailable": "Sa consommation de mémoire n'a pas pu être estimée.",
+      "hardware_unknown": "Votre matériel n'a pas pu être lu : l'adéquation n'est pas vérifiée."
+    },
+    "more": "Plus de modèles",
+    "fewer": "Moins de modèles",
+    "askAdmin": "Seul un administrateur peut installer des modèles. Demandez-lui d'en installer un.",
+    "installModel": "Installer {{model}}"
   },
   "connect": {
     "title": "Un seul point d'accès, toutes les API",
