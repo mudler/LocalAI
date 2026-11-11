@@ -1,8 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  SLOT_CAPS, SLOT_NAMES, cardSize, cleanSlots, itemLabel, mergeSlots, openSlotPage, readSlots, setPageOpener, slotItemOk, slotKey, tileMode, toolArguments, toolPrompt,
+  SLOT_CAPS, SLOT_NAMES, cardSize, cleanSlots, itemLabel, mergeSlots, openSlotPage, readSlots, resolveCommand, setPageOpener, slotItemOk, slotKey, tileMode, toolArguments, toolPrompt,
 } from '../../src/utils/slots.js'
+import { expandCommand, readCommands } from '../../src/utils/userCommands.js'
 import { BUSY_MS, SILENT_MS, START_MS, WINDOW_MS, createFrameWatch } from '../../src/utils/frameWatch.js'
 
 const page = (name, extra = {}) => ({ type: 'page', page: name, ...extra })
@@ -152,4 +153,24 @@ test('frame budget: a beat cannot report more than the window', () => {
   assert.equal(w.check(), '', 'only a finite busy time counts')
   w.beat(1e9)
   assert.equal(w.check(), 'busy')
+})
+
+test('slots: a command item finds its command in commands.json, and a gone one shows nothing', () => {
+  const commands = readCommands({ commands: [
+    { name: 'standup', description: 'Write my standup', type: 'prompt', template: 'Standup for the last {{days}} day(s).', args: [{ name: 'days', default: 1 }] },
+    { name: 'summarize', description: 'Summarize this chat', type: 'tool', tool: 'summarize_chat' },
+    { name: 'broken', description: 'No template', type: 'prompt' },
+  ] })
+  const item = (command) => ({ type: 'command', command })
+  assert.equal(resolveCommand(item('standup'), commands).name, 'standup')
+  assert.equal(resolveCommand(item('summarize'), commands).tool, 'summarize_chat')
+  assert.equal(resolveCommand(item('gone'), commands), null, 'a command that is not in the file')
+  assert.equal(resolveCommand(item('broken'), commands), null, 'a command the file cannot use')
+  assert.equal(resolveCommand(item('standup'), null), null, 'no commands.json')
+  assert.equal(resolveCommand({ type: 'tool', tool: 'standup', label: 'x' }, commands), null, 'only a command item')
+  // The text that goes in the message box is the one of the slash menu.
+  assert.equal(expandCommand(resolveCommand(item('standup'), commands)), 'Standup for the last 1 day(s).')
+  // A name a command cannot have is not a command item.
+  for (const bad of ['1standup', 'Standup', 'a'.repeat(33)]) assert.equal(slotItemOk(item(bad)), false, bad)
+  assert.ok(slotItemOk(item('a'.repeat(32))))
 })

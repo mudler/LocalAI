@@ -40,7 +40,7 @@ Rules:
 
 ## Slots
 
-`LocalAI/ui.json` `slots`: `chatHeader`, `sidebarFooter`, `composerToolbar`: lists of `page`, `tool` or `command` items (fields and caps: the schema). A page runs in the 40 px strip only if its widget block has `"compact": true` (`localai-apps`, "On Home"); else it is a button that opens it. A tool button asks the user before it runs.
+`LocalAI/ui.json` `slots`: `chatHeader`, `sidebarFooter`, `composerToolbar`: lists of `page`, `tool` or `command` items (fields and caps: the schema). A page runs in the 40 px strip only if its widget block has `"compact": true` (`localai-apps`, "On Home"); else it is a button that opens it. A tool button asks the user before it runs; a command item (a name in `commands.json`) puts its text in the message box.
 
 ## Backgrounds
 

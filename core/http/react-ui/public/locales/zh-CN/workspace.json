@@ -485,7 +485,7 @@
         "argumentsHint": "名称及简单值，最多 {{max}} 个：文本、数字、true 或 false，参照示例。",
         "argumentsBad": "无效：请参照示例写名称及简单值，最多 {{max}} 个。",
         "command": "命令名称",
-        "commandHint": "不带斜杠。命令存在后会显示在这里。",
+        "commandHint": "你的一个命令的名称，不带斜杠。点击后会把它的文本放进消息框。",
         "label": "文字（可选）",
         "labelNeeded": "按钮文字",
         "icon": "图标（可选）"

@@ -485,7 +485,7 @@
         "argumentsHint": "Nama dengan nilai sederhana, paling banyak {{max}}: teks, angka, true atau false, seperti contoh.",
         "argumentsBad": "Tidak valid: tulis nama dengan nilai sederhana seperti contoh, paling banyak {{max}}.",
         "command": "Nama perintah",
-        "commandHint": "Tanpa garis miring. Perintah muncul di sini setelah ada.",
+        "commandHint": "Nama salah satu perintah Anda, tanpa garis miring. Satu klik menaruh teksnya di kotak pesan.",
         "label": "Teks (opsional)",
         "labelNeeded": "Teks tombol",
         "icon": "Ikon (opsional)"

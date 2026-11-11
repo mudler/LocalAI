@@ -8,7 +8,9 @@ import ConfirmDialog from '../ConfirmDialog'
 import SlotTile from './SlotTile'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { useAuth } from '../../context/AuthContext'
-import { itemLabel, readSlots, slotKey, toolPrompt } from '../../utils/slots'
+import { useUserCommands } from '../../hooks/useUserCommands'
+import { expandCommand } from '../../utils/userCommands'
+import { itemLabel, readSlots, resolveCommand, slotKey, toolPrompt } from '../../utils/slots'
 import './slots.css'
 
 // ToolButton runs one tool with fixed arguments. It never calls the tool by
@@ -58,26 +60,46 @@ function ToolButton({ item, onTool }) {
   )
 }
 
-// A command of commands.json. The commands come with their own slice; until
-// then a command item is kept in the file but shows nothing. resolveCommand
-// is the seam: it returns the command to run, or null.
-const resolveCommand = () => null
+// CommandButton is one of the user's commands (commands.json). A click does
+// what choosing it in the slash menu does: its text, with the defaults of its
+// arguments, goes in the message box, and the person reads it and sends it.
+// Nothing is sent from the button. Outside a chat (the sidebar) it opens a new
+// chat with the text as a draft.
+function CommandButton({ item, command, onCommand }) {
+  const { t } = useTranslation('chat')
+  const navigate = useNavigate()
+  const run = () => {
+    const text = expandCommand(command, '', { toolText: (tool) => t('slash.userTool', { tool }) })
+    if (onCommand) onCommand(text)
+    else navigate('/app/chats', { state: { draft: text } })
+  }
+  return (
+    <button type="button" className="ws-chip" onClick={run} title={command.description} data-testid="slot-command" data-command={command.name}>
+      <Icon name={item.icon || (command.type === 'tool' ? 'wrench' : 'sparkles')} className="ws-chip__icon" />
+      <span className="ws-chip__label">{itemLabel(item)}</span>
+    </button>
+  )
+}
 
 // WorkspaceSlot draws one slot of ui.json: its page tiles, tool buttons and
 // commands, left to right, in a strip about 40 px high. Nothing shows when the
 // slot is empty, so without ui.json slots the app looks as before.
 //
 //   name     chatHeader, sidebarFooter or composerToolbar
-//   onTool   sends the request of an approved tool button to the open chat;
-//            without it the button opens a new chat with a draft
-export default function WorkspaceSlot({ name, onTool }) {
+//   onTool     sends the request of an approved tool button to the open chat;
+//              without it the button opens a new chat with a draft
+//   onCommand  puts the text of a command item in the message box of the open
+//              chat; without it the item opens a new chat with a draft
+export default function WorkspaceSlot({ name, onTool, onCommand }) {
   const { t } = useTranslation('workspace')
   const { hasFeature } = useAuth()
   const on = hasFeature('chats')
   const { doc } = useWellKnown('ui', { enabled: on })
   const items = useMemo(() => readSlots(doc?.data)[name] || [], [doc, name])
   const pagesOn = on && hasFeature('pages')
-  const shown = items.filter((it) => (it.type === 'page' ? pagesOn : it.type === 'tool' ? true : !!resolveCommand(it)))
+  const commands = useUserCommands()
+  // A command item whose command is gone or not valid shows nothing.
+  const shown = items.filter((it) => (it.type === 'page' ? pagesOn : it.type === 'tool' ? true : !!resolveCommand(it, commands)))
   if (!on || shown.length === 0) return null
   return (
     <div className={`ws-slot ws-slot--${name}`} role="group" aria-label={t(`wellKnown.slots.names.${name}`)} data-testid={`slot-${name}`}>
@@ -85,7 +107,7 @@ export default function WorkspaceSlot({ name, onTool }) {
         const key = slotKey(it)
         if (it.type === 'page') return <SlotTile key={key} item={it} slot={name} />
         if (it.type === 'tool') return <ToolButton key={key} item={it} onTool={onTool} />
-        return null
+        return <CommandButton key={key} item={it} command={resolveCommand(it, commands)} onCommand={onCommand} />
       })}
     </div>
   )

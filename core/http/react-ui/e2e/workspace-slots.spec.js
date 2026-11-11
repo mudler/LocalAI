@@ -142,7 +142,7 @@ test.beforeAll(async ({ request }) => {
   for (const [p, body] of Object.entries(files)) expect((await put(request, p, body)).ok(), p).toBeTruthy()
 })
 test.afterAll(async ({ request }) => {
-  for (const p of ['/LocalAI/ui.json', `/pages/${WEATHER}`, `/pages/${READING}`, `/pages/${FOCUS}`, `/pages/${NOTES}`, `/pages/${SPIN}`, ...many.map((n) => `/pages/${n}`)]) await del(request, p)
+  for (const p of ['/LocalAI/ui.json', '/LocalAI/commands.json', `/pages/${WEATHER}`, `/pages/${READING}`, `/pages/${FOCUS}`, `/pages/${NOTES}`, `/pages/${SPIN}`, ...many.map((n) => `/pages/${n}`)]) await del(request, p)
 })
 test.afterAll(() => unlockHomeFiles())
 
@@ -353,6 +353,44 @@ test('a tool button asks first, then sends a visible request; it never runs on i
   await page.getByRole('button', { name: 'Run', exact: true }).click()
   await expect(page.locator('textarea').first()).toHaveValue('Run the tool plan_day.')
   expect(sent.length).toBe(1)
+})
+
+test('a command item puts the text of the command in the message box; a gone command shows nothing', async ({ page, request }) => {
+  expect((await put(request, '/LocalAI/commands.json', { commands: [
+    { name: 'standup', description: 'Write my standup', type: 'prompt', template: 'Write my standup for the last {{days}} day(s).', args: [{ name: 'days', default: 1 }] },
+    { name: 'summarize', description: 'Summarize this chat', type: 'tool', tool: 'summarize_chat' },
+  ] })).ok()).toBeTruthy()
+  await setSlots(request, {
+    composerToolbar: [{ type: 'command', command: 'standup' }, { type: 'command', command: 'gone' }, { type: 'command', command: 'summarize', label: 'Sum up', icon: 'sparkles' }],
+    sidebarFooter: [{ type: 'command', command: 'standup' }],
+  })
+  const sent = []
+  await openChat(page, { sent })
+  const bar = slot(page, 'composerToolbar')
+  const items = bar.getByTestId('slot-command')
+  await expect(items).toHaveCount(2)
+  await expect(items.first()).toHaveText('/standup')
+  await expect(items.first()).toHaveAttribute('title', 'Write my standup')
+  await expect(items.nth(1)).toHaveText('Sum up')
+  const box = page.getByTestId('chat-composer').locator('textarea').first()
+  await items.first().click()
+  await expect(box).toHaveValue('Write my standup for the last 1 day(s).')
+  await expect(box).toBeFocused()
+  await items.nth(1).click()
+  await expect(box).toHaveValue('Use the summarize_chat tool.')
+  await page.waitForTimeout(300)
+  expect(sent).toEqual([], 'a command item never sends')
+
+  // Outside a chat the text becomes the draft of a new chat.
+  await page.goto('/app/pages')
+  await slot(page, 'sidebarFooter').getByTestId('slot-command').click()
+  await expect(page.locator('textarea').first()).toHaveValue('Write my standup for the last 1 day(s).')
+  expect(sent).toEqual([])
+
+  // A command that leaves commands.json leaves the slot too.
+  expect((await put(request, '/LocalAI/commands.json', { commands: [] })).ok()).toBeTruthy()
+  await openChat(page, { sent })
+  await expect(slot(page, 'composerToolbar')).toHaveCount(0)
 })
 
 test('the same sandbox as everywhere, and a slot item that is not a page shows nothing', async ({ page, request }) => {

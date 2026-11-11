@@ -485,7 +485,7 @@
         "argumentsHint": "Des noms avec des valeurs simples, au plus {{max}} : texte, nombres, true ou false, comme dans l'exemple.",
         "argumentsBad": "Non valide : écrivez des noms avec des valeurs simples, comme dans l'exemple, au plus {{max}}.",
         "command": "Nom de la commande",
-        "commandHint": "Sans la barre oblique. Les commandes s'affichent ici dès qu'elles existent.",
+        "commandHint": "Le nom d'une de vos commandes, sans la barre oblique. Un clic place son texte dans la zone de message.",
         "label": "Texte (facultatif)",
         "labelNeeded": "Texte du bouton",
         "icon": "Icône (facultatif)"

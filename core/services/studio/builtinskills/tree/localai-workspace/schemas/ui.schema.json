@@ -183,7 +183,7 @@
               "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
               "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
               "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
-              "command": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$", "description": "type command: the name of one of your commands, without the slash."}
+              "command": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "type command: the name of one of your commands in commands.json, without the slash."}
             },
             "additionalProperties": false
           }
@@ -202,7 +202,7 @@
               "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
               "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
               "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
-              "command": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$", "description": "type command: the name of one of your commands, without the slash."}
+              "command": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "type command: the name of one of your commands in commands.json, without the slash."}
             },
             "additionalProperties": false
           }
@@ -221,7 +221,7 @@
               "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
               "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
               "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
-              "command": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$", "description": "type command: the name of one of your commands, without the slash."}
+              "command": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "type command: the name of one of your commands in commands.json, without the slash."}
             },
             "additionalProperties": false
           }

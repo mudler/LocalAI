@@ -7,6 +7,7 @@ import { FileFooter, ProblemDetails } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { usePages } from '../../hooks/usePages'
 import { useSharedPages } from '../../hooks/useSharedPages'
+import { useUserCommands } from '../../hooks/useUserCommands'
 import { useAuth } from '../../context/AuthContext'
 import { compactOf, refKey } from '../../utils/pageTiles'
 import {
@@ -58,7 +59,7 @@ function SlotMap({ selected, onSelect, counts }) {
 }
 
 // The fields of one item, by its type.
-function ItemForm({ item, onChange, pages, t }) {
+function ItemForm({ item, onChange, pages, commands, t }) {
   const [argsText, setArgsText] = useState(() => (item.arguments ? JSON.stringify(item.arguments, null, 2) : ''))
   const [argsBad, setArgsBad] = useState(false)
   const set = (k, v) => {
@@ -116,7 +117,8 @@ function ItemForm({ item, onChange, pages, t }) {
       {item.type === 'command' && (
         <div className="dk-field">
           <label className="dk-label" htmlFor={id('command')}>{t('wellKnown.slots.form.command')}</label>
-          <input id={id('command')} className="dk-input dk-mono" value={item.command || ''} maxLength={40} onChange={(e) => set('command', e.target.value.trim().replace(/^\//, ''))} placeholder="translate" data-testid="slots-form-command" />
+          <input id={id('command')} className="dk-input dk-mono" value={item.command || ''} maxLength={32} onChange={(e) => set('command', e.target.value.trim().replace(/^\//, ''))} placeholder="translate" list={id('commands')} data-testid="slots-form-command" />
+          <datalist id={id('commands')}>{commands.map((c) => <option key={c.name} value={c.name}>{c.description}</option>)}</datalist>
           <p className="dk-hint">{t('wellKnown.slots.form.commandHint')}</p>
         </div>
       )}
@@ -147,6 +149,8 @@ export default function SlotsEditor() {
   const pagesOn = hasFeature('chats') && hasFeature('pages')
   const { pages: own } = usePages(pagesOn)
   const { pages: shared } = useSharedPages(pagesOn)
+  // The user's commands, offered by name in the field of a command item.
+  const commands = useUserCommands()
   const [slots, setSlots] = useState(null)
   const [extra, setExtra] = useState({})
   const [selected, setSelected] = useState('chatHeader')
@@ -319,7 +323,7 @@ export default function SlotsEditor() {
                           <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.nav.remove', { name })} title={t('wellKnown.nav.remove', { name })} onClick={() => edit(selected, list.filter((_, j) => j !== i))} data-testid="slots-row-remove"><Icon name="trash" /></button>
                         </span>
                       </div>
-                      {expanded && <ItemForm item={it} pages={pageList} t={t} onChange={(next) => edit(selected, list.map((x, j) => (j === i ? next : x)))} />}
+                      {expanded && <ItemForm item={it} pages={pageList} commands={commands} t={t} onChange={(next) => edit(selected, list.map((x, j) => (j === i ? next : x)))} />}
                     </li>
                   )
                 })}

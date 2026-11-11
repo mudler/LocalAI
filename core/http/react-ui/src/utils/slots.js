@@ -4,6 +4,8 @@
 // tab and the unit tests use the same functions. The server validates the file
 // with the same rules (core/services/studio/wellknown/schema.go, slotErrors).
 
+import { commandNameOk } from './userCommands.js'
+
 export const SLOT_NAMES = ['chatHeader', 'sidebarFooter', 'composerToolbar']
 export const SLOT_CAPS = { chatHeader: 4, sidebarFooter: 3, composerToolbar: 6 }
 export const SLOT_ITEM_TYPES = ['page', 'tool', 'command']
@@ -11,7 +13,6 @@ export const SLOT_LIMITS = { label: 40, arguments: 2048, argumentKeys: 16 }
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
 const TOOL_NAME = /^[A-Za-z0-9_.:-]{1,128}$/
-const COMMAND_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/
 const ICON_NAME = /^[a-z0-9-]{1,40}$/
 
 const FIELDS = {
@@ -48,7 +49,7 @@ export function slotItemOk(it) {
     case 'tool':
       return typeof it.tool === 'string' && TOOL_NAME.test(it.tool) && typeof it.label === 'string' && toolArguments(it.arguments)
     default:
-      return typeof it.command === 'string' && COMMAND_NAME.test(it.command)
+      return commandNameOk(it.command)
   }
 }
 
@@ -139,6 +140,14 @@ export function itemLabel(it, pageTitle = '') {
   if (it?.type === 'tool') return it.tool
   if (it?.type === 'command') return `/${it.command}`
   return ''
+}
+
+// resolveCommand finds the command a command item names among the user's
+// commands (commands.json, as readCommands in userCommands.js gives them), or
+// null: an item whose command is gone shows nothing.
+export function resolveCommand(it, commands) {
+  if (!isObject(it) || it.type !== 'command' || typeof it.command !== 'string') return null
+  return (Array.isArray(commands) ? commands : []).find((c) => isObject(c) && c.name === it.command) || null
 }
 
 // toolPrompt is the message a tool button sends to the chat after the person

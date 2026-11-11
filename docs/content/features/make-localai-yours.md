@@ -740,7 +740,7 @@ and `icon` are optional on all of them except that a tool button needs a
 |---|---|
 | `{ "type": "page", "page": "weather" }` | A page tile. A page whose `page.json` widget block has `compact` runs in the slot, in a strip about 40 px high, and a click opens it as a card under the tile, at its widget size. The card is the same frame: the page is told its new size and is not reloaded. A page without `compact` is a button that opens the page. `folder` names the shared folder of a shared page. |
 | `{ "type": "tool", "tool": "summarize_chat", "label": "Summarize chat" }` | A tool button with fixed `arguments` (at most 16 plain values, 2 KiB). A click first asks you, and shows the tool and its arguments. In a chat it then sends a visible message that asks the assistant to run that tool; in the sidebar it opens a new chat with that message as a draft for you to send. The tool's own approval in the chat still applies. |
-| `{ "type": "command", "command": "translate" }` | One of your commands. Commands come in a later release: until then the item is kept in the file and shows nothing. |
+| `{ "type": "command", "command": "translate" }` | One of your [commands](#commands), by its name without the slash. A click puts the text of the command in the message box, with the defaults of its arguments, as choosing it in the slash menu does; you read it and send it. In the sidebar it opens a new chat with that text as a draft. An item whose command is not in `commands.json` shows nothing. |
 
 A slot never hides the shell: the chat's title, the model, find and settings
 stay. The same item can be in two slots, but only once in one slot. The server

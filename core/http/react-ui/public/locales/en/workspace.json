@@ -583,7 +583,7 @@
         "argumentsHint": "Names with plain values, at most {{max}}: text, numbers, true or false, as in the example.",
         "argumentsBad": "Not valid: write names with plain values, as in the example, at most {{max}}.",
         "command": "Command name",
-        "commandHint": "Without the slash. Commands show here once they exist.",
+        "commandHint": "The name of one of your commands, without the slash. A click puts its text in the message box.",
         "label": "Text (optional)",
         "labelNeeded": "Text of the button",
         "icon": "Icon (optional)"

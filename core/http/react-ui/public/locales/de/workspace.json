@@ -485,7 +485,7 @@
         "argumentsHint": "Namen mit einfachen Werten, höchstens {{max}}: Text, Zahlen, true oder false, wie im Beispiel.",
         "argumentsBad": "Ungültig: Schreibe Namen mit einfachen Werten wie im Beispiel, höchstens {{max}}.",
         "command": "Name des Befehls",
-        "commandHint": "Ohne Schrägstrich. Befehle erscheinen hier, sobald es sie gibt.",
+        "commandHint": "Der Name eines deiner Befehle, ohne Schrägstrich. Ein Klick setzt seinen Text in das Nachrichtenfeld.",
         "label": "Text (optional)",
         "labelNeeded": "Text des Buttons",
         "icon": "Symbol (optional)"

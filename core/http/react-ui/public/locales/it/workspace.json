@@ -485,7 +485,7 @@
         "argumentsHint": "Nomi con valori semplici, al massimo {{max}}: testo, numeri, true o false, come nell'esempio.",
         "argumentsBad": "Non valido: scrivi nomi con valori semplici, come nell'esempio, al massimo {{max}}.",
         "command": "Nome del comando",
-        "commandHint": "Senza la barra. I comandi compaiono qui quando esistono.",
+        "commandHint": "Il nome di uno dei tuoi comandi, senza la barra. Un clic mette il suo testo nella casella del messaggio.",
         "label": "Testo (facoltativo)",
         "labelNeeded": "Testo del pulsante",
         "icon": "Icona (facoltativa)"

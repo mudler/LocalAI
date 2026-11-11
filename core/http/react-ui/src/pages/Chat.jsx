@@ -698,6 +698,13 @@ function ChatPage() {
     handleSend()
   }, [input, activeId, busy, effectiveModel, handleSend, navigate, location.pathname, location.search])
 
+  // A command item of a slot fills the composer with the command's text, as
+  // choosing it in the slash menu does; the person sends it.
+  const fillComposer = useCallback((text) => {
+    setInput(text)
+    textareaRef.current?.focus()
+  }, [setInput])
+
   // A shortcut fills the composer, as the starters did; one marked send goes
   // at once when the chat can take a message.
   const pickShortcut = useCallback((s) => {
@@ -1232,7 +1239,7 @@ function ChatPage() {
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
-          extra={<WorkspaceSlot name="chatHeader" onTool={handleSend} />}
+          extra={<WorkspaceSlot name="chatHeader" onTool={handleSend} onCommand={fillComposer} />}
         />
 
         {find.open && (
@@ -1448,7 +1455,7 @@ function ChatPage() {
               toolsExtra={subAgents}
               chips={composerChips}
               slotContext={composerSlotContext}
-              toolbarSlot={<WorkspaceSlot name="composerToolbar" onTool={handleSend} />}
+              toolbarSlot={<WorkspaceSlot name="composerToolbar" onTool={handleSend} onCommand={fillComposer} />}
               onDictateError={(m) => addToast(m, 'error')}
               live={activeId && !liveOn ? <LiveButton live={liveVoice} onNeedSetup={openLiveSetup} buttonRef={liveButtonRef} /> : null}
               dock={activeId && liveOn ? <LiveDock live={liveVoice} waiting={chat.running} onTypeInstead={typeInsteadOfLive} onEnd={endLive} /> : null}

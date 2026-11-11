@@ -485,7 +485,7 @@
         "argumentsHint": "Nomes com valores simples, no máximo {{max}}: texto, números, true ou false, como no exemplo.",
         "argumentsBad": "Inválido: escreva nomes com valores simples, como no exemplo, no máximo {{max}}.",
         "command": "Nome do comando",
-        "commandHint": "Sem a barra. Os comandos aparecem aqui quando existirem.",
+        "commandHint": "O nome de um dos seus comandos, sem a barra. Um clique coloca o texto dele na caixa de mensagem.",
         "label": "Texto (opcional)",
         "labelNeeded": "Texto do botão",
         "icon": "Ícone (opcional)"
