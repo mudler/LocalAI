@@ -9,16 +9,18 @@ import './wellKnown.css'
 // columns, put every block in the same cell.
 //
 //   sizes     'm' | 's' | 'l' of each child, in the order of the children
+//   units     the content height of each child in row units (contentUnits),
+//             or undefined for the units of its size (a page tile)
 //   cols      the number of columns
 //   className added to the grid
 //   testId    data-testid of the grid
 //
 // Every child is one element. The grid carries its placement in data-cols and
 // each child in data-col, data-row, data-cw and data-rh (1-based start, spans).
-export default function PackedGrid({ sizes, cols, className = '', testId, children }) {
+export default function PackedGrid({ sizes, units = [], cols, className = '', testId, children }) {
   const el = useRef(null)
-  const key = sizes.join('')
-  const packed = useMemo(() => packGrid(sizes, cols), [key, cols]) // eslint-disable-line react-hooks/exhaustive-deps
+  const key = `${sizes.join('')}|${sizes.map((_, i) => units[i] ?? '').join(',')}`
+  const packed = useMemo(() => packGrid(sizes, cols, units), [key, cols]) // eslint-disable-line react-hooks/exhaustive-deps
   // The placement is a computed grid line, not a style a class can name.
   useLayoutEffect(() => {
     const kids = el.current?.children

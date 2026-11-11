@@ -65,7 +65,7 @@
           "size": {
             "enum": ["s", "m", "l"],
             "title": "Size",
-            "description": "How much of the Home grid the widget takes: s one column and one row, m two columns and two rows, l a full row and three. Left out, a page widget takes the size of its page.json widget block and the other types take m (a list, the chats) or s (a metric)."
+            "description": "How much of the Home grid the widget takes: s one column and at most one row, m two columns and at most two rows, l a full row and at most three; a list, metric or chats widget is only as high as its content. Left out, a page widget takes the size of its page.json widget block and the other types take m (a list, the chats) or s (a metric)."
           },
           "folder": {
             "type": "integer",

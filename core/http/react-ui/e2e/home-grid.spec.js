@@ -4,8 +4,10 @@ import { holdHomeFiles, unlockHomeFiles } from './home-files-lock.js'
 // The Home grid, against the real test server: every widget has a size (s, m,
 // l), the grid has 4, 2 or 1 columns, and any mix of 12 widgets in any order
 // packs with no overlap and a full last row (dense flow fills what it can; a
-// hole higher up stays). The layout editor draws the same grid and puts
-// an S/M/L control on every row. HOME_SHOTS names a folder for screenshots.
+// hole higher up stays). A list, a metric and the chats are as high as their
+// content, never more than the units of their size. The layout editor draws
+// the same grid and puts an S/M/L control on every row. HOME_SHOTS names a
+// folder for screenshots.
 
 test.describe.configure({ mode: 'serial', timeout: 90_000 })
 holdHomeFiles(test)
@@ -24,6 +26,8 @@ const read = async (request, path) => JSON.parse(await (await request.get(`/api/
 const PAGE_HTML = (name) => `<!doctype html><html><body style="font:14px sans-serif;margin:10px"><b>${name}</b><p>Compact view</p></body></html>`
 const LIST = `data/g-list-${stamp}.json`
 const METRIC = `data/g-metric-${stamp}.json`
+const LIST3 = `data/g-list3-${stamp}.json`
+const PLAIN = `data/g-plain-${stamp}.json`
 
 // Twelve widgets of every type; the order and the sizes come from the mix.
 function twelve(sizes, order) {
@@ -106,12 +110,16 @@ async function openHome(page, theme = 'light') {
   await page.addInitScript((t) => { try { localStorage.setItem('localai-theme', t) } catch { /* private mode */ } }, theme)
   await page.goto('/app')
   await expect(page.getByTestId('home-widget-grid')).toBeVisible()
+  // The lists and metrics have read their files: their height is known.
+  await expect(page.locator('[data-testid="home-widget-grid"] [data-state="loading"]')).toHaveCount(0)
 }
 
 test.beforeAll(async ({ request }) => {
   const files = {
     [`/data/g-list-${stamp}.json`]: { items: Array.from({ length: 10 }, (_, i) => ({ label: `Task number ${i + 1}`, meta: 'Fri', done: i % 3 === 0 })) },
     [`/data/g-metric-${stamp}.json`]: { value: 42, note: 'since Monday', series: [3, 5, 4, 8, 7, 12, 11] },
+    [`/${LIST3}`]: { items: [{ label: 'Call the plumber', meta: 'Mon' }, { label: 'Draft the invoice', meta: 'Tue' }, { label: 'Book the train', meta: 'Wed', done: true }] },
+    [`/${PLAIN}`]: { value: 7, note: 'open' },
   }
   PAGES.forEach((p, i) => {
     files[`/pages/${p}/index.html`] = PAGE_HTML(p)
@@ -120,7 +128,7 @@ test.beforeAll(async ({ request }) => {
   for (const [p, body] of Object.entries(files)) expect((await put(request, p, body)).ok(), p).toBeTruthy()
 })
 test.afterAll(async ({ request }) => {
-  for (const p of ['/LocalAI/home.json', `/data/g-list-${stamp}.json`, `/data/g-metric-${stamp}.json`, ...PAGES.map(n => `/pages/${n}`)]) await del(request, p)
+  for (const p of ['/LocalAI/home.json', `/data/g-list-${stamp}.json`, `/data/g-metric-${stamp}.json`, `/${LIST3}`, `/${PLAIN}`, ...PAGES.map(n => `/pages/${n}`)]) await del(request, p)
 })
 test.afterAll(() => unlockHomeFiles())
 
@@ -169,6 +177,51 @@ test('old home.json without size renders with the page size and the defaults of 
   expect(byId.pg1.rh).toBeGreaterThanOrEqual(3)
   expect(byId.pg0.cw).toBeGreaterThanOrEqual(1)
   expectPacked(c, 'old file')
+})
+
+// The built-in tiles whose content is cut: a body that scrolls.
+const overflowing = (page) => page.evaluate(() => [...document.querySelectorAll('[data-testid="home-widget-grid"] > .wk-widget')]
+  .filter(el => !el.classList.contains('wk-ptile'))
+  .map(el => ({ id: el.dataset.testid, body: el.querySelector('.wk-widget__body, .wk-wlist, .wk-widget__empty') }))
+  .filter(({ body }) => body && body.scrollHeight > body.clientHeight + 1).map(({ id }) => id))
+
+test('built-in widgets are as high as their content, up to the units of their size', async ({ page, request }) => {
+  const widgets = [
+    { id: 'l3', type: 'list', title: 'Three', source: LIST3, size: 'l' },
+    { id: 'l10', type: 'list', title: 'Ten', source: LIST, size: 'l' },
+    { id: 'mt', type: 'metric', title: 'Number', source: METRIC, size: 'l' },
+    { id: 'mp', type: 'metric', title: 'Plain', source: PLAIN, size: 'l' },
+    { id: 'ch', type: 'chats', title: 'Chats', size: 'l' },
+    { id: 'pg1', type: 'page', page: PAGES[1], size: 'l' },
+    { id: 's3', type: 'list', title: 'Small', source: LIST3, size: 's' },
+    { id: 'm3', type: 'list', title: 'Medium', source: LIST3, size: 'm' },
+    { id: 'mm', type: 'metric', title: 'Medium number', source: METRIC, size: 'm' },
+  ]
+  expect((await put(request, '/LocalAI/home.json', { widgets })).ok()).toBeTruthy()
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await openHome(page)
+  for (const [w, cols] of WIDTHS) {
+    await page.setViewportSize({ width: w, height: 900 })
+    await expect(page.getByTestId('home-widget-grid')).toHaveAttribute('data-cols', String(cols))
+    await expect(page.getByTestId('home-widget-l3').locator('li')).toHaveCount(3)
+    const c = await cellsOf(page, 'home-widget-grid', '.wk-widget')
+    expectPacked(c, `content at ${w}`)
+    const byId = Object.fromEntries(c.tiles.map(t => [t.id.replace('home-widget-', ''), t]))
+    // A title, three rows and the footer: two units, not the three of l.
+    expect(byId.l3.rh, `l list of 3 at ${w}`).toBe(2)
+    expect(byId.l10.rh, `l list of 10 at ${w}`).toBe(3)
+    expect(byId.mt.rh, `metric with a sparkline at ${w}`).toBe(2)
+    expect(byId.mp.rh, `plain metric at ${w}`).toBe(1)
+    expect(byId.ch.rh, `chats at ${w}`).toBeLessThanOrEqual(2)
+    // A page tile keeps the units of its size.
+    expect(byId.pg1.rh, `page at ${w}`).toBe(3)
+    expect(byId.s3.rh, `s list at ${w}`).toBe(1)
+    expect(byId.m3.rh, `m list at ${w}`).toBe(2)
+    // Every tile shows all it has: no body scrolls, except the s list, whose
+    // one unit is less than its three rows.
+    expect((await overflowing(page)).filter(id => id !== 'home-widget-s3'), `cut content at ${w}`).toEqual([])
+    if (shots) await page.screenshot({ path: `${shots}/content-${w}-light.png`, fullPage: true })
+  }
 })
 
 test('the layout editor draws the grid of Home and sets the size of every kind of widget', async ({ page, request }) => {

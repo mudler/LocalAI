@@ -329,16 +329,21 @@ Every widget, whatever its type, has a `size`: `s`, `m` or `l`. Home is a grid
 of 4 columns (2 on a medium window, 1 on a phone), and a size is the room a
 widget takes on it:
 
-| Size | Width | Height |
+| Size | Width | Height at most |
 |---|---|---|
 | `s` | 1 column | 1 row unit (about 130 px) |
 | `m` | 2 columns | 2 row units |
 | `l` | the full row | 3 row units |
 
 A width never goes past the columns the grid has, so on 2 columns `m` and `l`
-are both 2 wide, and on a phone every widget is 1 wide. A list or a metric
-shows as much of its data as fits and scrolls inside its tile. A later small
-widget fills a hole that a bigger one leaves. A hole in the last row closes:
+are both 2 wide, and on a phone every widget is 1 wide. A `list`, `metric` or
+`chats` widget is only as high as what it shows, in whole row units, up to the
+height of its size: an `l` list of three items is 2 units high, not 3. A list
+shows its first 8 items and the chats widget the last 5 chats; what does not
+fit in the height of the size scrolls inside the tile. A page widget always
+takes the full height of its size. A later small
+widget fills a hole that a bigger one leaves, and a short widget grows back
+into the room under it, up to the height of its size. A hole in the last row closes:
 the tiles of that row stretch over it, so Home never ends in a partial row. A
 hole higher up, which no later widget fits, stays; **Edit layout** shows it,
 and another order or size closes it.
