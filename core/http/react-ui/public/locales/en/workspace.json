@@ -1017,5 +1017,145 @@
       "title": "Preview",
       "sidebar": "Sidebar"
     }
+  },
+  "commands": {
+    "title": "Commands",
+    "lede": "Your own slash commands. A command puts a prompt in the message box. You read it and send it yourself.",
+    "form": "Command",
+    "new": "New command",
+    "empty": "No commands yet. Add one and it shows in the slash menu.",
+    "type": {
+      "prompt": "Expands to a prompt",
+      "tool": "Calls a tool"
+    },
+    "field": {
+      "name": "Name",
+      "description": "Description",
+      "what": "What it does",
+      "template": "Prompt template",
+      "tool": "Tool",
+      "args": "Arguments"
+    },
+    "nameHint": "Lowercase letters, digits and dashes.",
+    "templateHint": "Write {{example}} where an argument goes.",
+    "noArgs": "This template has no arguments.",
+    "argKind": {
+      "number": "number",
+      "text": "text"
+    },
+    "argDefault": "default",
+    "argsHint": "Type {{example}} to fill arguments in order. Missing ones use the default.",
+    "toolHint": "A tool you already have. The command asks the assistant to use it, and the tool keeps its own approval step.",
+    "toolUnknown": "This tool is not among the tools of a chat right now.",
+    "expands": "Puts this in the message box",
+    "valid": "Valid",
+    "invalid": "Needs a fix",
+    "save": "Save",
+    "delete": "Delete",
+    "preview": {
+      "title": "Slash menu preview",
+      "builtin": "Built in",
+      "none": "No commands yet.",
+      "keys": "Enter fills the box"
+    },
+    "problem": {
+      "nameEmpty": "Give the command a name.",
+      "nameFormat": "A name starts with a letter and has only lowercase letters, digits and dashes, at most 32.",
+      "nameBuiltin": "This name belongs to a built-in command. Pick another.",
+      "nameTaken": "Another command already has this name.",
+      "descriptionEmpty": "Write a short description for the menu.",
+      "descriptionLong": "The description has at most {{max}} characters.",
+      "toolEmpty": "Name the tool.",
+      "toolFormat": "A tool name has only letters, digits, dots, dashes and underscores.",
+      "templateEmpty": "Write the prompt.",
+      "templateLong": "The prompt has at most {{template}} characters.",
+      "argFormat": "An argument name starts with a letter and has only lowercase letters, digits and underscores.",
+      "argTwice": "An argument is listed twice.",
+      "argDefault": "Each argument needs a default.",
+      "argDefaultLong": "A default has at most 200 characters.",
+      "argMissing": "An argument of the template has no valid name.",
+      "argUnused": "An argument is not used in the template.",
+      "braces": "A double brace is not closed.",
+      "argCount": "A command has at most {{args}} arguments."
+    }
+  },
+  "sound": {
+    "title": "Sound",
+    "play": "Play the sound for {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Use the default volume",
+    "names": {
+      "none": "None",
+      "soft-chime": "Soft chime",
+      "double-tap": "Double tap",
+      "bell": "Bell",
+      "pop": "Pop",
+      "low-tone": "Low tone"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Reply finished",
+        "hint": "A long answer is ready"
+      },
+      "approval": {
+        "label": "Needs your approval",
+        "hint": "A tool or a change asks before it runs"
+      },
+      "taskDone": {
+        "label": "Task or schedule done",
+        "hint": "A trigger or an agent job ended"
+      },
+      "error": {
+        "label": "Error",
+        "hint": "A request or a job failed"
+      }
+    },
+    "notify": {
+      "title": "Notification sounds",
+      "lede": "Short sounds when something needs you. They stay off until you turn them on.",
+      "rule": "Sound starts only after you have used the page. A reply, an approval or an error plays only while this tab is in the background. Nothing plays in quiet hours."
+    },
+    "quiet": {
+      "title": "Quiet hours",
+      "between": "No sounds between {{from}} and {{to}}",
+      "none": "No quiet hours. Turn this on to pick a time span.",
+      "from": "From",
+      "to": "To"
+    },
+    "voice": {
+      "title": "Voice for replies",
+      "lede": "Have replies read aloud.",
+      "readAloud": "Read replies aloud",
+      "mode": {
+        "off": "Never",
+        "button": "When I press the speaker",
+        "auto": "Every reply"
+      },
+      "modeHint": {
+        "off": "Replies are not read aloud.",
+        "button": "A speaker button shows under each reply.",
+        "auto": "Each finished reply is read at once. The browser may ask you to click the page first."
+      },
+      "voice": "Voice",
+      "voicePlaceholder": "Model default",
+      "voiceHint": "The voice name your text-to-speech model takes. Leave it empty for the voice the model starts with.",
+      "speed": "Speed",
+      "speedReset": "Use normal speed",
+      "skipCode": "Skip code and tables",
+      "skipCodeHint": "Say \"code block omitted\" instead.",
+      "sample": "Play sample",
+      "stop": "Stop",
+      "sampleText": "Hello, this is how your replies will sound.",
+      "sampleFailed": "The sample could not be played.",
+      "madeBy": "Speech is made by {{model}}, your text-to-speech default.",
+      "madeByAuto": "Speech is made by {{model}}, the first text-to-speech model installed. You have not picked a default.",
+      "change": "Change in Defaults",
+      "model": {
+        "ask": "Your defaults say to ask each time, so there is no model to read with. Pick a text-to-speech model.",
+        "missing": "{{model}} is your text-to-speech default, but it is not installed.",
+        "none": "No text-to-speech model is installed."
+      },
+      "remote": "{{model}} is not a local model. The text of each reply you have read aloud is sent to another server."
+    }
   }
 }

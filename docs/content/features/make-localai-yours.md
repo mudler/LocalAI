@@ -31,6 +31,8 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | The look | "Use the light theme, a serif font and round corners" | `LocalAI/ui.json` |
 | A few labels of the app | "Call the New chat button New thread" | `LocalAI/ui.json` |
 | The sidebar | "Hide Agents and rename Skills to Recipes" | `LocalAI/nav.json` |
+| Your own slash commands | "Add a /standup command that writes my standup" | `LocalAI/commands.json` |
+| Sounds and reading replies aloud | "Play a chime when a reply is ready, but not at night" | `LocalAI/ui.json` |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
 | Updates on a schedule | "Every morning, update this widget" | a trigger you confirm |
 
@@ -459,7 +461,7 @@ stay in the file.
 ### Your own text for a few labels
 
 `strings` replaces a few labels of the app with your own words. Edit them in
-**Account > Text**, or ask the assistant. Only these keys can change:
+**Account > Text and commands**, or ask the assistant. Only these keys can change:
 
 | Key | Where | Placeholders |
 |---|---|---|
@@ -478,7 +480,7 @@ stay in the file.
 The text of security, permission, consent and trust prompts cannot change: the
 server refuses any key that is not in the list. A text with a placeholder its
 key does not take, or a brace without its pair, is refused too. An empty box in
-the Text tab removes the key, and the default text shows again.
+the Text and commands tab removes the key, and the default text shows again.
 
 Home can be renamed in two places: `nav.home` here, and a `label` on the
 `home` item of `nav.json` (see "Navigation"). The more specific one wins: a
@@ -587,6 +589,100 @@ When the file has an error, the sidebar keeps the last good version and the
 editor says what is wrong, with **Revert**. A save from the tab merges your edit
 with the file as it is then, item by item, so a change that the assistant made
 while the tab was open is not lost. Keys you add yourself stay in the file.
+
+## Commands
+
+`LocalAI/commands.json`, edited in **Account > Text and commands**, holds your own
+slash commands. They show in the slash menu of the message box, on Home and in a
+chat, under **Yours**, first in the list, with their description and a badge:
+`prompt` or `tool`. Ask the assistant ("add a /standup command that writes my
+standup from yesterday's chats") or use the tab: **New command**, a name, what
+it does, and **Save**. A live copy of the slash menu next to the form shows the
+result.
+
+```json
+{
+  "commands": [
+    {
+      "name": "standup",
+      "description": "Write my standup from yesterday's chats",
+      "type": "prompt",
+      "template": "Look at my chats from the last {{days}} day(s). Write a standup. Keep it under {{words}} words.",
+      "args": [{ "name": "days", "default": 1 }, { "name": "words", "default": 120 }]
+    },
+    { "name": "summarize", "description": "Summarize this chat", "type": "tool", "tool": "summarize_chat" }
+  ]
+}
+```
+
+A command is one of two types:
+
+| Type | What choosing it does |
+|---|---|
+| `prompt` | Puts the `template` in the message box. Write an argument as `{{name}}`; every one must be listed in `args` with a `default`. Type `/standup 2 80` to fill the arguments in order (the last one takes the rest of the text), or choose the command to use the defaults. |
+| `tool` | Puts a sentence in the message box that asks the assistant to use the named tool, such as "Use the summarize_chat tool." The tool must be one you already have. |
+
+A command never runs by itself. It fills the message box with text you can read
+and change, and you send it. A tool command only asks: the tool keeps its own
+approval step, as for any request you write by hand. A command cannot set a
+system prompt, and `commands.json` is never added to the prompt of a chat; the
+server refuses a command with a `system_prompt` key. If you type a full command
+and press Enter, the prompt goes in the box first and nothing is sent.
+
+A name has lowercase letters, digits and dashes, starts with a letter and is
+unique. It cannot be the name of a built-in command (`/model`, `/clear`,
+`/help` and the others; the schema lists them under `x-reserved-names`). A
+skill with the same name as one of your commands is then reached through
+`/skill <name>`. A tool command whose tool the chat does not have is marked
+"tool not available". The list holds at most 30 commands, and a command at
+most 8 arguments. A file with an error is ignored: the menu keeps the last good
+version, and the tab says what is wrong, with **Revert**. Keys you add yourself
+at the top of the file stay.
+
+## Sound and reading aloud
+
+`sound` and `voice` in `LocalAI/ui.json`, edited in **Account > Sound**, give you
+short sounds for events and reading replies aloud. Both are off until you turn
+them on, so without these keys nothing changes.
+
+```json
+{
+  "sound": {
+    "enabled": true,
+    "volume": 0.55,
+    "quietHours": ["22:00", "07:00"],
+    "events": { "replyDone": "soft-chime", "approval": "double-tap", "taskDone": "bell", "error": "none" }
+  },
+  "voice": { "readAloud": "button", "voice": "", "speed": 1, "skipCode": true }
+}
+```
+
+| Key | Values |
+|---|---|
+| `sound.enabled` | `true` turns the sounds on. Default `false`. |
+| `sound.volume` | 0 to 1. Default 0.5. |
+| `sound.quietHours` | `[from, to]` as 24-hour `HH:MM` in the time zone of your device. No sound from the first time until the second; the span may cross midnight. Leave it out for no quiet hours. |
+| `sound.events` | One sound for each of `replyDone` (a reply is finished), `approval` (something waits for your approval), `taskDone` (a trigger or an agent job ended) and `error`. The sounds are `none`, `soft-chime`, `double-tap`, `bell`, `pop` and `low-tone`. |
+| `voice.readAloud` | `off` (default), `button` (a speaker under each reply) or `auto` (each finished reply is read). |
+| `voice.voice` | The voice name your text-to-speech model takes. Empty uses the model's own voice. |
+| `voice.speed` | 0.5 to 2. Default 1. |
+| `voice.skipCode` | `true` (default) says "code block omitted" for code blocks and tables instead of reading them. |
+
+The sounds are made by your browser, so nothing is downloaded. A browser plays
+audio only after you have used the page, so no sound plays before your first
+click or key press. A reply, an approval and an error play only while the tab is
+in the background, because you see them where you are looking. A finished task
+plays wherever you are in the app. Nothing plays in quiet hours. The play
+buttons of the Sound tab always play, so you can try a sound.
+
+Reading aloud uses the text-to-speech default of
+[Default models](#default-models) (the `tts` key). The Sound tab names that
+model. The text of each reply you have read aloud is sent to it: with a model
+that runs on this server nothing leaves it, but a model that forwards to another
+service (a remote model) sends the text there, and the tab says so. With `tts`
+set to `ask`, or a model that is not installed, nothing is read and the tab says
+why. Without a `tts` default, LocalAI uses the first installed text-to-speech
+model.
 
 ## The LocalAI folder
 
@@ -709,8 +805,8 @@ text.
 The built-in skill `localai-workspace` tells the assistant what each file does,
 where the schemas are (`/workspace/shared-builtin-skills/localai-workspace/schemas/`
 in the chat's files) and how to change a file without losing other keys. It has
-recipes for "add a shortcut", "show my open tasks on Home", "call me X and
-keep answers short" and "every morning update this". Its line in the index of
+recipes for "add a shortcut", "show my open tasks on Home" and "every morning
+update this". Its line in the index of
 skills costs about 44 tokens a turn; like any skill, you can switch it off for
 a chat in the **Skills** menu.
 
@@ -718,7 +814,7 @@ a chat in the **Skills** menu.
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `defaults`, `home`, `ui`, `nav`, or `widget-data` with `?path=` |
+| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `defaults`, `home`, `ui`, `nav`, `commands`, or `widget-data` with `?path=` |
 | PUT | `/api/chats/wellknown/{name}` | Changes a file: `{"values": {...}, "replace": false}` |
 | POST | `/api/chats/wellknown/{name}/revert` | Writes the previous valid version back, or the version `{"rev": N}` |
 | GET | `/api/chats/wellknown/{name}/versions` | The versions of the file, newest first: `rev`, `at`, `kind` (`user` or `agent`), `chat` and `chat_title`, and `data` when valid |

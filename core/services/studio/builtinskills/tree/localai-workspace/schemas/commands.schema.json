@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/commands.json",
+  "title": "LocalAI/commands.json",
+  "description": "Your own slash commands for the message box. A command expands into a prompt the user sees in the box and sends by hand; it cannot set a system prompt. A tool command asks the assistant to use a tool the user already has, and the tool keeps its own approval step. A name is lowercase, unique and not a built-in command.",
+  "x-reserved-names": ["about", "agent", "agents", "apps", "assistant", "attach", "chat", "chats", "clear", "compact", "delete", "docs", "effort", "export", "find", "gallery", "goal", "help", "import", "installed", "knowledge", "loop", "mcp", "memory", "model", "models", "new", "settings", "skill", "skills", "stop"],
+  "type": "object",
+  "properties": {
+    "commands": {
+      "type": "array",
+      "maxItems": 30,
+      "description": "The commands, in the order the slash menu lists them.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "What the user types after the slash: lowercase letters, digits and dashes. Not a built-in command (see x-reserved-names)." },
+          "description": { "type": "string", "minLength": 1, "maxLength": 120, "description": "One line shown in the slash menu." },
+          "type": { "enum": ["prompt", "tool"], "description": "prompt expands a template into the message box; tool asks the assistant to use a tool." },
+          "template": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "For a prompt command: the text that goes in the message box. Write an argument as {{name}}; each one must be listed in args." },
+          "args": {
+            "type": "array",
+            "maxItems": 8,
+            "description": "For a prompt command: the named arguments of the template, filled in order from what the user types after the name. A missing one takes its default.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,23}$", "description": "Lowercase letters, digits and underscores." },
+                "default": { "type": ["string", "number"], "description": "The value used when the user types none. A string has at most 200 characters." }
+              },
+              "required": ["name", "default"],
+              "additionalProperties": false
+            }
+          },
+          "tool": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$", "description": "For a tool command: the name of a tool the user already has." }
+        },
+        "required": ["name", "description", "type"],
+        "additionalProperties": false,
+        "allOf": [
+          { "if": { "properties": { "type": { "const": "prompt" } }, "required": ["type"] }, "then": { "required": ["template"], "not": { "required": ["tool"] } } },
+          { "if": { "properties": { "type": { "const": "tool" } }, "required": ["type"] }, "then": { "required": ["tool"], "not": { "anyOf": [{ "required": ["template"] }, { "required": ["args"] }] } } }
+        ]
+      },
+      "x-ui": { "widget": "commands" }
+    }
+  },
+  "required": ["commands"]
+}

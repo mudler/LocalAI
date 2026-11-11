@@ -19,6 +19,8 @@ import { SenderLine } from './ConnectorChat'
 import AddonSlot from '../../addons/AddonSlot'
 // eslint-disable-next-line no-unused-vars
 import { AssistantAvatar } from '../wellknown/Identity'
+// eslint-disable-next-line no-unused-vars
+import ReadAloudButton from './ReadAloudButton'
 
 // Assistant prose. The HTML string is memoised, so React leaves the node alone
 // while the page re-renders for other reasons (polling, streaming elsewhere):
@@ -207,6 +209,7 @@ function ChatMessage({
         <button type="button" className="cx-icobtn" onClick={() => actions.copy(text)} title={t('actions.copy')} aria-label={t('actions.copy')}>
           <Icon name="copy" />
         </button>
+        {isAssistant && !busy && <ReadAloudButton id={`${conversationId || 'draft'}:${index}`} text={text} />}
         {isUser && !busy && draft === null && (
           <button type="button" className="cx-icobtn" onClick={() => setDraft(text)} title={t('actions.editMessage')} aria-label={t('actions.editMessage')}>
             <Icon name="pencil" />

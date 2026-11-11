@@ -996,5 +996,145 @@
       "title": "Vista previa",
       "sidebar": "Barra lateral"
     }
+  },
+  "commands": {
+    "title": "Comandos",
+    "lede": "Tus propios comandos con barra. Un comando pone un prompt en el cuadro del mensaje. Tú lo lees y lo envías.",
+    "form": "Comando",
+    "new": "Nuevo comando",
+    "empty": "Aún no hay comandos. Añade uno y aparecerá en el menú de barra.",
+    "type": {
+      "prompt": "Se expande en un prompt",
+      "tool": "Llama a una herramienta"
+    },
+    "field": {
+      "name": "Nombre",
+      "description": "Descripción",
+      "what": "Qué hace",
+      "template": "Plantilla del prompt",
+      "tool": "Herramienta",
+      "args": "Argumentos"
+    },
+    "nameHint": "Letras minúsculas, dígitos y guiones.",
+    "templateHint": "Escribe {{example}} donde va un argumento.",
+    "noArgs": "Esta plantilla no tiene argumentos.",
+    "argKind": {
+      "number": "número",
+      "text": "texto"
+    },
+    "argDefault": "valor por defecto",
+    "argsHint": "Escribe {{example}} para rellenar los argumentos en orden. Los que falten usan el valor por defecto.",
+    "toolHint": "Una herramienta que ya tienes. El comando pide al asistente que la use, y la herramienta conserva su propio paso de aprobación.",
+    "toolUnknown": "Esta herramienta no está ahora entre las herramientas de un chat.",
+    "expands": "Pone esto en el cuadro del mensaje",
+    "valid": "Válido",
+    "invalid": "Hay que corregirlo",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "preview": {
+      "title": "Vista previa del menú de barra",
+      "builtin": "Integrados",
+      "none": "Aún no hay comandos.",
+      "keys": "Intro rellena el cuadro"
+    },
+    "problem": {
+      "nameEmpty": "Ponle un nombre al comando.",
+      "nameFormat": "Un nombre empieza por una letra y solo tiene letras minúsculas, dígitos y guiones, como máximo 32.",
+      "nameBuiltin": "Este nombre es de un comando integrado. Elige otro.",
+      "nameTaken": "Otro comando ya tiene este nombre.",
+      "descriptionEmpty": "Escribe una descripción breve para el menú.",
+      "descriptionLong": "La descripción tiene como máximo {{max}} caracteres.",
+      "toolEmpty": "Indica la herramienta.",
+      "toolFormat": "El nombre de una herramienta solo tiene letras, dígitos, puntos, guiones y guiones bajos.",
+      "templateEmpty": "Escribe el prompt.",
+      "templateLong": "El prompt tiene como máximo {{template}} caracteres.",
+      "argFormat": "El nombre de un argumento empieza por una letra y solo tiene letras minúsculas, dígitos y guiones bajos.",
+      "argTwice": "Un argumento está repetido.",
+      "argDefault": "Cada argumento necesita un valor por defecto.",
+      "argDefaultLong": "Un valor por defecto tiene como máximo 200 caracteres.",
+      "argMissing": "Un argumento de la plantilla no tiene un nombre válido.",
+      "argUnused": "Un argumento no se usa en la plantilla.",
+      "braces": "Hay una llave doble sin cerrar.",
+      "argCount": "Un comando tiene como máximo {{args}} argumentos."
+    }
+  },
+  "sound": {
+    "title": "Sonido",
+    "play": "Reproducir el sonido de {{event}}",
+    "volume": "Volumen",
+    "volumeReset": "Usar el volumen por defecto",
+    "names": {
+      "none": "Ninguno",
+      "soft-chime": "Campanilla suave",
+      "double-tap": "Doble toque",
+      "bell": "Campana",
+      "pop": "Pop",
+      "low-tone": "Tono grave"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Respuesta terminada",
+        "hint": "Una respuesta larga está lista"
+      },
+      "approval": {
+        "label": "Necesita tu aprobación",
+        "hint": "Una herramienta o un cambio pregunta antes de ejecutarse"
+      },
+      "taskDone": {
+        "label": "Tarea o programación terminada",
+        "hint": "Un disparador o un trabajo de un agente ha terminado"
+      },
+      "error": {
+        "label": "Error",
+        "hint": "Una petición o un trabajo ha fallado"
+      }
+    },
+    "notify": {
+      "title": "Sonidos de notificación",
+      "lede": "Sonidos cortos cuando algo te necesita. Siguen apagados hasta que los actives.",
+      "rule": "El sonido empieza solo después de que hayas usado la página. Una respuesta, una aprobación o un error suenan solo mientras esta pestaña está en segundo plano. En las horas de silencio no suena nada."
+    },
+    "quiet": {
+      "title": "Horas de silencio",
+      "between": "Sin sonidos entre las {{from}} y las {{to}}",
+      "none": "Sin horas de silencio. Actívalo para elegir un intervalo.",
+      "from": "Desde",
+      "to": "Hasta"
+    },
+    "voice": {
+      "title": "Voz para las respuestas",
+      "lede": "Haz que las respuestas se lean en voz alta.",
+      "readAloud": "Leer las respuestas en voz alta",
+      "mode": {
+        "off": "Nunca",
+        "button": "Cuando pulso el altavoz",
+        "auto": "Cada respuesta"
+      },
+      "modeHint": {
+        "off": "Las respuestas no se leen en voz alta.",
+        "button": "Bajo cada respuesta aparece un botón de altavoz.",
+        "auto": "Cada respuesta terminada se lee de inmediato. Puede que el navegador te pida antes un clic en la página."
+      },
+      "voice": "Voz",
+      "voicePlaceholder": "La del modelo",
+      "voiceHint": "El nombre de voz que acepta tu modelo de texto a voz. Déjalo vacío para la voz con la que empieza el modelo.",
+      "speed": "Velocidad",
+      "speedReset": "Usar la velocidad normal",
+      "skipCode": "Omitir código y tablas",
+      "skipCodeHint": "Dice \"bloque de código omitido\" en su lugar.",
+      "sample": "Reproducir muestra",
+      "stop": "Detener",
+      "sampleText": "Hola, así sonarán tus respuestas.",
+      "sampleFailed": "No se pudo reproducir la muestra.",
+      "madeBy": "La voz la genera {{model}}, tu modelo de texto a voz por defecto.",
+      "madeByAuto": "La voz la genera {{model}}, el primer modelo de texto a voz instalado. No has elegido uno por defecto.",
+      "change": "Cambiar en Predeterminados",
+      "model": {
+        "ask": "Tus valores por defecto dicen que se pregunte cada vez, así que no hay modelo con el que leer. Elige un modelo de texto a voz.",
+        "missing": "{{model}} es tu modelo de texto a voz por defecto, pero no está instalado.",
+        "none": "No hay ningún modelo de texto a voz instalado."
+      },
+      "remote": "{{model}} no es un modelo local. El texto de cada respuesta que hagas leer en voz alta se envía a otro servidor."
+    }
   }
 }

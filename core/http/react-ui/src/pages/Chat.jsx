@@ -3,6 +3,7 @@ import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams,
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
+import { useAutoReadAloud } from '../hooks/useAutoReadAloud'
 import { useChatComposer } from '../hooks/useChatComposer'
 import { useComposerArrival } from '../hooks/useComposerTransition'
 import { useChatEgress } from '../hooks/useChatEgress'
@@ -158,6 +159,7 @@ function ChatPage() {
   // (useComposerTransition): no empty page while the transcript is read.
   const arrival = useComposerArrival(routeId, { textareaRef, pageRef })
   const chat = useServerChat({ seed: arrival.seed })
+  useAutoReadAloud({ running: chat.running, messages: chat.messages, activeId: chat.activeId, failed: chat.lastTurn === 'failed' })
   // Opening a chat marks its notifications read on the server; the shell's inbox reads again.
   const inbox = useInboxEntry()
   const { select, activeId } = chat

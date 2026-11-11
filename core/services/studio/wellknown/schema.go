@@ -1,7 +1,7 @@
 // Package wellknown reads and writes the files in a user's home that change how
 // LocalAI looks and behaves for that user: persona.json, user.json,
-// shortcuts.json, setups.json, defaults.json, home.json, ui.json and nav.json
-// in the LocalAI/ folder,
+// shortcuts.json, setups.json, defaults.json, home.json, ui.json, nav.json and
+// commands.json in the LocalAI/ folder,
 // and the data files that Home widgets read. Each has a JSON Schema. The
 // schemas live in the built-in skill localai-workspace, so the server
 // validates with the same text that the assistant reads.
@@ -38,6 +38,7 @@ const (
 	Home       Name = "home"
 	UI         Name = "ui"
 	Nav        Name = "nav"
+	Commands   Name = "commands"
 	WidgetData Name = "widget-data" // a data file a Home widget reads; it has no fixed path
 )
 
@@ -50,7 +51,7 @@ const MaxSize = 64 << 10
 // ErrUnknown means the name is not a well-known file.
 var ErrUnknown = errors.New("wellknown: not a well-known file")
 
-var names = []Name{Persona, User, Shortcuts, Setups, Defaults, Home, UI, Nav, WidgetData}
+var names = []Name{Persona, User, Shortcuts, Setups, Defaults, Home, UI, Nav, Commands, WidgetData}
 
 // Names lists the kinds of well-known files.
 func Names() []Name { return append([]Name(nil), names...) }
@@ -179,6 +180,14 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 		// with a path that climbs out of the home or is not a picture.
 		errs = append(errs, backgroundErrors(obj)...)
 		errs = append(errs, stringErrors(obj["strings"])...)
+		errs = append(errs, soundErrors(obj["sound"])...)
+		errs = append(errs, voiceErrors(obj["voice"])...)
+	}
+	if n == Commands {
+		// The schema types each command; these say what it cannot: names that
+		// repeat or clash with a built-in command, a template that uses an
+		// argument it does not list, a key that would set a system prompt.
+		errs = append(errs, commandErrors(obj)...)
 	}
 	if n == Defaults {
 		errs = append(errs, defaultsErrors(obj)...)

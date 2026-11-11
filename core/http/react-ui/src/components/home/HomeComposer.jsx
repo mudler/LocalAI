@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { useTranslation, Trans } from 'react-i18next'
 import { availableActions, commandNames, SLASH_GROUPS } from './homeActions'
-import { filterCommands, slashQuery } from '../../utils/slashCommands'
+import { expandTypedUserCommand, filterCommands, slashQuery } from '../../utils/slashCommands'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
@@ -183,6 +183,10 @@ export default function HomeComposer({
   const submit = () => {
     const exact = actions.find(c => c.addonId && c.cmd === message.trim())
     if (exact) { onMessage(''); onRunAction(exact.id, exact); return }
+    // A command of the user is never sent as typed: its prompt goes in the box
+    // first, and the person sends it by hand.
+    const own = expandTypedUserCommand(message, actions, slash?.ctx)
+    if (own !== null) { onMessage(own); return }
     onSubmit()
   }
 

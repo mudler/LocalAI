@@ -34,9 +34,11 @@ import { projectHomeCommands } from '../addons/homeCommands.js'
 import { CHAT_SLASH_ACTIONS, CHAT_SLASH_GROUPS } from '../components/chat/chatActions.js'
 import { SLASH_ACTIONS, SLASH_GROUPS, availableActions, commandNames } from '../components/home/homeActions.js'
 import { shortId } from './chatLoops.js'
+import { argValues, expandCommand, matchTyped } from './userCommands.js'
 
-// The groups of the new commands, after the page's own.
-export const COMMAND_GROUPS = ['context', 'skills', 'help']
+// The groups of the new commands, after the page's own. The commands of the
+// user (commands.json) are listed first.
+export const COMMAND_GROUPS = ['yours', 'context', 'skills', 'help']
 
 // The commands both surfaces share. ctx is described at availableCommands.
 export const SHARED_COMMANDS = [
@@ -159,15 +161,49 @@ function agentItems(ctx) {
 
 // A command per usable skill, /<name>. A skill whose name is a command gets
 // /skill <name> instead, marked.
-export function skillCommands(skills) {
+export function skillCommands(skills, taken = new Set()) {
   return usableSkills(skills).map((s) => {
-    const collides = RESERVED.has(s.name)
+    const collides = RESERVED.has(s.name) || taken.has(s.name)
     const cmd = collides ? `/skill ${s.name}` : `/${s.name}`
     return {
       id: `skill-${s.name}`, cmd, icon: 'book', group: 'skills', kind: 'insert', insert: `${cmd} `,
       label: s.name, desc: s.description || '', badge: skillBadge(s), note: collides ? 'collides' : undefined,
     }
   })
+}
+
+// The commands of the user (LocalAI/commands.json) as registry commands, listed
+// first under "yours". Choosing one puts its text in the message box, where the
+// person reads it and sends it: nothing runs from the menu. "/name 2 text"
+// fills the arguments in order and shows the result as the one row of the
+// menu. A tool command only asks the assistant to use the tool; the tool keeps
+// its own approval step. ctx.userCommands is the list (utils/userCommands.js
+// readCommands), ctx.toolText(tool) the sentence of a tool command, and
+// ctx.toolNames the tools the chat has, to flag a command whose tool is not
+// there.
+export function userCommandEntries(commands, ctx = {}) {
+  const opts = { toolText: ctx.toolText }
+  const known = ctx.toolNames
+  return (commands || []).map((c) => ({
+    id: `user-${c.name}`, cmd: `/${c.name}`, icon: c.type === 'tool' ? 'wrench' : 'sparkles', group: 'yours', kind: 'insert',
+    label: c.name, desc: c.description, badge: c.type, userCommand: c,
+    note: c.type === 'tool' && known && known.size > 0 && !known.has(c.tool) ? 'unavailable' : undefined,
+    insert: expandCommand(c, '', opts),
+    args: (query) => {
+      const rest = String(query || '').replace(/^\s+/, '')
+      const text = expandCommand(c, rest, opts)
+      const shown = c.type === 'prompt' && (c.args || []).length > 0 ? argValues(c, rest).map((v) => `${v.name} = ${v.value}`).join(', ') : ''
+      return [{ key: `user-${c.name}-fill`, name: shown, desc: text.length > 140 ? `${text.slice(0, 139)}…` : text, icon: c.type === 'tool' ? 'wrench' : 'sparkles', insert: text }]
+    },
+  }))
+}
+
+// What a typed "/name args" of a user command expands to, or null when the text
+// is not one. The composer puts it in the box instead of sending the command,
+// so the person always sees the prompt before it goes.
+export function expandTypedUserCommand(text, actions, ctx = {}) {
+  const hit = matchTyped(text, (actions || []).filter((a) => a.userCommand).map((a) => a.userCommand))
+  return hit ? expandCommand(hit.command, hit.rest, { toolText: ctx.toolText }) : null
 }
 
 // The page's own commands as registry commands: navigation, on one surface.
@@ -201,12 +237,14 @@ export function availableCommands(surface, ctx = {}) {
   const shared = SHARED_COMMANDS.filter((a) => (!a.where || a.where.includes(surface)) && (!a.needs || a.needs(ctx)))
   const addons = surface === 'home' && ctx.addonRegistry
     ? projectHomeCommands(ctx.addonRegistry, { nativeNames: RESERVED, skillNames: usableSkills(ctx.skills).map(s => s.name), language: ctx.addonRegistry.language }).commands : []
-  return [...own, ...shared, ...addons, ...skillCommands(ctx.skills)]
+  const mine = userCommandEntries(ctx.userCommands, ctx)
+  const taken = new Set((ctx.userCommands || []).map((c) => c.name))
+  return [...mine, ...own, ...shared, ...addons, ...skillCommands(ctx.skills, taken)]
 }
 
 // The groups of a surface, in menu order.
 export function commandGroups(surface) {
-  return [...(surface === 'home' ? [...SLASH_GROUPS, 'addons'] : CHAT_SLASH_GROUPS), ...COMMAND_GROUPS]
+  return ['yours', ...(surface === 'home' ? [...SLASH_GROUPS, 'addons'] : CHAT_SLASH_GROUPS), ...COMMAND_GROUPS.filter((g) => g !== 'yours')]
 }
 
 // What the box asks of the menu.

@@ -248,7 +248,8 @@
     "group": {
       "context": "Contexto",
       "skills": "Skills e agentes",
-      "help": "Ajuda"
+      "help": "Ajuda",
+      "yours": "Seus"
     },
     "models": {
       "label": "Modelos",
@@ -301,7 +302,9 @@
       "builtin": "embutida",
       "addon": "complemento",
       "shared": "compartilhada",
-      "yours": "sua"
+      "yours": "sua",
+      "prompt": "prompt",
+      "tool": "ferramenta"
     },
     "collides": "só com /skill",
     "errors": {
@@ -327,7 +330,9 @@
     "effort": {
       "label": "Esforço de raciocínio",
       "desc": "Escolha o quanto o modelo pensa"
-    }
+    },
+    "userTool": "Use a ferramenta {{tool}}.",
+    "unavailable": "ferramenta indisponível"
   },
   "shortcuts": {
     "onMessage": "Numa mensagem: copiar, editar, regenerar",
@@ -899,6 +904,18 @@
       "start": "Iniciar o Live",
       "close": "Fechar",
       "notShown": "Instalado, mas o modelo não apareceu. Tente novamente ou recarregue a página."
+    }
+  },
+  "readAloud": {
+    "read": "Ler em voz alta",
+    "stop": "Parar de ler",
+    "ask": "O seu modelo de texto para fala padrão está em \"perguntar a cada vez\". Escolha um modelo em Padrões para ler em voz alta.",
+    "none": "Nenhum modelo de texto para fala está instalado.",
+    "missing": "O seu modelo de texto para fala padrão não está instalado. Escolha outro em Padrões.",
+    "failed": "Não foi possível ler isto em voz alta.",
+    "omitted": {
+      "code": "Bloco de código omitido.",
+      "table": "Tabela omitida."
     }
   }
 }
