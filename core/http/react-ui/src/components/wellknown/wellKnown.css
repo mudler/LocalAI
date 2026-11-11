@@ -267,6 +267,10 @@
 .wk-ptile__open:hover { text-decoration: underline; }
 .wk-ptile__open:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .wk-ptile__open .lai-icon { width: 12px; height: 12px; }
+/* A one-column tile keeps its bar for the title: Open page is only the arrow
+   there, and its name stays for screen readers and in the tooltip. */
+.wk-ptile--small .wk-ptile__open-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.wk-ptile--small .wk-ptile__open { padding: 0 var(--sp-1); }
 .wk-ptile__body { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; }
 .wk-ptile .pg-frame.wk-ptile__frame { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; background: var(--color-bg-secondary); }
 .wk-ptile__fill { position: absolute; inset: var(--sp-3); width: auto; height: auto; }

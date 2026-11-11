@@ -230,7 +230,7 @@ export default function PageTile({ w, size: cell, listed, onFix }) {
             <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.home.page.refresh')} title={t('wellKnown.home.page.refresh')} onClick={refresh} data-testid="page-tile-refresh"><Icon name="refresh" /></button>
           )}
           {ref && state !== 'missing' && (
-            <Link className="wk-ptile__open" to={pagePath} data-testid="page-tile-open">{t('wellKnown.home.page.open')}<Icon name="arrow-right" /></Link>
+            <Link className="wk-ptile__open" to={pagePath} title={t('wellKnown.home.page.open')} data-testid="page-tile-open"><span className="wk-ptile__open-text">{t('wellKnown.home.page.open')}</span><Icon name="arrow-right" /></Link>
           )}
         </span>
       </h2>
