@@ -103,7 +103,22 @@ var systemTotalRAM = func() uint64 {
 
 // estimateContextRAM returns the estimated system-memory footprint (bytes) of
 // running f with every layer on the CPU at ctx tokens: weights, KV cache and
-// compute buffer. It returns 0 when it cannot produce an estimate, which the
+// compute buffer.
+//
+// The KV part is sized from the model's own attention geometry, per layer, at
+// f16 (the llama.cpp default cache type) and one slot: 2 x attention layers x
+// kv heads x head dim x 2 bytes x tokens for a dense model. It follows the
+// layers that really keep a cache: sliding-window layers keep a short one, and
+// recurrent or state-space layers of a hybrid model keep a fixed state, so a
+// hybrid model grows by far less than a dense one of the same size. That is
+// correct, not an under-count: it matched the analytic size on the headers of a
+// dense 8B, a dense 32B, a sliding-window 12B, a hybrid and a mixture of
+// experts. A quantized cache type makes the real figure smaller, so the
+// estimate stays on the safe side. The compute buffer is the small one the
+// estimator reports for a CPU run. It leaves out the attention score buffer
+// that llama.cpp allocates when flash attention is off, which grows with the
+// window (about 2 GiB for an 8B model at 32768); the default "auto" mode turns
+// flash attention on for CPU, so this holds unless an operator forces it off. It returns 0 when it cannot produce an estimate, which the
 // caller treats as "cannot confirm", as for estimateContextVRAM. It is a
 // package var so tests can stub it.
 var estimateContextRAM = func(f *gguf.GGUFFile, ctx int) (footprint uint64) {
