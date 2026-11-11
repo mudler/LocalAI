@@ -1196,14 +1196,14 @@ Once the model is loaded, the coordinator serves requests exactly like a single-
 On each worker machine (with the GGUF present locally), start a worker pointed at the coordinator:
 
 ```bash
-local-ai worker ds4-distributed -- \
+local-ai p2p-worker ds4-distributed -- \
   --role worker \
   --model /models/ds4flash.gguf \
   --layers 20:output \
   --coordinator <coordinator-host> 1234
 ```
 
-`local-ai worker ds4-distributed` resolves the ds4 backend and execs the packaged `ds4-worker` binary, passing everything after `--` straight through.
+`local-ai p2p-worker ds4-distributed` resolves the ds4 backend and execs the packaged `ds4-worker` binary, passing everything after `--` straight through.
 
 ### Layer-range semantics
 

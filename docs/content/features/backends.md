@@ -429,7 +429,7 @@ Backends page shows a notice and offers no install or upgrade actions.
 The switch is read at start-up only; it is not a runtime setting. In
 [distributed mode]({{% relref "features/distributed-mode#disabling-backend-installation-on-workers" %}})
 each worker enforces it for its own backends, so set it on every frontend
-and every worker. The standalone `local-ai worker ...` subcommands honour
+and every worker. The standalone `local-ai p2p-worker ...` subcommands honour
 the same variable: they start with the backend already present under their
 backends or system path and exit with an error instead of installing one.
 
