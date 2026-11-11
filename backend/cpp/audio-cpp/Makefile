@@ -9,7 +9,7 @@
 # recipe is a make target (not a prepare.sh) so 'make purge && make' is a clean
 # rebuild and so the bump bot can see the pin.
 
-AUDIO_CPP_VERSION?=de6fbe3b0e004de79b9ca642e033a35642b56c02
+AUDIO_CPP_VERSION?=be2cc80ae9f5a1432d15aa53107133e495b46aa8
 AUDIO_CPP_REPO?=https://github.com/0xShug0/audio.cpp
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
