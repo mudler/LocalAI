@@ -135,12 +135,14 @@ func (s *Service) openPageRun(ctx context.Context, p, conv string, raw json.RawM
 	case errors.Is(err, pages.ErrNotFound):
 		return "", fmt.Errorf("there is no page called %s; write pages/%s/index.html first", in.Name, in.Name)
 	case err != nil:
+		s.log.Warn("studio: open_page could not read the page", "chat", conv, "page", in.Name, "error", err)
 		return "", errors.New("the page cannot be read now")
 	}
 	err = s.d.Store.UpdateDock(ctx, p, conv, func(d *session.Dock) (*session.Dock, error) {
 		return d.OpenTab(session.DockTab{Page: page.Name}), nil
 	})
 	if err != nil {
+		s.log.Warn("studio: open_page could not change the dock", "chat", conv, "page", page.Name, "error", err)
 		return "", errors.New("the dock of this chat cannot be changed now")
 	}
 	s.publishDock(p, conv)

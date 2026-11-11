@@ -61,7 +61,7 @@ func (d *Dock) Clone() *Dock {
 // Validate checks that d is inside the bounds of a dock: valid page names, no
 // page twice, at most MaxDockTabs, an active index of a tab and a width of 0
 // or between the bounds.
-func (d Dock) Validate() error {
+func (d *Dock) Validate() error {
 	bad := func(format string, a ...any) error {
 		return fmt.Errorf("%w: %s", ErrInvalidDock, fmt.Sprintf(format, a...))
 	}
