@@ -211,7 +211,7 @@ test('a shared page in a slot runs only after the viewer allows it on Home or in
     await expect(sheet).toHaveAttribute('data-embed', 'true')
     await expect(sheet.getByTestId('trust-embed-item')).toBeVisible()
     await expect(sheet.getByTestId('trust-allow-once')).toHaveCount(0)
-    await expect(sheet.getByTestId('trust-allow-embed')).toHaveText('Allow on Home or in a slot')
+    await expect(sheet.getByTestId('trust-allow-embed')).toHaveText('Allow on Home, in slots and in the dock')
     await shot(page, 'slot-embed-sheet')
     await sheet.getByTestId('trust-cancel').click()
     await expect(sheet).toHaveCount(0)
@@ -282,6 +282,8 @@ test('a shared page opened in the dock runs only after the viewer allowed it the
     await dock.getByTestId('dock-allow-open').click()
     const sheet = page.getByTestId('trust-sheet')
     await expect(sheet).toHaveAttribute('data-embed', 'true')
+    // One consent covers Home, the slots and the dock, and the button says so.
+    await expect(sheet.getByTestId('trust-allow-embed')).toHaveText('Allow on Home, in slots and in the dock')
     await shot(page, 'dock-shared-sheet')
     await sheet.getByTestId('trust-cancel').click()
     await expect(dock.locator('iframe')).toHaveCount(0)

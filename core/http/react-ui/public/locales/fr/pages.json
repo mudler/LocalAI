@@ -124,10 +124,10 @@
     "sourceLines_other": "{{count}} lignes",
     "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici.",
     "embed": {
-      "desc": "Vous avez autorisé l'ouverture de cette page. Sur l'accueil et dans un emplacement, elle s'exécute dès que l'écran s'affiche, sans clic : il lui faut donc un accord à part.",
-      "item": "S'exécuter sur l'accueil et dans les emplacements de l'app",
+      "desc": "Vous avez autorisé l'ouverture de cette page. Sur l'accueil, dans un emplacement et dans le volet, elle s'exécute dès que l'écran s'affiche, sans clic : il lui faut donc un accord à part.",
+      "item": "S'exécuter sur l'accueil, dans les emplacements de l'app et dans le volet",
       "note": "Elle démarre à l'affichage de l'écran, sans clic. Une modification de son auteur redemande l'accord.",
-      "allow": "Autoriser sur l'accueil ou dans un emplacement"
+      "allow": "Autoriser sur l'accueil, dans les emplacements et dans le volet"
     }
   },
   "frame": {

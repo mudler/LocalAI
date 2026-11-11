@@ -124,10 +124,10 @@
     "sourceLines_other": "{{count}} righe",
     "sourceNote": "Il codice è mostrato come testo. Qui non viene eseguito nulla.",
     "embed": {
-      "desc": "Hai permesso di aprire questa pagina. Nella Home e in uno slot parte appena appare lo schermo, senza un clic, quindi serve un consenso a parte.",
-      "item": "Funzionare nella Home e negli slot dell'app",
+      "desc": "Hai permesso di aprire questa pagina. Nella Home, in uno slot e nel pannello parte appena appare lo schermo, senza un clic, quindi serve un consenso a parte.",
+      "item": "Funzionare nella Home, negli slot dell'app e nel pannello",
       "note": "Parte quando appare lo schermo, senza un clic. Una modifica del suo autore chiede di nuovo.",
-      "allow": "Consenti nella Home o in uno slot"
+      "allow": "Consenti nella Home, negli slot e nel pannello"
     }
   },
   "frame": {

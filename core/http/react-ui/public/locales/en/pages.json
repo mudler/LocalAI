@@ -175,10 +175,10 @@
     "sourceLines_other": "{{count}} lines",
     "sourceNote": "The source is shown as text. Nothing in it runs here.",
     "embed": {
-      "desc": "You allowed this page to open. On Home and in a slot it runs as soon as the screen shows, without a click, so it needs its own yes.",
-      "item": "Run on Home and in the slots of the app",
+      "desc": "You allowed this page to open. On Home, in a slot and in the dock it runs as soon as the screen shows, without a click, so it needs its own yes.",
+      "item": "Run on Home, in the slots of the app and in the dock",
       "note": "It starts when the screen shows, without a click. A change by its author asks again.",
-      "allow": "Allow on Home or in a slot"
+      "allow": "Allow on Home, in slots and in the dock"
     }
   },
   "frame": {

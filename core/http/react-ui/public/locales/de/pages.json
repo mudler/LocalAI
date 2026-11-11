@@ -124,10 +124,10 @@
     "sourceLines_other": "{{count}} Zeilen",
     "sourceNote": "Der Quelltext wird als Text gezeigt. Nichts davon läuft hier.",
     "embed": {
-      "desc": "Du hast erlaubt, diese Seite zu öffnen. Auf der Startseite und in einem Slot läuft sie, sobald der Bildschirm erscheint, ohne Klick. Dafür braucht sie eine eigene Zustimmung.",
-      "item": "Auf der Startseite und in den Slots der App laufen",
+      "desc": "Du hast erlaubt, diese Seite zu öffnen. Auf der Startseite, in einem Slot und im Dock läuft sie, sobald der Bildschirm erscheint, ohne Klick. Dafür braucht sie eine eigene Zustimmung.",
+      "item": "Auf der Startseite, in den Slots der App und im Dock laufen",
       "note": "Sie startet, sobald der Bildschirm erscheint, ohne Klick. Eine Änderung durch die Autorin oder den Autor fragt erneut.",
-      "allow": "Auf der Startseite oder in einem Slot erlauben"
+      "allow": "Auf der Startseite, in Slots und im Dock erlauben"
     }
   },
   "frame": {

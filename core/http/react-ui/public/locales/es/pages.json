@@ -124,10 +124,10 @@
     "sourceLines_other": "{{count}} líneas",
     "sourceNote": "El código se muestra como texto. Nada de él se ejecuta aquí.",
     "embed": {
-      "desc": "Permitiste abrir esta página. En Inicio y en una ranura se ejecuta en cuanto aparece la pantalla, sin un clic, así que necesita su propio permiso.",
-      "item": "Ejecutarse en Inicio y en las ranuras de la app",
+      "desc": "Permitiste abrir esta página. En Inicio, en una ranura y en el panel se ejecuta en cuanto aparece la pantalla, sin un clic, así que necesita su propio permiso.",
+      "item": "Ejecutarse en Inicio, en las ranuras de la app y en el panel",
       "note": "Empieza cuando aparece la pantalla, sin un clic. Un cambio de su autor vuelve a preguntar.",
-      "allow": "Permitir en Inicio o en una ranura"
+      "allow": "Permitir en Inicio, en ranuras y en el panel"
     }
   },
   "frame": {

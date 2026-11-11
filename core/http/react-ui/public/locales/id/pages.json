@@ -124,10 +124,10 @@
     "sourceLines_other": "{{count}} baris",
     "sourceNote": "Sumber ditampilkan sebagai teks. Tidak ada yang berjalan di sini.",
     "embed": {
-      "desc": "Anda mengizinkan halaman ini dibuka. Di Beranda dan di slot, halaman ini berjalan begitu layar tampil, tanpa klik, jadi perlu izin tersendiri.",
-      "item": "Berjalan di Beranda dan di slot aplikasi",
+      "desc": "Anda mengizinkan halaman ini dibuka. Di Beranda, di slot, dan di dok, halaman ini berjalan begitu layar tampil, tanpa klik, jadi perlu izin tersendiri.",
+      "item": "Berjalan di Beranda, di slot aplikasi, dan di dok",
       "note": "Halaman mulai saat layar tampil, tanpa klik. Perubahan oleh pembuatnya akan meminta izin lagi.",
-      "allow": "Izinkan di Beranda atau di slot"
+      "allow": "Izinkan di Beranda, di slot, dan di dok"
     }
   },
   "frame": {

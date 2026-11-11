@@ -54,9 +54,10 @@ function Changes({ src, t }) {
 //
 //   src         the answer of GET /api/chats/shared-pages/{folder}/{name}
 //   changed     the viewer allowed an earlier version: the sheet says what changed
-//   embed       asked by a tile on Home or in a slot, which runs the page as soon
-//               as the screen shows: the main button is "Allow on Home or in a
-//               slot", kept against the hash like Allow (onAllow records it)
+//   embed       asked by a tile on Home or in a slot, the page area or the dock,
+//               which run the page as soon as the screen shows: the main button
+//               is "Allow on Home, in slots and in the dock", kept against the
+//               hash like Allow (onAllow records it)
 //   onCancel, onAllowOnce, onAllow, onSource
 //   covered     the source sheet is open over it: its keys belong to that sheet
 export default function TrustSheet({ src, changed, embed = false, busy, error, covered, onCancel, onAllowOnce, onAllow, onSource }) {
@@ -100,7 +101,7 @@ export default function TrustSheet({ src, changed, embed = false, busy, error, c
   }, [])
 
   const title = changed ? t('trust.changed.title', { title: p.title }) : t('trust.title', { title: p.title })
-  // Allowed to open, not yet to run on its own on Home or in a slot.
+  // Allowed to open, not yet to run on its own on Home, in a slot or the dock.
   const onlyEmbed = embed && !changed && src.consent?.state === 'allowed'
   return createPortal(
     <div className="dk-veil pg-trust-veil" data-state="open" onMouseDown={() => { if (!busy) onCancel() }}>
