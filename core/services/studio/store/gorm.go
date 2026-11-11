@@ -68,6 +68,10 @@ type chatRow struct {
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
 	GoalRev int64  `gorm:"not null;default:0"`            // bumped by UpdateGoal; its row lock
+	// Dock and DockRev came after the table existed: the defaults fill the
+	// rows of chats made before, so AutoMigrate is their migration.
+	Dock    string `gorm:"type:text;not null;default:''"` // JSON of session.Dock; empty: no dock
+	DockRev int64  `gorm:"not null;default:0"`            // bumped by UpdateDock; its row lock
 	// The resume fields came after the table existed: the defaults read the
 	// rows of chats made before as having no resume, so AutoMigrate is their
 	// migration. ResumeNotBefore is the zero time while no resume is scheduled.
@@ -309,6 +313,13 @@ func (r chatRow) record() (session.ChatRecord, error) {
 		}
 		rec.Goal = &g
 	}
+	if r.Dock != "" {
+		var d session.Dock
+		if err := json.Unmarshal([]byte(r.Dock), &d); err != nil {
+			return rec, err
+		}
+		rec.Dock = &d
+	}
 	if r.Jobs != "" {
 		if err := json.Unmarshal([]byte(r.Jobs), &rec.Jobs); err != nil {
 			return rec, err
@@ -400,6 +411,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		row.Goal = string(raw)
+	}
+	if rec.Dock != nil {
+		raw, err := json.Marshal(rec.Dock)
+		if err != nil {
+			return err
+		}
+		row.Dock = string(raw)
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		var n int64
@@ -765,6 +783,39 @@ func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change
 			out = string(b)
 		}
 		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("goal", out).Error
+	})
+}
+
+func (s *gormStore) UpdateDock(ctx context.Context, principal, id string, change func(*session.Dock) (*session.Dock, error)) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// As in UpdateGoal: the bump takes the row lock.
+		if _, err := lock(tx, principal, id, "dock_rev"); err != nil {
+			return err
+		}
+		var raw string
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("dock").Row().Scan(&raw); err != nil {
+			return err
+		}
+		var cur *session.Dock
+		if raw != "" {
+			cur = &session.Dock{}
+			if err := json.Unmarshal([]byte(raw), cur); err != nil {
+				return err
+			}
+		}
+		next, err := change(cur)
+		if err != nil {
+			return err
+		}
+		out := ""
+		if next != nil {
+			b, err := json.Marshal(next)
+			if err != nil {
+				return err
+			}
+			out = string(b)
+		}
+		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("dock", out).Error
 	})
 }
 

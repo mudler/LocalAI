@@ -146,5 +146,41 @@
     "makeStart": "设为我的第一个固定页面",
     "startAlone": "这是你唯一固定的页面。",
     "startFailed": "无法保存起始页：{{message}}"
+  },
+  "dock": {
+    "button": "侧栏",
+    "buttonTitle": "显示或隐藏侧栏 (Ctrl+\\)",
+    "region": "聊天旁的页面",
+    "tabs": "侧栏中的页面",
+    "closeTab": "关闭 {{title}}",
+    "add": "在侧栏中打开另一个页面",
+    "hide": "隐藏侧栏",
+    "hideKeys": "隐藏侧栏 (Ctrl+\\)",
+    "openFull": "以整页打开 {{title}}",
+    "by": {
+      "assistant": "由助手创建的页面",
+      "you": "由你创建的页面"
+    },
+    "shared": "共享：{{folder}}",
+    "askPrompt": "修改 pages/{{name}}/ 中的页面 {{title}}，使其",
+    "live": "实时：文件变化时更新",
+    "liveShort": "实时",
+    "sandboxed": "沙盒运行，无网络",
+    "resize": "侧栏宽度",
+    "resizeHint": "拖动边缘或使用方向键。双击或按 Enter 恢复默认宽度。",
+    "fullScreen": "侧栏全屏",
+    "halfScreen": "侧栏半屏",
+    "sheetHint": "向上拖动手柄可全屏，向下拖动可关闭",
+    "pickTitle": "在侧栏中打开页面",
+    "pickEmpty": "你还没有页面。请让助手创建一个。",
+    "missing": "页面 {{name}} 已不存在，或你现在无法读取它。",
+    "off": "管理员已关闭共享页面。",
+    "error": "无法加载该页面。",
+    "allowText": "此页面来自共享文件夹。只有在你允许后，它才会在这里运行。",
+    "allow": "查看并允许",
+    "run": "在这里运行",
+    "sendLabel": "该页面请求向此聊天发送以下消息：",
+    "saveFailed": "侧栏未保存：{{message}}",
+    "openInDock": "在侧栏中打开"
   }
 }

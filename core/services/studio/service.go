@@ -579,6 +579,9 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerPageErrors(); err != nil {
 		return nil, err
 	}
+	if err := s.registerOpenPage(); err != nil {
+		return nil, err
+	}
 	if err := s.registerTriggerTools(); err != nil {
 		return nil, err
 	}

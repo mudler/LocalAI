@@ -6583,6 +6583,12 @@ definitions:
         type: boolean
       created:
         type: string
+      dock:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsDock'
+        description: |-
+          Dock is the panel of pages the interface shows beside the chat, when
+          something opened one.
       goal:
         allOf:
         - $ref: '#/definitions/schema.ChatsGoal'
@@ -6645,6 +6651,12 @@ definitions:
         type: boolean
       created:
         type: string
+      dock:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsDock'
+        description: |-
+          Dock is the panel of pages the interface shows beside the chat, when
+          something opened one.
       goal:
         allOf:
         - $ref: '#/definitions/schema.ChatsGoal'
@@ -6811,6 +6823,32 @@ definitions:
       title:
         description: Title is optional; the conversation is named after its first
           message otherwise.
+        type: string
+    type: object
+  schema.ChatsDock:
+    properties:
+      active:
+        type: integer
+      open:
+        type: boolean
+      tabs:
+        items:
+          $ref: '#/definitions/schema.ChatsDockTab'
+        type: array
+      width:
+        type: integer
+    type: object
+  schema.ChatsDockResponse:
+    properties:
+      dock:
+        $ref: '#/definitions/schema.ChatsDock'
+    type: object
+  schema.ChatsDockTab:
+    properties:
+      folder:
+        type: integer
+      page:
+        description: Page is the folder name of the page (^[a-z0-9][a-z0-9-]{0,63}$).
         type: string
     type: object
   schema.ChatsEditRequest:
@@ -17476,6 +17514,70 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Choose the connections a chat may use for an add-on.
+      tags:
+      - chats
+  /api/chats/{id}/dock:
+    get:
+      description: The dock is the panel of pages that the interface shows beside
+        the chat. It is stored with the chat, so every browser and every frontend
+        shows the same one. The assistant opens a page of your home in it with its
+        open_page tool.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The dock, or null
+          schema:
+            $ref: '#/definitions/schema.ChatsDockResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get a chat's dock.
+      tags:
+      - chats
+    put:
+      description: 'Replaces the dock: its tabs (at most 6 pages, each once; folder
+        is the id of a shared folder, absent for a page of your home), the index of
+        the tab in front, whether the panel is open and its width in CSS pixels (0
+        for the default, else 320 to 4096). A dock with no tab clears it. The page
+        names are not checked here: a page that is gone shows as missing in the interface,
+        and a shared page still needs your consent before it runs. Watchers of the
+        chat get a dock event. A sub-agent run has no dock (409).'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the dock
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsDock'
+      responses:
+        "200":
+          description: The dock as stored, or null when it was cleared
+          schema:
+            $ref: '#/definitions/schema.ChatsDockResponse'
+        "400":
+          description: The dock is out of its bounds
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: A sub-agent run has no dock
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Set a chat's dock.
       tags:
       - chats
   /api/chats/{id}/egress:

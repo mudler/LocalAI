@@ -225,9 +225,11 @@ test('page tiles run compact in a slot; a click grows the same frame into a card
   await expect(frame.locator('#city')).toHaveText('Lisbon')
   await expect(frame.locator('#boot')).toHaveText(boot)
 
-  // The button opens the page.
+  // In a chat the button opens the page in the dock beside it (page-dock.spec.js).
+  await page.route('**/api/chats/c1/dock', (route) => route.fulfill({ json: { dock: route.request().postDataJSON() } }))
   await tileOf(page, 'chatHeader', NOTES).getByTestId('slot-tile-button').click()
-  await expect(page).toHaveURL(new RegExp(`/app/pages/${NOTES}$`))
+  await expect(page).toHaveURL(/\/app\/chats\/c1$/)
+  await expect(page.getByTestId('page-dock').locator(`[data-testid="dock-tab"][data-page="${NOTES}"]`)).toBeVisible()
 })
 
 test('screenshots: dark, phone, the sidebar footer and the composer toolbar', async ({ page, request, browser }) => {

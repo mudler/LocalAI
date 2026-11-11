@@ -449,6 +449,7 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 	c.Rec.HarnessState = nil
 	c.Rec.Egress = rec.Egress.Clone()
 	c.Rec.Goal = rec.Goal.Clone()
+	c.Rec.Dock = rec.Dock.Clone()
 	if len(rec.HarnessState) > 0 {
 		if err := s.writeState(&c, rec.HarnessState); err != nil {
 			return err
@@ -510,6 +511,7 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.HarnessState = append([]byte(nil), r.HarnessState...)
 	r.Egress = r.Egress.Clone()
 	r.Goal = r.Goal.Clone()
+	r.Dock = r.Dock.Clone()
 	return r
 }
 
@@ -669,6 +671,17 @@ func (s *jsonStore) UpdateGoal(_ context.Context, principal, id string, change f
 			return err
 		}
 		next.Rec.Goal = g.Clone()
+		return nil
+	})
+}
+
+func (s *jsonStore) UpdateDock(_ context.Context, principal, id string, change func(*session.Dock) (*session.Dock, error)) error {
+	return s.edit(principal, id, func(next *chatState) error {
+		d, err := change(next.Rec.Dock.Clone())
+		if err != nil {
+			return err
+		}
+		next.Rec.Dock = d.Clone()
 		return nil
 	})
 }

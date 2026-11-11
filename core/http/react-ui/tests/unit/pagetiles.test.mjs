@@ -110,6 +110,10 @@ test('page tiles: the widget names a page, and the tile says what it shows', () 
   assert.equal(tileState({ page: shared, consent: 'allowed', embed: true }), 'ready')
   assert.equal(tileState({ page: shared, consent: 'changed', embed: true }), 'needsAllow', 'a changed page asks again')
   assert.equal(tileState({ page: { source: 'shared' }, consent: 'allowed' }), 'noWidget')
+  // The dock shows any page: no widget block needed, the same consent rules.
+  assert.equal(tileState({ page: { source: 'own' } }, { widget: false }), 'ready')
+  assert.equal(tileState({ page: { source: 'shared' }, consent: 'allowed' }, { widget: false }), 'needsAllow', 'the dock runs a page without a click on a reload')
+  assert.equal(tileState({ page: { source: 'shared' }, consent: 'allowed', embed: true }, { widget: false }), 'ready')
 })
 
 test('page tiles: the editor offers the pages with a widget block', () => {

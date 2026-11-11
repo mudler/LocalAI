@@ -328,6 +328,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/:id/goal", h.GetGoal)
 	e.PUT(base+"/:id/goal", h.PutGoal)
 	e.DELETE(base+"/:id/goal", h.DeleteGoal)
+	e.GET(base+"/:id/dock", h.GetDock)
+	e.PUT(base+"/:id/dock", h.PutDock)
 	e.POST(base+"/:id/goal/resume", h.ResumeGoal)
 	e.GET(base+"/:id/loops", h.ListLoops)
 	e.POST(base+"/:id/loops", h.StartLoop)

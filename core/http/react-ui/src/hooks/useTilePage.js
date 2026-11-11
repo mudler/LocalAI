@@ -15,8 +15,8 @@ const errorOf = (e) => ({ status: e?.status || 0, type: e?.body?.error?.type || 
 // and in the slots (the embed consent of the trust sheet).
 //
 //   ref     {name, folder} of tileRef, or null
-//   widget  false for the page area of Home, which takes a page without a
-//           widget block
+//   widget  false for the page area of Home and for the dock, which take a
+//           page without a widget block
 //
 // It returns {read, state, run, files, frameRef, load, allow, onRefused,
 // sheet}: frameRef goes to the PageFrame, allow(once) records the consent

@@ -239,6 +239,8 @@ Seed `books.json` only if the user gave you data: `{"books": [{"id": "b1", "titl
 
 Tell the user in one or two lines: the Page is called "<title>" and is under **Pages** in the sidebar, that they can pin it there, and what it cannot do. To change it later, they can open it and use **Ask the assistant to change this**.
 
+Call `open_page` with the name to show the page in the dock beside this chat. It asks the user nothing and works only for their own pages.
+
 Say what a Page cannot do when it matters for the request: it has no server process, no packages and no network. For work that must happen by itself, offer a trigger (never say one is on until the user confirms its card). For outside data, offer to fetch it with your web tools into a data file. If the idea needs a real program and commands run in this chat, offer the Sandbox.
 
 Pages need the `pages` feature. If writing under `pages/` is refused or the Pages screen is missing, say so and keep the files where they are.

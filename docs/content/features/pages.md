@@ -61,7 +61,8 @@ pages/
 - The list groups your pages under **Yours**. Each row shows the title, the
   description, the folder and when the page changed last and who wrote it (you
   or the assistant), with **Open**, a pin toggle (**Pin to sidebar**) and a
-  menu: **Ask the assistant to change this** (a new chat with the page's path
+  menu: **Open in dock** (a new chat with the page beside it, see
+  [The dock](#the-dock)), **Ask the assistant to change this** (a new chat with the page's path
   in the message box), **Show its files** (the folder in Files), **Rename**
   (moves the folder) and **Delete page** (moves the folder to the Trash, where
   Files can restore it). Above eight pages, a filter field shows over the list.
@@ -361,8 +362,9 @@ in a bigger box: the bridge sends `mode` with the new size and the page keeps
 its state; it is never reloaded. Escape, a click outside or the close button
 puts it back in the strip. The card has the page's title, **Open**, and the line
 "Sandboxed, no network". In the strip the page is shown, not used: a click
-opens the card. A page without `compact` is a button that opens the page, in
-the page view (and later in the dock beside the chat).
+opens the card. A page without `compact` is a button that opens the page: in
+the dock beside the chat while a chat is open (see [The dock](#the-dock)), in
+the page view anywhere else. **Open** of a card does the same.
 
 A tile in a slot reads its data as the full page does, and `files.changed` keeps
 it live. `chat.send` is refused in a tile. A link asks before it opens.
@@ -469,6 +471,55 @@ a switch, **Make this my first pinned page**: turning it on pins the page if
 needed and moves it to the top of the pinned list, and turning it off moves it
 behind the other pins, so the next pin becomes the start page. The change keeps
 the other pins, and every other key of the file.
+
+## The dock
+
+The dock is a panel beside a chat that shows one or more pages in tabs, so you
+can talk about a page while you see it. There is no dock until something opens
+one. A page gets into the dock in four ways:
+
+- **Dock** in the chat header, or Ctrl+\ (Cmd+\ on a Mac), shows and hides
+  the dock. An empty dock, and the **+** of the tabs, list your pages and the
+  shared pages to open.
+- **Open in dock** on the Pages list starts a new chat with the page beside it.
+- A page button in a slot, and **Open** of a compact tile's card, open the page
+  in the dock of the open chat.
+- The assistant opens a page of your home with its `open_page` tool, for
+  example after it wrote the page you asked for. It does not ask first: the
+  page runs as you anyway when you open it. It refuses a page of a shared
+  folder, which needs your consent in the dock first.
+
+The strip under the tabs says where the page comes from (**Page by the
+assistant**, **Page by you** or the shared folder) and that it **Runs as you**.
+**Ask the assistant to change this** puts a request that names the page in the
+message box; nothing is sent until you send it. The bar has **Reload**, a link
+to the full page and a button that hides the dock. The footer says **Live:
+updates as files change** and **Sandboxed, no network**.
+
+Each chat keeps its own dock: the open pages, the page in front, whether the
+dock shows and its width are stored with the chat on the server, so a reload,
+another browser and another LocalAI frontend of the same cluster show the
+same dock. A new chat keeps its dock until its first message creates the chat.
+
+Drag the left edge of the dock to change its width: at least 320 px and at most
+60% of the window. A double click resets it to 452 px. With the edge focused,
+the arrow keys move it (Shift for bigger steps), Home and End go to the bounds
+and Enter resets it. The thread, the chat header and the message box narrow
+for the dock; it covers none of them. On a phone the dock is a bottom sheet
+that stops under the chat header: drag its handle up for full screen and down
+to close, or tap it to switch between the two heights.
+
+A docked page runs in the same sandbox as everywhere, with the same bridge
+and the same budget as a tile (see [Live frames and the budget of a
+tile](#live-frames-and-the-budget-of-a-tile)). The page in front counts toward
+the eight live frames of the app. A page you open takes a frame at once and
+stops the frame that started first; a page that comes back with a reload waits
+for a free one and shows **Run it here** until then. `localai.page.mode` is
+`page`. `chat.send` from a docked page shows the message in the dock; it goes to
+this chat, as your message, only when you press **Send**. A shared page runs
+in the dock only after you allowed it on Home, in the slots and in the dock
+(**Allow on Home or in a slot**), because the dock starts it again without a
+click after a reload.
 
 ## Limits
 
@@ -620,7 +671,7 @@ files are kept.
 
 ## API
 
-The UI uses these routes. They need the `chats` and `pages` features.
+The UI uses these routes. They need the `chats` and `pages` features (the dock routes need only `chats`).
 
 | Route | Use |
 |---|---|
@@ -631,6 +682,8 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `PUT /api/chats/pages/{name}/file` | `files.write`, body `{path, content, base}` |
 | `POST /api/chats/pages/{name}/chat` | `chat.send` after you chose Send, body `{text, chat_id, model}` |
 | `POST /api/chats/pages/{name}/errors` | An error that the script of your own page threw, body `{message, stack, file, line, column, count}`. The UI sends it; the assistant reads the errors with `page_errors`. `200` with `recorded` (false for browser noise), `429` when reported too fast. There is no route to read them back and none for shared pages. |
+| `GET /api/chats/{id}/dock` | The dock of a chat: `{open, tabs: [{page, folder}], active, width}`, or `null`. The chat's detail (`GET /api/chats/{id}`) carries it as `dock`. |
+| `PUT /api/chats/{id}/dock` | Replace the dock of a chat: at most 6 tabs, each page once (`folder` is the `folder_id` of a shared page, absent for your own), `active` the index of the tab in front, `width` 0 (the default) or 320 to 4096. A dock with no tab clears it. `400` out of bounds, `409` for a sub-agent run. The chat's event stream sends `dock` when it changes. |
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
