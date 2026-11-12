@@ -23,6 +23,7 @@ import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
   threadRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
+import { withOptimistic } from '../utils/optimisticSend'
 import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
 // eslint-disable-next-line no-unused-vars
@@ -367,7 +368,7 @@ function ChatPage() {
     if (pane.open) dockUpdateRef.current((d) => (d.open ? setDockOpen(d, false) : d))
   }, [pane.open])
   const withArrival = arrival.messages
-  const messages = useMemo(() => withArrival(chat.messages, activeId), [withArrival, chat.messages, activeId])
+  const messages = useMemo(() => withOptimistic(withArrival(chat.messages, activeId), chat.sending, activeId), [withArrival, chat.messages, chat.sending, activeId])
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
   const modelWarm = !!model && loadedIds.has(model)
   const title = activeChat?.title || tc('list.untitled')
@@ -458,10 +459,25 @@ function ChatPage() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
+  // A new message scrolls down smoothly. What grows under a pinned thread (the
+  // card of a model that loads and its progress, the streamed answer, a message
+  // that settles) is followed at once, from the size of the thread itself, so
+  // nothing waits for a change of data to scroll.
   useEffect(() => {
     if (!stickToBottomRef.current) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, chat.live, chat.pending.length])
+  }, [messages.length, chat.pending.length])
+  useEffect(() => {
+    const el = messagesRef.current
+    const thread = el?.querySelector('.cx-thread')
+    if (!el || !thread || typeof ResizeObserver === 'undefined') return undefined
+    const follow = () => {
+      if (stickToBottomRef.current) el.scrollTop = el.scrollHeight
+    }
+    const ro = new ResizeObserver(follow)
+    ro.observe(thread)
+    return () => ro.disconnect()
+  }, [])
 
   // Switching chats snaps to the bottom and resets the focus-mode override.
   useEffect(() => {
@@ -554,6 +570,8 @@ function ChatPage() {
     root.querySelectorAll('mark.cx-hit').forEach((mark, i) => {
       if (i === find.index) {
         mark.setAttribute('data-cur', '')
+        // The reader chose where to look: the thread stops following the bottom.
+        stickToBottomRef.current = false
         mark.scrollIntoView({ block: 'center' })
       } else {
         mark.removeAttribute('data-cur')
@@ -573,6 +591,7 @@ function ChatPage() {
     const el = messagesRef.current?.querySelector(`[data-testid="chat-message"][data-index="${wantSeq}"]`)
     if (!el) return undefined
     jumpedRef.current = mark
+    stickToBottomRef.current = false
     el.scrollIntoView({ block: 'center' })
     el.focus({ preventScroll: true })
     // on, then off (the colour fades by a transition), then gone. Not cleared
@@ -687,6 +706,9 @@ function ChatPage() {
     if (typeof override !== 'string') drafts.clear(activeId)
     setLocalError('')
     let target = activeId
+    // The message shows now; the chat that a first message needs is created
+    // behind it (a message of an open chat is drawn by chat.send).
+    if (!target) chat.showSending(null, text, sending)
     try {
       if (!target) {
         setBusy(true)
@@ -701,6 +723,7 @@ function ChatPage() {
     } catch (e) {
       // Give the text and files back to the chat they were written in, unless
       // the user typed something else there. Another chat may be open by now.
+      chat.dropSending()
       if (typeof override !== 'string') drafts.restore(target, input.trim(), sending)
       if (drafts.isOpen(target)) sayError(e, tc('errors.send'))
       else addToast(isFolderMissingError(e) ? t('agentFolder.startError') : (e.message || tc('errors.send')), 'error')
@@ -1032,7 +1055,8 @@ function ChatPage() {
   }
   const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
 
-  const isEmpty = !activeId || (messages.length === 0 && !chat.running && !chat.loading)
+  // The first message of a new chat is drawn before the chat exists.
+  const isEmpty = messages.length === 0 && (!activeId || (!chat.running && !chat.loading))
   // An agent shared with you runs with your own access: before the first
   // message the chat says what of it you lack.
   const emptyAgentId = isEmpty ? ((activeId ? activeChat?.agent_id : agentId) || '') : ''

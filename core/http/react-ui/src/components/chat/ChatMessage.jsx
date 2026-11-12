@@ -156,6 +156,8 @@ function ChatMessage({
       data-index={index}
       data-last={isLast || undefined}
       data-handoff={msg.handoff || undefined}
+      data-sending={msg.sending || undefined}
+      data-failed={msg.failed || undefined}
       tabIndex={0}
       onKeyDown={onKeyDown}
       aria-label={isUser ? t('message.you') : (identity?.name || model || t('message.assistant'))}

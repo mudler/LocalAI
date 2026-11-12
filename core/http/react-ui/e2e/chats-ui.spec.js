@@ -331,7 +331,8 @@ test.describe('Chats page with a stubbed API', () => {
       await composer(page).press('Enter')
       await expect(page.getByRole('alert')).toBeVisible()
       await expect(composer(page)).toHaveValue('keep me')
-      await expect(page.getByTestId('attachment')).toContainText('notes.txt')
+      // The unsent message fades out of the thread; the file is in the box.
+      await expect(page.getByTestId('chat-composer').getByTestId('attachment')).toContainText('notes.txt')
     })
   })
 

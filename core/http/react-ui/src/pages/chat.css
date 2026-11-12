@@ -61,6 +61,15 @@
 @media (prefers-reduced-motion: no-preference) {
   .cx-msg { animation: homeRise var(--dur-base) var(--ease-out) both; }
 }
+/* A message of yours that the server has not confirmed yet is a little
+   fainter. It is the same element when the confirmation comes, so only the
+   opacity moves. One that was not sent fades out and the text goes back to the
+   box. The fill of the rise holds the message's own opacity, so the state
+   shows on its children. */
+.cx-msg[data-sending] > *,
+.cx-msg[data-failed] { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.cx-msg[data-sending] > * { opacity: .6; }
+.cx-msg[data-failed] { animation: none; opacity: 0; transform: translateY(4px); pointer-events: none; }
 
 /* The reader's turn: a flat block on the card surface. */
 .cx-bubble {
