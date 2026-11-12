@@ -268,3 +268,8 @@ export { default as ShareDialog } from '../components/share/ShareDialog'
 // binding ID only (sdk.core.fetch refuses the sharing routes).
 export { default as ConnectionShareDialog } from '../components/share/ConnectionShareDialog'
 export { RoleBadge, SharedByBadge } from '../components/share/ShareBadges'
+// The login of a connector add-on that uses OAuth, for its own page: adds a
+// connection and sends the person to the service, shows Connect, Reconnect and
+// Disconnect, and says when no administrator has approved the add-on yet. The
+// add-on passes its connection kind and list; the host starts the login.
+export { default as ConnectionLogin } from '../components/connectors/ConnectionLogin'

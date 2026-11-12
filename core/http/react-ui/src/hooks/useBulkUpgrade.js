@@ -40,7 +40,9 @@ export function useBulkUpgrade({ items, runOne }) {
     return true
   }, [])
 
-  const start = useCallback(() => launch(items, selected), [launch, items, selected])
+  // `ids` (a Set) starts those instead of the selection; the page uses it when
+  // some of the selection needs a confirmation first.
+  const start = useCallback((ids) => launch(items, ids instanceof Set ? ids : selected), [launch, items, selected])
   const retry = useCallback(() => {
     const current = runRef.current
     if (!current) return false

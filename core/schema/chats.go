@@ -60,6 +60,11 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
+	// SandboxProfile is the sandbox profile of the agent's unattended runs and
+	// the starting profile of its chats (GET /api/chats/sandbox-profiles lists
+	// them). Empty: the administrator's default. A profile the Sandbox does
+	// not have, or that you may not use, runs the default or base.
+	SandboxProfile string `json:"sandbox_profile"`
 	// Memory is the choice of notes for this agent: own (its own notes only),
 	// mine_and_own (reads your notes and its own, saves to its own; the
 	// default of a new agent in the interface), mine (your notes only) or
@@ -248,6 +253,10 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// SandboxProfile is the sandbox profile of the agent (see ChatsAgent).
+	// A profile ID, or empty for the default; a value that is not a profile ID
+	// is 400.
+	SandboxProfile string `json:"sandbox_profile,omitempty"`
 	// Memory is the choice of notes (see ChatsAgent). A write without it keeps
 	// the stored choice, so a client that does not know it cannot widen the
 	// agent; the value must be own, mine_and_own, mine or none (400 otherwise).
@@ -328,6 +337,9 @@ type ChatsConversation struct {
 	Settings *ChatsSettings `json:"settings,omitempty"`
 	// Goal is the chat's goal, when it has one.
 	Goal *ChatsGoal `json:"goal,omitempty"`
+	// Dock is the panel of pages the interface shows beside the chat, when
+	// something opened one.
+	Dock *ChatsDock `json:"dock,omitempty"`
 	// Place is set on a chat that a messaging connection started, when the
 	// connection kept where it lives.
 	Place *ChatsPlace `json:"place,omitempty"`
@@ -371,6 +383,30 @@ type ChatsGoalResponse struct {
 	Replaced *ChatsGoal `json:"replaced,omitempty"`
 }
 
+// ChatsDockTab is one page of a dock: a page of your home (folder 0 or
+// absent) or of a shared folder (its folder_id).
+type ChatsDockTab struct {
+	// Page is the folder name of the page (^[a-z0-9][a-z0-9-]{0,63}$).
+	Page   string `json:"page"`
+	Folder int64  `json:"folder,omitempty"`
+}
+
+// ChatsDock is the panel of pages beside a chat: its tabs (at most 6, each
+// page once), the index of the tab in front, whether the panel shows and its
+// width in CSS pixels (0 for the default, else 320 to 4096; the interface
+// keeps it under 60% of its window).
+type ChatsDock struct {
+	Open   bool           `json:"open"`
+	Tabs   []ChatsDockTab `json:"tabs"`
+	Active int            `json:"active"`
+	Width  int            `json:"width,omitempty"`
+}
+
+// ChatsDockResponse is the dock of a chat; null when it has none.
+type ChatsDockResponse struct {
+	Dock *ChatsDock `json:"dock"`
+}
+
 // ChatsConversationList is the response of the list endpoint.
 type ChatsConversationList struct {
 	Conversations []ChatsConversation `json:"conversations"`
@@ -394,6 +430,38 @@ type ChatsConversationDetail struct {
 	HostConsent *ChatsHostConsent `json:"host_consent,omitempty"`
 	// Loops are the loops of the chat, oldest first (GET /api/chats/{id}/loops).
 	Loops []ChatsLoop `json:"loops"`
+	// Jobs are the background jobs of the chat and of its sub-agents, running
+	// ones first (POST /api/chats/{id}/jobs/{job}/kill stops one).
+	Jobs []ChatsJob `json:"jobs"`
+}
+
+// ChatsJob is a background job that the model started with the job tool, as the
+// person's list shows it. It never carries the command, the output or the node.
+type ChatsJob struct {
+	ID    string `json:"id"`
+	Label string `json:"label,omitempty"`
+	// Chat is the chat that started the job: this chat, or one of its
+	// sub-agents. Agent is set for a sub-agent's job.
+	Chat  string `json:"chat"`
+	Agent bool   `json:"agent,omitempty"`
+	// Provider is "builtin" (this machine) or the id of the add-on that runs it.
+	Provider string `json:"provider"`
+	// State is starting, running, ending, exited, killed, failed or lost (the
+	// node that ran it is gone).
+	State string `json:"state"`
+	// End says why a finished job ended: exit, killed, stopped, lifetime,
+	// chat_deleted, shell_off, group_off, fenced, sandbox_remade, agent_ended,
+	// shutdown or start_failed.
+	End string `json:"end,omitempty"`
+	// Exit is the exit status of a finished job (128 plus n for signal n);
+	// -1 when it is not known.
+	Exit    int        `json:"exit"`
+	Started time.Time  `json:"started"`
+	Ended   *time.Time `json:"ended,omitempty"`
+	// LastOutput is when a running job last wrote output; Bytes is how much it
+	// wrote. Both are absent when the node that runs it did not answer.
+	LastOutput *time.Time `json:"last_output,omitempty"`
+	Bytes      int64      `json:"bytes,omitempty"`
 }
 
 // ChatsLoop is a loop of a chat: a prompt the chat sends to itself again, at
@@ -438,11 +506,14 @@ type ChatsWait struct {
 	Phase string `json:"phase"`
 	// Reason is the line the model gave for the wait.
 	Reason string `json:"reason,omitempty"`
-	// SourceKind is "tool" or "url". Source is the name of the tool, or the
-	// host and path of the URL without the query.
+	// SourceKind is "tool", "url", "script", "job" or "agent". Source is the
+	// name of the tool, the host and path of the URL without the query, "a
+	// script", the id and label of the job, or the id of the background
+	// sub-agent: the text of a command is never in this object.
 	SourceKind string `json:"source_kind"`
 	Source     string `json:"source"`
-	// Mode is change, match or json_equals; Condition says it in words.
+	// Mode is change, match, json_equals, exit_zero, exit or stall; Condition says it in
+	// words.
 	Mode      string `json:"mode"`
 	Condition string `json:"condition"`
 	// Checks is how many checks were made. LastCheck is when the last one
@@ -483,6 +554,8 @@ type ChatsLoopStateRequest struct {
 // ChatsLoopList is the loops of a chat.
 type ChatsLoopList struct {
 	Loops []ChatsLoop `json:"loops"`
+	// Jobs are the background jobs of the chat and of its sub-agents.
+	Jobs []ChatsJob `json:"jobs"`
 }
 
 // ChatsLoopMark names the loop run that sent a user line.
@@ -495,6 +568,9 @@ type ChatsLoopMark struct {
 type ChatsHostConsent struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
+	// Job is set when the command starts a background job of the `job` tool:
+	// allowing it also allows the input the model writes to that job later.
+	Job bool `json:"job,omitempty"`
 }
 
 // ChatsSendRequest is a message to a conversation.
@@ -1107,6 +1183,9 @@ type ChatsSkill struct {
 	// skill.
 	Provider string `json:"provider,omitempty"`
 	Locked   bool   `json:"locked,omitempty"`
+	// New is true for a personal skill that was imported and that no chat has
+	// used yet. The first use clears it.
+	New bool `json:"new,omitempty"`
 }
 
 // ChatsSkillList is the skills a user has.
@@ -1137,6 +1216,24 @@ type ChatsSkillDetail struct {
 	Description string `json:"description"`
 	Body        string `json:"body"`
 	Editable    bool   `json:"editable"`
+}
+
+// ChatsSkillImported is one skill stored by an import.
+type ChatsSkillImported struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Files       int    `json:"files"`
+	Bytes       int64  `json:"bytes"`
+	// Scripts counts the files below scripts/. They are stored, never run by
+	// the import.
+	Scripts int `json:"scripts"`
+}
+
+// ChatsSkillImportResult is the answer of a skill import.
+type ChatsSkillImportResult struct {
+	Skills []ChatsSkillImported `json:"skills"`
+	// Rev is the revision of the change set; undo it from the file history.
+	Rev int64 `json:"rev"`
 }
 
 // ChatsSkillSwitches sets the skills a chat has switched off.
@@ -1172,6 +1269,10 @@ type ChatsAddon struct {
 	Enabled         []string          `json:"enabled_connections,omitempty"`
 	ConnectionBy    string            `json:"connection_by,omitempty"`
 	NeedsConnection bool              `json:"needs_connection,omitempty"`
+	// ConnectionState is reconnect_needed when an enabled connection that
+	// uses a login must be connected again, connected when the enabled ones
+	// that use a login work, and empty when none uses a login.
+	ConnectionState string `json:"connection_state,omitempty" enums:"connected,reconnect_needed"`
 	// ToolList names the tools of the add-on you may use, by the name the
 	// add-on declares, with kind read or write. Sorted by name.
 	ToolList []ChatsAddonTool `json:"tool_list,omitempty"`
@@ -1227,6 +1328,14 @@ type ChatsConnection struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Handle string `json:"handle,omitempty"`
+	// ConnectionState is the state of the login of a connection that uses
+	// one (connected or reconnect_needed); empty for a token.
+	ConnectionState string `json:"connection_state,omitempty" enums:"connected,reconnect_needed"`
+	// Shared is true for a connection that another person shared with you;
+	// Owner is that person's name. Its login is theirs: only they can connect
+	// it again.
+	Shared bool   `json:"shared,omitempty"`
+	Owner  string `json:"owner,omitempty"`
 }
 
 // ChatsConnectionSwitch sets the connections a chat may use for an add-on.
@@ -1292,6 +1401,10 @@ type ChatsHostExecEvent struct {
 	DurationMS int64     `json:"duration_ms"`
 	TimedOut   bool      `json:"timed_out,omitempty"`
 	At         time.Time `json:"at"`
+	// Kind is run (a command of bash, also when empty), job_start, job_input,
+	// job_kill or job_end. Job is the job id on the lines of a background job.
+	Kind string `json:"kind,omitempty"`
+	Job  string `json:"job,omitempty"`
 }
 
 // ChatsHostExecEventList is the audit of the commands, newest first.
@@ -1370,17 +1483,23 @@ type ChatsBuiltinToolList struct {
 // ChatsNotification is one item of the inbox. Kind is run_ended, run_failed or
 // needs_attention; Status is ok or failed. Source is what sent it: trigger,
 // connector or system (empty on items stored before sources existed). Link is
-// the in-app path that opens what it is about.
+// the in-app path that opens what it is about. Code and Params are set on the
+// items that the UI words itself, in the language of the person (the update
+// digest and the results of automatic updates, for example): Code names the
+// kind and Params holds its numbers and names. Title and Body are then the
+// English fallback, and the text of push and Telegram.
 type ChatsNotification struct {
-	ID      int64     `json:"id"`
-	Kind    string    `json:"kind"`
-	Status  string    `json:"status"`
-	Source  string    `json:"source,omitempty"`
-	Title   string    `json:"title"`
-	Body    string    `json:"body"`
-	Link    string    `json:"link"`
-	Read    bool      `json:"read"`
-	Created time.Time `json:"created"`
+	ID      int64          `json:"id"`
+	Kind    string         `json:"kind"`
+	Status  string         `json:"status"`
+	Source  string         `json:"source,omitempty"`
+	Title   string         `json:"title"`
+	Body    string         `json:"body"`
+	Link    string         `json:"link"`
+	Read    bool           `json:"read"`
+	Created time.Time      `json:"created"`
+	Code    string         `json:"code,omitempty"`
+	Params  map[string]any `json:"params,omitempty"`
 }
 
 // ChatsNotificationList is the response of the inbox list endpoint.
@@ -1426,10 +1545,15 @@ type ChatsTrigger struct {
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
 	DailyCap     int    `json:"daily_cap"`
-	Enabled      bool   `json:"enabled"`
-	AgentID      string `json:"agent_id,omitempty"`
-	Model        string `json:"model,omitempty"`
-	SourceChatID string `json:"source_chat_id,omitempty"`
+	// RunLimit is the longest one run may take, as a duration such as 30m;
+	// empty means the administrator's run limit. EffectiveRunLimit is what
+	// applies now: the least of RunLimit and the administrator's limit.
+	RunLimit          string `json:"run_limit,omitempty"`
+	EffectiveRunLimit string `json:"effective_run_limit"`
+	Enabled           bool   `json:"enabled"`
+	AgentID           string `json:"agent_id,omitempty"`
+	Model             string `json:"model,omitempty"`
+	SourceChatID      string `json:"source_chat_id,omitempty"`
 	// Summary says when it runs in plain words. NextRun is set for a schedule
 	// trigger that is on.
 	Summary string     `json:"summary"`
@@ -1550,7 +1674,11 @@ type ChatsTriggerWrite struct {
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
 	DailyCap     int    `json:"daily_cap,omitempty"`
-	Enabled      bool   `json:"enabled"`
+	// RunLimit is the longest one run may take, a duration from 1m to 24h such
+	// as 30m. Empty or 0 means the administrator's run limit, which is also
+	// the ceiling: a longer value is accepted and runs cut to it.
+	RunLimit string `json:"run_limit,omitempty"`
+	Enabled  bool   `json:"enabled"`
 	// AgentID is optional. Model is needed when neither the agent nor the source
 	// chat names one.
 	AgentID      string `json:"agent_id,omitempty"`
@@ -1651,6 +1779,13 @@ type ChatsConnector struct {
 	NotifyChat string            `json:"notify_chat,omitempty"`
 	HasToken   bool              `json:"has_token"`
 	Created    time.Time         `json:"created"`
+	// AuthKind is oauth2 for a binding whose credential comes from a login
+	// at the service (see oauth). Absent for a binding that holds a token
+	// you gave.
+	AuthKind string `json:"auth_kind,omitempty" enums:"oauth2"`
+	// OAuth is the state of the login of an oauth2 binding; absent for a
+	// token binding. It never holds a token or a secret.
+	OAuth *ChatsConnectorOAuth `json:"oauth,omitempty"`
 	// ReplyMode is what a sender sees while a turn runs: off (typing, then
 	// the answer), progress (a working message that names the tools as they
 	// start) or stream (a working message that shows the answer as it is
@@ -1666,6 +1801,9 @@ type ChatsConnector struct {
 	// SendFiles sends the files that a turn makes to the sender, after the
 	// answer.
 	SendFiles bool `json:"send_files"`
+	// InboundMedia lists the kinds of file that the bot takes from senders:
+	// photo, voice, audio, video_note, document. Empty takes every kind.
+	InboundMedia []string `json:"inbound_media"`
 	// ReplyLanguage is the language of the sentences the bot writes itself in
 	// the chat (confirmations, refusals, notes about files): auto (the
 	// language of the sender's message), en, it, de, es, fr or pt-BR. The
@@ -2052,6 +2190,10 @@ type ChatsConnectorKind struct {
 	// AgentOptional is true when a binding of this kind may have no agent. It
 	// then only holds credentials (token, resource list, write mode).
 	AgentOptional bool `json:"agent_optional,omitempty"`
+	// AuthKind is oauth2 when the add-on logs people in with OAuth: create
+	// its bindings with auth_kind oauth2 and no token. Absent for a kind
+	// whose bindings hold a token.
+	AuthKind string `json:"auth_kind,omitempty"`
 	// ToolOnly is true for a kind whose bindings only serve tools. A binding
 	// has no agent, never listens and never accepts senders; the server clears
 	// agent_id, enabled and accept_any. Many agents can use one binding
@@ -2116,9 +2258,13 @@ type ChatsConnectorKindList struct {
 type ChatsConnectorWrite struct {
 	// Kind is the platform, as a connector add-on declares it (see the kinds
 	// call). It is required to create a binding and ignored by an update.
-	Kind      string `json:"kind,omitempty"`
-	Name      string `json:"name"`
-	Token     string `json:"token,omitempty"`
+	Kind  string `json:"kind,omitempty"`
+	Name  string `json:"name"`
+	Token string `json:"token,omitempty"`
+	// AuthKind is token (the default) or oauth2. An oauth2 binding takes no
+	// token: it gets its credential from a login (see the oauth/start call).
+	// It is set at create and ignored by an update.
+	AuthKind  string `json:"auth_kind,omitempty" enums:"token,oauth2"`
 	AgentID   string `json:"agent_id"`
 	Enabled   bool   `json:"enabled"`
 	AcceptAny bool   `json:"accept_any"`
@@ -2150,6 +2296,11 @@ type ChatsConnectorWrite struct {
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`
+	// InboundMedia lists the kinds of file that the bot takes from senders
+	// (photo, voice, audio, video_note, document); a file of another kind is
+	// never read, and the sender is told. Empty takes every kind. Absent
+	// means every kind for a new binding and unchanged for an update.
+	InboundMedia *[]string `json:"inbound_media,omitempty"`
 	// Options are the choices for the options of the kind, by option id. Absent
 	// means the defaults for a new binding and unchanged for an update.
 	Options map[string]string `json:"options,omitempty"`
@@ -2225,6 +2376,117 @@ type ChatsConnectorChannel struct {
 	ID       string `json:"id"`
 	Label    string `json:"label,omitempty"`
 	Approved bool   `json:"approved,omitempty"`
+}
+
+// ChatsConnectorOAuth is the state of the login of an oauth2 binding.
+type ChatsConnectorOAuth struct {
+	// State is connected, reconnect_needed (the login ended; reason says
+	// why), not_connected (nobody logged in yet) or needs_approval (an
+	// administrator must save the add-on's client first, or approve it again
+	// after its login changed; a login that exists keeps its tokens until
+	// then). It is read from the shared store: a changed login of the add-on
+	// shows as needs_approval once a call or a refresh found it.
+	State string `json:"state" enums:"connected,reconnect_needed,not_connected,needs_approval"`
+	// Reason is a fixed code: revoked, client_rejected, refused,
+	// needs_approval, credential_rejected, expired, write_failed, unreadable,
+	// scopes_missing, endpoint_changed or token_too_large.
+	Reason string `json:"reason,omitempty"`
+	// AccountLabel is who the login is at the service, as the add-on says.
+	AccountLabel string `json:"account_label,omitempty"`
+	// Scopes are the scopes the service granted.
+	Scopes []string `json:"scopes"`
+	// ExpiresAt is when the access token ends; the host renews it before.
+	// Absent when the service gave no end.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// HasClient is true when an administrator saved a client for the add-on.
+	HasClient bool `json:"has_client"`
+}
+
+// ChatsConnectorOAuthStart starts the login of an oauth2 binding.
+type ChatsConnectorOAuthStart struct {
+	// Scopes are the optional scopes of the add-on that you ticked. The
+	// required ones are always asked for.
+	Scopes []string `json:"scopes,omitempty"`
+	// ReturnTo is the page of the web app you come back to, a path under
+	// /app with an optional query and no fragment. Empty means the
+	// Connectors page.
+	ReturnTo string `json:"return_to,omitempty"`
+}
+
+// ChatsConnectorOAuthStarted is where to send the browser for the login.
+type ChatsConnectorOAuthStarted struct {
+	AuthorizeURL string    `json:"authorize_url"`
+	Expires      time.Time `json:"expires"`
+}
+
+// ChatsConnectorOAuthDisconnected answers a disconnect.
+type ChatsConnectorOAuthDisconnected struct {
+	// Revoked is true when the service confirmed that it revoked the login.
+	// The login is removed here in any case.
+	Revoked bool `json:"revoked"`
+}
+
+// ChatsOAuthClientWrite is the OAuth client of an add-on that an
+// administrator saves. Saving it approves the login the add-on declares.
+type ChatsOAuthClientWrite struct {
+	ClientID string `json:"client_id"`
+	// ClientSecret is write-only. Absent keeps the stored secret; a public
+	// client (client_auth none) has none.
+	ClientSecret *string `json:"client_secret,omitempty"`
+	// DescriptorDigest is the current_digest the form showed. When the
+	// add-on's login changed since, the save is a 409 with the new digest.
+	DescriptorDigest string `json:"descriptor_digest"`
+}
+
+// ChatsOAuthClient is the OAuth client of an add-on. It never holds the
+// secret.
+type ChatsOAuthClient struct {
+	Addon string `json:"addon"`
+	// Configured is true when a client is stored; Approved when its approval
+	// is for the login the add-on declares now.
+	Configured bool   `json:"configured"`
+	ClientID   string `json:"client_id"`
+	HasSecret  bool   `json:"has_secret"`
+	Approved   bool   `json:"approved"`
+	// ApprovedDigest is the digest the stored approval is for;
+	// CurrentDigest the digest of the login the add-on declares now. Send
+	// current_digest back to save.
+	ApprovedDigest string     `json:"approved_digest,omitempty"`
+	CurrentDigest  string     `json:"current_digest"`
+	ApprovedBy     string     `json:"approved_by,omitempty"`
+	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
+	// Descriptor is the login the add-on declares, for the form to show.
+	Descriptor ChatsOAuthDescriptor `json:"descriptor"`
+	// CallbackURL is the address to register with the service, as this
+	// request reaches the server. Empty when the server cannot tell it (set
+	// LOCALAI_BASE_URL).
+	CallbackURL string `json:"callback_url,omitempty"`
+}
+
+// ChatsOAuthDescriptor is the OAuth login an add-on declares, in plain fields.
+type ChatsOAuthDescriptor struct {
+	AuthorizeURL    string            `json:"authorize_url"`
+	TokenURL        string            `json:"token_url"`
+	RevokeURL       string            `json:"revoke_url,omitempty"`
+	Hosts           []string          `json:"hosts"`
+	RequiredScopes  []string          `json:"required_scopes"`
+	OptionalScopes  []string          `json:"optional_scopes"`
+	PKCE            string            `json:"pkce"`
+	ClientAuth      string            `json:"client_auth" enums:"basic,post,none"`
+	AuthorizeParams []ChatsOAuthParam `json:"authorize_params"`
+}
+
+// ChatsOAuthParam is a fixed parameter of the authorize address.
+type ChatsOAuthParam struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// ChatsOAuthClientConflict is the 409 of a save whose digest is not the
+// current one.
+type ChatsOAuthClientConflict struct {
+	Error         *APIError `json:"error"`
+	CurrentDigest string    `json:"current_digest"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.
@@ -2720,7 +2982,7 @@ type ChatsAdminConnectorList struct {
 }
 
 // ChatsWellKnownFile is a well-known file of the home (persona.json,
-// user.json, shortcuts.json, setups.json, home.json, ui.json, or the data file of a Home
+// user.json, shortcuts.json, setups.json, defaults.json, home.json, ui.json, or the data file of a Home
 // widget), validated against its JSON Schema.
 type ChatsWellKnownFile struct {
 	Name   string `json:"name"`
@@ -2741,6 +3003,10 @@ type ChatsWellKnownFile struct {
 	// Prefilled names the keys of data that do not come from the file, and
 	// where they come from ("account").
 	Prefilled map[string]string `json:"prefilled,omitempty"`
+	// Withheld names the keys of the file that the server leaves out of data
+	// because an administrator turned their feature off (pageArea of home
+	// while the page area of Home is off). The file keeps them.
+	Withheld []string `json:"withheld,omitempty"`
 }
 
 // ChatsWellKnownWrite changes a well-known file. The keys of values replace
@@ -2950,4 +3216,76 @@ type ChatsBuiltinGrant struct {
 // ChatsBuiltinGrantList is the list of builtin grants, in display order.
 type ChatsBuiltinGrantList struct {
 	Grants []ChatsBuiltinGrant `json:"grants"`
+}
+
+// ChatsSandboxProfileState is where the image of a sandbox profile is on the
+// host.
+type ChatsSandboxProfileState struct {
+	// Phase is idle (not pulled yet; the first use pulls it), pulling, ready,
+	// failed or absent (this release has no image for it).
+	Phase   string `json:"phase" enums:"idle,pulling,ready,failed,absent"`
+	Percent int    `json:"percent,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// ChatsSandboxProfile is one sandbox profile: an environment the commands of
+// a chat can run in.
+type ChatsSandboxProfile struct {
+	ID          string   `json:"id" example:"media"`
+	Title       string   `json:"title" example:"Media"`
+	Description string   `json:"description"`
+	Tools       []string `json:"tools"`
+	// CPUs, MemoryMiB and DiskMiB are the limits of one sandbox of the
+	// profile, before the administrator's quota.
+	CPUs      int `json:"cpus,omitempty"`
+	MemoryMiB int `json:"memory_mib,omitempty" example:"4096"`
+	DiskMiB   int `json:"disk_mib,omitempty" example:"20480"`
+	// Allowed says whether the administrator's policy lets you use it.
+	Allowed     bool                     `json:"allowed"`
+	State       ChatsSandboxProfileState `json:"state"`
+	HasPrevious bool                     `json:"has_previous,omitempty"`
+}
+
+// ChatsSandboxProfileView is the sandbox profile of a chat.
+type ChatsSandboxProfileView struct {
+	// Applies is false when the commands of the chat run in no sandbox with
+	// profiles (built-in bash, no add-on, or commands on this machine).
+	Applies bool   `json:"applies"`
+	Addon   string `json:"addon,omitempty"`
+	// Profile is the one the next command runs. Selected is your own choice
+	// for the chat ("" when none). Source says where Profile comes from.
+	Profile  string `json:"profile"`
+	Selected string `json:"selected"`
+	Source   string `json:"source" enums:"chat,agent,default"`
+	Default  string `json:"default"`
+	// Fallback is true when the next command cannot use Profile because its
+	// image is not available, and runs base. FallbackReason says why.
+	Fallback       bool   `json:"fallback"`
+	FallbackReason string `json:"fallback_reason,omitempty"`
+	// NewerImage is true when the running sandbox was made from an older image
+	// than the current one. The newer image applies when the sandbox restarts.
+	NewerImage bool                  `json:"newer_image"`
+	Profiles   []ChatsSandboxProfile `json:"profiles"`
+}
+
+// ChatsSandboxProfileSet sets the profile of a chat.
+type ChatsSandboxProfileSet struct {
+	// Profile is a profile ID, or empty for the agent's or the default one.
+	Profile string `json:"profile"`
+}
+
+// ChatsSandboxProfileChoices lists the profiles you may pick for an agent.
+type ChatsSandboxProfileChoices struct {
+	Addon    string                `json:"addon,omitempty"`
+	Default  string                `json:"default"`
+	Profiles []ChatsSandboxProfile `json:"profiles"`
+}
+
+// ChatsSandboxProfilesAdmin is the administrator's view of the sandbox
+// profiles. The policy itself (default, access, quota, pins) is the owner
+// setting sandbox_profiles of the add-on host settings.
+type ChatsSandboxProfilesAdmin struct {
+	Addon    string                `json:"addon,omitempty"`
+	Roles    []string              `json:"roles"`
+	Profiles []ChatsSandboxProfile `json:"profiles"`
 }

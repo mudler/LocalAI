@@ -48,8 +48,12 @@ const (
 	MaxQuiet        = 24 * time.Hour
 	DefaultDailyCap = 24
 	MaxDailyCap     = 1000
-	MaxNameLen      = 80
-	MaxPromptBytes  = 8000
+	// MinRunLimit and MaxRunLimit bound a trigger's RunLimit. They are the
+	// bounds of the administrator's run limit too.
+	MinRunLimit    = time.Minute
+	MaxRunLimit    = 24 * time.Hour
+	MaxNameLen     = 80
+	MaxPromptBytes = 8000
 	// MaxRefLen is the longest AgentID, Model or SourceChatID, in characters.
 	MaxRefLen = 200
 	// ReasonLen is the longest Reason, in characters.
@@ -92,9 +96,13 @@ type Trigger struct {
 	Folder string
 	Quiet  time.Duration
 	// DailyCap is the number of runs one day may admit, by due day (zero means
-	// DefaultDailyCap). A day is a day of TZ; a file trigger
+	// the default of EffectiveCap, which grows with the cadence of a schedule).
+	// A day is a day of TZ; a file trigger
 	// without TZ uses the location of the Runner's clock.
 	DailyCap int
+	// RunLimit is the longest one run may take. Zero means the administrator's
+	// run limit, which is also the ceiling: see EffectiveRunLimit.
+	RunLimit time.Duration
 	// AgentID is the saved agent whose tools and instructions the runs get. Empty:
 	// the runs use the tool set of SourceChatID's chat as it was when the trigger
 	// was made (see Model), or the default one.
@@ -358,12 +366,55 @@ func (t Trigger) QuietOrDefault() time.Duration {
 	return t.Quiet
 }
 
-// CapOrDefault gives DailyCap, or DefaultDailyCap when it is zero.
+// CapOrDefault gives DailyCap, or DefaultDailyCap when it is zero. It does not
+// know the schedule: EffectiveCap does.
 func (t Trigger) CapOrDefault() int {
 	if t.DailyCap <= 0 {
 		return DefaultDailyCap
 	}
 	return t.DailyCap
+}
+
+// DefaultCapFor is the daily limit of a schedule trigger that sets none: one
+// run for each time the schedule can fire in a day, so a cap does not cut a
+// fast schedule short, and never less than DefaultDailyCap or more than
+// MaxDailyCap. gap is the shortest time between two runs (Schedule.MinGap);
+// zero, a schedule that runs once, gives DefaultDailyCap.
+func DefaultCapFor(gap time.Duration) int {
+	if gap <= 0 {
+		return DefaultDailyCap
+	}
+	per := int((24*time.Hour + gap - 1) / gap)
+	return min(max(per, DefaultDailyCap), MaxDailyCap)
+}
+
+// EffectiveCap is the daily limit of the trigger at now, before the
+// administrator's ceiling: DailyCap when it is set, else a default that grows
+// with the cadence of a schedule (DefaultCapFor) and is DefaultDailyCap for
+// the other kinds.
+func (t Trigger) EffectiveCap(now time.Time) int {
+	if t.DailyCap > 0 || t.Kind != KindSchedule {
+		return t.CapOrDefault()
+	}
+	sch, err := ParseSchedule(t.Schedule)
+	if err != nil {
+		return DefaultDailyCap
+	}
+	loc, err := t.Location()
+	if err != nil {
+		return DefaultDailyCap
+	}
+	return DefaultCapFor(sch.MinGap(now, loc))
+}
+
+// EffectiveRunLimit is the time one run of the trigger may take: RunLimit, but
+// never more than ceiling, the administrator's limit that applies now. A zero
+// RunLimit gives ceiling.
+func (t Trigger) EffectiveRunLimit(ceiling time.Duration) time.Duration {
+	if t.RunLimit <= 0 || (ceiling > 0 && t.RunLimit > ceiling) {
+		return ceiling
+	}
+	return t.RunLimit
 }
 
 // Location loads the time zone of a schedule trigger. An empty TZ is UTC.
@@ -407,6 +458,8 @@ func (t Trigger) Validate() error {
 		return fmt.Errorf("source chat can have at most %d characters", MaxRefLen)
 	case t.DailyCap < 0 || t.DailyCap > MaxDailyCap:
 		return fmt.Errorf("daily limit must be 0 to %d", MaxDailyCap)
+	case t.RunLimit != 0 && (t.RunLimit < MinRunLimit || t.RunLimit > MaxRunLimit):
+		return fmt.Errorf("time limit must be empty or %s to %s", ShortDuration(MinRunLimit), ShortDuration(MaxRunLimit))
 	case t.MinGap < 0 || t.MinGap > MaxFileGap:
 		return fmt.Errorf("the time between runs must be 0 to %s", MaxFileGap)
 	case hasControl(t.Reads, false) || utf8.RuneCountInString(t.Reads) > MaxPlanText:
@@ -533,3 +586,15 @@ func CutReason(s string) string {
 type SkipError struct{ Reason string }
 
 func (e *SkipError) Error() string { return e.Reason }
+
+// ShortDuration writes a duration the short way: 15m, not 15m0s.
+func ShortDuration(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = strings.TrimSuffix(s, "0s")
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = strings.TrimSuffix(s, "0m")
+	}
+	return s
+}

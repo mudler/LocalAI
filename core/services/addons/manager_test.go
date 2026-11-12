@@ -454,6 +454,17 @@ var _ = Describe("read-only lifecycle operation lookup", func() {
 		m.admin = func(context.Context, contract.Actor) error { return nil }
 		_, e = m.OperationStatus(ctx, other, "lookup-install")
 		Expect(e).To(Equal(ErrOperationNotFound))
+		// The owner of an operation is the user: a later session or another key
+		// of the same user reads it, and the same id under another mode does not.
+		later := actor
+		later.CredentialID = "session:later"
+		s, e = m.OperationStatus(ctx, later, "lookup-install")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.Phase).To(Equal("completed"))
+		otherMode := actor
+		otherMode.Mode = "local-owner"
+		_, e = m.OperationStatus(ctx, otherMode, "lookup-install")
+		Expect(e).To(Equal(ErrOperationNotFound))
 		op := m.journal.Operations["lookup-install"]
 		op.Actor = contract.Actor{}
 		m.journal.Operations["legacy"] = op

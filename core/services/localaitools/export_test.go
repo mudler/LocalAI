@@ -7,3 +7,6 @@ func SetMaxResultBytes(n int64) func() {
 	maxResultBytes = n
 	return func() { maxResultBytes = old }
 }
+
+// GenerateImageForTest runs the generate_image tool handler.
+var GenerateImageForTest = generateImage

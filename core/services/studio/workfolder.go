@@ -11,7 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
-// The work folder of a chat (Chats/<chat>/work): the prompt of every turn
+// The work folder of a chat (Chats/<chat>/work): the note of every turn
 // names it, and the scripts, logs and drafts a chat makes go there instead of
 // next to the user's files (see workfiles). The setting chats_work_folder
 // turns the steering off; the interface still shows working files apart.
@@ -63,22 +63,25 @@ func (s *Service) workFolderOf(ctx context.Context, a workspace.Actor) (folder s
 	return rec.Folder, rec.Turns
 }
 
-// subWorkBlock names the parent's work folder for a sub-agent, which saves in
-// the parent's files. It is "" when the parent has no folder name yet. x is
-// the sub-agent's access: a scoped one names /workspace/chat/work, the
-// parent's chat folder, and says whether its folder may be written.
-func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord, x session.Access) string {
+// subWorkBlock is the prompt block about the parent's work folder for a
+// sub-agent, which saves in the parent's files, and the line of the turn's
+// note that names it. Both are "" when the parent has no folder name yet. x
+// is the sub-agent's access: a scoped one names /workspace/chat/work, the
+// parent's chat folder, in the block and says whether its folder may be
+// written. As for a chat, the folder of an unscoped one is named in the note
+// so that the prompt does not depend on the parent's title.
+func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord, x session.Access) (block, note string) {
 	if !s.workFolderOn() || !s.d.Files.Available() || rec.ParentID == "" {
-		return ""
+		return "", ""
 	}
 	parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
 	if err != nil || parent.Folder == "" {
-		return ""
+		return "", ""
 	}
 	if p := x.Place(); p.Scoped() {
-		return workfiles.ScopedPrompt(p.PrimaryWritable())
+		return workfiles.ScopedPrompt(p.PrimaryWritable()), ""
 	}
-	return workfiles.Prompt(workfiles.GuestFolder(parent.Folder))
+	return workfiles.Prompt, workfiles.Note(workfiles.GuestFolder(parent.Folder))
 }
 
 // ensureWorkFolder makes the chat's work folder before a command runs, so a

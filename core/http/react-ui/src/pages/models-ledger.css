@@ -816,7 +816,7 @@ tr[data-selected="true"] .ledger-mark {
     position: fixed;
     inset: 0;
     z-index: var(--dk-z-veil);
-    background: var(--dk-scrim, rgb(0 0 0 / .4));
+    background: var(--dk-scrim);
     animation: dk-veil-in var(--dur-base) var(--ease-out) both;
   }
 

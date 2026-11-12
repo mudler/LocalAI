@@ -774,7 +774,7 @@ installation. Their operation progresses through these phases:
 resolving -> downloading -> verifying -> committing -> persisting
 ```
 
-The admin operations strip, the [Activity]({{% relref "operations/activity" %}})
+The **Activity** tab of the notification panel, the [Activity]({{% relref "operations/activity" %}})
 page and `GET /api/operations` expose `currentBytes` and `totalBytes` as raw
 transport bytes. Cancelling an active download leaves its partial files in
 place so a retry can resume. A verification failure never

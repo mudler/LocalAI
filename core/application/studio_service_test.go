@@ -185,7 +185,7 @@ var _ = Describe("studio service at startup", func() {
 		It("bounds a job and a trigger run past their own limits, and nothing else", func() {
 			app := newApp(config.WithMCPCIJobTimeout(3 * time.Minute))
 			Expect(app.studioWorkerRunLimit(session.OriginJob)).To(Equal(3*time.Minute + chatWorkerGrace))
-			Expect(app.studioWorkerRunLimit(session.OriginTrigger)).To(Equal(studio.DefaultRunLimit + chatWorkerGrace))
+			Expect(app.studioWorkerRunLimit(session.OriginTrigger)).To(Equal(config.DefaultChatsTriggerRunLimit + chatWorkerGrace))
 			Expect(app.studioWorkerRunLimit(session.OriginConnector)).To(BeZero())
 			Expect(app.studioWorkerRunLimit("")).To(BeZero())
 		})

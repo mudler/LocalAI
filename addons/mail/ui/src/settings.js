@@ -61,10 +61,13 @@ export const emptyMail = () => ({
   folders_text: '', drafts_folder: '', replace: true, plain_ok: false, write_mode: 'off',
 })
 
-// The mode of a saved binding: only off and propose exist, since every send
-// and draft waits for a confirmation whatever the mode says.
-export const WRITE_MODES = ['off', 'propose']
-export const writeModeOf = (m) => (m === 'propose' || m === 'auto' ? 'propose' : 'off')
+// The write modes of a binding. The host keeps and enforces the mode: off runs
+// no write tool, propose stores each send and draft for a person to confirm,
+// auto (shown as Allow all) lets a chat of the person send and save at once.
+// The default of a new connection is off, and Allow all is never chosen for
+// the person.
+export const WRITE_MODES = ['off', 'propose', 'auto']
+export const writeModeOf = (m) => (WRITE_MODES.includes(m) ? m : 'off')
 
 // Everything wrong with the connection fields of the form, by field, each as
 // a key of the page's words. A saved connection that is not being replaced has

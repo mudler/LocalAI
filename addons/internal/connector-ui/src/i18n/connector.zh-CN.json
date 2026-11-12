@@ -460,5 +460,6 @@
   "shared.text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
   "shared.on": "监听中",
   "shared.off": "已关闭",
-  "shared.by": "由 {{name}} 共享"
+  "shared.by": "由 {{name}} 共享",
+  "loginNeedsHost": "此版本的 LocalAI 无法在本页登录。请更新 LocalAI 后在此连接。"
 }

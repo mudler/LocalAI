@@ -30,6 +30,7 @@ func binding(id, owner, name string) connectors.Binding {
 // at the top level of a Describe in the test package of an implementation.
 func Run(newStore NewStore) {
 	ctx := context.Background()
+	runOAuth(newStore)
 	It("round trips a binding and scopes it to its owner", func() {
 		s := newStore()
 		Expect(s.PutBinding(ctx, binding("b1", "u1", "Bot"))).To(Succeed())
@@ -70,6 +71,19 @@ func Run(newStore NewStore) {
 		got, _ = s.GetBinding(ctx, "modes")
 		Expect(got.ReplyMode()).To(Equal(connectors.ReplyProgress))
 		Expect(got.SendsFiles()).To(BeTrue())
+	})
+	It("keeps the media kinds a binding accepts, and none as none", func() {
+		s := newStore()
+		b := binding("media", "u1", "Media")
+		b.InboundMedia = []string{"audio", "photo"}
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "media")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.InboundMedia).To(Equal([]string{"audio", "photo"}))
+		got.InboundMedia = nil
+		Expect(s.PutBinding(ctx, got)).To(Succeed())
+		got, _ = s.GetBinding(ctx, "media")
+		Expect(got.InboundMedia).To(BeEmpty())
 	})
 	It("keeps the reply language, and reads a binding stored without one as auto", func() {
 		s := newStore()
@@ -514,6 +528,9 @@ func Seed(s connectors.Store) {
 	_ = s.SetOffset(ctx, "seed", 7)
 	_ = s.RecordSender(ctx, "seed", "1", "One", true, t0)
 	_ = s.SetChat(ctx, "seed", "1", "chat1")
+	_, _ = s.PutGrant(ctx, grant("seed"))
+	_ = s.PutOAuthClient(ctx, connectors.OAuthClient{AddonID: "providerA", ClientID: "client-1", DescriptorDigest: "d1"})
+	_ = s.PutLoginState(ctx, connectors.LoginState{Hash: "seed-state", Binding: "seed", Owner: "u1", Expires: t0.Add(time.Hour)}, t0)
 	_, err := s.EnsureKey(ctx, func() ([]byte, error) { return bytes.Repeat([]byte{9}, connectors.KeySize), nil })
 	Expect(err).NotTo(HaveOccurred())
 }
@@ -532,6 +549,17 @@ func CheckSeed(s connectors.Store) {
 	id, ok, _ := s.ChatOf(ctx, "seed", "1")
 	Expect(ok).To(BeTrue())
 	Expect(id).To(Equal("chat1"))
+	g, err := s.GetGrant(ctx, "seed")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(g.Sealed).To(Equal([]byte("sealed-grant-seed")))
+	Expect(g.Version).To(BeEquivalentTo(1))
+	c, err := s.GetOAuthClient(ctx, "providerA")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(c.ClientID).To(Equal("client-1"))
+	st, ok, err := s.ConsumeLoginState(ctx, "seed-state", t0)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(ok).To(BeTrue())
+	Expect(st.Binding).To(Equal("seed"))
 	k, err := s.EnsureKey(ctx, func() ([]byte, error) { return bytes.Repeat([]byte{1}, connectors.KeySize), nil })
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k).To(Equal(bytes.Repeat([]byte{9}, connectors.KeySize)))

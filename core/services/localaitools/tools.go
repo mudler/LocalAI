@@ -16,6 +16,7 @@ const (
 	ToolListBackends              = "list_backends"
 	ToolListKnownBackends         = "list_known_backends"
 	ToolListBackendLibraryUpdates = "list_backend_library_updates"
+	ToolBackendUpdates            = "backend_updates"
 	ToolSystemInfo                = "system_info"
 	ToolListNodes                 = "list_nodes"
 	ToolListScheduling            = "list_scheduling"

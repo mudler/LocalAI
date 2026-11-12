@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/internal/hostclient"
 	"github.com/mudler/LocalAI/addons/internal/jobundo"
+	"github.com/mudler/LocalAI/addons/internal/journal"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -71,13 +72,13 @@ var datasetExt = []string{".jsonl", ".json", ".csv", ".txt"}
 
 type runtime struct {
 	eng Engine
-	j   *journal
+	j   *journal.Store[job]
 	now func() time.Time
 }
 
 // New returns the runtime of the executable. dataDir holds the journal.
 func New(eng Engine, dataDir string) contract.Runtime {
-	return &runtime{eng: eng, j: openJournal(dataDir), now: time.Now}
+	return &runtime{eng: eng, j: journal.OpenJobs[job](dataDir, journal.WithMaxReceipts(1024)), now: time.Now}
 }
 
 // startArgs are the arguments of fine-tune-start. The host adds "tool"; the
@@ -148,7 +149,7 @@ func (r *runtime) entryOf(env contract.Envelope) (job, bool) {
 	if env.Request.ResourceID == "" {
 		return job{}, false
 	}
-	return r.j.job(env.Request.ResourceID)
+	return r.j.Job(env.Request.ResourceID)
 }
 
 func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
@@ -161,7 +162,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	case contract.ToolChangesGet:
 		return r.readChange(ctx, env)
 	case ToolResourceExists:
-		j, ok := r.j.job(env.Request.ResourceID)
+		j, ok := r.j.Job(env.Request.ResourceID)
 		if !ok {
 			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": false})}, nil
 		}
@@ -264,8 +265,8 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 		}
 		// The resource does not exist yet; an operation that already
 		// committed is replayed by Apply, so a repeat is not a clash.
-		if _, taken := r.j.job(env.Request.ResourceID); taken {
-			if _, done := r.j.receipt(env.Request.OperationID); !done {
+		if _, taken := r.j.Job(env.Request.ResourceID); taken {
+			if _, done := r.j.Receipt(env.Request.OperationID); !done {
 				return out, protocol.ErrConflict
 			}
 		}
@@ -280,8 +281,8 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 		if err := checkDataset(a); err != nil {
 			return out, err
 		}
-		if _, taken := r.j.job(env.Request.ResourceID); taken {
-			if _, done := r.j.receipt(env.Request.OperationID); !done {
+		if _, taken := r.j.Job(env.Request.ResourceID); taken {
+			if _, done := r.j.Receipt(env.Request.OperationID); !done {
 				return out, protocol.ErrConflict
 			}
 		}
@@ -349,7 +350,7 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	}
 	// An operation that already committed is answered from its receipt: the
 	// engine ran once and runs no more.
-	if rec, ok := r.j.receipt(env.Request.OperationID); ok {
+	if rec, ok := r.j.Receipt(env.Request.OperationID); ok {
 		return rec, nil
 	}
 	switch tool {
@@ -399,7 +400,7 @@ func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contra
 	if res == "" {
 		return contract.Receipt{}, protocol.ErrBadRequest
 	}
-	if _, taken := r.j.job(res); taken {
+	if _, taken := r.j.Job(res); taken {
 		return contract.Receipt{}, protocol.ErrConflict
 	}
 	var started struct {
@@ -426,7 +427,7 @@ func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contra
 	// If this write fails the job runs without a mapping. The error is
 	// uncertain, so the host asks again with the same operation ID and the
 	// engine answers it with the same job.
-	if err := r.j.commit(res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1, StartOp: op, StartedNS: r.now().UnixNano()}, rec); err != nil {
+	if err := r.j.CommitJob(rec, res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1, StartOp: op, StartedNS: r.now().UnixNano()}); err != nil {
 		return contract.Receipt{}, err
 	}
 	return rec, nil
@@ -448,7 +449,7 @@ func (r *runtime) applyDataset(ctx context.Context, env contract.Envelope) (cont
 	if res == "" {
 		return contract.Receipt{}, protocol.ErrBadRequest
 	}
-	if _, taken := r.j.job(res); taken {
+	if _, taken := r.j.Job(res); taken {
 		return contract.Receipt{}, protocol.ErrConflict
 	}
 	var stored struct {
@@ -464,7 +465,7 @@ func (r *runtime) applyDataset(ctx context.Context, env contract.Envelope) (cont
 		OperationID: op, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: schema, Data: 1},
 		Result: contract.Result{Payload: jobundo.Merge(protocol.Payload(map[string]string{"datasetRef": stored.DatasetRef}), contract.UndoNote{Reason: jobundo.ReasonDataset})},
 	}
-	if err := r.j.commit(res, &job{Name: a.Name, Dataset: true, Ref: stored.DatasetRef, Revision: 1}, rec); err != nil {
+	if err := r.j.CommitJob(rec, res, &job{Name: a.Name, Dataset: true, Ref: stored.DatasetRef, Revision: 1}); err != nil {
 		return contract.Receipt{}, err
 	}
 	return rec, nil
@@ -499,14 +500,14 @@ func (r *runtime) mutate(ctx context.Context, env contract.Envelope, rev contrac
 		reason = jobundo.ReasonExport
 	}
 	rec.Result.Payload = jobundo.Merge(rec.Result.Payload, contract.UndoNote{Reason: reason})
-	if err := r.j.commit(env.Request.ResourceID, &next, rec); err != nil {
+	if err := r.j.CommitJob(rec, env.Request.ResourceID, &next); err != nil {
 		return contract.Receipt{}, err
 	}
 	return rec, nil
 }
 
 func (r *runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rec, ok := r.j.receipt(op); ok {
+	if rec, ok := r.j.Receipt(op); ok {
 		return rec, nil
 	}
 	return contract.Receipt{}, protocol.ErrNotFound

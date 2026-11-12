@@ -1,0 +1,270 @@
+{
+  "title": "업데이트",
+  "supporting": "더 새로운 버전이 있는 백엔드, 라이브러리 백엔드, 애드온입니다.",
+  "loading": "업데이트를 불러오는 중",
+  "adminOnly": {
+    "title": "업데이트는 관리자용입니다",
+    "body": "이 서버에서 오래된 항목을 관리자에게 확인해 달라고 요청하세요."
+  },
+  "loadError": {
+    "title": "업데이트 목록을 불러오지 못했습니다."
+  },
+  "strip": {
+    "label": "업데이트 요약",
+    "checking": "업데이트를 확인하는 중...",
+    "checkNow": "지금 확인",
+    "checkedJustNow": "방금 확인함",
+    "ready": "{{count}}개 준비됨",
+    "updating": "{{count}}개 진행 중",
+    "needs_one": "{{count}}개 확인 필요",
+    "needs_other": "{{count}}개 확인 필요",
+    "lastCheck": "마지막 확인 {{when}}",
+    "headline": {
+      "loading": "업데이트를 불러오는 중",
+      "loadError": "업데이트 목록을 불러오지 못했습니다",
+      "updates_one": "업데이트 {{count}}개 있음",
+      "updates_other": "업데이트 {{count}}개 있음",
+      "current": "모두 최신입니다",
+      "never": "아직 확인하지 않았습니다",
+      "couldNot": "업데이트를 확인하지 못했습니다",
+      "noneButFailed": "업데이트를 찾지 못했지만 다음 항목의 확인이 실패했습니다: {{sources}}",
+      "noneButNever": "업데이트를 찾지 못했지만 아직 확인하지 않았습니다: {{sources}}",
+      "unavailable": "이 서버에서는 업데이트를 확인할 수 없습니다"
+    }
+  },
+  "when": {
+    "justNow": "방금"
+  },
+  "source": {
+    "label": "업데이트 출처",
+    "name": {
+      "gallery": "백엔드 갤러리",
+      "library": "백엔드 라이브러리",
+      "addons": "애드온"
+    },
+    "checked": "{{when}} 확인함",
+    "ok": "확인함",
+    "never": "아직 확인 안 함",
+    "loading": "읽는 중",
+    "unavailable": "이 서버에서는 사용할 수 없음",
+    "unavailableWhy": "사용할 수 없음: {{reason}}",
+    "failed": "확인 실패: {{error}}",
+    "addonsUnreadable": "애드온을 읽을 수 없습니다"
+  },
+  "auto": {
+    "backends": "백엔드 자동 업데이트:",
+    "addons": "애드온 자동 업데이트:",
+    "on": "켜짐",
+    "off": "꺼짐",
+    "settings": "설정"
+  },
+  "disabled": {
+    "title": "이 서버에서는 백엔드 업데이트가 꺼져 있습니다.",
+    "body": "아래 백엔드는 표시되지만 여기서는 업데이트할 수 없습니다. 서버 구성에서 백엔드 설치가 꺼져 있습니다."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "백엔드 갤러리 확인이 실패해서 표시되지 않은 백엔드 업데이트가 있을 수 있습니다.",
+      "library": "라이브러리 확인이 실패해서 표시되지 않은 라이브러리 백엔드 업데이트가 있을 수 있습니다.",
+      "addons": "애드온 확인이 실패해서 표시되지 않은 애드온 업데이트가 있을 수 있습니다."
+    },
+    "lastGood": "아래 목록은 마지막으로 성공한 확인({{when}})의 결과입니다. 이유: {{error}}.",
+    "noGood": "아직 성공한 확인이 없습니다. 이유: {{error}}.",
+    "again": "다시 확인"
+  },
+  "filter": {
+    "label": "업데이트 필터",
+    "all": "전체",
+    "ready": "준비됨",
+    "needs-you": "확인 필요",
+    "updating": "진행 중",
+    "current": "최신",
+    "none": "이 필터와 일치하는 항목이 없습니다."
+  },
+  "group": {
+    "needs": "확인 필요",
+    "updating": "진행 중",
+    "ready": "업데이트 준비됨",
+    "current_one": "최신 {{count}}개",
+    "current_other": "최신 {{count}}개",
+    "selectAll": "준비된 항목 모두 선택",
+    "selectNone": "선택 안 함",
+    "show": "보기",
+    "hide": "숨기기"
+  },
+  "row": {
+    "tag": {
+      "gallery": "백엔드",
+      "library": "라이브러리 백엔드",
+      "addon": "애드온"
+    },
+    "origin": {
+      "gallery": "백엔드 갤러리",
+      "library": "라이브러리: {{id}}",
+      "libraryUnnamed": "라이브러리"
+    },
+    "signed": "서명됨",
+    "versions": "{{from}} → {{to}}",
+    "nodes_one": "노드 {{count}}개",
+    "nodes_other": "노드 {{count}}개",
+    "drift_one": "{{count}}개 다름",
+    "drift_other": "{{count}}개 다름",
+    "old": "이전 확인 결과",
+    "select": "{{name}} 선택",
+    "update": "업데이트",
+    "updateNamed": "{{name}} 업데이트",
+    "check": "확인",
+    "checkNamed": "{{name}}의 업데이트 확인",
+    "retry": "다시 시도",
+    "retryNamed": "{{name}} 다시 시도",
+    "review": "검토",
+    "reviewNamed": "{{name}} 업데이트 검토",
+    "cancel": "취소",
+    "cancelNamed": "{{name}} 업데이트 취소",
+    "progress": "{{name}} 업데이트 진행률",
+    "failed": "업데이트 실패: {{message}}",
+    "failedWhy": "업데이트 실패: {{message}}",
+    "noReason": "이유 없음",
+    "startFailed": "업데이트를 시작하지 못했습니다: {{message}}",
+    "unchanged": "업데이트는 끝났지만 버전이 바뀌지 않았습니다.",
+    "unconfirmed": "업데이트는 끝났지만 어떤 확인도 이를 확정하지 못했습니다.",
+    "held": "승인 대기 중. {{version}}이(가) 승인하지 않은 접근 권한을 요청합니다(새 항목 {{count}}개).",
+    "blocked": {
+      "installsDisabled": "이 서버에서는 백엔드 업데이트가 꺼져 있습니다.",
+      "incompatible": "{{version}} 버전은 이 호스트에서 실행할 수 없습니다.",
+      "integrity": "라이브러리가 설치된 버전을 다른 내용으로 나열합니다. 아무것도 변경되지 않았습니다."
+    },
+    "updatingPhase": "업데이트 중: {{phase}}",
+    "updatingPlain": "업데이트 중",
+    "addonConfirm": "이 브라우저에서 확인이 필요합니다",
+    "nodesAction": "노드",
+    "nodesNamed": "{{name}}의 노드 보기",
+    "needsConfirm": "{{name}}은(는) 노드에서 실행되므로 먼저 확인이 필요합니다. 해당 행의 업데이트를 사용하세요."
+  },
+  "bulk": {
+    "start": "준비된 {{count}}개 업데이트",
+    "running": "{{total}}개 중 {{current}}번째 업데이트 중",
+    "summary": "{{done}}개 완료, {{failed}}개 실패, {{skipped}}개 건너뜀",
+    "details": "자세히",
+    "retryFailed": "실패한 항목 다시 시도 ({{count}})",
+    "dismiss": "닫기"
+  },
+  "check": {
+    "result_one": "확인 완료: 업데이트 {{count}}개.",
+    "result_other": "확인 완료: 업데이트 {{count}}개.",
+    "failedSources_one": "출처 {{count}}개 실패.",
+    "failedSources_other": "출처 {{count}}개 실패.",
+    "throttled": "조금 전에 확인이 실행되었습니다. 그 결과입니다."
+  },
+  "live": {
+    "updated": "{{name}}을(를) 업데이트했습니다.",
+    "failed": "{{name}}을(를) 업데이트하지 못했습니다."
+  },
+  "empty": {
+    "title": "아직 업데이트할 것이 없습니다",
+    "body": "백엔드나 애드온을 설치하면 업데이트가 여기에 표시됩니다.",
+    "backends": "백엔드 열기",
+    "addons": "앱 열기"
+  },
+  "dialog": {
+    "title": "준비된 항목 업데이트",
+    "intro": "업데이트할 항목을 고르세요. 각 항목은 따로 차례대로 업데이트되며, 새로 확인했을 때 더 이상 목록에 없어야 완료로 칩니다. 하나가 실패해도 나머지는 계속됩니다.",
+    "selection": "업데이트할 항목 선택",
+    "selectAll": "모두 선택",
+    "selectNone": "선택 안 함",
+    "item": "{{name}} 업데이트",
+    "versions": "{{from}} → {{to}}",
+    "blocked": "시작할 수 없음",
+    "start": "선택 항목 업데이트",
+    "starting": "업데이트 중...",
+    "retry": "실패한 항목 다시 시도 ({{count}})",
+    "again": "새로 선택",
+    "close": "닫기",
+    "closeRunning": "닫기 (계속 실행됨)",
+    "runningNote": "이 창을 닫아도 업데이트는 멈추지 않습니다.",
+    "progress": "{{total}}개 중 {{current}}번째 업데이트 중",
+    "summary": "{{done}}개 완료, {{failed}}개 실패, {{skipped}}개 건너뜀",
+    "empty": "업데이트할 것이 없습니다.",
+    "selectedCount_one": "{{count}}개 선택됨",
+    "selectedCount_other": "{{count}}개 선택됨"
+  },
+  "item": {
+    "queued": "대기 중",
+    "upgrading": "업데이트 중",
+    "done": "완료",
+    "failed": "실패",
+    "skipped": "건너뜀"
+  },
+  "node": {
+    "breadcrumb": "이동 경로",
+    "reload": "다시 시도",
+    "noneTitle": "{{name}}에는 업데이트할 노드가 없습니다",
+    "noneBody": "이 백엔드는 어느 노드에서도 업데이트가 나열되지 않았습니다. 모두 최신이거나 방금 업데이트되었을 수 있습니다.",
+    "back": "업데이트로 돌아가기",
+    "supporting_one": "{{version}} 버전을 사용할 수 있습니다. {{nodes}}에 설치되어 있고, 그중 {{count}}개에 업데이트가 필요합니다.",
+    "supporting_other": "{{version}} 버전을 사용할 수 있습니다. {{nodes}}에 설치되어 있고, 그중 {{count}}개에 업데이트가 필요합니다.",
+    "supportingDrift_one": "노드마다 빌드가 같지 않습니다. {{nodes}} 중 {{count}}개가 클러스터와 다릅니다.",
+    "supportingDrift_other": "노드마다 빌드가 같지 않습니다. {{nodes}} 중 {{count}}개가 클러스터와 다릅니다.",
+    "warning": "업데이트하면 각 노드에서 이 백엔드를 쓰는 모델이 중지됩니다. 모델은 요청이 필요할 때 다시 시작됩니다.",
+    "driftNote": "클러스터와 다른 노드가 항상 뒤처진 것은 아닙니다. 더 새로울 수도 있습니다. 업데이트하면 갤러리가 제공하는 버전으로 맞춥니다.",
+    "tableLabel": "{{name}}이(가) 있는 노드",
+    "col": {
+      "node": "노드",
+      "installed": "설치됨",
+      "models": "이를 사용하는 실행 중 모델",
+      "state": "상태",
+      "action": "동작"
+    },
+    "noneRecorded": "기록 없음",
+    "state": {
+      "current": "최신",
+      "unreachable": "연결할 수 없음"
+    },
+    "updateN_one": "노드 {{count}}개 업데이트",
+    "updateN_other": "노드 {{count}}개 업데이트",
+    "updateNamed": "{{name}} 업데이트",
+    "models_one": "모델 {{count}}개",
+    "models_other": "모델 {{count}}개",
+    "nodes_one": "노드 {{count}}개",
+    "nodes_other": "노드 {{count}}개",
+    "stops": "{{models}} 중지",
+    "title_one": "노드 {{count}}개에서 {{backend}}을(를) 업데이트할까요?",
+    "title_other": "노드 {{count}}개에서 {{backend}}을(를) 업데이트할까요?",
+    "titleMany_one": "{{nodes}}에서 백엔드 {{count}}개를 업데이트할까요?",
+    "titleMany_other": "{{nodes}}에서 백엔드 {{count}}개를 업데이트할까요?",
+    "runningTitle": "노드 업데이트 중",
+    "doneTitle": "업데이트 완료",
+    "intro": "각 노드는 {{backend}}을(를) 쓰는 모델을 중지하고, 새 버전을 설치하며, 요청이 필요할 때 모델을 다시 시작합니다. 여기서는 되돌릴 수 없습니다.",
+    "introMany": "각 노드는 이 백엔드들을 쓰는 모델을 중지하고, 새 버전을 설치하며, 요청이 필요할 때 모델을 다시 시작합니다. 여기서는 되돌릴 수 없습니다.",
+    "stopKnown_one": "모델 {{count}}개가 중지됩니다.",
+    "stopKnown_other": "모델 {{count}}개가 중지됩니다.",
+    "stopPartial_one": "모델 {{count}}개가 중지되는 것으로 기록되어 있습니다. 다른 노드에는 기록된 모델이 없지만 기록이 빠뜨렸을 수 있어, 더 많은 모델이 중지될 수 있습니다.",
+    "stopPartial_other": "모델 {{count}}개가 중지되는 것으로 기록되어 있습니다. 다른 노드에는 기록된 모델이 없지만 기록이 빠뜨렸을 수 있어, 더 많은 모델이 중지될 수 있습니다.",
+    "stopNone": "이 노드들에는 로드된 모델이 기록되어 있지 않습니다. 기록이 완전하지 않으므로 이 백엔드를 쓰는 모델이 그래도 중지될 수 있습니다.",
+    "sequence": "노드는 하나씩 차례로 업데이트됩니다. 이 창은 각 결과를 끝나는 즉시 보여 줍니다.",
+    "confirmStop_one": "노드 {{count}}개 업데이트하고 {{models}} 중지",
+    "confirmStop_other": "노드 {{count}}개 업데이트하고 {{models}} 중지",
+    "confirmStopAtLeast_one": "노드 {{count}}개 업데이트하고 최소 {{models}} 중지",
+    "confirmStopAtLeast_other": "노드 {{count}}개 업데이트하고 최소 {{models}} 중지",
+    "confirmPlain_one": "노드 {{count}}개 업데이트",
+    "confirmPlain_other": "노드 {{count}}개 업데이트",
+    "cancel": "취소",
+    "stop": "이 노드 후 중지",
+    "listLabel": "업데이트할 노드",
+    "titleAll_one": "업데이트 {{count}}개를 시작할까요?",
+    "titleAll_other": "업데이트 {{count}}개를 시작할까요?",
+    "confirmPlus_one": "{{label}} 외 {{count}}개",
+    "confirmPlus_other": "{{label}} 외 {{count}}개",
+    "othersTitle": "확인하면 함께 시작됩니다",
+    "othersLabel": "함께 시작할 다른 업데이트",
+    "othersIntro": "이 항목은 노드에서 실행되지 않습니다. 확인하면 하나씩 차례로 시작됩니다. 애드온은 데이터를 백업하고 마이그레이션하는 동안 중지됩니다. 새 버전이 시작되지 않으면 현재 버전이 계속 실행됩니다.",
+    "otherKind": {
+      "addon": "애드온",
+      "library": "라이브러리 백엔드",
+      "gallery": "백엔드"
+    },
+    "otherOrigin": "라이브러리 {{library}}",
+    "otherOriginChannel": "라이브러리 {{library}}, 채널 {{channel}}",
+    "runningNote": "중지하면 아직 시작하지 않은 노드는 시작되지 않습니다."
+  }
+}

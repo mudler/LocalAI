@@ -88,7 +88,7 @@
     "step1": "Trova i nomi dei server IMAP e SMTP del tuo provider nelle sue pagine di aiuto. Entrambi usano TLS o STARTTLS.",
     "step2": "Se il provider lo permette, crea una password per le app per LocalAI e usala come password. Una password normale spesso non funziona con IMAP.",
     "step3": "Inserisci l'indirizzo, il nome utente, la password e i due server, poi salva. Il salvataggio accede a entrambi i server.",
-    "step4": "Scegli se l'agente può anche inviare email e salvare bozze. Ogni invio e ogni bozza attende la tua conferma, in entrambe le modalità.",
+    "step4": "Scegli se l'agente può anche inviare email e salvare bozze, e se ti chiede prima. Con Consenti tutto agisce senza chiedere, e un'email inviata non si può ritirare.",
     "private": "I server di posta devono essere su internet pubblico: gli indirizzi dentro una rete privata vengono rifiutati."
   },
   "writeMode": {
@@ -98,16 +98,20 @@
     "propose": "Ti chiede prima",
     "line": {
       "off": "Può solo leggere.",
-      "propose": "Ogni invio e ogni bozza attende il tuo OK."
+      "propose": "Ogni invio e ogni bozza attende il tuo OK.",
+      "auto": "Le tue chat inviano e salvano subito."
     },
     "note": {
       "off": "L'accesso in scrittura è disattivato: questa connessione legge soltanto.",
-      "propose": "Ogni invio e ogni bozza attende nelle tue approvazioni finché non la confermi. Un'email inviata non si può ritirare, e tutti in A e Cc la leggeranno."
+      "propose": "Ogni invio e ogni bozza attende nelle tue approvazioni finché non la confermi. Un'email inviata non si può ritirare, e tutti in A e Cc la leggeranno.",
+      "auto": "Una tua chat invia e salva la posta subito, senza chiedere. Un'email inviata non si può ritirare, e tutti in A e Cc la leggeranno. Le esecuzioni senza di te presente aspettano comunque la tua conferma."
     },
     "row": {
       "off": "Sola lettura",
-      "propose": "Ti chiede prima"
-    }
+      "propose": "Ti chiede prima",
+      "auto": "Consenti tutto"
+    },
+    "auto": "Consenti tutto"
   },
   "approval": {
     "action": {

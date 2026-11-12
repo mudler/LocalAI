@@ -147,6 +147,8 @@
     "disabled": "deaktiviert",
     "pinned": "angeheftet",
     "useTyped": "\"{{name}}\" verwenden",
+    "chooseModel": "Wähle ein Modell",
+    "defaultMissing": "Dein Standardmodell {{model}} ist nicht installiert. Wähle ein Modell.",
     "empty": "Keine Modelle verfügbar",
     "add": "Modell hinzufügen",
     "remove": "{{name}} entfernen",

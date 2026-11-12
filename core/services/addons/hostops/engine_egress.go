@@ -30,6 +30,10 @@ const MaxEgressEvents = 500
 type EgressCall struct {
 	Actor                   contract.Actor
 	ResourceID, OperationID string
+	// Unattended is set for a connection of a background job while no turn
+	// of the chat runs: a host that needs the person's yes is blocked, since
+	// nobody is there to answer a card.
+	Unattended bool
 }
 
 // EgressCheck are the arguments of egress.check.
@@ -106,7 +110,7 @@ func egressCall(c Call) (EgressCall, error) {
 	if c.ResourceID == "" {
 		return EgressCall{}, fmt.Errorf("%w: the live request has no chat", ErrBadRequest)
 	}
-	return EgressCall{Actor: c.Actor, ResourceID: c.ResourceID, OperationID: c.OperationID}, nil
+	return EgressCall{Actor: c.Actor, ResourceID: c.ResourceID, OperationID: c.OperationID, Unattended: c.Lease}, nil
 }
 
 func validKind(k string) bool { return k == "connect" || k == "http" }

@@ -16,8 +16,11 @@ import (
 // add-on right now. A host operation is allowed only while its operation ID
 // is in here, so an add-on cannot act when no user asked it to.
 type InFlight struct {
-	mu           sync.Mutex
-	entries      map[string]*live
+	mu      sync.Mutex
+	entries map[string]*live
+	// reserved counts, per add-on, the places of the leases that starts
+	// in flight may make (ReserveLease).
+	reserved     map[string]int
 	observations map[string]*observation
 }
 
@@ -33,10 +36,28 @@ type live struct {
 	// bindings. Neither chat can be trusted, so the entry is not live.
 	mixed bool
 	n     int
+	// lease keeps the entry live after its request ended, for the background
+	// job the request started (see Lease). Nil for an ordinary request.
+	lease *jobLease
 }
 
+// jobLease is the job a leased entry stands for and when the lease ends.
+type jobLease struct {
+	job   string
+	until time.Time
+}
+
+// MaxLeasesPerAddon bounds the job leases of one add-on: twice the jobs one
+// add-on process may run, so a lease that waits for its end report never
+// blocks a new job, and a misbehaving add-on cannot grow the table.
+const MaxLeasesPerAddon = 64
+
+// LeaseOps are the host operations a job lease allows: the job's final
+// checkpoint and its network checks. Anything else needs a request that runs.
+var LeaseOps = map[string]bool{"workspace.commit": true, "workspace.changes": true, "egress.check": true, "egress.audit": true}
+
 func NewInFlight() *InFlight {
-	return &InFlight{entries: map[string]*live{}, observations: map[string]*observation{}}
+	return &InFlight{entries: map[string]*live{}, observations: map[string]*observation{}, reserved: map[string]int{}}
 }
 
 func key(addonID, operationID string) string { return addonID + "/" + operationID }
@@ -72,7 +93,7 @@ func (f *InFlight) begin(env contract.Envelope, b Binding, bound bool, incarnati
 			f.mu.Lock()
 			defer f.mu.Unlock()
 			if e := f.entries[k]; e != nil {
-				if e.n--; e.n <= 0 {
+				if e.n--; e.n <= 0 && e.lease == nil {
 					delete(f.entries, k)
 				}
 			}
@@ -91,13 +112,160 @@ func (f *InFlight) Lookup(addonID, operationID string) (contract.Envelope, bool)
 // for (the zero Binding for a request no chat made). An expired authority, or
 // an operation ID that requests of different chats share, is not live.
 func (f *InFlight) LookupBound(addonID, operationID string) (contract.Envelope, Binding, bool) {
+	env, b, _, ok := f.LookupLive(addonID, operationID)
+	return env, b, ok
+}
+
+// LookupLive is LookupBound that also says whether only a job lease keeps the
+// entry live: the request that started the job has ended, so nobody waits on
+// a turn of the chat. A lease past its end is not live.
+func (f *InFlight) LookupLive(addonID, operationID string) (env contract.Envelope, b Binding, leased, ok bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	e := f.entries[key(addonID, operationID)]
-	if e == nil || e.mixed || !e.env.Authority.ExpiresAt.After(time.Now()) {
-		return contract.Envelope{}, Binding{}, false
+	if e == nil || e.mixed {
+		return contract.Envelope{}, Binding{}, false, false
 	}
-	return e.env, e.binding, true
+	now := time.Now()
+	if e.n > 0 {
+		if !e.env.Authority.ExpiresAt.After(now) {
+			return contract.Envelope{}, Binding{}, false, false
+		}
+		return e.env, e.binding, false, true
+	}
+	if e.lease == nil || !e.lease.until.After(now) {
+		return contract.Envelope{}, Binding{}, false, false
+	}
+	return e.env, e.binding, true, true
+}
+
+// Lease keeps the entry of a request that runs now live after the request
+// ends, until the job it started is reported ended (EndLease), until until,
+// or until the runtime incarnation goes away (ForgetRuntime). Only a request
+// that runs can be leased, by its own incarnation, once: an add-on cannot
+// make a lease for a request the host did not send. A lease holds the same
+// actor, scope, resource and chat as the request, and allows only LeaseOps.
+func (f *InFlight) Lease(addonID, operationID, incarnation, job string, until time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.leaseLocked(addonID, operationID, incarnation, job, until, false)
+}
+
+// ErrLeasesFull says the add-on holds as many job leases as it may.
+var ErrLeasesFull = errors.New("too many job leases")
+
+// liveLeasesLocked drops the expired leases nobody ended and counts the live
+// ones of the add-on.
+func (f *InFlight) liveLeasesLocked(addonID string, now time.Time) int {
+	n := 0
+	for k, e := range f.entries {
+		if e.lease == nil {
+			continue
+		}
+		if e.n <= 0 && !e.lease.until.After(now) {
+			delete(f.entries, k) // an expired lease nobody ended
+			continue
+		}
+		if e.env.Request.AddonID == addonID {
+			n++
+		}
+	}
+	return n
+}
+
+func (f *InFlight) leaseLocked(addonID, operationID, incarnation, job string, until time.Time, slot bool) error {
+	now := time.Now()
+	n := f.liveLeasesLocked(addonID, now) + f.reserved[addonID]
+	e := f.entries[key(addonID, operationID)]
+	switch {
+	case e == nil || e.n <= 0 || e.mixed || e.observation != nil:
+		return errors.New("no request runs under this operation")
+	case e.incarnation != incarnation:
+		return errors.New("another incarnation")
+	case e.lease != nil:
+		return errors.New("the request already holds a lease")
+	case job == "" || !until.After(now):
+		return errors.New("a lease needs a job and an end")
+	case !slot && n >= MaxLeasesPerAddon:
+		return ErrLeasesFull
+	}
+	e.lease = &jobLease{job: job, until: until}
+	return nil
+}
+
+// LeaseSlot is the place of a job lease, taken before the start of a job is
+// sent: the add-on starts no job whose lease the host would refuse. Exactly
+// one of Lease and Release frees the place; later calls do nothing.
+type LeaseSlot struct {
+	f     *InFlight
+	addon string
+	used  bool
+}
+
+// ReserveLease takes the place of the lease of a job that a start call may
+// make. With every place of the add-on taken or reserved it is ErrLeasesFull,
+// and the start must not be sent.
+func (f *InFlight) ReserveLease(addonID string) (*LeaseSlot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.liveLeasesLocked(addonID, time.Now())+f.reserved[addonID] >= MaxLeasesPerAddon {
+		return nil, ErrLeasesFull
+	}
+	f.reserved[addonID]++
+	return &LeaseSlot{f: f, addon: addonID}, nil
+}
+
+// Lease is InFlight.Lease within the reserved place.
+func (s *LeaseSlot) Lease(operationID, incarnation, job string, until time.Time) error {
+	s.f.mu.Lock()
+	defer s.f.mu.Unlock()
+	if s.used {
+		return errors.New("the place of the lease was given back")
+	}
+	s.used = true
+	s.f.reserved[s.addon]--
+	return s.f.leaseLocked(s.addon, operationID, incarnation, job, until, true)
+}
+
+// Release gives the place back: the start was refused or made no job.
+func (s *LeaseSlot) Release() {
+	if s == nil {
+		return
+	}
+	s.f.mu.Lock()
+	defer s.f.mu.Unlock()
+	if !s.used {
+		s.used = true
+		s.f.reserved[s.addon]--
+	}
+}
+
+// EndLease ends the lease of a job of an add-on incarnation. It is safe to
+// call for a job without a lease.
+func (f *InFlight) EndLease(addonID, incarnation, job string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for k, e := range f.entries {
+		if e.lease != nil && e.lease.job == job && e.env.Request.AddonID == addonID && e.incarnation == incarnation {
+			e.lease = nil
+			if e.n <= 0 {
+				delete(f.entries, k)
+			}
+		}
+	}
+}
+
+// Leases is the number of live job leases of an add-on.
+func (f *InFlight) Leases(addonID string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n, now := 0, time.Now()
+	for _, e := range f.entries {
+		if e.lease != nil && e.env.Request.AddonID == addonID && (e.n > 0 || e.lease.until.After(now)) {
+			n++
+		}
+	}
+	return n
 }
 
 // observation is host-private, never decoded from an addon message.

@@ -24,9 +24,13 @@ function withQuery(href, query) {
 export function groupConnectors(kinds, items) {
   const groups = (kinds || []).map((k) => ({
     key: `${k.addon}/${k.kind}`, addon: k.addon, kind: k.kind, title: k.title, description: k.description || '',
+    // A kind whose add-on logs in with OAuth and needs no agent: the page
+    // itself adds its connections, which the person then connects.
+    addsLogin: k.auth_kind === 'oauth2' && !!k.agent_optional,
     href: kindPageHref(k),
     // The page of the kind opened on its add sheet.
-    newHref: k.page ? withQuery(kindPageHref(k), 'new=1') : '',
+    // A kind that logs in has no add sheet: the connections are added on this page.
+    newHref: k.page && !(k.auth_kind === 'oauth2' && k.agent_optional) ? withQuery(kindPageHref(k), 'new=1') : '',
     items: [],
   }))
   const waiting = []
@@ -94,12 +98,16 @@ export function bindingsOfAgent(agentId, kinds, items) {
 }
 
 // The state of a binding in a list row: 'attention' when the host says its
-// add-on does not run, no token is saved, or it answers the same bot as another
+// add-on does not run, no token is saved (or the login of a connection that
+// logs in is not working), or it answers the same bot as another
 // connection; 'off' when the owner switched it off; else 'running'. A switched
 // off binding is off, except that one whose add-on does not run still says so.
 export function rowState(c) {
   if (c.active === false) return 'attention'
   if (c.enabled === false) return 'off'
+  // A connection that logs in has no token: it needs attention until its
+  // login works.
+  if (c.auth_kind === 'oauth2') return c.oauth?.state === 'connected' ? 'running' : 'attention'
   if (c.has_token === false || duplicateOf(c)) return 'attention'
   return 'running'
 }

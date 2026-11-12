@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
@@ -222,6 +223,16 @@ func (f *fakeClient) InstallBackend(_ context.Context, req InstallBackendRequest
 func (f *fakeClient) ListBackendLibraryUpdates(_ context.Context) ([]BackendLibraryUpdate, error) {
 	f.record("ListBackendLibraryUpdates", nil)
 	return []BackendLibraryUpdate{}, nil
+}
+
+func (f *fakeClient) BackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	f.record("BackendUpdates", nil)
+	return &backendupdates.Snapshot{Items: []backendupdates.Item{}}, nil
+}
+
+func (f *fakeClient) CheckBackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	f.record("CheckBackendUpdates", nil)
+	return &backendupdates.Snapshot{Items: []backendupdates.Item{}}, nil
 }
 
 func (f *fakeClient) InstallLibraryBackend(_ context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error) {

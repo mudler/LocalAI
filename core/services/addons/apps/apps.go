@@ -14,8 +14,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/xslices"
 )
 
 // Snapshot is one addon as the owner knows it. It is input to Build and never
@@ -207,6 +209,13 @@ type App struct {
 	// work with a secret that the person keeps in a connector binding. A
 	// connector chat holds its write tools to contract.ToolPermission.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OAuth is present when the credential slot is of kind oauth2: the host
+	// logs the person in to the service. It names the scopes, so the person
+	// can choose the optional ones when they connect, and tells the
+	// administrator's Settings tab to draw the form that approves the login.
+	// The addresses of the login are not here: an administrator reads them
+	// with the OAuth client.
+	OAuth *OAuthView `json:"oauth,omitempty"`
 	// OwnerData is true when the manifest says the tools keep the owner's own
 	// data (capabilities.ownerData). Its writes need tools.write in a
 	// connector chat, like the writes of a credentialed add-on.
@@ -238,6 +247,10 @@ type App struct {
 	// UserSettings are the per-person choices the add-on declares, from the
 	// verified manifest. The host keeps the answers; the add-on is not called.
 	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
+	// JobsTool is the tool that runs the background jobs of the add-on's
+	// commands (capabilities.executionProvider.jobs), or empty: the add-on
+	// cannot run them. Not part of the apps API.
+	JobsTool string `json:"-"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
@@ -246,6 +259,13 @@ type App struct {
 	Network *NetworkView `json:"network,omitempty"`
 	// Admin is present only for administrators.
 	Admin *AdminView `json:"admin,omitempty"`
+}
+
+// OAuthView is the OAuth login of an add-on as a person sees it: the scopes
+// the host always asks for and the ones the person may add.
+type OAuthView struct {
+	RequiredScopes []string `json:"requiredScopes" example:"read"`
+	OptionalScopes []string `json:"optionalScopes" example:"write"`
 }
 
 // NetworkView is the network of the commands an add-on runs, as the host
@@ -293,7 +313,7 @@ type UIView struct {
 	// Controls are the host controls the host draws for the addon: the ones
 	// its manifest declares that its grants and tools entitle it to now. The
 	// host draws them with its own components; the addon supplies nothing.
-	Controls []string `json:"controls,omitempty" enums:"network-policy,tool-providers" example:"network-policy"`
+	Controls []string `json:"controls,omitempty" enums:"network-policy,tool-providers,sandbox-profiles" example:"network-policy"`
 }
 
 // HomeCommandView is a navigation declaration resolved against this installed
@@ -346,6 +366,12 @@ type AdminView struct {
 	CanStop        bool                    `json:"canStop"`
 	// ManagementURL opens the management view of the addon.
 	ManagementURL string `json:"managementUrl" example:"/app/addons?manage=notes"`
+	// SourceID is the library the package came from, and Official is true
+	// when that is the official library and the signature was checked. An
+	// administrator who approves something for the add-on, such as its OAuth
+	// login, is warned when it is not.
+	SourceID string `json:"sourceId,omitempty" example:"official"`
+	Official bool   `json:"official"`
 }
 
 // Build returns the apps a caller may see, sorted by identifier. An uninstalled
@@ -373,6 +399,9 @@ func build(s Snapshot, admin bool) App {
 	a.ToolCount = len(m.Capabilities.Tools)
 	a.Tools = append(a.Tools, m.Capabilities.Tools[:min(a.ToolCount, MaxTools)]...)
 	a.Shadows = contract.ShadowedTools(m.Capabilities.ToolDefinitions)
+	if p := m.Capabilities.ExecutionProvider; p != nil && p.Jobs != nil {
+		a.JobsTool = p.Jobs.Tool
+	}
 	for _, d := range m.Capabilities.ToolDefinitions {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
@@ -380,7 +409,11 @@ func build(s Snapshot, admin bool) App {
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
 	a.OwnerData = m.Capabilities.OwnerData
 	if a.Credentialed {
-		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
+		slot := m.Capabilities.Credentials[0]
+		a.ResourceArgument, a.ResourceLabel = slot.ResourceArgument, slot.ResourceLabel
+		if slot.Kind == contract.CredentialKindOAuth2 && slot.OAuth != nil {
+			a.OAuth = &OAuthView{RequiredScopes: slices.Clone(xslices.NonNil(slot.OAuth.Scopes.Required)), OptionalScopes: slices.Clone(xslices.NonNil(slot.OAuth.Scopes.Optional))}
+		}
 	}
 	a.Resources = resourceTools(m)
 	a.ResourceTexts = resourceTexts(m)
@@ -428,7 +461,8 @@ func build(s Snapshot, admin bool) App {
 		a.Operation = &op
 	}
 	if admin {
-		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
+		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id),
+			SourceID: s.Receipt.SourceID, Official: catalog.IsOfficialPackage(s.Receipt.SourceID, s.Receipt.SourceURL, s.Receipt.Verification)}
 	}
 	return a
 }

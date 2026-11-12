@@ -5,13 +5,14 @@ import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWa
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
 import { savedFailure } from '../utils/chatFailure'
+import { emitSound } from '../utils/soundBus'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused', 'loops', 'cleared', 'goal', 'resync',
+  'paused', 'loops', 'cleared', 'goal', 'dock', 'resync',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -188,6 +189,8 @@ export function useServerChat({ seed = null } = {}) {
     const source = new EventSource(resumeUrl(chatsApi.eventsUrl(id), lastEventRef.current, id))
     sourceRef.current = source
 
+    // A turn that failed says so once: the error, not the end of the turn, sounds.
+    let turnFailed = false
     const on = {
       turn_start: () => {
         epochRef.current++
@@ -235,6 +238,9 @@ export function useServerChat({ seed = null } = {}) {
       // The goal changed, here or in another tab: the chat carries it and the
       // transcript its line.
       goal: () => refreshChat(id),
+      // The dock changed: a page was docked here, in another tab or by the
+      // assistant. The chat's detail carries it.
+      dock: () => refreshDetail(id),
       // The loops of the chat changed (in this tab, another one, or a run).
       loops: () => refreshDetail(id),
       sub_agent_started: () => setTicks(t => ({ ...t, subAgents: t.subAgents + 1 })),
@@ -248,7 +254,7 @@ export function useServerChat({ seed = null } = {}) {
         setUsage(e.usage)
         setUsageHistory(h => pushUsage(h, e.usage))
       },
-      trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
+      trigger_proposed: () => { setTicks(t => ({ ...t, proposals: t.proposals + 1 })); emitSound('approval') },
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
       // The network of the chat's isolated commands changed: a card asked or
       // was answered, or the preset or a rule changed. The network panel and
@@ -256,15 +262,21 @@ export function useServerChat({ seed = null } = {}) {
       egress_consent: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       egress_card: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       // A command of the built-in bash waits for a yes (chats_host_exec ask).
-      host_exec_consent: (e) => { if (e.ids?.[0]) setLive(l => consentAsk(l, id, e.ids[0], e.text)) },
+      host_exec_consent: (e) => { if (e.ids?.[0]) { setLive(l => consentAsk(l, id, e.ids[0], e.text)); emitSound('approval') } },
       error: (e) => {
         if (!e.text) return
         setError(e.text)
         // Only the error that ended the turn has a code.
-        if (e.code) setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+        if (e.code) {
+          setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+          turnFailed = true
+          emitSound('error')
+        }
       },
       turn_end: async () => {
         notifyTurnEnd()
+        if (!turnFailed) emitSound('replyDone')
+        turnFailed = false
         // The server publishes the end of a turn just before it records it, so
         // a read at once can still say running. Read again, a few times, until
         // the record agrees, unless a new turn started meanwhile.
@@ -423,6 +435,7 @@ export function useServerChat({ seed = null } = {}) {
   const setLoopState = useCallback((id, loopId, state) => act(id, () => chatLoopsApi.setState(id, loopId, state)), [act])
   const stopLoop = useCallback((id, loopId) => act(id, () => chatLoopsApi.stop(id, loopId)), [act])
   const stopLoops = useCallback((id) => act(id, () => chatLoopsApi.stopAll(id)), [act])
+  const stopJob = useCallback((id, jobId) => act(id, () => chatLoopsApi.stopJob(id, jobId)), [act])
 
   // A title or a model answers 409 while a turn runs; settings apply from the
   // next turn. The caller gets the error to show where the change was made.
@@ -516,10 +529,12 @@ export function useServerChat({ seed = null } = {}) {
     goal: detail?.goal || null,
     // The loops of the chat, oldest first (pending, active, paused or ended).
     loops: detail?.loops || [],
+    // The background jobs of the chat and of its sub-agents.
+    jobs: detail?.jobs || [],
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
-    hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
-    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
+    hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '', job: !!detail.host_consent.job } : null,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, stopJob, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),
   }

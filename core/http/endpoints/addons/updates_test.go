@@ -269,6 +269,23 @@ var _ = Describe("update routes", Label("updates"), func() {
 		replay := send(s.frontends["front-b"], "POST", path, upgradeBody("up-1", before, next.Digest), alice("up-1"))
 		Expect(replay.code).To(Equal(200))
 		Expect(replay.body["payload"]).To(Equal(terminal))
+		// A later session of the same administrator reads the operation that an
+		// earlier session started, through every frontend.
+		laterCookie, err := auth.CreateSession(s.db, "alice", "secret")
+		Expect(err).NotTo(HaveOccurred())
+		s.each(func(name string, e http.Handler) {
+			later := send(e, "POST", "/api/addons/dispatch", dispatchBody("up-1", "notes", "operation-status", 0, `{}`), humanTab(laterCookie, "poll"))
+			Expect(later.code).To(Equal(200), name+fmt.Sprint(later.body))
+			Expect(payloadOf(later)).To(HaveKeyWithValue("Phase", "completed"), name)
+			// An unknown operation has its own typed answer, not a refusal.
+			missing := send(e, "POST", "/api/addons/dispatch", dispatchBody("never-started", "notes", "operation-status", 0, `{}`), humanTab(laterCookie, "poll"))
+			Expect(missing.code).To(Equal(404), name)
+			Expect(missing.errType()).To(Equal("operation_not_found"), name)
+			// A caller who is not an administrator is still refused as before.
+			refused := send(e, "POST", "/api/addons/dispatch", dispatchBody("up-1", "notes", "operation-status", 0, `{}`), humanTab(s.cookies["carol"], "poll"))
+			Expect(refused.code).To(Equal(403), name)
+			Expect(refused.errType()).NotTo(Equal("operation_not_found"), name)
+		})
 		// Another operation ID for the same transition is a conflict.
 		other := send(s.frontends["owner"], "POST", path, upgradeBody("up-2", before, next.Digest), alice("up-2"))
 		Expect(other.code).To(Equal(409))

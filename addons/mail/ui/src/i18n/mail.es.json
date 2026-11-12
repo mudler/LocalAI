@@ -88,7 +88,7 @@
     "step1": "Busca los nombres de los servidores IMAP y SMTP de tu proveedor en sus páginas de ayuda. Ambos usan TLS o STARTTLS.",
     "step2": "Si el proveedor lo permite, crea una contraseña de aplicación para LocalAI y úsala como contraseña. Una contraseña normal a menudo no funciona con IMAP.",
     "step3": "Introduce la dirección, el usuario, la contraseña y los dos servidores, y guarda. Al guardar se inicia sesión en ambos servidores.",
-    "step4": "Elige si el agente también puede enviar correos y guardar borradores. Cada envío y cada borrador espera tu confirmación, en cualquiera de los dos modos.",
+    "step4": "Elige si el agente también puede enviar correos y guardar borradores, y si te pregunta primero. Con Permitir todo actúa sin preguntar, y un correo enviado no se puede retirar.",
     "private": "Los servidores de correo deben estar en internet público: se rechazan las direcciones dentro de una red privada."
   },
   "writeMode": {
@@ -98,16 +98,20 @@
     "propose": "Te pregunta primero",
     "line": {
       "off": "Solo puede leer.",
-      "propose": "Cada envío y cada borrador espera tu visto bueno."
+      "propose": "Cada envío y cada borrador espera tu visto bueno.",
+      "auto": "Tus chats envían y guardan al instante."
     },
     "note": {
       "off": "El acceso de escritura está desactivado: esta conexión solo lee.",
-      "propose": "Cada envío y cada borrador espera en tus aprobaciones hasta que lo confirmes. Un correo enviado no se puede retirar, y todos los de Para y Cc lo leerán."
+      "propose": "Cada envío y cada borrador espera en tus aprobaciones hasta que lo confirmes. Un correo enviado no se puede retirar, y todos los de Para y Cc lo leerán.",
+      "auto": "Un chat tuyo envía y guarda correos al instante, sin preguntar. Un correo enviado no se puede retirar, y todos los de Para y Cc lo leerán. Las ejecuciones sin ti presente siguen esperando tu confirmación."
     },
     "row": {
       "off": "Solo lectura",
-      "propose": "Te pregunta primero"
-    }
+      "propose": "Te pregunta primero",
+      "auto": "Permitir todo"
+    },
+    "auto": "Permitir todo"
   },
   "approval": {
     "action": {

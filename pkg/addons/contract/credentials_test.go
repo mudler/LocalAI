@@ -249,6 +249,36 @@ var _ = Describe("The credential slot of an add-on", func() {
 		})
 	})
 
+	Describe("the granted scopes of a request", func() {
+		now := time.Date(2029, 1, 1, 0, 0, 0, 0, time.UTC)
+		It("carry the scopes the host holds and round-trip", func() {
+			v := envelope()
+			v.Request.GrantedScopes = []string{"read", "https://api.example.test/auth/write"}
+			Expect(v.Validate(now, DefaultLimits())).To(Succeed())
+			b, err := json.Marshal(v)
+			Expect(err).NotTo(HaveOccurred())
+			var back Envelope
+			Expect(json.Unmarshal(b, &back)).To(Succeed())
+			Expect(back.Request.GrantedScopes).To(Equal(v.Request.GrantedScopes))
+		})
+		It("are omitted when empty", func() {
+			b, err := json.Marshal(envelope().Request)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(b)).NotTo(ContainSubstring("grantedScopes"))
+		})
+		It("are bounded in count, size and shape", func() {
+			many := make([]string, MaxGrantedScopes+1)
+			for i := range many {
+				many[i] = fmt.Sprintf("s%d", i)
+			}
+			for _, list := range [][]string{many, {strings.Repeat("a", MaxOAuthScopeBytes+1)}, {""}, {"a b"}, {"a", "a"}} {
+				v := envelope()
+				v.Request.GrantedScopes = list
+				Expect(v.Validate(now, DefaultLimits())).NotTo(Succeed())
+			}
+		})
+	})
+
 	Describe("ErrRateLimited", func() {
 		It("is found through wrapping and keeps its wait in bounds", func() {
 			err := fmt.Errorf("call: %w", &ErrRateLimited{RetryAfter: 42})

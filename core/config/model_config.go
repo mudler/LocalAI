@@ -96,6 +96,13 @@ type ModelConfig struct {
 	// top-level fields so existing aliases keep behaving as pure redirects.
 	Profile ProfileConfig `yaml:"profile,omitempty" json:"profile,omitempty"`
 
+	// VisionAlias is only valid on an alias. When a request to the alias
+	// carries image input and the alias target cannot accept images, the
+	// request is served by this model instead, with the same profile overlay.
+	// It lets a text-only model back an alias without failing image requests.
+	// The model must exist and must not be an alias.
+	VisionAlias string `yaml:"vision_alias,omitempty" json:"vision_alias,omitempty"`
+
 	// Failover makes this config a failover chain over other models. Like an
 	// alias it has no backend of its own.
 	Failover *FailoverConfig `yaml:"failover,omitempty" json:"failover,omitempty"`
@@ -2441,6 +2448,9 @@ func (c *ModelConfig) validateProfileFields() error {
 		default:
 			return fmt.Errorf("%s: unknown value %q (allowed: %q)", key, value, ClientToolsDrop)
 		}
+	}
+	if c.VisionAlias != "" && !c.IsAlias() {
+		return fmt.Errorf("vision_alias is only valid on an alias config (model %q has no alias)", c.Name)
 	}
 	if c.Profile.IsZero() {
 		return nil

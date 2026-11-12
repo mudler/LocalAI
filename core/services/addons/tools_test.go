@@ -77,6 +77,7 @@ var capabilitiesNotDeclared = map[string]string{
 	"UI":        "the page entry and assets are served from the package receipt, not through the gateway",
 	"Connector": "the connector kinds are read from the manifest by ConnectorKinds, and no gateway call depends on them",
 	"Network":   "the apps list reads the declared network from the receipt's manifest, and no gateway call depends on it",
+	"Client":    "the client routes are read from the running incarnation by the client proxy, and no gateway call depends on them",
 }
 
 // fillNonZero sets every field of v, recursively, to a value that differs from

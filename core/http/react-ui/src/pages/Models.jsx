@@ -34,6 +34,7 @@ import { formatBytes } from '../utils/format'
 import { groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
+import { addFlag, removeFlag, FALLBACK_MS } from '../utils/installFlags'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, PageHeader } from '../components/ui'
@@ -510,11 +511,36 @@ export default function Models() {
     })
   }, [])
 
+  // Fallback timers, one per model: if no operation ever shows up for a
+  // request, the local flag still ends after FALLBACK_MS. Not keyed on
+  // `operations`, which may not change at all in that case.
+  const installTimers = useRef(new Map())
+  const installingRef = useRef(installing)
+  installingRef.current = installing
+  useEffect(() => {
+    const timers = installTimers.current
+    return () => { timers.forEach(clearTimeout); timers.clear() }
+  }, [])
+
   const handleInstall = async (modelId, variant) => {
+    // A second click while the first is pending would send a second request.
+    if (installingRef.current.has(modelId)) return
+    const stamp = Date.now()
+    const next = addFlag(installingRef.current, modelId, stamp)
+    installingRef.current = next
+    setInstalling(next)
+    const timer = setTimeout(() => {
+      installTimers.current.delete(modelId)
+      setInstalling(prev => removeFlag(prev, modelId, stamp))
+    }, FALLBACK_MS)
+    installTimers.current.set(modelId, timer)
     try {
-      setInstalling(prev => new Map(prev).set(modelId, Date.now()))
       await modelsApi.install(modelId, variant)
     } catch (err) {
+      clearTimeout(timer)
+      installTimers.current.delete(modelId)
+      installingRef.current = removeFlag(installingRef.current, modelId, stamp)
+      setInstalling(prev => removeFlag(prev, modelId, stamp))
       addToast(t('errors.installFailed', { message: err.message }), 'error')
     }
   }

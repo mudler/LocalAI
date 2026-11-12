@@ -389,7 +389,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 // Receipt answers from the journal. An operation without a receipt is
 // unknown: the add-on cannot tell whether the server got it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -402,7 +402,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
 	w, c, err := r.prepare(ctx, env)
@@ -416,7 +416,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The target changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
 	out, err := c.send(w, t)
 	switch {
@@ -431,7 +431,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		return contract.Receipt{}, err
 	}
 	rc := contract.Receipt{OperationID: op, State: contract.ReceiptCommitted, Revision: rev, Result: contract.Result{Payload: smallResult(out)}}
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 // smallResult wraps what the receipt echoes: ids and plain words, no text of

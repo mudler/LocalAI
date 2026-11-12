@@ -88,6 +88,7 @@ The user authentication system provides:
 - **Session-based authentication** with secure cookies
 - **OAuth login** (GitHub) and **OIDC single sign-on** (Keycloak, Google, Okta, Authentik, etc.)
 - **Per-user API keys** for programmatic access
+- **Client keys** for paired clients: a one-time pairing code gives a client a key that reaches only the routes of its feature list. A key can use the standard inference API for a list of models that the owner chose (`client_inference`), call the add-ons that the owner chose (`client_addons`), or both. See [Paired clients: inference and add-ons]({{%relref "features/addon-clients" %}})
 - **Admin route gating** - management endpoints are restricted to admins
 - **Per-user usage tracking** with token consumption metrics
 
@@ -323,6 +324,8 @@ When auth is enabled, the React UI sidebar dynamically shows/hides sections base
 - **Admins also see**: Models, the Build console (Training, Recognition and the other tools that need an administrator), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
+
+On Home, the memory line with the list of loaded models is shown to admins only, because it reads the admin endpoints `GET /system` and `GET /api/resources`. Other users do not see the line, rather than a "No models loaded" that may not be true.
 
 In Chat, a non-admin user holding the `mcp` feature can select the MCP servers of a model whose configuration declares them (**MCP → Servers**, plus that model's MCP prompts and resources). Users without the `mcp` feature only see client-side MCP. The model information panel and the automatic context size stay admin-only, because they read the full model configuration.
 

@@ -4,14 +4,34 @@ import HomeResume from '../home/HomeResume'
 // eslint-disable-next-line no-unused-vars
 import NoModelCard from './NoModelCard'
 import Icon from '../Icon'
+// eslint-disable-next-line no-unused-vars
+import { AssistantAvatar } from '../wellknown/Identity'
 
-// The top of an empty chat: one line that says what the page is for.
-export function EmptyHead({ name, manage }) {
+// The top of an empty chat: one line that says what the page is for. With
+// an identity (persona.json) it shows the assistant's picture, its own
+// headline and subtitle, and its greeting as the first line of the chat; the
+// greeting is shown only, never sent to the model. fallbackTitle is the
+// override of ui.json strings, used when the identity has no headline.
+export function EmptyHead({ name, manage, identity, fallbackTitle }) {
   const { t } = useTranslation('chat')
+  const id = manage ? null : identity
+  const pictured = !!(id && (id.avatar || id.name))
+  const title = manage ? t('empty.manageTitle') : (id?.emptyTitle || fallbackTitle || t('empty.title'))
   return (
-    <div className="cx-empty" data-testid="chat-empty">
-      <h1>{manage ? t('empty.manageTitle') : t('empty.title')}</h1>
+    <div className={`cx-empty${pictured ? ' cx-empty--identity' : ''}`} data-testid="chat-empty">
+      {pictured && <AssistantAvatar avatar={id.avatar} name={id.name} size="lg" testId="chat-empty-avatar" />}
+      <h1 data-testid="chat-empty-title">{title}</h1>
       <span className="cx-empty__name">{name}</span>
+      {id?.emptySubtitle && <p className="cx-empty__sub" data-testid="chat-empty-subtitle">{id.emptySubtitle}</p>}
+      {id?.greeting && (
+        <div className="cx-greeting" data-testid="chat-greeting">
+          <AssistantAvatar avatar={id.avatar} name={id.name} size="xs" />
+          <div>
+            {id.name && <b>{id.name}</b>}
+            <p>{id.greeting}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

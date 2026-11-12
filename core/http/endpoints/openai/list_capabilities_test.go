@@ -123,6 +123,19 @@ var _ = Describe("ListModelCapabilitiesEndpoint", func() {
 		}
 	})
 
+	It("carries the short description of a model, and no path or setting", func() {
+		writeConfig("painter", "name: painter\nbackend: stablediffusion-ggml\nknown_usecases: [image]\ndescription: Fast image model.\nmodel: /private/path/weights.gguf\n")
+		writeConfig("plain", "name: plain\nbackend: stablediffusion-ggml\nknown_usecases: [image]\n")
+		resp := call()
+		Expect(entryFor(resp, "painter").Description).To(Equal("Fast image model."))
+		raw, err := json.Marshal(entryFor(resp, "plain"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring(`"description"`))
+		raw, err = json.Marshal(entryFor(resp, "painter"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("/private/path"))
+	})
+
 	It("returns the list envelope even with no models", func() {
 		resp := call()
 		Expect(resp.Object).To(Equal("list"))

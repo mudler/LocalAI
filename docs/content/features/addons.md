@@ -228,6 +228,57 @@ The current chat binding requires each bound tool to shadow `bash` through
 rule. This declaration neither grants shadow authority nor changes provider
 arbitration or execution authorization.
 
+`jobs` is optional, feature level 6: `{"jobs": {"tool": "job"}}` names the
+tool that runs the background jobs of the host's `job` tool. It is a declared
+`kind: "action"`, `uiOnly: true` tool that shadows nothing, is not an admin tool
+and is neither a bound execution tool nor the status tool. It is the only
+page-only tool that may be an action tool. No model is offered it and no page
+can call it: the host calls it through the act path, with the chat as the
+resource and the person as the actor, and with the arguments and answer below.
+A provider without `jobs` cannot run background jobs. The host then answers
+`job start` with "The add-on here cannot run background jobs: it is
+older than this LocalAI. An administrator can update it." and does not run the
+job anywhere else. A manifest with `jobs` and a lower `featureLevel` is
+refused; an older host refuses the add-on with "needs a newer LocalAI".
+
+The arguments of the jobs tool are `contract.JobArgs`: `verb` (`start`,
+`list`, `read`, `input` or `kill`; the key is `verb` because `action` is a name
+no tool schema may use), `id` (`job-` and six base32 characters), `command` and
+`label` (start; the label is one line of at most 80 characters), `since` (an
+absolute byte offset; omitted, the read goes on where the model's last read
+ended), `maxBytes` (256 to 65536, default 16384), `observe` (a read that does
+not move the model's cursor and carries the last 2000 bytes as `tail`: the
+check of a wait), `input` (at most 2000 bytes) and `closeInput`, and for a kill
+`signal` (`term`, the default, `int` or `kill`) and `reason`. `reason` is why
+the host ends the job: `stopped` (the person's Stop), `chat_deleted`,
+`agent_ended`, `shell_off`, `group_off` or `fenced`. The add-on records it as
+the job's `end` (`stopped` with the state `killed`, the others `exited`);
+without it the end is `killed`. The host's `execution` call options are
+added as for `bash`. The answer is `contract.JobReply`: `ok`, `job` or `jobs`
+(`id`, `label`, `state`, `end`, `exit`, `started`, `ended`, `lastOutput`,
+`total`, `idleMs`; never the command), and for a read `output`, `from` and
+`next`. A refusal is `ok: false` with `code` (`unknown`, `ended`, `limit`,
+`busy`, `invalid`, `failed`) and an `error` the model reads. The host checks
+every answer against its arguments (sizes, offsets, states, job IDs) and shows
+nothing of one that fails, and a job of another person or chat is `unknown`.
+
+While the add-on reports a started job as running, the owner keeps the
+start's request live as a **job lease**, so the job's final checkpoint
+(`workspace.commit`, `workspace.changes`) and its network checks (`egress.check`,
+`egress.audit`) still find a live request after the call returned. The lease
+has the actor, scope, resource and chat of the start. It ends when an answer of
+the jobs tool reports the job finished, two hours and five minutes after the
+start, or when the add-on process stops. A kill does not end the lease: the
+job's final checkpoint runs after the kill. The host asks the jobs tool every
+30 seconds while a chat it follows has a running job, so a finished job's lease
+ends soon after the job. Under a lease the channel allows only those four
+operations, and an add-on holds at most 64 leases. The owner takes the place
+of a lease before it sends a start; with every place taken or held by a start
+in flight, it does not send the start and answers it as a refusal with the code
+`limit`. The in-flight
+table, and so the lease, lives in the owner process, where every act of a
+frontend is forwarded.
+
 `statusTool` is a separately declared `kind: "read"`, `uiOnly: true` tool,
 not an execution binding or admin tool. Its input schema is an object accepting
 `{}`, with no required inputs, no resource, and `additionalProperties: false`.
@@ -429,7 +480,7 @@ The generic binary selects no policy automatically.
 | Web | None | `workspace.admin` |
 | Home Assistant | None | `workspace.admin` |
 | PiKVM | None | `workspace.admin` |
-| Face, Slack, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
+| Face, Slack, SSH, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
 
 Fine-tuning and Quantization include operation names passed through mutation and undo wrappers.
 They do not request the host's unused progress operations.
@@ -548,6 +599,7 @@ a call may reach. The model never sees or sets either.
   `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
   (the host ID). The host drops these three fields from any request a client
   sends. A person with no binding gets the code `no_credential`.
+  `Request.GrantedScopes` is dropped the same way.
 - A manifest with `credentials` must accept `api` 2, declare a connector kind and
   declare read tools only: a change under a credential needs a write mode, which
   this version does not have. Tools of such an add-on name no `resourceId`.
@@ -564,6 +616,352 @@ a call may reach. The model never sees or sets either.
 - An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
   The runtime answers HTTP 429 with `Retry-After`; the model gets the code
   `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
+
+### OAuth 2.0 credentials
+
+A credential slot of kind `oauth2` says that the host logs the person in to the
+service with the OAuth 2.0 authorization code flow. The slot carries an `oauth`
+descriptor, which is required for this kind and refused for kind `token`. The
+add-on never sees the client secret, the authorization code or a refresh token;
+it only gets a short-lived access token in `Request.Credential`, like any other
+credential.
+
+```json
+{
+  "id": "login",
+  "title": "Example login",
+  "kind": "oauth2",
+  "oauth": {
+    "authorizeUrl": "https://auth.example.test/authorize",
+    "tokenUrl": "https://auth.example.test/token",
+    "revokeUrl": "https://auth.example.test/revoke",
+    "hosts": ["auth.example.test", "*.example.test"],
+    "scopes": {"required": ["read"], "optional": ["write"]},
+    "pkce": "S256",
+    "authorizeParams": [{"name": "access_type", "value": "offline"}],
+    "clientAuth": "basic"
+  }
+}
+```
+
+- `authorizeUrl` and `tokenUrl` are required; `revokeUrl` is optional. Each URL
+  uses `https`, has no user info, query or fragment, uses no IP address and
+  uses port 443 or none.
+- `hosts` has one to four patterns. A pattern is an exact lower-case DNS name
+  of two or more labels, or `*.` followed by such a name; a wildcard matches
+  exactly one label. Every URL must match one pattern. A browser reads some
+  names as an address of this machine, so the host refuses them: a label that
+  is a number (`2130706433`, `127.1`, `0177.0.0.01`) or a hex number
+  (`0x7f000001`, `0x7f.0x0.0x0.0x1`), a top-level label that is not letters or
+  punycode (`xn--...`), `localhost` and any name under it, and a trailing dot.
+- `scopes.required` and `scopes.optional` have at most 16 scopes each, no scope
+  in both, and no repeat. A scope is an RFC 6749 scope token of at most 128
+  bytes.
+- `pkce` must be `S256`.
+- `clientAuth` is how the host authenticates at the token endpoint: `basic`,
+  `post`, or `none` for a public client that uses PKCE alone.
+- `authorizeParams` has at most four `{name, value}` pairs of extra authorize
+  parameters. The names come from a closed registry: `prompt`, `audience` and
+  `resource` (a value of 1 to 128 characters from `A-Z a-z 0-9 . _ : / -`),
+  `access_type` (only `offline`) and `include_granted_scopes` (only `true`).
+  Names that the host sets itself, such as `client_id`, `redirect_uri`,
+  `scope`, `state` and `code_challenge`, are always refused.
+- The manifest parser is strict: an unknown field is refused.
+
+The descriptor is data. It adds no route and makes no network call, and it
+carries no authority. The host works out a SHA-256 digest of its canonical form,
+which does not depend on field order, on the order of the host, scope and
+parameter lists, or on whitespace. An administrator approves the add-on for
+that digest, and a change of the descriptor, for example in an upgrade, voids
+the approval.
+
+An upgrade that changes the descriptor does not log people out. Their logins
+keep their tokens but are held: the host neither uses nor refreshes them, and
+the connections show `needs_approval`, until an administrator approves the new
+descriptor. The approval then moves each held login to the new descriptor when
+it sends the refresh token to the same `tokenUrl` and `revokeUrl` as before,
+and the login works again without a reconnect. When either endpoint changed,
+the host never sends the refresh token there: the login ends with the reason
+`endpoint_changed` and the person connects again. A login that lacks a scope
+the new descriptor requires ends with `scopes_missing`, and the scopes the new
+descriptor no longer names are dropped.
+
+A new login keeps only the scopes the descriptor names, required or optional,
+even when the service grants more (incremental authorization). A login that
+lacks a required scope fails with `scopes_missing`.
+
+The apps list (`GET /api/addons/apps`) gives an add-on with an `oauth2` slot an
+`oauth` object with `requiredScopes` and `optionalScopes`, so the Connections
+page can offer the optional scopes when a person connects, and the add-on's
+Settings tab shows the administrator the form that approves the login. For an
+administrator, its `admin` object also has `sourceId` and `official` (the
+official library, with the signature checked); the form shows the
+untrusted-source warning above the approval when `official` is not true. The
+addresses of the login are not in the list; an administrator reads them with
+the OAuth client (see [the login routes](#the-login-routes)).
+
+The list does not say whether an administrator approved the client. A
+connection's `oauth.has_client` does, and a start with no approved client is a
+`409 needs_approval`. An add-on page that logs in (the Gmail and Google Drive
+pages) draws the host's login component, `sdk.ui.ConnectionLogin`: it adds the
+connection, starts the login with the page as `return_to`, shows the state of each
+connection, and offers an administrator a link to the add-on's Settings tab while
+there is no approved client.
+
+A request also carries `Request.GrantedScopes`, the scopes the host holds for
+the person's login. The host sets it; it is not a secret, and the host drops it
+from any request a client sends.
+
+When the service refuses the access token, the add-on answers HTTP 401 with the
+reason `credential_rejected`. It does so only when the service refused the token
+and nothing changed. The host then decides whether to refresh the token or to
+ask the person to reconnect; a 401 with another reason is an outage. An add-on
+built on the Go protocol package of this repository returns
+`contract.ErrCredentialRejected` (wrapped or not) from a handler, and the
+package sends this answer. When the
+connection has expired or was revoked, the model gets the code
+`reconnect_needed` and a note to tell the person to reconnect on the Connections
+page. The model is told not to repeat the call and not to report an outage.
+
+#### Where the host keeps an OAuth login
+
+A binding has an auth kind. An empty kind or `token` is a binding whose token
+the person gave; it works as before. A binding of kind `oauth2` holds no token
+of its own: its tokens are in its **grant**, and the binding is a usable
+credential only while it has one. The auth kind must match the add-on: an
+add-on whose credential slot is `oauth2` takes `oauth2` bindings only, and any
+other connector add-on token bindings only. The connector kinds
+(`GET /api/chats/connectors/kinds`) say `auth_kind: "oauth2"` for the first.
+
+The host keeps three records, in the same store as the bindings (the
+`studio_connector*` tables of the database, or `connectors.json` in the data
+folder of a single process):
+
+| Record | Table | Key | Sealed | Plain |
+|---|---|---|---|---|
+| Grant | `studio_connector_grants` | binding | access token, refresh token, token type | expiry, scopes, account label, state (`connected`, `needs_approval` or `reconnect_needed`), reason, descriptor digest, token and revocation endpoints, version, lease |
+| OAuth client | `studio_oauth_clients` | add-on ID | client secret | descriptor digest, client ID, who approved it and when |
+| Login state | `studio_oauth_states` | SHA-256 of the `state` parameter | PKCE verifier | binding, owner, add-on, descriptor digest, redirect URI, scopes, return path, nonce hash, expiry |
+
+- Sealed values use AES-256-GCM with the sealing key of the bindings. Each
+  record type has its own additional data (a grant's names its binding, owner
+  and add-on), so a sealed value copied to another row does not open.
+- The host never stores the `state` parameter itself. A login state lasts 10
+  minutes and works once: the callback removes it in the same step that reads
+  it, on whichever frontend serves the callback, even when the exchange that
+  follows fails.
+- The tables and the `auth_kind` column are added when the server starts.
+  Existing bindings have an empty kind and need no change.
+
+#### Login, refresh and disconnect
+
+An administrator saves the client ID and secret of an add-on for the descriptor
+digest they saw; the save is the approval, and the host refuses it when the
+descriptor changed in the meantime. A status read says whether a secret is
+stored and never returns it.
+
+A login starts only when the approval holds for the current descriptor. The
+host makes a 256-bit `state`, a PKCE verifier and a nonce for a cookie of the
+browser, and asks for the required scopes and the optional ones the person
+ticked. At the callback the state is used up first; then the person and the
+nonce must match the start, and the approval must still hold. The host trades
+the code at `tokenUrl`, checks that the required scopes were granted, and asks
+the add-on's connector op `me`, with the new token, who the person is. An
+`unauthorized` answer fails the login. The host removes control and format
+characters (such as bidirectional overrides) from the account name, folds white
+space and keeps at most 128 characters, so "Connected as" cannot show another
+account than the one linked. The outcome is one of `ok`, `denied`,
+`invalid_state`, `provider_error`, `exchange_failed`, `scopes_missing`,
+`token_too_large` (the access token is larger than the 4096 bytes a request
+carries) and `unavailable`; nothing the service wrote is copied into it.
+
+Every credentialed call reads the grant:
+
+- The access token is refreshed when less than two minutes of its life are
+  left, or less than half of it for a token that lives under four minutes. A
+  service that gives no `expires_in` is refreshed only after a
+  rejection. The proposal broker reads the credential at preview and again at
+  apply, so a confirmation hours later gets a fresh token.
+- When the add-on answers `credential_rejected` to a read, a preview or an
+  apply, the host refreshes once and retries the call once, unless the grant
+  changed since the call began; then it retries with the newer token. A second
+  rejection ends the grant, and the call is refused with `reconnect_needed`. A
+  rejected apply changed nothing, so its proposal stays pending.
+- The new access token, its expiry, the granted scopes and a rotated refresh
+  token are written in one compare-and-set step before the token is used. When
+  that write fails after the service rotated the refresh token, the host tries
+  three times and then ends the grant.
+
+| The service answers | Result | Grant |
+|---|---|---|
+| Network error, timeout or 5xx | the call fails as an outage and may be repeated | unchanged |
+| 429 | `rate_limited` with the `Retry-After` of the service | unchanged |
+| `invalid_grant`, `invalid_client`, another refusal | `reconnect_needed` | secrets wiped, state `reconnect_needed` |
+| an access token over 4096 bytes | `reconnect_needed`, reason `token_too_large` | secrets wiped |
+| a `scope` without a required scope | `reconnect_needed`, reason `scopes_missing` | secrets wiped |
+| a `scope` with other scopes | the token is used | the granted scopes become those of the login that the service still grants; a scope the login never had is not added |
+| (descriptor changed, not approved yet) | `reconnect_needed` to the call; the connection shows `needs_approval`, and no token is used or sent | secrets kept, state `needs_approval` |
+| (new descriptor approved, same `tokenUrl` and `revokeUrl`) | the login works again, without a reconnect | moved to the new descriptor |
+| (new descriptor approved, another `tokenUrl` or `revokeUrl`) | `reconnect_needed`, reason `endpoint_changed`; the refresh token is never sent to the new endpoint | secrets wiped |
+
+Disconnect revokes the refresh token (or the access token when there is no
+refresh token) at `revokeUrl` when the descriptor has one, with a 10 s limit,
+and then deletes the grant even when the revocation failed. The answer says
+whether the service was told. Deleting the connection revokes the same way
+first; a person's delete asks the add-on owner, so it works on any frontend,
+while an administrator's delete revokes only on a process that runs the
+add-ons. A login whose callback finishes after its connection was deleted
+stores nothing: the store writes a grant only while its binding exists, in the
+same step.
+
+The token client follows no redirect, reaches public addresses only, waits at
+most 30 s and reads at most 64 KiB. It accepts bearer tokens only, an access
+token must fit in 4096 bytes, and `expires_in` is clamped to one minute through
+one day. A granted `scope` must be RFC 6749 scope tokens of at most 128 bytes,
+the rule `Request.GrantedScopes` is checked with, so an answer with any other
+scope fails the login or the refresh instead of every later call. Its errors
+are fixed classes: no token, code, verifier, state, client secret or answer of
+the service goes into a log, an error or a tool result.
+
+Uninstalling an add-on does not touch its grants or its client yet: the
+add-on manager has no hook for it. The bindings stay, as they do for a token
+binding.
+
+#### The login routes
+
+| Route | Who | Body | Answer |
+|---|---|---|---|
+| `POST /api/chats/connectors/{id}/oauth/start` | the owner of the binding | `{"scopes": ["write"], "return_to": "/app/chats/connectors"}`, both optional | `{"authorize_url", "expires"}` and the nonce cookie |
+| `GET /api/chats/connectors/oauth/callback` | the browser that started the login | the query the service sends | `303` to the return page |
+| `POST /api/chats/connectors/{id}/oauth/disconnect` | the owner of the binding | none | `{"revoked": true}` or `false` |
+| `GET /api/chats/admin/oauth-clients/{addonId}` | an administrator | none | the client, without the secret |
+| `PUT /api/chats/admin/oauth-clients/{addonId}` | an administrator | `{"client_id", "client_secret", "descriptor_digest"}` | the client, without the secret |
+
+The person's routes need the `connectors` feature and, because a login is an
+add-on call, the `addons` feature. The client routes need the administrator
+role. None of these routes has an MCP tool: a client secret must not pass
+through a chat, and a login is a person's act in their own browser.
+
+**Test a connection.** `POST /api/chats/connectors/{id}/test` on an `oauth2`
+binding asks the add-on's `me` with the access token, renewed first when it
+ends soon. It answers with the types of the login routes: `409 not_connected`
+before the login, `409 reconnect_needed` when the login ended, `409
+needs_approval`, `429 rate_limited` with `Retry-After`, and `503 unavailable`
+when the login cannot be checked now. A frontend does not read the add-on's
+login, so a test there answers `503 unavailable`; test on the add-on owner, or
+in a combined process.
+
+**Limits of the start.** A binding can have at most 5 logins that wait for
+their callback, and a person at most 20; a login stops waiting when its
+callback comes or after 10 minutes. A person can start at most 10 logins a
+minute. Past a limit the start answers `429` with the type `too_many_logins`
+and stores nothing. The count of starts per minute is kept by the add-on
+owner, which serves every start; the waiting logins are counted in the shared
+store.
+
+**Register the callback with the service.** Every add-on uses one redirect
+URI: the base URL of the server followed by
+`/api/chats/connectors/oauth/callback`, for example
+`https://localai.example.test/api/chats/connectors/oauth/callback`. The client
+read returns it as `callback_url`. The host builds it, in this order, from
+`LOCALAI_BASE_URL`, from the forwarding headers of a trusted proxy (see
+[reverse proxy]({{% relref "advanced/reverse-proxy-tls" %}})), or from the
+request when the host is `localhost` or a loopback address. When none of them
+applies, the start is a `409` with the type `base_url_required`, because the
+service would otherwise send the code to an address that anyone can choose.
+The address must use `https`, so that the code, the state and the nonce cookie
+do not cross the network in clear text: a trusted proxy that forwards plain
+`http` for a host that is not loopback also gets `base_url_required`. An
+`http` address works only for a loopback host, or when an administrator sets it
+as `LOCALAI_BASE_URL`.
+The address of a login is stored with its state and sent again at the
+exchange.
+
+**Approve an add-on.** Read the client: `current_digest` is the digest of the
+login the add-on declares now, and `descriptor` shows it in plain fields
+(addresses, hosts, required and optional scopes, client authentication and
+authorize parameters). Register the callback address with the service, then
+save the client ID and secret with `descriptor_digest` set to the digest you
+read. The save is the approval. When the add-on's login changed in the
+meantime, nothing is saved and the answer is `409` with the type
+`approval_stale` and the new `current_digest`; read it again and review the
+change. `client_secret` is write-only: an absent secret keeps the stored one,
+and a public client (`clientAuth` `none`) has none. The read says
+`has_secret`, `approved` and who approved when.
+
+**Log in.** The start checks the binding, the approval and the optional
+scopes, and sets a nonce cookie for this login (`HttpOnly`, `SameSite=Lax`,
+`Secure` over HTTPS, ten minutes). Each login has its own cookie, named
+`localai_oauth_nonce_` and the first eight hex digits of the SHA-256 of its
+state, so two logins started in one browser do not break each other. The return page must be a
+page of the web app: a path under `/app` with an optional query and no
+fragment, as the add-on SDK accepts; anything else is a `400`. Open
+`authorize_url` in the same browser. The service sends the browser back to the
+callback, which:
+
+- needs the session of the person who started the login. The session cookie is
+  `SameSite=Lax`, so the browser sends it on that redirect. With
+  authentication off there is no session, and the nonce cookie alone binds the
+  login to the browser;
+- finds the nonce cookie of its login by the state in the query and clears
+  that cookie, whatever the outcome; the cookies of other logins stay;
+- always answers `303` to the return page, with `oauth=ok`, `oauth=denied`
+  (the person declined; a connection that worked keeps working) or
+  `oauth=error&class=<class>`, where the class is `invalid_state`,
+  `provider_error`, `exchange_failed`, `scopes_missing`, `token_too_large` or
+  `unavailable`. The
+  `error_description` of the service is never copied into the address, a page
+  or a log.
+
+**See the state.** The binding JSON (`GET /api/chats/connectors` and
+`GET /api/chats/connectors/{id}`) has `auth_kind: "oauth2"` and an `oauth`
+object: `state` (`connected`, `reconnect_needed`, `not_connected` or
+`needs_approval`), the fixed `reason` of a reconnect, `account_label`,
+`scopes`, `expires_at` and `has_client`. It never holds a token. The state is
+read from the shared store, so every frontend shows the same; a login whose
+descriptor changed in an upgrade shows `needs_approval` once a call or a
+refresh found it, and the result of the approval as soon as an administrator
+saves it. The add-on list of a chat (`GET /api/chats/{id}/addons`) gives each
+connection a `connection_state`, and the add-on a `connection_state` of
+`reconnect_needed` when a connection the chat may use must be connected again.
+
+#### OAuth with several frontends
+
+State mode: stateless per request, with a claim in the database. Every
+frontend reads the OAuth records from the shared database, and the sealing key
+is in the same database, so any process with the database can open them. No
+process keeps a copy. Two things keep one refresh at a time:
+
+- In one process, one refresh per grant and version runs, and the other callers
+  wait for its result.
+- Across processes, a refresher takes a lease in the grant row (a conditional
+  update on the version, 90 s: three times the 30 s limit of the token request,
+  so a slow service cannot outlive it). The other callers look at the row every
+  200 ms for up to 10 s and use the token the winner wrote. A service that
+  rotates its refresh tokens can revoke the whole login when one refresh token
+  is used twice, so this matters.
+- Each process compares the lease with its own clock. Keep the clocks of the
+  hosts in sync (NTP): a host whose clock is ahead sees the lease end early by
+  as much.
+
+In a split deployment the refresh runs on the add-on owner: the frontends
+forward credentialed tool calls to it, the owner adds the credential and calls
+the add-on, and when the add-on rejects the token the owner refreshes and
+retries before it answers. Only the final `reconnect_needed` refusal crosses
+back to the frontend.
+
+The OAuth descriptor comes from the manifest of the installed add-on, which
+only the owner reads. So the start, the callback, the disconnect and the
+client routes are owner dispatch, in a combined process and in a cluster
+alike: the frontend that gets the request forwards it over the carrier with
+the signed caller, and the owner serves it. The service can send the browser
+back to any frontend; that frontend forwards the query and the nonce cookie as
+fields of the call (never as headers), the owner trades the code, and the
+frontend answers the redirect. A frontend never serves these routes from a
+service of its own: when the owner cannot be reached, the person's routes
+answer `503` and the callback ends with the class `unavailable`. An owner
+that predates the calls answers `503` with the reason that it must be
+upgraded.
 
 ## Singleton owner and its limits
 
@@ -1037,8 +1435,8 @@ Every add-on has an icon. The page picks it in this order:
 
 The page never loads an icon from another host.
 
-The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Home
-Assistant and Jellyfin) use the logo mark of the service on their tile, taken
+The first-party add-ons for services (Slack, Telegram, Discord, GitHub, Gmail,
+Google Drive, Home Assistant and Jellyfin) use the logo mark of the service on their tile, taken
 from [Simple Icons](https://simpleicons.org) (CC0 data) and drawn in white on
 the add-on colour. The mark identifies the service the add-on connects to. The
 trademark stays with its owner, and the mark does not mean that the owner made
@@ -1052,7 +1450,7 @@ when you have the right to.
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
-Sandbox and Web, plus the other first-party add-ons). The index has one entry for each enabled platform of each add-on, so an
+Sandbox and Web, plus the other first-party add-ons including Google Drive and Gmail). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
 its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
 official library lists nothing there.
@@ -1573,10 +1971,10 @@ again from the same library is a reinstall.
 
 The Backends page marks a backend that came from a library with the library ID, and the
 detail view shows the digest that `metadata.json` pinned. A backend of a gallery has no
-mark, and the gallery upgrade check and the review of updates are unchanged.
+mark, and the gallery update check is the one of the Updates page.
 
 When the cached index of the library lists a different build than the one installed, the
-backend shows "Update available" and an Update button. The check is
+backend shows "Update available" and an Update button in its row. The check is
 `GET /backends/library/updates`. It reads the index the last refresh cached, so it does
 not use the network, and it installs nothing. The build to compare is the one in the
 channel of the installed version. If the library no longer lists that version and has
@@ -1663,7 +2061,7 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 5.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 7.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
@@ -1672,6 +2070,8 @@ level**: one integer that counts the additive manifest features it understands.
   `featureLevel: 2`. `capabilities.ownerData` is level 3.
   The setup text (`setup` on the manifest, `kinds[].setup` and the `setup` of a kind translation) is level 4.
   `kinds[].toolOnly` is level 5.
+  `capabilities.executionProvider.jobs` is level 6.
+  `capabilities.client` is level 7.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -1837,7 +2237,7 @@ refreshed:
 | Skills per add-on | 16 |
 | Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
 | A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
-| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
+| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, `assemble-media`, `media-prompting`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
 | `shadows` | optional; must repeat `name` and name a slot: one the skill declares with `slot` (needs `api` 2), or a default slot (`xlsx`, `docx`, `pptx`, `pdf`) |
 | `slot` | optional, needs `shadows` and `api` 2; see Document skill providers |
 
@@ -1871,7 +2271,7 @@ holds no list of formats: the add-on that provides a skill declares its slot.
 For manifests that declare nothing, the host reads four default slots (`docx`,
 `pptx`, `pdf`, `xlsx`) from a data file in the contract, so existing packages
 keep working.
-Core does not embed these document procedures. Its three remaining built-in skills cannot be replaced.
+Core does not embed these document procedures. Its remaining built-in skills cannot be replaced.
 The existing `shadows` declaration identifies a document provider:
 
 ```json
@@ -2067,7 +2467,9 @@ separately and must reject stale schema or data. Receipt is
 be reconciled before another mutation. Committed receipts require a nonzero
 schema revision. Result has optional `payload` and `outputs`; each output has
 opaque `handle`, safe basename `name`, MIME `mediaType`, and nonnegative `size`.
-Handles are not URLs or filesystem paths. OpenOutput returns an authenticated
+Handles are not URLs or filesystem paths. A read tool may return `payload` next to
+`outputs`: the host refuses a payload over 128 KiB and gives the model the payload as a
+short excerpt next to the handles. OpenOutput returns an authenticated
 stream; callers close it. DTOs do not create artifacts or authorize downloads.
 
 
@@ -2241,6 +2643,12 @@ is the full number. The add-on cards, the Find add-ons tab and the details panel
 "Adds N tools" from them before install. `addonpkg catalog` writes both fields, and
 `addonpkg catalog-tools` adds them to an existing index from the manifests in
 `addons/<id>/manifest.json`. They are a hint like `ui`, and only an add-on entry may carry them.
+
+Every release that the host lists also carries `official`. The host sets it when it reads
+the index, from the ID and the address of the library. It is `true` only for the official
+library at an address that LocalAI ships, so a library that an administrator named `official`
+at another address does not qualify. An index cannot set it: the host overwrites whatever
+the index says. The install dialog uses it to decide whether to warn about the source.
 
 Refresh accepts at most 1 MiB and 1,000 releases. Duplicate release identities
 within a source fail. Duplicate names across sources remain distinct. Search
@@ -2507,7 +2915,9 @@ uses a fresh credential and incarnation, bounded exponential backoff, and the
 configured attempt budget; sustained authenticated health resets that budget.
 
 The protocol uses POST with JSON on `/read`, `/preview`, `/apply`, `/receipt`, and
-`/output`. Read and preview accept the existing contract envelope. Apply wraps it
+`/output`, and on `/act`, `/connector`, `/client` and `/client/stream` for the add-ons that
+declare actions, a connector or client routes (see
+[Paired clients: inference and add-ons](/features/addon-clients/)). Read and preview accept the existing contract envelope. Apply wraps it
 with a revision; output wraps it with a handle; receipt accepts an operation ID.
 These transport wrappers are defined in the runtime package because the original
 contract specifies Go methods but not their HTTP request DTOs. No contract method
@@ -2760,7 +3170,7 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].title`, `description`, `senderHint` | Plain text for people, with the bounds of the UI texts. |
 | `kinds[].setup` | Optional, feature level 4. What the person needs before a binding of this kind works, as a short phrase that completes the sentence "Needs ...", such as `a bot token from @BotFather`. See [Setup text](#setup-text). |
 | `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
-| `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
+| `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connections page links to it. A kind that logs in with OAuth also makes its connections on this page, with the host's login (see [OAuth 2.0 credentials](#oauth-20-credentials)). |
 | `kinds[].agentOptional` | Optional, manifest `api` 2. `true` lets a binding of the kind have no agent. Such a binding is credentials only: it holds the token, the resource list and the write mode, and the host never delivers a message to it, polls for it, answers from it or authorizes a sender on it. The host refuses an empty agent together with listening, accepting senders, an allowlist, a notification chat, talk-back channels, permissions, pairing or trigger approval. Without the key every binding of the kind needs an agent. |
 | `kinds[].toolOnly` | Optional, feature level 5. `true` marks a kind whose bindings only serve tools: one binding is used by many agents, each through its own set of connections. It implies `agentOptional`. A binding of the kind never has an agent, never listens and never accepts senders: the host clears the agent on every save and read, and refuses `enabled` and `acceptAny`. The connector list returns `used_by`, the number of the person's saved agents that hold the binding, and the kinds list returns `tool_only`. A manifest that uses it must declare `featureLevel: 5`. |
 | `kinds[].wildcardResources` | Optional. `true` lets a binding of the kind list `owner/*` (every resource of one owner) or `*` (every resource the credential reaches) in its resources. The host matches them before the add-on is called, without regard to case and on whole names; a star anywhere else is refused, `*` must be the only entry, and saving `*` needs the confirmation `confirm_any_resource` = `allow any resource`. Without the key every entry is an exact name. |
@@ -2935,9 +3345,13 @@ calls. The limits come from the platforms' own documents: see the table in
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
-`senderUsername`, `chatName`, `link`, `text`, `unsupported`, `media`, `skip`) and the next
-offset. `chatName` (the channel or group name) and `link` (an https address of the message or
+`senderUsername`, `chatName`, `link`, `text`, `unsupported`, `media`, `mediaKinds`, `skip`) and
+the next offset. `chatName` (the channel or group name) and `link` (an https address of the message or
 its thread) are optional and are only shown to the owner in the header of the chat.
+`mediaKinds` names the kind of each entry of `media` at the same index (`photo`, `voice`,
+`audio`, `video_note`, `document`); the host reads it before it fetches a file, so a binding
+that takes only some kinds (`inbound_media`) never fetches the others. An add-on that leaves
+it out hands over files of an unknown kind, which only a binding that takes every kind reads.
 `messageId` is the platform's ID of the message and `replyTo` the message it answers;
 the thread conversation mode uses them. Core keeps the offset with the binding, passes it
 to the next `poll` and stores the offset the answer names, so a new leader continues
@@ -3521,6 +3935,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
+| `capabilities.client` | Optional, feature level 7. 1 to 32 `routes` that a paired client may call, each with an `id`, a `method`, a `path` and optional `stream`, `maxBodyBytes` and `timeoutSeconds`. Needs `capabilities.service`. See [Paired clients: inference and add-ons](/features/addon-clients/). |
 | `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
 | `setup` | Optional, feature level 4. What the person needs before the add-on works, as a short phrase such as `an access token`. A string or a map of language tag to string, like `ui.title`. For an add-on that has no connector kind; a kind has its own `kinds[].setup`. See [Setup text](#setup-text). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
@@ -3619,12 +4034,41 @@ marked `approvalOverridable` is never relaxed, whatever the setting holds. In a 
 the decision for a messaging chat needs the grant of the turn, which lives on the
 frontend that runs it; a call without it asks.
 
+The write mode **auto**, which the add-on pages call **Allow all**, lifts the same ceiling
+for these tools: with a connection on **auto**, a tool marked `approvalOverridable` runs
+without a card whatever its `approval-<tool>` setting says, because the person chose to let
+the agent act without asking for the whole connection. A tool with `"approval": "always"`
+that is not `approvalOverridable` still waits for a person in every write mode. Use that
+for an action that must never run unasked. The mail, Gmail, Google Drive and PiKVM add-ons declare none.
+
 Every call that runs without a card is logged with the add-on, the tool, the connection,
 the user and the outcome (`applied`, `rejected`, `unknown` or `not_run`), and never the
 arguments. The same line is added to the connection's latest decisions. The connection's
 access view and its access preview (`approvals` in the answer of
 `GET /api/chats/connectors/{id}/access` and of the preview route) list each relaxable tool
 with its setting and who it runs for without asking now.
+
+### A write the connection's mode decides
+
+A `write` tool that declares no `approval` follows the write mode of its connection:
+**off** refuses it, **propose** holds it for a person to confirm in a card, and **auto**
+applies it at once. The add-on pages name the three modes **Read only**, **Asks you first**
+and **Allow all** (some older pages say **Runs at once** or **Acts without asking**). The
+mail, Gmail, Google Drive and PiKVM add-ons offer all three. Declare `"approval": "always"`
+only for a tool that must wait for a person even in **Allow all**; it also keeps the tool
+waiting in **propose**, so an add-on that wants the connection to decide leaves it out.
+Before the mail, Gmail and Google Drive add-ons offered **Allow all**, their write tools
+declared `"approval": "always"`, so a connection that an API call had set to `auto` still
+waited for a person. Those tools no longer declare it, and such a connection now applies
+the change at once. The mode belongs to the person, who sets it on the add-on page with
+their own session; a model cannot change it, and a new connection made on the page starts
+on **propose**. The SSH add-on works this way: its `run` tool declares no `approval` and
+no `approvalOverridable`, so the connection is the one place where the person chooses
+between confirming each command and running it at once. The card of a held command shows the
+host and the exact command (see [SSH](/features/ssh/)).
+
+The host limits a write call to the apply timeout (60 seconds), so a write tool that runs a
+command must stay below it.
 
 ### What happened to a tool call
 
@@ -3822,7 +4266,10 @@ unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` respo
 status `503` and also carries the original `operationId`. Keep that `operationId` after
 an `outcome_unknown` response. Query
 `operation-status`; do not create another mutation. The carrier never retries mutations.
-`Manager.OperationStatus` binds the lookup to the original actor and current administrator.
+`Manager.OperationStatus` binds the lookup to the user who started the operation and to
+the current administrator. A later browser session or another key of the same user reads
+it. Another user, or an unknown ID, gets status `404` with `type` `operation_not_found`,
+which is not a refusal of the role.
 It does not submit, repair, start processes, or write the journal. `completed` describes
 durable lifecycle publication, not runtime health. `runtimeState: not-observed` makes
 that distinction explicit. Ambiguous legacy actor bindings deny lookup.
@@ -5173,7 +5620,9 @@ uninstalled or disabled and not running, the request carries an explicit scope
 (`data`, `backups`, `recoveryCopies`) and the add-on ID typed as `confirm`. The purge is
 recorded before it starts and finished by the owner after a crash. It touches no other
 add-on and removes the owner's records of the add-on's resources only when `data` is in
-the scope. Purging the data clears `needs-recovery`.
+the scope. Purging the data also removes the OAuth client an administrator approved for
+the add-on. An uninstall keeps that client, so a reinstall needs no new approval.
+Purging the data clears `needs-recovery`.
 
 ### Routes and rules
 
@@ -5236,8 +5685,8 @@ The status also carries `installedVersion`, `installedDigest`, `candidateVersion
   digests. A different digest is an update even when the version label is the same.
 - A development build installed from a mutable entry (a moving tag such as
   `0.0.0-development`, with no digest in the library) is compared by the digest that its tag
-  names. Its label is not compared as a version. An explicit check (**Check for updates**,
-  **Check again** or the automatic upgrade) resolves the tag in the registry and keeps the
+  names. Its label is not compared as a version. An explicit check (**Check now** on the
+  Updates page, **Check again** or the automatic update) resolves the tag in the registry and keeps the
   digest, so a later status read compares against it and does not use the network. Before
   the first explicit check the state is `unknown`. When the tag names another build, the
   state is `update-available` with that digest as `candidateDigest` and the label with the
@@ -5322,13 +5771,13 @@ the same ID and do not submit a new upgrade.
 ### Automatic upgrade
 
 By default add-ons upgrade only when an administrator starts the upgrade. The
-setting **Upgrade add-ons automatically** (`auto_upgrade_addons` in the runtime
+setting **Update add-ons automatically** (`auto_upgrade_addons` in the runtime
 settings, flag `--auto-upgrade-addons` or `LOCALAI_AUTO_UPGRADE_ADDONS`) is off by
 default, like the matching setting for backends. When you turn it on, the owner checks
 the library of every installed add-on shortly after start and then every six hours,
 the same schedule as the backend update check. When a library lists a newer version
 for the channel the add-on was installed from, the owner runs the same pinned upgrade
-that the **Upgrade** action runs. The digest and signature checks, the compatibility
+that the **Update** action runs. The digest and signature checks, the compatibility
 checks, the data backup and the recovery behavior above all apply, and an upgrade that
 fails any of them changes nothing and is written to the log. An automatic upgrade never
 changes the library, the channel or the trusted signer. A candidate that failed is not
@@ -5337,66 +5786,67 @@ upgrades by itself. Each scheduled pass reads the current owner-host policy, so
 changes take effect without a restart. If the owner policy is unavailable, the
 pass skips upgrades and logs an error; it does not use frontend-local settings.
 
+At the end of a pass the owner writes one item to the inbox of the administrators when it did something: "Add-ons: 1 updated automatically, 1 waiting for approval". It names the add-ons that were upgraded, the ones that failed, and the ones that wait for an administrator because the new version needs host access that nobody approved (an automatic upgrade never approves). A failure or a wait links to the updates that need you. A pass that did nothing writes nothing, and the same add-on failing or waiting for the same candidate again is not written again, also after a restart. The owner is the only writer, so the item exists once in a cluster. With the setting off nothing is written, and add-on updates are not in the backend digest of the inbox; see [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}}).
+
+### On the Updates page
+
+**Operate → Updates** lists the add-ons that have an update, next to the backends, with
+the same states: ready, updating, failed, held for approval, and cannot update. It shows
+the time of the last add-on check and **Check now** reads the library of every installed
+add-on again. A held upgrade opens the same approval dialog as in Apps. An upgrade or a
+check needs the administrator's own browser session, as everywhere else. See [Backends]({{% relref "features/backends#the-updates-page" %}}).
+
 ### In the page
 
 The Installed list and the management sheet show a badge with the candidate version and
 the short digest, and the compatibility reasons of an incompatible candidate. An
-administrator gets **Check for updates** with the time of the last check, and **Upgrade**
-when the state is `update-available`. **Upgrade** opens a confirmation that names the
+administrator gets **Check again** on one add-on, with the time of the last check, and
+**Update** when the state is `update-available`. **Update** opens a confirmation that names the
 library, the channel, the installed and the new version and digest, and says that the data
 of the add-on is backed up first. It then shows progress and, on failure, the error and the
 kept version. Anyone else sees the status without actions.
 
-The **Upgrade** action is on the card of the add-on in the list and on its entry in **Find
+The **Update** action is on the card of the add-on in the list and on its entry in **Find
 add-ons**, next to the update notice, and in its details. All of them open the same
 confirmation.
 
-When the notice is shown but the upgrade cannot start, the card says why instead of hiding the
+When the notice is shown but the update cannot start, the card says why instead of hiding the
 action:
 
 | What the card says | Cause | What to do |
 |---|---|---|
-| Only an administrator can upgrade it | Your account is not an administrator. | Ask an administrator. |
+| Only an administrator can update it | Your account is not an administrator. | Ask an administrator. |
 | The update is not confirmed yet | The check did not resolve a candidate to pin (no digest). | Select **Check again**. |
 | The library names no build to install | A check ran and the owner still reports an update without a digest to pin. | Check again later. |
 | The last check failed | The library could not be read. | Select **Check again**. |
 | The update cannot run here, with the reasons | The state is `incompatible`. | None until the host or the platform fits. |
 | The library lists this version with different contents | The state is `integrity-error`. It is never an update. | None. |
-| The data needs recovery first | The add-on is in the recovery state. | Restore a backup in the details, then upgrade. |
+| The data needs recovery first | The add-on is in the recovery state. | Restore a backup in the details, then update. |
 | The latest check found no update | The list showed a cached notice that a newer evaluation no longer supports. | Select **Check again**. |
 
 After **Check again**, the card shows the answer of the check: "Checked just now" (or the
 time of the check) and what the check found, for example that the add-on is up to date. When
-the check found an update with a digest, **Upgrade** replaces the reason. A check that fails
+the check found an update with a digest, **Update** replaces the reason. A check that fails
 shows why, and you can run it again.
 
-**Upgrade all (N)** shows in the bar of the list for administrators when at least one add-on
-has an update. It opens a dialog that lists every add-on with an update: the name, the
-installed and the new version, and, for one that cannot start, the reason above. Only add-ons
-that can start can be selected; **Select all** and **Select none** change the selection.
-**Upgrade selected** then runs the single-add-on upgrade for each selected add-on, one after
-another, never in parallel. Each is its own operation with its own operation ID and its own
-pinned digests, so the owner decides every one again. The dialog shows each add-on as queued,
-upgrading, done, failed (with the reason the owner gave) or skipped. A failure does not stop
-the others. You can close the dialog while it runs: the upgrades continue and the bar shows
-the progress and then a summary. **Retry failed** runs the failed add-ons again as new
-operations.
+The Apps page has no bulk update and no check of all add-ons. **Open Updates** in its
+bar goes to the Updates page, where **Update N ready** runs the add-on updates one after
+another (a failure does not stop the others, and a held one waits for approval), and
+**Check now** reads the library of every installed add-on again. A check applies
+nothing, and an add-on that cannot be checked does not stop the others. Add-ons that
+share a library are all checked, whether they are turned on or off, and every one with a
+newer build is listed together. An installed version that this server can no longer run
+cannot be turned on: the server says so and you update it first.
 
-**Check for updates** in the bar of the list reads the library of every installed add-on
-again; it applies nothing, and an add-on that cannot be checked does not stop the others.
-Add-ons that share a library are all checked, whether they are turned on or off, and every
-one with a newer build is listed together. An installed version that this server can no longer
-run cannot be turned on: the server says so and you upgrade it first.
-
-An upgrade started from the list, the details, **Find add-ons** or **Upgrade all** keeps
+An update started from the list, the details, **Find add-ons** or the Updates page keeps
 running when you leave the page. It appears in the Activity page under the **Add-ons**
 filter, with progress, **Cancel** and **Retry**. Cancel stops the request, and the page then
-reads the operation to report what the owner did. The list of upgrades is kept by the
+reads the operation to report what the owner did. The list of updates is kept by the
 browser that started them, so it is lost on a page reload. Background tracking continues
 across navigation only within the same authentication session. An authentication
 refresh, account or permission change, logout initiation, or removal of the
 authentication provider expires pending observations. Late replies then cannot
-verify an upgrade or publish its result into the new session. This does not undo
+verify an update or publish its result into the new session. This does not undo
 an operation already accepted by the server.
 
 While the add-on service restarts (an upgrade restarts it), the page cannot read the
@@ -5703,6 +6153,7 @@ the add-on's ID to decide.
 |---|---|---|
 | `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare [`capabilities.network`](#network-capability). A manifest written before that field existed and declares a tool that replaces `bash` keeps the control. |
 | `tool-providers` | On the add-on's **Settings** tab: the rows of Settings > Tools for the built-in tools it replaces (who serves the tool, the choice when several add-ons replace it, and the switch of the built-in tool). | Declare at least one tool that replaces a built-in tool (`shadows`). |
+| `sandbox-profiles` | On the add-on's **Settings** tab: the policy of its [sandbox profiles](#sandbox-profiles) (the default profile, who may use each one, the memory and disk quota and the pins to the previous image). In the chat's Tools menu: the **Profile** row. | Declare [`execution.profiles`](#sandbox-profiles) on the tool that replaces `bash`. It needs no host operation. |
 
 The network controls read the durable policy from the add-on owner, not the
 frontend's runtime settings. The form displays the owner's revision. **Apply** sends
@@ -6047,7 +6498,7 @@ The binding stays on the host. It is kept next to the envelope of the live reque
 An add-on that holds `sandbox=egress.` in the host operation setting (the default) can ask about the network connections of the commands it runs (see [Network access](#network-access)):
 
 - `egress.check` (`act`, feature `chats`) takes `{host, port, kind, tls}`, with `kind` `connect` or `http`, and answers `{action, reason, allowPrivate, self}`, with `action` `allow` or `block`. An allow carries `self`: the addresses of the server as CIDR strings (its interfaces, loopback, and the addresses of the host of the external base URL), the same list `web_fetch` refuses. The add-on refuses them on every dial, besides the interfaces of its own machine, so a command cannot reach the LocalAI API through the server's public name or address. When a card asks the person (see the cards under [Network access](#network-access)), the call waits for the answer, at most 60 seconds, before it answers. The chat is the resource of the live envelope and the user is its actor: arguments named `chat`, `user`, `preset` or `allow`, or any other unknown name, are refused. The host writes the audit line of the verdict itself. The operation may wait up to 60 seconds for a card and has a 75-second timeout.
-- `egress.audit` (`act`, feature `chats`) takes `{events: [...]}`, at most 500 lines of `{host, port, kind, verdict, reason, addr, bytesUp, bytesDown, durationMs, at}`. `verdict` is `done` (an allowed connection ended; the bytes it moved) or `block` (the add-on refused it itself: an address that is private, the server's own or a metadata address, a TLS name that is not the host, a limit, or a connection while no call ran).
+- `egress.audit` (`act`, feature `chats`) takes `{events: [...]}`, at most 500 lines of `{host, port, kind, verdict, reason, addr, bytesUp, bytesDown, durationMs, at}`. `verdict` is `done` (an allowed connection ended; the bytes it moved) or `block` (the add-on refused it itself: an address that is private, the server's own or a metadata address, a TLS name that is not the host, a limit, or a connection while no call ran). A call made under a job lease (see [Execution provider and status payload](#execution-provider-and-status-payload)) is unattended: `egress.check` blocks a host that would need a card with the reason `unattended` instead of asking.
 
 ## Simple Office
 
@@ -6117,6 +6568,8 @@ An older package of the add-on also served `read`, `write`, `edit`, `glob` and `
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
 - **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, their version stays and the sandbox's version is saved as a copy; the answer names the file and the copy. A file written outside `/workspace/home` (where `bash` starts) is not saved, and the answer names it too. In a chat whose agent works in [one folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}), `/workspace/home` is that folder (read only when the agent can only read it), and the chat's own folder is at `/workspace/chat`, where files are saved as well; nothing else of the user's files is in the sandbox. The change set belongs to the chat that ran the command, so the chat lists the files it saved (see [Files that a command saved]({{%relref "features/chats#files-that-a-command-saved" %}})). A file change by someone else makes the sandbox rebuild its view of the files before the next call.
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When the add-on stops (it is disabled, or the server shuts down) it first stops all its sandboxes, for at most 8 seconds. The supervisor waits for that before it kills the add-on process; a server that is killed with SIGKILL cannot do this, and the next start removes what was left. When a suspended sandbox is removed, the host backend also stops the processes it left running.
+- **Background jobs.** The add-on runs the jobs of the chat's `job` tool (see [Execution provider and status payload](#execution-provider-and-status-payload)) in the chat's sandbox, in the add-on process. A job's output (stdout and stderr together, the last 256 KiB, with absolute byte offsets) and its exit status come from the process, not from any connection of the host, so they stay when the call that started the job returns. While a job runs, its sandbox is not given way to another chat, not suspended, not refreshed and not removed at its age. Input goes to the job's standard input; a call waits at most 5 seconds for the job to read it. A kill sends SIGTERM (or SIGINT) to the job's process group and SIGKILL 10 seconds later; a job ends after 2 hours the same way. When a job ends, what it wrote is committed as one change set (`Job job-3: build`) before the sandbox is let go; a file it writes is also in the next `bash` call's change set. At most 32 jobs run in the add-on process; the host keeps the limits per chat and per user. A finished job stays readable for 30 minutes, at most 16 per chat. An add-on restart ends every job: the host reads the jobs as gone. A call that must make the sandbox again (a new profile, agent folder or mode) ends the chat's jobs first and says so at the top of its output.
+- **The network of a job.** While no call of the chat runs, the proxy lets a connection through under the operation of the oldest live job of the sandbox (the proxy cannot tell which process opened it; during a call, every connection counts against the call). Each job has its own 64 MiB up and 4 GiB down. A host that the chat's preset or an always-allowed rule allows passes. A host that needs the person's yes is blocked, since nobody is there to answer a card: the job's output gets *Blocked by LocalAI: host:port needs the user's approval, and nobody can be asked while no turn of this chat runs (a background job)*, and the audit line has the reason `unattended`. With neither a call nor a job, every connection is refused as before.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. Without the add-on, or with it switched off for a chat, the chat's model is told that it cannot run commands, and the chat's Tools menu says so to the user; see [Running commands]({{%relref "features/chats#running-commands" %}}). A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
 - **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.
@@ -6168,29 +6621,57 @@ applied to an add-on's commands only when the provider reports that it enforces 
 A provider that only reports isolation does not count. This behavior can change in a
 later release.
 
-The Settings tab lists the backends of the host, each with its state (in use, ready or unavailable); the reason a backend does not work is under **Details**. When gVisor fails with `exit status 128` and `cannot read client sync file`, the row also says that gVisor needs an AppArmor profile that allows user namespaces and a container that may create them, and links to [The Sandbox in the LocalAI container](#the-sandbox-in-the-localai-container). The add-on asks for the `network-policy` and `tool-providers` [host controls](#host-controls), so the same tab also holds the network of the Sandbox commands (the limit, the preset of a new chat, the ports, the extra registries, the always allowed hosts, private networks, the audit retention and the audit) and the `bash` row of Settings > Tools, and saves them like the Settings page. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
+The Settings tab lists the backends of the host, each with its state (in use, ready or unavailable); the reason a backend does not work is under **Details**. When gVisor fails with `exit status 128` and `cannot read client sync file`, the row also says that gVisor needs an AppArmor profile that allows user namespaces and a container that may create them, and links to [The Sandbox in the LocalAI container](#the-sandbox-in-the-localai-container). The add-on asks for the `network-policy`, `tool-providers` and `sandbox-profiles` [host controls](#host-controls), so the same tab also holds the [sandbox profile policy](#sandbox-profiles), the network of the Sandbox commands (the limit, the preset of a new chat, the ports, the extra registries, the always allowed hosts, private networks, the audit retention and the audit) and the `bash` row of Settings > Tools, and saves them like the Settings page. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
 
 The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the Settings tab of the Sandbox details (for administrators) shows a notice for as long as the host backend is the one in use. The model sees it in the answer of the status tool. Treat the machine as one that code can harm.
 
 The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
 
-The guest image, `runsc` and the KVM programs are not part of the add-on's source. A release sets `main.guestImage` (the image, by digest) at build time. The checksums of the `runsc` and of the Cloud Hypervisor and `virtiofsd` it was tested with are compiled into the add-on (`runscPins` and `kvmPins` in `addons/sandbox/cmd/sandbox`), and tests keep them equal to `package/runsc.json` and `package/kvm.json`. A build without a guest image reports that on the page, and only the host backend can run.
+The guest image, `runsc` and the KVM programs are not part of the add-on's source. A release sets `main.guestImage` (the image of the `base` profile, by digest) at build time. It sets `main.profileImages` (`media=<ref>`) for the image of the `media` profile. A profile without an image is not offered by that release. The checksums of the `runsc` and of the Cloud Hypervisor and `virtiofsd` it was tested with are compiled into the add-on (`runscPins` and `kvmPins` in `addons/sandbox/cmd/sandbox`), and tests keep them equal to `package/runsc.json` and `package/kvm.json`. A build without a guest image reports that on the page, and only the host backend can run.
 
-### What the guest has
+### Sandbox profiles
 
-The guest image carries exactly these programs and libraries for the model to use (the model is told this list in the prompt of each chat that has the Sandbox):
+A profile is an environment a sandbox can run in: a name, what it is for, the limits of one sandbox (CPUs, memory, disk) and the programs it has. The Sandbox add-on declares its profiles in its manifest, in the `execution.profiles` list of the `bash` tool. An administrator cannot add an image: only the add-on lists profiles, and each has an image the release built and pinned by digest. The release ships these:
 
-python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl
+<!-- sandbox-profiles:start -->
+| Profile | For | Programs | CPUs | Memory | Disk |
+|---|---|---|---|---|---|
+| `base` | Python, documents, PDF and the usual command-line tools. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl | 2 | 2048 MiB | 10240 MiB |
+| `media` | Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images. | python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl, ffmpeg (with ffprobe), sox, ImageMagick (magick, convert), rsvg-convert (renders SVG to PNG, also the SVG reader of ImageMagick) | 2 | 4096 MiB | 20480 MiB |
+<!-- sandbox-profiles:end -->
+
+`base` is the fallback and is always allowed. The model is told the profile its chat runs, the programs it has and the programs the other profiles add, in the prompt of each turn, and the description of `bash` names the profile. The text is built from the manifest, so it never differs from the image. The command line runs as an unprivileged user and `apt` is blocked by the proxy, so nothing can be installed from inside the guest with a system package manager. `pip` can install Python packages within the chat's network setting (see [Network access](#network-access)). Adding a program means a new guest image. The build of each image fails when a program of its profile is missing or does not start (`addons/sandbox/images/guest/check-tools.sh <profile>` reads the checks from the manifest).
 
 matplotlib draws charts without a display: it writes PNG and SVG files, and the model can save them in the user's files. Its font cache is kept in `/tmp`.
 
-It does not have Node.js or npm, ImageMagick, ffmpeg or OCR. The command line runs as an unprivileged user and `apt` is blocked by the proxy, so nothing can be installed from inside the guest with a system package manager. `pip` can install Python packages within the chat's network setting (see [Network access](#network-access)). Adding a program means a new guest image. The build of the image fails when one of these programs is missing or does not start (`addons/sandbox/images/guest/check-tools.sh`).
+**Choosing a profile.** The profile of a chat is the first of these that exists and that the user may use:
+
+1. The profile the person picked in the chat. The picker sits next to the network switcher in the Tools menu of the chat.
+2. The profile of the saved agent of the chat (`sandbox_profile`). Unattended runs of an agent (triggers, jobs, connectors) use it too.
+3. The default profile of the administrator (`default` of the policy below), then `media`, then `base`. With media as the default, each sandbox reserves the limits of `media` (2 CPUs, 4 GiB of memory, 20 GiB of disk); an administrator who wants the smaller `base` sets it as the default.
+
+Switching the profile restarts the sandbox at the next command. The user's files stay. Running processes and installed packages are lost, and the picker says so before you switch. The model can switch too with one tool, `sandbox_profile`: the action `list` shows the profiles with their programs, and the action `use` switches. It is in the *Run commands* group of the chat and follows the rules of the picker: the user's own chat and the policy of the administrator. A skill can name the profile it wants with the frontmatter field `sandbox: media` (see [Chats](/features/chats/)). It is a hint: the model is told, may offer the switch and never switches without the person's yes.
+
+**Policy.** The administrator sets the policy on the Settings tab of the add-on (the owner host setting `sandbox_profiles`, with the same owner rules as the network settings). Everything is open by default: with no policy every user may use every profile.
+
+| Key | Meaning |
+|---|---|
+| `default` | The profile a new chat gets. Empty: `media`, or `base` when the add-on has no `media` profile. |
+| `access` | For a profile, the `roles` (`admin`, `user`) and the `users` who may use it. A profile that is not listed, or has no roles and no users, is open to everyone. |
+| `memory_mib`, `disk_mib` | The most memory and disk one sandbox may have, whatever the profile asks. `0` is no cap. |
+| `pin_previous` | The profiles that run their previous image. See below. |
+
+**Images.** An image is pulled and converted on the first use of a profile. The picker shows the progress ("Preparing the Media image, 40%") while the first command waits for it. After an add-on upgrade, the add-on pulls the new image of each profile this host used before in the background, so the first command after the upgrade does not wait. A chat keeps its sandbox, and its image, until the sandbox restarts. The picker then shows that a newer image is available. The add-on keeps the current and the previous image of each profile and deletes the older ones, except an image that a running sandbox still uses. If a new image breaks something, an administrator can add the profile to `pin_previous`: new sandboxes of the profile then start from the previous image.
+
+If a profile is missing in the release, or its image cannot be pulled, the command runs in `base`. The output of the command says so ("The media sandbox profile is not available (...), so this command ran in the base profile"), and the picker shows the same notice. The add-on never runs a command in a different profile without saying so. A failed pull is not retried for five minutes, so a broken registry does not stall every command. The images are kept on each machine that runs the add-on: in a cluster every node pulls its own, while the choice of the chat and the policy are shared.
+
+**API.** `GET` and `PUT /api/chats/{id}/sandbox-profile` read and set the profile of a chat, `GET /api/chats/sandbox-profiles` lists the profiles for a saved agent, and `GET /api/chats/admin/sandbox-profiles` is the administrator's view with the state of the images.
 
 ### Network access
 
 The guest of a sandbox has no network device: no NIC, no TAP device and no user-mode network stack. A command reaches the network only through one proxy, on guest port 3128, which the guest image sets in `HTTP_PROXY`, `HTTPS_PROXY`, pip, apt, git, npm and `GOPROXY`. The guest agent forwards each connection to that port to the add-on, over vsock (KVM) or a Unix socket (gVisor), and the add-on's proxy asks LocalAI about each connection with the host operation `egress.check`. LocalAI decides; the add-on dials. The proxy never decrypts TLS and holds no certificate the guest trusts.
 
-The guest image has `curl`, `git`, `pip` and the CA certificates, and all of them use the proxy (the full list of its programs is under [What the guest has](#what-the-guest-has)). The model is told so at each turn, with the chat's preset. To read or search web pages it is told to prefer `web_fetch` and `web_search` when the chat has them (the built-in ones or the Web add-on's), and to use `curl` for APIs, downloads and installs. With the network off, the note says that nothing is reachable.
+The guest image has `curl`, `git`, `pip` and the CA certificates, and all of them use the proxy (the programs of each profile are under [Sandbox profiles](#sandbox-profiles)). The model is told so at each turn, with the chat's preset. To read or search web pages it is told to prefer `web_fetch` and `web_search` when the chat has them (the built-in ones or the Web add-on's), and to use `curl` for APIs, downloads and installs. With the network off, the note says that nothing is reachable.
 
 Commands that run on this machine (the host backend, or the chats' built-in `bash`) have the network of the server: none of this applies to them, and the settings say so.
 
@@ -6282,7 +6763,8 @@ The Sandbox package is for Linux on amd64 and arm64. The macOS platforms are lis
   ```
 
   The profile names the binary by path, so a new `runsc` at a new path needs a new profile. Inside a container, AppArmor is that of the host: use a profile that allows user namespaces for the container (or `--security-opt apparmor=unconfined`), together with a seccomp profile that allows `unshare` and `clone` with `CLONE_NEWUSER`.
-- **The guest image.** The guest runs a Debian userland, the guest kernel and the guest agent. The `sandbox guest image` workflow (`.github/workflows/sandbox-images.yml`) builds `addons/sandbox/images/guest/Dockerfile` for amd64 and arm64, pushes it to the project registry (`quay.io/go-skynet/sandbox-guest`, which must allow anonymous pulls) and outputs the reference by digest. The package build passes that reference in `SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest>`, and `scripts/addons/package.sh` builds the add-on with `-ldflags "-X main.guestImage=..."`. `package.sh` refuses a Sandbox build without the variable; `--local-check` builds with a stand-in reference no registry serves, for a check that does not publish. To build the image by hand: `docker buildx build -f addons/sandbox/images/guest/Dockerfile .` from the repository root.
+- **The guest images.** The guest runs a Debian userland, the guest kernel and the guest agent. There is one image for each sandbox profile, and the Dockerfile has one target for each: `base` (the default target) and `media` (base plus ffmpeg, sox, ImageMagick and `rsvg-convert`). The `sandbox guest image` workflow (`.github/workflows/sandbox-images.yml`) builds `addons/sandbox/images/guest/Dockerfile` for amd64 and arm64, pushes the two images to the project registry (`quay.io/go-skynet/sandbox-guest` and `-media`, which must allow anonymous pulls) and outputs each reference by digest. The package build passes them in `SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest>` (base) and, optionally, `SANDBOX_GUEST_IMAGE_MEDIA`. `scripts/addons/package.sh` builds the add-on with `-ldflags "-X main.guestImage=... -X main.profileImages=media=..."`. `package.sh` refuses a Sandbox build without the base variable; `--local-check` builds with a stand-in reference no registry serves, for a check that does not publish. To build an image by hand: `docker buildx build -f addons/sandbox/images/guest/Dockerfile --target <base|media> .` from the repository root.
+- **The build check of a profile.** The tools of each profile, with the command that proves each one works, are in the add-on manifest (`execution.profiles`). The Dockerfile copies the manifest into the image and runs `check-tools.sh <profile>` in each target, so an image does not build when a listed tool is missing. `sh addons/sandbox/images/guest/check-tools_test.sh` tests the script.
 - **KVM.** `addons/sandbox/package/kvm.json` pins Cloud Hypervisor v54.0 (amd64 and arm64) and virtiofsd v1.14.0 (amd64) with checksums, and `fetch-runtime.sh` puts them in the package. The add-on checks each against the checksum compiled into it and copies it, as an executable file, to `kvm-bin/` in its data directory. Upstream publishes no static virtiofsd for arm64, so on arm64 install virtiofsd 1.13 or later in a system folder. The KVM backend also needs `mke2fs` and `debugfs` from e2fsprogs (the LocalAI image installs them) and access to `/dev/kvm` for the user LocalAI runs as. Bubblewrap is optional in a container: the add-on does not use it when it finds `/.dockerenv` or `/run/.containerenv`, or when `SANDBOX_NO_BWRAP=1` is set in its environment (`SANDBOX_NO_BWRAP=0` forces it). `addons/sandbox/images/host/Dockerfile` still builds an image with the same programs for a product that wants them in one place.
 - **Tests in CI.** The `sandbox tests` workflow (`.github/workflows/sandbox-tests.yml`) runs the Go tests and the end-to-end suite, the gVisor integration suite on amd64 and arm64 (with the pinned `runsc` and its profile loaded), the KVM integration suite on a runner that has `/dev/kvm` (it skips, and says so, on one without), and the release smoke test.
 - **Release smoke test.** `scripts/addons/sandbox_smoke.sh` takes the package that `package.sh` made, starts the add-on from the extracted files under the real supervisor with the default settings, and runs a command through the tool path of a chat. It passes when the command ran in gVisor or KVM, or, on a host that cannot, when every tool answers "This host cannot run commands." and nothing ran. `--require isolated` makes the second case a failure.
@@ -6362,7 +6844,15 @@ When the manifest of an add-on declares host operations, the install dialog show
 - An operation that the deployment already allows says so and needs no choice.
 - An operation that this LocalAI does not support says "Not supported by this LocalAI".
 
-For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the dialog also says which library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the warning below names the library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+
+### Add-ons from another library
+
+An add-on runs as trusted code on this server, whatever library it comes from. The first step of the install dialog therefore shows a warning for every add-on that is not from the official library, whether or not it asks for host operations:
+
+> This add-on comes from *library*, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.
+
+The same warning shows above the approval form of a held upgrade when the package is not from the official library. The dialog warns unless the library entry is marked `official` and the owner's preview agrees (the preview also checks the signature). A host that sends no answer gets the warning. The Host access step does not repeat it.
 
 An agent that installs an add-on through the dispatch route carries no approval. If the add-on needs a host operation that is not held, the owner answers `approval_required`.
 

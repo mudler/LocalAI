@@ -9,50 +9,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
-	httpUtils "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
-	"github.com/mudler/LocalAI/internal"
 )
-
-// GetEditModelPage renders the edit model page with current configuration
-func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
-	svc := modeladmin.NewConfigService(cl, appConfig)
-	return func(c echo.Context) error {
-		modelName := c.Param("name")
-		if decoded, err := url.PathUnescape(modelName); err == nil {
-			modelName = decoded
-		}
-		view, err := svc.GetConfig(c.Request().Context(), modelName)
-		if err != nil {
-			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
-		}
-		// Render the edit page with the current configuration. Re-fetch the
-		// in-memory config from the loader for the template — the on-disk YAML
-		// view from svc doesn't carry the loader's parsed struct fields.
-		modelConfig, _ := cl.GetModelConfig(modelName)
-		templateData := struct {
-			Title                  string
-			ModelName              string
-			Config                 *config.ModelConfig
-			ConfigJSON             string
-			ConfigYAML             string
-			BaseURL                string
-			Version                string
-			DisableRuntimeSettings bool
-		}{
-			Title:                  "LocalAI - Edit Model " + modelName,
-			ModelName:              modelName,
-			Config:                 &modelConfig,
-			ConfigYAML:             view.YAML,
-			BaseURL:                httpUtils.BaseURL(c),
-			Version:                internal.PrintableVersion(),
-			DisableRuntimeSettings: appConfig.DisableRuntimeSettings,
-		}
-
-		return c.Render(http.StatusOK, "views/model-editor", templateData)
-	}
-}
 
 // EditModelEndpoint handles updating existing model configurations
 func EditModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig, lifecycle ...modeladmin.ModelRevisionLifecycle) echo.HandlerFunc {

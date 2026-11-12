@@ -127,6 +127,15 @@ var _ = Describe("OpCache history source", func() {
 			Expect(history[0].IsBackend).To(BeTrue())
 		})
 
+		It("reports a backend upgrade as an upgrade", func() {
+			seed("job-bup", "llama-cpp", "llama-cpp", "backend_upgrade", "completed", "", true)
+
+			history := cache.History()
+			Expect(history).To(HaveLen(1))
+			Expect(history[0].TaskType).To(Equal(galleryop.TaskUpgrade))
+			Expect(history[0].IsBackend).To(BeTrue())
+		})
+
 		It("splits a node-scoped key into the bare backend name and the node", func() {
 			seed("job-node", galleryop.NodeScopedKey("worker-7", "llama-cpp"), "llama-cpp",
 				"backend_install", "completed", "", true)

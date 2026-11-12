@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -446,6 +447,22 @@ func (c *Client) ListBackendLibraryUpdates(ctx context.Context) ([]localaitools.
 		resp.Updates = []localaitools.BackendLibraryUpdate{}
 	}
 	return resp.Updates, nil
+}
+
+func (c *Client) BackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error) {
+	var out backendupdates.Snapshot
+	if err := c.do(ctx, http.MethodGet, routeBackendsUpdates, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) CheckBackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error) {
+	var out backendupdates.Snapshot
+	if err := c.do(ctx, http.MethodPost, routeBackendsUpdatesCheck, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *Client) InstallBackend(ctx context.Context, req localaitools.InstallBackendRequest) (string, error) {

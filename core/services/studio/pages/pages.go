@@ -155,11 +155,29 @@ const (
 	maxWidgetTitle = 60
 )
 
+// The width of a compact tile in a slot, in CSS pixels: a slot is about 40 px
+// high, so the width is the only room a page can ask for.
+const (
+	CompactWidthMin     = 72
+	CompactWidthDefault = 120
+	CompactWidthMax     = 220
+)
+
 // Widget is the "widget" block of page.json: the page can be a tile on Home,
 // where it runs in its compact mode at Size.
 type Widget struct {
 	Size  string // WidgetSmall, WidgetMedium or WidgetLarge
 	Title string // optional short title of the tile
+	// Compact is set when the page also has a layout for a slot (the chat
+	// header, the sidebar footer, the composer toolbar): a strip about 40 px
+	// high. Without it a slot shows the page as a button that opens it.
+	Compact *Compact
+}
+
+// Compact is the "compact" entry of the widget block: true, or an object with
+// the width the tile wants.
+type Compact struct {
+	Width int // CSS pixels, CompactWidthMin to CompactWidthMax
 }
 
 // ValidWidgetSize says whether s is a widget size.
@@ -189,6 +207,9 @@ type Service struct {
 	writes *limiter
 	sends  *limiter
 	refs   refCache
+	// errs keeps the runtime errors of the pages (see errors.go).
+	errs      ErrorStore
+	errorRate *limiter
 }
 
 // Option configures a Service.
@@ -196,6 +217,16 @@ type Option func(*Service)
 
 // WithClock sets the clock of the rate limits, for tests.
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
+
+// WithErrorStore sets where the errors of the pages are kept. Without it they
+// are kept in memory.
+func WithErrorStore(st ErrorStore) Option {
+	return func(s *Service) {
+		if st != nil {
+			s.errs = st
+		}
+	}
+}
 
 // New returns the service on the files of the chats.
 func New(f *files.Service, opts ...Option) *Service {
@@ -206,6 +237,12 @@ func New(f *files.Service, opts ...Option) *Service {
 	// A page that saves on every keystroke must debounce; 30 writes a minute
 	// with a burst of 20 is plenty for a person using a page.
 	s.writes = newLimiter(20, 2*time.Second, s.now)
+	// A throw in an animation frame repeats 60 times a second; the frame
+	// counts repeats and the server keeps a burst, then one report in 2 s.
+	s.errorRate = newLimiter(20, 2*time.Second, s.now)
+	if s.errs == nil {
+		s.errs, _ = NewJSONErrors("")
+	}
 	// A message to the assistant starts a turn, which costs far more.
 	s.sends = newLimiter(3, 20*time.Second, s.now)
 	return s
@@ -434,8 +471,9 @@ func parseWidget(raw json.RawMessage) *Widget {
 		return nil
 	}
 	var w struct {
-		Size  any `json:"size"`
-		Title any `json:"title"`
+		Size    any             `json:"size"`
+		Title   any             `json:"title"`
+		Compact json.RawMessage `json:"compact"`
 	}
 	if raw[0] != '{' || json.Unmarshal(raw, &w) != nil {
 		return nil
@@ -446,6 +484,33 @@ func parseWidget(raw json.RawMessage) *Widget {
 	}
 	if title, ok := w.Title.(string); ok {
 		out.Title = clip(title, maxWidgetTitle)
+	}
+	out.Compact = parseCompact(w.Compact)
+	return out
+}
+
+// parseCompact reads the compact entry of the widget block: true or an object
+// makes the page a compact tile, anything else does not. A width out of its
+// bounds is clamped, so a typo still shows a tile.
+func parseCompact(raw json.RawMessage) *Compact {
+	raw = bytes.TrimSpace(raw)
+	switch {
+	case len(raw) == 0:
+		return nil
+	case bytes.Equal(raw, []byte("true")):
+		return &Compact{Width: CompactWidthDefault}
+	case raw[0] != '{':
+		return nil
+	}
+	var c struct {
+		Width any `json:"width"`
+	}
+	if json.Unmarshal(raw, &c) != nil {
+		return nil
+	}
+	out := &Compact{Width: CompactWidthDefault}
+	if w, ok := c.Width.(float64); ok {
+		out.Width = min(max(int(w), CompactWidthMin), CompactWidthMax)
 	}
 	return out
 }

@@ -147,6 +147,8 @@
     "disabled": "비활성",
     "pinned": "고정됨",
     "useTyped": "\"{{name}}\" 사용",
+    "chooseModel": "모델을 선택하세요",
+    "defaultMissing": "기본 모델 {{model}}이(가) 설치되어 있지 않습니다. 모델을 선택하세요.",
     "empty": "사용 가능한 모델 없음",
     "add": "모델 추가",
     "remove": "{{name}} 제거",

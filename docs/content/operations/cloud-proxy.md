@@ -293,6 +293,8 @@ the upstream's full feature set.
 
 In translate mode, an Anthropic response with `stop_reason: "refusal"` is returned to the client as an error instead of an empty successful reply, for both non-streaming and streaming requests. A streamed response may already have delivered partial content when the refusal arrives. Responses that end normally (`end_turn`) are unaffected, even when their content is empty.
 
+For OpenAI-compatible upstreams, translate mode rewrites nullable type unions in tool schemas (`"type": ["null", "array"]`) to the plain type (`"type": "array"`) before sending. LocalAI's built-in tools mark every list and pointer parameter as nullable, and some providers validate tool schemas against a narrower dialect: Mistral, for example, rejects the whole request with `Invalid tool schema: None is not of type 'array'` (code 3260). Optional parameters stay optional through `required`. Unions with more than one non-null type keep those types. A `required` or `enum` that is `null` (an empty Go list, as on the built-in `list_files` tool) is left out for the same reason.
+
 #### Anthropic prompt caching
 
 `proxy.cache_prompt: true` makes the translator add Anthropic

@@ -653,9 +653,26 @@ message as rules for the run. Treat it as text from whoever can write there.
   agent. Nobody watches a run, so no card asks: a blocked host stays blocked.
   A sub-agent follows the network of the chat that started it, its rules
   included, and never shows a card either.
-- **Limits.** A run has 15 minutes. At most 2 runs go at once, one per trigger,
-  and a trigger has a daily limit (`daily_cap`, default 24). A run that is skipped
-  or fails shows its reason on the trigger.
+- **Limits.** A run has 15 minutes by default (`chats_trigger_run_limit`, 1m to
+  24h). A trigger can set a shorter or longer time limit of its own with
+  `run_limit`, a duration such as `30m` or `2h` from `1m` to `24h`; empty or `0`
+  means the administrator's limit. That setting is the ceiling: a trigger whose
+  `run_limit` is longer is saved as written but each run is stopped at the
+  ceiling, and a lowered ceiling applies to the next run and to the check of a
+  run that is found running after a restart. The API shows `run_limit` and `effective_run_limit`, the one
+  that applies now. A proposal from a messaging app is held to the same
+  ceiling when the trigger is set up by itself. At most 2 runs go at once, one per trigger, and a trigger has a daily
+  limit (`daily_cap`, at most 1000 or `chats_trigger_max_daily_cap` when an
+  administrator sets it lower). When you set none, a schedule trigger gets one
+  run for each time its schedule fires in a day, and at least 24: a trigger
+  every 30 minutes gets 48 and one every 5 minutes gets 288. A limit you set
+  is used as written. A schedule trigger is switched off, and you get a
+  notification, after 3 failed runs in a row. One that runs more often than
+  hourly is also switched off after 3 runs in a row that the daily limit
+  skipped. A run that is skipped because the previous run is still going is
+  recorded once for a stretch of such skips, not once for each missed time. A run that is skipped or fails shows its
+  reason on the trigger. An administrator sets the limits of the triggers in the
+  [runtime settings]({{%relref "features/runtime-settings" %}}).
 - **Cost.** A run is a chat turn on the trigger's model, so it uses tokens. A run
   records the prompt and completion tokens of its model requests (`tokens` on the
   run), and a trigger reports the average of its last runs, the most runs one day
@@ -800,7 +817,7 @@ proposal: the tool line of `propose_trigger` has a `card` of kind
 and in the transcript, so it shows again after a reload, and a
 `trigger_proposed` event announces it to a client that is watching. If a proposal was made in a chat that
 has an agent, the trigger keeps that agent. At most 10 proposals wait at a time,
-and you can have 50 triggers.
+and you can have 50 triggers (`chats_trigger_max_per_user`).
 
 The card sits below the text of the message it belongs to. When you answer it,
 it does not go away: it turns into a receipt, and the answer is kept on the
@@ -828,17 +845,23 @@ trigger runs when it was undone, and does not propose a declined one again
 unless you ask. A declined or undone proposal does not count towards the limit
 of 10 waiting proposals or 50 triggers.
 
-A schedule proposed in a chat runs at most once an hour. A shorter one (for
-example `*/15 * * * *`) is refused with the reason, and the model is told to
-propose an hourly or slower one. An edit of the proposal keeps the same floor.
-On the Triggers page you can still choose a shorter schedule yourself.
+A schedule trigger runs at most once every 5 minutes, however it is made. A
+shorter one (for example `* * * * *`, every minute) is refused with the reason,
+and the model is told to propose a slower one. An edit of the proposal keeps the
+same floor, and so do the Triggers page and the REST API when you create a
+trigger or change its schedule. A trigger that was saved with a shorter schedule
+before this floor keeps running; you can rename it or edit its prompt, and only
+a change of its schedule is checked.
 
 A proposal also carries a plan, so you see what it does before you create it:
 what a run reads (`reads`), the file in your home it rewrites (`writes`), the
 Home widget that shows that file (`widget`, the widget's `id` in `LocalAI/home.json`)
-and about how many tokens one run uses (`estimated_tokens`). The card lists
-them with when it runs and its first run, that it runs as you with the chat's
-model, the cost (and whether the tokens leave the server) and how to stop it.
+and about how many tokens one run uses (`estimated_tokens`). A proposal can
+also ask for a time limit for each run (`run_limit`, for example `30m`). The
+card lists them with when it runs and its first run, that it runs as you with
+the chat's model, the cost (and whether the tokens leave the server), the time
+limit when there is one (and the lower limit that applies if the administrator
+set one) and how to stop it.
 When you create a trigger whose plan names a widget, LocalAI writes the
 trigger's id into that widget as `trigger`, so the widget can show when it runs.
 A form that edits a trigger and does not send the plan keeps it.
@@ -853,9 +876,9 @@ prompt and the other settings of one trigger, the model passes its `ref` with
 exist, is an error for the model. The model can also name a trigger by its
 exact name when only one trigger has that name.
 
-- `update_trigger {ref, name, prompt, when, time_zone, daily_cap, enabled, reads, writes, widget, estimated_tokens}`
+- `update_trigger {ref, name, prompt, when, time_zone, daily_cap, run_limit, enabled, reads, writes, widget, estimated_tokens}`
   changes the fields it names and keeps the others. The same rules as for a
-  proposal apply: a schedule that changes runs at most once an hour, the
+  proposal apply: a schedule that changes runs at most once every 5 minutes, the
   folder and the `writes` file must be in your files. A change of anything
   other than `enabled` does nothing by itself: a card shows each changed field
   before and after, with **Apply** and **Dismiss**. A change that only pauses
@@ -948,9 +971,15 @@ sources existed), a short title and text, and a link to the chat it is about.
 A chat that a run started is unread until you open it: opening the chat marks
 its notifications read.
 
-In the chat page, the **Notifications** button in the header shows the unread
-count (99+ above 99) and opens the panel (a sheet over the bottom of the
-screen on a phone):
+The **Notifications** entry is in the app on every page, not only in the chat
+page. On a wide screen it sits in the sidebar, above **Administration**; on a
+narrow screen it is an icon of the rail; on a phone it is a bell in the header
+(and an entry in the menu). It shows the unread count (99+ above 99), in red
+when an unread item is a failure, and opens one panel (a sheet over the bottom
+of the screen on a phone). An administrator always sees the entry. Anyone else
+sees it once they have items. Nobody sees it when the chats are off or the
+account lacks the `chats` feature. A change that waits for you is listed in the
+panel but is not in the count. An administrator also sees an **Activity** tab in the panel, with installs, updates and removals (see [Activity]({{% relref "operations/activity" %}})); operations are never in the count. In the panel:
 
 - **All**, **Unread** and **Failed** filter the list. **Failed** shows every
   failed run and every trigger or connector that was switched off.
@@ -967,7 +996,17 @@ screen on a phone):
 - A notification that arrives while the panel is open slides in at the top
   and is highlighted for a few seconds.
 
-You keep at most 500 notifications, none older than 90 days. The age limit applies when you read: an older notification is not listed or counted, and it is deleted the next time one is added.
+You keep at most 500 notifications, none older than 90 days. The age limit applies when you read: an older notification is not listed or counted, and it is deleted the next time one is added. The exception is a set item (see below), which no trim removes.
+
+### Items that LocalAI keeps up to date
+
+Most items are written once. LocalAI itself writes a few kinds that it keeps up to date, such as the list of updates that are available. An item like that has a key, and you have at most one for each key.
+
+- A **set item** shows a set of things, each with an id. When the set gets an id it did not show before, the item comes back as a new, unread item at the top. It reaches the browser push and the Telegram chat once, like any new item. When the set only gets smaller, or its text changes, the item is edited in place: it keeps its place, its read state and its hidden state, and nothing is pushed. An empty set removes the item.
+- Delete, **Clear read** and **Clear all** do not forget a keyed item: they hide it. It stays hidden while the set is the same or smaller, and it comes back, unread, only for a new id. Marking it read keeps it in the list, and later edits do not make it unread again.
+- A **once item** is posted when its key is new and never again, also after you deleted it. LocalAI uses one for each result of an automatic update, so a failure that repeats at the next pass does not fill the inbox.
+
+Some items have a `code` and `params` in the API (`updates.digest`, `updates.result`, `updates.checkFailed`). The app words them in your language from the params. `title` and `body` stay in English: they are the fallback for a client that does not know the code, and the text of browser push and Telegram. The update items are described in [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}}).
 
 ```
 curl ".../api/chats/notifications?unread=1"          # the unread ones, and the unread count
@@ -992,7 +1031,11 @@ notification added on one frontend reaches the clients connected to any other.
 When notifications are read or deleted, the stream sends a
 `notifications_changed` event, so your other open tabs read the list again and
 their unread badge follows. The notifications are rows in the shared database,
-so clearing the inbox on one frontend clears it for all of them.
+so clearing the inbox on one frontend clears it for all of them. The frontend
+that stores a new or revived item runs the push and the Telegram forward, so
+each happens once in a cluster. An item that LocalAI writes on its own (see
+above) is written by one frontend only: the one that holds the lock of the
+work that produces it.
 
 ### Browser notifications
 

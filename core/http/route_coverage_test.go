@@ -119,6 +119,11 @@ var _ = Describe("Route auth coverage", func() {
 			{method: http.MethodGet, path: "/api/auth/oidc/login"}:      {},
 			{method: http.MethodGet, path: "/api/auth/oidc/callback"}:   {},
 
+			// A paired client redeems its one-time pairing code here. It has no
+			// credential yet. The handler limits tries by address, and answers
+			// every wrong code the same way.
+			{method: http.MethodPost, path: "/api/client/pair"}: {},
+
 			// SPA shell and client-side navigation before login.
 			{method: http.MethodGet, path: "/"}:             {},
 			{method: http.MethodHead, path: "/"}:            {},

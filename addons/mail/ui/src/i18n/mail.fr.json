@@ -88,7 +88,7 @@
     "step1": "Trouvez les noms des serveurs IMAP et SMTP de votre fournisseur dans ses pages d'aide. Les deux utilisent TLS ou STARTTLS.",
     "step2": "Si le fournisseur le permet, créez un mot de passe d'application pour LocalAI et utilisez-le comme mot de passe. Un mot de passe normal ne fonctionne souvent pas avec IMAP.",
     "step3": "Saisissez l'adresse, le nom d'utilisateur, le mot de passe et les deux serveurs, puis enregistrez. L'enregistrement se connecte aux deux serveurs.",
-    "step4": "Choisissez si l'agent peut aussi envoyer des courriels et enregistrer des brouillons. Chaque envoi et chaque brouillon attend votre confirmation, dans les deux modes.",
+    "step4": "Choisissez si l'agent peut aussi envoyer des courriels et enregistrer des brouillons, et s'il vous demande d'abord. Avec Tout autoriser, il agit sans demander, et un courriel envoyé ne peut pas être rappelé.",
     "private": "Les serveurs de courrier doivent être sur l'internet public : les adresses d'un réseau privé sont refusées."
   },
   "writeMode": {
@@ -98,16 +98,20 @@
     "propose": "Vous demande d'abord",
     "line": {
       "off": "Il peut seulement lire.",
-      "propose": "Chaque envoi et chaque brouillon attend votre accord."
+      "propose": "Chaque envoi et chaque brouillon attend votre accord.",
+      "auto": "Vos chats envoient et enregistrent tout de suite."
     },
     "note": {
       "off": "L'accès en écriture est désactivé : cette connexion ne fait que lire.",
-      "propose": "Chaque envoi et chaque brouillon attend dans vos approbations que vous le confirmiez. Un courriel envoyé ne peut pas être rappelé, et tous les destinataires de À et Cc le liront."
+      "propose": "Chaque envoi et chaque brouillon attend dans vos approbations que vous le confirmiez. Un courriel envoyé ne peut pas être rappelé, et tous les destinataires de À et Cc le liront.",
+      "auto": "Un de vos chats envoie et enregistre le courrier tout de suite, sans demander. Un courriel envoyé ne peut pas être rappelé, et tous les destinataires de À et Cc le liront. Les exécutions sans vous attendent toujours votre confirmation."
     },
     "row": {
       "off": "Lecture seule",
-      "propose": "Vous demande d'abord"
-    }
+      "propose": "Vous demande d'abord",
+      "auto": "Tout autoriser"
+    },
+    "auto": "Tout autoriser"
   },
   "approval": {
     "action": {

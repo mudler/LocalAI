@@ -90,7 +90,12 @@ func unregisterStream(h uintptr) {
 // explicit backend, the loader probes every backend with the model name, so
 // Load must refuse anything vllm.cpp cannot serve (a GGUF file, or a HF-style
 // directory with config.json + safetensors).
-func validModelPath(model string) error {
+//
+// A MiniMax-H3 video model (video true) points at its DiT instead, which the
+// engine opens as a GGUF file, an NVFP4 .safetensors file, or a bf16 shard
+// directory carrying model.safetensors.index.json. Those forms are accepted
+// only for video models; a text model keeps the strict rule.
+func validModelPath(model string, video bool) error {
 	info, err := os.Stat(model)
 	if err != nil {
 		return fmt.Errorf("vllm-cpp: model path %q not found: %w", model, err)
@@ -105,10 +110,23 @@ func validModelPath(model string) error {
 				return nil
 			}
 		}
+		if video {
+			if _, err := os.Stat(filepath.Join(model, "model.safetensors.index.json")); err == nil {
+				return nil
+			}
+			return fmt.Errorf("vllm-cpp: video model dir %q has no model.safetensors.index.json (bf16 shard dir) or config.json", model)
+		}
 		return fmt.Errorf("vllm-cpp: model dir %q has no config.json, cua-s1-forms.json, or rl_agent_config.json", model)
 	}
-	if strings.EqualFold(filepath.Ext(model), ".gguf") {
+	ext := filepath.Ext(model)
+	if strings.EqualFold(ext, ".gguf") {
 		return nil
+	}
+	if video {
+		if strings.EqualFold(ext, ".safetensors") {
+			return nil
+		}
+		return fmt.Errorf("vllm-cpp: video model %q is not a .gguf file, a .safetensors file, or a shard dir with model.safetensors.index.json", model)
 	}
 	return fmt.Errorf("vllm-cpp: model %q is neither a .gguf file nor a config.json model dir", model)
 }
@@ -121,11 +139,10 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 	if !filepath.IsAbs(model) && opts.ModelPath != "" {
 		model = filepath.Join(opts.ModelPath, model)
 	}
-	if err := validModelPath(model); err != nil {
+	v.opts = parseOptions(opts)
+	if err := validModelPath(model, v.opts.video.engaged()); err != nil {
 		return err
 	}
-
-	v.opts = parseOptions(opts)
 
 	// MiniMax-H3 is a checkpoint SET behind its own engine handle, so the
 	// branch is taken before any text-engine knob is resolved. The two loaders

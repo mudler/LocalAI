@@ -7,6 +7,7 @@ import { keyState, timeUntil, KEY_EXPIRIES } from '../../utils/access'
 import { useDelayedAction, UNDO_WINDOW_MS } from '../../hooks/useDelayedAction'
 import LoadingSpinner from '../LoadingSpinner'
 import Icon from '../Icon'
+import { Button } from '../ui'
 
 function formatDate(d) {
   if (!d) return ''
@@ -142,9 +143,9 @@ export default function ApiKeysPanel({ addToast, intro }) {
             </select>
           </div>
         </div>
-        <button type="submit" className="dk-btn dk-btn--primary" disabled={creating || !name.trim()}>
-          {creating ? <LoadingSpinner size="sm" /> : <><Icon name="plus" /> {t('account.apiKeys.createButton')}</>}
-        </button>
+        <Button type="submit" variant="primary" icon="plus" busy={creating} disabled={creating || !name.trim()}>
+          {t('account.apiKeys.createButton')}
+        </Button>
       </form>
 
       {reveal && (
@@ -152,13 +153,13 @@ export default function ApiKeysPanel({ addToast, intro }) {
           <p className="ak-reveal__head"><Icon name="warning" aria-hidden="true" /> {t('account.apiKeys.copyNow')}</p>
           <div className="ak-reveal__row">
             <code className="ak-reveal__key" data-testid="api-key-secret">{reveal.key}</code>
-            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={copyKey}>
-              <Icon name={reveal.copied ? 'check' : 'copy'} /> {reveal.copied ? t('account.apiKeys.copied') : t('account.apiKeys.copy')}
-            </button>
+            <Button size="sm" icon={reveal.copied ? 'check' : 'copy'} onClick={copyKey}>
+              {reveal.copied ? t('account.apiKeys.copied') : t('account.apiKeys.copy')}
+            </Button>
           </div>
           <div className="ak-reveal__foot">
             <span>{t('account.apiKeys.revealNote', { name: reveal.name })}</span>
-            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => setReveal(null)}>{t('account.apiKeys.copiedIt')}</button>
+            <Button size="sm" variant="primary" onClick={() => setReveal(null)}>{t('account.apiKeys.copiedIt')}</Button>
           </div>
         </div>
       )}
@@ -206,23 +207,23 @@ export default function ApiKeysPanel({ addToast, intro }) {
                   </div>
                   <div className="ak-row__acts">
                     {waiting ? (
-                      <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => revoking.cancel(k.id)}>
-                        <Icon name="undo" /> {t('account.apiKeys.undo')}
-                      </button>
+                      <Button size="sm" icon="undo" onClick={() => revoking.cancel(k.id)}>
+                        {t('account.apiKeys.undo')}
+                      </Button>
                     ) : (
                       <>
                         {isPaused(k) ? (
-                          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => applyPause(k.id, false, null)} disabled={pauseBusyId === k.id}>
-                            {pauseBusyId === k.id ? <LoadingSpinner size="sm" /> : <><Icon name="play" /> {t('account.apiKeys.resume')}</>}
-                          </button>
+                          <Button size="sm" icon="play" busy={pauseBusyId === k.id} onClick={() => applyPause(k.id, false, null)}>
+                            {t('account.apiKeys.resume')}
+                          </Button>
                         ) : (
-                          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-expanded={pauseFormId === k.id} onClick={() => (pauseFormId === k.id ? setPauseFormId(null) : openPauseForm(k.id))}>
-                            <Icon name="pause" /> {t('account.apiKeys.pause')}
-                          </button>
+                          <Button size="sm" icon="pause" aria-expanded={pauseFormId === k.id} onClick={() => (pauseFormId === k.id ? setPauseFormId(null) : openPauseForm(k.id))}>
+                            {t('account.apiKeys.pause')}
+                          </Button>
                         )}
-                        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm ak-revoke" onClick={() => revoking.schedule(k.id, k)} title={t('account.apiKeys.revokeKey')}>
-                          <Icon name="trash" /> {t('account.apiKeys.revoke')}
-                        </button>
+                        <Button size="sm" variant="danger-ghost" icon="trash" onClick={() => revoking.schedule(k.id, k)} title={t('account.apiKeys.revokeKey')}>
+                          {t('account.apiKeys.revoke')}
+                        </Button>
                       </>
                     )}
                   </div>
@@ -240,9 +241,9 @@ export default function ApiKeysPanel({ addToast, intro }) {
                     {pauseMode === 'until' && (
                       <input type="datetime-local" className="dk-input ak-pause__date" aria-label={t('account.apiKeys.pauseUntil')} value={pauseUntil} onChange={(e) => setPauseUntil(e.target.value)} />
                     )}
-                    <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => submitPause(k.id)} disabled={pauseBusyId === k.id || (pauseMode === 'until' && !pauseUntil)}>
+                    <Button size="sm" busy={pauseBusyId === k.id} onClick={() => submitPause(k.id)} disabled={pauseBusyId === k.id || (pauseMode === 'until' && !pauseUntil)}>
                       {t('account.apiKeys.pauseConfirm')}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </li>

@@ -118,7 +118,7 @@ var _ = Describe("the manifest", func() {
 			switch d.Kind {
 			case contract.ToolKindWrite:
 				Expect(tools.WriteTools()).To(ContainElement(d.Name))
-				Expect(d.Approval).To(Equal(contract.ApprovalAlways), d.Name)
+				Expect(d.Approval).To(BeEmpty(), d.Name+": a write waits in propose mode and runs in Allow all, so no approval ceiling")
 			case contract.ToolKindRead:
 				if !d.UIOnly {
 					Expect(d.Description).To(ContainSubstring("text written by others"), d.Name)

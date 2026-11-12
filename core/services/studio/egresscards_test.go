@@ -114,6 +114,15 @@ var _ = Describe("the network cards of a chat", func() {
 		rid = toolargs.ActionResourceID(id)
 	})
 
+	It("blocks a background job's host that needs a yes without a card", func() {
+		v, err := svc.EgressCheck(studio.WithUnattendedEgress(ctx), alice, rid, "jobop", tlsTo("example.com"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v).To(Equal(egress.Verdict{Action: egress.Block, Reason: egress.ReasonUnattended}))
+		rec, err := st.GetChat(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Egress.Pending()).To(BeEmpty(), "nobody was asked")
+	})
+
 	It("asks for a host the preset does not allow and lets the command go on after 'Allow once', for the rest of that call", func() {
 		got := checkAsync(svc, alice, rid, "op1", tlsTo("example.com"))
 		card := waitCard(st, alice, id)

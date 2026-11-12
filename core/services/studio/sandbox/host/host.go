@@ -95,6 +95,8 @@ func New(o Options) (*Backend, error) {
 			_ = os.RemoveAll(d)
 		}
 	}
+	// So are the process groups of the jobs it left running.
+	reapGroups(filepath.Join(filepath.Clean(o.Root), "jobgroups"))
 	return &Backend{root: filepath.Clean(o.Root), log: o.Log, held: map[string]*hostSandbox{}}, nil
 }
 
@@ -279,8 +281,18 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	s.mu.Lock()
 	s.procs = append(s.procs, p)
 	s.mu.Unlock()
+	pgid := cmd.Process.Pid
+	if c.Job {
+		s.b.recordGroup(pgid)
+	}
 	go func() {
 		p.err = cmd.Wait()
+		if c.Job {
+			// What the command left running in its group must not outlive
+			// it: nothing else would signal the group again.
+			_ = syscall.Kill(-pgid, syscall.SIGKILL)
+			s.b.forgetGroup(pgid)
+		}
 		close(p.done)
 	}()
 	go func() {
@@ -500,6 +512,7 @@ func (s *hostSandbox) Destroy(ctx context.Context) error {
 	for _, p := range procs {
 		p.markGone()
 		_ = syscall.Kill(-p.cmd.Process.Pid, syscall.SIGKILL)
+		s.b.forgetGroup(p.cmd.Process.Pid)
 	}
 	return os.RemoveAll(s.dir)
 }

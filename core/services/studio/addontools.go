@@ -378,6 +378,9 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 			}
 		}
 		if t, ok := s.shadowTool(a, d, schema); ok {
+			if d.Shadows == commandTool && d.Execution != nil && len(d.Execution.Profiles) > 0 {
+				t = s.withSandboxProfile(ctx, a, rec, d, t)
+			}
 			if d.ResourceScoped {
 				t.Run = s.agentResourceRun(a, t.Run)
 			}

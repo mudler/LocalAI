@@ -34,7 +34,7 @@ func (s *Service) egressAudit() audit.Store { return s.egressAuditStore }
 // forkEgress is the network state a fork copies: the preset and the allow
 // rules. The cards and the deny rules belong to the chat that asked.
 func forkEgress(src egress.ChatState) egress.ChatState {
-	out := egress.ChatState{Preset: src.Preset}
+	out := egress.ChatState{Preset: src.Preset, Profile: src.Profile}
 	for _, r := range src.Rules {
 		if r.Allow {
 			out.Rules = append(out.Rules, r)

@@ -122,7 +122,13 @@
     "sourceTitle": "Sumber \"{{title}}\"",
     "sourceLines_one": "{{count}} baris",
     "sourceLines_other": "{{count}} baris",
-    "sourceNote": "Sumber ditampilkan sebagai teks. Tidak ada yang berjalan di sini."
+    "sourceNote": "Sumber ditampilkan sebagai teks. Tidak ada yang berjalan di sini.",
+    "embed": {
+      "desc": "Anda mengizinkan halaman ini dibuka. Di Beranda, di slot, dan di dok, halaman ini berjalan begitu layar tampil, tanpa klik, jadi perlu izin tersendiri.",
+      "item": "Berjalan di Beranda, di slot aplikasi, dan di dok",
+      "note": "Halaman mulai saat layar tampil, tanpa klik. Perubahan oleh pembuatnya akan meminta izin lagi.",
+      "allow": "Izinkan di Beranda, di slot, dan di dok"
+    }
   },
   "frame": {
     "filesFailed": "Berkas di samping halaman ini tidak dimuat: {{files}}. Konsol browser menjelaskan alasannya.",
@@ -134,5 +140,47 @@
     "open": "Buka {{site}}",
     "cancel": "Batal",
     "lookalike": "Alamat ini memakai huruf dari alfabet lain dan terbaca sebagai {{display}}. Alamat ini bisa meniru situs lain: periksa sebelum membukanya."
+  },
+  "view": {
+    "startPage": "Halaman awal",
+    "makeStart": "Jadikan halaman sematan pertama saya",
+    "startAlone": "Ini satu-satunya halaman yang Anda sematkan.",
+    "startFailed": "Halaman awal tidak dapat disimpan: {{message}}"
+  },
+  "dock": {
+    "button": "Dok",
+    "buttonTitle": "Tampilkan atau sembunyikan dok (Ctrl+\\)",
+    "region": "Halaman di samping obrolan",
+    "tabs": "Halaman di dok",
+    "closeTab": "Tutup {{title}}",
+    "add": "Buka halaman lain di dok",
+    "hide": "Sembunyikan dok",
+    "hideKeys": "Sembunyikan dok (Ctrl+\\)",
+    "openFull": "Buka {{title}} sebagai halaman penuh",
+    "by": {
+      "assistant": "Halaman dari asisten",
+      "you": "Halaman dari Anda"
+    },
+    "shared": "Dibagikan: {{folder}}",
+    "askPrompt": "Ubah halaman {{title}} di pages/{{name}}/ agar ",
+    "live": "Langsung: diperbarui saat file berubah",
+    "liveShort": "Langsung",
+    "sandboxed": "Terisolasi, tanpa jaringan",
+    "resize": "Lebar dok",
+    "resizeHint": "Seret tepinya atau gunakan tombol panah. Klik dua kali atau tekan Enter untuk mengatur ulang lebar.",
+    "fullScreen": "Jadikan dok layar penuh",
+    "halfScreen": "Jadikan dok setengah layar",
+    "sheetHint": "Seret pegangan ke atas untuk layar penuh, ke bawah untuk menutup",
+    "pickTitle": "Buka halaman di dok",
+    "pickEmpty": "Anda belum punya halaman. Minta asisten untuk membuatnya.",
+    "missing": "Halaman {{name}} sudah tidak ada, atau Anda tidak dapat membacanya sekarang.",
+    "off": "Administrator mematikan halaman bersama.",
+    "error": "Halaman tidak dapat dimuat.",
+    "allowText": "Halaman ini berasal dari folder bersama. Halaman ini berjalan di sini hanya setelah Anda mengizinkannya.",
+    "allow": "Tinjau dan izinkan",
+    "run": "Jalankan di sini",
+    "sendLabel": "Halaman ini meminta untuk mengirim pesan ini ke obrolan ini:",
+    "saveFailed": "Dok tidak disimpan: {{message}}",
+    "openInDock": "Buka di dok"
   }
 }

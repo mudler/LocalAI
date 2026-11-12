@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/pkg/sandboxpolicy"
 	"log/slog"
 	"maps"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
@@ -55,7 +57,9 @@ var ErrAgentsOff = errors.New("studio: saved agents are not available")
 var ErrPushOff = errors.New("studio: browser push is not available")
 
 // ErrConnectorsOff means the service has no connector manager.
-var ErrConnectorsOff = errors.New("studio: connectors are not available")
+var ErrConnectorsOff = errors.New("studio: " + msgConnectorsOff)
+
+const msgConnectorsOff = "connectors are not available"
 
 // ErrNotificationsOff means the service has no inbox.
 var ErrNotificationsOff = errors.New("studio: notifications are not available")
@@ -165,6 +169,9 @@ type Deps struct {
 	Instance string
 	// Replay carries those asks between processes. Nil in one process.
 	Replay ReplayCarrier
+	// JobCarrier carries the asks about a background job to the node that
+	// runs it (chats.jobs.<instance>). Nil in one process: every job is here.
+	JobCarrier bgjob.Carrier
 	// Files is the workspace of the chats. Nil or disabled: the chats have no
 	// files, and everything else works.
 	Files *files.Service
@@ -181,6 +188,10 @@ type Deps struct {
 	// PageConsents keeps the consents of the viewers of shared pages. Nil: an
 	// in-memory store, for a single process and tests.
 	PageConsents pages.ConsentStore
+	// PageErrors keeps the runtime errors of the pages, which the UI records
+	// and the page_errors tool reads. Nil: an in-memory store, for a single
+	// process and tests.
+	PageErrors pages.ErrorStore
 	// SharedFolderAudit keeps the audit of the shared folders. Nil: an
 	// in-memory audit, for a single process and tests.
 	SharedFolderAudit sharedfolders.AuditStore
@@ -197,6 +208,14 @@ type Deps struct {
 	Builtins *builtins.Registry
 	// HostExec runs the built-in bash on this machine. Nil: there is none.
 	HostExec HostExec
+	// Jobs reads the background jobs for wait_for with a job. It routes a read
+	// to the node that runs the job. Nil: this server has no background jobs,
+	// and a wait on a job is refused.
+	Jobs bgjob.Observer
+	// SandboxJobs runs the job tool of a chat whose bash an add-on serves,
+	// through the add-on's jobs tool. Nil: such a chat is told the add-on
+	// cannot run background jobs, and never gets the built-in instead.
+	SandboxJobs *SandboxJobs
 	// HostExecMode is the setting chats_host_exec as it applies now: off, ask
 	// or on. Nil: off.
 	HostExecMode func() string
@@ -227,6 +246,11 @@ type Deps struct {
 	// IsAdmin says whether a user is an administrator. Nil: everyone is (a
 	// server without accounts).
 	IsAdmin func(ctx context.Context, user string) bool
+	// SandboxPolicy is the administrator's policy for sandbox profiles (the
+	// owner's host setting sandbox_profiles): the default profile, who may use
+	// each, the memory and disk quota and the pins to the previous image. Nil:
+	// the open default, everyone may use every profile.
+	SandboxPolicy func(context.Context) (sandboxpolicy.Policy, error)
 	// ToolPins names, for a built-in tool that several add-ons replace, the
 	// add-on an administrator chose to serve it (runtime setting
 	// chats_tool_providers). Nil: no pins.
@@ -234,6 +258,9 @@ type Deps struct {
 	// SharedPagesOn says whether the pages of shared folders are on; an
 	// administrator switches them at run time. Nil: on.
 	SharedPagesOn func() bool
+	// PageAreaOn says whether the page area of Home is on; an administrator
+	// switches it at run time. Nil: on.
+	PageAreaOn func() bool
 	// RemoteModel says whether a model runs on a remote service (a cloud
 	// proxy), so a cost shown to the person can say that the tokens leave the
 	// server. Nil: no model is remote.
@@ -396,7 +423,20 @@ type Service struct {
 	streams map[string]int
 	// stopServing ends the answers to replay asks (Deps.Replay); nil without.
 	stopServing func()
-	locks       map[string]*keyLock
+	// bgJobs reaches the background jobs of this process and, over Deps.JobCarrier,
+	// of the others; hostJobs is the job backend of the built-in bash; stopJobs
+	// ends the answers to the asks of other nodes. Per instance by design: a job
+	// is a process in the memory of one node, and the stubs on the chat record
+	// say which.
+	bgJobs   *bgjob.Router
+	hostJobs *hostJobBackend
+	stopJobs func()
+	// jobListeners are told of each job that starts or ends here (OnJobChange).
+	jobMu        sync.Mutex
+	jobListeners []func(bgjob.Info)
+	// sandboxWatch polls the live Sandbox jobs that a wait watches (jobobserver.go).
+	sandboxWatch sandboxWatch
+	locks        map[string]*keyLock
 
 	// heldNotes is the last held-back line this process noted in each connector
 	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
@@ -514,16 +554,32 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerHostBash(); err != nil {
 		return nil, err
 	}
+	if err := s.registerJobTool(); err != nil {
+		return nil, err
+	}
 	if err := s.registerWebTools(); err != nil {
 		return nil, err
 	}
 	if err := s.registerSavedAgents(); err != nil {
 		return nil, err
 	}
+	if err := s.registerSandboxTools(); err != nil {
+		return nil, err
+	}
 	if err := s.registerLocalAIGroups(); err != nil {
 		return nil, err
 	}
 	if err := s.registerHistoryTools(); err != nil {
+		return nil, err
+	}
+	if d.PageErrors == nil {
+		d.PageErrors, _ = pages.NewJSONErrors("")
+		s.d.PageErrors = d.PageErrors
+	}
+	if err := s.registerPageErrors(); err != nil {
+		return nil, err
+	}
+	if err := s.registerOpenPage(); err != nil {
 		return nil, err
 	}
 	if err := s.registerTriggerTools(); err != nil {
@@ -583,6 +639,10 @@ func New(d Deps) (*Service, error) {
 		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
 	}
 	if err := s.serveReplay(); err != nil {
+		return nil, err
+	}
+	s.setupJobs()
+	if err := s.serveJobs(); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -658,6 +718,9 @@ func (s *Service) Close(ctx context.Context) error {
 	}
 	if s.stopServing != nil {
 		s.stopServing()
+	}
+	if s.stopJobs != nil {
+		s.stopJobs()
 	}
 	limit := s.d.CloseTimeout
 	if limit < 0 {
@@ -989,8 +1052,15 @@ func (s *Service) ExtractLimits() files.ExtractLimits {
 // PageConsents returns the store of the consents to shared pages, or nil.
 func (s *Service) PageConsents() pages.ConsentStore { return s.d.PageConsents }
 
+// PageErrors returns the store of the runtime errors of the pages, shared by
+// the pages endpoints and the page_errors tool.
+func (s *Service) PageErrors() pages.ErrorStore { return s.d.PageErrors }
+
 // SharedPagesOn says whether the pages of shared folders are on now.
 func (s *Service) SharedPagesOn() bool { return s.d.SharedPagesOn == nil || s.d.SharedPagesOn() }
+
+// PageAreaOn says whether the page area of Home is on now.
+func (s *Service) PageAreaOn() bool { return s.d.PageAreaOn == nil || s.d.PageAreaOn() }
 
 // UserName returns the name of an account to show to another user: its
 // display name when the server has accounts, the principal otherwise.
@@ -1837,13 +1907,17 @@ func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, model string,
 // session.ErrNotFound.
 func (s *Service) Delete(ctx context.Context, user, conv string) error {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
 		return err
 	}
 	if err := s.Stop(ctx, p, conv); err != nil {
 		return err
 	}
 	s.stopChildren(p, conv)
+	// The jobs end at once, on the nodes the stubs name; the sweep of each
+	// node is the backstop for one that cannot be reached.
+	s.endChatJobs(ctx, rec)
 	// A delete is the person's action: it needs no access of the chat, so a
 	// chat whose agent folder is missing can still be deleted.
 	if err := s.mgr.Delete(ctx, userChatActor(p, conv), conv); err != nil {

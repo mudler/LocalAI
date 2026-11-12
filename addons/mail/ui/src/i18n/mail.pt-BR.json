@@ -88,7 +88,7 @@
     "step1": "Procure os nomes dos servidores IMAP e SMTP do seu provedor nas páginas de ajuda dele. Os dois usam TLS ou STARTTLS.",
     "step2": "Se o provedor permitir, crie uma senha de aplicativo para o LocalAI e use-a como senha. Uma senha normal muitas vezes não funciona com IMAP.",
     "step3": "Digite o endereço, o nome de usuário, a senha e os dois servidores e salve. Ao salvar, é feito login nos dois servidores.",
-    "step4": "Escolha se o agente também pode enviar e-mails e salvar rascunhos. Cada envio e cada rascunho espera sua confirmação, nos dois modos.",
+    "step4": "Escolha se o agente também pode enviar e-mails e salvar rascunhos, e se ele pergunta antes. Com Permitir tudo ele age sem perguntar, e um e-mail enviado não pode ser desfeito.",
     "private": "Os servidores de e-mail precisam estar na internet pública: endereços dentro de uma rede privada são recusados."
   },
   "writeMode": {
@@ -98,16 +98,20 @@
     "propose": "Pergunta antes",
     "line": {
       "off": "Só pode ler.",
-      "propose": "Cada envio e cada rascunho espera seu OK."
+      "propose": "Cada envio e cada rascunho espera seu OK.",
+      "auto": "Seus chats enviam e salvam na hora."
     },
     "note": {
       "off": "O acesso de escrita está desativado: esta conexão só lê.",
-      "propose": "Cada envio e cada rascunho espera em suas aprovações até você confirmar. Um e-mail enviado não pode ser desfeito, e todos em Para e Cc vão lê-lo."
+      "propose": "Cada envio e cada rascunho espera em suas aprovações até você confirmar. Um e-mail enviado não pode ser desfeito, e todos em Para e Cc vão lê-lo.",
+      "auto": "Um chat seu envia e salva e-mails na hora, sem perguntar. Um e-mail enviado não pode ser desfeito, e todos em Para e Cc vão lê-lo. Execuções sem você presente ainda esperam a sua confirmação."
     },
     "row": {
       "off": "Somente leitura",
-      "propose": "Pergunta antes"
-    }
+      "propose": "Pergunta antes",
+      "auto": "Permitir tudo"
+    },
+    "auto": "Permitir tudo"
   },
   "approval": {
     "action": {

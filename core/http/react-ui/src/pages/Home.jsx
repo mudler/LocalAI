@@ -10,6 +10,8 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
+import { useChatEgress } from '../hooks/useChatEgress'
+import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 // eslint-disable-next-line no-unused-vars
 import { SlashHelpCard } from '../components/chat/CommandCards'
 import { parseInvocation } from '../utils/slashCommands'
@@ -30,6 +32,9 @@ import SetupStatusLine, { SetupReason } from '../components/chat/SetupStatusLine
 // eslint-disable-next-line no-unused-vars
 import ManageSetups from '../components/chat/ManageSetups'
 import { useChatComposer } from '../hooks/useChatComposer'
+import { liveBlockedReason } from '../hooks/useLive'
+// eslint-disable-next-line no-unused-vars
+import LiveButton from '../components/chat/LiveButton'
 import { useComposerDeparture } from '../hooks/useComposerTransition'
 // eslint-disable-next-line no-unused-vars
 import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
@@ -40,7 +45,13 @@ import HomeFirstRun from '../components/home/HomeFirstRun'
 // eslint-disable-next-line no-unused-vars
 import HomeWidgets from '../components/wellknown/HomeWidgets'
 // eslint-disable-next-line no-unused-vars
+import PageAreaHost from '../components/wellknown/PageAreaHost'
+// eslint-disable-next-line no-unused-vars
 import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
+// eslint-disable-next-line no-unused-vars
+import BackgroundLayer from '../components/wellknown/BackgroundLayer'
+// eslint-disable-next-line no-unused-vars
+import { AssistantAvatar, useIdentity, useUiString } from '../components/wellknown/Identity'
 import { useWellKnown } from '../hooks/useWellKnown'
 import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
@@ -84,6 +95,10 @@ export default function Home() {
   const { t: tw } = useTranslation('workspace')
   const { t: tc } = useTranslation('chats')
   const { t: tch } = useTranslation('chat')
+  // How the assistant shows itself (persona.json, the headline of home.json)
+  // and the text overrides of ui.json.
+  const identity = useIdentity()
+  const uiString = useUiString()
   // The command list that /help drew under the composer, or null.
   const [help, setHelp] = useState(null)
   const { isAdmin, hasFeature, user } = useAuth()
@@ -94,7 +109,10 @@ export default function Home() {
   const [modelsFailed, setModelsFailed] = useState(false)
   const configuredModelsRef = useRef(configuredModels)
   configuredModelsRef.current = configuredModels
-  const [loadedModels, setLoadedModels] = useState([])
+  // The models in memory, or null while the server has not said: GET /system
+  // is for administrators, and nobody else may read it.
+  const [loadedModels, setLoadedModels] = useState(null)
+  const loadedList = useMemo(() => loadedModels || [], [loadedModels])
   // An old chat address names a model (/app/chats?model=…, /app/chat/<model>)
   // and lands here: the picker starts on it.
   const [searchParams] = useSearchParams()
@@ -107,6 +125,12 @@ export default function Home() {
     draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
   })
+  // The sandbox profile and the network of the new chat: picked here, saved
+  // with the chat when it is created (createChat).
+  const sandboxProfile = useChatSandboxProfile(null, 0)
+  const egress = useChatEgress(null, 0, { model: composer.draftModel, agentId: composer.agentId, profilesApply: Boolean(sandboxProfile.applies) })
+  const { saveDraft: saveProfileDraft } = sandboxProfile
+  const { saveDraft: saveNetworkDraft } = egress
   const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
   const { text: message, setText: setMessage, files } = drafts
   // The reasoning effort picked before the chat exists; the new chat gets it
@@ -358,7 +382,7 @@ export default function Home() {
   const fetchSystemInfo = useCallback(async () => {
     try {
       const [sysInfo, v1Models] = await Promise.all([
-        systemApi.info().catch(() => null),
+        isAdmin ? systemApi.info().catch(() => null) : null,
         modelsApi.listV1().catch(() => null),
       ])
       if (sysInfo?.loaded_models) {
@@ -376,7 +400,7 @@ export default function Home() {
     } catch {
       if (configuredModelsRef.current === null) setModelsFailed(true)
     }
-  }, [])
+  }, [isAdmin])
 
   usePolling(fetchSystemInfo, 5000)
 
@@ -400,6 +424,25 @@ export default function Home() {
       run()
     }
   }, [])
+  // The new chat of Send and of Live: the chosen model, agent and drafted
+  // switches, then the reasoning effort in its settings.
+  const createChat = useCallback(async () => {
+    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+    const profileError = await saveProfileDraft(chat.id)
+    if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
+    const networkError = await saveNetworkDraft(chat.id)
+    if (networkError) addToast(networkError, 'error')
+    if (draftEffort) {
+      const settings = settingsWithEffort(null, draftEffort)
+      try {
+        await chatsApi.update(chat.id, { settings })
+        chat.settings = settings
+      } catch (e) {
+        addToast(e.message || tch('settings.saveFailed'), 'error')
+      }
+    }
+    return chat
+  }, [draftModel, agentId, draftEffort, switches, addToast, tch, tc, saveProfileDraft, saveNetworkDraft])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -427,17 +470,8 @@ export default function Home() {
     setSending(true)
     let id = ''
     try {
-      const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+      const chat = await createChat()
       id = chat.id
-      if (draftEffort) {
-        const settings = settingsWithEffort(null, draftEffort)
-        try {
-          await chatsApi.update(id, { settings })
-          chat.settings = settings
-        } catch (e) {
-          addToast(e.message || tch('settings.saveFailed'), 'error')
-        }
-      }
       const res = await chatsApi.send(id, text, attached, command)
       rememberRef.current?.().catch(() => {})
       // The chat page draws the message from what is known here, so it opens
@@ -454,7 +488,38 @@ export default function Home() {
       addToast(err.message || tc('errors.send'), 'error')
       setSending(false)
     }
-  }, [message, files, sending, selectedModel, draftModel, agentId, draftEffort, switches, composer.agents, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff])
+  }, [message, files, sending, selectedModel, composer.agents, switches, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff, createChat])
+
+  // Live: the chat is created as Send creates it, without a message, and opens
+  // with state.live; the chat page starts Live there (Chat.jsx). The text
+  // and files typed on Home stay in their draft on purpose (nothing was sent,
+  // so nothing is lost); only the drafted switches reset, as they went with
+  // the new chat. The click is the gesture the browser
+  // needs for the microphone and the voice; the in-app navigation keeps it.
+  const goLive = useCallback(async () => {
+    if (sending) return
+    if (!selectedModel) {
+      addToast(t('input.selectModelToast'), 'warning')
+      return
+    }
+    if (!beginSend()) return
+    setSending(true)
+    try {
+      const chat = await createChat()
+      rememberRef.current?.().catch(() => {})
+      sentRef.current = () => switches.resetDraft()
+      navigate(`/app/chats/${encodeURIComponent(chat.id)}`, { state: { live: true } })
+    } catch (err) {
+      failSend()
+      addToast(err.message || tc('errors.send'), 'error')
+      setSending(false)
+    }
+  }, [sending, selectedModel, switches, addToast, navigate, t, tc, beginSend, failSend, createChat])
+  const liveReason = liveBlockedReason()
+  const liveHome = useMemo(
+    () => ({ available: liveReason === '', unavailableReason: liveReason, start: goLive }),
+    [liveReason, goLive],
+  )
 
   // An empty new chat on the chosen model. The state marks it as a hand-off:
   // /app/chats opened as a bare address comes back here.
@@ -499,13 +564,13 @@ export default function Home() {
   const handleStopAll = async () => {
     setConfirmDialog({
       title: t('stopDialog.stopAllTitle'),
-      message: t('stopDialog.stopAllMessage', { count: loadedModels.length }),
+      message: t('stopDialog.stopAllMessage', { count: loadedList.length }),
       confirmLabel: t('stopDialog.stopAllConfirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
-          await Promise.all(loadedModels.map(m => backendControlApi.shutdown({ model: m.id })))
+          await Promise.all(loadedList.map(m => backendControlApi.shutdown({ model: m.id })))
           addToast(t('stopDialog.allStoppedToast'), 'success')
           setTimeout(fetchSystemInfo, 1000)
         } catch (err) {
@@ -573,8 +638,8 @@ export default function Home() {
   const setupsShown = setupsOn && !firstRun && setups.available
   const examplesOn = chatsOn && configuredModels !== null && !firstRun
   const examplesGone = useExamplesGone(examplesOn)
-  const loadedCount = loadedModels.length
-  const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
+  const loadedCount = loadedList.length
+  const loadedIds = useMemo(() => new Set(loadedList.map(m => m.id)), [loadedList])
 
   // Staging a model onto a worker is the one load this page can see: the
   // operations list reports it. An OOM on a single host surfaces in the chat.
@@ -659,6 +724,15 @@ export default function Home() {
 
   // ----- Non-admin, nothing installed -------------------------------------
 
+  // The hint of the empty box: the override of ui.json strings, else the
+  // assistant's name when there is one, else the composer's own.
+  const ownName = !agentPicked && identity.name
+  const homePlaceholder = firstRun
+    ? t('input.placeholderFirstRun')
+    : selectedModel
+      ? uiString('composer.placeholder', ownName ? tw('identity.messageName', { name: identity.name }) : undefined, { model: selectedModel })
+      : undefined
+
   if (firstRun && !isAdmin) {
     return (
       <div className="home-page">
@@ -681,9 +755,13 @@ export default function Home() {
 
   return (
     <div className="home-page" data-depart={depart || undefined}>
+      {chatsOn && <BackgroundLayer bgKey="homeBackground" testId="home-bg" />}
       <div className="home-col">
         <header className="home-header">
-          <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
+          {!agentPicked && (identity.avatar || identity.name) && (
+            <AssistantAvatar avatar={identity.avatar} name={identity.name} size="md" testId="home-assistant-avatar" />
+          )}
+          <h1 className="home-greeting" data-testid="home-headline">{identity.headline || t(`greeting.${greetingKey()}`)}</h1>
           <span className="home-date">{dateLabel}</span>
         </header>
 
@@ -699,6 +777,8 @@ export default function Home() {
           {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
           <ChatComposer
             composer={composer}
+            sandboxProfile={sandboxProfile}
+            egress={egress}
             filesOn={chatServer.files}
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
@@ -719,12 +799,13 @@ export default function Home() {
             pickerDisabled={firstRun}
             pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
             onDictateError={(m) => addToast(m, 'error')}
+            live={<LiveButton live={liveHome} />}
             onSubmit={doSubmit}
             canSend={canSend}
             sending={sending}
             sendTitle={sendTitle}
             textareaRef={textareaRef}
-            placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
+            placeholder={homePlaceholder}
             slashSurface="home"
             slashContext={slashContext}
             onRunAction={runAction}
@@ -757,7 +838,13 @@ export default function Home() {
               onReset={() => activeSetup && applySetup(activeSetup)}
             />
           ) : (!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />)}
-          {setupsShown && agentPicked && <SetupReason id="setup-chip-reason" text={tch('setup.agentReason')} />}
+          {setupsShown && agentPicked && (
+            <SetupReason
+              id="setup-chip-reason"
+              text={tch('setup.agentReason')}
+              onManage={setups.list.length > 0 ? () => setManageOpen(true) : undefined}
+            />
+          )}
           {manageOpen && setupsShown && (
             <ManageSetups
               list={setups.list}
@@ -780,6 +867,14 @@ export default function Home() {
           )}
           <span className="sr-only" aria-live="polite">{liveNote}</span>
         </div>
+
+        {/* The page area of home.json: a page below the composer, under a strip
+            the shell draws. A failure of the page replaces only this area. */}
+        {chatsOn && !firstRun && (
+          <Suspense fallback={null}>
+            <PageAreaHost wk={homeFile} />
+          </Suspense>
+        )}
 
         {/* The examples and the widgets read the pages strings, which load
             when they first show. Their own boundary keeps that wait to them:

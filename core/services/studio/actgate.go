@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"slices"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
@@ -48,6 +50,17 @@ func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builti
 	ceiling := actNames(s.chatGrants(ctx, rec))
 	switch rec.Origin {
 	case session.OriginJob:
+		if isClient, ok := s.clientJob(ctx, rec); ok {
+			// A job that an add-on started for a paired client is read only
+			// unless the owner allows write and act tools for client jobs. With
+			// the setting on it holds what an ordinary job of the same task
+			// holds: the act grants of the task's agent, and no grant the agent
+			// does not hold (a task without an agent holds none). It fails
+			// closed: a job record that cannot be read leaves the job read only.
+			if !(isClient && s.jobs != nil && s.jobs.clientAllowAll()) {
+				return builtins.ActPolicy{ReadOnly: true}, true
+			}
+		}
 		return builtins.ActPolicy{Held: ceiling}, true
 	}
 	if s.triggers == nil {
@@ -58,6 +71,25 @@ func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builti
 		return builtins.ActPolicy{ReadOnly: true}, true
 	}
 	return s.triggerPolicy(ctx, t, ceiling, rec.AgentID != ""), true
+}
+
+// clientJob finds out whether the job chat belongs to a job that was started
+// for a paired client. ok is true when it does, and also when the job record
+// cannot be read: the caller then applies the narrower client policy, so a
+// doubt never widens a run. isClient is true only when the record was read and names
+// a client. A chat whose job record does not exist is an ordinary job.
+func (s *Service) clientJob(ctx context.Context, rec session.ChatRecord) (isClient, ok bool) {
+	if s.jobs == nil {
+		return false, false
+	}
+	j, err := s.jobs.o.Store.GetJob(ctx, rec.Principal, rec.ID)
+	if err != nil {
+		if errors.Is(err, jobs.ErrNotFound) {
+			return false, false
+		}
+		return false, true
+	}
+	return j.ClientID != "", j.ClientID != ""
 }
 
 // triggerPolicy is the rights of the runs of trigger t: its acts within the
@@ -204,9 +236,12 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 		return tools
 	}
 	out := make([]session.Tool, len(tools))
+	bashBy := providerOf(tools, commandTool)
 	for i, t := range tools {
 		out[i] = t
 		switch {
+		case t.Name == jobTool && bashBy != "":
+			out[i] = s.gateJobTool(rec, pol, t, jobActTool(bashBy))
 		case t.Name == localaitools.ToolVoiceProfile:
 			out[i] = s.gateVoiceProfile(rec, pol, t)
 		case clientToolNames[t.Name]:
@@ -220,4 +255,36 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 		}
 	}
 	return out
+}
+
+// jobActTool is what starting a job or writing to one asks of the policy: what
+// a call of the chat's bash asks. A job on this machine acts as host bash does
+// (act.files and act.spend); a job in an add-on's sandbox acts as the
+// add-on's bash does, under the add-on's act grant (gateAddonAct), so a run
+// whose policy refuses the Sandbox's bash cannot run a job there either.
+func jobActTool(bashBy string) builtins.ActTool {
+	if bashBy == BuiltinProvider {
+		return builtins.ActTool{Name: jobTool, Class: builtins.ClassFiles, External: true}
+	}
+	return builtins.ActTool{Name: jobTool, Class: builtins.ClassAddons, AddonID: bashBy}
+}
+
+// gateJobTool applies the policy to the job tool by action: start and input
+// act like a call of the chat's bash (req: on this machine they need
+// act.files and act.spend, in an add-on that add-on's act grant); list, read
+// and kill act on nothing new.
+func (s *Service) gateJobTool(rec session.ChatRecord, pol builtins.ActPolicy, t session.Tool, req builtins.ActTool) session.Tool {
+	gated := s.gateAct(rec, pol, t, req).Run
+	run := t.Run
+	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in struct {
+			Action string `json:"action"`
+		}
+		_ = json.Unmarshal(args, &in)
+		if in.Action == JobStart || in.Action == JobInput {
+			return gated(ctx, args)
+		}
+		return run(ctx, args)
+	}
+	return t
 }

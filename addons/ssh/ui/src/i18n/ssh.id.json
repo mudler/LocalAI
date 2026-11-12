@@ -1,0 +1,123 @@
+{
+  "name": "Nama",
+  "agent": "Agen",
+  "agentNone": "Pilih agen",
+  "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
+  "credentialsOnly": "Hanya kredensial",
+  "agentNoModel": "{{name}} (perlu model)",
+  "test": "Uji",
+  "save": "Simpan",
+  "cancel": "Batal",
+  "editButton": "Ubah",
+  "delete": "Hapus",
+  "agentOf": "Agen: {{name}}",
+  "inactive": "Tidak berjalan: {{reason}}.",
+  "title": "SSH",
+  "intro": "Izinkan obrolan dan agen Anda menjalankan perintah di mesin jarak jauh lewat SSH. Secara bawaan Anda mengonfirmasi setiap perintah dan melihat host serta teks persisnya lebih dulu.",
+  "limits": "Sebuah perintah dapat mengubah atau menghapus apa pun yang boleh disentuh pengguna login. Gunakan pengguna khusus dengan hak akses seperlunya saja. Pada mode \"Langsung jalan\" tidak ada yang mengonfirmasi perintah sebelum dijalankan. Add-on menjalankan satu perintah dalam satu waktu, tanpa terminal dan tanpa input.",
+  "new": "Koneksi SSH baru",
+  "edit": "Ubah koneksi SSH",
+  "host": "Host",
+  "hostHelp": "Nama atau alamat mesin, dengan port jika bukan 22: server.example.com atau 10.0.0.5:2222. Satu koneksi adalah satu host. Host lain ditolak.",
+  "hostShape": "Ini bukan host. Tulis nama atau alamat, dengan port opsional.",
+  "user": "Nama pengguna di host",
+  "userHelp": "Pengguna yang menjalankan perintah. Pengguna khusus memungkinkan Anda mencabut aksesnya nanti tanpa menyentuh akun Anda sendiri.",
+  "userShape": "Nama pengguna hanya berisi huruf, angka, dan . _ -",
+  "login": {
+    "label": "Masuk dengan",
+    "hint": "Rahasia disimpan terenkripsi dan tidak pernah ditampilkan lagi.",
+    "password": "Kata sandi",
+    "key": "Kunci privat"
+  },
+  "passwd": "Kata sandi",
+  "passwdHelp": "Kata sandi pengguna itu. Disimpan bersama nama pengguna sebagai user:password.",
+  "key": "Kunci privat",
+  "keyHelp": "Tempel kunci yang dibuat khusus untuk LocalAI, dalam format PEM atau OpenSSH, tanpa frasa sandi. Tambahkan bagian publiknya ke authorized_keys di host.",
+  "credSaved": "Tersimpan. Ketik untuk mengganti.",
+  "secretAgain": "Anda mengubah pengguna atau host. Ketik rahasia itu lagi.",
+  "userMissing": "Ketik nama pengguna lebih dulu.",
+  "keyShape": "Ini bukan kunci privat. Kunci privat diawali dengan -----BEGIN.",
+  "keyPassphrase": "Kunci dengan frasa sandi tidak didukung. Gunakan kunci tanpa frasa sandi.",
+  "credControl": "Kata sandi tidak boleh berisi karakter kontrol.",
+  "credLong": "Rahasia terlalu panjang.",
+  "hostKey": {
+    "label": "Kunci host",
+    "hint": "Pertama kali, add-on membaca kunci yang ditunjukkan host. Bandingkan sidik jarinya dengan yang ditampilkan mesin, lalu percayai. Setelah itu, kunci yang berbeda ditolak.",
+    "check": "Periksa kunci host",
+    "checking": "Memeriksa...",
+    "trust": "Saya sudah membandingkan sidik jari ini dan memercayai host ini.",
+    "needed": "Periksa kunci host sebelum menyimpan.",
+    "unreachable": "Host tidak dapat dijangkau.",
+    "failed": "Kunci host tidak dapat dibaca."
+  },
+  "testOk": "Login tersimpan.",
+  "checkFailed": "Tersimpan. Pemeriksaan login gagal: {{reason}}",
+  "checkSeveral": "Pemeriksaan berjalan saat Anda hanya punya satu koneksi SSH, karena dari halaman ini tidak bisa diketahui mana yang Anda maksud. Di obrolan, aktifkan koneksi di menu Alat.",
+  "empty": "Belum ada koneksi SSH.",
+  "noHost": "Tanpa host: koneksi ini tidak menjangkau apa pun.",
+  "hostOf": "Host: {{host}}",
+  "confirmDelete": {
+    "title": "Hapus {{name}}?",
+    "message": "Obrolan Anda tidak dapat lagi menjangkau host ini dan rahasia yang tersimpan dihapus. Untuk menyiapkannya lagi, Anda harus memasukkannya lagi.",
+    "confirm": "Hapus"
+  },
+  "check": {
+    "title": "Pemeriksaan {{name}}",
+    "running": "Memeriksa host...",
+    "at": "Diperiksa pukul {{time}}",
+    "ok": "Terhubung sebagai {{user}}. {{system}}.",
+    "refused": "Host menolak login. Periksa pengguna, kata sandi, atau kunci.",
+    "changed": "Kunci host berubah. Tidak ada yang dikirim. Ubah koneksi untuk memeriksa dan memercayai kunci baru.",
+    "nopin": "Belum ada kunci host yang disematkan. Ubah koneksi dan periksa kunci host.",
+    "unreachable": "Host tidak dapat dijangkau. Periksa host dan port.",
+    "busy": "Perintah lain masih berjalan di koneksi ini.",
+    "failed": "Pemeriksaan tidak selesai. Coba lagi sebentar lagi."
+  },
+  "setup": {
+    "title": "Cara menyiapkan",
+    "step1": "Buat pengguna di host khusus untuk LocalAI, dengan hak akses seperlunya saja.",
+    "step2": "Buat pasangan kunci untuknya, atau pilih kata sandi. Tambahkan kunci publik ke authorized_keys pengguna itu.",
+    "step3": "Tulis host dan pengguna di sini, tekan Periksa kunci host, lalu bandingkan sidik jarinya.",
+    "step4": "Biarkan mode pada Tanya dulu sampai Anda membaca batasan di halaman ini.",
+    "fingerprint": "Sidik jari host terlihat dengan: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
+  },
+  "writeMode": {
+    "label": "Yang boleh dilakukan agen di host ini",
+    "hint": "Memeriksa koneksi selalu diizinkan. Menjalankan perintah memerlukan mode selain Mati.",
+    "off": "Mati",
+    "propose": "Tanya dulu",
+    "auto": "Langsung jalan",
+    "line": {
+      "off": "Tidak ada perintah yang berjalan.",
+      "propose": "Setiap perintah menunggu OK Anda.",
+      "auto": "Perintah berjalan tanpa OK."
+    },
+    "note": {
+      "off": "Perintah mati: koneksi ini hanya memeriksa login.",
+      "propose": "Setiap perintah menunggu di persetujuan Anda, dengan host dan teks persisnya, sampai Anda mengonfirmasi.",
+      "auto": "Perintah langsung berjalan tanpa konfirmasi. Pilih ini hanya untuk host dan pengguna yang perintah salahnya tidak merusak apa pun."
+    },
+    "row": {
+      "off": "Mati",
+      "propose": "Tanya dulu",
+      "auto": "Langsung jalan"
+    }
+  },
+  "approval": {
+    "title": "Jalankan perintah di {{host}}",
+    "physical": "Ini berjalan di mesin nyata begitu Anda mengonfirmasi.",
+    "host": "Host",
+    "user": "Pengguna",
+    "command": "Perintah",
+    "lines": "{{count}} baris",
+    "timeout": "Batas waktu",
+    "seconds": "{{count}} detik",
+    "hostKey": "Kunci host",
+    "as": "Sebagai",
+    "asOne": "Koneksi {{name}}",
+    "asFirst": "Koneksi pertama yang mencantumkan host ini",
+    "asUnknown": "Koneksi SSH untuk host ini",
+    "what": "Yang terjadi",
+    "effect": "Perintah persis di atas berjalan sekali, tanpa terminal dan tanpa input. Outputnya kembali ke obrolan."
+  }
+}

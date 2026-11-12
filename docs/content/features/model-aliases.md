@@ -268,6 +268,31 @@ The first call is not forced when:
 The switch applies per request, so every new user turn starts with a tool call.
 It enforces that a tool is called, not which one or with which arguments.
 
+## Image requests on a text-only target
+
+A text-only model behind an alias rejects image input. `vision_alias` names a
+model that serves the alias's requests that carry an image, while text requests
+stay on the target:
+
+```yaml
+name: assistant
+alias: my-text-llm
+vision_alias: my-vision-llm
+profile:
+  system_prompt: You are the everyday assistant.
+```
+
+A chat request to `assistant` is served by `my-vision-llm` when a message
+contains an image part (`image_url`, `input_image` or `image`) and the target
+`my-text-llm` cannot accept images. The alias's `profile` block is applied to
+`my-vision-llm` in the same way, so the assistant keeps its system prompt and
+tools. If the target accepts images itself, `vision_alias` is not used.
+
+The vision model must exist and must not be an alias; a disabled vision model
+is refused like any disabled model. `vision_alias` on a config that is not an
+alias is rejected. At load time LocalAI warns when the vision model is missing,
+is an alias, or declares no image input.
+
 ## Managing aliases
 
 You can create, swap, and remove aliases from any of the management surfaces.

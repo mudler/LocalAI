@@ -144,7 +144,10 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 	}
 
 	for _, node := range nodes {
-		if node.Status == StatusDraining {
+		// Draining nodes are operator-managed; pending nodes have never been
+		// approved. Turning a pending node offline would let a later
+		// re-registration or recovery promote it to healthy without approval.
+		if node.Status == StatusDraining || node.Status == StatusPending {
 			continue
 		}
 

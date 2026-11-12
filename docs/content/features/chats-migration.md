@@ -56,7 +56,7 @@ administrator allows it), then turn it on. The report names each one as
 with the connectors it names; if one of them fails for a reason that may pass
 (a full disk), the agent waits for the next start so that its grant is not lost.
 An agent that an earlier start already converted keeps what it had: make its MCP
-connectors again on the Connectors page.
+connectors again on the **MCP servers** tab of **Connections**.
 
 ## What is not converted
 

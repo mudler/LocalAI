@@ -52,6 +52,8 @@ func (a *Application) startStudioJobs(svc *studio.Service) {
 		RunLimit:      cfg.MCPCIJobTimeout,
 		RetentionDays: cfg.AgentJobRetentionDays,
 		AllowPrivate:  func() bool { return cfg.MCPConnectorsAllowPrivate },
+		// Read when a job runs a tool, so the setting applies to a job in flight.
+		ClientAllowAllTools: func() bool { return cfg.ClientJobsAllowAllTools },
 	}
 	if opts.RunLimit <= 0 {
 		opts.RunLimit = config.DefaultMCPCIJobTimeout
@@ -61,6 +63,11 @@ func (a *Application) startStudioJobs(svc *studio.Service) {
 	}
 	if a.Distributed() != nil && a.authDB != nil {
 		lock := advisorylock.NewHeldLock(a.authDB, advisorylock.KeyAgentScheduler)
+		// Parallel starts of one client on different frontends take one lock.
+		db := a.authDB
+		opts.ClientLock = func(ctx context.Context, clientID string, fn func() error) error {
+			return advisorylock.WithLockCtx(ctx, db, advisorylock.KeyFromString("studio-client-jobs:"+clientID), fn)
+		}
 		opts.Lead = func(ctx context.Context) bool {
 			if lock.Held() {
 				return lock.Verify(ctx)

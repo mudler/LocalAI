@@ -160,5 +160,21 @@ JSX, a CSS width on a sheet or pane, and the legacy `btn` class. Existing
 violations sit in `ui-kit-baseline.txt` and may only go down. Do not add a
 line to it to make a check pass.
 
+A second ratchet keeps literal colours out of pages. Colour comes from the
+theme roles (`--dk-*`, and the `--color-*` names in `src/theme.css`), never
+from a hex value or an `rgb()` in a page:
+
+```sh
+cd core/http/react-ui
+npm run lint:colours          # fails on a new literal colour, or on a baseline line that is gone
+npm run lint:colours:report   # counts per file
+npm run lint:colours:write    # refresh colour-baseline.txt after you fixed some
+```
+
+Use `var(--dk-accent)` and the other roles, or `color-mix(in srgb, var(--dk-text) 20%, transparent)`
+for a tint. The palette files, the vendored kit and the third-party vendor
+colours in `src/utils/format.js` are exempt. Do not add a line to
+`colour-baseline.txt` to make a check pass.
+
 Before you finish UI work, run `npm run lint:ui-kit` and attach screenshots at
 1280 px and 390 px wide, in light and dark.

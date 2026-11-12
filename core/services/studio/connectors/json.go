@@ -35,6 +35,11 @@ type jsonData struct {
 	Pairings map[string]Pairing  `json:"pairings,omitempty"`
 	// Migrations are the one-time migrations that ran or are running.
 	Migrations map[string]migrationRecord `json:"migrations,omitempty"`
+	// Grants, OAuthClients and LoginStates are the OAuth records (by binding,
+	// add-on and state hash). A file written before them has none.
+	Grants       map[string]Grant       `json:"grants,omitempty"`
+	OAuthClients map[string]OAuthClient `json:"oauthClients,omitempty"`
+	LoginStates  map[string]LoginState  `json:"loginStates,omitempty"`
 }
 
 type migrationRecord struct {
@@ -44,7 +49,8 @@ type migrationRecord struct {
 }
 
 func newData() jsonData {
-	return jsonData{Bindings: map[string]Binding{}, Offsets: map[string]int64{}, Senders: map[string][]Sender{}, Chats: map[string]string{}, Pairings: map[string]Pairing{}, Migrations: map[string]migrationRecord{}}
+	return jsonData{Bindings: map[string]Binding{}, Offsets: map[string]int64{}, Senders: map[string][]Sender{}, Chats: map[string]string{}, Pairings: map[string]Pairing{}, Migrations: map[string]migrationRecord{},
+		Grants: map[string]Grant{}, OAuthClients: map[string]OAuthClient{}, LoginStates: map[string]LoginState{}}
 }
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
@@ -75,6 +81,15 @@ func NewJSON(dir string) (Store, error) {
 	}
 	if s.d.Migrations == nil {
 		s.d.Migrations = map[string]migrationRecord{}
+	}
+	if s.d.Grants == nil {
+		s.d.Grants = map[string]Grant{}
+	}
+	if s.d.OAuthClients == nil {
+		s.d.OAuthClients = map[string]OAuthClient{}
+	}
+	if s.d.LoginStates == nil {
+		s.d.LoginStates = map[string]LoginState{}
 	}
 	return s, nil
 }
@@ -149,6 +164,12 @@ func (s *jsonStore) DeleteBinding(_ context.Context, id string) error {
 	delete(s.d.Offsets, id)
 	delete(s.d.Senders, id)
 	delete(s.d.Pairings, id)
+	delete(s.d.Grants, id)
+	for h, st := range s.d.LoginStates {
+		if st.Binding == id {
+			delete(s.d.LoginStates, h)
+		}
+	}
 	for k := range s.d.Chats {
 		if len(k) > len(id) && k[:len(id)+1] == id+"\x00" {
 			delete(s.d.Chats, k)

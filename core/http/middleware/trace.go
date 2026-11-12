@@ -87,7 +87,7 @@ func initializeTracing(dataPath string, maxItems int) {
 	}
 	key := filepath.Join(dataPath, strconv.Itoa(maxItems))
 	mu.Lock()
-	if traceBuffer != nil && traceStoreKey == key {
+	if traceBuffer != nil && traceStoreKey == key && (traceStore == nil || !traceStore.Closed()) {
 		mu.Unlock()
 		return
 	}
@@ -137,7 +137,7 @@ func initializeTracing(dataPath string, maxItems int) {
 				}
 				mu.Unlock()
 				if command.store != nil {
-					if err := command.store.Append(exchange.ID, exchange); err != nil {
+					if err := command.store.Append(exchange.ID, exchange); err != nil && !errors.Is(err, tracepersist.ErrClosed) {
 						xlog.Warn("Failed to persist API trace", "error", err)
 					}
 				}

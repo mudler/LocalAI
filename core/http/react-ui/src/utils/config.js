@@ -27,8 +27,8 @@ export const API_CONFIG = {
     installExternalBackend: '/api/backends/install-external',
     backendJob: (uid) => `/api/backends/job/${uid}`,
     deleteInstalledBackend: (name) => `/api/backends/system/delete/${name}`,
-    backendsUpgrades: '/api/backends/upgrades',
-    backendsUpgradesCheck: '/api/backends/upgrades/check',
+    backendUpdates: '/api/backends/updates',
+    backendUpdatesCheck: '/api/backends/updates/check',
     upgradeBackend: (name) => `/api/backends/upgrade/${name}`,
 
     // Resources
@@ -66,6 +66,7 @@ export const API_CONFIG = {
     chatStop: (id) => `/api/chats/${encodeURIComponent(id)}/stop`,
     chatGoal: (id) => `/api/chats/${encodeURIComponent(id)}/goal`,
     chatGoalResume: (id) => `/api/chats/${encodeURIComponent(id)}/goal/resume`,
+    chatDock: (id) => `/api/chats/${encodeURIComponent(id)}/dock`,
     chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
     files: '/api/chats/files',
     filesContent: '/api/chats/files/content',

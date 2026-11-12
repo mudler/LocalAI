@@ -6,6 +6,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
@@ -65,6 +66,13 @@ type LocalAIClient interface {
 	// have a newer build in their library. It reads the cached index and
 	// installs nothing.
 	ListBackendLibraryUpdates(ctx context.Context) ([]BackendLibraryUpdate, error)
+	// BackendUpdates returns the gallery and library backends that have a
+	// newer build, with the freshness of each source. It answers from the
+	// cache of the instance and contacts no registry.
+	BackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error)
+	// CheckBackendUpdates checks the registries now, waits for the check and
+	// returns the new data. It installs nothing.
+	CheckBackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error)
 	InstallBackend(ctx context.Context, req InstallBackendRequest) (jobID string, err error)
 	// InstallLibraryBackend installs a backend from a library entry. It
 	// returns when the install is done.
@@ -198,8 +206,16 @@ type LocalAIClient interface {
 	Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, error)
 	Detect(ctx context.Context, req DetectRequest) (*DetectResult, error)
 	Rerank(ctx context.Context, req RerankRequest) (*RerankResult, error)
+	// ListModels lists the models the acting user may use, with their
+	// capabilities. It goes through the API as that user, so the model
+	// allow-list applies, and it carries no paths or settings. Unlike
+	// ListInstalledModels (an administrator's view of the config), it works for
+	// every user.
+	ListModels(ctx context.Context, req ListModelsRequest) (*ModelList, error)
 	GenerateVideo(ctx context.Context, req GenerateVideoRequest) (*VideoResult, error)
 	GenerateSound(ctx context.Context, req GenerateSoundRequest) (*AudioResult, error)
+	UpscaleImage(ctx context.Context, req UpscaleImageRequest) (*ImageResult, error)
+	TransformAudio(ctx context.Context, req TransformAudioRequest) (*TransformAudioResult, error)
 	VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*VerifyResult, error)
 	IdentifyVoice(ctx context.Context, req IdentifyVoiceRequest) (*IdentifyResult, error)
 	VerifyFace(ctx context.Context, req VerifyFaceRequest) (*VerifyResult, error)

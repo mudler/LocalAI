@@ -5,7 +5,9 @@ import { offerMockModel, watchProblems } from './journey-fixtures.js'
 // through the pages, against the real test server and its real stores. After
 // each step the spec reads the API, so a form that only looks saved fails.
 
-const unique = (p) => `${p}-${Date.now().toString(36)}`
+// The random part keeps two runs of a spec at the same moment (repeat-each, or
+// two workers on one server) from sharing a name.
+const unique = (p) => `${p}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 
 async function confirmDelete(page) {
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
@@ -23,7 +25,6 @@ test.describe('Skills, agents, triggers and connectors against the real server',
     await page.goto('/app/skills/new')
     await page.getByLabel(/^Name/).fill(name)
     await page.getByLabel(/^Description/).fill('Check things')
-    await page.locator('.skilledit-sidebar-item', { hasText: 'Content' }).click()
     await page.getByLabel('Skill content (markdown)').fill('Read first.')
     await page.getByRole('button', { name: 'Create skill' }).click()
     await expect(page).toHaveURL(/\/app\/skills$/)
@@ -33,7 +34,7 @@ test.describe('Skills, agents, triggers and connectors against the real server',
     expect(stored.skills.find(s => s.name === name)?.layer).toBe('personal')
 
     await page.getByTestId(`skill-row-${name}`).click()
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await page.getByTestId('skill-pane').getByRole('button', { name: 'Edit' }).click()
     await expect(page).toHaveURL(new RegExp(`/app/skills/edit/personal/${name}$`))
     await page.getByLabel(/^Description/).fill('Check things twice')
     await page.getByRole('button', { name: /^Save/ }).click()
@@ -52,6 +53,10 @@ test.describe('Skills, agents, triggers and connectors against the real server',
   test('an agent is created, edited, used to start a chat, and deleted', async ({ page }) => {
     const name = unique('agent')
     await offerMockModel(page)
+    // The delete at the end waits out an 8 second Undo window. The page clock
+    // runs by itself until then and is moved past the window with fastForward,
+    // so the test does not spend those seconds of its 30 s budget.
+    await page.clock.install()
     // The new-agent wizard asks for a name and instructions, then the optional
     // steps; the description is part of the editor, so it is set there.
     await page.goto('/app/agents/new')
@@ -92,6 +97,7 @@ test.describe('Skills, agents, triggers and connectors against the real server',
     // No question: the row goes at once and the delete is sent when the
     // Undo window (8 s) closes.
     await expect(row).toHaveCount(0)
+    await page.clock.fastForward(8_500)
     await expect.poll(async () => (await json(page, '/api/chats/agents')).agents.some(a => a.id === saved.id), { timeout: 15_000 }).toBe(false)
   })
 

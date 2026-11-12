@@ -221,10 +221,10 @@ test('typed safety: actual auth epoch reaches composer and changes on same-user 
   const originalDocument = globalThis.document
   const originalWindow = globalThis.window
   try {
-    globalThis.fetch = async () => ({ json: async () => ({ authEnabled: true, user: { id: 'A' } }) })
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ authEnabled: true, user: { id: 'A' } }) })
     globalThis.document = { cookie: '' }
     globalThis.window = { location: {} }
-    const auth = hookHarness('../../src/context/AuthContext.jsx', 'AuthProvider', { apiUrl: path => path, addonUpgrades: (await import('../../src/utils/addonUpgrades.js')).createUpgradeStore() }, source => source.replace(/return \(\s*<AuthContext.Provider[\s\S]*?\n  \)/, 'return value'))
+    const auth = hookHarness('../../src/context/AuthContext.jsx', 'AuthProvider', { apiUrl: path => path, addonUpgrades: (await import('../../src/utils/addonUpgrades.js')).createUpgradeStore(), ...(await import('../../src/utils/authSession.js')), ...(await import('../../src/utils/sessionEvents.js')) }, source => source.replace(/return \(\s*<AuthContext.Provider[\s\S]*?\n  \)/, 'return value'))
     auth.render({}); auth.flush()
     await new Promise(resolve => setImmediate(resolve))
     let currentAuth = auth.render({})

@@ -38,8 +38,8 @@ export default function EmbeddingInspector({ embedding, dim, model, elapsedMs })
     const max = Math.max(...values.map(Math.abs)) || 1
     const mid = cssH / 2
     const barW = cssW / COUNT
-    const accent = getComputedStyle(canvas).getPropertyValue('--color-accent').trim() || '#e8a87c'
-    const accentMuted = getComputedStyle(canvas).getPropertyValue('--color-text-muted').trim() || '#6c7084'
+    const accent = getComputedStyle(canvas).getPropertyValue('--color-accent').trim() || 'currentColor'
+    const accentMuted = getComputedStyle(canvas).getPropertyValue('--color-text-muted').trim() || 'currentColor'
     ctx.strokeStyle = accentMuted
     ctx.beginPath()
     ctx.moveTo(0, mid + 0.5)

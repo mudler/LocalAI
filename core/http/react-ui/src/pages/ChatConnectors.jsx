@@ -1,17 +1,27 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ActionMenu from '../components/ActionMenu'
+import ConfirmDialog from '../components/ConfirmDialog'
+import OAuthConnection from '../components/connectors/OAuthConnection'
+import AddOAuthConnection from '../components/connectors/AddOAuthConnection'
+import OAuthNotices from '../components/connectors/OAuthNotices'
+import ConnectionsTabs from '../components/connectors/ConnectionsTabs'
 import { AppIcon } from '../components/addons/AddonBits'
 import ShareDialog from '../components/share/ShareDialog'
 import { SharedByBadge } from '../components/share/ShareBadges'
 import { kindShareClient } from '../components/share/shareClients'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip, Switch } from '../components/ui'
+import { useAuth } from '../context/AuthContext'
+import { useListedAddons } from '../addons/useAddonRegistry'
 import { chatAgentsApi, chatConnectorsApi, sharesApi } from '../utils/api'
 import { bindingAddress, connectionLine, duplicateOf, groupConnectors, rowState } from '../utils/chatConnectors'
+import { isOAuthBinding } from '../utils/connectorOAuth'
+import { forTab, tabOfKindParam } from '../utils/connectionsTabs'
 import { useAddonIcons } from '../hooks/useAddonIcons'
+import { useOAuthConnections } from '../hooks/useOAuthConnections'
 import '../components/addons/addons.css'
 import './connectors.css'
 
@@ -22,13 +32,22 @@ const SHARE_KIND = 'connection'
 // add-on, which has its own page to add and edit bindings; this page lists the
 // bindings by add-on, switches them on and off, and says when an add-on is
 // missing. The owner shares a binding from here; the bindings that other
-// people shared with the user are listed apart, read only.
+// people shared with the user are listed apart, read only. A binding that logs
+// in with OAuth also shows its login, and the page reads the result of a login
+// it comes back to (?oauth=) once. For a kind whose add-on logs in with OAuth
+// and needs no agent, the page adds the connection itself, which the person
+// then connects. The login of a shared binding is its owner's: the person it is
+// shared with sees no login controls.
 export default function ChatConnectors() {
   const { t } = useTranslation('chats')
   const { t: ta } = useTranslation('addons')
   const icons = useAddonIcons()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const { isAdmin } = useAuth()
+  const apps = useListedAddons()
+  const logins = useMemo(() => Object.fromEntries(apps.filter((a) => a.oauth).map((a) => [a.id, a.oauth])), [apps])
   const [menuAt, setMenuAt] = useState(null)
   const [kinds, setKinds] = useState(null)
   const [items, setItems] = useState([])
@@ -63,6 +82,9 @@ export default function ChatConnectors() {
     }
   }, [fail])
 
+  const { returned, setReturned, starting, leaving, setLeaving, disconnecting, notice, setNotice, connect, disconnect } =
+    useOAuthConnections({ t, location, setParams, setError, fail, load })
+
   useEffect(() => { load() }, [load])
   useEffect(() => { chatAgentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
@@ -76,7 +98,11 @@ export default function ChatConnectors() {
     setError('')
     try { await fn(); await load() } catch (e) { fail(e) }
   }
-  const { groups, waiting } = groupConnectors(kinds, items)
+  // Accounts (kinds that need no agent) or Messaging (bots that answer as an
+  // agent). ?tab= picks one; an older ?kind=<kind> link opens the tab of its kind.
+  const tab = params.get('tab') === 'messaging' ? 'messaging' : (params.get('tab') ? 'accounts' : (tabOfKindParam(location.search, kinds) || 'accounts'))
+  const all = groupConnectors(kinds, items)
+  const { groups, waiting } = forTab(tab, all.groups, all.waiting, kinds)
   const loading = kinds === null && !off && !loadError
   const openShare = async (c) => {
     setError('')
@@ -92,18 +118,21 @@ export default function ChatConnectors() {
     const otherHref = other ? bindingAddress(groups, c, other.id) : ''
     const state = rowState(c)
     const chip = STATE_CHIP[state]
+    const oauth = isOAuthBinding(c)
     return (
-      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'} data-state={state}>
+      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'} data-state={state} data-auth={oauth ? 'oauth2' : undefined}>
         <AppIcon src={icons[c.addon] || ''} id={c.addon || c.kind} name={c.name} size={40} />
         <div className="cn-row__main">
           <span className="cn-row__head">
             <span className="cn-row__name">{c.name}</span>
             <StatusChip status={chip.status} tone={chip.tone} label={t(`connectorsPage.state.${state}`)} testId="connector-state" />
           </span>
-          <span className="cn-row__meta">
-            <span>{ta('connection.answersAs', { name: agentName(c.agent_id) })}</span>
-            <span>{connectionLine(c, agents, ta).who}</span>
-          </span>
+          {!c.credentials_only && (
+            <span className="cn-row__meta">
+              <span>{ta('connection.answersAs', { name: agentName(c.agent_id) })}</span>
+              <span>{connectionLine(c, agents, ta).who}</span>
+            </span>
+          )}
           {other && (
             <span className="cn-result cn-result--warn" data-testid="connector-duplicate">
               <Icon name="warning" />
@@ -138,15 +167,20 @@ export default function ChatConnectors() {
               act(() => (on ? chatConnectorsApi.enable(c.id) : chatConnectorsApi.disable(c.id)))
             }} />
         </span>
+        {oauth && (
+          <OAuthConnection binding={c} login={logins[c.addon] || null} isAdmin={isAdmin}
+            starting={starting === c.id} disabled={!!starting && starting !== c.id}
+            onConnect={connect} onDisconnect={setLeaving} />
+        )}
       </li>
     )
   }
 
   return (
-    <Page className="cn-page" data-testid="chat-connectors-page">
+    <Page className="cn-page" data-testid="chat-connectors-page" data-tab={tab}>
       <PageHeader
         title={t('connectorsPage.title')}
-        supporting={t('connectorsPage.intro')}
+        supporting={t(tab === 'accounts' ? 'connectorsPage.introAccounts' : 'connectorsPage.intro')}
         actions={groups.some((g) => g.newHref) && !off && !loadError ? (
           <>
             <Button variant="primary" icon="plus" iconEnd="chevron-down" aria-haspopup="menu" aria-expanded={Boolean(menuAt)} data-testid="connector-new"
@@ -159,6 +193,8 @@ export default function ChatConnectors() {
         ) : null}
       />
 
+      <ConnectionsTabs current={tab} />
+
       {error && (
         <Callout tone="error" role="alert" className="cn-gap"
           actions={<Button variant="ghost" size="sm" onClick={() => setError('')}>{t('errors.dismiss')}</Button>}>
@@ -166,14 +202,16 @@ export default function ChatConnectors() {
         </Callout>
       )}
 
+      <OAuthNotices returned={returned} setReturned={setReturned} notice={notice} setNotice={setNotice} />
+
       {loading && <SkeletonRows count={3} />}
       {loadError && <LoadError title={t('connectorsPage.loadFailed')} error={loadError} onRetry={load} />}
       {off && <EmptyState variant="unavailable" title={off} testId="connectors-off" />}
 
-      {kinds !== null && !off && !loadError && groups.length === 0 && (
+      {kinds !== null && !off && !loadError && groups.length === 0 && waiting.length === 0 && (
         <EmptyState
-          title={t('connectorsPage.noAddon')}
-          body={t('connectorsPage.noAddonHint')}
+          title={t(all.groups.length === 0 ? 'connectorsPage.noAddon' : tab === 'accounts' ? 'connectorsPage.noAddonAccounts' : 'connectorsPage.noAddonMessaging')}
+          body={t(all.groups.length === 0 ? 'connectorsPage.noAddonHint' : tab === 'accounts' ? 'connectorsPage.noAddonAccountsHint' : 'connectorsPage.noAddonMessagingHint')}
           actions={<Button variant="primary" icon="puzzle" to="/app/addons">{t('connectorsPage.gallery')}</Button>}
           testId="no-connector-addon"
         />
@@ -186,10 +224,21 @@ export default function ChatConnectors() {
               <h2 className="cn-group__title">{g.title}</h2>
               {g.description && <p className="cn-group__desc">{g.description}</p>}
             </div>
-            <Button size="sm" iconEnd="arrow-right" to={g.href}>{t('connectorsPage.manage')}</Button>
+            <span className="cn-group__actions">
+              <Button size="sm" iconEnd="arrow-right" to={g.href}>{t(g.addsLogin ? 'connectorsPage.oauth.add.manage' : 'connectorsPage.manage')}</Button>
+            </span>
           </header>
+          {g.addsLogin && (
+            <AddOAuthConnection key={g.key} kind={g} create={chatConnectorsApi.create}
+              onAdded={async (b) => {
+                setError('')
+                setReturned(null)
+                setNotice({ tone: 'ok', text: t('connectorsPage.oauth.add.added', { name: b?.name || '' }) })
+                await load()
+              }} />
+          )}
           {g.items.length === 0
-            ? <p className="cn-none">{t('connectorsPage.empty')}</p>
+            ? <p className="cn-none">{t(g.addsLogin ? 'connectorsPage.oauth.add.empty' : 'connectorsPage.empty')}</p>
             : <ul className="cn-list">{g.items.map(row)}</ul>}
         </section>
       ))}
@@ -254,11 +303,17 @@ export default function ChatConnectors() {
         />
       )}
 
-      <nav className="cn-related" aria-label={t('mcpPage.related')}>
-        <span className="cn-eyebrow">{t('mcpPage.related')}</span>
-        <Link to="/app/mcp-connectors">{t('mcpPage.title')}</Link>
-        <Link to="/app/chats">{t('mcpPage.chats')}</Link>
-      </nav>
+      <ConfirmDialog
+        open={!!leaving}
+        title={leaving ? t('connectorsPage.oauth.disconnectTitle', { name: leaving.name }) : ''}
+        message={t('connectorsPage.oauth.disconnectText')}
+        confirmLabel={t('connectorsPage.oauth.disconnect')}
+        pendingLabel={t('connectorsPage.oauth.disconnecting')}
+        danger
+        pending={disconnecting}
+        onConfirm={disconnect}
+        onCancel={() => { if (!disconnecting) setLeaving(null) }}
+      />
     </Page>
   )
 }

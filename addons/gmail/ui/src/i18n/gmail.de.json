@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Lass deine Agenten die Mails deines Google-Kontos lesen. Wenn du es erlaubst, können sie auch Entwürfe speichern und senden, nachdem du jeden freigegeben hast, es sei denn, du wählst Alles erlauben.",
+  "limits": "Wähle „Mit Google verbinden“, um eine Verbindung hinzuzufügen und dich bei deinem Google-Konto anzumelden. Diese Seite legt die Labels und den Schreibmodus jeder Verbindung fest. Ein Agent arbeitet in deinem Postfach nur, wenn du ihn in einem Chat darum bittest.",
+  "edit": "Gmail-Verbindung bearbeiten",
+  "name": "Name",
+  "labels": "Labels, die der Agent nutzen darf",
+  "labelsHelp": "Ein Labelname oder eine Label-ID pro Zeile. Schreibe einen Namen mit Leerzeichen mit Bindestrichen. {{count}} aufgeführt. Der Agent erreicht nur Mails mit einem dieser Labels. Schreibe ALL, um das ganze Postfach freizugeben.",
+  "labelsShape": "„{{entry}}“ ist kein Label. Nimm den Namen oder die ID eines Labels oder ALL.",
+  "labelsMany": "Höchstens 50 Labels.",
+  "allNote": "ALL gibt dem Agenten jede Mail, die dieses Konto lesen kann, in jedem Label, auch Mails, die ein Modell nie sehen sollte. Nimm lieber ein Label, wenn es geht.",
+  "agent": "Agent",
+  "agentNone": "Agent wählen",
+  "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
+  "agentOptionalHint": "Optional. Ohne Agent hält diese Verbindung nur die Anmeldung, die Labelliste und den Schreibmodus für deine Chats. Sie beantwortet keine Nachrichten und hört auf nichts.",
+  "credentialsOnly": "Nur Zugangsdaten",
+  "agentNoModel": "{{name}} (braucht ein Modell)",
+  "test": "Test",
+  "testOk": "Verbunden als {{bot}}.",
+  "checkFailed": "Gespeichert. Die Prüfung ist fehlgeschlagen: {{reason}}",
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "editButton": "Bearbeiten",
+  "delete": "Löschen",
+  "empty": "Noch keine Gmail-Verbindungen. Wähle „Mit Google verbinden“, um eine hinzuzufügen.",
+  "connect": "Mit Google verbinden",
+  "defaultName": "Gmail",
+  "noLabels": "Keine Labels aufgeführt: Der Agent kann nichts lesen.",
+  "labelsOf": "{{count}} Labels: {{list}}",
+  "allMailbox": "Das ganze Postfach",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Läuft nicht: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} löschen?",
+    "message": "Der Agent erreicht dieses Postfach nicht mehr. LocalAI bittet Google, die Anmeldung zu widerrufen, und vergisst sie dann.",
+    "confirm": "Löschen"
+  },
+  "setup": {
+    "title": "So wählst du Labels aus",
+    "step1": "Schreibe den Namen eines Gmail-Labels, zum Beispiel Arbeit, oder eines Systemlabels wie INBOX oder STARRED. Ein Name mit Leerzeichen wird mit Bindestrichen geschrieben.",
+    "step2": "Der Agent erreicht nur Mails mit dem Label. Spam und Papierkorb werden nie durchsucht. Schreibe ALL nur, wenn der Agent das ganze Postfach lesen darf.",
+    "step3": "Der Schreibmodus unten braucht außerdem den optionalen Zugriff, den du beim Verbinden erlaubst. Ohne ihn kann der Agent nur lesen."
+  },
+  "writeMode": {
+    "label": "Was der Agent mit deinen Mails tun darf",
+    "hint": "Einen Entwurf speichern und einen vorhandenen Entwurf senden. Er löscht, verschiebt in den Papierkorb, beschriftet oder leitet nie Mails weiter und ändert nie deine Einstellungen.",
+    "off": "Nur lesen",
+    "propose": "Fragt dich zuerst",
+    "auto": "Alles erlauben",
+    "line": {
+      "off": "Er kann nichts speichern oder senden.",
+      "propose": "Jeder Entwurf und jedes Senden wartet auf dein OK.",
+      "auto": "Deine Chats speichern Entwürfe und senden sofort."
+    },
+    "note": {
+      "off": "Der Schreibzugriff ist aus: Diese Verbindung liest nur.",
+      "propose": "Jeder Entwurf und jedes Senden wartet in deinen Freigaben, bis du es bestätigst. Du siehst vorher die Empfänger und den Text. Dafür braucht es außerdem den optionalen Schreibzugriff, den du beim Verbinden erlaubst.",
+      "auto": "Ein Chat von dir speichert Entwürfe und sendet Mails sofort, ohne Rückfrage. Eine gesendete Mail lässt sich nicht zurückholen. Läufe ohne dich warten weiterhin auf deine Bestätigung."
+    },
+    "row": {
+      "off": "Nur lesen",
+      "propose": "Fragt dich zuerst",
+      "auto": "Alles erlauben"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Entwurf speichern",
+      "send-draft": "E-Mail senden"
+    },
+    "to": "An",
+    "cc": "Cc",
+    "bcc": "Bcc",
+    "subject": "Betreff",
+    "none": "(keine)",
+    "replyTo": "Antwort auf",
+    "attachments": "Anhänge",
+    "text": "Text ({{bytes}} Bytes)",
+    "cut": "Der hier gezeigte Text ist gekürzt. Der ganze Text mit {{bytes}} Bytes wird gespeichert.",
+    "draftNote": "Das speichert einen Entwurf in deinem Gmail. Es sendet ihn nicht.",
+    "sendNote": "Das sendet eine E-Mail von deinem Gmail an die oben genannten Personen. Eine gesendete E-Mail lässt sich nicht zurückholen."
+  }
+}

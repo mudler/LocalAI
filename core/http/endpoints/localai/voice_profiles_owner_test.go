@@ -257,6 +257,36 @@ var _ = Describe("Voice profile ownership over HTTP", func() {
 			Expect(speak(serverFor(admin), mine.Voice).Code).To(Equal(http.StatusOK))
 		})
 
+		It("gives a paired client of the owner no profile at all, the owner's or an instance-wide one", func() {
+			mine := createdBy(userA)
+			shared := createdBy(admin)
+			// The key of a paired client authenticates as its owner, with a user role.
+			client := func(owner *auth.User) *echo.Echo {
+				e := serverFor(owner)
+				e.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
+					return func(c echo.Context) error {
+						c.Set("auth_apikey", &auth.UserAPIKey{ID: "key-1", UserID: owner.ID, Kind: auth.KeyKindClient})
+						return next(c)
+					}
+				})
+				return e
+			}
+			Expect(speak(serverFor(userA), mine.Voice).Code).To(Equal(http.StatusOK), "the owner on a user key still can")
+			Expect(backend.requests).To(HaveLen(1))
+
+			for _, p := range []voiceprofile.Profile{mine, shared} {
+				Expect(speak(client(userA), p.Voice).Code).To(Equal(http.StatusNotFound), p.Name)
+			}
+			Expect(speak(client(admin), shared.Voice).Code).To(Equal(http.StatusNotFound), "not even for the owner who is an administrator")
+			Expect(backend.requests).To(HaveLen(1), "the backend must not run for a profile the client cannot see")
+			Expect(speak(client(admin), "/srv/voices/clip.wav").Code).To(Equal(http.StatusBadRequest), "a client is never an administrator for a path")
+			Expect(speak(client(userA), "alloy").Code).To(Equal(http.StatusOK), "a voice of the model is still fine")
+			Expect(profilesOf(client(userA))).To(BeEmpty())
+			Expect(call(client(userA), http.MethodGet, "/api/voice-profiles/"+mine.ID+"/audio").Code).To(Equal(http.StatusNotFound))
+			Expect(call(client(userA), http.MethodDelete, "/api/voice-profiles/"+mine.ID).Code).To(Equal(http.StatusNotFound))
+			Expect(create(client(userA), "true").Code).ToNot(Equal(http.StatusCreated))
+		})
+
 		It("lets every user speak with an instance-wide profile", func() {
 			shared := createdBy(admin)
 			Expect(speak(serverFor(userB), shared.Voice).Code).To(Equal(http.StatusOK))

@@ -241,6 +241,16 @@ type CreateVoiceProfileRequest struct {
 	Language    string `json:"language,omitempty"`
 	Transcript  string `json:"transcript"`
 	Audio       string `json:"audio"`
+	// ExtraClips are more clips of the same voice, after Audio. The API takes
+	// up to voiceprofile.MaxReferences clips, each with its own transcript.
+	ExtraClips []VoiceClip `json:"extra_clips,omitempty"`
+}
+
+// VoiceClip is one more clip of a voice profile: a file reference of the
+// FileStore and the exact words said in it.
+type VoiceClip struct {
+	Audio      string `json:"audio"`
+	Transcript string `json:"transcript"`
 }
 
 // UsageStatsQuery is the input for get_usage_stats. UserID is optional;

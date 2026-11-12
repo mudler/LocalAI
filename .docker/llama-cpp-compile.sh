@@ -21,7 +21,7 @@ fi
 # acquire the strict decision decoders too. Runtime libraries are collected by
 # the existing backend dependency packaging.
 sh /LocalAI/.docker/apt-mirror.sh || true
-apt-get update -qq && apt-get install -y --no-install-recommends libjpeg-dev zlib1g-dev
+sh /LocalAI/.docker/apt-mirror.sh apt-get update -qq && sh /LocalAI/.docker/apt-mirror.sh apt-get install -y --no-install-recommends libjpeg-dev zlib1g-dev
 
 cd /LocalAI/backend/cpp/llama-cpp
 BUILD_TARGET=$(/LocalAI/.docker/llama-cpp-build-target.sh "${TARGETARCH}" "${BUILD_TYPE:-}")
@@ -40,7 +40,7 @@ if [ "$BUILD_TARGET" = "llama-cpp-cpu-all" ]; then
     # APT_*_MIRROR build args here like the from-source path does, so this
     # apt step survives a mirror outage.
     sh /LocalAI/.docker/apt-mirror.sh || true
-    apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
+    sh /LocalAI/.docker/apt-mirror.sh apt-get update -qq && sh /LocalAI/.docker/apt-mirror.sh apt-get install -y -qq gcc-14 g++-14
     export CC=gcc-14 CXX=g++-14
   fi
 fi

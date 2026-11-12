@@ -8,7 +8,8 @@ import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import ApprovalsView from '../../../internal/connector-ui/src/ApprovalsView'
 import { answerT } from '../../../internal/connector-ui/src/AnswerFields'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
-import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
+import { Field, Notice, TextInput } from '../../../internal/connector-ui/src/controls'
+import { WriteModeField } from '../../../internal/connector-ui/src/addonparts'
 import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import en from './i18n/pikvm.en.json'
 import it from './i18n/pikvm.it.json'
@@ -66,26 +67,8 @@ function PikvmFields({ form, setForm, t }) {
         )}
       </Field>
       {!problem && needsPinHint(form.address_text) && <Notice tone="info" role="note" testId="pikvm-pin-hint">{t('pinHint')}</Notice>}
-      <WriteMode form={form} setForm={setForm} t={t} />
+      <WriteModeField ns="pikvm" form={form} setForm={setForm} t={t} modes={WRITE_MODES} modeOf={writeModeOf} />
     </>
-  )
-}
-
-function WriteMode({ form, setForm, t }) {
-  const mode = writeModeOf(form.write_mode)
-  return (
-    <div data-testid="pikvm-write-mode" className="pk-mode-block">
-      <Field label={t('writeMode.label')} hint={t('writeMode.hint')}>
-        {() => (
-          <RadioCards name="write-mode" legend={t('writeMode.label')} value={mode} onChange={(m) => setForm({ ...form, write_mode: m })}
-            options={WRITE_MODES.map((m) => ({
-              value: m,
-              label: (<span className="pk-modecard"><span className="pk-modecard__title">{t(`writeMode.${m}`)}</span><span className="pk-modecard__line">{t(`writeMode.line.${m}`)}</span></span>),
-            }))} />
-        )}
-      </Field>
-      <Notice tone={mode === 'off' ? 'info' : 'warn'} role="note" testId="pikvm-write-note" className="pk-note">{t(`writeMode.note.${mode}`)}</Notice>
-    </div>
   )
 }
 

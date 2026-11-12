@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
+	"github.com/mudler/LocalAI/core/http/tlsconf"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
@@ -118,6 +120,9 @@ type RunCMD struct {
 	CORS                               bool          `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
 	CORSAllowOrigins                   string        `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
 	DisableCSRF                        bool          `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
+	TLSCert                            string        `name:"tls-cert" env:"LOCALAI_TLS_CERT" type:"existingfile" help:"PEM file with the certificate (and its chain) the API server presents. Needs --tls-key. TLS is off when no certificate and no --tls-self-signed is set. TLS 1.3 is the minimum" group:"api"`
+	TLSKey                             string        `name:"tls-key" env:"LOCALAI_TLS_KEY" type:"existingfile" help:"PEM file with the private key of --tls-cert" group:"api"`
+	TLSSelfSigned                      bool          `name:"tls-self-signed" env:"LOCALAI_TLS_SELF_SIGNED" help:"Serve TLS with a self-signed certificate that LocalAI makes once and keeps in the data path (tls/). The SHA-256 fingerprint is logged at start and shown with each pairing code, so a paired client can pin it. Without a data path the certificate lives in memory and changes at each start. Not with --tls-cert" group:"api"`
 	DisableHTTPCompression             bool          `env:"LOCALAI_DISABLE_HTTP_COMPRESSION" default:"false" help:"Disable gzip compression of HTTP responses (enabled by default). Streaming endpoints are never compressed" group:"api"`
 	HTTPCompressionMinLength           int           `env:"LOCALAI_HTTP_COMPRESSION_MIN_LENGTH" default:"1024" help:"Minimum response size in bytes before gzip compression is applied" group:"api"`
 	UploadLimit                        int           `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"0" help:"Upload limit in MB for request bodies (15 when not set). When set, it also applies to uploads of the Files page and to chat messages with attachments, which are otherwise limited only by the 256 MiB workspace file size and 1 GiB per message" group:"api"`
@@ -171,6 +176,7 @@ type RunCMD struct {
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
 	DisableSharedPages bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
+	DisablePageArea    bool   `env:"LOCALAI_DISABLE_PAGE_AREA" default:"false" help:"Turn off the page area of Home for all users (it can be switched on again in the runtime settings)" group:"assistant"`
 	ChatsHostExec      string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
 	ChatsAutoResume    bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
 
@@ -333,6 +339,16 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		return nil
 	}
 
+	tlsMaterial, err := tlsconf.Resolve(r.TLSCert, r.TLSKey, r.TLSSelfSigned, r.DataPath)
+	if err != nil {
+		return err
+	}
+	tlsFingerprint := ""
+	if tlsMaterial != nil {
+		tlsFingerprint = tlsMaterial.Fingerprint
+		logTLS(tlsMaterial)
+	}
+
 	hostOps, err := r.resolveAddonHostOps()
 	if err != nil {
 		return err
@@ -454,6 +470,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithLoadToMemory(r.LoadToMemory),
 		config.WithMachineTag(r.MachineTag),
 		config.WithAPIAddress(r.Address),
+		config.WithTLSFingerprint(tlsFingerprint),
 		config.WithMITMListen(r.MITMListen),
 		config.WithMITMCADir(r.MITMCADir),
 		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
@@ -733,6 +750,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.DisableSharedPages {
 		opts = append(opts, config.WithDisableSharedPages(true))
+	}
+	if r.DisablePageArea {
+		opts = append(opts, config.WithDisablePageArea(true))
 	}
 	if r.ChatsHostExec != "" {
 		opts = append(opts, config.WithChatsHostExec(r.ChatsHostExec))
@@ -1048,8 +1068,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		return err
 	}
 
+	serve := httpServe(appHTTP, listenAddress, tlsMaterial, activatedListener)
 	if activatedListener != nil {
-		appHTTP.Listener = activatedListener
 		xlog.Info("Using systemd socket activation listener", "address", listenAddress)
 	}
 	xlog.Info("LocalAI is started and running", "address", listenAddress)
@@ -1091,10 +1111,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}()
 
 	if !diagnosticOpts.Pprof {
-		return waitForDrain(appHTTP.Start(listenAddress))
+		return waitForDrain(serve())
 	}
 	served := make(chan error, 1)
-	go func() { served <- appHTTP.Start(listenAddress) }()
+	go func() { served <- serve() }()
 	select {
 	case err := <-served:
 		return errors.Join(waitForDrain(err), context.Cause(runCtx))
@@ -1112,6 +1132,39 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		}
 		return errors.Join(serveErr, context.Cause(runCtx), shutdownErr)
 	}
+}
+
+// httpServe returns the function that serves the API. With a certificate the
+// server speaks TLS on its own listener, or on the one systemd handed over; the
+// timeouts and shutdown hooks of the server stay, since TLS only gives it a
+// configuration and a listener that speaks it.
+func httpServe(e *echo.Echo, address string, m *tlsconf.Material, activated net.Listener) func() error {
+	if m == nil {
+		if activated != nil {
+			e.Listener = activated
+		}
+		return func() error { return e.Start(address) }
+	}
+	e.Server.TLSConfig = m.Config()
+	// StartServer reads the address from the server. Without it the listener
+	// binds every interface on a random port, whatever --address says.
+	e.Server.Addr = address
+	if activated != nil {
+		e.TLSListener = tls.NewListener(activated, e.Server.TLSConfig)
+	}
+	return func() error { return e.StartServer(e.Server) }
+}
+
+// logTLS tells the operator which certificate the server presents, with the
+// fingerprint a client pins.
+func logTLS(m *tlsconf.Material) {
+	switch {
+	case m.SelfSigned && !m.Persistent:
+		xlog.Warn("TLS: the self-signed certificate is kept in memory (no data path), so its fingerprint changes at each start")
+	case m.SelfSigned:
+		xlog.Info("TLS: using the self-signed certificate kept in the data path")
+	}
+	xlog.Info("TLS is on (TLS 1.3 minimum)", "sha256", m.Fingerprint, "digest", m.Digest())
 }
 
 // waitForServerReady polls the given address until the HTTP server is

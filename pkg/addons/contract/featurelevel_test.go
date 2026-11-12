@@ -51,7 +51,7 @@ var _ = Describe("Feature level", func() {
 	})
 	It("parses a manifest of any level without a host, so the install can say it needs a newer host", func() {
 		m := base()
-		m.FeatureLevel = 7
+		m.FeatureLevel = HostFeatureLevel + 1
 		h := compatible()
 		Expect(ValidateManifest(m, h)).To(MatchError("needs a newer LocalAI"))
 		m.FeatureLevel = MaxFeatureLevel + 1

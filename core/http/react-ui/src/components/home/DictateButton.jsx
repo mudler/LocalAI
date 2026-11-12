@@ -9,15 +9,19 @@ import { audioApi } from '../../utils/api'
 // Dictation for the composer: the first click records from the microphone,
 // the second stops and sends the recording to /v1/audio/transcriptions with
 // the first installed transcription model. The text is handed to onText; the
-// user reads and sends it like any typed message. Without a transcription
+// user reads and sends it like any typed message. onStateChange gets idle,
+// recording or transcribing as it changes. Without a transcription
 // model, or without a microphone API in the browser, the button is not shown.
-export default function DictateButton({ onText, onError }) {
+export default function DictateButton({ onText, onError, onStateChange }) {
   const { t } = useTranslation('home')
   const { models } = useModels(CAP_TRANSCRIPT)
   const [state, setState] = useState('idle') // idle | recording | transcribing
   const recorder = useRef(null)
   const chunks = useRef([])
   const model = models[0]?.id
+
+  // The composer hides what cannot work while the microphone is in use.
+  useEffect(() => { onStateChange?.(state) }, [state, onStateChange])
 
   // Release the microphone when the composer goes away mid-recording.
   useEffect(() => () => {

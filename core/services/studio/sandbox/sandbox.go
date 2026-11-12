@@ -91,6 +91,11 @@ type Cmd struct {
 	TTY            *TTY      // nil means pipes
 	Stdin          io.Reader // nil means an empty stdin
 	Stdout, Stderr io.Writer // nil discards; Stderr is unused with a TTY
+	// Job says the command is a background job: when its main process
+	// returns, the backend also kills what that process left running in its
+	// process group, so a job leaves nothing behind. A foreground command
+	// leaves it false and keeps its background children.
+	Job bool
 }
 
 // TTY is the size of a terminal.

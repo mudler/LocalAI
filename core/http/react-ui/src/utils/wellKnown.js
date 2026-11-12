@@ -1,10 +1,12 @@
 // The well-known files of the user's home (persona.json, user.json,
-// shortcuts.json, setups.json, home.json and ui.json in LocalAI/, and the data
+// shortcuts.json, setups.json, defaults.json, home.json, ui.json, nav.json and commands.json in LocalAI/, and the data
 // files of Home widgets):
 // the client of /api/chats/wellknown and the pure helpers the editors share.
 // No browser globals at import time, so the node unit tests load it.
 
 import { pageLinkTarget } from './pageLinks.js'
+import { isSize } from './homeGrid.js'
+import { templateProblem, avatarPath, STRING_KEYS } from './look.js'
 
 // SETTINGS_DIR is the folder of the home that holds the settings files.
 export const SETTINGS_DIR = 'LocalAI'
@@ -17,6 +19,9 @@ export const WELL_KNOWN_FILES = {
   home: `${SETTINGS_DIR}/home.json`,
   ui: `${SETTINGS_DIR}/ui.json`,
   setups: `${SETTINGS_DIR}/setups.json`,
+  defaults: `${SETTINGS_DIR}/defaults.json`,
+  nav: `${SETTINGS_DIR}/nav.json`,
+  commands: `${SETTINGS_DIR}/commands.json`,
 }
 
 export class WellKnownError extends Error {
@@ -150,8 +155,9 @@ export function createWellKnownStore({ api, onOwnWrite = () => {} }) {
 }
 
 // fieldsFromSchema turns the top-level properties of a JSON Schema into the
-// fields an editor shows, in schema order. A property with x-ui.hidden, or one
-// that is an object or an array, is left to the Source view.
+// fields an editor shows, in schema order. A property with x-ui.hidden, or an
+// object or an array that has no x-ui.widget of its own, is left to the Source
+// view.
 export function fieldsFromSchema(schema) {
   const props = schema?.properties || {}
   const required = new Set(schema?.required || [])
@@ -160,7 +166,7 @@ export function fieldsFromSchema(schema) {
     const ui = p['x-ui'] || {}
     if (ui.hidden) continue
     const type = Array.isArray(p.enum) ? 'enum' : p.type
-    if (type === 'object' || type === 'array') continue
+    if ((type === 'object' || type === 'array') && !ui.widget) continue
     let widget = ui.widget || 'text'
     if (type === 'enum') widget = ui.widget || 'select'
     if (type === 'boolean') widget = 'checkbox'
@@ -173,6 +179,10 @@ export function fieldsFromSchema(schema) {
       maxLength: typeof p.maxLength === 'number' ? p.maxLength : undefined,
       pattern: typeof p.pattern === 'string' ? p.pattern : undefined,
       required: required.has(key),
+      // The placeholders a text may use, and the contrast an accent must keep.
+      placeholders: Array.isArray(p['x-placeholders']) ? p['x-placeholders'] : undefined,
+      contrast: typeof ui.contrast === 'number' ? ui.contrast : undefined,
+      properties: p.properties && typeof p.properties === 'object' ? p.properties : undefined,
     })
   }
   return out
@@ -182,12 +192,44 @@ export function fieldsFromSchema(schema) {
 // wrong before the save. The server validates again with the full schema.
 export function checkField(field, value) {
   if (value === undefined || value === null || value === '') return field.required ? 'required' : ''
+  const objectProblem = checkObjectField(field, value)
+  if (objectProblem !== null) return objectProblem
   if (field.maxLength !== undefined && String(value).length > field.maxLength) return 'tooLong'
   if (field.pattern) {
     try { if (!new RegExp(field.pattern).test(String(value))) return 'format' } catch { /* the server decides */ }
   }
   if (field.options && !field.options.includes(value)) return 'format'
+  if (field.placeholders && templateProblem(String(value), field.placeholders)) return 'placeholder'
+  if (field.widget === 'avatar' && !avatarPath(value)) return 'format'
   return ''
+}
+
+// checkObjectField checks the fields whose value is an object: the empty chat
+// of persona.json (its texts and their placeholders) and the text overrides of
+// ui.json (keys on the allow-list, placeholders of each key). It answers null
+// for any other field, so checkField goes on.
+function checkObjectField(field, value) {
+  if (field.widget === 'emptyChat') {
+    if (typeof value !== 'object' || Array.isArray(value)) return 'format'
+    for (const k of ['title', 'subtitle']) {
+      const v = value[k]
+      if (v === undefined || v === '') continue
+      const max = field.properties?.[k]?.maxLength
+      if (typeof v !== 'string') return 'format'
+      if (max && v.length > max) return 'tooLong'
+      if (templateProblem(v, field.properties?.[k]?.['x-placeholders'] || [])) return 'placeholder'
+    }
+    return ''
+  }
+  if (field.widget === 'strings') {
+    if (typeof value !== 'object' || Array.isArray(value)) return 'format'
+    for (const [k, v] of Object.entries(value)) {
+      if (!(k in STRING_KEYS) || typeof v !== 'string') return 'format'
+      if (templateProblem(v, STRING_KEYS[k])) return 'placeholder'
+    }
+    return ''
+  }
+  return null
 }
 
 // changedValues returns what a save sends: the fields whose value differs from
@@ -200,12 +242,13 @@ export function changedValues(fields, original, edited) {
     const before = original?.[f.key]
     let after = edited?.[f.key]
     if (typeof after === 'string') after = after.replace(/\s+$/, '')
-    const empty = after === undefined || after === null || after === ''
+    const isObj = after !== null && typeof after === 'object'
+    const empty = after === undefined || after === null || after === '' || (isObj && Object.keys(after).length === 0)
     if (empty) {
       if (before !== undefined && before !== null && before !== '') out[f.key] = null
       continue
     }
-    if (after !== before) out[f.key] = after
+    if (isObj ? JSON.stringify(after) !== JSON.stringify(before) : after !== before) out[f.key] = after
   }
   return out
 }
@@ -334,6 +377,7 @@ export function cleanWidgets(rows) {
       if (title) w.title = title
       else delete w.title
       if (!(Number.isInteger(r.folder) && r.folder > 0)) delete w.folder
+      if (!isSize(w.size)) delete w.size
       out.push(w)
       continue
     }
@@ -348,6 +392,7 @@ export function cleanWidgets(rows) {
     const source = (r.source || '').trim().replace(/^\/+/, '')
     if (r.type !== 'chats' && source) w.source = source
     if (r.type === 'chats') delete w.trigger
+    if (!isSize(w.size)) delete w.size
     out.push(w)
   }
   return out
@@ -428,4 +473,87 @@ export function formatMetric(value) {
   if (abs >= 1e6) return `${+(value / 1e6).toFixed(1)}M`
   if (abs >= 1e4) return `${+(value / 1e3).toFixed(0)}k`
   return String(+value.toFixed(2))
+}
+
+// ---- Backgrounds (ui.json: homeBackground, chatBackground) ----
+
+const HEX = /^#[0-9a-fA-F]{6}$/
+const BG_IMAGE_EXT = /\.(png|jpe?g|webp|gif|avif)$/i
+
+// backgroundImagePath says whether p may be the image of a background: a relative
+// path of a picture in the home, with no leading slash, no .. or . segment, no
+// address, no backslash and a picture extension. The server checks the same
+// rule (BackgroundImageOK in Go); this one keeps a bad value from being sent
+// or shown.
+export function backgroundImagePath(p) {
+  if (typeof p !== 'string' || p === '' || p.length > 400) return false
+  if (p.startsWith('/') || /[\\:?#\u0000-\u001f\u007f]/.test(p)) return false
+  if (p.split('/').some(seg => seg === '' || seg === '.' || seg === '..')) return false
+  return BG_IMAGE_EXT.test(p)
+}
+
+const num = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined)
+
+// The keys of ui.json that hold a background, and the veil each one gets when
+// the file names none. A veil keeps text readable: a stronger one over a
+// picture, which can be busy, a lighter one over a gradient; a plain colour is
+// the user's own pick and gets none unless they ask. A chat is mostly long
+// text, so its veils are stronger than the ones of Home.
+export const BACKGROUND_KEYS = ['homeBackground', 'chatBackground']
+export const BACKGROUND_VEIL = {
+  homeBackground: { image: 0.55, gradient: 0.35, color: 0 },
+  chatBackground: { image: 0.8, gradient: 0.6, color: 0 },
+}
+
+// backgroundVeil is the default veil of a kind (image, gradient, color) for a key.
+export function backgroundVeil(key, kind) {
+  return (BACKGROUND_VEIL[key] || BACKGROUND_VEIL.homeBackground)[kind] ?? 0
+}
+
+// background reads the background that key of ui.json holds and keeps only the
+// parts that are valid, so a half-valid value (from the assistant, or a file
+// the server read before the schema knew a key) still shows what it can. It
+// returns null when nothing is left to show.
+export function background(data, key) {
+  const v = data?.[key]
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const out = {}
+  if (typeof v.color === 'string' && HEX.test(v.color)) out.color = v.color
+  const g = v.gradient
+  if (g && typeof g === 'object' && HEX.test(g.from) && HEX.test(g.to)) {
+    out.gradient = { from: g.from, to: g.to, angle: Math.round(num(g.angle, 0, 360) ?? 180) }
+  }
+  if (backgroundImagePath(v.image)) out.image = v.image
+  if (!out.color && !out.gradient && !out.image) return null
+  out.fit = v.fit === 'contain' ? 'contain' : 'cover'
+  out.opacity = num(v.opacity, 0, 1) ?? 1
+  out.blur = Math.round(num(v.blur, 0, 40) ?? 0)
+  out.overlay = num(v.overlay, 0, 1) ?? backgroundVeil(key, out.image ? 'image' : out.gradient ? 'gradient' : 'color')
+  return out
+}
+
+export const homeBackground = (data) => background(data, 'homeBackground')
+export const chatBackground = (data) => background(data, 'chatBackground')
+
+// backgroundStyle turns a background (as background returns it) into the
+// inline styles of the layers: art (colour, gradient and picture, with opacity
+// and blur) and scrim (the veil in the colour of the page). imageUrl turns the
+// path of the picture into the address that serves it.
+export function backgroundStyle(bg, imageUrl) {
+  if (!bg) return null
+  const layers = []
+  if (bg.image) layers.push(`url("${imageUrl(bg.image)}")`)
+  if (bg.gradient) layers.push(`linear-gradient(${bg.gradient.angle}deg, ${bg.gradient.from}, ${bg.gradient.to})`)
+  const pad = bg.blur ? -(bg.blur * 2) : 0
+  const art = {
+    inset: pad ? `${pad}px` : 0,
+    backgroundColor: bg.color || 'transparent',
+    backgroundImage: layers.length ? layers.join(', ') : undefined,
+    backgroundSize: bg.image ? `${bg.fit}${bg.gradient ? ', cover' : ''}` : undefined,
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    opacity: bg.opacity,
+    filter: bg.blur ? `blur(${bg.blur}px)` : undefined,
+  }
+  return { art, scrim: { opacity: bg.overlay } }
 }

@@ -198,7 +198,7 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     expect((await installed(api)).digest).toBe(state.firstDigest)
 
     await admin.page.getByTestId('update-upgrade').click()
-    await admin.page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await admin.page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
     await expect(admin.page.getByTestId('upgrade-progress')).toBeVisible()
     await shoot(admin.page, 'updates-progress-1280', null, { settle: 0 })
     await expect(admin.page.getByTestId('upgrade-progress')).toBeHidden({ timeout: 90_000 })

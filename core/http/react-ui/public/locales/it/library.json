@@ -110,5 +110,11 @@
     "reads": "Questo agente legge la collezione chiamata {{name}}.",
     "exists": "Questo agente legge la collezione chiamata {{name}}. Puoi riempirla e cercarla in Conoscenza.",
     "created": "Questo agente legge la collezione chiamata {{name}}. Viene creata al salvataggio."
+  },
+  "rail": {
+    "compact": "Righe compatte",
+    "clear": "Cancella i filtri",
+    "more": "Mostra altri {{count}}",
+    "loading": "Caricamento"
   }
 }

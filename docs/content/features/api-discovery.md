@@ -170,6 +170,8 @@ If the model does not set `context_size`, it uses **Settings → Performance →
 Otherwise, it uses the backend fallback of 4096 tokens.
 For llama.cpp with separate KV caches, the reported value accounts for the number of parallel slots.
 
+An entry has a `description` when the model configuration sets one. With authentication on, a user whose account has a model allow-list sees only the models on it.
+
 Because it is purely additive, clients that only understand `/v1/models` keep working unchanged; they simply never call this route.
 
 ```bash
@@ -184,6 +186,7 @@ curl http://localhost:8080/v1/models/capabilities
       "id": "qwen2.5-omni",
       "object": "model",
       "capabilities": ["chat", "vision", "tools"],
+      "description": "A model that reads images and audio.",
       "input_modalities": ["text", "image", "audio"],
       "output_modalities": ["text"]
     },

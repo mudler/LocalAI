@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
@@ -120,6 +121,30 @@ func parseDuration(s string) (time.Duration, error) {
 		return time.Duration(years) * 365 * 24 * time.Hour, nil
 	}
 	return time.ParseDuration(s)
+}
+
+// revokeAPIKeyHandler deletes a key of the signed-in user. A client key that is
+// deleted here is revoked like one deleted on /api/client/keys: onRevoke
+// stops the jobs the client started.
+func revokeAPIKeyHandler(db *gorm.DB, onRevoke func(ctx context.Context, ownerID, clientID string)) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user := auth.GetUser(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		}
+
+		keyID := c.Param("id")
+		var key auth.UserAPIKey
+		isClient := db.Where("id = ? AND user_id = ?", keyID, user.ID).First(&key).Error == nil && key.IsClientKey()
+		if err := auth.RevokeAPIKey(db, keyID, user.ID); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "API key not found"})
+		}
+		if isClient && onRevoke != nil {
+			onRevoke(context.WithoutCancel(c.Request().Context()), user.ID, keyID)
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "API key revoked"})
+	}
 }
 
 // RegisterAuthRoutes registers authentication-related API routes.
@@ -748,19 +773,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	})
 
 	// DELETE /api/auth/api-keys/:id - revoke API key
-	e.DELETE("/api/auth/api-keys/:id", func(c echo.Context) error {
-		user := auth.GetUser(c)
-		if user == nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
-		}
-
-		keyID := c.Param("id")
-		if err := auth.RevokeAPIKey(db, keyID, user.ID); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "API key not found"})
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "API key revoked"})
-	})
+	e.DELETE("/api/auth/api-keys/:id", revokeAPIKeyHandler(db, clientJobsCanceller(app)))
 
 	// PATCH /api/auth/api-keys/:id - pause or resume an API key
 	e.PATCH("/api/auth/api-keys/:id", func(c echo.Context) error {

@@ -426,23 +426,27 @@ func (s URI) ResolveURL() string {
 		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
 
 		repoPieces := strings.Split(repository, "/")
-		repoID := strings.Split(repository, "@")
 		if len(repoPieces) < 3 {
 			return string(s)
 		}
 
 		owner := repoPieces[0]
 		repo := repoPieces[1]
-
-		branch := "main"
 		filepath := strings.Join(repoPieces[2:], "/")
 
-		if len(repoID) > 1 {
-			if strings.Contains(repo, "@") {
-				branch = repoID[1]
-			}
-			if strings.Contains(filepath, "@") {
-				filepath = repoID[2]
+		// The revision is the last "@" suffix on the whole reference, so a
+		// repository or directory name that itself contains "@" stays intact.
+		// Splitting the repository on "@" instead left the branch in the file
+		// path — producing a URL that resolves to nothing — and indexed past
+		// the two fields it produced whenever the suffix was present, which
+		// panicked the importer and preload paths.
+		branch := "main"
+		if at := strings.LastIndex(filepath, "@"); at != -1 {
+			branch = filepath[at+1:]
+			filepath = filepath[:at]
+			if filepath == "" {
+				// "owner/repo@branch" names no file in the repository.
+				return string(s)
 			}
 		}
 

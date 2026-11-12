@@ -1,0 +1,270 @@
+{
+  "title": "Actualizaciones",
+  "supporting": "Backends, backends de biblioteca y add-ons que tienen una versión más nueva.",
+  "loading": "Cargando actualizaciones",
+  "adminOnly": {
+    "title": "Las actualizaciones son para administradores",
+    "body": "Pide a un administrador que revise qué está desactualizado en este servidor."
+  },
+  "loadError": {
+    "title": "No se pudo cargar la lista de actualizaciones."
+  },
+  "strip": {
+    "label": "Resumen de actualizaciones",
+    "checking": "Buscando actualizaciones...",
+    "checkNow": "Comprobar ahora",
+    "checkedJustNow": "Comprobado ahora mismo",
+    "ready": "{{count}} listas",
+    "updating": "{{count}} en curso",
+    "needs_one": "{{count}} te necesita",
+    "needs_other": "{{count}} te necesitan",
+    "lastCheck": "Última comprobación {{when}}",
+    "headline": {
+      "loading": "Cargando actualizaciones",
+      "loadError": "No se pudo cargar la lista de actualizaciones",
+      "updates_one": "{{count}} actualización disponible",
+      "updates_other": "{{count}} actualizaciones disponibles",
+      "current": "Todo está al día",
+      "never": "Todavía no se ha comprobado",
+      "couldNot": "No se pudo buscar actualizaciones",
+      "noneButFailed": "No se encontraron actualizaciones, pero la comprobación falló para: {{sources}}",
+      "noneButNever": "No se encontraron actualizaciones, pero aún no se ha comprobado: {{sources}}",
+      "unavailable": "En este servidor no se pueden buscar actualizaciones"
+    }
+  },
+  "when": {
+    "justNow": "ahora mismo"
+  },
+  "source": {
+    "label": "De dónde vienen las actualizaciones",
+    "name": {
+      "gallery": "Galería de backends",
+      "library": "Biblioteca de backends",
+      "addons": "Add-ons"
+    },
+    "checked": "comprobado {{when}}",
+    "ok": "comprobado",
+    "never": "aún sin comprobar",
+    "loading": "leyendo",
+    "unavailable": "no disponible en este servidor",
+    "unavailableWhy": "no disponible: {{reason}}",
+    "failed": "la comprobación falló: {{error}}",
+    "addonsUnreadable": "no se pudieron leer los add-ons"
+  },
+  "auto": {
+    "backends": "Actualizar backends automáticamente:",
+    "addons": "Actualizar add-ons automáticamente:",
+    "on": "activado",
+    "off": "desactivado",
+    "settings": "Ajustes"
+  },
+  "disabled": {
+    "title": "Las actualizaciones de backends están desactivadas en este servidor.",
+    "body": "Los backends de abajo se muestran, pero aquí nada puede actualizarlos. La configuración del servidor desactivó la instalación de backends."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "Falló la comprobación de la galería de backends, así que puede haber actualizaciones de backends que no se muestran.",
+      "library": "Falló la comprobación de la biblioteca, así que puede haber actualizaciones de backends de biblioteca que no se muestran.",
+      "addons": "Falló la comprobación de los add-ons, así que puede haber actualizaciones de add-ons que no se muestran."
+    },
+    "lastGood": "La lista de abajo es de la última comprobación correcta, {{when}}. Motivo: {{error}}.",
+    "noGood": "Ninguna comprobación ha funcionado todavía. Motivo: {{error}}.",
+    "again": "Comprobar de nuevo"
+  },
+  "filter": {
+    "label": "Filtrar actualizaciones",
+    "all": "Todas",
+    "ready": "Listas",
+    "needs-you": "Te necesitan",
+    "updating": "En curso",
+    "current": "Al día",
+    "none": "Nada coincide con este filtro."
+  },
+  "group": {
+    "needs": "Te necesitan",
+    "updating": "En curso",
+    "ready": "Listas para actualizar",
+    "current_one": "{{count}} al día",
+    "current_other": "{{count}} al día",
+    "selectAll": "Seleccionar todas las listas",
+    "selectNone": "No seleccionar ninguna",
+    "show": "Mostrar",
+    "hide": "Ocultar"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Backend de biblioteca",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Galería de backends",
+      "library": "Biblioteca: {{id}}",
+      "libraryUnnamed": "Biblioteca"
+    },
+    "signed": "firmado",
+    "versions": "{{from}} a {{to}}",
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodos",
+    "drift_one": "{{count}} difiere",
+    "drift_other": "{{count}} difieren",
+    "old": "de una comprobación anterior",
+    "select": "Seleccionar {{name}}",
+    "update": "Actualizar",
+    "updateNamed": "Actualizar {{name}}",
+    "check": "Comprobar",
+    "checkNamed": "Comprobar si {{name}} tiene una actualización",
+    "retry": "Reintentar",
+    "retryNamed": "Reintentar {{name}}",
+    "review": "Revisar",
+    "reviewNamed": "Revisar la actualización de {{name}}",
+    "cancel": "Cancelar",
+    "cancelNamed": "Cancelar la actualización de {{name}}",
+    "progress": "Progreso de la actualización de {{name}}",
+    "failed": "La actualización falló: {{message}}",
+    "failedWhy": "Actualización fallida: {{message}}",
+    "noReason": "sin motivo indicado",
+    "startFailed": "La actualización no pudo empezar: {{message}}",
+    "unchanged": "La actualización terminó pero la versión no cambió.",
+    "unconfirmed": "La actualización terminó, pero ninguna comprobación pudo confirmarla.",
+    "held": "En espera de aprobación. {{version}} pide acceso que no has aprobado ({{count}} nuevos).",
+    "blocked": {
+      "installsDisabled": "Las actualizaciones de backends están desactivadas en este servidor.",
+      "incompatible": "La versión {{version}} no puede ejecutarse en este host.",
+      "integrity": "La biblioteca lista la versión instalada con otro contenido. No se cambió nada."
+    },
+    "updatingPhase": "Actualizando: {{phase}}",
+    "updatingPlain": "Actualizando",
+    "addonConfirm": "Necesita tu confirmación en este navegador",
+    "nodesAction": "Nodos",
+    "nodesNamed": "Mostrar los nodos de {{name}}",
+    "needsConfirm": "{{name}} se ejecuta en nodos y necesita antes su confirmación. Use Actualizar en su fila."
+  },
+  "bulk": {
+    "start": "Actualizar {{count}} listas",
+    "running": "Actualizando {{current}} de {{total}}",
+    "summary": "{{done}} actualizadas, {{failed}} con error, {{skipped}} omitidas",
+    "details": "Detalles",
+    "retryFailed": "Reintentar las fallidas ({{count}})",
+    "dismiss": "Descartar"
+  },
+  "check": {
+    "result_one": "Comprobación terminada: {{count}} actualización.",
+    "result_other": "Comprobación terminada: {{count}} actualizaciones.",
+    "failedSources_one": "Falló {{count}} fuente.",
+    "failedSources_other": "Fallaron {{count}} fuentes.",
+    "throttled": "Hace un momento se hizo una comprobación. Este es su resultado."
+  },
+  "live": {
+    "updated": "{{name}} se actualizó.",
+    "failed": "{{name}} no se actualizó."
+  },
+  "empty": {
+    "title": "Aún no hay nada que actualizar",
+    "body": "Instala un backend o un add-on y sus actualizaciones aparecerán aquí.",
+    "backends": "Abrir Backends",
+    "addons": "Abrir Apps"
+  },
+  "dialog": {
+    "title": "Actualizar las listas",
+    "intro": "Elige qué actualizar. Cada una se actualiza por separado, una tras otra, y cuenta como terminada solo cuando una nueva comprobación ya no la lista. Un fallo no detiene las demás.",
+    "selection": "Elige qué actualizar",
+    "selectAll": "Seleccionar todo",
+    "selectNone": "No seleccionar nada",
+    "item": "Actualizar {{name}}",
+    "versions": "{{from}} a {{to}}",
+    "blocked": "No puede empezar",
+    "start": "Actualizar selección",
+    "starting": "Actualizando...",
+    "retry": "Reintentar las fallidas ({{count}})",
+    "again": "Nueva selección",
+    "close": "Cerrar",
+    "closeRunning": "Cerrar (sigue en marcha)",
+    "runningNote": "Cerrar esta ventana no detiene las actualizaciones.",
+    "progress": "Actualizando {{current}} de {{total}}",
+    "summary": "{{done}} actualizadas, {{failed}} con error, {{skipped}} omitidas",
+    "empty": "No hay nada que actualizar.",
+    "selectedCount_one": "{{count}} seleccionada",
+    "selectedCount_other": "{{count}} seleccionadas"
+  },
+  "item": {
+    "queued": "En cola",
+    "upgrading": "Actualizando",
+    "done": "Actualizada",
+    "failed": "Falló",
+    "skipped": "Omitida"
+  },
+  "node": {
+    "breadcrumb": "Ruta de navegación",
+    "reload": "Reintentar",
+    "noneTitle": "{{name}} no tiene ningún nodo que actualizar",
+    "noneBody": "No hay ninguna actualización listada para este backend en ningún nodo. Puede estar al día en todos o acabar de actualizarse.",
+    "back": "Volver a Actualizaciones",
+    "supporting_one": "La versión {{version}} está disponible. {{nodes}} lo tienen instalado, y {{count}} de ellos necesita la actualización.",
+    "supporting_other": "La versión {{version}} está disponible. {{nodes}} lo tienen instalado, y {{count}} de ellos necesitan la actualización.",
+    "supportingDrift_one": "Los nodos no tienen todos la misma compilación. {{count}} de {{nodes}} difiere del clúster.",
+    "supportingDrift_other": "Los nodos no tienen todos la misma compilación. {{count}} de {{nodes}} difieren del clúster.",
+    "warning": "Actualizar detiene los modelos que usan este backend en cada nodo. Un modelo vuelve a arrancar cuando una petición lo necesita.",
+    "driftNote": "Un nodo que difiere del clúster no siempre va atrasado: puede ser más nuevo. Actualizar lo deja en la versión que ofrece la galería.",
+    "tableLabel": "Nodos que tienen {{name}}",
+    "col": {
+      "node": "Nodo",
+      "installed": "Instalada",
+      "models": "Modelos en ejecución que lo usan",
+      "state": "Estado",
+      "action": "Acción"
+    },
+    "noneRecorded": "Ninguno registrado",
+    "state": {
+      "current": "Al día",
+      "unreachable": "No accesible"
+    },
+    "updateN_one": "Actualizar {{count}} nodo",
+    "updateN_other": "Actualizar {{count}} nodos",
+    "updateNamed": "Actualizar {{name}}",
+    "models_one": "{{count}} modelo",
+    "models_other": "{{count}} modelos",
+    "nodes_one": "{{count}} nodo",
+    "nodes_other": "{{count}} nodos",
+    "stops": "Detiene {{models}}",
+    "title_one": "¿Actualizar {{backend}} en {{count}} nodo?",
+    "title_other": "¿Actualizar {{backend}} en {{count}} nodos?",
+    "titleMany_one": "¿Actualizar {{count}} backend en {{nodes}}?",
+    "titleMany_other": "¿Actualizar {{count}} backends en {{nodes}}?",
+    "runningTitle": "Actualizando nodos",
+    "doneTitle": "Actualización terminada",
+    "intro": "Cada nodo detiene los modelos que usan {{backend}}, instala la nueva versión y vuelve a arrancar un modelo cuando una petición lo necesita. Esto no se puede deshacer desde aquí.",
+    "introMany": "Cada nodo detiene los modelos que usan estos backends, instala las nuevas versiones y vuelve a arrancar un modelo cuando una petición lo necesita. Esto no se puede deshacer desde aquí.",
+    "stopKnown_one": "Se detiene {{count}} modelo.",
+    "stopKnown_other": "Se detienen {{count}} modelos.",
+    "stopPartial_one": "Se registra que se detiene {{count}} modelo. En otros nodos no hay ningún modelo registrado, y el registro puede omitir alguno, así que pueden detenerse más.",
+    "stopPartial_other": "Se registra que se detienen {{count}} modelos. En otros nodos no hay ningún modelo registrado, y el registro puede omitir alguno, así que pueden detenerse más.",
+    "stopNone": "No hay ningún modelo cargado registrado en estos nodos. El registro no es completo, así que un modelo que use este backend aún puede detenerse.",
+    "sequence": "Los nodos se actualizan uno tras otro. Esta ventana muestra cada resultado cuando termina.",
+    "confirmStop_one": "Actualizar {{count}} nodo y detener {{models}}",
+    "confirmStop_other": "Actualizar {{count}} nodos y detener {{models}}",
+    "confirmStopAtLeast_one": "Actualizar {{count}} nodo y detener al menos {{models}}",
+    "confirmStopAtLeast_other": "Actualizar {{count}} nodos y detener al menos {{models}}",
+    "confirmPlain_one": "Actualizar {{count}} nodo",
+    "confirmPlain_other": "Actualizar {{count}} nodos",
+    "cancel": "Cancelar",
+    "stop": "Parar tras este nodo",
+    "listLabel": "Nodos que se actualizarán",
+    "titleAll_one": "¿Iniciar {{count}} actualización?",
+    "titleAll_other": "¿Iniciar {{count}} actualizaciones?",
+    "confirmPlus_one": "{{label}} y {{count}} más",
+    "confirmPlus_other": "{{label}} y {{count}} más",
+    "othersTitle": "También se inicia al confirmar",
+    "othersLabel": "Otras actualizaciones que se iniciarán",
+    "othersIntro": "Estas no se ejecutan en nodos. Se inician una tras otra al confirmar. Un complemento se detiene mientras se respaldan y migran sus datos. Si la nueva versión no arranca, la actual sigue en marcha.",
+    "otherKind": {
+      "addon": "Complemento",
+      "library": "Backend de biblioteca",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Biblioteca {{library}}",
+    "otherOriginChannel": "Biblioteca {{library}}, canal {{channel}}",
+    "runningNote": "Parar evita que arranquen los nodos que aún no han empezado."
+  }
+}

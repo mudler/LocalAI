@@ -54,6 +54,10 @@ type LoopLimits struct {
 	PerChat, PerUser int
 	// DailyRuns is the number of loop runs one owner may start in a UTC day.
 	DailyRuns int
+	// DailyScriptChecks is the number of checks of waits on a script that one
+	// owner may spend in a UTC day, over all their waits. It is a budget apart
+	// from DailyRuns.
+	DailyScriptChecks int
 }
 
 func (l LoopLimits) withDefaults() LoopLimits {
@@ -75,6 +79,10 @@ func (l LoopLimits) withDefaults() LoopLimits {
 	if l.DailyRuns <= 0 {
 		l.DailyRuns = loops.DefaultDailyRuns
 	}
+	if l.DailyScriptChecks <= 0 {
+		l.DailyScriptChecks = loops.DefaultDailyScriptChecks
+	}
+	l.DailyScriptChecks = min(l.DailyScriptChecks, loops.MaxDailyScriptChecks)
 	return l
 }
 

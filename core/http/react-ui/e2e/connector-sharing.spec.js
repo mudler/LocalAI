@@ -35,7 +35,7 @@ test.describe('Sharing connections', () => {
 
   test('marks a shared binding of the owner and lists the bindings shared with the person, read only', async ({ page }) => {
     await api(page, { items: [{ ...MINE, share: { resource_id: RID, shared_with: 2 } }] })
-    await page.goto('/app/chats/connectors')
+    await page.goto('/app/chats/connectors?tab=messaging')
     const own = page.getByTestId('connector-row')
     await expect(own.getByTestId('connector-shared-with')).toHaveText('Shared with 2')
     await expect(own.getByRole('button', { name: 'Share Support bot' })).toBeVisible()
@@ -56,7 +56,7 @@ test.describe('Sharing connections', () => {
 
   test('opens the Share dialog of a binding with the use role only and no grant to everyone', async ({ page }) => {
     const s = await api(page)
-    await page.goto('/app/chats/connectors')
+    await page.goto('/app/chats/connectors?tab=messaging')
     await page.getByRole('button', { name: 'Share Support bot' }).click()
     const dialog = page.getByTestId('connector-share-dialog')
     await expect(dialog.getByRole('heading', { name: 'Share "Support bot"' })).toBeVisible()
@@ -70,7 +70,7 @@ test.describe('Sharing connections', () => {
 
   test('uses the share ID the list already has', async ({ page }) => {
     const s = await api(page, { items: [{ ...MINE, share: { resource_id: RID, shared_with: 1 } }] })
-    await page.goto('/app/chats/connectors')
+    await page.goto('/app/chats/connectors?tab=messaging')
     await page.getByRole('button', { name: 'Share Support bot' }).click()
     await expect(page.getByTestId('connector-share-dialog').getByTestId('share-grant')).toBeVisible()
     expect(s.calls).toEqual([`grants ${RID}`])
@@ -78,7 +78,7 @@ test.describe('Sharing connections', () => {
 
   test('shows nothing of sharing when the server cannot share', async ({ page }) => {
     await api(page, { sharing: false })
-    await page.goto('/app/chats/connectors')
+    await page.goto('/app/chats/connectors?tab=messaging')
     await expect(page.getByTestId('connector-row')).toBeVisible()
     await expect(page.getByTestId('connector-share')).toHaveCount(0)
     await expect(page.getByTestId('connector-shared')).toHaveCount(0)
@@ -87,7 +87,7 @@ test.describe('Sharing connections', () => {
   test('fits a phone with a shared binding', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 })
     await api(page)
-    await page.goto('/app/chats/connectors')
+    await page.goto('/app/chats/connectors?tab=messaging')
     await expect(page.getByTestId('connector-shared-row')).toBeVisible()
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
   })

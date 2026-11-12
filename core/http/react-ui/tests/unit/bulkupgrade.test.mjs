@@ -75,3 +75,17 @@ test('bulk upgrade: a retry runs only the failed items and may start after the r
   assert.deepEqual(again.order, ['a'])
   assert.equal(again.status.c, undefined, 'the retry starts a fresh run')
 })
+
+test('bulk upgrade: an item is upgrading, not done, until its runOne resolves', async () => {
+  const run = beginRun(null, items, new Set(['a']))
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const seen = []
+  const finished = runSequential(run, async () => { await gate; return { ok: true } }, { onUpdate: r => seen.push(r.status.a.phase) })
+  await new Promise(resolve => setTimeout(resolve, 5))
+  assert.deepEqual(seen, ['upgrading'], 'dispatching the work does not make it done')
+  release()
+  const end = await finished
+  assert.equal(end.status.a.phase, 'done')
+  assert.equal(summarize(end).done, 1)
+})

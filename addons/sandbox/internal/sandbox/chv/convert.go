@@ -139,3 +139,20 @@ func copyKernel(r io.Reader, out io.Writer) error {
 	}
 	return nil
 }
+
+// ImageCached says whether ref is converted in the cache.
+func (b *Backend) ImageCached(ctx context.Context, ref string) bool {
+	return ociimage.Cached(ctx, b.opts.CacheDir, ref)
+}
+
+// PrepareImage pulls and converts ref, so that a sandbox made later boots
+// without waiting for it.
+func (b *Backend) PrepareImage(ctx context.Context, ref string) error {
+	_, err := b.image(ctx, ref)
+	return err
+}
+
+// ForgetImage deletes the converted image of ref.
+func (b *Backend) ForgetImage(ctx context.Context, ref string) error {
+	return ociimage.Forget(ctx, b.opts.CacheDir, ref)
+}

@@ -131,7 +131,7 @@ func (h *Handlers) GetSharedPage(c echo.Context) error {
 		return failPage(c, err)
 	}
 	out := schema.PagesSharedSource{Page: h.sharedJSON(c, p, rev.State), HTML: html, Lines: strings.Count(html, "\n") + 1,
-		Consent: schema.PagesConsent{State: rev.State}}
+		Consent: schema.PagesConsent{State: rev.State, Embed: rev.Embed}}
 	if a := rev.Allowed; a != nil {
 		out.Consent.AllowedAt, out.Consent.Size, out.Consent.MetaSize, out.Consent.Lines = utcPtr(a.At), a.Size, a.MetaSize, a.Lines
 	}
@@ -141,7 +141,7 @@ func (h *Handlers) GetSharedPage(c echo.Context) error {
 
 // AllowSharedPage records your consent to a version of a shared page.
 // @Summary Allow a version of a shared page to run.
-// @Description hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. Each consent and revoke is audited.
+// @Description hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. embed is a lasting consent that also lets the version run on Home and in the slots of ui.json, where it starts without a click; it cannot go with once (400). A lasting consent to the same version keeps embed. Each consent and revoke is audited.
 // @Tags pages
 // @Param folder path integer true "shared folder id"
 // @Param name path string true "page name"
@@ -162,11 +162,19 @@ func (h *Handlers) AllowSharedPage(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, typeInvalid, msgNotJSON)
 	}
-	got, err := h.trust.Allow(c.Request().Context(), fc.p, folder, name, req.Hash, req.Once)
+	if req.Embed && req.Once {
+		return fail(c, http.StatusBadRequest, typeInvalid, "embed is a lasting consent: it cannot go with once")
+	}
+	var got pages.Consent
+	if req.Embed {
+		got, err = h.trust.AllowEmbed(c.Request().Context(), fc.p, folder, name, req.Hash)
+	} else {
+		got, err = h.trust.Allow(c.Request().Context(), fc.p, folder, name, req.Hash, req.Once)
+	}
 	if err != nil {
 		return failPage(c, err)
 	}
-	out := schema.PagesConsentResponse{State: pages.StateAllowed, Kind: got.Kind, Hash: got.Hash, Token: got.Token}
+	out := schema.PagesConsentResponse{State: pages.StateAllowed, Kind: got.Kind, Hash: got.Hash, Token: got.Token, Embed: got.Embed}
 	if got.Kind == pages.ConsentOnce {
 		out.State, out.Expires = pages.StateNone, utcPtr(got.Expires)
 	}

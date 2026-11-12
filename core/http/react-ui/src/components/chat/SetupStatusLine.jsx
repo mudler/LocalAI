@@ -82,12 +82,19 @@ export default function SetupStatusLine({
 }
 
 // Why the Setup chip is off, as text next to the composer (the chip points at
-// it with aria-describedby).
-export function SetupReason({ id, text }) {
+// it with aria-describedby). The chip is also the way to Manage setups, so the
+// line offers it while the chip is off (onManage, given when there are setups).
+export function SetupReason({ id, text, onManage }) {
+  const { t } = useTranslation('chat')
   return (
     <p className="cx-ready setup-reason" id={id} data-testid="setup-reason">
       <Icon name="info" />
       <span>{text}</span>
+      {onManage && (
+        <span className="setup-reason__manage">
+          <Button size="sm" variant="ghost" icon="settings" data-testid="setup-reason-manage" onClick={onManage}>{t('setup.manage')}</Button>
+        </span>
+      )}
     </p>
   )
 }

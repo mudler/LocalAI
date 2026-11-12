@@ -306,9 +306,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 		}
 	}
 
-	// Set renderer
-	e.Renderer = renderEngine()
-
 	// Hide banner
 	e.HideBanner = true
 	e.HidePort = true
@@ -449,6 +446,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	if application.AuthDB() != nil {
 		e.Use(auth.RequireRouteFeature(application.AuthDB()))
 		e.Use(auth.RequireModelAccess(application.AuthDB()))
+		// A client key names a model of its own list, on every request.
+		e.Use(auth.RequireClientModels(application.ModelConfigLoader().ClientModelProblem))
 		e.Use(auth.RequireQuota(application.AuthDB()))
 	}
 
@@ -496,6 +495,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
+	// Routes of paired clients: pairing, client keys and what a client key may reach.
+	routes.RegisterClientRoutes(e, application, adminMiddleware)
 	// With add-ons off, no real add-on, fine-tuning or quantization handler is
 	// registered. One handler per prefix answers the same unavailable response
 	// whether or not the path exists, so the off state does not reveal the route
@@ -613,6 +614,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 			return nil, err
 		}
 		if err := application.RegisterAddonEgress(); err != nil {
+			return nil, err
+		}
+		if err := application.RegisterAddonClientJobs(); err != nil {
 			return nil, err
 		}
 		if err := application.RegisterAddonConnector(); err != nil {
@@ -795,7 +799,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		xlog.Info("LocalAI API server shutting down")
 	})
 
-	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware)
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application))
 
 	// The studio loop reaches the model through this router, in memory.
 	if sp := application.StudioProvider(); sp != nil {

@@ -87,20 +87,34 @@ var _ = Describe("guard", func() {
 		})
 		// The sandbox packages stay a narrow face: they use the workspace and
 		// nothing else of the core, so an add-on that imports them does not
-		// reach further.
+		// reach further. The one other package they may use is bgjob, the
+		// shared job types and end reasons (and its test fake). It is a leaf,
+		// checked below, so it adds no other core dependency.
+		allowed := func(p string) bool {
+			return strings.HasPrefix(p, module+"core/services/studio/workspace") ||
+				strings.HasPrefix(p, module+"core/services/studio/sandbox") ||
+				p == module+"core/services/studio/bgjob" ||
+				p == module+"core/services/studio/bgjob/bgjobtest"
+		}
 		goFiles([]string{"core/services/studio/sandbox"}, func(path string, src []byte) {
 			for _, p := range imports(path, src) {
-				if strings.HasPrefix(p, module+"core/") && !strings.HasPrefix(p, module+"core/services/studio/workspace") &&
-					!strings.HasPrefix(p, module+"core/services/studio/sandbox") {
-					Fail(fmt.Sprintf("%s imports %s: the sandbox packages may use only the workspace packages of the core", path, p))
+				if strings.HasPrefix(p, module+"core/") && !allowed(p) {
+					Fail(fmt.Sprintf("%s imports %s: the sandbox packages may use only the workspace packages of the core and bgjob", path, p))
 				}
 			}
 		})
 		goFiles([]string{"addons"}, func(path string, src []byte) {
 			for _, p := range imports(path, src) {
-				if strings.HasPrefix(p, module+"core/") && !strings.HasPrefix(p, module+"core/services/studio/workspace") &&
-					!strings.HasPrefix(p, module+"core/services/studio/sandbox") {
-					Fail(fmt.Sprintf("%s imports %s: an add-on may use only the workspace and sandbox packages of the core", path, p))
+				if strings.HasPrefix(p, module+"core/") && !allowed(p) {
+					Fail(fmt.Sprintf("%s imports %s: an add-on may use only the workspace, sandbox and bgjob packages of the core", path, p))
+				}
+			}
+		})
+		// bgjob stays a leaf, so allowing it above reaches nothing else.
+		goFiles([]string{"core/services/studio/bgjob"}, func(path string, src []byte) {
+			for _, p := range imports(path, src) {
+				if strings.HasPrefix(p, module) && p != module+"core/services/studio/bgjob" {
+					Fail(fmt.Sprintf("%s imports %s: bgjob and bgjobtest may import nothing of the module except bgjob", path, p))
 				}
 			}
 		})

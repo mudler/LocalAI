@@ -1,5 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
-import { mockHome, mockUser, LOADED } from './home-fixtures.js'
+import { mockHome, mockUser, noWellKnown, LOADED } from './home-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
 import { app, mockAddons, stubAddonRoutes } from './addons-fixtures.js'
 
@@ -17,6 +17,7 @@ async function ready(page) {
 test.describe('Home slash menu', () => {
   test.beforeEach(async ({ page }) => {
     await mockHome(page)
+    await noWellKnown(page, 'commands')
   })
 
   test('typing a slash opens the grouped action list', async ({ page }) => {
@@ -412,6 +413,7 @@ test.describe('Home resume list', () => {
   test.beforeEach(async ({ page }) => {
     await page.clock.setFixedTime(new Date('2026-10-09T12:00:00Z').getTime())
     await mockHome(page)
+    await noWellKnown(page, 'home')
   })
 
   test('it shows the newest chat the server keeps and opens it', async ({ page }) => {

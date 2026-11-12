@@ -23,6 +23,7 @@ import { getSdk } from '../../host-compat/src/runtime.js'
 import { changedParts, droppedActs, removedActs } from './access'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
 import { DUPLICATE_CONFIRMATION, canSave, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, listEntries, senderLine } from './connector'
+import { loginPlan } from './login'
 import { registerConnectorLocales } from './i18n'
 import { chatNamesFrom, chatText, peopleFrom } from './people'
 import { PeopleContext } from './Person'
@@ -189,9 +190,14 @@ function ShareConnection({ share, s, onChanged, close }) {
  * @param {Function} [props.extraValid] whether they allow saving: (form) => boolean
  * @param {Function} [props.testExtra] more checks after the Test button: async (binding, t) => string
  * @param {Function} [props.RowInfo]   a line under a binding in the list ({ c, t })
+ * @param {boolean} [props.canAdd]     false for a kind whose connections are made elsewhere: the page then edits
+ *                                     the saved ones and has no New button
+ * @param {boolean} [props.login]      a kind whose add-on logs in with OAuth: the page draws the host's login
+ *                                     (sdk.ui.ConnectionLogin) in place of the New button and its token sheet.
+ *                                     The add-on's text has `connect` (the button) and `defaultName`
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
-  messaging: messagingProp = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
+  messaging: messagingProp = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo, canAdd = true, login = false }) {
   const { t, i18n } = useTranslation([ns, 'connector'])
   const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
   setApiLanguage(uiLanguage)
@@ -254,11 +260,15 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   // shows no agent and the rows say how many agents use it. It never carries messages, whatever the add-on passes.
   const toolOnly = Boolean(kindInfo?.tool_only)
   const messaging = messagingProp && !toolOnly
+  const plan = loginPlan({ login, canAdd, sdk: sdkOrNull(), kindInfo, kindsReady })
+  const sheetAdd = plan.sheetAdd
   const s = answerT(t)
   // Which entries of the allowlist name a channel or group, where people are trusted by the setting of the channel. Without a rule of the kind, the last of several lists holds the channels.
   const isChannelEntry = channelPredicate || ((x) => lists.length > 1 && listEntries([x], lists, lists.length - 1).length === 1)
   const pairedChanged = useCallback((list) => { if (Array.isArray(list)) setPairedList(list); setAccessVersion((v) => v + 1) }, [])
   const isAdmin = useIsAdmin(useAuth)
+  // A login kind makes its connections in the host's login, not in the token sheet.
+  const Login = login ? sdkOrNull()?.ui?.ConnectionLogin : null
 
   const fail = useCallback((e) => {
     if (e?.status === 409 && e.body?.error?.type === 'connectors_off') { setOff(e.body.error.message); return }
@@ -354,7 +364,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   useEffect(() => {
     if (linked.current || !kindsReady) return
     const q = new URLSearchParams(window.location.search)
-    if (q.get('new') === '1') {
+    // A kind whose connections are made elsewhere (canAdd false) has no add sheet.
+    if (sheetAdd && q.get('new') === '1') {
       if (!agentsReady) return
       linked.current = true
       openNew(q.get('agent') || '')
@@ -586,12 +597,18 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
-        <button type="button" className="dk-btn dk-btn--primary" data-testid="connector-new" disabled={!kindsReady} onClick={() => openNew()}>
-          <Icon name="plus" /> {t('new')}
-        </button>
+        {sheetAdd && (
+          <button type="button" className="dk-btn dk-btn--primary" data-testid="connector-new" disabled={!kindsReady} onClick={() => openNew()}>
+            <Icon name="plus" /> {t('new')}
+          </button>
+        )}
       </header>
       <p className="cn-muted">{t('intro')}</p>
       {Help && <Help t={t} />}
+      {plan.show === 'host' && (
+        <Login kind={kindInfo} bindings={items} onChanged={load} connectLabel={t('connect')} defaultName={t('defaultName')} />
+      )}
+      {plan.show === 'oldHost' && <p className="cn-muted" data-testid="login-needs-host">{t('connector:loginNeedsHost')}</p>}
 
       {error && (
         <Notice tone="error" role="alert">

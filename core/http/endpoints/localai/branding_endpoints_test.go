@@ -10,6 +10,7 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
@@ -104,7 +105,7 @@ var _ = Describe("Branding endpoints", func() {
 			e.ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
-			Expect(decode(rec).LogoURL).To(Equal("/branding/asset/logo"))
+			Expect(decode(rec).LogoURL).To(HavePrefix("/branding/asset/logo?v="))
 
 			// File landed under <dir>/branding/logo.png ...
 			_, err := os.Stat(filepath.Join(dir, "branding", "logo.png"))
@@ -114,6 +115,28 @@ var _ = Describe("Branding endpoints", func() {
 			// ... and it was persisted to runtime_settings.json.
 			_, err = os.Stat(filepath.Join(dir, "runtime_settings.json"))
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("returns a new asset URL on every upload so cached images are not reused", func() {
+			upload := func(content string) string {
+				body, ct := multipartFile("mylogo.png", "image/png", []byte(content))
+				req := httptest.NewRequest(http.MethodPost, "/api/branding/asset/logo", body)
+				req.Header.Set("Content-Type", ct)
+				rec := httptest.NewRecorder()
+				e.ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(http.StatusOK))
+				return decode(rec).LogoURL
+			}
+			first := upload("\x89PNG\r\n\x1a\nfirst")
+			time.Sleep(20 * time.Millisecond)
+			second := upload("\x89PNG\r\n\x1a\nsecond")
+			Expect(second).ToNot(Equal(first))
+
+			// GET /api/branding reports the same versioned URL as the upload.
+			req := httptest.NewRequest(http.MethodGet, "/api/branding", nil)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			Expect(decode(rec).LogoURL).To(Equal(second))
 		})
 
 		It("accepts a generic content-type when the filename extension is allowed", func() {

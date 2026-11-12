@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
+import { freezeClock } from './clock-fixtures.js'
 
 // A restart of the server interrupts a turn. The page shows the turn as
 // incomplete, resumes it by itself a few times and, when that does not work,
@@ -74,6 +75,7 @@ test.describe('Interrupted turn', () => {
     await expect(page.getByText('I will read the three source files first.')).toBeVisible()
     await expect(card(page)).toHaveAttribute('data-code', 'interrupted')
     await expect(card(page)).toHaveAttribute('data-phase', 'waiting')
+    await freezeClock(page)
     await expect(card(page).getByRole('heading')).toHaveText('The reply was interrupted')
     await expect(page.getByTestId('chat-error-reason')).toContainText('The server restarted while it was answering.')
     await expect(page.getByTestId('chat-error-resume')).toHaveText('Going on in 3 seconds (try 1 of 3).')
@@ -96,6 +98,7 @@ test.describe('Interrupted turn', () => {
     await api.install()
     await page.goto('/app/chats/c1')
     await expect(card(page)).toHaveAttribute('data-phase', 'waiting')
+    await freezeClock(page)
     await page.clock.fastForward(3500)
     await expect(page.getByText(FINISHED)).toBeVisible()
     await expect(page.getByText('I will read the three source files first.')).toHaveCount(1)
@@ -108,6 +111,7 @@ test.describe('Interrupted turn', () => {
     await api.install()
     await page.goto('/app/chats/c1')
     await expect(card(page)).toHaveAttribute('data-phase', 'waiting')
+    await freezeClock(page)
     await page.clock.fastForward(3500)
     await expect(page.getByTestId('chat-error-resume')).toHaveText('Going on in 6 seconds (try 2 of 3).')
     await page.clock.fastForward(6500)

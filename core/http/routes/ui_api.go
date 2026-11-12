@@ -170,6 +170,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 				progress = int(status.Progress)
 				isDeletion = status.Deletion
+				if status.Upgrade {
+					taskType = galleryop.TaskUpgrade
+				}
 				// Admission publishes a "queued" status before the op reaches
 				// the worker, so a queued op HAS a status: the phase is the
 				// only truthful signal. Reading "queued" off a missing status
@@ -1771,6 +1774,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		applicationInstance.UpgradeChecker().TriggerCheck()
 		return c.JSON(200, applicationInstance.UpgradeChecker().GetAvailableUpgrades())
 	}, adminMiddleware)
+
+	// The read model and the check that waits. A nil checker is safe: the
+	// handlers answer with disabled sources.
+	var updates localai.BackendUpdatesProvider
+	if applicationInstance != nil {
+		updates = applicationInstance.UpgradeChecker()
+	}
+	app.GET("/api/backends/updates", localai.BackendUpdatesEndpoint(updates), adminMiddleware)
+	app.POST("/api/backends/updates/check", localai.CheckBackendUpdatesEndpoint(updates), adminMiddleware)
 
 	app.POST("/api/backends/upgrade/:name", func(c echo.Context) error {
 		backendName := c.Param("name")

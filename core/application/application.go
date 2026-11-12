@@ -72,6 +72,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
+	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -180,6 +181,8 @@ type Application struct {
 	// The list settings of the Sandbox network, each with its last valid
 	// value; see studioEgressSettings.
 	studioEgressListsOnce sync.Once
+	studioAuditOnce       sync.Once
+	studioAudit           hostexec.AuditStore // the audit of the commands, see studioHostExecAudit
 	studioEgressPorts     *lastGood[[]int]
 	studioEgressExtra     *lastGood[[]string]
 	studioEgressAllowed   *lastGood[[]egress.AllowedHost]
@@ -794,6 +797,15 @@ func (a *Application) Shutdown() error {
 				err = closeErr
 			}
 		}
+		// Last, so traces of work that ended during shutdown still persist.
+		// The trace consumers are process-wide and write after the request
+		// returns; without this a write lands in DataPath after Shutdown and
+		// races whoever removes the directory next. Release before closing,
+		// so no store is reopened under DataPath in between.
+		if a.applicationConfig != nil && a.applicationConfig.DataPath != "" {
+			trace.ReleaseBackendTracePersistence(a.applicationConfig.DataPath)
+			tracepersist.CloseUnder(a.applicationConfig.DataPath)
+		}
 	})
 	return err
 }
@@ -898,6 +910,12 @@ func (a *Application) start() (startErr error) {
 	}
 	if a.backendLibrary != nil {
 		assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
+	}
+	assistantClient.UpdatesChecker = func() localaiInproc.BackendUpdatesSource {
+		if a.upgradeChecker == nil {
+			return nil
+		}
+		return a.upgradeChecker
 	}
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader

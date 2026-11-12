@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 // eslint-disable-next-line no-unused-vars
 import StarterModels from '../StarterModels'
 import Icon from '../Icon'
+import Mascot from '../ui/Mascot'
 
 // Chat has nothing to talk to: no chat model is installed. Say so, offer the
 // way forward (the starter models for this hardware, the gallery, importing
@@ -12,8 +13,13 @@ export default function NoModelCard({ isAdmin, addToast, onInstallStarted }) {
   const navigate = useNavigate()
   return (
     <section className="cx-nomodel" data-testid="chat-no-model" aria-labelledby="chat-no-model-title">
-      <h2 id="chat-no-model-title">{t('noModel.title')}</h2>
-      <p>{isAdmin ? t('noModel.body') : t('noModel.bodyMember')}</p>
+      <div className="cx-nomodel__head">
+        <Mascot pose="welcome" size="sm" className="cx-nomodel__mascot" />
+        <div>
+          <h2 id="chat-no-model-title">{t('noModel.title')}</h2>
+          <p>{isAdmin ? t('noModel.body') : t('noModel.bodyMember')}</p>
+        </div>
+      </div>
       {isAdmin && (
         <>
           <StarterModels addToast={addToast} onInstallStarted={onInstallStarted} />

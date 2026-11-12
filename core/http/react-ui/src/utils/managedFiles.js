@@ -32,6 +32,7 @@ const SETTINGS_LOSS = {
   'shortcuts.json': 'shortcuts',
   'home.json': 'home',
   'ui.json': 'ui',
+  'defaults.json': 'defaults',
 }
 
 // splitEntries puts the user's own files first, in the order the server gave

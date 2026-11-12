@@ -643,6 +643,10 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsEgressAllowPrivate },
 		func(o *ApplicationConfig) bool { return o.ChatsEgressAllowPrivate },
 		func(o *ApplicationConfig, v bool) { o.ChatsEgressAllowPrivate = v }),
+	field("client_jobs_allow_all_tools",
+		func(s *RuntimeSettings) **bool { return &s.ClientJobsAllowAllTools },
+		func(o *ApplicationConfig) bool { return o.ClientJobsAllowAllTools },
+		func(o *ApplicationConfig, v bool) { o.ClientJobsAllowAllTools = v }),
 	withApply(field("chats_egress_ports",
 		func(s *RuntimeSettings) **string { return &s.ChatsEgressPorts },
 		func(o *ApplicationConfig) string { return o.ChatsEgressPorts },
@@ -798,6 +802,46 @@ var runtimeSettingsFields = []fieldSpec{
 			o.chatsLimitsMu.Unlock()
 		}),
 
+	// The triggers of the chats: read at each use, so no restart.
+	withApply(fieldEq("chats_trigger_run_limit",
+		func(s *RuntimeSettings) **string { return &s.ChatsTriggerRunLimit },
+		func(o *ApplicationConfig) string { return o.EffectiveChatsTriggerRunLimit().String() },
+		func(o *ApplicationConfig, v string) {
+			if d, err := time.ParseDuration(v); err == nil {
+				o.chatsLimitsMu.Lock()
+				o.ChatsTriggerRunLimit = d
+				o.chatsLimitsMu.Unlock()
+			}
+		},
+		func(a, b string) bool { return a == b }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsTriggerRunLimit))
+			if err != nil || d < MinChatsTriggerRunLimit || d > MaxChatsTriggerRunLimit {
+				xlog.Warn("invalid chats_trigger_run_limit in runtime settings", "value", *s.ChatsTriggerRunLimit)
+				return false
+			}
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerRunLimit = d
+			o.chatsLimitsMu.Unlock()
+			return true
+		}),
+	loopIntField("chats_trigger_max_per_user", MaxChatsTriggerMaxPerUser,
+		func(s *RuntimeSettings) **int { return &s.ChatsTriggerMaxPerUser },
+		(*ApplicationConfig).EffectiveChatsTriggerMaxPerUser,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerMaxPerUser = v
+			o.chatsLimitsMu.Unlock()
+		}),
+	loopIntField("chats_trigger_max_daily_cap", MaxChatsTriggerMaxDailyCap,
+		func(s *RuntimeSettings) **int { return &s.ChatsTriggerMaxDailyCap },
+		(*ApplicationConfig).EffectiveChatsTriggerMaxDailyCap,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerMaxDailyCap = v
+			o.chatsLimitsMu.Unlock()
+		}),
+
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
 	field("chats_suggestions",
@@ -810,6 +854,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
 		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
 		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
+
+	// The page area of Home: stored as the negation, like shared pages.
+	field("home_page_area_enabled",
+		func(s *RuntimeSettings) **bool { return &s.HomePageAreaEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisablePageArea },
+		func(o *ApplicationConfig, v bool) { o.DisablePageArea = !v }),
 
 	// Built-in chat tools: the host-commands mode and the add-on pins.
 	field("chats_host_exec",

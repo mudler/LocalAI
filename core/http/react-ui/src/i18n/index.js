@@ -41,6 +41,7 @@ export const NAMESPACES = [
   'explorer',
   'addons',
   'upgrade',
+  'updates',
 ]
 
 i18n

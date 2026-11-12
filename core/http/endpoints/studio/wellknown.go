@@ -29,6 +29,12 @@ var wellKnownRules = []errRule{
 }
 
 func failWellKnown(c echo.Context, err error) error {
+	return failWellKnownDoc(c, err, false)
+}
+
+// failWellKnownDoc is failWellKnown for an answer that may hold the file:
+// areaOff leaves its pageArea out, as answerDoc does.
+func failWellKnownDoc(c echo.Context, err error, areaOff bool) error {
 	var inv *wellknown.InvalidError
 	if errors.As(err, &inv) {
 		return c.JSON(http.StatusBadRequest, schema.ChatsWellKnownError{
@@ -40,7 +46,7 @@ func failWellKnown(c echo.Context, err error) error {
 	if errors.As(err, &cf) {
 		out := schema.ChatsWellKnownError{Error: &schema.APIError{Message: "the file changed since you read it", Code: http.StatusConflict, Type: typeConflict}}
 		if cf.Current.Name != "" {
-			cur := docOut(c, cf.Current)
+			cur := docOut(c, cf.Current, areaOff)
 			out.Current = &cur
 		}
 		return c.JSON(http.StatusConflict, out)
@@ -50,7 +56,9 @@ func failWellKnown(c echo.Context, err error) error {
 
 // docOut is the answer for a document. user.json gets the account's name when
 // it has none, marked as prefilled, so the settings page shows where it came from.
-func docOut(c echo.Context, d wellknown.Doc) schema.ChatsWellKnownFile {
+// With areaOff, the pageArea of home.json is left out and named in withheld:
+// the page area of Home is off, so no client gets a page to run there.
+func docOut(c echo.Context, d wellknown.Doc, areaOff bool) schema.ChatsWellKnownFile {
 	out := schema.ChatsWellKnownFile{
 		Name: string(d.Name), Path: d.Path, Exists: d.Exists, Version: d.Version, Rev: d.Rev, Data: d.Data,
 		Valid: d.Valid, Errors: d.Errors, Fallback: d.Fallback, FallbackRev: d.FallbackRev,
@@ -66,7 +74,20 @@ func docOut(c echo.Context, d wellknown.Doc) schema.ChatsWellKnownFile {
 			out.Data, out.Prefilled = data, map[string]string{"name": "account"}
 		}
 	}
+	if _, ok := out.Data[pageAreaKey]; ok && areaOff && d.Name == wellknown.Home {
+		data := maps.Clone(out.Data)
+		delete(data, pageAreaKey)
+		out.Data, out.Withheld = data, []string{pageAreaKey}
+	}
 	return out
+}
+
+// pageAreaKey is the key of home.json that names the page of the page area.
+const pageAreaKey = "pageArea"
+
+// areaOff says whether the page area of Home is off for the file n.
+func (h *Handlers) areaOff(n wellknown.Name) bool {
+	return n == wellknown.Home && !h.svc.PageAreaOn()
 }
 
 // wellKnown resolves the name of the route. On failure it has answered.
@@ -101,14 +122,14 @@ func ifMatch(c echo.Context) (*int64, bool) {
 func (h *Handlers) answerDoc(c echo.Context, d wellknown.Doc) error {
 	c.Response().Header().Set("ETag", strconv.Quote(strconv.FormatInt(d.Version, 10)))
 	c.Response().Header().Set("Cache-Control", "no-store")
-	return c.JSON(http.StatusOK, docOut(c, d))
+	return c.JSON(http.StatusOK, docOut(c, d, h.areaOff(d.Name)))
 }
 
 // GetWellKnown reads a well-known file.
 // @Summary Read a well-known file of your home.
-// @Description name is persona, user, shortcuts, setups, home, ui or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.
+// @Description name is persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Success 200 {object} schema.ChatsWellKnownFile "The file; the ETag header holds its version"
 // @Failure 404 {object} schema.ErrorResponse "Not a well-known file"
@@ -130,7 +151,7 @@ func (h *Handlers) GetWellKnown(c echo.Context) error {
 // @Summary Change a well-known file of your home.
 // @Description The keys of values replace the keys of the file and a null removes one; keys the request does not name stay as they are. With replace, values is the whole file. The result must match the JSON Schema of the file and be at most 64 KiB. Send the version you read in If-Match (0 when the file did not exist): when the file changed since, the answer is 409 with what it holds now. Without If-Match the write is not checked.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Param If-Match header string false "the version you read"
 // @Param request body schema.ChatsWellKnownWrite true "the keys to change"
@@ -155,11 +176,27 @@ func (h *Handlers) PutWellKnown(c echo.Context) error {
 	if req.Values == nil {
 		return fail(c, http.StatusBadRequest, typeInvalid, "values is required")
 	}
-	d, err := h.svc.WellKnown().Write(c.Request().Context(), fc.p, wellknown.WriteRequest{
+	ctx := c.Request().Context()
+	areaOff := h.areaOff(n)
+	if _, named := req.Values[pageAreaKey]; areaOff && req.Replace && !named {
+		// The client read the file without its pageArea: a whole-file write
+		// keeps the value the file holds, which counts again once the area
+		// is back on.
+		cur, err := h.svc.WellKnown().Read(ctx, fc.p, n, "")
+		if err != nil {
+			return failWellKnown(c, err)
+		}
+		if v, ok := cur.Data[pageAreaKey]; ok && cur.Valid {
+			values := maps.Clone(req.Values)
+			values[pageAreaKey] = v
+			req.Values = values
+		}
+	}
+	d, err := h.svc.WellKnown().Write(ctx, fc.p, wellknown.WriteRequest{
 		Name: n, Path: c.QueryParam("path"), Values: req.Values, Replace: req.Replace, Base: base,
 	})
 	if err != nil {
-		return failWellKnown(c, err)
+		return failWellKnownDoc(c, err, areaOff)
 	}
 	return h.answerDoc(c, d)
 }
@@ -168,7 +205,7 @@ func (h *Handlers) PutWellKnown(c echo.Context) error {
 // @Summary Revert a well-known file to an earlier valid version.
 // @Description Without a body, writes the newest earlier version that differs from the file and matches its schema. With {"rev"}, writes that version from GET .../versions. Either way it is a new change: the revert itself can be undone, and the newer version stays in the list.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Param request body schema.ChatsWellKnownRevert false "the version to write back"
 // @Success 200 {object} schema.ChatsWellKnownFile "The file as written"
@@ -204,7 +241,7 @@ func (h *Handlers) RevertWellKnown(c echo.Context) error {
 // @Summary List the versions of a well-known file.
 // @Description Newest first, from the history of your files: when, who (kind user or agent, and the chat that wrote it), and the content when it matches the schema. POST .../revert {rev} writes one back.
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data"
 // @Param path query string false "the data file, for widget-data"
 // @Param limit query int false "most versions to return (default 10, at most 50)"
 // @Success 200 {object} schema.ChatsWellKnownVersions "The versions, newest first"
@@ -243,7 +280,7 @@ func (h *Handlers) WellKnownVersions(c echo.Context) error {
 // @Summary Get the JSON Schema of a well-known file.
 // @Description The same schema is in the built-in skill localai-workspace, which the assistant reads. Properties may carry x-ui hints for the settings pages (widget, hidden).
 // @Tags chats
-// @Param name path string true "persona, user, shortcuts, setups, home, ui or widget-data"
+// @Param name path string true "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data"
 // @Produce application/schema+json
 // @Success 200 {object} map[string]any "A JSON Schema, draft 2020-12"
 // @Failure 404 {object} schema.ErrorResponse "Not a well-known file"

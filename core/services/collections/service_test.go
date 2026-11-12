@@ -3,16 +3,20 @@ package collections
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/tlsconf"
 )
 
 const (
@@ -127,6 +131,48 @@ var _ = Describe("the per-user service", func() {
 		s, err := New(cfg, nil, WithHTTPClient(&http.Client{}))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(s.httpClient).To(BeNil(), "an operator key was set, but the service still uses the in-process client")
+	})
+
+	It("calls the API over TLS and pins its certificate when the server serves TLS", func() {
+		m, err := tlsconf.SelfSigned("", time.Now())
+		Expect(err).ToNot(HaveOccurred())
+		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "pong") }))
+		srv.TLS = m.Config()
+		srv.StartTLS()
+		DeferCleanup(srv.Close)
+		_, port, err := net.SplitHostPort(srv.Listener.Addr().String())
+		Expect(err).ToNot(HaveOccurred())
+
+		cfg := config.NewApplicationConfig()
+		cfg.DataPath = GinkgoT().TempDir()
+		cfg.APIAddress = ":" + port
+		cfg.TLSFingerprint = m.Fingerprint
+		cfg.Collections.APIKey = "operator-key"
+		s, err := New(cfg, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s.apiURL).To(Equal("https://127.0.0.1:" + port))
+		Expect(s.httpClient).ToNot(BeNil())
+		resp, err := s.httpClient.Get(s.apiURL + "/ping")
+		Expect(err).ToNot(HaveOccurred(), "the pinned local certificate is trusted")
+		_ = resp.Body.Close()
+
+		other, err := tlsconf.SelfSigned("", time.Now())
+		Expect(err).ToNot(HaveOccurred())
+		cfg.TLSFingerprint = other.Fingerprint
+		s, err = New(cfg, nil)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = s.httpClient.Get(s.apiURL + "/ping")
+		Expect(err).To(HaveOccurred(), "another certificate is refused")
+	})
+
+	It("keeps plain HTTP for the API when TLS is off", func() {
+		cfg := config.NewApplicationConfig()
+		cfg.DataPath = GinkgoT().TempDir()
+		cfg.APIAddress = ":8080"
+		cfg.Collections.APIKey = "operator-key"
+		s, err := New(cfg, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s.apiURL).To(Equal("http://127.0.0.1:8080"))
 	})
 
 	It("resets a collection to empty and keeps it", func() {

@@ -147,6 +147,8 @@
     "disabled": "nonaktif",
     "pinned": "disematkan",
     "useTyped": "Gunakan \"{{name}}\"",
+    "chooseModel": "Pilih model",
+    "defaultMissing": "Model default Anda {{model}} tidak terpasang. Pilih model.",
     "empty": "Tidak ada model",
     "add": "Tambah model",
     "remove": "Hapus {{name}}",

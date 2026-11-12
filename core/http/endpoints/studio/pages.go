@@ -26,6 +26,8 @@ const (
 	// maxPageWriteBody bounds the JSON body of a write: 1 MiB of content can
 	// grow when JSON escapes it.
 	maxPageWriteBody = 8 << 20
+	// maxPageErrorBody bounds the JSON body of an error report.
+	maxPageErrorBody = 16 << 10
 	// pageChatScan is how many recent chats are searched for a page's chat.
 	pageChatScan = 200
 )
@@ -40,6 +42,7 @@ var pageRules = []errRule{
 	verbatim(http.StatusForbidden, typeAuthz, "pages: ", pages.ErrReadOnly),
 	sentinelText(http.StatusTooManyRequests, "rate_limit_error", pages.ErrRateLimited),
 	verbatim(http.StatusForbidden, typeAuthz, "pages: ", pages.ErrFolderReadOnly),
+	sentinelText(http.StatusBadRequest, typeInvalid, pages.ErrBadError),
 	verbatim(http.StatusForbidden, typePageNotAllowed, "pages: ", pages.ErrNoConsent),
 	verbatim(http.StatusConflict, typeConflict, "pages: ", pages.ErrChanged),
 	verbatim(http.StatusConflict, typeConflict, "pages: ", pages.ErrCodeChanged),
@@ -71,7 +74,11 @@ func widgetJSON(w *pages.Widget) *schema.PagesWidget {
 	if w == nil {
 		return nil
 	}
-	return &schema.PagesWidget{Size: w.Size, Title: w.Title}
+	out := &schema.PagesWidget{Size: w.Size, Title: w.Title}
+	if w.Compact != nil {
+		out.Compact = &schema.PagesCompact{Width: w.Compact.Width}
+	}
+	return out
 }
 
 func pageFileJSON(f pages.File) schema.PagesFile {
@@ -95,7 +102,7 @@ func (h *Handlers) ListPages(c echo.Context) error {
 	if err != nil {
 		return failPage(c, err)
 	}
-	out := schema.PagesList{Pages: make([]schema.PagesPage, 0, len(list))}
+	out := schema.PagesList{Pages: make([]schema.PagesPage, 0, len(list)), PageAreaEnabled: h.svc.PageAreaOn()}
 	for _, p := range list {
 		out.Pages = append(out.Pages, pageJSON(p))
 	}
@@ -362,4 +369,35 @@ func (h *Handlers) CopyPageStarter(c echo.Context) error {
 		return failPage(c, err)
 	}
 	return c.JSON(http.StatusCreated, pageJSON(p))
+}
+
+// ReportPageError keeps a runtime error of a page for the assistant to read.
+// @Summary Report a runtime error of a page (bridge error capture).
+// @Description The UI calls this for an error that the script of the caller's own page threw (window.onerror or an unhandled rejection), caught by the frame. Nothing is added to a chat; the assistant reads the errors with its page_errors tool. The texts are cut, the browser's own noise (such as ResizeObserver loop) is dropped, the same error is counted once, and a page keeps its 10 newest errors until any of its files changes. A page that reports too fast gets 429. Shared pages have no such route: only the owner's own view records.
+// @Tags pages
+// @Param name path string true "page name"
+// @Param request body schema.PagesErrorRequest true "the error"
+// @Success 200 {object} schema.PagesErrorResponse "recorded is false for noise"
+// @Failure 400 {object} schema.ErrorResponse "No message"
+// @Failure 404 {object} schema.ErrorResponse "No such page of yours"
+// @Failure 429 {object} schema.ErrorResponse "Too many reports"
+// @Router /api/chats/pages/{name}/errors [post]
+func (h *Handlers) ReportPageError(c echo.Context) error {
+	fc, ok := h.pagesOn(c)
+	if !ok {
+		return nil
+	}
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxPageErrorBody)
+	var req schema.PagesErrorRequest
+	if err := c.Bind(&req); err != nil {
+		return fail(c, http.StatusBadRequest, typeInvalid, msgNotJSON)
+	}
+	// The text can hold the page's data: it is kept for the owner and never logged.
+	recorded, err := h.pages.RecordError(c.Request().Context(), fc.p, c.Param("name"), pages.ErrorReport{
+		Message: req.Message, Stack: req.Stack, File: req.File, Line: req.Line, Column: req.Column, Count: req.Count,
+	})
+	if err != nil {
+		return failPage(c, err)
+	}
+	return c.JSON(http.StatusOK, schema.PagesErrorResponse{Recorded: recorded})
 }

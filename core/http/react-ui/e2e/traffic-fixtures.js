@@ -210,6 +210,8 @@ export const METRICS_TEXT = [
 //   metrics     'ok' | 'off' | 'denied'
 //   distributed features.distributed and the node list
 //   delayMs     holds every answer, for a loading state
+//   hold        a promise that holds every answer until it settles; a loading
+//               state tied to the test, not to the speed of the machine
 export async function mockTraffic(page, {
   scenario = 'healthy',
   tracing = true,
@@ -218,6 +220,7 @@ export async function mockTraffic(page, {
   nodes = NODES,
   resources = gpuHost(),
   delayMs = 0,
+  hold = null,
   traces = TRACES,
   backend = backendTraces(),
 } = {}) {
@@ -225,8 +228,9 @@ export async function mockTraffic(page, {
   const summary = empty
     ? traceSummary({ total: 0, errors: 0, p95: 0 })
     : traceSummary(scenario === 'errors' ? { total: 723, errors: 37, p95: 1400 } : { total: 723, errors: 7, p95: 1400 })
-  await mockOperate(page, { distributed, nodes, resources, traces: summary, delayMs })
+  await mockOperate(page, { distributed, nodes, resources, traces: summary, delayMs, hold })
   const answer = async (route, body, status = 200) => {
+    if (hold) await hold
     if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs))
     return route.fulfill({ status, json: body })
   }

@@ -19,7 +19,7 @@ import (
 // library that LocalAI ships and carries the official signature. The source ID
 // alone is not enough, since an administrator names libraries freely.
 func OfficialReceipt(r packages.PackageReceipt) bool {
-	return r.SourceID == catalog.OfficialLibraryID && r.Verification == "sha256+sigstore" && catalog.IsOfficialAddonURL(r.SourceURL)
+	return catalog.IsOfficialPackage(r.SourceID, r.SourceURL, r.Verification)
 }
 
 // HostAccessInstalled is an installed add-on as the host access page needs it.

@@ -463,7 +463,10 @@
       "off": "No lee ni guarda notas, y el permiso de recordar cosas está desactivado. No se guarda nada hasta que guardes.",
       "reads": "El permiso de recordar cosas está desactivado, así que lee notas pero no puede guardar ninguna. No se guarda nada hasta que guardes.",
       "saves": "El permiso de recordar cosas está activado. No se guarda nada hasta que guardes."
-    }
+    },
+    "sandboxProfile": "Perfil de sandbox",
+    "sandboxProfileDefault": "Predeterminado",
+    "sandboxProfileHelp": "Lo usan las ejecuciones sin supervisión y es el perfil inicial de sus chats."
   },
   "run": {
     "workingLine": "Working"
@@ -535,7 +538,8 @@
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
       "prompt": "What to do",
-      "acts": "Permisos"
+      "acts": "Permisos",
+      "runLimit": "Time limit"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -562,7 +566,8 @@
         "cap": "Up to {{count}} runs a day",
         "capDefault": "Default limit",
         "acts_one": "Puede usar {{count}} tipo de acción",
-        "acts_other": "Puede usar {{count}} tipos de acción"
+        "acts_other": "Puede usar {{count}} tipos de acción",
+        "runLimit": "{{limit}} a run at most"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -581,7 +586,9 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes",
-      "watchNoFiles": "Este agente tiene «Sin archivos»: una ejecución de este disparador sabe que llegó un archivo, pero no puede abrirlo. Dale acceso a archivos en su editor o elige otro agente."
+      "watchNoFiles": "Este agente tiene «Sin archivos»: una ejecución de este disparador sabe que llegó un archivo, pero no puede abrirlo. Dale acceso a archivos en su editor o elige otro agente.",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default"
     },
     "subtitle": "Inicia un agente según un horario o cuando llega un archivo. Cada ejecución es un chat que puedes abrir."
   },

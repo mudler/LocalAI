@@ -860,8 +860,8 @@ func (c *Carrier) resource(ctx context.Context, a contract.Actor, r contract.Req
 		return nil, e
 	}
 	defer func() { _ = resp.Body.Close() }()
-	raw, e := io.ReadAll(io.LimitReader(resp.Body, 2<<20+1))
-	if e != nil || len(raw) > 2<<20 {
+	raw, ok := readBounded(resp.Body, 2<<20)
+	if !ok {
 		return nil, ErrUnavailable
 	}
 	return raw, nil

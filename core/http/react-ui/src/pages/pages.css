@@ -121,6 +121,11 @@
 .pg-strip__pills { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
 .pg-strip__actions { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); margin-left: auto; }
 
+.pg-start { display: inline-flex; align-items: center; gap: var(--spacing-xs); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.pg-start__label { white-space: normal; }
+.pg-start__hint { font-size: var(--text-xs); color: var(--color-text-muted); }
+.pg-pill--start { color: var(--dk-accent-text); border-color: var(--dk-accent-border, var(--color-border-default)); }
+
 .pg-pill {
   display: inline-flex;
   align-items: center;

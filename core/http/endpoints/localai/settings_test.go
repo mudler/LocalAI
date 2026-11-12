@@ -314,6 +314,27 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(string(raw)).To(ContainSubstring(`"chats_loop_min_interval": "2m`))
 	})
 
+	It("checks and saves the limits of the triggers of the chats", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsTriggerRunLimit()).To(Equal(config.DefaultChatsTriggerRunLimit), "unset: the default")
+		Expect(cfg.EffectiveChatsTriggerMaxPerUser()).To(Equal(config.DefaultChatsTriggerMaxPerUser))
+		Expect(cfg.EffectiveChatsTriggerMaxDailyCap()).To(Equal(config.DefaultChatsTriggerMaxDailyCap))
+		for _, body := range []string{`{"chats_trigger_run_limit":"30s"}`, `{"chats_trigger_run_limit":"25h"}`, `{"chats_trigger_run_limit":"soon"}`,
+			`{"chats_trigger_max_per_user":0}`, `{"chats_trigger_max_per_user":1001}`, `{"chats_trigger_max_daily_cap":0}`, `{"chats_trigger_max_daily_cap":1001}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_trigger_"), body)
+		}
+		rec := post(`{"chats_trigger_run_limit":"30m","chats_trigger_max_per_user":5,"chats_trigger_max_daily_cap":100}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsTriggerRunLimit()).To(Equal(30 * time.Minute))
+		Expect(cfg.EffectiveChatsTriggerMaxPerUser()).To(Equal(5))
+		Expect(cfg.EffectiveChatsTriggerMaxDailyCap()).To(Equal(100))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_trigger_run_limit": "30m`))
+	})
+
 	It("errors when DynamicConfigsDir is unset", func() {
 		app.ApplicationConfig().DynamicConfigsDir = ""
 		rec := post(`{}`)

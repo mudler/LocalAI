@@ -6,7 +6,7 @@ description: Upgrade, refresh or update an installed backend.
 Use this when the user asks to upgrade, refresh, or update a backend.
 
 1. Call `list_backends` to confirm the backend is installed and to capture its canonical name.
-2. If the user asked generically ("upgrade the backends"), call `list_known_backends` and compare versions/tags to identify upgrade candidates. Present them as a numbered list and ask which to upgrade.
+2. If the user asked generically ("upgrade the backends"), call `backend_updates` with `action` `check` to get the backends that have a newer build. Present them as a numbered list and ask which to upgrade. If a source shows an error or was never checked, say so; do not say that everything is up to date.
 3. Summarise: "I'll upgrade **`<name>`** — confirm?" and wait.
 4. On confirmation, call `upgrade_backend` with the canonical name.
    If the call fails with "backend installation is disabled", the server is

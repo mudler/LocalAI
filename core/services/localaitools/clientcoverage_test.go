@@ -65,8 +65,7 @@ var clientToolExemptions = map[string]string{
 	"POST /v1/engines/:model/embeddings":  "legacy alias of the covered route POST /v1/embeddings: same handler",
 	"POST /images/generations":            "no-prefix alias of the covered route POST /v1/images/generations: same handler",
 	"POST /images/inpainting":             "no-prefix alias of the covered route POST /v1/images/inpainting: same handler",
-	"POST /v1/images/upscale":             "not built yet: image upscaling has no tool",
-	"POST /images/upscale":                "not built yet: image upscaling has no tool (alias of POST /v1/images/upscale)",
+	"POST /images/upscale":                "no-prefix alias of the covered route POST /v1/images/upscale: same handler",
 	"POST /audio/transcriptions":          "no-prefix alias of the covered route POST /v1/audio/transcriptions: same handler",
 	"POST /v1/audio/diarization":          "not built yet: speaker diarization has no tool",
 	"POST /audio/diarization":             "not built yet: speaker diarization has no tool",
@@ -93,8 +92,7 @@ var clientToolExemptions = map[string]string{
 	"POST /v1/voice/register":             "writes or returns raw biometric data in the voice registry: an agent should not do it; the voice tool only verifies and identifies",
 	"POST /v1/face/forget":                "writes or returns raw biometric data in the face registry: an agent should not do it; the face tool only verifies and identifies",
 	"POST /v1/voice/forget":               "writes or returns raw biometric data in the voice registry: an agent should not do it; the voice tool only verifies and identifies",
-	"POST /audio/transformations":         "not built yet: audio transformation has no tool",
-	"POST /audio/transform":               "not built yet: audio transformation has no tool",
+	"POST /audio/transform":               "no-prefix alias of the covered route POST /audio/transformations: same handler",
 	"GET /audio/transformations/stream":   "not built yet: audio transformation has no tool (and it is a stream)",
 	"POST /3d/generations":                "not built yet: 3D generation has no tool",
 	"POST /3d/remesh":                     "not built yet: 3D generation has no tool",
@@ -143,6 +141,11 @@ func clientCoverageProblems(
 	}
 	for _, t := range tools {
 		key := t.Method + " " + t.Route
+		if t.Feature == NoFeature && t.Tool == ToolListModels {
+			// list_models reads a listing route that checks no feature, so the
+			// route table of the features does not hold it.
+			continue
+		}
 		if !inRegistry[key] {
 			problems = append(problems, fmt.Sprintf(
 				"client tool %q wraps %s, which is not in auth.RouteFeatureRegistry. The route was removed or renamed: update the tool row.", t.Tool, key))

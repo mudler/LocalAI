@@ -5,6 +5,7 @@ package routes_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -65,11 +66,38 @@ var _ = Describe("Chats triggers endpoints", func() {
 		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
 		got := decodeJSON(put)
 		Expect(got["plan"]).To(HaveKeyWithValue("widget", "inbox"), "a save from a form dropped the plan")
-		Expect(got["cost"]).To(HaveKeyWithValue("max_runs_per_day", BeNumerically("==", 24)), "the daily limit bounds a quarter-hourly schedule")
+		Expect(got["cost"]).To(HaveKeyWithValue("max_runs_per_day", BeNumerically("==", 96)), "a quarter-hourly schedule that sets no limit gets one run for each firing of a day")
 
 		file := s.do("alice", http.MethodPost, "/api/chats/triggers", map[string]any{"name": "Drop", "prompt": "Read it.", "kind": "file", "folder": "/",
 			"enabled": true, "model": "test-model"})
 		Expect(file.Code).To(Equal(http.StatusBadRequest), "the whole home is not a folder to watch: %s", file.Body.String())
+	})
+
+	It("refuses a schedule under 5 minutes on create and update, and accepts 5", func() {
+		for _, when := range []string{"* * * * *", "*/4 * * * *"} {
+			body := map[string]any{}
+			for k, v := range good {
+				body[k] = v
+			}
+			body["schedule"] = when
+			rec := s.do("alice", http.MethodPost, "/api/chats/triggers", body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), "%s: %s", when, rec.Body.String())
+			Expect(rec.Body.String()).To(ContainSubstring("every 5 minutes"))
+		}
+		body := map[string]any{}
+		for k, v := range good {
+			body[k] = v
+		}
+		body["schedule"] = "*/5 * * * *"
+		t := create("alice", body)
+		Expect(t["daily_cap"]).To(BeNumerically("==", 288))
+		body["schedule"] = "*/2 * * * *"
+		put := s.do("alice", http.MethodPut, "/api/chats/triggers/"+t["id"].(string), body)
+		Expect(put.Code).To(Equal(http.StatusBadRequest), put.Body.String())
+		body["schedule"] = "*/5 * * * *"
+		body["daily_cap"] = 288 // the form sends back the default it was shown
+		put = s.do("alice", http.MethodPut, "/api/chats/triggers/"+t["id"].(string), body)
+		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
 	})
 
 	It("creates, reads, lists, switches, runs, replaces and deletes a trigger", func() {
@@ -102,6 +130,37 @@ var _ = Describe("Chats triggers endpoints", func() {
 
 		Expect(s.do("alice", http.MethodDelete, "/api/chats/triggers/"+id, nil).Code).To(Equal(http.StatusNoContent))
 		Expect(s.do("alice", http.MethodGet, "/api/chats/triggers/"+id, nil).Code).To(Equal(http.StatusNotFound))
+	})
+
+	It("takes a time limit, shows it with the one that applies, and refuses one outside its bounds", func() {
+		with := func(limit any) *httptest.ResponseRecorder {
+			body := map[string]any{}
+			for k, v := range good {
+				body[k] = v
+			}
+			body["run_limit"] = limit
+			return s.do("alice", http.MethodPost, "/api/chats/triggers", body)
+		}
+		ok := with("5m")
+		Expect(ok.Code).To(Equal(http.StatusCreated), ok.Body.String())
+		Expect(decodeJSON(ok)).To(And(HaveKeyWithValue("run_limit", "5m"), HaveKeyWithValue("effective_run_limit", "5m")))
+		long := with("20h")
+		Expect(long.Code).To(Equal(http.StatusCreated), long.Body.String())
+		Expect(decodeJSON(long)).To(And(HaveKeyWithValue("run_limit", "20h"), HaveKeyWithValue("effective_run_limit", "15m")), "above the ceiling: kept, and run cut to it")
+		none := with("")
+		Expect(none.Code).To(Equal(http.StatusCreated), none.Body.String())
+		got := decodeJSON(none)
+		Expect(got).NotTo(HaveKey("run_limit"))
+		Expect(got).To(HaveKeyWithValue("effective_run_limit", "15m"))
+		for _, bad := range []string{"30s", "25h", "soon", "-5m"} {
+			r := with(bad)
+			Expect(r.Code).To(Equal(http.StatusBadRequest), "%s: %s", bad, r.Body.String())
+			Expect(r.Body.String()).To(Or(ContainSubstring("time limit"), ContainSubstring("run_limit")), bad)
+		}
+		put := s.do("alice", http.MethodPut, "/api/chats/triggers/"+decodeJSON(ok)["id"].(string), map[string]any{"name": "Digest", "prompt": "Go.", "kind": "schedule",
+			"schedule": "daily 07:30", "time_zone": "UTC", "enabled": true, "model": "test-model", "run_limit": "10m"})
+		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
+		Expect(decodeJSON(put)).To(HaveKeyWithValue("run_limit", "10m"))
 	})
 
 	It("keeps triggers private to their owner", func() {

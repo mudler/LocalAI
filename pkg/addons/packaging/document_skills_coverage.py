@@ -32,6 +32,8 @@ def normalize(text):
     text = text.replace('The guest directory `/usr/local/lib/localai/document-skills/pdf/` contains', 'The `scripts/` directory contains')
     text = text.replace('The guest directory `scripts/` contains', 'The `scripts/` directory contains')
     text = text.replace('python3 scripts/', 'python scripts/')
+    # The add-on later said the work folder may also be named in the turn note.
+    text = text.replace('that the prompt or the note of the turn names (', 'that the prompt names (')
     return text
 
 

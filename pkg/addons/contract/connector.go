@@ -108,6 +108,25 @@ const (
 	MaxHistoryMedia = 8
 )
 
+// Kinds of the files that a message carries (ConnectorMessage.MediaKinds).
+// A binding can accept only some of them.
+const (
+	// ConnectorMediaPhoto is a picture that the platform sent as a photo.
+	ConnectorMediaPhoto = "photo"
+	// ConnectorMediaVoice is a voice message recorded in the app.
+	ConnectorMediaVoice = "voice"
+	// ConnectorMediaAudio is an audio file, such as a song or a recording.
+	ConnectorMediaAudio = "audio"
+	// ConnectorMediaVideoNote is a short round video message.
+	ConnectorMediaVideoNote = "video_note"
+	// ConnectorMediaDocument is any file sent as a file: a PDF, an image
+	// sent uncompressed, a spreadsheet.
+	ConnectorMediaDocument = "document"
+)
+
+// ConnectorMediaKinds are all the kinds of ConnectorMessage.MediaKinds.
+var ConnectorMediaKinds = []string{ConnectorMediaPhoto, ConnectorMediaVoice, ConnectorMediaAudio, ConnectorMediaVideoNote, ConnectorMediaDocument}
+
 // ConnectorKind is one kind of binding an add-on serves, such as telegram.
 type ConnectorKind struct {
 	// ID is the kind of a binding. It is unique among all installed add-ons.
@@ -437,6 +456,12 @@ type ConnectorMessage struct {
 	// declare, and the whole field for a kind with no roles. Roles are never
 	// authority for a sensitive capability.
 	Roles []string `json:"roles,omitempty"`
+	// MediaKinds names the kind of each file of Media, one of
+	// ConnectorMediaKinds, at the same index. The host reads it before it
+	// reads a file, so a binding that does not accept a kind never reads
+	// such a file. An add-on that cannot tell the kinds leaves it out; a
+	// binding that accepts only some kinds then reads none of the files.
+	MediaKinds []string `json:"mediaKinds,omitempty"`
 }
 
 // ConnectorInbound is the argument object of ConnectorInboundOp. It names the

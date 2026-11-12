@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
@@ -302,4 +303,36 @@ func mustMarshal(v any) string {
 	b, err := json.Marshal(v)
 	Expect(err).ToNot(HaveOccurred())
 	return string(b)
+}
+
+var _ = Describe("Backend updates", func() {
+	It("reads and checks through the update checker, and says so when there is none", func() {
+		c := &Client{}
+		_, err := c.BackendUpdates(context.Background())
+		Expect(err).To(HaveOccurred())
+		_, err = c.CheckBackendUpdates(context.Background())
+		Expect(err).To(HaveOccurred())
+
+		src := &stubUpdates{}
+		c.UpdatesChecker = func() BackendUpdatesSource { return src }
+		got, err := c.BackendUpdates(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Items).To(BeEmpty())
+		_, err = c.CheckBackendUpdates(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(src.listed).To(Equal(1))
+		Expect(src.checked).To(Equal(1))
+	})
+})
+
+type stubUpdates struct{ listed, checked int }
+
+func (s *stubUpdates) UpdatesSnapshot(context.Context) backendupdates.Snapshot {
+	s.listed++
+	return backendupdates.Snapshot{Items: []backendupdates.Item{}}
+}
+
+func (s *stubUpdates) CheckNow(context.Context) backendupdates.Snapshot {
+	s.checked++
+	return backendupdates.Snapshot{Items: []backendupdates.Item{}}
 }

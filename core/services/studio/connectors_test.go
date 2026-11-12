@@ -907,3 +907,10 @@ func (c *connRig) agentBinding() string {
 	Expect(list).To(HaveLen(1))
 	return list[0].ID
 }
+
+// englishReplies fixes the reply language of a binding to English. A spec that
+// reads the text of a host sentence needs it when the person's message holds a
+// random proposal code: with auto, the language detection reads that code, and
+// one in about 1500 is a stop word of another language (A2JE reads as French,
+// from "je"), so the reply comes in that language.
+func englishReplies() *string { l := "en"; return &l }

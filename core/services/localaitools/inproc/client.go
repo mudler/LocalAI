@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
@@ -60,6 +61,10 @@ type Client struct {
 	// BackendLibrary backs install_library_backend. nil when the add-on
 	// library is off; the tool then reports it is not enabled.
 	BackendLibrary LibraryBackendInstaller
+	// UpdatesChecker returns the backend update checker, or nil when there is
+	// none. It is read at each call because the checker starts after the
+	// client is built.
+	UpdatesChecker func() BackendUpdatesSource
 
 	// FallbackUser is the identity of a call whose context carries no user
 	// (see localaitools.WithUser), and only when SingleUser is set. With
@@ -531,6 +536,42 @@ func (c *Client) ListBackendLibraryUpdates(ctx context.Context) ([]localaitools.
 	return c.BackendLibrary.Updates(ctx)
 }
 
+// BackendUpdatesSource is the checker that serves the update read model. It is
+// the one the REST routes use.
+type BackendUpdatesSource interface {
+	UpdatesSnapshot(ctx context.Context) backendupdates.Snapshot
+	CheckNow(ctx context.Context) backendupdates.Snapshot
+}
+
+// updatesSource returns the checker, or a nil-safe disabled answer when the
+// instance has none (installs off, no backend gallery).
+func (c *Client) updatesSource() BackendUpdatesSource {
+	if c.UpdatesChecker == nil {
+		return nil
+	}
+	return c.UpdatesChecker()
+}
+
+func (c *Client) BackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error) {
+	src := c.updatesSource()
+	if src == nil {
+		return nil, errBackendUpdatesOff
+	}
+	snap := src.UpdatesSnapshot(ctx)
+	return &snap, nil
+}
+
+func (c *Client) CheckBackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error) {
+	src := c.updatesSource()
+	if src == nil {
+		return nil, errBackendUpdatesOff
+	}
+	snap := src.CheckNow(ctx)
+	return &snap, nil
+}
+
+var errBackendUpdatesOff = errors.New("backend updates are not checked on this instance")
+
 func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
 	if req.SourceID == "" || req.Name == "" || req.Version == "" {
 		return nil, errors.New("source_id, name and version are required")
@@ -768,13 +809,11 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 
 // ---- Branding ----
 
-// brandingAssetURL returns the same URL shape the public REST endpoint
-// would emit so MCP and HTTP clients see identical wire output.
-func brandingAssetURL(kind, file, defaultURL string) string {
-	if file != "" {
-		return "/branding/asset/" + kind
-	}
-	return defaultURL
+// brandingAssetURL returns the same URL the public REST endpoint would
+// emit (including the cache-busting version) so MCP and HTTP clients see
+// identical wire output.
+func brandingAssetURL(cfg *config.ApplicationConfig, kind, file, defaultURL string) string {
+	return cfg.BrandingAssetURL(kind, file, defaultURL)
 }
 
 func (c *Client) currentBranding() *localaitools.Branding {
@@ -782,9 +821,9 @@ func (c *Client) currentBranding() *localaitools.Branding {
 	return &localaitools.Branding{
 		InstanceName:      b.InstanceName,
 		InstanceTagline:   b.InstanceTagline,
-		LogoURL:           brandingAssetURL("logo", b.LogoFile, "/static/logo.png"),
-		LogoHorizontalURL: brandingAssetURL("logo_horizontal", b.LogoHorizontalFile, "/static/logo_horizontal.png"),
-		FaviconURL:        brandingAssetURL("favicon", b.FaviconFile, "/favicon.svg"),
+		LogoURL:           brandingAssetURL(c.AppConfig, "logo", b.LogoFile, "/static/logo.png"),
+		LogoHorizontalURL: brandingAssetURL(c.AppConfig, "logo_horizontal", b.LogoHorizontalFile, "/static/logo_horizontal.png"),
+		FaviconURL:        brandingAssetURL(c.AppConfig, "favicon", b.FaviconFile, "/favicon.svg"),
 	}
 }
 

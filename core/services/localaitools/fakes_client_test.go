@@ -56,6 +56,16 @@ func (f *fakeClient) GenerateSound(_ context.Context, req GenerateSoundRequest) 
 	return &AudioResult{}, nil
 }
 
+func (f *fakeClient) UpscaleImage(_ context.Context, req UpscaleImageRequest) (*ImageResult, error) {
+	f.record("UpscaleImage", req)
+	return &ImageResult{}, nil
+}
+
+func (f *fakeClient) TransformAudio(_ context.Context, req TransformAudioRequest) (*TransformAudioResult, error) {
+	f.record("TransformAudio", req)
+	return &TransformAudioResult{}, nil
+}
+
 func (f *fakeClient) VerifyVoice(_ context.Context, req VoiceVerifyRequest) (*VerifyResult, error) {
 	f.record("VerifyVoice", req)
 	return &VerifyResult{}, nil
@@ -74,4 +84,9 @@ func (f *fakeClient) VerifyFace(_ context.Context, req VerifyFaceRequest) (*Veri
 func (f *fakeClient) IdentifyFace(_ context.Context, req IdentifyFaceRequest) (*IdentifyResult, error) {
 	f.record("IdentifyFace", req)
 	return &IdentifyResult{}, nil
+}
+
+func (f *fakeClient) ListModels(_ context.Context, req ListModelsRequest) (*ModelList, error) {
+	f.record("ListModels", req)
+	return &ModelList{Models: []ModelInfo{}}, nil
 }

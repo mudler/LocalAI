@@ -1,6 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
+import { inboxButton, makeInbox, stubInbox } from './inbox-fixtures.js'
 
-test('operations strip shows managed model acquisition phase and bytes', async ({ page }) => {
+test('the Activity tab shows managed model acquisition phase and bytes', async ({ page }) => {
+  await stubInbox(page, makeInbox(0))
   await page.route('**/api/operations', (route) => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({
@@ -23,10 +25,12 @@ test('operations strip shows managed model acquisition phase and bytes', async (
   }))
 
   await page.goto('/app/models')
-  const strip = page.locator('.operations-strip')
-  await expect(strip.locator('.operations-strip__name')).toHaveText('qwen-asr')
-  await expect(strip).toContainText('Downloading')
-  await expect(strip).toContainText('1 GB / 4 GB')
-  await expect(strip.locator('.operations-strip__pct')).toHaveText('45%')
-  await expect(strip.locator('.operations-strip__fill')).toHaveAttribute('style', /width: 45%/)
+  await inboxButton(page).click()
+  const row = page.getByRole('dialog', { name: 'Notifications' }).getByTestId('inbox-op')
+  await expect(row).toContainText('Installing qwen-asr')
+  await expect(row).toContainText('Downloading')
+  await expect(row).toContainText('1 GB / 4 GB')
+  await expect(row).toContainText('45%')
+  await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '45')
+  await expect(row.locator('.nx-op__fill')).toHaveAttribute('style', /--op-w: 45%/)
 })

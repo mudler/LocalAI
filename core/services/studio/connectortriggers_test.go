@@ -160,7 +160,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			o.RatePerMinute = 100
 		})
 		r.svc.SetCapabilityGate(gate)
-		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}})
+		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, ReplyLanguage: englishReplies()})
 		args = proposal("Digest", origin)
 		seq = 0
 	}
@@ -572,7 +572,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			Expect(ran).To(BeNumerically("<=", 1), "runs = %+v", runs)
 		})
 
-		It("alerts once after three failures in a row and not again within six hours", func() {
+		It("alerts once after three failures in a row and is then switched off", func() {
 			setup()
 			gate.set(studio.CapTriggersPropose, true)
 			gate.set(studio.CapTriggersRun, true)
@@ -608,11 +608,16 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			Expect(alerts()).To(Equal(0))
 			failRun(60*time.Minute, 3)
 			waitFor("the alert", func() bool { return alerts() == 1 })
-			failRun(60*time.Minute, 4)
+			// The third failure also switches the trigger off, so nothing runs
+			// again and there is no second alert.
+			waitFor("the trigger to be switched off", func() bool {
+				got, _ := r.host.GetTrigger(ctx, alice, t.ID)
+				return !got.Enabled
+			})
+			r.sh.clock.Advance(6 * time.Hour)
+			r.pass()
 			time.Sleep(150 * time.Millisecond)
-			Expect(alerts()).To(Equal(1), "throttled")
-			failRun(6*time.Hour, 5)
-			waitFor("the second alert", func() bool { return alerts() == 2 })
+			Expect(alerts()).To(Equal(1), "a trigger that is off does not alert again")
 		})
 	})
 

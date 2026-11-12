@@ -163,7 +163,8 @@ test.describe('Add-ons: find', () => {
 test.describe('Add-ons: connections elsewhere', () => {
   test('a connection row shows the app icon and readable facts', async ({ page }) => {
     await addonsScene(page)
-    await page.goto('/app/chats/connectors')
+    // Slack and Telegram are messaging kinds; the page opens on Accounts.
+    await page.goto('/app/chats/connectors?tab=messaging')
     const rows = page.getByTestId('connector-row')
     await expect(rows).toHaveCount(CONNECTIONS.length)
     const slack = rows.filter({ hasText: 'Team workspace' })

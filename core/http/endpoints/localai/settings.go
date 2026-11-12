@@ -522,11 +522,19 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 			return "Invalid chats_loop_min_interval: use a duration from 30s to 24h, such as 1m"
 		}
 	}
+	if s.ChatsTriggerRunLimit != nil {
+		d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsTriggerRunLimit))
+		if err != nil || d < config.MinChatsTriggerRunLimit || d > config.MaxChatsTriggerRunLimit {
+			return "Invalid chats_trigger_run_limit: use a duration from 1m to 24h, such as 15m"
+		}
+	}
 	for _, c := range []struct {
 		name string
 		v    *int
 		hi   int
 	}{
+		{"chats_trigger_max_per_user", s.ChatsTriggerMaxPerUser, config.MaxChatsTriggerMaxPerUser},
+		{"chats_trigger_max_daily_cap", s.ChatsTriggerMaxDailyCap, config.MaxChatsTriggerMaxDailyCap},
 		{"chats_loop_max_runs", s.ChatsLoopMaxRuns, config.MaxChatsLoopMaxRuns},
 		{"chats_loop_max_per_chat", s.ChatsLoopMaxPerChat, config.MaxChatsLoopMaxPerChat},
 		{"chats_loop_max_per_user", s.ChatsLoopMaxPerUser, config.MaxChatsLoopMaxPerUser},

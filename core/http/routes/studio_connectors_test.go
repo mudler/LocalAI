@@ -304,6 +304,34 @@ var _ = Describe("Chats connectors endpoints", func() {
 			Expect(rec.Code).To(Equal(http.StatusBadRequest), "%q: %s", bad, rec.Body.String())
 		}
 	})
+	It("stores the media kinds a binding accepts, keeps them when absent, and refuses an unknown kind", func() {
+		ag := agent("alice", "Media", "test-model")
+		rec := create("alice", map[string]any{"name": "Media bot", "token": specToken, "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", BeEmpty()), "the default: every kind")
+		id := decodeJSON(rec)["id"].(string)
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot", "agent_id": ag, "inbound_media": []string{"voice"}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil)
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", ConsistOf("voice")))
+		// An update without the field keeps it: a client that does not know it
+		// cannot open the binding to photos by saving it.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot 2", "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", ConsistOf("voice")))
+		for _, bad := range [][]string{{"sticker"}, {"Voice"}, {"voice", "voice"}, {""}} {
+			rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot", "agent_id": ag, "inbound_media": bad})
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), "%v: %s", bad, rec.Body.String())
+		}
+		rec = create("alice", map[string]any{"name": "Bad", "token": specToken, "agent_id": ag, "inbound_media": []string{"photo", "fax"}})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		// An empty list accepts every kind again.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot", "agent_id": ag, "inbound_media": []string{}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", BeEmpty()))
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil)
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", BeEmpty()))
+	})
 
 	It("checks a new token with the platform and refuses one that the platform refuses", func() {
 		studioVerifyTokens = true

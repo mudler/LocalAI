@@ -6,9 +6,10 @@ url = "/features/activity/"
 description = "Watch, cancel and retry model and backend installs from the WebUI"
 +++
 
-Model installs, backend installs, removals and cluster staging all run in the
-background. Two surfaces in the WebUI report them: a one-line strip at the top
-of the app, and the **Activity** page, which holds the full picture.
+Model installs, backend installs, updates, removals and cluster staging all run
+in the background. Two surfaces in the WebUI report them: the **Activity** tab
+of the notification panel, and the **Activity** page, which holds the full
+picture.
 
 Both are admin-only.
 
@@ -17,39 +18,56 @@ to **Loaded models**. That list includes each model’s backend and a stop contr
 A loaded model can be idle; Activity reports management jobs rather than whether
 a model is resident or generating output.
 
-## The operations strip
+## The Activity tab
 
-While there is anything to report, a single line appears at the top of the app.
-It shows one operation at a time:
+The **Notifications** entry in the sidebar (the bell in the header on a phone)
+opens the notification panel. For an administrator the panel has two tabs,
+**Notifications** and **Activity**. Everyone else sees the panel without tabs,
+as before. When authentication is off, everyone is an administrator.
 
-- a failure, if there is one, because an error waiting for a decision outranks
-  any progress;
-- otherwise the least advanced running operation, which is the one everything
-  else is waiting behind.
+The panel opens on **Activity** while something is running, queued or failed,
+and on **Notifications** otherwise. A tab you pick stays picked while the panel
+is open. The tab has three sections, each shown only when it has something in
+it:
 
-Every operation shows what is being done and to what, for example
-`Installing model qwen3-4b`. Everything else depends on what the operation can
-report. A percentage and its bar appear only once the operation is running and
-has reported progress, so a queued operation, a failed one and a removal show
-none. Artifact-backed gallery models report two things more: the phase
-(`Resolving files`, `Downloading`, `Verifying`, `Finalizing`, `Saving
-configuration`) and downloaded/total bytes. A backend installing on several
-workers is rolled up into one phrase, `2 of 5 nodes done`; the per-node
-breakdown lives on the Activity page.
+- **Needs attention**: failed operations, kept until you dismiss them. Each row
+  shows the reason, with **Retry** and **Dismiss**.
+- **In progress**: one row for each running or queued operation. A row has a
+  progress ring, the title (`Installing qwen3-4b`, `Updating llama-cpp`,
+  `Removing whisper`), one detail line, a thin bar with the percentage, and
+  **Cancel**. A queued operation says `Waiting`. The detail line joins what the
+  operation reports, for example `Node 3 of 5 · Downloading · 1.2 GB / 1.9 GB ·
+  48 MB/s`: the node a fan-out install has reached, the phase (`Resolving
+  files`, `Downloading`, `Verifying`, `Finalizing`, `Saving configuration`),
+  the bytes and the speed. A part the operation does not report is left out.
+- **Recent**: operations that finished successfully in the last day, newest
+  first, at most five, each with how long ago it finished (`Installed qwen3-4b`,
+  `Updated llama-cpp`, `Removed whisper`). A fast install shows here, so it does
+  not vanish before you see it. A cancelled operation, and a failure you
+  dismissed, are not listed. The Activity page keeps them in its record. Nothing
+  is written to the notification list for a finished operation.
 
-When more than one operation is in flight, a **N more** counter on the right
-links to the Activity page.
+**See all activity** at the bottom opens the Activity page. The tab scrolls
+inside the panel when it is long.
 
-When the last operation finishes, it stays on the strip for about four seconds
-and then goes, so a fast install is not a flicker. While others are still
-running, the strip moves straight on to the next one. An operation you cancel
-is not held: it goes as soon as it stops.
+The sidebar entry shows the operations too. While operations run, the icon sits
+in a small ring that fills with the average progress of the running operations,
+and it turns while only queued operations wait. If an operation failed, the ring
+is red and has a dot. The number badge counts unread notifications only;
+operations never change it. With nothing running or failed, the entry looks as
+it always did.
 
-The **X** on the right hides the strip. It does not cancel anything: the work
-carries on, the sidebar still counts it, and the Activity page still lists it.
-Hiding applies to that one operation, so a later failure brings the strip back.
-On a failure the same button acknowledges the error and moves it into the
-record instead.
+**Retry** and **Cancel** behave as on the Activity page (see below). The **Cancel**
+wait of 8 seconds applies here too, with the same **Undo** toast. Closing the
+panel sends a cancel that is still waiting, as leaving the page does; changing
+tab does not.
+
+Where the chats feature is off there is no notification inbox. An administrator
+still gets the entry, named **Activity**, while an operation runs or failed,
+shortly after one finished, and for the rest of the visit once one has been
+seen. It opens the Activity tab alone, with no notification list, filters or
+browser-notification switch, and it asks the chats for nothing. Anyone else,
+and an administrator with nothing to show, sees no entry; use the Activity page.
 
 ## The Activity page
 
@@ -116,8 +134,8 @@ finished fan-out install is filed under Models or Backends, not under Cluster.
 ## Cancelling, retrying and dismissing
 
 These are on the operation rows. **Pause**, **Cancel**, **Retry** and
-**Dismiss** are labelled buttons. The strip has no cancel button; the page is
-the only place work is stopped or restarted. The Backends page also shows the
+**Dismiss** are labelled buttons. The Activity tab has **Cancel**, **Retry**
+and **Dismiss**; **Pause** is on the page only. The Backends page also shows the
 progress of a backend install in the backend's own row, with its **Cancel**.
 
 - **Pause** stops a running download and keeps the bytes already fetched, so
@@ -128,9 +146,8 @@ progress of a backend install in the backend's own row, with its **Cancel**.
   the queue, before a worker picks it up. Cancelling there stops it before
   anything is touched. For artifact-backed gallery models, cancelling an active
   download leaves its partial files in place so a later install resumes rather
-  than starting over. A cancelled operation leaves the live sections
-  and is not held on the strip the way a completed one is; it appears in the
-  record as `cancelled`.
+  than starting over. A cancelled operation leaves the live sections;
+  it appears in the record as `cancelled`.
 
   **Cancel waits for 8 seconds before it is sent.** The row says "Cancelling
   unless you undo" and a toast offers **Undo**. The server cannot take a cancel
@@ -139,10 +156,11 @@ progress of a backend install in the backend's own row, with its **Cancel**.
   asking to cancel a second download ends the first one's wait, and leaving the
   page sends a cancel that is still waiting. A job that finishes during the wait
   is left alone.
-- **Retry** is offered on a failed model or backend install. It acknowledges
-  the failure, which moves it into the record, and installs the same target
-  again. It is not offered on a failed removal, which is not restarted by
-  reinstalling.
+- **Retry** is offered on a failed install or update. It acknowledges the
+  failure, which moves it into the record, and starts the same work again: an
+  install again, or an update again for a failed backend update (on one node,
+  for a node-scoped one). It is not offered on a failed removal, which is not
+  restarted by reinstalling, or on a failed staging job.
 - **Dismiss** acknowledges the failure without
   retrying. The operation moves into the record with a `failed` outcome; it is
   not deleted. This is why the same failure can be found either under **Needs
@@ -189,7 +207,7 @@ Both surfaces are backed by these endpoints. All of them are admin-only when
 
 | Method   | Path                             | Description                                                              |
 | -------- | -------------------------------- | ------------------------------------------------------------------------ |
-| `GET`    | `/api/operations`                | Running, queued and failed operations, least advanced first.              |
+| `GET`    | `/api/operations`                | Running, queued and failed operations, least advanced first. `taskType` is `installation`, `upgrade`, `deletion` or `staging`. |
 | `POST`   | `/api/operations/{jobID}/cancel` | Cancel a queued operation, or a running install. Not a running removal.  |
 | `POST`   | `/api/operations/{jobID}/pause`  | Pause a queued operation or running download and preserve partial data.  |
 | `POST`   | `/api/operations/{jobID}/dismiss`| Acknowledge a failed operation and move it into the record.               |
@@ -228,7 +246,8 @@ curl http://localhost:8080/api/operations/history \
 
 `nodeID` is present when the operation was scoped to a worker, and `error`
 when the `outcome` is `failed`. The `outcome` is one of `completed`, `failed`
-or `cancelled`.
+or `cancelled`. The `taskType` is `installation`, `deletion` or, for a backend
+update, `upgrade`.
 
 ```bash
 # Forget the record

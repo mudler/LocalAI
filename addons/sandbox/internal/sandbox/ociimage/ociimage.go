@@ -51,8 +51,12 @@ func Resolve(ctx context.Context, ref string) (string, func() (v1.Image, error),
 		return "", nil, fmt.Errorf("ociimage: image %q has no digest; use name@sha256:...", ref)
 	}
 	return d.DigestStr(), func() (v1.Image, error) {
-		return remote.Image(d, remote.WithContext(ctx), remote.WithAuthFromKeychain(authn.DefaultKeychain),
-			remote.WithPlatform(v1.Platform{OS: "linux", Architecture: runtime.GOARCH}))
+		opts := []remote.Option{remote.WithContext(ctx), remote.WithAuthFromKeychain(authn.DefaultKeychain),
+			remote.WithPlatform(v1.Platform{OS: "linux", Architecture: runtime.GOARCH})}
+		if p := progressFrom(ctx); p != nil {
+			opts = append(opts, remote.WithTransport(countingTransport{base: remote.DefaultTransport, p: p}))
+		}
+		return remote.Image(d, opts...)
 	}, nil
 }
 
@@ -99,6 +103,10 @@ func Prepare(ctx context.Context, cacheDir, ref string, build func(img v1.Image,
 	cfg, err := img.ConfigFile()
 	if err != nil {
 		return "", nil, fmt.Errorf("ociimage: %s: %w", ref, err)
+	}
+	if p := progressFrom(ctx); p != nil {
+		p.done.Store(0)
+		p.total.Store(layerBytes(img))
 	}
 	// A folder left by a build that did not finish has no env.json. Start
 	// from an empty one.
@@ -223,3 +231,48 @@ func CheckEntryName(name string) error {
 
 // ErrNoLock means the host cannot lock files.
 var ErrNoLock = errors.New("ociimage: the image cache lock needs a Unix host")
+
+// layerBytes is the sum of the compressed layer sizes of img, or 0 when a
+// size is not known.
+func layerBytes(img v1.Image) int64 {
+	layers, err := img.Layers()
+	if err != nil {
+		return 0
+	}
+	var n int64
+	for _, l := range layers {
+		sz, err := l.Size()
+		if err != nil {
+			return 0
+		}
+		n += sz
+	}
+	return n
+}
+
+// Cached says whether the cache folder of ref under cacheDir is complete.
+func Cached(ctx context.Context, cacheDir, ref string) bool {
+	digest, _, err := Resolve(ctx, ref)
+	if err != nil {
+		return false
+	}
+	_, err = ReadEnv(filepath.Join(cacheDir, Key(digest)))
+	return err == nil
+}
+
+// Forget removes the cache folder of ref under cacheDir, and its lock file. A
+// folder that is not there is not an error.
+func Forget(ctx context.Context, cacheDir, ref string) error {
+	digest, _, err := Resolve(ctx, ref)
+	if err != nil {
+		return err
+	}
+	key := Key(digest)
+	if err := RemoveTree(filepath.Join(cacheDir, key)); err != nil {
+		return err
+	}
+	if err := os.Remove(filepath.Join(cacheDir, key+".lock")); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
+}

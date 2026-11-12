@@ -5,6 +5,7 @@ import { Button, Callout } from '../ui'
 import { newOperationId } from '../catalog/catalogState'
 import { hostGrantsApi } from '../../utils/addonsClient'
 import { normalizeOperation } from '../../utils/addonsApi'
+import { UntrustedNotice } from './AddonBits'
 import HostAccessList from './HostAccessList'
 import HostDialog from './HostDialog'
 import { useHostPreview } from './useHostPreview'
@@ -64,6 +65,7 @@ export default function ApproveUpgradeDialog({ addon, sourceId, api, actions, on
           {describeError(host.error, t)}
         </Callout>
       )}
+      {ready && host.preview.official !== true && <UntrustedNotice library={entry.sourceId} testId="approve-untrusted-source" />}
       {ready && <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} added={added} testId="approve" locked={host.preview.locked} />}
       {ready && host.preview.locked && <Callout tone="info" testId="approve-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
       {block && <Callout tone="error" role="alert" testId="approve-blocked">{t(block.kind === 'blocked' ? 'hostAccess.cannotInstallBlocked' : 'hostAccess.cannotInstallUnsupported', { ops: block.ops.join(', ') })}</Callout>}

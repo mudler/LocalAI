@@ -5,27 +5,54 @@
   },
   "arch": "amd64",
   "capabilities": {
+    "actions": true,
+    "executionProvider": {
+      "jobs": {
+        "tool": "job"
+      },
+      "statusTool": "execution-status",
+      "tools": [
+        "bash"
+      ]
+    },
     "hostOperations": {
-      "required": [
-        "workspace.changes",
-        "workspace.commit",
-        "workspace.materialize"
-      ],
       "optional": [
         "egress.audit",
         "egress.check",
         "workspace.admin"
+      ],
+      "required": [
+        "workspace.changes",
+        "workspace.commit",
+        "workspace.materialize"
       ]
     },
-    "actions": true,
     "network": {
       "kind": "egress-check",
       "title": "Sandbox"
     },
+    "skillDefinitions": [
+      {
+        "name": "docx",
+        "shadows": "docx"
+      },
+      {
+        "name": "pptx",
+        "shadows": "pptx"
+      },
+      {
+        "name": "pdf",
+        "shadows": "pdf"
+      },
+      {
+        "name": "xlsx",
+        "shadows": "xlsx"
+      }
+    ],
     "toolDefinitions": [
       {
         "name": "bash",
-        "description": "Run a bash script in /workspace/home, the user's files; only what is saved there stays. Output is cut at 64 KiB; timeoutSeconds is 120 by default, at most 1680. Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages. Put helper scripts and temp files in the chat's work folder if the prompt names one.",
+        "description": "Run a bash script in /workspace/home, the user's files; only what is saved there stays. Output is cut at 64 KiB; timeoutSeconds is 120 by default, at most 1680. Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages. Put helper scripts and temp files in the chat's work folder if the prompt or the note names one.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,
@@ -49,32 +76,239 @@
         "execution": {
           "class": "commands",
           "title": "Sandbox",
-          "note": "The sandbox has: python3 (pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl. It has no Node, ImageMagick, ffmpeg or OCR, and apt cannot install anything.",
           "skills": {
             "providesRuntimeFor": [
               "documents"
             ]
-          }
+          },
+          "profiles": [
+            {
+              "id": "base",
+              "title": "Base",
+              "description": "Python, documents, PDF and the usual command-line tools.",
+              "cpus": 2,
+              "memoryMiB": 2048,
+              "diskMiB": 10240,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "media",
+              "title": "Media",
+              "description": "Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images.",
+              "cpus": 2,
+              "memoryMiB": 4096,
+              "diskMiB": 20480,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                },
+                {
+                  "name": "ffmpeg",
+                  "detail": "with ffprobe",
+                  "check": [
+                    "ffmpeg -version",
+                    "ffprobe -version"
+                  ]
+                },
+                {
+                  "name": "sox",
+                  "check": [
+                    "sox --version"
+                  ]
+                },
+                {
+                  "name": "ImageMagick",
+                  "detail": "magick, convert",
+                  "check": [
+                    "magick -version",
+                    "convert -version"
+                  ]
+                },
+                {
+                  "name": "rsvg-convert",
+                  "detail": "renders SVG to PNG, also the SVG reader of ImageMagick",
+                  "check": [
+                    "rsvg-convert --version"
+                  ]
+                }
+              ]
+            }
+          ]
         }
       },
       {
         "name": "execution-status",
-        "kind": "read",
-        "uiOnly": true,
         "description": "Report typed execution readiness and isolation.",
+        "kind": "read",
         "inputSchema": {
           "type": "object",
           "properties": {},
           "additionalProperties": false
-        }
+        },
+        "uiOnly": true
       },
       {
         "name": "status",
-        "description": "Say whether this host can run commands in a sandbox now, and which backend runs them.",
+        "description": "Say whether this host can run commands in a sandbox now, which backend runs them, and the state of the image of each sandbox profile.",
         "kind": "read",
         "inputSchema": {
           "type": "object",
-          "properties": {},
+          "properties": {
+            "conversation": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
           "additionalProperties": false
         }
       },
@@ -120,6 +354,80 @@
           "additionalProperties": false
         },
         "uiOnly": true
+      },
+      {
+        "name": "job",
+        "description": "Background jobs of the chat: start, list, read, input, kill. The host's job tool calls it; no model does.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "verb": {
+              "type": "string",
+              "enum": [
+                "start",
+                "list",
+                "read",
+                "input",
+                "kill"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "maxLength": 16
+            },
+            "command": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "since": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 256,
+              "maximum": 65536
+            },
+            "observe": {
+              "type": "boolean"
+            },
+            "input": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "closeInput": {
+              "type": "boolean"
+            },
+            "signal": {
+              "type": "string",
+              "enum": [
+                "term",
+                "int",
+                "kill"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "stopped",
+                "chat_deleted",
+                "agent_ended",
+                "shell_off",
+                "group_off",
+                "fenced"
+              ]
+            }
+          },
+          "required": [
+            "verb"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
       }
     ],
     "tools": [
@@ -127,26 +435,28 @@
       "execution-status",
       "status",
       "set-backend",
-      "confirm-host"
+      "confirm-host",
+      "job"
     ],
     "ui": {
       "controls": [
         "network-policy",
-        "tool-providers"
+        "tool-providers",
+        "sandbox-profiles"
       ],
       "css": [
         "ui/sandbox.css"
       ],
       "description": {
-        "en": "Let your chats run commands and code in an isolated sandbox, with your files mounted.",
-        "it": "Lascia che le tue chat eseguano comandi e codice in una sandbox isolata, con i tuoi file montati.",
         "de": "Lassen Sie Ihre Chats Befehle und Code in einer isolierten Sandbox ausführen, mit eingebundenen Dateien.",
+        "en": "Let your chats run commands and code in an isolated sandbox, with your files mounted.",
         "es": "Permite que tus chats ejecuten comandos y código en un sandbox aislado, con tus archivos montados.",
         "fr": "Laissez vos conversations exécuter des commandes et du code dans une sandbox isolée, avec vos fichiers montés.",
-        "pt-BR": "Deixe seus chats executarem comandos e código em um sandbox isolado, com seus arquivos montados.",
-        "zh-CN": "让你的聊天在隔离的沙箱中运行命令和代码，并挂载你的文件。",
+        "id": "Izinkan obrolan Anda menjalankan perintah dan kode di sandbox terisolasi, dengan berkas Anda terpasang.",
+        "it": "Lascia che le tue chat eseguano comandi e codice in una sandbox isolata, con i tuoi file montati.",
         "ko": "채팅이 격리된 샌드박스에서 명령과 코드를 실행할 수 있게 하며, 내 파일이 마운트됩니다.",
-        "id": "Izinkan obrolan Anda menjalankan perintah dan kode di sandbox terisolasi, dengan berkas Anda terpasang."
+        "pt-BR": "Deixe seus chats executarem comandos e código em um sandbox isolado, com seus arquivos montados.",
+        "zh-CN": "让你的聊天在隔离的沙箱中运行命令和代码，并挂载你的文件。"
       },
       "entry": "ui/sandbox.js",
       "icon": "ui/icon.png",
@@ -166,40 +476,16 @@
         }
       ],
       "title": {
-        "en": "Sandbox",
-        "it": "Sandbox",
         "de": "Sandbox",
+        "en": "Sandbox",
         "es": "Sandbox",
         "fr": "Sandbox",
-        "pt-BR": "Sandbox",
-        "zh-CN": "沙箱",
+        "id": "Sandbox",
+        "it": "Sandbox",
         "ko": "샌드박스",
-        "id": "Sandbox"
+        "pt-BR": "Sandbox",
+        "zh-CN": "沙箱"
       }
-    },
-    "skillDefinitions": [
-      {
-        "name": "docx",
-        "shadows": "docx"
-      },
-      {
-        "name": "pptx",
-        "shadows": "pptx"
-      },
-      {
-        "name": "pdf",
-        "shadows": "pdf"
-      },
-      {
-        "name": "xlsx",
-        "shadows": "xlsx"
-      }
-    ],
-    "executionProvider": {
-      "tools": [
-        "bash"
-      ],
-      "statusTool": "execution-status"
     }
   },
   "dataFormat": {
@@ -207,6 +493,7 @@
     "min": 1
   },
   "executable": "sandbox",
+  "featureLevel": 6,
   "host": {
     "max": 1,
     "min": 1

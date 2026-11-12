@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -21,6 +22,10 @@ type stubClient struct{}
 
 func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	return []gallery.Metadata{{Name: "stub", Gallery: config.Gallery{Name: "stub-gallery"}}}, nil
+}
+
+func (stubClient) ListModels(_ context.Context, _ localaitools.ListModelsRequest) (*localaitools.ModelList, error) {
+	return &localaitools.ModelList{}, nil
 }
 
 func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capability) ([]localaitools.InstalledModel, error) {
@@ -69,6 +74,14 @@ func (stubClient) ListBackends(_ context.Context) ([]localaitools.Backend, error
 
 func (stubClient) ListBackendLibraryUpdates(_ context.Context) ([]localaitools.BackendLibraryUpdate, error) {
 	return nil, nil
+}
+
+func (stubClient) BackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	return &backendupdates.Snapshot{}, nil
+}
+
+func (stubClient) CheckBackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	return &backendupdates.Snapshot{}, nil
 }
 
 func (stubClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
@@ -220,6 +233,8 @@ var _ = Describe("LocalAIAssistantHolder", func() {
 		Expect(manage).ToNot(ContainElement("generate_image"), "the OpenAI-compatible path gets the admin tools only")
 		Expect(client).To(ContainElements("generate_image", "speak"))
 		Expect(client).ToNot(ContainElement("list_installed_models"))
+		Expect(client).To(ContainElement("list_models"), "any user can discover the models the client tools take")
+		Expect(manage).ToNot(ContainElement("list_models"))
 		Expect(h.Executor().IsTool("generate_image")).To(BeFalse())
 		Expect(h.ClientExecutor().IsTool("generate_image")).To(BeTrue())
 		for _, n := range client {
