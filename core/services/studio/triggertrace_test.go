@@ -109,3 +109,40 @@ var _ = Describe("the trace of the trigger tools", func() {
 		Expect(logs.String()).NotTo(ContainSubstring(secret))
 	})
 })
+
+var _ = Describe("the note of a turn without trigger tools", func() {
+	const ask = "set a reminder for tomorrow"
+	raw := func(r *trigRig, id string) string { return strings.Join(r.h.SentRaw(id), "\n") }
+
+	It("tells the model the reason in a Studio chat that switched the group off, and never in one that has the tools", func() {
+		r := newTrigRig(say)
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, ask)
+		idle(r.svc, alice, id)
+		Expect(raw(r, id)).NotTo(ContainSubstring(studiotest.AbsentNoteStart))
+
+		Expect(r.svc.SetBuiltinsOff(context.Background(), alice, id, []string{"triggers"})).To(Succeed())
+		sent(r.svc, alice, id, ask)
+		idle(r.svc, alice, id)
+		got := raw(r, id)
+		Expect(got).To(ContainSubstring(studiotest.AbsentNoteStart + "triggers are switched off for this chat"))
+		Expect(got).To(ContainSubstring("Do not say one was set"))
+	})
+
+	It("is given to a run that nobody watches", func() {
+		r := newTrigRig(say)
+		tr := r.schedule(studio.TriggerInput{})
+		r.due()
+		run := r.waitEnded(tr.ID)
+		Expect(strings.Join(r.h.SentRaw(run.ChatID), "\n")).To(ContainSubstring(studiotest.AbsentNoteStart + "a run that started by itself"))
+	})
+
+	It("does not depend on the words of the message", func() {
+		r := newTrigRig(say)
+		id := create(r.svc, alice)
+		Expect(r.svc.SetBuiltinsOff(context.Background(), alice, id, []string{"triggers"})).To(Succeed())
+		sent(r.svc, alice, id, "hello")
+		idle(r.svc, alice, id)
+		Expect(raw(r, id)).To(ContainSubstring(studiotest.AbsentNoteStart))
+	})
+})
