@@ -1543,6 +1543,9 @@
       {
         "path": ".cache/addons/logs/runtime-protocol.json",
         "cases": [
+          "serves /client and refuses a call without the credential",
+          "has no client route for a runtime that declared none",
+          "keeps a stream open past the read timeout of the server and flushes each event",
           "encodes a payload",
           "reads the tool of a request",
           "empty tool",
