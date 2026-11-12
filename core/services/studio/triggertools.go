@@ -451,15 +451,22 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		return "", errors.New(strings.TrimPrefix(err.Error(), ErrBadTrigger.Error()+": "))
 	}
 	warn := chatPathWarning(in.Prompt, in.Reads, in.Writes)
+	// The same proposal asked again is the one that waits: say so, so the model
+	// does not report a second one.
+	again := ""
+	if !fresh {
+		again = "This is the proposal that already waits (same name, prompt and schedule); nothing new was made. "
+	}
 	if connector {
 		out, err := h.afterPropose(ctx, a, t, fresh, in.Route, dropped, may)
-		return out + warn, err
+		return again + out + warn + h.proofOf(ctx, t.ID), err
 	}
 	// The card lets the interface show Create, Edit and Dismiss on this tool
 	// line, also after a reload; the event tells a client that is watching.
 	session.SetToolCard(ctx, session.ToolCard{Kind: ProposalCardKind, ID: t.ID})
 	h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{t.ID}, Text: t.Name})
-	return fmt.Sprintf("Proposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.%s", t.Name, h.summary(t), warn), nil
+	return fmt.Sprintf("%sProposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.%s%s",
+		again, t.Name, h.summary(t), warn, h.proofOf(ctx, t.ID)), nil
 }
 
 func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID string, onlyAgent bool, raw json.RawMessage) (string, error) {
@@ -636,10 +643,10 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 		if rec.Change.Op == triggers.ChangeResume {
 			state = "resumed: it runs again"
 		}
-		return fmt.Sprintf("%q is %s. The user can undo this on the card in the chat.", target.Name, state), nil
+		return fmt.Sprintf("%q is %s. The user can undo this on the card in the chat.%s", target.Name, state, h.proofOf(ctx, target.ID)), nil
 	}
-	return fmt.Sprintf("Asked to change %q (%s). Nothing is changed yet: the user must press Apply on the card in the chat. Do not say it changed until they do.%s",
-		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", "), chatPathWarning(rec.Prompt, rec.Reads, rec.Writes)), nil
+	return fmt.Sprintf("Asked to change %q (%s). Nothing is changed yet: the user must press Apply on the card in the chat. Do not say it changed until they do.%s%s",
+		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", "), chatPathWarning(rec.Prompt, rec.Reads, rec.Writes), h.proofOf(ctx, rec.ID)), nil
 }
 
 func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
@@ -662,8 +669,8 @@ func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID st
 		return "", toolErr(err)
 	}
 	h.changeCard(ctx, a, rec)
-	return fmt.Sprintf("Asked to delete %q (%s). It is not deleted: the user must press Delete on the card in the chat. Do not say it is deleted until they do.",
-		target.Name, h.summary(target)), nil
+	return fmt.Sprintf("Asked to delete %q (%s). It is not deleted: the user must press Delete on the card in the chat. Do not say it is deleted until they do.%s",
+		target.Name, h.summary(target), h.proofOf(ctx, rec.ID)), nil
 }
 
 // changeCard puts the card of a change record on the tool line, so the

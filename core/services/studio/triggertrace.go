@@ -94,17 +94,24 @@ func (s *Service) tracedTriggerRun(name string, c builtins.Chat, run func(contex
 	}
 }
 
-// refOfCall is the ref a call touched: the one it was given, or the one its
-// result names.
+// refOfCall is the ref a call touched: the one it was given, or the one the
+// stored state in its result names.
 func refOfCall(raw json.RawMessage, out string) string {
-	var in, res struct {
+	var in struct {
 		Ref string `json:"ref"`
 	}
 	if json.Unmarshal(raw, &in) == nil && in.Ref != "" {
 		return in.Ref
 	}
-	if json.Unmarshal([]byte(out), &res) == nil {
-		return res.Ref
+	_, after, found := strings.Cut(out, proofMark)
+	if !found {
+		return ""
 	}
-	return ""
+	var proof struct {
+		Ref string `json:"ref"`
+	}
+	if err := json.NewDecoder(strings.NewReader(after)).Decode(&proof); err != nil {
+		return ""
+	}
+	return proof.Ref
 }
