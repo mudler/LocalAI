@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -68,10 +69,12 @@ func chatPathWarning(texts ...string) string {
 const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
-	`"when":{"description":"A schedule text, or an object with the folder to watch.","oneOf":[` +
+	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
-	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
-	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, the person's own zone is used when they confirm."},` +
+	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
+	`{"type":"object","properties":{"in":{"type":"string","description":"A delay from now, at least one minute: 10 minutes, 1h30m, 2 days."}},"required":["in"]},` +
+	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time (18:00 or 6pm), or a date and a time that names the day (2026-11-15 09:00). When the person names a day, give the date."}},"required":["at"]}]},` +
+	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, the person's own zone is used."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
 	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words: Mail from the last 24 hours."},` +
@@ -86,11 +89,11 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
-	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"} or {\"at\": \"18:00\"}.","oneOf":[` +
+	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
 	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
 	`{"type":"object","properties":{"in":{"type":"string","description":"A delay from now, at least one minute: 10 minutes, 1h30m, 2 days."}},"required":["in"]},` +
-	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time: 18:00 or 6pm. Needs time_zone."}},"required":["at"]}]},` +
+	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time (18:00 or 6pm), or a date and a time that names the day (2026-11-15 09:00). Needs time_zone."}},"required":["at"]}]},` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, UTC is used. Needed for a time of day."},` +
 	`"access":{"type":"string","enum":["read_only","read_write"],"description":"read_only only when the runs just read and report: they write no file, run no command and message nobody else. Otherwise read_write (the default)."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
@@ -138,9 +141,11 @@ const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"ref":{"type":"string","minLength":1,"description":"The ref of the trigger, from list_triggers."},` +
 	`"name":{"type":"string","minLength":1,"maxLength":80},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
-	`"when":{"description":"A schedule text, or an object with the folder to watch.","oneOf":[` +
+	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
-	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
+	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
+	`{"type":"object","properties":{"in":{"type":"string","description":"A delay from now, at least one minute: 10 minutes, 1h30m, 2 days."}},"required":["in"]},` +
+	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time (18:00 or 6pm), or a date and a time that names the day (2026-11-15 09:00). When the person names a day, give the date."}},"required":["at"]}]},` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
 	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
@@ -239,8 +244,13 @@ func (s *Service) registerTriggerTools() error {
 					if d.id == proposeTriggerName {
 						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c)+h.channelsNote(ctx, c), proposeTriggerConnectorSchema
 					}
-				} else if d.id == updateTriggerName {
-					desc += h.updateChannelsNote(ctx, c)
+				} else {
+					if d.id == updateTriggerName {
+						desc += h.updateChannelsNote(ctx, c)
+					}
+					if d.id == proposeTriggerName || d.id == updateTriggerName {
+						desc += h.todayNote(ctx, c.Actor.Principal)
+					}
 				}
 				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: s.tracedTriggerRun(d.id, c, d.run(h, c.Actor, c))}, true, ""
 			},
@@ -337,6 +347,56 @@ func (h *Triggers) toolTriggers(ctx context.Context, a workspace.Actor, agentID 
 	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.AgentID != agentID }), nil
 }
 
+// userZone is the time zone the person set in user.json, or "" when there is
+// none or it is not a known zone.
+func (h *Triggers) userZone(ctx context.Context, principal string) string {
+	wk := h.svc.WellKnown()
+	if wk == nil || !wk.Available() {
+		return ""
+	}
+	doc, err := wk.Read(ctx, principal, wellknown.User, "")
+	if err != nil {
+		return ""
+	}
+	name, _ := doc.Data["timezone"].(string)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	if _, err := time.LoadLocation(name); err != nil {
+		return ""
+	}
+	return name
+}
+
+// timerFrom reads the zone of a timer: the argument, the zone given next to
+// "at" inside when, and, in a Studio chat, the zone of the person.
+func (h *Triggers) timerFrom(ctx context.Context, a workspace.Actor, connector bool, in, at, arg, inner string) (schedule, zone string, err error) {
+	tz := strings.TrimSpace(arg)
+	if tz == "" {
+		tz = strings.TrimSpace(inner)
+	}
+	if tz == "" && !connector {
+		tz = h.userZone(ctx, a.Principal)
+	}
+	return timerSchedule(h.o.Clock(), in, at, tz)
+}
+
+// todayNote is the end of the description of propose_trigger and update_trigger
+// in a Studio chat: the date and the zone of the person, so that the model does
+// not work out a day or an offset. It changes once a day, not at each turn, so
+// the tool list stays the same for a prompt cache. The result of each call
+// carries the exact time.
+func (h *Triggers) todayNote(ctx context.Context, principal string) string {
+	now := h.o.Clock()
+	if tz := h.userZone(ctx, principal); tz != "" {
+		loc, _ := time.LoadLocation(tz)
+		return fmt.Sprintf(" Today is %s in the user's time zone %s. A timer {\"at\": ...} without time_zone uses that zone. For a named day (\"this Sunday\") give the date: {\"at\": \"YYYY-MM-DD HH:MM\"}; a bare time is the next time it is that time.",
+			now.In(loc).Format("Monday 2006-01-02"), tz)
+	}
+	return fmt.Sprintf(" Today is %s in UTC. The user's time zone is not known: ask them before {\"at\": ...}, or use {\"in\": a delay}. For a named day give the date: {\"at\": \"YYYY-MM-DD HH:MM\"} with time_zone.", now.UTC().Format("Monday 2006-01-02"))
+}
+
 // toolTriggersAndProposals is toolTriggers plus the proposals that wait, so the
 // model can reconcile what it proposed with what is stored.
 func (h *Triggers) toolTriggersAndProposals(ctx context.Context, a workspace.Actor, agentID string, sc *folderScope) ([]triggers.Trigger, error) {
@@ -400,6 +460,8 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		FileArrivesIn string `json:"file_arrives_in"`
 		In            string `json:"in"`
 		At            string `json:"at"`
+		// A model sometimes puts the zone next to "at" instead of beside when.
+		TimeZone string `json:"time_zone"`
 	}
 	switch {
 	case json.Unmarshal(args.When, &text) == nil && text != "":
@@ -407,7 +469,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	case json.Unmarshal(args.When, &obj) == nil && obj.FileArrivesIn != "":
 		in.Kind, in.Folder, in.TZ = triggers.KindFile, obj.FileArrivesIn, ""
 	case json.Unmarshal(args.When, &obj) == nil && (obj.In != "" || obj.At != ""):
-		sched, zone, terr := timerSchedule(h.o.Clock(), obj.In, obj.At, args.TimeZone)
+		sched, zone, terr := h.timerFrom(ctx, a, c.Origin == session.OriginConnector, obj.In, obj.At, args.TimeZone, obj.TimeZone)
 		if terr != nil {
 			return "", terr
 		}

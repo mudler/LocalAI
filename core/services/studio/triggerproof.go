@@ -31,6 +31,9 @@ type triggerProof struct {
 	NextRun string `json:"next_run,omitempty"`
 	// Expires is when a proposal lapses, when it does.
 	Expires string `json:"expires,omitempty"`
+	// Now is the time of the read, in the zone of the trigger (UTC when it has
+	// none): the model needs no clock of its own to judge next_run.
+	Now string `json:"now"`
 	// Change is "pending" while an update or a delete waits for the person.
 	Change string `json:"change,omitempty"`
 }
@@ -77,6 +80,11 @@ func (h *Triggers) readProof(ctx context.Context, id string) (triggerProof, bool
 
 func (h *Triggers) proofFor(t triggers.Trigger, now time.Time) triggerProof {
 	p := triggerProof{Ref: TriggerRef(t.ID), Active: t.Enabled && !t.Proposed}
+	loc, err := t.Location()
+	if err != nil {
+		loc = time.UTC
+	}
+	p.Now = now.In(loc).Format(time.RFC3339)
 	switch {
 	case t.Proposed && t.Outcome == triggers.OutcomeExpired:
 		p.State = stateExpired
