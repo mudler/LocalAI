@@ -421,3 +421,67 @@ test('on a phone the dock is a bottom sheet, and nothing scrolls sideways', asyn
   await expect(dock(page)).toHaveCount(0)
   await request.delete(`/api/chats/${id}`)
 })
+
+test('the + of the tabs always opens the page list for a new tab, and a page of the list opens and closes it', async ({ page, request }) => {
+  const id = await newChat(request)
+  try {
+    await page.goto(`/app/chats/${id}`)
+    const add = dock(page).getByTestId('dock-add')
+    const picker = dock(page).getByTestId('dock-picker')
+    const row = (name) => dock(page).locator(`[data-testid="dock-pick"][data-page="${name}"]`)
+
+    // A dock with no tab already shows the list: the + still answers, by
+    // keeping it and putting the focus on its first page.
+    await page.getByTestId('dock-toggle').click()
+    await expect(picker).toBeVisible()
+    await add.click()
+    await expect(picker).toBeVisible()
+    await expect(add).toHaveAttribute('aria-pressed', 'true')
+    await expect(dock(page).locator('[data-testid="dock-pick"]:focus')).toHaveCount(1)
+    await add.click()
+    await expect(picker).toBeVisible()
+
+    // Picking opens the page and closes the list.
+    await row(BOARD).click()
+    await expect(tabs(page)).toHaveCount(1)
+    await expect(picker).toHaveCount(0)
+    await expect(add).toHaveAttribute('aria-pressed', 'false')
+    await expect(dockFrame(page).locator('#count')).toHaveText('6')
+
+    // With a tab, the + opens the list over it; a second press keeps it.
+    await add.click()
+    await expect(picker).toBeVisible()
+    await expect(add).toHaveAttribute('aria-pressed', 'true')
+    await expect(tabs(page).first()).not.toHaveAttribute('data-active', 'true')
+    await add.click()
+    await expect(picker).toBeVisible()
+    await shot(page, 'dock-plus-picker')
+
+    // Escape, and the tab in front, go back to the page.
+    await page.keyboard.press('Escape')
+    await expect(picker).toHaveCount(0)
+    await expect(tabs(page).first()).toHaveAttribute('data-active', 'true')
+    await add.click()
+    await expect(picker).toBeVisible()
+    await tabs(page).first().getByRole('tab').click()
+    await expect(picker).toHaveCount(0)
+
+    // A second page: new tab in front, list closed.
+    await add.click()
+    await row(NOTES).click()
+    await expect(tabs(page)).toHaveCount(2)
+    await expect(picker).toHaveCount(0)
+    await expect(tabs(page).nth(1)).toHaveAttribute('data-active', 'true')
+    await expect.poll(async () => (await dockOf(request, id))?.tabs).toEqual([{ page: BOARD }, { page: NOTES }])
+
+    // A tab that closes while the list is open ends the request.
+    await add.click()
+    await expect(picker).toBeVisible()
+    await tabs(page).first().getByTestId('dock-tab-close').click()
+    await expect(tabs(page)).toHaveCount(1)
+    await expect(picker).toHaveCount(0)
+    await expect(add).toHaveAttribute('aria-pressed', 'false')
+  } finally {
+    await request.delete(`/api/chats/${id}`)
+  }
+})
