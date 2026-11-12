@@ -681,7 +681,8 @@ that uses the same token would receive the same events and answer twice.
   intersected with what you may use now. It never gets the tool set of a chat, and
   a message cannot change the agent. A run that a trigger started never gets
   `propose_trigger`. A connector chat gets `propose_trigger` and `list_triggers`
-  only while the binding holds `triggers.propose` (see
+  only while the binding holds `triggers.propose`, and `update_trigger` and
+  `delete_trigger` only while it holds `triggers.change` (see
   [Triggers from a connector chat](#triggers-from-a-connector-chat)).
 - **Your account.** The chat acts as you, so the feature gate, the model
   allowlist and your quota apply. If the model refuses the request, the sender
@@ -1069,7 +1070,7 @@ add-on.
 
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
-  `triggers.run`, `talkback.channels`, `tools.write`, `loops.wait`, and the sensitive `talkback.new_channel`,
+  `triggers.run`, `talkback.channels`, `tools.write`, `loops.wait`, and the sensitive `triggers.change`, `talkback.new_channel`,
   `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`, `loops.start`). The default is
   no: a binding with none enabled lets a sender talk to the agent, but the agent can
   not use any of these on the sender's behalf. A binding saved before permissions
@@ -1510,8 +1511,27 @@ question.
 
 When the binding holds the capability `triggers.propose`, the agent can propose a
 trigger from a chat in a messaging app. The agent gets `propose_trigger` and
-`list_triggers` (the list shows only the triggers of that agent). Changing or deleting a
-trigger stays in Studio. Nothing runs before the owner confirms.
+`list_triggers` (the list shows only the triggers of that agent, and the proposals that
+still wait). Nothing runs before the owner confirms.
+
+- **Changing and deleting need `triggers.change`.** It is a separate capability, off by
+  default and sensitive: the binding must hold it, and the sender of the message must be
+  paired. With it the agent also gets `update_trigger` (a change, a pause or a resume) and
+  `delete_trigger` (a delete, or the withdrawal of a proposal that waits), for the
+  triggers of that agent only. The approval mode of the binding, the same setting as for
+  proposals, decides what happens:
+  - `ask` (the default) and `auto_readonly`: the request is a change that waits for the
+    owner. LocalAI writes it in the chat with a code, and `confirm CODE` or `cancel CODE`
+    answers it, by a sender that holds `proposals.confirm`, in the place where it was
+    written. It lapses after 24 hours. Studio shows it on a card too. Even a pause or a
+    resume waits.
+  - `auto` (**Runs at once**): the change, the pause, the resume, the delete and the
+    withdrawal apply at once and LocalAI tells the chat what was done. A change of the acts
+    or of the delivery of a trigger still waits for the owner.
+
+  Every result carries the stored state (see
+  [What the model is told]({{%relref "features/chats-agents#what-the-model-is-told-and-what-is-recorded" %}})),
+  and the log says which mode was used.
 
 - **The proposal is shown in the chat.** LocalAI writes the name, the schedule, what the
   run will do, where the results go and a four-character code in the chat and thread
