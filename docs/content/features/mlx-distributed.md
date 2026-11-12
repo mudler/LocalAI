@@ -137,18 +137,18 @@ LocalAI starts the rank 0 process (gRPC server) automatically when the model is 
 On each worker machine, start a worker with the same hostfile:
 
 ```bash
-local-ai worker mlx-distributed --hostfile hosts.json --rank 1
+local-ai p2p-worker mlx-distributed --hostfile hosts.json --rank 1
 ```
 
 The `--rank` must match the worker's position in the hostfile. For example, if `hosts.json` is `["192.168.1.10:5555", "192.168.1.11:5555", "192.168.1.12:5555"]`, then:
 - Rank 0: started automatically by LocalAI on `192.168.1.10`
-- Rank 1: `local-ai worker mlx-distributed --hostfile hosts.json --rank 1` on `192.168.1.11`
-- Rank 2: `local-ai worker mlx-distributed --hostfile hosts.json --rank 2` on `192.168.1.12`
+- Rank 1: `local-ai p2p-worker mlx-distributed --hostfile hosts.json --rank 1` on `192.168.1.11`
+- Rank 2: `local-ai p2p-worker mlx-distributed --hostfile hosts.json --rank 2` on `192.168.1.12`
 
 ### JACCL Workers
 
 ```bash
-local-ai worker mlx-distributed \
+local-ai p2p-worker mlx-distributed \
   --hostfile devices.json \
   --rank 1 \
   --backend jaccl \
@@ -167,10 +167,10 @@ For advanced use cases, you can also run rank 0 manually as an external gRPC bac
 
 ```bash
 # On Mac A: start rank 0 manually
-local-ai worker mlx-distributed --hostfile hosts.json --rank 0 --addr 192.168.1.10:50051
+local-ai p2p-worker mlx-distributed --hostfile hosts.json --rank 0 --addr 192.168.1.10:50051
 
 # On Mac B: start rank 1
-local-ai worker mlx-distributed --hostfile hosts.json --rank 1
+local-ai p2p-worker mlx-distributed --hostfile hosts.json --rank 1
 
 # On any machine: start LocalAI pointing at rank 0
 local-ai run --external-grpc-backends "mlx-distributed:192.168.1.10:50051"
@@ -180,7 +180,7 @@ Then use a model config with `backend: mlx-distributed` (no need for `hostfile` 
 
 ## CLI Reference
 
-### `worker mlx-distributed`
+### `p2p-worker mlx-distributed`
 
 Starts a worker or manual rank 0 process.
 

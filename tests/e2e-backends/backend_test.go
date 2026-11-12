@@ -1518,7 +1518,7 @@ var _ = Describe("Backend container", Ordered, func() {
 // up. It then tears the worker down.
 //
 // What it does NOT cover: multi-host networking, >1 worker, failure/timeout
-// paths, or the `local-ai worker ds4-distributed` CLI wrapper (that resolves
+// paths, or the `local-ai p2p-worker ds4-distributed` CLI wrapper (that resolves
 // the backend + execs ds4-worker and is unit-tested separately); here we exec
 // the packaged ds4-worker binary directly so the e2e stays self-contained.
 //

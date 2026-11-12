@@ -99,7 +99,7 @@ And open **Operate → Swarm → P2P** to see the network token and the instruct
 To start workers for distributing the computational load, run:
 
 ```bash
-local-ai worker llama-cpp-rpc --llama-cpp-args="-H <listening_address> -p <listening_port> -m <memory>" 
+local-ai p2p-worker llama-cpp-rpc --llama-cpp-args="-H <listening_address> -p <listening_port> -m <memory>" 
 ```
 
 And you can specify the address of the workers when starting LocalAI with the `LLAMACPP_GRPC_SERVERS` environment variable:

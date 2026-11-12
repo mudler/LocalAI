@@ -75,7 +75,7 @@ func findDS4Backend(galleries string, systemState *system.SystemState, requireIn
 
 func (r *DS4Distributed) Run(ctx *cliContext.Context) error {
 	if r.ExtraDS4Args == "" && len(os.Args) < 4 {
-		return fmt.Errorf("usage: local-ai worker ds4-distributed -- --role worker --model <gguf> --layers <START:END|START:output> --coordinator <host> <port>")
+		return fmt.Errorf("usage: local-ai p2p-worker ds4-distributed -- --role worker --model <gguf> --layers <START:END|START:output> --coordinator <host> <port>")
 	}
 
 	systemState, err := system.GetSystemState(
