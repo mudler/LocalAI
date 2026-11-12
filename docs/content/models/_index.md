@@ -491,7 +491,7 @@ How the choice is made:
 - For each model on the list, LocalAI reads the GGUF header only (a few ranged
   requests, never the weights) and works out the context window the loader would
   pick on this machine: it aims at 32768 tokens and steps down to what fits, as
-  described for `context_size` in [model configuration]({{% relref "advanced/model-configuration" %}}).
+  described for `context_size` in [model configuration]({{% relref "/models/model-configuration" %}}).
   The result is a verdict: `fits`, `tight` (for example a window under 24576, or
   little free memory) or `does_not_fit` (the window would be under the 16384
   tokens a chat needs, or the model needs more memory than the machine has).
@@ -511,7 +511,7 @@ To change the outcome:
 
 - Install any other model from **Models**. The recommendation is a suggestion.
 - Edit `context_size` in the model's configuration at any time. See
-  [model configuration]({{% relref "advanced/model-configuration" %}}).
+  [model configuration]({{% relref "/models/model-configuration" %}}).
 - Change the list for everyone who uses your gallery: edit `recommended.yaml`
   (schema `version: 1`, one list per tier, each with one `default` and two
   `alternative` entries, each with the model's gallery `id`, a `name` and a

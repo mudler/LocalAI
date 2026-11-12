@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Paired clients: inference and add-ons"
-weight = 26
+weight = 35
 url = "/features/addon-clients/"
 +++
 

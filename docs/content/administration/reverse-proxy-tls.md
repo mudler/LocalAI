@@ -22,7 +22,7 @@ whose paired clients pin the certificate. Start it with `--tls-cert` and
 `--tls-key`, or with `--tls-self-signed` to let LocalAI make a certificate and keep
 it in the data path. TLS 1.3 is the minimum. The flags are in the [CLI
 reference]({{% relref "reference/cli-reference" %}}), and the pinning of a
-self-signed certificate is in [Paired clients]({{% relref "features/addon-clients" %}}#tls-and-the-pinned-certificate).
+self-signed certificate is in [Paired clients]({{% relref "/addons/addon-clients" %}}#tls-and-the-pinned-certificate).
 Do not use these flags and a proxy that ends TLS for the same port.
 
 The port speaks TLS only: a plain HTTP request to it gets a `400`. What this

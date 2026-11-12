@@ -90,7 +90,7 @@ The user authentication system provides:
 - **Session-based authentication** with secure cookies
 - **OAuth login** (GitHub) and **OIDC single sign-on** (Keycloak, Google, Okta, Authentik, etc.)
 - **Per-user API keys** for programmatic access
-- **Client keys** for paired clients: a one-time pairing code gives a client a key that reaches only the routes of its feature list. A key can use the standard inference API for a list of models that the owner chose (`client_inference`), call the add-ons that the owner chose (`client_addons`), or both. See [Paired clients: inference and add-ons]({{%relref "features/addon-clients" %}})
+- **Client keys** for paired clients: a one-time pairing code gives a client a key that reaches only the routes of its feature list. A key can use the standard inference API for a list of models that the owner chose (`client_inference`), call the add-ons that the owner chose (`client_addons`), or both. See [Paired clients: inference and add-ons]({{%relref "/addons/addon-clients" %}})
 - **Admin route gating** - management endpoints are restricted to admins
 - **Per-user usage tracking** with token consumption metrics
 

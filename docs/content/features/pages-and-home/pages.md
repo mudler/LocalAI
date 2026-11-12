@@ -478,7 +478,7 @@ Both are change sets, so the assistant sees them and you can undo them. There
 is no retry loop: **Reload** in the strip starts the page again.
 
 An administrator can switch the page area off for everyone (the
-`home_page_area_enabled` [runtime setting]({{% relref "features/runtime-settings" %}})).
+`home_page_area_enabled` [runtime setting]({{% relref "/administration/runtime-settings" %}})).
 The area then shows a note that says so, and the server leaves `pageArea` out
 of the `home.json` it serves (`GET /api/chats/wellknown/home` names it in
 `withheld`). The file keeps its value: a write of the whole file that does not
