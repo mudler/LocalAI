@@ -168,7 +168,7 @@ test.describe('Placement - context size', () => {
 
   test('a model that sets no context size says which one the estimate used', async ({ page }) => {
     await setup(page, { placement: { configs: { 'qwen3-14b-instruct': 'name: qwen3-14b-instruct\nbackend: llama-cpp\nparameters:\n  model: a.gguf\n' } } })
-    await expect(page.getByTestId('placement')).toContainText('Not set. The estimate uses 8K.')
+    await expect(page.getByTestId('placement')).toContainText('Not set. The estimate uses 32K.')
   })
 })
 
