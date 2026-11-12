@@ -298,7 +298,7 @@ Returns a model wrapper and one status entry for every configured server:
 }
 ```
 
-The Chat **MCP → Servers** tab uses this endpoint. A configured server remains listed when it is unavailable, shows the discovery error, and cannot be selected until a later discovery attempt succeeds. Reopening the dropdown or returning to the Servers tab retries discovery.
+The Chat **MCP → Servers** tab uses this endpoint. A configured server remains listed when it is unavailable, shows the discovery error, and cannot be selected until a later discovery attempt succeeds. Reopening the dropdown or returning to the Servers tab retries discovery. A server that keeps failing is retried at most every few seconds, up to once a minute, so that it does not slow down every request.
 
 When authentication is enabled, the Servers tab is offered to admins and to every user holding the `mcp` feature (on by default for new users). Chat learns that a model has MCP servers from the `mcp` flag of `GET /api/models/capabilities`, so non-admin users do not need access to the model configuration. With `LOCALAI_DISABLE_MCP=true` the flag is never set.
 
@@ -501,6 +501,8 @@ MCP sessions are automatically managed by LocalAI:
 
 - **Lazy initialization**: Sessions are created the first time a model's MCP tools are used
 - **Cached per model**: Sessions are reused across requests for the same model
+- **Cached tool lists**: The tool list of each server is kept with its session. LocalAI lists the tools again when the server sends `notifications/tools/list_changed`, when the session reconnects, when the configuration changes, and at least every 5 minutes
+- **Health checks**: A session that answered in the last 30 seconds is used without a check. Otherwise LocalAI pings it first and reconnects only that server if it does not answer. A server that is down does not affect the sessions of the other servers
 - **Cleanup on model unload**: When a model is unloaded (idle watchdog eviction, manual stop, or shutdown), all associated MCP sessions are closed and resources freed
 - **Graceful shutdown**: All MCP sessions are closed when LocalAI shuts down
 
