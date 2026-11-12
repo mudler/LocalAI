@@ -2061,7 +2061,7 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 6.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 7.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
@@ -2071,6 +2071,7 @@ level**: one integer that counts the additive manifest features it understands.
   The setup text (`setup` on the manifest, `kinds[].setup` and the `setup` of a kind translation) is level 4.
   `kinds[].toolOnly` is level 5.
   `capabilities.executionProvider.jobs` is level 6.
+  `capabilities.client` is level 7.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -2914,7 +2915,9 @@ uses a fresh credential and incarnation, bounded exponential backoff, and the
 configured attempt budget; sustained authenticated health resets that budget.
 
 The protocol uses POST with JSON on `/read`, `/preview`, `/apply`, `/receipt`, and
-`/output`. Read and preview accept the existing contract envelope. Apply wraps it
+`/output`, and on `/act`, `/connector`, `/client` and `/client/stream` for the add-ons that
+declare actions, a connector or client routes (see
+[Paired clients: inference and add-ons](/features/addon-clients/)). Read and preview accept the existing contract envelope. Apply wraps it
 with a revision; output wraps it with a handle; receipt accepts an operation ID.
 These transport wrappers are defined in the runtime package because the original
 contract specifies Go methods but not their HTTP request DTOs. No contract method
@@ -3932,6 +3935,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
+| `capabilities.client` | Optional, feature level 7. 1 to 32 `routes` that a paired client may call, each with an `id`, a `method`, a `path` and optional `stream`, `maxBodyBytes` and `timeoutSeconds`. Needs `capabilities.service`. See [Paired clients: inference and add-ons](/features/addon-clients/). |
 | `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
 | `setup` | Optional, feature level 4. What the person needs before the add-on works, as a short phrase such as `an access token`. A string or a map of language tag to string, like `ui.title`. For an add-on that has no connector kind; a kind has its own `kinds[].setup`. See [Setup text](#setup-text). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |

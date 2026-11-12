@@ -3,6 +3,7 @@ package auth
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -56,12 +57,58 @@ type UserAPIKey struct {
 	// PausedUntil pauses the key until the given time; the key becomes
 	// active again by itself once that time has passed.
 	PausedUntil *time.Time
-	User        User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	// Kind tells what the key is. Empty is a user key, which acts as its
+	// owner. KeyKindClient is the key of a paired client: it holds only the
+	// features of Features and nothing else.
+	Kind string `gorm:"size:20;index"`
+	// Features is the allow-list of a client key. Unused for a user key.
+	Features PermissionMap `gorm:"type:text"`
+	// Addons lists the add-ons a client key may reach, by id. Deny by default:
+	// a key with the client_addons feature and no entry reaches no add-on.
+	Addons AddonList `gorm:"type:text"`
+	// Models lists the models a client key may use, by name. Deny by default:
+	// a key with the client_inference feature and no entry uses no model.
+	Models ModelList `gorm:"type:text"`
+	User   User      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
 
 // IsPaused reports whether the key is paused at the given time.
 func (k *UserAPIKey) IsPaused(now time.Time) bool {
 	return k.Disabled || (k.PausedUntil != nil && k.PausedUntil.After(now))
+}
+
+// Errors of CheckUsable. Their text is what a client of the API reads.
+var (
+	errKeyExpired   = errors.New("API key expired")
+	errUserInactive = errors.New("user account is not active")
+	errKeyPaused    = errors.New("API key is paused")
+	// errOwnerNotAdmin is the refusal of a client key whose owner lost the
+	// administrator role.
+	errOwnerNotAdmin = errors.New("the owner of this key is no longer an administrator")
+)
+
+// CheckUsable is the one rule for a key that is used now: it is not expired,
+// its owner is an active account, and it is not paused. A client key also
+// needs an owner that is still an administrator: only an administrator can pair
+// a client, and a client has no feature check, model allow-list or quota of the
+// owner account, so a client of a demoted owner would go on past the limits that
+// another administrator set. The key must be loaded
+// with its User. Every place that accepts a key (request, add-on identity,
+// host operation) asks this, so a new key state is added once.
+func (k *UserAPIKey) CheckUsable(now time.Time) error {
+	if k.ExpiresAt != nil && !k.ExpiresAt.After(now) {
+		return errKeyExpired
+	}
+	if k.User.Status != StatusActive {
+		return errUserInactive
+	}
+	if k.IsPaused(now) {
+		return errKeyPaused
+	}
+	if k.IsClientKey() && k.User.Role != RoleAdmin {
+		return errOwnerNotAdmin
+	}
+	return nil
 }
 
 // PermissionMap is a flexible map of feature -> enabled, stored as JSON text.

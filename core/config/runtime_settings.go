@@ -109,6 +109,9 @@ type RuntimeSettings struct {
 	ChatsLocalAIClient *bool   `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
 	ChatsLocalAIAdmin  *bool   `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
 	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups on demand: auto, on or off (default: auto)
+	// Jobs that an add-on starts for a paired client. Read when a job
+	// runs. By default such a job may only use tools that read.
+	ClientJobsAllowAllTools *bool `json:"client_jobs_allow_all_tools,omitempty"` // let jobs from a paired client use the write and act tools that the task's agent is set up with, no more (default: false)
 	// The network of the commands the chats run in the Sandbox. Read at each
 	// check of the host proxy, so a change applies at once (a cached allow
 	// lives at most 30 seconds).

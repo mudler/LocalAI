@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "client-example",
+  "version": "0.1.0",
+  "executable": "client-example",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {"min": 1, "max": 1},
+  "api": {"min": 2, "max": 2},
+  "protocol": {"min": 1, "max": 1},
+  "dataFormat": {"min": 1, "max": 1},
+  "featureLevel": 7,
+  "capabilities": {
+    "service": true,
+    "hostOperations": {
+      "required": ["client.jobs.start", "client.jobs.get", "client.jobs.cancel"]
+    },
+    "client": {
+      "routes": [
+        {"id": "ping", "method": "GET", "path": "/ping"},
+        {"id": "start", "method": "POST", "path": "/jobs", "maxBodyBytes": 4096},
+        {"id": "job", "method": "GET", "path": "/jobs/{id}"},
+        {"id": "cancel", "method": "DELETE", "path": "/jobs/{id}"},
+        {"id": "events", "method": "GET", "path": "/events", "stream": true}
+      ]
+    }
+  }
+}

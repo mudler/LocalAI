@@ -56,6 +56,30 @@ var _ = Describe("Viewer", func() {
 		Expect(list(admin)).To(ConsistOf(mine.ID, theirs.ID, shared.ID))
 	})
 
+	It("lets a viewer of NoProfiles see, use, create and delete nothing, whoever owns the profile", func() {
+		mine, shared := create(alice), create(admin)
+		none := NoProfiles()
+		Expect(none.CanSee(mine)).To(BeFalse())
+		Expect(none.CanSee(shared)).To(BeFalse())
+		Expect(none.CanDelete(mine)).To(BeFalse())
+		// None wins over the other fields.
+		Expect(Viewer{UserID: "alice", Admin: true, None: true}.CanSee(mine)).To(BeFalse())
+		ps, err := store.ListFor(ctx, none)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ps).To(BeEmpty())
+		_, err = store.GetFor(ctx, none, shared.ID)
+		Expect(err).To(MatchError(ErrNotFound))
+		_, _, err = store.OpenAudioFor(ctx, none, shared.ID)
+		Expect(err).To(MatchError(ErrNotFound))
+		_, _, _, err = store.LeaseAudiosFor(ctx, none, mine.ID)
+		Expect(err).To(MatchError(ErrNotFound))
+		_, _, _, err = store.LeaseAudioFor(ctx, none, mine.ID)
+		Expect(err).To(MatchError(ErrNotFound))
+		Expect(store.DeleteFor(ctx, none, mine.ID)).To(MatchError(ErrNotFound))
+		_, err = store.CreateFor(ctx, none, CreateInput{Name: "x", Transcript: "t", ConsentConfirmed: true}, nil)
+		Expect(err).To(MatchError(ErrForbidden))
+	})
+
 	It("tells each caller whether it may delete a profile, and never stores that", func() {
 		mine, shared := create(alice), create(admin)
 		ps, err := store.ListFor(ctx, alice)

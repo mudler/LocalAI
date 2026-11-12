@@ -36,6 +36,9 @@ var (
 	ErrTooManyJobs = fmt.Errorf("studio: %d jobs are running; wait for one to end", MaxRunningJobs)
 	// ErrJobEnded means the job already ended and cannot be cancelled.
 	ErrJobEnded = errors.New("studio: the job has already ended")
+	// ErrTooManyClientJobs means a paired client has the most jobs it may run
+	// at once or keep.
+	ErrTooManyClientJobs = errors.New("studio: this client has too many jobs")
 )
 
 // Defaults and limits of the jobs.
@@ -46,6 +49,13 @@ const (
 	DefaultJobRetentionDays = 30
 	// MaxRunningJobs is how many jobs one user may have running at once.
 	MaxRunningJobs = 10
+	// MaxRunningClientJobs is how many jobs one paired client may have running
+	// at once. Ended jobs do not count here; DefaultMaxClientJobRecords bounds them.
+	MaxRunningClientJobs = 3
+	// DefaultMaxClientJobRecords is how many ended job records one paired
+	// client may have stored. Past it, the oldest are removed when a new job
+	// starts.
+	DefaultMaxClientJobRecords = 5000
 	// MaxAttachments is how many files one job may start with.
 	MaxAttachments = 8
 	// MaxAttachmentBytes is the largest decoded attachment.
@@ -84,6 +94,9 @@ type JobOptions struct {
 	// RetentionDays is how long ended jobs are kept. Zero means
 	// DefaultJobRetentionDays.
 	RetentionDays int
+	// MaxClientRecords is how many ended job records one paired client keeps.
+	// Zero means DefaultMaxClientJobRecords.
+	MaxClientRecords int
 	// AllowPrivate says whether a webhook may call an address on a private or
 	// internal network. Nil: never.
 	AllowPrivate func() bool
@@ -97,6 +110,13 @@ type JobOptions struct {
 	// Clock returns the time. Nil: time.Now.
 	Clock  func() time.Time
 	Logger *slog.Logger
+	// ClientAllowAllTools says whether the jobs started for a paired client may
+	// use every tool. Nil: never, so such a job only reads. It is asked each
+	// time a job runs a tool, so a change applies to a job in flight.
+	ClientAllowAllTools func() bool
+	// ClientLock runs fn under a lock that every frontend shares for one client
+	// (an advisory lock). Nil: a mutex of this process.
+	ClientLock func(ctx context.Context, clientID string, fn func() error) error
 }
 
 // Jobs runs the agent tasks. A task is a prompt template with the model or
@@ -119,10 +139,11 @@ type Jobs struct {
 	mu    sync.Mutex
 	watch map[string]struct{} // jobs whose end this process watches
 
-	wmu  sync.Mutex // serialises writes of tasks
-	done chan struct{}
-	once sync.Once
-	wg   sync.WaitGroup
+	clientLocks sync.Map   // client id -> *sync.Mutex
+	wmu         sync.Mutex // serialises writes of tasks
+	done        chan struct{}
+	once        sync.Once
+	wg          sync.WaitGroup
 }
 
 // NewJobs returns the job host of a service. Run starts the sweep.
@@ -135,6 +156,9 @@ func NewJobs(svc *Service, o JobOptions) (*Jobs, error) {
 	}
 	if o.RetentionDays <= 0 {
 		o.RetentionDays = DefaultJobRetentionDays
+	}
+	if o.MaxClientRecords <= 0 {
+		o.MaxClientRecords = DefaultMaxClientJobRecords
 	}
 	if o.Clock == nil {
 		o.Clock = time.Now
@@ -402,6 +426,93 @@ func uploads(att []Attachment) ([]session.Upload, error) {
 // Execute starts a job of the user for a task and returns at once; the job runs
 // in the background. The job is a chat of the owner with origin job.
 func (j *Jobs) Execute(ctx context.Context, user, taskID string, req RunRequest) (JobInfo, error) {
+	return j.execute(ctx, user, "", taskID, req)
+}
+
+// ExecuteForClient starts a job of the user for a task on behalf of a paired
+// client. The job carries the id of the client: only that client reads or
+// cancels it, and the client has a quota of running jobs and of job records.
+func (j *Jobs) ExecuteForClient(ctx context.Context, user, clientID, taskID string, req RunRequest) (JobInfo, error) {
+	if clientID == "" {
+		return JobInfo{}, fmt.Errorf("%w: no client", ErrBadJobInput)
+	}
+	req.TriggeredBy = "client"
+	return j.execute(ctx, user, clientID, taskID, req)
+}
+
+// clientJobs lists the jobs of the user that were started for the client.
+func (j *Jobs) clientJobs(ctx context.Context, owner, clientID string) ([]jobs.Job, error) {
+	return j.o.Store.ListJobs(ctx, owner, jobs.Filter{ClientID: clientID})
+}
+
+// GetClientJob returns a job that was started for the client. A job of another
+// client, or of no client, is not found.
+func (j *Jobs) GetClientJob(ctx context.Context, user, clientID, id string) (JobInfo, error) {
+	owner := principal(user)
+	rec, err := j.o.Store.GetJob(ctx, owner, id)
+	if err != nil {
+		return JobInfo{}, err
+	}
+	if clientID == "" || rec.ClientID != clientID {
+		return JobInfo{}, jobs.ErrNotFound
+	}
+	return j.info(ctx, rec, j.taskName(ctx, owner, rec.TaskID)), nil
+}
+
+// CancelClientJob stops a running job that was started for the client.
+func (j *Jobs) CancelClientJob(ctx context.Context, user, clientID, id string) error {
+	if _, err := j.GetClientJob(ctx, user, clientID, id); err != nil {
+		return err
+	}
+	return j.CancelJob(ctx, user, id)
+}
+
+// withClientLock runs fn while it holds the lock of one client. One process
+// uses a mutex per client; a deployment with several frontends sets
+// JobOptions.ClientLock to a lock all of them share.
+func (j *Jobs) withClientLock(ctx context.Context, clientID string, fn func() error) error {
+	if j.o.ClientLock != nil {
+		return j.o.ClientLock(ctx, clientID, fn)
+	}
+	m, _ := j.clientLocks.LoadOrStore(clientID, &sync.Mutex{})
+	mu := m.(*sync.Mutex)
+	mu.Lock()
+	defer mu.Unlock()
+	return fn()
+}
+
+// CancelClientJobs stops the running jobs that were started for the client. It
+// is what revoking a client does, so a job it started does not run on for a
+// client that is gone. It returns how many it stopped.
+func (j *Jobs) CancelClientJobs(ctx context.Context, user, clientID string) (int, error) {
+	if clientID == "" {
+		return 0, nil
+	}
+	owner := principal(user)
+	mine, err := j.clientJobs(ctx, owner, clientID)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, rec := range mine {
+		if !rec.Ended.IsZero() {
+			continue
+		}
+		if err := j.CancelJob(ctx, user, rec.ID); err == nil {
+			n++
+		} else if !errors.Is(err, ErrJobEnded) && !errors.Is(err, jobs.ErrNotFound) {
+			return n, err
+		}
+	}
+	return n, nil
+}
+
+// clientAllowAll says whether the owner lets client jobs use every tool.
+func (j *Jobs) clientAllowAll() bool {
+	return j.o.ClientAllowAllTools != nil && j.o.ClientAllowAllTools()
+}
+
+func (j *Jobs) execute(ctx context.Context, user, clientID, taskID string, req RunRequest) (JobInfo, error) {
 	owner := principal(user)
 	t, err := j.o.Store.GetTask(ctx, owner, taskID)
 	if err != nil {
@@ -426,8 +537,48 @@ func (j *Jobs) Execute(ctx context.Context, user, taskID string, req RunRequest)
 	} else if n >= MaxRunningJobs {
 		return JobInfo{}, ErrTooManyJobs
 	}
-	rec, err := j.svc.CreateAs(ctx, owner, CreateInput{Title: "Job: " + t.Name, Model: t.Model, AgentID: t.AgentID},
-		Origin{Kind: session.OriginJob, ID: t.ID})
+	by := req.TriggeredBy
+	if by == "" {
+		by = "api"
+	}
+	// The check of the quota of a client, the chat and the record of the job
+	// are one step under the lock of the client: parallel starts of one client
+	// cannot all pass the check before any of them is counted.
+	var rec session.ChatRecord
+	var job jobs.Job
+	reserve := func() error {
+		if clientID != "" {
+			// Counted in the store: a client that starts short jobs in a loop
+			// must not make each start read all its old records.
+			active, err := j.o.Store.CountJobs(ctx, owner, jobs.Filter{ClientID: clientID, Active: true})
+			if err != nil {
+				return err
+			}
+			if active >= MaxRunningClientJobs {
+				return ErrTooManyClientJobs
+			}
+			j.trimClientRecords(ctx, owner, clientID)
+		}
+		var err error
+		rec, err = j.svc.CreateAs(ctx, owner, CreateInput{Title: "Job: " + t.Name, Model: t.Model, AgentID: t.AgentID},
+			Origin{Kind: session.OriginJob, ID: t.ID})
+		if err != nil {
+			return err
+		}
+		job = jobs.Job{ID: rec.ID, Owner: owner, TaskID: t.ID, Parameters: req.Params, TriggeredBy: by, ClientID: clientID, Attachments: len(up), Created: j.o.Clock().UTC()}
+		if err := j.o.Store.PutJob(ctx, job); err != nil {
+			if derr := j.svc.Delete(context.WithoutCancel(ctx), owner, rec.ID); derr != nil {
+				j.log.Warn("studio: could not delete the chat of a job that did not start", "chat", rec.ID, "error", derr)
+			}
+			return err
+		}
+		return nil
+	}
+	if clientID != "" {
+		err = j.withClientLock(ctx, clientID, reserve)
+	} else {
+		err = reserve()
+	}
 	if err != nil {
 		return JobInfo{}, err
 	}
@@ -440,14 +591,6 @@ func (j *Jobs) Execute(ctx context.Context, user, taskID string, req RunRequest)
 			_ = j.o.Store.DeleteJob(context.WithoutCancel(ctx), owner, rec.ID)
 		}
 	}()
-	by := req.TriggeredBy
-	if by == "" {
-		by = "api"
-	}
-	job := jobs.Job{ID: rec.ID, Owner: owner, TaskID: t.ID, Parameters: req.Params, TriggeredBy: by, Attachments: len(up), Created: j.o.Clock().UTC()}
-	if err := j.o.Store.PutJob(ctx, job); err != nil {
-		return JobInfo{}, err
-	}
 	events, cancel, err := j.svc.Events(ctx, owner, rec.ID) // before Send: the end must not be missed
 	if err != nil {
 		return JobInfo{}, err
@@ -468,17 +611,42 @@ func (j *Jobs) Execute(ctx context.Context, user, taskID string, req RunRequest)
 	return JobInfo{Job: job, TaskName: t.Name, Status: JobPending}, nil
 }
 
+// trimClientRecords keeps the stored records of one client under
+// MaxClientJobRecords: when the client has that many ended jobs, the oldest are
+// removed with their chats to make room for the one that starts. It does not
+// refuse a start: a client that works a lot loses its oldest results, which the
+// retention would remove anyway. A failure is logged and the start goes on.
+func (j *Jobs) trimClientRecords(ctx context.Context, owner, clientID string) {
+	f := jobs.Filter{ClientID: clientID, Finished: true}
+	n, err := j.o.Store.CountJobs(ctx, owner, f)
+	if err != nil || n < j.o.MaxClientRecords {
+		if err != nil {
+			j.log.Warn("studio: could not count the jobs of a client", "client", clientID, "error", err)
+		}
+		return
+	}
+	f.OldestFirst = true
+	f.Limit = n - j.o.MaxClientRecords + 1
+	old, err := j.o.Store.ListJobs(ctx, owner, f)
+	if err != nil {
+		j.log.Warn("studio: could not list the oldest jobs of a client", "client", clientID, "error", err)
+		return
+	}
+	for _, rec := range old {
+		if err := j.DeleteJob(ctx, owner, rec.ID); err != nil {
+			j.log.Warn("studio: could not remove an old job of a client", "job", rec.ID, "error", err)
+		}
+	}
+}
+
 // running counts the jobs of the owner that have not ended.
 func (j *Jobs) running(ctx context.Context, owner string) (int, error) {
-	all, err := j.o.Store.ListJobs(ctx, owner, jobs.Filter{})
+	all, err := j.o.Store.ListJobs(ctx, owner, jobs.Filter{Active: true})
 	if err != nil {
 		return 0, err
 	}
 	n := 0
 	for _, rec := range all {
-		if !rec.Ended.IsZero() {
-			continue
-		}
 		if info, err := j.svc.Turn(ctx, owner, rec.ID); err == nil && info.Running {
 			n++
 		}
@@ -727,7 +895,9 @@ func (j *Jobs) Rerun(ctx context.Context, user, id string) (JobInfo, error) {
 	if err != nil {
 		return JobInfo{}, err
 	}
-	return j.Execute(ctx, user, rec.TaskID, RunRequest{Params: rec.Parameters, TriggeredBy: "rerun"})
+	// The parameters of a client job came from the client. The rerun stays the
+	// job of that client, so it holds no more grants than the first run did.
+	return j.execute(ctx, user, rec.ClientID, rec.TaskID, RunRequest{Params: rec.Parameters, TriggeredBy: "rerun"})
 }
 
 // Sweep removes the jobs that ended before the retention and finishes the

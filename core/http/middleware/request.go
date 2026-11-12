@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -126,6 +127,12 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 				finish(nil)
 				return next(c)
 			}
+			// A paired client must name its model: a default picked from the
+			// models of the instance is not one the owner chose for it.
+			if auth.ClientKey(c) != nil {
+				finish(nil)
+				return next(c)
+			}
 
 			ctx := c.Request().Context()
 			end := diagnostics.Begin(ctx, diagnostics.PhaseDefaultListing)
@@ -204,8 +211,26 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 			// Ollama-compat /api/tags appends ":latest" to untagged names.
 			// Strip it for lookup so the listed name works on /api/chat,
 			// /v1/chat/completions, and the other model-bearing endpoints.
+			rawModelName := modelName
 			if strings.HasSuffix(modelName, ":latest") {
 				modelName = strings.TrimSuffix(modelName, ":latest")
+			}
+			// The one place that decides which model a paired client may use:
+			// the name the binder of this handler produced, and the name the
+			// lookup below uses. Every route of a client key goes through here,
+			// so a request that the early middleware read in another way is
+			// still refused when the two names disagree.
+			if auth.ClientKey(c) != nil {
+				names := []string{}
+				if rawModelName != "" {
+					names = append(names, rawModelName)
+					if modelName != rawModelName {
+						names = append(names, modelName)
+					}
+				}
+				if d := auth.CheckClientModel(c, names...); d != nil {
+					return auth.ClientModelDenialResponse(c, d)
+				}
 			}
 			ctx := c.Request().Context()
 			endConfig := diagnostics.Begin(ctx, diagnostics.PhaseConfigLoadDefaults)

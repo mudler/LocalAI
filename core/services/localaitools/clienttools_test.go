@@ -52,7 +52,9 @@ var _ = Describe("Client tool table", func() {
 			Expect(auth.AllFeatures).To(ContainElement(s.Feature), "%s: unknown feature %q", s.Tool, s.Feature)
 			found := false
 			for _, r := range auth.RouteFeatureRegistry {
-				if r.Method == s.Method && r.Pattern == s.Route {
+				// A client row (client_inference) is another way in for a
+				// client key; the user feature is the one the tool names.
+				if r.Method == s.Method && r.Pattern == s.Route && !auth.IsClientFeature(r.Feature) {
 					found = true
 					Expect(r.Feature).To(Equal(s.Feature), "%s: %s %s checks another feature", s.Tool, s.Method, s.Route)
 				}

@@ -223,6 +223,11 @@ type ApplicationConfig struct {
 	// LocalAI exposes at /api/middleware/proxy-ca.crt.
 	MITMListen string
 
+	// TLSFingerprint is the SHA-256 of the certificate the API server presents,
+	// in lower case hex, or empty when it serves plain HTTP. The pairing of a
+	// client offers it so that the client can pin the certificate.
+	TLSFingerprint string
+
 	// PIIDefaultDetectors lists token-classification (NER) detector model
 	// names applied to any PII-enabled model that does not name its own
 	// pii.detectors. This makes cloud-proxy / MITM redaction work out of the
@@ -421,6 +426,13 @@ type ApplicationConfig struct {
 	ChatsWebSearchProviders string
 	ChatsWebAllowPrivate    bool
 	ChatsWebPorts           string
+
+	// ClientJobsAllowAllTools lifts the read-only rule of the jobs that an add-on
+	// starts for a paired client: they may then use the write and act tools that
+	// the agent of the task is set up with, as an ordinary job of the task may,
+	// and no grant the agent does not hold. Off by default: such a job reads
+	// and reports only. It is read when a job runs.
+	ClientJobsAllowAllTools bool
 
 	// The network of the commands that chats run in the Sandbox, through the
 	// host proxy. Each is runtime-toggleable via /api/settings and read at
@@ -1205,6 +1217,14 @@ func WithDataPath(dataPath string) AppOption {
 func WithDisableStats(disable bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableStats = disable
+	}
+}
+
+// WithTLSFingerprint records the fingerprint of the certificate of the API
+// server. CLI: --tls-cert, --tls-key and --tls-self-signed.
+func WithTLSFingerprint(fingerprint string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TLSFingerprint = fingerprint
 	}
 }
 

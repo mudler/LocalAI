@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/tlsconf"
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
@@ -68,7 +69,13 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster, opts ..
 		if err != nil {
 			port = strings.TrimPrefix(appConfig.APIAddress, ":")
 		}
-		apiURL = "http://127.0.0.1:" + port
+		scheme := "http"
+		if appConfig.TLSFingerprint != "" {
+			// The server speaks TLS only: a plain request gets a 400. The
+			// service trusts the one certificate the server presents.
+			scheme = "https"
+		}
+		apiURL = scheme + "://127.0.0.1:" + port
 	}
 	apiKey := cfg.APIKey
 	if apiKey == "" && len(appConfig.ApiKeys) > 0 {
@@ -81,6 +88,9 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster, opts ..
 	}
 	if cfg.APIKey != "" {
 		s.httpClient = nil
+		if cfg.APIURL == "" && appConfig.TLSFingerprint != "" {
+			s.httpClient = &http.Client{Transport: &http.Transport{TLSClientConfig: tlsconf.PinnedClientConfig(appConfig.TLSFingerprint)}}
+		}
 	}
 	dbPath := cfg.CollectionDBPath
 	if dbPath == "" {

@@ -7,7 +7,8 @@ name: 'Add-on Tests'
 # each suite against its exact case inventory and fails on a skipped, flaky or
 # missing case.
 #
-# The Go tests under addons/ and the tests/addons/actione2e suite run in the
+# The Go tests under addons/ and the tests/addons/actione2e and
+# tests/addons/clientflow suites run in the
 # main test workflow (make test, make test-coverage-check). The packaging suite
 # runs in addons-package.yml. The UI unit tests of every add-on run in
 # tests-ui-unit.yml.

@@ -289,6 +289,12 @@ func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, g
 			return
 		}
 		actor := env.Authority.Actor
+		// A call that a paired client made reaches the client operations and
+		// nothing else, whatever the add-on holds: the client is not the owner.
+		if strings.HasPrefix(actor.CredentialID, contract.ClientCredentialPrefix) && !strings.HasPrefix(req.Op, ClientOpPrefix) {
+			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
+			return
+		}
 		if b.has == nil || (actor.Mode != "local-owner" && !b.has(actor.UserID, spec.Feature)) {
 			refuse(w, http.StatusForbidden, contract.HostFeature, "feature not granted")
 			return

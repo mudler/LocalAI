@@ -306,10 +306,70 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 			defer func() { _ = body.Close() }()
 			w.Header().Set("Content-Type", "application/octet-stream")
 			_, _ = io.Copy(w, io.LimitReader(body, startup.Limits.ArtifactBytes+1))
+		case "/client":
+			// Only a runtime that declared client routes has the route. The
+			// call carries the identity of a paired client and never its
+			// credential; the host has already checked both.
+			cr, ok := rt.(contract.ClientRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.ClientRequest
+			if read(&v) {
+				out, err := cr.ClientCall(ctx, v)
+				reply(out, err)
+			}
+		case "/client/stream":
+			cr, ok := rt.(contract.ClientRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.ClientRequest
+			if !read(&v) {
+				return
+			}
+			body, err := cr.ClientStream(ctx, v)
+			if err != nil {
+				reply(nil, err)
+				return
+			}
+			serveStream(ctx, w, body)
 		default:
 			http.NotFound(w, r)
 		}
 	})
+}
+
+// serveStream copies a server-sent event stream to the host and flushes after
+// every read, so an event is not held in a buffer. The read deadline of the
+// server (two seconds) is cleared as a precaution: a stream lives longer, and a
+// deadline that runs out must not fail a read of the connection under it. The
+// stream ends when the add-on closes its body or the host drops the connection.
+func serveStream(ctx context.Context, w http.ResponseWriter, body io.ReadCloser) {
+	defer func() { _ = body.Close() }()
+	rc := http.NewResponseController(w)
+	_ = rc.SetReadDeadline(time.Time{})
+	stop := context.AfterFunc(ctx, func() { _ = body.Close() })
+	defer stop()
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = rc.Flush()
+	buf := make([]byte, 4<<10)
+	for {
+		n, err := body.Read(buf)
+		if n > 0 {
+			if _, werr := w.Write(buf[:n]); werr != nil {
+				return
+			}
+			_ = rc.Flush()
+		}
+		if err != nil {
+			return
+		}
+	}
 }
 
 // Serve runs the protocol on an already bound listener until ctx ends.

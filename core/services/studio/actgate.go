@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"slices"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
@@ -48,6 +50,17 @@ func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builti
 	ceiling := actNames(s.chatGrants(ctx, rec))
 	switch rec.Origin {
 	case session.OriginJob:
+		if isClient, ok := s.clientJob(ctx, rec); ok {
+			// A job that an add-on started for a paired client is read only
+			// unless the owner allows write and act tools for client jobs. With
+			// the setting on it holds what an ordinary job of the same task
+			// holds: the act grants of the task's agent, and no grant the agent
+			// does not hold (a task without an agent holds none). It fails
+			// closed: a job record that cannot be read leaves the job read only.
+			if !(isClient && s.jobs != nil && s.jobs.clientAllowAll()) {
+				return builtins.ActPolicy{ReadOnly: true}, true
+			}
+		}
 		return builtins.ActPolicy{Held: ceiling}, true
 	}
 	if s.triggers == nil {
@@ -58,6 +71,25 @@ func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builti
 		return builtins.ActPolicy{ReadOnly: true}, true
 	}
 	return s.triggerPolicy(ctx, t, ceiling, rec.AgentID != ""), true
+}
+
+// clientJob finds out whether the job chat belongs to a job that was started
+// for a paired client. ok is true when it does, and also when the job record
+// cannot be read: the caller then applies the narrower client policy, so a
+// doubt never widens a run. isClient is true only when the record was read and names
+// a client. A chat whose job record does not exist is an ordinary job.
+func (s *Service) clientJob(ctx context.Context, rec session.ChatRecord) (isClient, ok bool) {
+	if s.jobs == nil {
+		return false, false
+	}
+	j, err := s.jobs.o.Store.GetJob(ctx, rec.Principal, rec.ID)
+	if err != nil {
+		if errors.Is(err, jobs.ErrNotFound) {
+			return false, false
+		}
+		return false, true
+	}
+	return j.ClientID != "", j.ClientID != ""
 }
 
 // triggerPolicy is the rights of the runs of trigger t: its acts within the

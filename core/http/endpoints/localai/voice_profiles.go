@@ -43,6 +43,11 @@ type CreateVoiceProfileReferenceRequest struct {
 // voice profiles. Without accounts (no user in the context) the caller is the
 // administrator, so every profile stays instance-wide as it always was.
 func VoiceViewer(c echo.Context) voiceprofile.Viewer {
+	// A paired client acts under the account of its owner, but it must not see
+	// or use the recordings of the owner.
+	if auth.ClientKey(c) != nil {
+		return voiceprofile.NoProfiles()
+	}
 	u := auth.GetUser(c)
 	if u == nil {
 		return voiceprofile.AdminViewer()

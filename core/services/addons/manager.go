@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -1335,6 +1336,49 @@ func (m *Manager) Connector(ctx context.Context, addonID string, req contract.Co
 		return contract.ConnectorResponse{}, addonruntime.ErrRuntime
 	}
 	return cr.Connector(ctx, req)
+}
+
+// clientRuntime returns the running add-on as one that serves client routes.
+// An add-on that is not running, or declared none, is not one.
+func (m *Manager) clientRuntime(ctx context.Context, addonID string) (contract.ClientCaller, contract.ClientRouteSource, error) {
+	instance, e := m.Runtime(ctx, addonID)
+	if e != nil {
+		return nil, nil, e
+	}
+	cc, ok := instance.Client.(contract.ClientCaller)
+	src, ok2 := instance.Client.(contract.ClientRouteSource)
+	if !ok || !ok2 {
+		return nil, nil, addonruntime.ErrRuntime
+	}
+	return cc, src, nil
+}
+
+// ClientRoutes lists the client routes of a running add-on.
+func (m *Manager) ClientRoutes(ctx context.Context, addonID string) ([]contract.ClientRoute, error) {
+	_, src, e := m.clientRuntime(ctx, addonID)
+	if e != nil {
+		return nil, e
+	}
+	return src.ClientRoutes(), nil
+}
+
+// Client calls a client route of a running add-on that does not stream, on
+// behalf of the actor of a client (see contract.ClientCaller).
+func (m *Manager) ClientCall(ctx context.Context, addonID string, actor contract.Actor, req contract.ClientRequest) (contract.ClientResponse, error) {
+	cc, _, e := m.clientRuntime(ctx, addonID)
+	if e != nil {
+		return contract.ClientResponse{}, e
+	}
+	return cc.ClientCallAs(ctx, actor, req)
+}
+
+// ClientStream opens a client route of a running add-on that streams.
+func (m *Manager) ClientStream(ctx context.Context, addonID string, actor contract.Actor, req contract.ClientRequest) (io.ReadCloser, error) {
+	cc, _, e := m.clientRuntime(ctx, addonID)
+	if e != nil {
+		return nil, e
+	}
+	return cc.ClientStreamAs(ctx, actor, req)
 }
 
 // OperationStatus only observes lifecycle intent. It never resumes a command or
