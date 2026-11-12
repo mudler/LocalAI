@@ -353,8 +353,18 @@ func (c *Chat) isRunning() bool {
 // harness cannot read, or a missing state in a chat that has a transcript,
 // starts a fresh session with the transcript in the system prompt.
 func (c *Chat) startHarness(ctx context.Context) error {
-	if err := c.primeChatTools(ctx); err != nil {
-		return err
+	return c.startHarnessWith(ctx, true)
+}
+
+// startHarnessWith is startHarness. With prime false the harness starts with
+// the host tools the chat already holds, and the ChatTools hook is not asked:
+// the turn asks it anyway (applyChatTools) and restarts the harness only when
+// the tools changed.
+func (c *Chat) startHarnessWith(ctx context.Context, prime bool) error {
+	if prime {
+		if err := c.primeChatTools(ctx); err != nil {
+			return err
+		}
 	}
 	c.mu.Lock()
 	rec := c.rec
@@ -457,7 +467,14 @@ func (c *Chat) reopen(ctx context.Context) error {
 		c.rec, c.released, c.turn = rec, false, rec.Turns
 		c.mu.Unlock()
 	}
-	if err := c.startHarness(ctx); err != nil {
+	// A chat that ran a turn holds the host tools of that turn. Its next turn
+	// asks the hook again before the model runs, so the open does not wait on
+	// the hook a second time: the hook lists the tools of every MCP server and
+	// add-on, and the request that opens the chat would wait for all of them.
+	c.hostMu.Lock()
+	primed := c.host.fp != ""
+	c.hostMu.Unlock()
+	if err := c.startHarnessWith(ctx, !primed); err != nil {
 		return err
 	}
 	c.evMu.Lock()
