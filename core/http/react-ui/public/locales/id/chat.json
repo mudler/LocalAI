@@ -420,8 +420,8 @@
   },
   "files": {
     "title": "File di obrolan ini",
-    "chip": "File",
-    "chipTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
+    "button": "File",
+    "buttonTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
     "close": "Tutup file",
     "emptyTitle": "Belum ada file di obrolan ini",
     "emptyBody": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya. File yang dibuat atau diubah asisten juga muncul di sini.",

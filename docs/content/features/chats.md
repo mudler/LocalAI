@@ -989,7 +989,10 @@ curl .../api/chats/3f1c.../files
 
 In the chat:
 
-- **The Files pane** lists what the chat made for you first. The working
+- **The Files pane** opens from the **Files** button in the chat header, next
+  to **Dock**, which shows how many files the chat holds. It shares the right
+  side with the dock, so opening one hides the other. It lists what the chat
+  made for you first. The working
   files are in a group of their own under it, **Working files · N**, folded
   and quieter; open it to see and preview them. The files you attached are
   listed as before. **Download all files as ZIP**, at the top of the pane,

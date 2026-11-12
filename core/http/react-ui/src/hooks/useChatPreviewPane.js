@@ -26,7 +26,10 @@ function phoneNow() {
 //   messages         the transcript
 //   ready            the chat's transcript is read: the watermark is taken then
 //   running          a turn runs now (its own messages count as new)
-export function useChatPreviewPane({ chatId, userId, files, loaded, messages, ready, running }) {
+//   blocked          another panel holds the right side (the dock is open):
+//                    nothing opens by itself, and what a turn produced then
+//                    counts as seen
+export function useChatPreviewPane({ chatId, userId, files, loaded, messages, ready, running, blocked = false }) {
   const key = closedKey(userId)
   const [open, setOpen] = useState(false)
   const [focus, setFocus] = useState(null)
@@ -64,11 +67,11 @@ export function useChatPreviewPane({ chatId, userId, files, loaded, messages, re
     const k = targetKey(target)
     if (!k || seen.current.has(k)) return
     seen.current.add(k)
-    if (phoneNow() || isClosed(browserStorage(), key, chatId)) return
+    if (phoneNow() || blocked || isClosed(browserStorage(), key, chatId)) return
     setOpen(true)
     ask(target, 'auto')
     setAnnouncement(target.name)
-  }, [chatId, since, files, messages, key, ask])
+  }, [chatId, since, files, messages, key, ask, blocked])
 
   // Opening by hand forgets that the pane was closed in this chat.
   const reopen = useCallback(() => {
@@ -90,9 +93,12 @@ export function useChatPreviewPane({ chatId, userId, files, loaded, messages, re
     setAnnouncement('')
     setClosed(browserStorage(), key, chatId, true)
   }, [key, chatId])
+  // Gives the side to another panel: it closes without the "closed by the
+  // person" mark, so the pane may open by itself again later.
+  const hide = useCallback(() => { setOpen(false); setAnnouncement('') }, [])
   const toggle = useCallback(() => { if (open) close(); else reopen() }, [open, close, reopen])
   // A deleted chat leaves nothing behind.
   const forget = useCallback((id) => setClosed(browserStorage(), key, id, false), [key])
 
-  return { open, focus, blocks, announcement, openFile, openBlock, close, toggle, forget }
+  return { open, focus, blocks, announcement, openFile, openBlock, close, hide, toggle, forget }
 }

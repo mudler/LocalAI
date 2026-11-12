@@ -304,6 +304,23 @@
 .pd-toggle[aria-pressed="true"] { border-color: var(--dk-accent); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
 .pd-toggle:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
 .pd-toggle__icon { width: 16px; height: 16px; }
+.pd-toggle__count {
+  min-width: 18px;
+  padding: 0 var(--dk-space-1);
+  border-radius: var(--dk-radius-pill);
+  background: var(--dk-hover);
+  color: var(--dk-muted);
+  font-size: var(--dk-text-12);
+  font-weight: var(--dk-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: center;
+  transition: opacity var(--dk-dur-1) var(--dk-ease-out), transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.pd-toggle[aria-pressed="true"] .pd-toggle__count { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+@starting-style {
+  .pd-toggle__count { opacity: 0; transform: translateY(4px); }
+}
 .pd-toggle__kbd {
   padding: 1px var(--dk-space-1);
   border: 1px solid var(--dk-edge);
@@ -317,6 +334,14 @@
 /* With the dock open the header is narrower: the button keeps its name and
    the shortcut stays in its tooltip. */
 .cx-page:has(> .pd-dock:not(.pd-dock--sheet)) :is(.pd-toggle__kbd, .cx-hist__kbd) { display: none; }
+
+/* In a window under 1280 px the dock leaves the thread about 450 px: the two
+   buttons of the header drop their names, as on a phone, so the chat keeps
+   its own. */
+@media (min-width: 640px) and (max-width: 1279px) {
+  .cx-page:has(> .pd-dock:not(.pd-dock--sheet)) .pd-toggle { position: relative; padding: 0 var(--dk-space-2); }
+  .cx-page:has(> .pd-dock:not(.pd-dock--sheet)) .pd-toggle__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 
 /* ── Phone: a bottom sheet ── */
 
@@ -353,5 +378,9 @@
 .pd-handle:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: -2px; }
 @media (max-width: 639px) {
   .pd-toggle__kbd { display: none; }
+  /* The header of a phone keeps the chat's name: Files and Dock show their
+     icon and, for Files, the count. The name stays for screen readers. */
+  .pd-toggle { position: relative; padding: 0 var(--dk-space-2); }
+  .pd-toggle__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .pd-tab { max-width: 140px; }
 }

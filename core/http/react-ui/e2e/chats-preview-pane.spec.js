@@ -165,7 +165,7 @@ test('a spreadsheet the assistant creates opens in the pane, without taking the 
   await expect(table.getByRole('columnheader', { name: 'Approved' })).toBeVisible()
 })
 
-test('a closed pane stays closed in that chat, and the chip opens it again on the file', async ({ page }) => {
+test('a closed pane stays closed in that chat, and the Files button opens it again on the file', async ({ page }) => {
   const state = newState({ chats: [CHAT], messages: firstTurn(), chatFiles: [] })
   const endTurn = await open(page, state)
   state.messages = [...state.messages, ...budgetTurn()]
@@ -202,7 +202,7 @@ test('a closed pane stays closed in that chat, and the chip opens it again on th
   await expect(pane(page)).toHaveCount(0)
 })
 
-test('on a phone the pane never opens by itself; the chip opens the bottom sheet', async ({ page }) => {
+test('on a phone the pane never opens by itself; the Files button opens the bottom sheet', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const state = newState({ chats: [CHAT], messages: firstTurn(), chatFiles: [] })
   const endTurn = await open(page, state)
@@ -235,7 +235,7 @@ test('an old chat opens nothing, and every type of file has its view', async ({ 
   await page.waitForTimeout(300)
   await expect(pane(page)).toHaveCount(0)
 
-  await page.getByTestId('chat-files-chip').click()
+  await page.getByTestId('chat-files-toggle').click()
   await expect(pane(page).getByTestId('chat-files-uploaded')).toContainText('You gave it')
   const pick = async (name) => {
     await pane(page).getByRole('button', { name, exact: true }).click()

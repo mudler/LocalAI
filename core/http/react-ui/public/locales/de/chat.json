@@ -338,8 +338,8 @@
   },
   "files": {
     "title": "Dateien in diesem Chat",
-    "chip": "Dateien",
-    "chipTitle": "Dateien in diesem Chat: was du angehängt hast und was der Assistent erstellt oder geändert hat",
+    "button": "Dateien",
+    "buttonTitle": "Dateien in diesem Chat: was du angehängt hast und was der Assistent erstellt oder geändert hat",
     "close": "Dateien schließen",
     "emptyTitle": "Noch keine Dateien in diesem Chat",
     "emptyBody": "Zieh Dateien hierher, um sie an deine nächste Nachricht anzuhängen. Dateien, die der Assistent erstellt oder ändert, erscheinen auch hier.",

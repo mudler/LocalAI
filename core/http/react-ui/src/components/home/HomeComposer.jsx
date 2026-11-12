@@ -37,7 +37,7 @@ function Marked({ text, upto }) {
 // Home uses it as is. Chat uses the same bar and adds what a conversation
 // needs, all optional:
 //   lead         a chip drawn before the model picker (Home's Setup chip)
-//   chips        more chips after the MCP chip (the agent picker and the files chip)
+//   chips        more chips after the MCP chip (the agent picker)
 //   slash        { actions, groups, label, desc, groupLabel, ctx, argsLabel,
 //                argLabel, badgeLabel, noteLabel } for a menu of registry
 //                commands (utils/slashCommands.js); ctx goes to the argument

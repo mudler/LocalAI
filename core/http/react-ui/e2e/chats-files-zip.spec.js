@@ -33,7 +33,7 @@ async function openPane(page, files, content) {
   await page.goto('/app/chats/c1')
   await expect(page.getByText('Here are your files.')).toBeVisible({ timeout: 15_000 })
   const pane = page.getByTestId('chat-files-pane')
-  if (!(await pane.isVisible())) await page.getByTestId('chat-files-chip').click()
+  if (!(await pane.isVisible())) await page.getByTestId('chat-files-toggle').click()
   await expect(pane).toBeVisible()
   return pane
 }

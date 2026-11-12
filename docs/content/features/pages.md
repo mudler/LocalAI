@@ -498,7 +498,9 @@ one. A page gets into the dock in four ways:
 
 - **Dock** in the chat header, or Ctrl+\ (Cmd+\ on a Mac), shows and hides
   the dock. An empty dock, and the **+** of the tabs, list your pages and the
-  shared pages to open.
+  shared pages to open. The **+** always opens that list for a new tab and
+  puts the focus on its first page; a page of the list opens as a tab and
+  closes the list, and Escape or the tab in front goes back to the page.
 - **Open in dock** on the Pages list starts a new chat with the page beside it.
 - A page button in a slot, and **Open** of a compact tile's card, open the page
   in the dock of the open chat.
@@ -513,6 +515,12 @@ assistant**, **Page by you** or the shared folder) and that it **Runs as you**.
 message box; nothing is sent until you send it. The bar has **Reload**, a link
 to the full page and a button that hides the dock. The footer says **Live:
 updates as files change** and **Sandboxed, no network**.
+
+The dock and the Files pane of the chat share the right side, one at a time.
+**Files** and **Dock** are two buttons next to each other in the chat header:
+opening one hides the other, and a file the assistant writes never takes the
+side from an open dock (the count on **Files** still grows). In a window under
+1280 px, while the dock is open, both buttons show only their icon.
 
 Each chat keeps its own dock: the open pages, the page in front, whether the
 dock shows and its width are stored with the chat on the server, so a reload,

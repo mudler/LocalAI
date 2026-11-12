@@ -53,7 +53,9 @@ import ChatHeader from '../components/chat/ChatHeader'
 import WorkspaceSlot from '../components/slots/WorkspaceSlot'
 import PageDock from '../components/dock/PageDock'
 import DockButton from '../components/dock/DockButton'
+import FilesButton from '../components/chat/FilesButton'
 import { usePageDock } from '../hooks/useChatDock'
+import { setDockOpen } from '../utils/dock'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
@@ -350,7 +352,20 @@ function ChatPage() {
   const pane = useChatPreviewPane({
     chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
+    blocked: pageDock.dock.open,
   })
+  // The dock and the files pane share the right side, one at a time: the one
+  // the person opens last takes it, and the other hides without being closed
+  // for good. A result that arrives never takes the side from an open dock.
+  const dockIsOpen = pageDock.dock.open
+  const hidePane = pane.hide
+  // Only a change of the pane or of the dock acts, never a change of chat.
+  const dockUpdateRef = useRef(pageDock.update)
+  dockUpdateRef.current = pageDock.update
+  useEffect(() => { if (dockIsOpen) hidePane() }, [dockIsOpen, hidePane])
+  useEffect(() => {
+    if (pane.open) dockUpdateRef.current((d) => (d.open ? setDockOpen(d, false) : d))
+  }, [pane.open])
   const withArrival = arrival.messages
   const messages = useMemo(() => withArrival(chat.messages, activeId), [withArrival, chat.messages, activeId])
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
@@ -1065,22 +1080,6 @@ function ChatPage() {
   const composerChips = (
     <>
       {activeChat?.kind !== 'subagent' && <ReasoningChips effort={effortNow} onEffort={setEffort} openRef={effortRef} />}
-      {activeId && chat.files.on && (
-        <button
-          type="button"
-          className="home-chip cx-chip-toggle"
-          aria-pressed={pane.open}
-          aria-controls={pane.open ? 'chat-files-pane' : undefined}
-          onClick={pane.toggle}
-          title={t('files.chipTitle')}
-          data-testid="chat-files-chip"
-        >
-          <Icon name="paperclip" />
-          <span className="home-chip__text">{t('files.chip')}</span>
-          {/* Keyed by the number, so a new count rises into place. */}
-          {chatFiles.files.length > 0 && <span key={chatFiles.files.length} className="cx-files__count" data-testid="chat-files-count">{chatFiles.files.length}</span>}
-        </button>
-      )}
     </>
   )
 
@@ -1292,6 +1291,7 @@ function ChatPage() {
           moreItems={moreItems}
           extra={(
             <>
+              {activeId && chat.files.on && <FilesButton open={pane.open} count={chatFiles.files.length} onToggle={pane.toggle} />}
               {dockOn && <DockButton open={pageDock.dock.open} onToggle={pageDock.toggle} />}
               <WorkspaceSlot name="chatHeader" onTool={handleSend} onCommand={fillComposer} />
             </>

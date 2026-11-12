@@ -19,7 +19,7 @@ export default function DockButton({ open, onToggle }) {
       data-testid="dock-toggle"
     >
       <Icon name="columns" className="pd-toggle__icon" />
-      <span>{t('dock.button')}</span>
+      <span className="pd-toggle__label">{t('dock.button')}</span>
       <kbd className="pd-toggle__kbd">{isMac() ? '⌘\\' : 'Ctrl \\'}</kbd>
     </button>
   )

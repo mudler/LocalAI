@@ -338,8 +338,8 @@
   },
   "files": {
     "title": "File di questa chat",
-    "chip": "File",
-    "chipTitle": "File di questa chat: quelli che hai allegato e quelli che l'assistente ha creato o modificato",
+    "button": "File",
+    "buttonTitle": "File di questa chat: quelli che hai allegato e quelli che l'assistente ha creato o modificato",
     "close": "Chiudi i file",
     "emptyTitle": "Ancora nessun file in questa chat",
     "emptyBody": "Trascina qui i file per allegarli al prossimo messaggio. Anche i file che l'assistente crea o modifica compaiono qui.",

@@ -341,8 +341,8 @@
   },
   "files": {
     "title": "Arquivos deste chat",
-    "chip": "Arquivos",
-    "chipTitle": "Arquivos deste chat: o que você anexou e o que o assistente criou ou alterou",
+    "button": "Arquivos",
+    "buttonTitle": "Arquivos deste chat: o que você anexou e o que o assistente criou ou alterou",
     "close": "Fechar arquivos",
     "emptyTitle": "Ainda não há arquivos neste chat",
     "emptyBody": "Solte arquivos aqui para anexá-los à sua próxima mensagem. Arquivos que o assistente criar ou alterar também aparecem aqui.",
