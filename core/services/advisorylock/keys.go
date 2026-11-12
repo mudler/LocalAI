@@ -46,4 +46,7 @@ const (
 	// Responses runs whose owner stopped renewing their lease and deletes the
 	// expired ones.
 	KeyOpenResponsesSweep int64 = 117
+	// KeyCarrierSwitch elects the one frontend that makes the next move of a
+	// change of carrier.
+	KeyCarrierSwitch int64 = 118
 )

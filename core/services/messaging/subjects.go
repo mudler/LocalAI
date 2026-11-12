@@ -12,6 +12,19 @@ func sanitizeSubjectToken(s string) string {
 // NATS subject constants for the distributed architecture.
 // Following the notetaker pattern: <entity>.<action>
 
+// SubjectCarrierChanged is the hint that the cluster carrier row moved. The
+// leader and the admin publish it after each move, on the carrier in use, and
+// every replica listens on it. It carries the new row and is only a courtesy: a
+// replica that never hears it reads the row at its next poll, and what the row
+// says is what counts.
+const SubjectCarrierChanged = "state.carrier"
+
+// SubjectCarrierProbe asks every replica to look again at which carriers it could
+// build, and to write what it finds to the instances table. A dry run of a change
+// of carrier sends it before it reads the answers. Like the other hint it is at
+// most once, and a replica that does not hear it is reported as stale.
+const SubjectCarrierProbe = "state.carrier.probe"
+
 // Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
 const (
 	subjectFineTunePrefix = "finetune."

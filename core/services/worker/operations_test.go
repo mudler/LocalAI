@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	process "github.com/mudler/go-processmanager"
@@ -327,8 +326,6 @@ var _ = Describe("model.unload", func() {
 })
 
 func grandAlive(pid int) bool { return pidAlive(strconv.Itoa(pid)) }
-
-func syscallKill(pid int) error { return syscall.Kill(pid, syscall.SIGKILL) }
 
 func startRegisteredBackend(register func(*gogrpc.Server)) (string, int, func()) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

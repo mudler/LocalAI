@@ -91,7 +91,7 @@ test.describe('Add a node', () => {
     await page.goto('/app/nodes/add')
     await expect(page.getByRole('heading', { name: 'Turn on distributed mode first' })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('command-block').first()).toContainText('local-ai run --distributed')
-    await expect(page.getByTestId('command-block').first()).toContainText('--distributed-nats')
+    await expect(page.getByTestId('command-block').first()).not.toContainText('--distributed-nats')
     await expect(page.getByRole('link', { name: 'distributed mode documentation' })).toHaveAttribute('href', 'https://localai.io/features/distributed-mode/')
     await expect(page.getByRole('heading', { name: 'Run this on the new machine' })).toBeVisible()
   })

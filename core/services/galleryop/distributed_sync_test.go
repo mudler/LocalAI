@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,26 +36,6 @@ type fakeBusSub struct {
 
 func newFakeBus() *fakeBus { return &fakeBus{} }
 
-func subjectMatches(filter, subject string) bool {
-	if filter == subject {
-		return true
-	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func (b *fakeBus) Publish(subject string, data any) error {
 	payload, err := json.Marshal(data)
 	if err != nil {
@@ -66,7 +45,7 @@ func (b *fakeBus) Publish(subject string, data any) error {
 	subs := append([]fakeBusSub(nil), b.subs...)
 	b.mu.Unlock()
 	for _, s := range subs {
-		if subjectMatches(s.subject, subject) {
+		if messaging.SubjectMatches(s.subject, subject) {
 			s.handler(payload)
 		}
 	}

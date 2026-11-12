@@ -111,7 +111,7 @@ Useful for hooking LocalAI admin into Claude Desktop, Cursor, or any MCP host. T
 
 ## Tool catalog
 
-**Read-only**: `gallery_search`, `list_installed_models`, `list_galleries`, `get_job_status`, `get_model_config`, `list_backends`, `list_known_backends`, `list_backend_library_updates`, `backend_updates`, `system_info`, `list_nodes`, `list_scheduling`, `get_scheduling`, `vram_estimate`, `get_branding`, `get_usage_stats`, `get_pii_events`, `get_middleware_status`, `get_router_decisions`, `get_router_corpus_stats`, `list_shared_folders`, `list_shared_folder_events`, `list_chat_tools`, `list_host_exec_events`, `get_chat_egress`, `list_egress_events`, `list_aliases`, `list_failover_chains`.
+**Read-only**: `gallery_search`, `list_installed_models`, `list_galleries`, `get_job_status`, `get_model_config`, `list_backends`, `list_known_backends`, `list_backend_library_updates`, `backend_updates`, `system_info`, `list_nodes`, `list_scheduling`, `get_scheduling`, `vram_estimate`, `get_branding`, `get_usage_stats`, `get_pii_events`, `get_middleware_status`, `get_router_decisions`, `get_router_corpus_stats`, `list_shared_folders`, `list_shared_folder_events`, `list_chat_tools`, `list_host_exec_events`, `get_chat_egress`, `list_egress_events`, `list_aliases`, `list_failover_chains`, `get_cluster_carrier`.
 
 For a remote instance, `list_installed_models` returns model names, backends, capabilities, and disabled and pinned states. Set its optional `capability` argument, such as `tts`, to filter the results. The `system_info` tool returns the instance version, installed backends, and loaded models.
 

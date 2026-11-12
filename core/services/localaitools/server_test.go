@@ -100,6 +100,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolSystemInfo,
 	ToolVRAMEstimate,
 	ToolListFailoverChains,
+	ToolGetClusterCarrier,
 	// The read-only flavour keeps the client tools that only analyse or list.
 	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
 	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels,
@@ -187,6 +188,7 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolSetSharedFolderMember, SetSharedFolderMemberRequest{ID: 3, Member: "@everyone", Mode: "read"}, "SetSharedFolderMember"},
 		{ToolRemoveSharedFolderMember, RemoveSharedFolderMemberRequest{ID: 3, Member: "@everyone"}, "RemoveSharedFolderMember"},
 		{ToolListFailoverChains, map[string]any{}, "ListFailoverChains"},
+		{ToolGetClusterCarrier, map[string]any{}, "GetClusterCarrier"},
 		{ToolPinFailoverTarget, map[string]any{"chain": "c", "target": "b"}, "PinFailoverTarget"},
 		{ToolUnpinFailoverTarget, map[string]any{"chain": "c"}, "UnpinFailoverTarget"},
 		{ToolGenerateImage, GenerateImageRequest{Prompt: "a fox"}, "GenerateImage"},

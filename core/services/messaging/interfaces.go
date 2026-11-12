@@ -22,14 +22,22 @@ type Broadcaster interface {
 	Subscribe(subject string, handler func([]byte)) (Subscription, error)
 }
 
+// RequestReply is request and reply between processes: the chat start, the
+// replay of chat events and the background jobs of a turn. A carrier that has
+// no request and reply between processes answers a Request with an error that
+// IsNoResponders reports, which the callers read as "nobody listens".
+type RequestReply interface {
+	QueueSubscribeReply(subject, queue string, handler func(data []byte, reply func([]byte))) (Subscription, error)
+	SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (Subscription, error)
+	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
+}
+
 // MessagingClient is the full NATS surface: fan-out plus queue groups and
 // request/reply. Only the code that owns a queue or a control request needs it.
 type MessagingClient interface {
 	Broadcaster
+	RequestReply
 	QueueSubscribe(subject, queue string, handler func([]byte)) (Subscription, error)
-	QueueSubscribeReply(subject, queue string, handler func(data []byte, reply func([]byte))) (Subscription, error)
-	SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (Subscription, error)
-	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
 	IsConnected() bool
 	Close()
 }
