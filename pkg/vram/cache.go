@@ -183,7 +183,6 @@ func persistentRemoteURI(uri string) bool {
 
 type sizeCacheEntry struct {
 	size       int64
-	err        error
 	generation uint64
 }
 
@@ -221,7 +220,7 @@ func (c *cachedSizeResolver) ContentLength(ctx context.Context, uri string) (int
 	e, ok := c.cache[uri]
 	c.mu.Unlock()
 	if ok && e.generation == gen {
-		return e.size, e.err
+		return e.size, nil
 	}
 	if persistentRemoteURI(uri) && c.canReadPersistent(gen) {
 		if size, ok := c.readPersistent(uri); ok {
@@ -232,10 +231,13 @@ func (c *cachedSizeResolver) ContentLength(ctx context.Context, uri string) (int
 		}
 	}
 	size, err := c.underlying.ContentLength(ctx, uri)
+	if err != nil {
+		return size, err
+	}
 	c.mu.Lock()
-	c.cache[uri] = sizeCacheEntry{size: size, err: err, generation: gen}
+	c.cache[uri] = sizeCacheEntry{size: size, generation: gen}
 	c.mu.Unlock()
-	if err == nil && persistentRemoteURI(uri) {
+	if persistentRemoteURI(uri) {
 		c.writePersistent(uri, size, gen)
 	}
 	return size, err
@@ -281,7 +283,6 @@ func (c *cachedSizeResolver) writePersistent(uri string, size int64, generation 
 
 type ggufCacheEntry struct {
 	meta       *GGUFMeta
-	err        error
 	generation uint64
 }
 
@@ -319,7 +320,7 @@ func (c *cachedGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFM
 	e, ok := c.cache[uri]
 	c.mu.Unlock()
 	if ok && e.generation == gen {
-		return e.meta, e.err
+		return e.meta, nil
 	}
 	if persistentRemoteURI(uri) && c.canReadPersistent(gen) {
 		if meta, ok := c.readPersistent(uri); ok {
@@ -330,10 +331,13 @@ func (c *cachedGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFM
 		}
 	}
 	meta, err := c.underlying.ReadMetadata(ctx, uri)
+	if err != nil {
+		return meta, err
+	}
 	c.mu.Lock()
-	c.cache[uri] = ggufCacheEntry{meta: meta, err: err, generation: gen}
+	c.cache[uri] = ggufCacheEntry{meta: meta, generation: gen}
 	c.mu.Unlock()
-	if err == nil && meta != nil && persistentRemoteURI(uri) {
+	if meta != nil && persistentRemoteURI(uri) {
 		c.writePersistent(uri, meta, gen)
 	}
 	return meta, err
