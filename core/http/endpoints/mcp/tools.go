@@ -90,6 +90,7 @@ type namedSessionCache struct {
 	mu           sync.Mutex
 	cache        map[string][]NamedSession
 	cancels      map[string]context.CancelFunc
+	ctxs         map[string]context.Context
 	configHashes map[string][sha256.Size]byte
 }
 
@@ -102,6 +103,7 @@ var (
 	namedCache = namedSessionCache{
 		cache:        make(map[string][]NamedSession),
 		cancels:      make(map[string]context.CancelFunc),
+		ctxs:         make(map[string]context.Context),
 		configHashes: make(map[string][sha256.Size]byte),
 	}
 
@@ -295,7 +297,51 @@ func closeNamedSessionsLocked(name string, sessions []NamedSession) {
 	}
 	delete(namedCache.cache, name)
 	delete(namedCache.cancels, name)
+	delete(namedCache.ctxs, name)
 	delete(namedCache.configHashes, name)
+}
+
+// connectNamedSession connects one configured server. A failure is kept as a
+// session with no client and the error, so the server stays visible.
+func connectNamedSession(ctx context.Context, serverName, kind string,
+	remote config.MCPGenericConfig[config.MCPRemoteServers],
+	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
+) NamedSession {
+	if kind == "remote" {
+		server := remote.Servers[serverName]
+		xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
+		authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
+		if err != nil {
+			xlog.Error("Invalid MCP server authentication", "error", err, "name", serverName, "url", server.URL)
+			return NamedSession{Name: serverName, Type: "remote", Error: fmt.Sprintf("authentication setup failed: %v", err)}
+		}
+		httpClient := httpclient.New(
+			httpclient.WithTimeout(config.DefaultMCPToolTimeout),
+			httpclient.WithTransport(authTransport),
+		)
+		mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
+		if err != nil {
+			xlog.Error("Failed to connect to MCP server", "error", err, "name", serverName, "url", server.URL)
+			return NamedSession{Name: serverName, Type: "remote", Error: fmt.Sprintf("connection failed: %v", err)}
+		}
+		xlog.Debug("[MCP remote server] Connected", "name", serverName, "url", server.URL)
+		return NamedSession{Name: serverName, Type: "remote", Session: mcpSession}
+	}
+	server := stdio.Servers[serverName]
+	xlog.Debug("[MCP stdio server] Configuration", "name", serverName, "server", server)
+	command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
+	command.Env = os.Environ()
+	for key, value := range server.Env {
+		command.Env = append(command.Env, key+"="+value)
+	}
+	transport := &mcp.CommandTransport{Command: command}
+	mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
+	if err != nil {
+		xlog.Error("Failed to start MCP server", "error", err, "name", serverName, "command", command)
+		return NamedSession{Name: serverName, Type: "stdio", Error: fmt.Sprintf("startup failed: %v", err)}
+	}
+	xlog.Debug("[MCP stdio server] Connected", "name", serverName, "command", command)
+	return NamedSession{Name: serverName, Type: "stdio", Session: mcpSession}
 }
 
 // NamedSessionsFromMCPConfig returns sessions with their server names preserved.
@@ -322,96 +368,42 @@ func NamedSessionsFromMCPConfig(
 		allSessions = nil
 	}
 
-	// If cached, verify sessions are still alive via Ping.
-	// Dead sessions (e.g. exited stdio containers) are evicted so they get recreated.
+	// If cached, verify sessions are still alive via Ping. Only a server whose
+	// session is dead (e.g. an exited stdio container) or that failed to
+	// connect earlier is connected again: the servers that answer keep their
+	// sessions, so one unreachable server does not restart all the others on
+	// every call.
 	if exists {
 		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer pingCancel()
-		alive := true
-		for _, ns := range allSessions {
-			if ns.Session == nil {
-				alive = false
-				break
+		ctx := namedCache.ctxs[name]
+		for i, ns := range allSessions {
+			if ns.Session != nil {
+				err := ns.Session.Ping(pingCtx, nil)
+				if err == nil {
+					continue
+				}
+				xlog.Warn("MCP session dead, reconnecting", "server", ns.Name, "error", err)
+				if cerr := ns.Session.Close(); cerr != nil {
+					xlog.Debug("Failed to close MCP session", "server", ns.Name, "error", cerr)
+				}
 			}
-			if err := ns.Session.Ping(pingCtx, nil); err != nil {
-				xlog.Warn("MCP session dead, evicting cache", "server", ns.Name, "error", err)
-				alive = false
-				break
-			}
+			allSessions[i] = connectNamedSession(ctx, ns.Name, ns.Type, remote, stdio)
 		}
-		if !alive {
-			closeNamedSessionsLocked(name, allSessions)
-			exists = false
-			allSessions = nil
-		}
+		namedCache.cache[name] = allSessions
 	}
 
 	if !exists {
 		ctx, cancel := context.WithCancel(context.Background())
-
-		for serverName, server := range remote.Servers {
-			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
-			authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
-			if err != nil {
-				xlog.Error("Invalid MCP server authentication", "error", err, "name", serverName, "url", server.URL)
-				allSessions = append(allSessions, NamedSession{
-					Name:  serverName,
-					Type:  "remote",
-					Error: fmt.Sprintf("authentication setup failed: %v", err),
-				})
-				continue
-			}
-			httpClient := httpclient.New(
-				httpclient.WithTimeout(config.DefaultMCPToolTimeout),
-				httpclient.WithTransport(authTransport),
-			)
-
-			mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
-			if err != nil {
-				xlog.Error("Failed to connect to MCP server", "error", err, "name", serverName, "url", server.URL)
-				allSessions = append(allSessions, NamedSession{
-					Name:  serverName,
-					Type:  "remote",
-					Error: fmt.Sprintf("connection failed: %v", err),
-				})
-				continue
-			}
-			xlog.Debug("[MCP remote server] Connected", "name", serverName, "url", server.URL)
-			allSessions = append(allSessions, NamedSession{
-				Name:    serverName,
-				Type:    "remote",
-				Session: mcpSession,
-			})
+		for serverName := range remote.Servers {
+			allSessions = append(allSessions, connectNamedSession(ctx, serverName, "remote", remote, stdio))
 		}
-
-		for serverName, server := range stdio.Servers {
-			xlog.Debug("[MCP stdio server] Configuration", "name", serverName, "server", server)
-			command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
-			command.Env = os.Environ()
-			for key, value := range server.Env {
-				command.Env = append(command.Env, key+"="+value)
-			}
-			transport := &mcp.CommandTransport{Command: command}
-			mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
-			if err != nil {
-				xlog.Error("Failed to start MCP server", "error", err, "name", serverName, "command", command)
-				allSessions = append(allSessions, NamedSession{
-					Name:  serverName,
-					Type:  "stdio",
-					Error: fmt.Sprintf("startup failed: %v", err),
-				})
-				continue
-			}
-			xlog.Debug("[MCP stdio server] Connected", "name", serverName, "command", command)
-			allSessions = append(allSessions, NamedSession{
-				Name:    serverName,
-				Type:    "stdio",
-				Session: mcpSession,
-			})
+		for serverName := range stdio.Servers {
+			allSessions = append(allSessions, connectNamedSession(ctx, serverName, "stdio", remote, stdio))
 		}
-
 		namedCache.cache[name] = allSessions
 		namedCache.cancels[name] = cancel
+		namedCache.ctxs[name] = ctx
 		namedCache.configHashes[name] = configHash
 	}
 
@@ -899,6 +891,7 @@ func CloseMCPSessions(modelName string) {
 		cancel()
 		delete(namedCache.cancels, modelName)
 	}
+	delete(namedCache.ctxs, modelName)
 	delete(namedCache.configHashes, modelName)
 	namedCache.mu.Unlock()
 
@@ -936,6 +929,7 @@ func CloseAllMCPSessions() {
 	}
 	namedCache.cache = make(map[string][]NamedSession)
 	namedCache.cancels = make(map[string]context.CancelFunc)
+	namedCache.ctxs = make(map[string]context.Context)
 	namedCache.configHashes = make(map[string][sha256.Size]byte)
 	namedCache.mu.Unlock()
 
