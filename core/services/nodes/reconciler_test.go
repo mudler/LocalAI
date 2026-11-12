@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"time"
 
@@ -232,6 +233,50 @@ var _ = Describe("ReplicaReconciler", func() {
 
 			// Should scale down 2 replicas (3 - floor of 1)
 			Expect(unloader.unloadCalls).To(HaveLen(2))
+		})
+	})
+
+	Context("busy guard on idle scale-down", func() {
+		// loadReplicas loads one replica per entry on its own node. inFlight
+		// is the request count of that replica. All are past ScaleDownDelay.
+		loadReplicas := func(model string, inFlight []int) *fakeUnloader {
+			setSchedulingConfig(model, 1, 4, "")
+			past := time.Now().Add(-10 * time.Minute)
+			for i, f := range inFlight {
+				n := registerNode(fmt.Sprintf("%s-node-%d", model, i), fmt.Sprintf("10.1.%d.%d:50051", model[len(model)-1], i))
+				Expect(registry.SetNodeModel(context.Background(), n.ID, model, 0, "loaded", "", f)).To(Succeed())
+				Expect(db.Model(&NodeModel{}).Where("node_id = ? AND model_name = ?", n.ID, model).
+					Update("last_used", past).Error).To(Succeed())
+			}
+			return &fakeUnloader{}
+		}
+		reconcileWith := func(u *fakeUnloader) {
+			NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry: registry, Unloader: u, DB: db, ScaleDownDelay: 1 * time.Minute,
+			}).reconcile(context.Background())
+		}
+
+		It("keeps the only idle replica while another replica is busy", func() {
+			u := loadReplicas("model-busy-a", []int{1, 0})
+			reconcileWith(u)
+			Expect(u.unloadCalls).To(BeEmpty())
+		})
+
+		It("removes one of two idle replicas down to the floor", func() {
+			u := loadReplicas("model-busy-b", []int{0, 0})
+			reconcileWith(u)
+			Expect(u.unloadCalls).To(HaveLen(1))
+		})
+
+		It("removes one of two idle replicas when a third is busy", func() {
+			u := loadReplicas("model-busy-c", []int{1, 0, 0})
+			reconcileWith(u)
+			Expect(u.unloadCalls).To(HaveLen(1))
+			var busy, idle int64
+			Expect(db.Model(&NodeModel{}).Where("model_name = ? AND in_flight > 0", "model-busy-c").Count(&busy).Error).To(Succeed())
+			Expect(db.Model(&NodeModel{}).Where("model_name = ? AND in_flight = 0", "model-busy-c").Count(&idle).Error).To(Succeed())
+			Expect(busy).To(BeNumerically("==", 1))
+			Expect(idle).To(BeNumerically("==", 1))
 		})
 	})
 
