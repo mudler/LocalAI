@@ -166,5 +166,15 @@
   "hold.undoable": "The owner can undo it in the web UI.",
   "hold.not_undoable": "It cannot be undone from here.",
   "hold.note_waiting": "Waiting for a verified person to confirm in this chat: {title} (code {code}).",
-  "hold.note_expired": "Nobody confirmed in time, so it was dropped: {title}."
+  "hold.note_expired": "Nobody confirmed in time, so it was dropped: {title}.",
+  "trigchange.ask.update": "Proposed change to {name}: {fields}. After it: {when}. Nothing changes until you approve. Reply \"confirm {code}\" to apply it or \"cancel {code}\" to leave it as it is, here, within 24 hours, or open Studio.",
+  "trigchange.ask.delete": "Delete {name} ({when})? It keeps running until you approve. Reply \"confirm {code}\" to delete it or \"cancel {code}\" to keep it, here, within 24 hours, or open Studio.",
+  "trigchange.ask.pause": "Pause {name} ({when})? It keeps running until you approve. Reply \"confirm {code}\" to pause it or \"cancel {code}\" to leave it on, here, within 24 hours, or open Studio.",
+  "trigchange.ask.resume": "Resume {name} ({when})? It stays paused until you approve. Reply \"confirm {code}\" to resume it or \"cancel {code}\" to leave it paused, here, within 24 hours, or open Studio.",
+  "trigchange.ask.withdraw": "Withdraw the proposal {name}? It stays waiting until you approve. Reply \"confirm {code}\" to withdraw it or \"cancel {code}\" to keep it waiting, here, within 24 hours, or open Studio.",
+  "trigchange.done.update": "Changed {name}: {fields}. Now: {when}.",
+  "trigchange.done.delete": "Deleted {name}.",
+  "trigchange.done.pause": "Paused {name}. It does not run until it is resumed.",
+  "trigchange.done.resume": "Resumed {name}: {when}.",
+  "trigchange.done.withdraw": "Withdrew the proposal {name}. It never ran."
 }

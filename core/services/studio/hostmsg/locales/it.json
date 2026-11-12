@@ -166,5 +166,15 @@
   "hold.undoable": "Il proprietario può annullarla dall'interfaccia web.",
   "hold.not_undoable": "Da qui non si può annullare.",
   "hold.note_waiting": "In attesa che una persona verificata confermi in questa chat: {title} (codice {code}).",
-  "hold.note_expired": "Nessuno ha confermato in tempo, quindi è stato scartato: {title}."
+  "hold.note_expired": "Nessuno ha confermato in tempo, quindi è stato scartato: {title}.",
+  "trigchange.ask.update": "Modifica proposta per {name}: {fields}. Dopo: {when}. Non cambia nulla finché non approvi. Rispondi \"conferma {code}\" per applicarla o \"annulla {code}\" per lasciarlo com'è, qui, entro 24 ore, oppure apri Studio.",
+  "trigchange.ask.delete": "Eliminare {name} ({when})? Continua a girare finché non approvi. Rispondi \"conferma {code}\" per eliminarlo o \"annulla {code}\" per tenerlo, qui, entro 24 ore, oppure apri Studio.",
+  "trigchange.ask.pause": "Mettere in pausa {name} ({when})? Continua a girare finché non approvi. Rispondi \"conferma {code}\" per metterlo in pausa o \"annulla {code}\" per lasciarlo attivo, qui, entro 24 ore, oppure apri Studio.",
+  "trigchange.ask.resume": "Riprendere {name} ({when})? Resta in pausa finché non approvi. Rispondi \"conferma {code}\" per riprenderlo o \"annulla {code}\" per lasciarlo in pausa, qui, entro 24 ore, oppure apri Studio.",
+  "trigchange.ask.withdraw": "Ritirare la proposta {name}? Resta in attesa finché non approvi. Rispondi \"conferma {code}\" per ritirarla o \"annulla {code}\" per lasciarla in attesa, qui, entro 24 ore, oppure apri Studio.",
+  "trigchange.done.update": "Modificato {name}: {fields}. Ora: {when}.",
+  "trigchange.done.delete": "Eliminato {name}.",
+  "trigchange.done.pause": "{name} è in pausa. Non parte finché non lo riprendi.",
+  "trigchange.done.resume": "{name} ripreso: {when}.",
+  "trigchange.done.withdraw": "Proposta {name} ritirata. Non è mai partita."
 }

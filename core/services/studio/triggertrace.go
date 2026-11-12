@@ -14,15 +14,6 @@ import (
 // trace lists them.
 var triggerToolNames = []string{proposeTriggerName, listTriggersName, updateTriggerName, deleteTriggerName}
 
-func isTriggerTool(id string) bool {
-	for _, n := range triggerToolNames {
-		if n == id {
-			return true
-		}
-	}
-	return false
-}
-
 // maxTraceText cuts the error text of a tool call in the log.
 const maxTraceText = 200
 
@@ -49,6 +40,8 @@ func triggerToolsAttrs(rec session.ChatRecord, c builtins.Chat, built []builtins
 	if c.Allow != nil {
 		held, _ := c.Allow(CapTriggersPropose)
 		attrs = append(attrs, "sender_holds_propose", held)
+		held, _ = c.Allow(CapTriggersChange)
+		attrs = append(attrs, "sender_holds_change", held)
 	}
 	return attrs
 }
@@ -65,7 +58,20 @@ func originText(o string) string {
 // tool list of a turn anywhere else, so this line is how a missing reminder
 // tool is traced back afterwards.
 func (s *Service) traceTriggerTools(rec session.ChatRecord, c builtins.Chat, built []builtins.Built) {
-	s.log.Info("studio: trigger tools of the turn", triggerToolsAttrs(rec, c, built)...)
+	attrs := triggerToolsAttrs(rec, c, built)
+	if mode := s.approvalMode(context.Background(), rec); mode != "" {
+		attrs = append(attrs, "approval_mode", mode)
+	}
+	s.log.Info("studio: trigger tools of the turn", attrs...)
+}
+
+// approvalMode is the approval mode of the connection that started the chat
+// (ask, auto_readonly or auto), "" for a chat that no connection started.
+func (s *Service) approvalMode(ctx context.Context, rec session.ChatRecord) string {
+	if rec.Origin != session.OriginConnector || s.connectors == nil {
+		return ""
+	}
+	return s.connectors.ApprovalOf(ctx, rec.OriginID).ModeOrDefault()
 }
 
 // tracedTriggerRun logs the outcome of each call of a trigger tool: the tool,
@@ -75,6 +81,9 @@ func (s *Service) tracedTriggerRun(name string, c builtins.Chat, run func(contex
 	return func(ctx context.Context, raw json.RawMessage) (string, error) {
 		out, err := run(ctx, raw)
 		attrs := []any{"tool", name, "chat", c.Actor.ChatID, "origin", originText(c.Origin), "agent", c.AgentID, "ok", err == nil}
+		if mode := s.approvalMode(ctx, session.ChatRecord{Origin: c.Origin, OriginID: c.OriginID}); mode != "" {
+			attrs = append(attrs, "approval_mode", mode)
+		}
 		if ref := refOfCall(raw, out); ref != "" {
 			attrs = append(attrs, "ref", ref)
 		}

@@ -14,6 +14,12 @@ export function approvalEffect(a, s) {
   return acts.length === 0 ? base : base + s('approval.effectActs', { acts: acts.map((n) => s(`approval.actShort.${n}`)).join(', ') })
 }
 
+// What the approval does to a change or a delete by the bot. Only "runs at once"
+// applies it at once; the read-only mode cannot judge a change, so it asks.
+export function changeEffect(a, s) {
+  return s('approval.effectChange', { mode: s(`approval.short.${a.mode === 'auto' ? 'auto' : 'ask'}`) })
+}
+
 /**
  * The approval mode and its limits, as an option under "Propose triggers".
  * With off set (the permission is not ticked) the choice is greyed, with the

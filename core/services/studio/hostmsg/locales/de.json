@@ -166,5 +166,15 @@
   "hold.undoable": "Der Besitzer kann es in der Web-Oberfläche rückgängig machen.",
   "hold.not_undoable": "Von hier aus lässt es sich nicht rückgängig machen.",
   "hold.note_waiting": "Wartet darauf, dass eine verifizierte Person in diesem Chat bestätigt: {title} (Code {code}).",
-  "hold.note_expired": "Niemand hat rechtzeitig bestätigt, deshalb wurde es verworfen: {title}."
+  "hold.note_expired": "Niemand hat rechtzeitig bestätigt, deshalb wurde es verworfen: {title}.",
+  "trigchange.ask.update": "Änderungsvorschlag für {name}: {fields}. Danach: {when}. Nichts ändert sich, bis du zustimmst. Antworte \"bestätigen {code}\", um sie anzuwenden, oder \"abbrechen {code}\", um es zu lassen, hier, innerhalb von 24 Stunden, oder öffne Studio.",
+  "trigchange.ask.delete": "{name} ({when}) löschen? Es läuft weiter, bis du zustimmst. Antworte \"bestätigen {code}\" zum Löschen oder \"abbrechen {code}\" zum Behalten, hier, innerhalb von 24 Stunden, oder öffne Studio.",
+  "trigchange.ask.pause": "{name} ({when}) pausieren? Es läuft weiter, bis du zustimmst. Antworte \"bestätigen {code}\" zum Pausieren oder \"abbrechen {code}\", damit es an bleibt, hier, innerhalb von 24 Stunden, oder öffne Studio.",
+  "trigchange.ask.resume": "{name} ({when}) fortsetzen? Es bleibt pausiert, bis du zustimmst. Antworte \"bestätigen {code}\" zum Fortsetzen oder \"abbrechen {code}\", damit es pausiert bleibt, hier, innerhalb von 24 Stunden, oder öffne Studio.",
+  "trigchange.ask.withdraw": "Den Vorschlag {name} zurückziehen? Er wartet weiter, bis du zustimmst. Antworte \"bestätigen {code}\" zum Zurückziehen oder \"abbrechen {code}\", damit er wartet, hier, innerhalb von 24 Stunden, oder öffne Studio.",
+  "trigchange.done.update": "{name} geändert: {fields}. Jetzt: {when}.",
+  "trigchange.done.delete": "{name} gelöscht.",
+  "trigchange.done.pause": "{name} pausiert. Es läuft nicht, bis es fortgesetzt wird.",
+  "trigchange.done.resume": "{name} fortgesetzt: {when}.",
+  "trigchange.done.withdraw": "Vorschlag {name} zurückgezogen. Er ist nie gelaufen."
 }

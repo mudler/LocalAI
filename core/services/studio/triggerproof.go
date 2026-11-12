@@ -71,7 +71,7 @@ func (h *Triggers) readProof(ctx context.Context, id string) (triggerProof, bool
 	p := h.proofFor(target, now)
 	if rec.Outcome == "" {
 		p.Change = "pending"
-		if rec.Change.Op == triggers.ChangeDelete {
+		if rec.Change.Op == triggers.ChangeDelete && !target.Proposed {
 			p.State = stateDeletedPending
 		}
 	}

@@ -49,6 +49,7 @@
   "approval.default": "Predefinito: {{value}}.",
   "approval.summary": "Trigger: {{mode}}",
   "approval.effect": "Proposte: {{mode}}",
+  "approval.effectChange": "Modifiche ed eliminazioni: {{mode}}",
   "approval.limits": "Limiti",
   "approval.acts.title": "Le esecuzioni possono agire",
   "approval.acts.help": "Disattivato: le esecuzioni di un trigger creato da questa chat si limitano a leggere e riferire. Attivato: possono fare anche ciò che spunti qui sotto, e solo ciò che l'agente ha.",

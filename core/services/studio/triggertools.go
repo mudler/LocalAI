@@ -121,6 +121,11 @@ const connectorProposeNote = " This chat is in a messaging app. The host writes 
 	"A run only reads unless acts says more, and only the acts named below can be asked for here; anything else is dropped and the person is told. " +
 	"A proposal lapses after 24 hours, and at most 3 can be made in an hour."
 
+// connectorChangeNote is added to the descriptions of update_trigger and
+// delete_trigger in a chat of a messaging app. There is no card there.
+const connectorChangeNote = " This chat is in a messaging app, so there is no card. Depending on the owner's settings the host either writes the request in the chat with a code for the person to confirm, " +
+	"or does it at once and tells the person; the result of this tool says which happened, so never say more than it says. You see and change only the triggers of this agent."
+
 const listTriggersDescription = "List the triggers of the user and the proposals that still wait: a ref, the name, when it runs or which folder it watches, its state (active, paused or proposed), whether it is on, and how its last run ended. " +
 	"It lists at most 50 and shows no prompts. Use the ref to name a trigger in update_trigger and delete_trigger. " +
 	"To read the prompt and the other settings of ONE trigger before you change it, pass its ref and include_prompt: true."
@@ -201,7 +206,7 @@ func (s *Service) registerTriggerTools() error {
 		{deleteTriggerName, "Delete a trigger", deleteTriggerDescription, deleteTriggerSchema, false,
 			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
 				return func(ctx context.Context, raw json.RawMessage) (string, error) {
-					return h.deleteTool(ctx, a, c.AgentID, raw)
+					return h.deleteTool(ctx, a, c, raw)
 				}
 			}},
 	}
@@ -228,21 +233,33 @@ func (s *Service) registerTriggerTools() error {
 				desc, schema := d.desc, d.schema
 				if connector {
 					// A chat of a messaging app proposes and lists. A change or a
-					// delete needs a card that only Studio shows, so it stays there.
+					// delete follows the approval of the connection (see
+					// triggerchangeconn.go) and needs its own capability.
+					change := d.id == updateTriggerName || d.id == deleteTriggerName
 					switch {
-					case d.id == updateTriggerName || d.id == deleteTriggerName:
-						return session.Tool{}, false, "change or delete a trigger in Studio"
 					case c.AgentID == "":
 						return session.Tool{}, false, "a trigger from a messaging app needs the agent of the connection"
-					case !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersPropose, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
+					case change && !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersChange, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
+						// Off for the connection is the default, so it is traced but not
+						// told to the model at each turn (it would not start with
+						// "not permitted", which the note about held back tools reads).
+						return session.Tool{}, false, "changing or deleting triggers is off for this connection"
+					case !change && !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersPropose, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
 						return session.Tool{}, false, builtins.ReasonNotPermitted + ": " + BlockSay(CodeConnectionPermissionOff, CapTriggersPropose)
 					}
 					// The binding allows it; the sender of this turn must hold it too.
-					if held, why := c.Holds(CapTriggersPropose); !held {
+					need := CapTriggersPropose
+					if change {
+						need = CapTriggersChange
+					}
+					if held, why := c.Holds(need); !held {
 						return session.Tool{}, false, builtins.ReasonNotPermitted + ": " + why
 					}
-					if d.id == proposeTriggerName {
+					switch d.id {
+					case proposeTriggerName:
 						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c)+h.channelsNote(ctx, c), proposeTriggerConnectorSchema
+					case updateTriggerName, deleteTriggerName:
+						desc += connectorChangeNote
 					}
 				} else {
 					if d.id == updateTriggerName {
@@ -730,6 +747,9 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 			return "", errors.New("when must be a schedule text or {\"file_arrives_in\": folder}")
 		}
 	}
+	if c.Origin == session.OriginConnector {
+		return h.connectorUpdate(ctx, a, c, target, p)
+	}
 	rec, applied, err := h.ProposeChange(ctx, a.Principal, a.ChatID, target, p)
 	if err != nil {
 		return "", toolErr(err)
@@ -746,7 +766,8 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", "), chatPathWarning(rec.Prompt, rec.Reads, rec.Writes), h.proofOf(ctx, rec.ID)), nil
 }
 
-func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
+func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, c builtins.Chat, raw json.RawMessage) (string, error) {
+	agentID := c.AgentID
 	var args struct {
 		Ref string `json:"ref"`
 	}
@@ -760,6 +781,9 @@ func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID st
 	target, err := h.toolTriggerOrProposal(ctx, a, agentID, sc, args.Ref)
 	if err != nil {
 		return "", toolErr(err)
+	}
+	if c.Origin == session.OriginConnector {
+		return h.connectorDelete(ctx, a, c, target)
 	}
 	if target.Proposed {
 		// A proposal that the model made and that still waits is withdrawn at
