@@ -111,7 +111,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
-	built := s.builtinsFor(ctx, a, rec, sub)
+	bchat := s.builtinChat(ctx, a, rec, sub)
+	built := s.builtins.Build(ctx, bchat)
+	s.traceTriggerTools(rec, bchat, built)
 	tools = s.applyBuiltins(tools, built)
 	cmds = shellSwitched(s.withHostBash(cmds, tools), hidden)
 	// The file tools are the one file toolset of the chat. A sub-agent gets

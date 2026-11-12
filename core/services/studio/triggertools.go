@@ -242,7 +242,7 @@ func (s *Service) registerTriggerTools() error {
 				} else if d.id == updateTriggerName {
 					desc += h.updateChannelsNote(ctx, c)
 				}
-				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: d.run(h, c.Actor, c)}, true, ""
+				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: s.tracedTriggerRun(d.id, c, d.run(h, c.Actor, c))}, true, ""
 			},
 		})
 		if err != nil {
