@@ -43,6 +43,8 @@ import HomeResume from '../components/home/HomeResume'
 // eslint-disable-next-line no-unused-vars
 import HomeFirstRun from '../components/home/HomeFirstRun'
 // eslint-disable-next-line no-unused-vars
+import StarterModels from '../components/StarterModels'
+// eslint-disable-next-line no-unused-vars
 import HomeWidgets from '../components/wellknown/HomeWidgets'
 // eslint-disable-next-line no-unused-vars
 import PageAreaHost from '../components/wellknown/PageAreaHost'
@@ -742,6 +744,7 @@ export default function Home() {
             <h1>{t('wizard.noModelsTitle')}</h1>
             <p>{t('wizard.noModelsBody')}</p>
           </div>
+          <StarterModels />
           <div className="home-wizard-actions">
             <a className="home-secondary" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
               <Icon name="book" /> {t('quickLinks.documentation')}

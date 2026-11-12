@@ -153,5 +153,43 @@
     "add": "Tambah model",
     "remove": "Hapus {{name}}",
     "clear": "Kosongkan"
+  },
+  "starters": {
+    "title": "Disarankan untuk mesin Anda",
+    "tier": {
+      "cpu": "CPU saja",
+      "gpu-small": "GPU kecil",
+      "gpu-mid": "GPU menengah",
+      "gpu-large": "GPU besar"
+    },
+    "undetected": "Kami tidak dapat mendeteksi perangkat keras Anda, jadi ini adalah model untuk komputer tanpa GPU.",
+    "cluster": "Disesuaikan dengan mesin terbaik di klaster Anda.",
+    "nothingFits": "Tidak ada model yang disarankan yang muat di mesin ini. Ini yang terkecil; mungkin berjalan lambat atau gagal dimuat.",
+    "facts": {
+      "size": "unduhan {{size}}",
+      "window": "konteks {{window}}",
+      "memory": "sekitar {{memory}} memori"
+    },
+    "fit": {
+      "tight": "Pas-pasan",
+      "does_not_fit": "Tidak muat"
+    },
+    "reasons": {
+      "little_headroom": "Muat, tetapi menyisakan sedikit memori.",
+      "below_chat_minimum": "Jendela konteks akan terlalu kecil untuk obrolan.",
+      "exceeds_memory": "Membutuhkan memori lebih banyak daripada yang dimiliki mesin ini.",
+      "estimate_unavailable": "Penggunaan memorinya tidak dapat diperkirakan.",
+      "hardware_unknown": "Perangkat keras Anda tidak dapat dibaca, sehingga kecocokan tidak diperiksa."
+    },
+    "more": "Model lainnya",
+    "fewer": "Lebih sedikit model",
+    "askAdmin": "Hanya administrator yang dapat memasang model. Minta administrator Anda memasang salah satunya.",
+    "installModel": "Pasang {{model}}",
+    "cpuNote": "GPU tidak terdeteksi. Model ini tetap responsif di prosesor.",
+    "gpuNote": "Dipilih agar muat di kartu grafis Anda dengan ruang untuk obrolan penuh.",
+    "install": "Pasang",
+    "installing": "Memasang",
+    "installStarted": "Memasang {{model}}…",
+    "installFailed": "Pemasangan gagal: {{message}}"
   }
 }

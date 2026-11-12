@@ -93,7 +93,8 @@
     "selectModel": "모델을 선택해 주세요",
     "copied": "클립보드에 복사되었습니다",
     "copyFailed": "클립보드에 복사할 수 없습니다",
-    "newChatForModel": "채팅은 모델을 유지합니다. {{model}}로 새 채팅을 시작했습니다."
+    "newChatForModel": "채팅은 모델을 유지합니다. {{model}}로 새 채팅을 시작했습니다.",
+    "windowSet": "{{model}}의 컨텍스트 창이 이제 {{window}}토큰입니다."
   },
   "menu": {
     "trigger": "채팅",

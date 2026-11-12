@@ -6,7 +6,7 @@ import Button from '../ui/Button'
 import Mascot from '../ui/Mascot'
 
 // First run: no model is installed yet. Three steps, with the recommended
-// models for the detected hardware inside the second one, so the way forward
+// model for the detected hardware inside the second one, so the way forward
 // is on the page without a separate wizard.
 export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, onImport }) {
   const { t } = useTranslation('home')

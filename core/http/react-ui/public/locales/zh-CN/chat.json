@@ -93,7 +93,8 @@
     "selectModel": "请选择一个模型",
     "copied": "已复制到剪贴板",
     "copyFailed": "无法复制到剪贴板",
-    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。"
+    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。",
+    "windowSet": "{{model}} 的上下文窗口现在是 {{window}} 个 token。"
   },
   "menu": {
     "trigger": "聊天",

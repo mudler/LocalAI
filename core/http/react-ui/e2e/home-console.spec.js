@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockHome, mockUser, noWellKnown, LOADED } from './home-fixtures.js'
+import { mockRecommended } from './recommended-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
 import { app, mockAddons, stubAddonRoutes } from './addons-fixtures.js'
 
@@ -448,28 +449,17 @@ test.describe('Home resume list', () => {
 test.describe('Home first run', () => {
   async function mockFirstRun(page) {
     await mockHome(page, { loaded: [], models: [], chatModels: [] })
-    await page.route('**/api/models/estimate/*', route => route.fulfill({
-      json: { sizeBytes: 2 * GB, sizeDisplay: '2 GB', estimates: { 4096: { vramBytes: 3 * GB, vramDisplay: '3 GB' } } },
-    }))
-    await page.route('**/api/models?*', route => route.fulfill({
-      json: {
-        models: [
-          { name: 'tiny-chat', backend: 'llama-cpp', installed: false, tags: ['chat'] },
-          { name: 'small-chat', backend: 'llama-cpp', installed: false, tags: ['chat'] },
-        ],
-        allBackends: [], allTags: [], availableModels: 2, installedModels: 0, totalPages: 1, currentPage: 1,
-      },
-    }))
+    await mockRecommended(page)
   }
 
-  test('teaches the three steps, with the recommended models inside the second', async ({ page }) => {
+  test('teaches the three steps, with the recommended model inside the second', async ({ page }) => {
     await mockFirstRun(page)
     await ready(page)
     const guide = page.getByTestId('home-first-run')
     // The steps only: the recommended models are a list inside the second step.
     await expect(guide.locator('.home-step')).toHaveCount(3)
     await expect(guide.locator('.home-step[data-state="now"]')).toContainText('Browse the Model Gallery')
-    await expect(guide.locator('.home-step').nth(1).locator('.home-starters')).toContainText('tiny-chat')
+    await expect(guide.locator('.home-step').nth(1).locator('.home-starters')).toContainText('Qwen3.8 4B')
     await expect(guide.getByRole('button', { name: /browse model gallery/i })).toBeVisible()
     await expect(guide.getByRole('button', { name: /import model/i })).toBeVisible()
   })
@@ -533,9 +523,9 @@ test.describe('Home first run', () => {
       return route.fulfill({ json: { uuid: 'x', status: 'ok' } })
     })
     await ready(page)
-    await page.locator('.home-starters-item', { hasText: 'tiny-chat' }).getByRole('button', { name: /install/i }).click()
+    await page.locator('.home-starters-item', { hasText: 'Qwen3.8 4B' }).getByRole('button', { name: /install/i }).click()
     await expect.poll(() => installs.length).toBe(1)
-    expect(installs[0]).toContain('tiny-chat')
+    expect(installs[0]).toContain('qwen3.8-4b-q4')
   })
 
   test('a person who is not an admin gets a calm explanation, not install steps', async ({ page }) => {
@@ -546,6 +536,16 @@ test.describe('Home first run', () => {
     await expect(page.getByTestId('home-first-run')).toHaveCount(0)
     await expect(page.locator('.home-textarea')).toHaveCount(0)
     await expect(page.locator('.home-wizard-actions').getByRole('link', { name: /documentation/i })).toBeVisible()
+  })
+
+  test('and sees the recommended names without an install button, with a note to ask an administrator', async ({ page }) => {
+    await mockFirstRun(page)
+    await mockUser(page)
+    await page.goto('/app')
+    const rec = page.getByTestId('starter-models')
+    await expect(rec).toContainText('Qwen3.8 4B', { timeout: 15_000 })
+    await expect(rec.getByRole('button', { name: /^install/i })).toHaveCount(0)
+    await expect(rec.getByTestId('starter-ask-admin')).toContainText('administrator')
   })
 })
 

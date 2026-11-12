@@ -1813,7 +1813,11 @@ type LLMConfig struct {
 	TrimSpace       []string `yaml:"trimspace,omitempty" json:"trimspace,omitempty"`
 	TrimSuffix      []string `yaml:"trimsuffix,omitempty" json:"trimsuffix,omitempty"`
 
-	ContextSize          *int             `yaml:"context_size,omitempty" json:"context_size,omitempty"`
+	ContextSize *int `yaml:"context_size,omitempty" json:"context_size,omitempty"`
+	// ContextAutoSized is set when ContextSize was chosen from the GGUF
+	// metadata and the detected memory, not by the operator, the model editor
+	// or the global default. It is runtime state and is never written.
+	ContextAutoSized     bool             `yaml:"-" json:"-"`
 	NUMA                 bool             `yaml:"numa,omitempty" json:"numa,omitempty"`
 	LoraAdapter          string           `yaml:"lora_adapter,omitempty" json:"lora_adapter,omitempty"`
 	LoraBase             string           `yaml:"lora_base,omitempty" json:"lora_base,omitempty"`
@@ -2081,6 +2085,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if debug {
 		cfg.Debug = &trueV
+	}
+
+	// A context_size of 0 means "not set", the same as leaving the key out.
+	// Editors and templates write 0 as a placeholder; kept as an explicit value
+	// it would skip the GGUF-based sizing below and pin the window to the
+	// fallback. A negative value is a different request (full trained context)
+	// and is left alone for the GGUF hook to resolve.
+	if cfg.ContextSize != nil && *cfg.ContextSize == 0 {
+		cfg.ContextSize = nil
 	}
 
 	// If a context size was provided via LoadOptions, apply it before hooks so they

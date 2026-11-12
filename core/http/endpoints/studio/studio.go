@@ -197,6 +197,12 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 	}
 }
 
+// harnessJSON is the window check of a chat as the API reports it.
+func harnessJSON(v studiosvc.Harness) *schema.ChatsHarness {
+	return &schema.ChatsHarness{OK: v.OK, Window: v.Window, Minimum: v.Minimum, Recommended: v.Recommended,
+		CanFix: v.CanFix, Admin: v.Admin, Source: v.Source}
+}
+
 func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord) (schema.ChatsConversation, error) {
 	info, err := h.svc.Turn(c.Request().Context(), user, rec.ID)
 	if err != nil {
@@ -277,6 +283,7 @@ func (h *Handlers) Create(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	out.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	return c.JSON(http.StatusCreated, out)
 }
 
@@ -335,6 +342,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	conv.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	pend, err := h.svc.Pending(c.Request().Context(), user, id)
 	if err != nil {
 		return failFor(c, err)

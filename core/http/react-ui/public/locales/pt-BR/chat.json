@@ -95,7 +95,8 @@
     "copied": "Copiado para a área de transferência",
     "copyFailed": "Não foi possível copiar para a área de transferência",
     "chatCopied": "Chat copiado para a área de transferência",
-    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}."
+    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}.",
+    "windowSet": "A janela de contexto de {{model}} agora é de {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",

@@ -65,6 +65,8 @@
     "installing": "설치 중",
     "installStarted": "{{model}} 설치 중…",
     "installFailed": "설치 실패: {{message}}",
+    "window": "컨텍스트 {{window}}",
+    "memory": "메모리 약 {{memory}}",
     "dismiss": "추천 닫기",
     "summary": "추천 모델 {{n}}개",
     "bestFit": "Best fit",

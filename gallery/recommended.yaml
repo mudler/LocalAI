@@ -1,0 +1,82 @@
+# Curated first-run model choices, served next to the gallery index
+# (gallery/index.yaml). A running LocalAI reads it from the same sources as the
+# index, so editing this file changes the recommendation without a release. When
+# the file cannot be fetched or does not pass the checks, the server uses a small
+# list built into the binary and says so in its log.
+#
+# Schema (version 1):
+#   version  the schema version. A reader that does not know it ignores the file.
+#   tiers    one list per hardware tier, chosen by the memory of the smallest GPU:
+#              cpu        no GPU
+#              gpu-small  under 8 GB
+#              gpu-mid    8 GB up to 24 GB
+#              gpu-large  24 GB and more
+#            each list holds exactly one entry with rank "default" and two with
+#            rank "alternative", in the order to try them.
+#   entry    id      the model's name in the gallery index
+#            name    the name to show
+#            reason  one line on why it is on the list
+#
+# Rules for an entry: it exists in the gallery index, it is a current model that
+# serves a chat with tool calling, its licence is an open-weights licence the
+# maintainers have accepted, and it fits its tier at the chat window the loader
+# picks. Apache-2.0 and MIT are the norm. Any other licence needs an explicit,
+# commented entry in the allowlist of core/gallery/recommended_test.go. The
+# server drops the entries that do not fit the machine it runs on, so a tier may
+# name a model that only the larger cards in it can hold.
+# core/gallery/recommended_test.go checks the structure, the licences and every
+# id against the index.
+version: 1
+tiers:
+  cpu:
+    - rank: default
+      id: gemma-4-e2b-it-qat-q4_0
+      name: Gemma 4 E2B
+      reason: Google's smallest Gemma 4, built for devices without a GPU; it fits an 8 GB machine and reads images.
+    - rank: alternative
+      id: qwen3.8-4b-q4
+      name: Qwen3.8 4B
+      reason: A step up in quality for machines with more memory; it follows tools and long instructions.
+    - rank: alternative
+      id: lfm2.5-24b-a2b-ud-q4
+      name: LFM2.5 24B A2B
+      reason: A 24B mixture-of-experts model with about 2.45B active parameters, fast on a CPU when the host has 16 GiB or more of RAM.
+  gpu-small:
+    - rank: default
+      id: qwen3.8-4b-q4
+      name: Qwen3.8 4B
+      reason: The most capable model that fits a small card with a full chat window.
+    - rank: alternative
+      id: gemma-4-e4b-it-qat-q4_0
+      name: Gemma 4 E4B
+      reason: Google's efficient 4B-class Gemma 4, and it reads images; it also fits a 4 GB card.
+    - rank: alternative
+      id: qwen3.8-2b-q4
+      name: Qwen3.8 2B
+      reason: Leaves most of the card free for other work.
+  gpu-mid:
+    - rank: default
+      id: qwen3.8-9b-q4
+      name: Qwen3.8 9B
+      reason: A strong all-round model that runs fast on a mid-range card.
+    - rank: alternative
+      id: gemma-4-12b-it-qat-q4_0
+      name: Gemma 4 12B
+      reason: A larger step up for cards with 12 GB or more, and it reads images.
+    - rank: alternative
+      id: gemma-4-e4b-it-qat-q4_0
+      name: Gemma 4 E4B
+      reason: Fast and light, with room to spare on an 8 GB card.
+  gpu-large:
+    - rank: default
+      id: gemma-4-26b-a4b-it-qat-q4_0
+      name: Gemma 4 26B A4B
+      reason: A mixture-of-experts model that fits a 24 GB card with a full chat window and answers fast.
+    - rank: alternative
+      id: qwen3.8-27b-q4
+      name: Qwen3.8 27B
+      reason: The strongest dense Qwen here; it needs about 32 GB for the full window.
+    - rank: alternative
+      id: gemma-4-31b-it-qat-q4_0
+      name: Gemma 4 31B
+      reason: The largest dense Gemma 4, for cards with 48 GB or more.

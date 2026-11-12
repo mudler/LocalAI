@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -70,10 +71,10 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 }
 
 // parseContextSizes parses a comma-separated list of context sizes from a query param.
-// Returns a default of [8192] if the param is empty or unparseable.
+// Returns a default of [config.DefaultEstimateContextSize] if the param is empty or unparseable.
 func parseContextSizes(raw string) []uint32 {
 	if raw == "" {
-		return []uint32{8192}
+		return []uint32{config.DefaultEstimateContextSize}
 	}
 	var sizes []uint32
 	for _, s := range strings.Split(raw, ",") {
@@ -83,7 +84,7 @@ func parseContextSizes(raw string) []uint32 {
 		}
 	}
 	if len(sizes) == 0 {
-		return []uint32{8192}
+		return []uint32{config.DefaultEstimateContextSize}
 	}
 	return sizes
 }
@@ -829,14 +830,19 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
-			UpscaleScale     int                            `json:"upscaleScale,omitempty"`
-			ThreeDOperations []schema.ThreeDOperation       `json:"three_d_operations,omitempty"`
-			ID               string                         `json:"id"`
-			Capabilities     []string                       `json:"capabilities"`
-			Backend          string                         `json:"backend"`
-			Disabled         bool                           `json:"disabled"`
-			Pinned           bool                           `json:"pinned"`
-			VoiceCloning     *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
+			UpscaleScale     int                      `json:"upscaleScale,omitempty"`
+			ThreeDOperations []schema.ThreeDOperation `json:"three_d_operations,omitempty"`
+			ID               string                   `json:"id"`
+			Capabilities     []string                 `json:"capabilities"`
+			Backend          string                   `json:"backend"`
+			// ContextSize is the window one request can use, in tokens. The
+			// chat page reads it to offer a model whose window is large
+			// enough for the chat agent. Absent when the model has no
+			// config here (a remote or loose model).
+			ContextSize  int                            `json:"context_size,omitempty"`
+			Disabled     bool                           `json:"disabled"`
+			Pinned       bool                           `json:"pinned"`
+			VoiceCloning *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
 			// LoadedOn is populated only when the node registry is active
 			// (distributed mode). Lets the UI show "loaded on worker-1" without
 			// the operator having to expand every node manually. An empty slice
@@ -909,6 +915,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			entry.UpscaleScale = config.UpscaleScaleFromOptions(*effective)
 			entry.ThreeDOperations = effective.ThreeDOperations()
 			entry.Backend = effective.Backend
+			sized := *effective
+			if sized.ContextSize == nil && appConfig.ContextSize > 0 {
+				sized.ContextSize = &appConfig.ContextSize
+			}
+			entry.ContextSize = corebackend.EffectiveRequestContextSize(sized)
 			entry.VoiceCloning = config.VoiceCloningForModel(effective)
 			entry.LoadedOn = loadedByModel[effective.Name]
 			entry.MCP = !appConfig.DisableMCP && effective.MCP.HasMCPServers()
@@ -986,7 +997,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// context sizes. The frontend calls this per-model so the gallery page
 	// can load instantly and fill in estimates asynchronously.
 	// Query params:
-	//   contexts - comma-separated context sizes (default: 8192)
+	//   contexts - comma-separated context sizes (default: config.DefaultEstimateContextSize)
 	app.GET("/api/models/estimate/:id", func(c echo.Context) error {
 		modelID, err := url.QueryUnescape(c.Param("id"))
 		if err != nil {
@@ -1021,6 +1032,25 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		return c.JSON(200, result)
 	}, adminMiddleware)
+
+	// The curated first-run recommendation. Every signed-in user may read it,
+	// so a person who cannot install still sees what to ask an administrator
+	// for; installing stays behind adminMiddleware below.
+	recommended := localai.NewRecommendedModelsService(appConfig, func(ctx context.Context) localai.RecommendedHardware {
+		// In distributed mode the models run on the best single node, the same
+		// reading every other model-sizing surface uses.
+		if reading := resolveClusterMemory(ctx, clusterMemory); reading != nil && reading.TotalMemory > 0 {
+			hw := localai.RecommendedHardware{Scope: "cluster", NodeName: reading.NodeName}
+			if reading.IsGPU {
+				hw.Memory.PerDeviceVRAM = reading.TotalMemory
+			} else {
+				hw.Memory.SystemRAM = reading.TotalMemory
+			}
+			return hw
+		}
+		return localai.LocalRecommendedHardware(ctx)
+	})
+	app.GET("/api/models/recommended", localai.RecommendedModelsEndpoint(recommended))
 
 	// Returns the selectable builds of a single gallery model and which one
 	// auto-selection would install on this host. Companion to estimate/:id and
@@ -1082,7 +1112,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// Absent means auto-select, which is what the listing's auto_variant
 		// already told the client would happen.
 		variant := c.QueryParam("variant")
-		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant)
+		// Optional: the context window to install with, as the recommendation
+		// reports it. It is written into the installed config as an explicit
+		// context_size, so a model whose gallery entry sets a window the host
+		// cannot hold still loads. Absent means the entry's own config.
+		contextSize, err := parseInstallContextSize(c.QueryParam("context_size"))
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant, "context_size", contextSize)
 
 		if refused, err := localai.RefuseModelWithoutBackend(c, appConfig, appConfig.Galleries, galleryID, variant, galleryService.BackendManager().BackendAvailable); refused {
 			return err
@@ -1108,6 +1146,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
 			PauseFunc:          pauseFunc,
+		}
+		if contextSize > 0 {
+			op.Req.Overrides = map[string]any{"context_size": contextSize}
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
@@ -1995,3 +2036,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.DELETE("/api/branding/asset/:kind", localai.DeleteBrandingAssetEndpoint(appConfig), adminMiddleware)
 
 }
+
+// parseInstallContextSize reads the optional context_size of an install
+// request. Empty means none (0). A value outside what a model can use is
+// refused rather than written into a config that then fails to load.
+func parseInstallContextSize(raw string) (int, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < minInstallContextSize || n > maxInstallContextSize {
+		return 0, fmt.Errorf("context_size must be a number of tokens from %d to %d", minInstallContextSize, maxInstallContextSize)
+	}
+	return n, nil
+}
+
+const (
+	minInstallContextSize = 512
+	maxInstallContextSize = 4 << 20
+)

@@ -101,19 +101,42 @@
     "guideLabel": "Getting started"
   },
   "starters": {
-    "title": "Recommended for your hardware",
+    "title": "Recommended for your machine",
     "tier": {
-      "cpu": "CPU-only",
-      "gpu-small": "GPU",
-      "gpu-mid": "GPU",
-      "gpu-large": "GPU"
+      "cpu": "CPU only",
+      "gpu-small": "Small GPU",
+      "gpu-mid": "Mid-range GPU",
+      "gpu-large": "Large GPU"
     },
-    "cpuNote": "No GPU detected — these small models stay responsive on CPU.",
-    "gpuNote": "Picked to fit your available VRAM with room for context.",
+    "cpuNote": "No GPU detected. These models stay responsive on a processor.",
+    "gpuNote": "Picked to fit your graphics card with room for a full chat.",
     "install": "Install",
     "installing": "Installing",
     "installStarted": "Installing {{model}}…",
-    "installFailed": "Install failed: {{message}}"
+    "installFailed": "Install failed: {{message}}",
+    "undetected": "We could not detect your hardware, so these are the models for a computer without a GPU.",
+    "cluster": "Sized for the best machine in your cluster.",
+    "nothingFits": "None of the recommended models fits this machine. This is the smallest one; it may run slowly or fail to load.",
+    "facts": {
+      "size": "{{size}} download",
+      "window": "{{window}} context",
+      "memory": "about {{memory}} in use"
+    },
+    "fit": {
+      "tight": "Tight fit",
+      "does_not_fit": "Does not fit"
+    },
+    "reasons": {
+      "little_headroom": "It fits, but leaves little memory free.",
+      "below_chat_minimum": "The context window would be too small for chat.",
+      "exceeds_memory": "It needs more memory than this machine has.",
+      "estimate_unavailable": "Its memory use could not be estimated.",
+      "hardware_unknown": "Your hardware could not be read, so the fit is not checked."
+    },
+    "more": "More models",
+    "fewer": "Fewer models",
+    "askAdmin": "Only an administrator can install models. Ask yours to install one of these.",
+    "installModel": "Install {{model}}"
   },
   "connect": {
     "title": "One endpoint, every API",
