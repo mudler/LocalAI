@@ -88,6 +88,27 @@ test.describe('Chat send is optimistic', () => {
     await expect.poll(() => bubble.evaluate(el => getComputedStyle(el).opacity)).toBe('1')
   })
 
+  test('a message that was not sent folds away without a jump of the thread', async ({ page }) => {
+    await open(page, { post: 'fail' })
+    await send(page, 'this one fails')
+    await expect(page.getByTestId('chat-thread').getByText('this one fails')).toBeVisible({ timeout: 800 })
+    // The top of the last line of the history, in every frame, until after the failure.
+    const tops = await page.evaluate((ms) => new Promise(resolve => {
+      const last = [...document.querySelectorAll('[data-testid=chat-message]')].find(e => e.textContent.includes('Message 40.'))
+      const out = []
+      const t0 = performance.now()
+      const tick = () => {
+        out.push(last.getBoundingClientRect().top)
+        if (performance.now() - t0 < ms) requestAnimationFrame(tick); else resolve(out)
+      }
+      tick()
+    }), SLOW_MS + 800)
+    const steps = tops.slice(1).map((t, i) => Math.abs(t - tops[i]))
+    // It moves, by many small steps and not one: the row's 66 px fold over frames.
+    expect(Math.abs(tops[tops.length - 1] - tops[0])).toBeGreaterThan(40)
+    expect(Math.max(...steps)).toBeLessThan(40)
+  })
+
   test('a message with a file keeps the file in the box when the send fails', async ({ page }) => {
     await open(page, { post: 'fail' })
     await page.locator('input[type=file]').first().setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') })

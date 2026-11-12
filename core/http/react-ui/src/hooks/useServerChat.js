@@ -17,7 +17,7 @@ const EVENT_KINDS = [
 ]
 
 // How long a message that was not sent takes to leave (the fade in chat.css).
-const RETRACT_MS = 220
+const RETRACT_MS = 240
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
 const SETTLE_READS = 8
 const SETTLE_MS = 250

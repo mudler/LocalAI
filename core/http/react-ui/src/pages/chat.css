@@ -67,7 +67,7 @@
    box. The fill of the rise holds the message's own opacity, so the state
    shows on its children. */
 .cx-msg[data-sending] > *,
-.cx-msg[data-failed] { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.cx-msg[data-failed] { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), height var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out), margin-top var(--dur-base) var(--ease-out); }
 .cx-msg[data-sending] > * { opacity: .6; }
 .cx-msg[data-failed] { animation: none; opacity: 0; transform: translateY(4px); pointer-events: none; }
 

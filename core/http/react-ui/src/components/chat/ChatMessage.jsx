@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
@@ -115,6 +115,21 @@ function ChatMessage({
   // old message holds in its text: the files show as chips.
   const { text, attachments } = useMemo(() => messageParts(msg), [msg])
   const index = msg.seq
+  // A message that was not sent leaves by folding its height and the gap and
+  // margin it takes to nothing while it fades, so what is above it moves gradually and
+  // the thread does not jump when the row goes.
+  const rowRef = useRef(null)
+  useLayoutEffect(() => {
+    const el = rowRef.current
+    if (!msg.failed || !el) return
+    const gap = parseFloat(getComputedStyle(el.parentElement).rowGap) || 0
+    el.style.height = `${el.offsetHeight}px`
+    el.style.overflow = 'hidden'
+    void el.offsetHeight // the start of the transition
+    el.style.height = '0px'
+    el.style.marginBottom = `-${gap}px`
+    el.style.marginTop = '0px' // the space a reply above leaves before a message of yours
+  }, [msg.failed])
   // The draft of an edit of your message, or null.
   const [draft, setDraft] = useState(null)
   const saveEdit = () => {
@@ -151,6 +166,7 @@ function ChatMessage({
   return (
     <article
       className={`cx-msg cx-msg--${isUser ? 'user' : 'model'}`}
+      ref={rowRef}
       data-testid="chat-message"
       data-role={msg.role}
       data-index={index}
