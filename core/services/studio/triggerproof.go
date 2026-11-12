@@ -16,6 +16,7 @@ const (
 	stateDeletedPending = "deleted_pending"
 	stateExpired        = "expired"
 	stateGone           = "gone"
+	stateWithdrawn      = "withdrawn"
 )
 
 // triggerProof is what a trigger tool tells the model about the stored state of
@@ -79,6 +80,8 @@ func (h *Triggers) proofFor(t triggers.Trigger, now time.Time) triggerProof {
 	switch {
 	case t.Proposed && t.Outcome == triggers.OutcomeExpired:
 		p.State = stateExpired
+	case t.Proposed && t.Outcome == triggers.OutcomeDeclined:
+		p.State = stateWithdrawn
 	case t.Proposed:
 		p.State = stateProposed
 	case t.Enabled:

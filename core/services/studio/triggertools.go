@@ -118,7 +118,7 @@ const connectorProposeNote = " This chat is in a messaging app. The host writes 
 	"A run only reads unless acts says more, and only the acts named below can be asked for here; anything else is dropped and the person is told. " +
 	"A proposal lapses after 24 hours, and at most 3 can be made in an hour."
 
-const listTriggersDescription = "List the triggers of the user: a ref, the name, when it runs or which folder it watches, whether it is on or off, and how its last run ended. " +
+const listTriggersDescription = "List the triggers of the user and the proposals that still wait: a ref, the name, when it runs or which folder it watches, its state (active, paused or proposed), whether it is on, and how its last run ended. " +
 	"It lists at most 50 and shows no prompts. Use the ref to name a trigger in update_trigger and delete_trigger. " +
 	"To read the prompt and the other settings of ONE trigger before you change it, pass its ref and include_prompt: true."
 
@@ -156,7 +156,7 @@ const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000}},` +
 	`"required":["ref"]}`
 
-const deleteTriggerDescription = "Ask to delete a trigger of the user, named by its ref from list_triggers. " +
+const deleteTriggerDescription = "Ask to delete a trigger of the user, named by its ref from list_triggers. A proposal that still waits (state proposed) is withdrawn at once with its ref. " +
 	"It does nothing by itself: a card shows the user the trigger, and it is deleted only when they press Delete; they can undo a delete for a day. " +
 	"Never say that the trigger is deleted until they do."
 
@@ -337,6 +337,33 @@ func (h *Triggers) toolTriggers(ctx context.Context, a workspace.Actor, agentID 
 	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.AgentID != agentID }), nil
 }
 
+// toolTriggersAndProposals is toolTriggers plus the proposals that wait, so the
+// model can reconcile what it proposed with what is stored.
+func (h *Triggers) toolTriggersAndProposals(ctx context.Context, a workspace.Actor, agentID string, sc *folderScope) ([]triggers.Trigger, error) {
+	all, err := h.toolTriggers(ctx, a, agentID, sc)
+	if err != nil {
+		return nil, err
+	}
+	props, err := h.Proposals(ctx, a.Principal)
+	if err != nil {
+		return nil, err
+	}
+	if sc != nil {
+		props = slices.DeleteFunc(props, func(t triggers.Trigger) bool { return t.AgentID != agentID })
+	}
+	return append(all, props...), nil
+}
+
+// toolTriggerOrProposal finds a trigger or a waiting proposal that a model
+// names.
+func (h *Triggers) toolTriggerOrProposal(ctx context.Context, a workspace.Actor, agentID string, sc *folderScope, ref string) (triggers.Trigger, error) {
+	all, err := h.toolTriggersAndProposals(ctx, a, agentID, sc)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	return resolveTriggerIn(all, ref)
+}
+
 func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtins.Chat, raw json.RawMessage) (string, error) {
 	agentID, model := c.AgentID, c.Model
 	var args struct {
@@ -494,10 +521,14 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		Acts []string `json:"acts,omitempty"`
 	}
 	type row struct {
-		Ref     string  `json:"ref"`
-		Name    string  `json:"name"`
-		When    string  `json:"when"`
-		On      bool    `json:"on"`
+		Ref  string `json:"ref"`
+		Name string `json:"name"`
+		When string `json:"when"`
+		On   bool   `json:"on"`
+		// State is active, paused or proposed: a proposal that waits is listed
+		// too, and is not on.
+		State   string  `json:"state"`
+		Expires string  `json:"expires,omitempty"`
 		LastRun string  `json:"last_run,omitempty"`
 		Detail  *detail `json:"detail,omitempty"`
 	}
@@ -508,7 +539,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 	var all []triggers.Trigger
 	switch {
 	case args.Ref != "":
-		t, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
+		t, err := h.toolTriggerOrProposal(ctx, a, agentID, sc, args.Ref)
 		if err != nil {
 			return "", errors.New(strings.TrimPrefix(err.Error(), "studio: "))
 		}
@@ -519,7 +550,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 	case args.IncludePrompt:
 		return "", errors.New("include_prompt needs the ref of one trigger")
 	default:
-		if all, err = h.toolTriggers(ctx, a, agentID, sc); err != nil {
+		if all, err = h.toolTriggersAndProposals(ctx, a, agentID, sc); err != nil {
 			return "", err
 		}
 	}
@@ -534,8 +565,9 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 	}
 	rows := make([]row, 0, len(all))
 	for _, t := range all {
-		r := row{Ref: TriggerRef(t.ID), Name: t.Name, When: h.summary(t), On: t.Enabled}
-		if runs, err := h.o.Store.ListRuns(ctx, t.ID, 1); err == nil && len(runs) == 1 {
+		pf := h.proofFor(t, h.o.Clock())
+		r := row{Ref: pf.Ref, Name: t.Name, When: h.summary(t), On: t.Enabled, State: pf.State, Expires: pf.Expires}
+		if runs, err := h.o.Store.ListRuns(ctx, t.ID, 1); !t.Proposed && err == nil && len(runs) == 1 {
 			r.LastRun = string(runs[0].Status)
 			if runs[0].Reason != "" {
 				r.LastRun += ": " + runs[0].Reason
@@ -591,6 +623,9 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 	}
 	target, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
 	if err != nil {
+		if p, perr := h.toolTriggerOrProposal(ctx, a, agentID, sc, args.Ref); perr == nil && p.Proposed {
+			return "", errors.New("that is a proposal that still waits, not a trigger: withdraw it with delete_trigger and propose it again with the change")
+		}
 		return "", toolErr(err)
 	}
 	var runLimit *time.Duration
@@ -660,9 +695,17 @@ func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID st
 	if err != nil {
 		return "", toolErr(err)
 	}
-	target, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
+	target, err := h.toolTriggerOrProposal(ctx, a, agentID, sc, args.Ref)
 	if err != nil {
 		return "", toolErr(err)
+	}
+	if target.Proposed {
+		// A proposal that the model made and that still waits is withdrawn at
+		// once: nothing runs, so there is nothing for the person to protect.
+		if err := h.DismissProposal(ctx, a.Principal, target.ID); err != nil {
+			return "", toolErr(err)
+		}
+		return fmt.Sprintf("Withdrew the proposal %q. It is not active and never ran.%s", target.Name, h.proofOf(ctx, target.ID)), nil
 	}
 	rec, err := h.ProposeDelete(ctx, a.Principal, a.ChatID, target)
 	if err != nil {

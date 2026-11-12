@@ -112,3 +112,91 @@ var _ = Describe("the stored state in the result of a trigger tool", func() {
 		Expect(got).To(ContainSubstring(`"active":true`), "it still runs until the person deletes it")
 	})
 })
+
+var _ = Describe("proposals in list_triggers and delete_trigger", func() {
+	ctx := context.Background()
+
+	// proposalRig proposes once, then runs the scripted word with the ref of
+	// the proposal in its args.
+	type proposalRig struct {
+		r   *trigRig
+		id  string
+		ref string
+	}
+	setup := func() *proposalRig {
+		pr := &proposalRig{}
+		pr.r = newTrigRig(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			switch {
+			case strings.Contains(text, "WORD propose"):
+				return []studiotest.ToolStep{{Tool: "propose_trigger", Args: goodProposal}, {Say: "ok"}}
+			case strings.Contains(text, "WORD list"):
+				return []studiotest.ToolStep{{Tool: "list_triggers", Args: `{"ref":"` + pr.ref + `","include_prompt":true}`}, {Tool: "list_triggers", Args: `{}`}, {Say: "ok"}}
+			case strings.Contains(text, "WORD update"):
+				return []studiotest.ToolStep{{Tool: "update_trigger", Args: `{"ref":"` + pr.ref + `","name":"X"}`}, {Say: "ok"}}
+			case strings.Contains(text, "WORD withdraw"):
+				return []studiotest.ToolStep{{Tool: "delete_trigger", Args: `{"ref":"` + pr.ref + `"}`}, {Say: "ok"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		})
+		pr.id = create(pr.r.svc, alice)
+		sent(pr.r.svc, alice, pr.id, "WORD propose")
+		idle(pr.r.svc, alice, pr.id)
+		props, err := pr.r.host.Proposals(ctx, alice)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(props).To(HaveLen(1))
+		pr.ref = studio.TriggerRef(props[0].ID)
+		return pr
+	}
+	word := func(pr *proposalRig, w string) {
+		sent(pr.r.svc, alice, pr.id, "WORD "+w)
+		idle(pr.r.svc, alice, pr.id)
+	}
+
+	It("lists a waiting proposal with its ref and state proposed, and gives its prompt on request", func() {
+		pr := setup()
+		word(pr, "list")
+		res := pr.r.h.ResultsFor("list_triggers")
+		Expect(res).To(HaveLen(2))
+		Expect(res[0].Out).To(ContainSubstring("Summarise yesterday."), "include_prompt works on a proposal")
+		Expect(res[1].Out).To(ContainSubstring(`"ref":"` + pr.ref + `"`))
+		Expect(res[1].Out).To(ContainSubstring(`"state":"proposed"`))
+		Expect(res[1].Out).To(ContainSubstring(`"on":false`))
+	})
+
+	It("withdraws a waiting proposal with its ref, and proves it", func() {
+		pr := setup()
+		word(pr, "withdraw")
+		res := pr.r.h.ResultsFor("delete_trigger")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).To(BeNil(), "result = %+v", res)
+		Expect(res[0].Out).To(ContainSubstring("Withdrew"))
+		Expect(res[0].Out).To(ContainSubstring(`"state":"withdrawn"`))
+		Expect(res[0].Out).To(ContainSubstring(`"active":false`))
+		props, _ := pr.r.host.Proposals(ctx, alice)
+		Expect(props).To(BeEmpty())
+		_, err := pr.r.host.ConfirmProposal(ctx, alice, mustProposalID(pr.r, pr.ref), "")
+		Expect(err).To(HaveOccurred(), "a withdrawn proposal cannot be confirmed")
+	})
+
+	It("refuses to change a proposal and says how to correct it", func() {
+		pr := setup()
+		word(pr, "update")
+		res := pr.r.h.ResultsFor("update_trigger")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).To(HaveOccurred())
+		Expect(res[0].Err.Error()).To(ContainSubstring("withdraw it with delete_trigger"))
+	})
+})
+
+// mustProposalID finds the ID of the stored record that a ref names.
+func mustProposalID(r *trigRig, ref string) string {
+	all, err := r.sh.trg.ListTriggers(context.Background(), alice)
+	Expect(err).NotTo(HaveOccurred())
+	for _, t := range all {
+		if studio.TriggerRef(t.ID) == ref {
+			return t.ID
+		}
+	}
+	Fail("no record for " + ref)
+	return ""
+}
