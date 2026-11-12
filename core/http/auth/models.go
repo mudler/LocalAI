@@ -148,16 +148,19 @@ func (p *PermissionMap) Scan(value any) error {
 
 // InviteCode represents an admin-generated invitation for user registration.
 type InviteCode struct {
-	ID         string  `gorm:"primaryKey;size:36"`
-	Code       string  `gorm:"uniqueIndex;not null;size:64"` // HMAC-SHA256 hash of invite code
-	CodePrefix string  `gorm:"size:12"`                      // first 8 chars for admin display
-	CreatedBy  string  `gorm:"size:36;not null"`
-	UsedBy     *string `gorm:"size:36"`
-	UsedAt     *time.Time
-	ExpiresAt  time.Time `gorm:"not null;index"`
-	CreatedAt  time.Time
-	Creator    User  `gorm:"foreignKey:CreatedBy"`
-	Consumer   *User `gorm:"foreignKey:UsedBy"`
+	ID         string `gorm:"primaryKey;size:36"`
+	Code       string `gorm:"uniqueIndex;not null;size:64"` // HMAC-SHA256 hash of invite code
+	CodePrefix string `gorm:"size:12"`                      // first 8 chars for admin display
+	// CreatedBy is nil when a static API key (LOCALAI_API_KEY) created the
+	// invite: that key authenticates as a synthetic admin without a users row,
+	// so the foreign key cannot name it.
+	CreatedBy *string `gorm:"size:36"`
+	UsedBy    *string `gorm:"size:36"`
+	UsedAt    *time.Time
+	ExpiresAt time.Time `gorm:"not null;index"`
+	CreatedAt time.Time
+	Creator   *User `gorm:"foreignKey:CreatedBy"`
+	Consumer  *User `gorm:"foreignKey:UsedBy"`
 }
 
 // ModelAllowlist controls which models a user can access.

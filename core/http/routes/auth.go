@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
 
@@ -1229,10 +1230,15 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			ID:         uuid.New().String(),
 			Code:       codeHash,
 			CodePrefix: plaintext[:8],
-			CreatedBy:  admin.ID,
 			ExpiresAt:  time.Now().Add(time.Duration(body.ExpiresInHours) * time.Hour),
 		}
+		// The static API key user has no users row; naming it would violate
+		// the creator foreign key, so its invites carry no creator.
+		if admin.ID != "legacy-api-key" {
+			invite.CreatedBy = &admin.ID
+		}
 		if err := db.Create(invite).Error; err != nil {
+			xlog.Error("failed to create invite", "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create invite"})
 		}
 
@@ -1259,10 +1265,13 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				"expiresAt":  inv.ExpiresAt,
 				"createdAt":  inv.CreatedAt,
 				"usedAt":     inv.UsedAt,
-				"createdBy": map[string]any{
+				"createdBy":  nil,
+			}
+			if inv.Creator != nil {
+				entry["createdBy"] = map[string]any{
 					"id":   inv.Creator.ID,
 					"name": inv.Creator.Name,
-				},
+				}
 			}
 			if inv.UsedBy != nil && inv.Consumer != nil {
 				entry["usedBy"] = map[string]any{
