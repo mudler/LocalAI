@@ -220,6 +220,52 @@ var _ = Describe("client folder operations", func() {
 			Expect(code).To(Equal(http.StatusOK))
 			Expect(read("/Fresh/folder/x.txt")).To(Equal("x"))
 		})
+		It("keeps only the newest versions of a file a client writes in a loop", func() {
+			store := f.files.Store()
+			owner := f.files.Actor("alice")
+			versions := func(p string) int {
+				abs, err := f.files.Abs("alice", p)
+				Expect(err).ToNot(HaveOccurred())
+				hist, err := store.History(context.Background(), owner, workspace.HistoryQuery{Path: abs, Limit: 1000})
+				Expect(err).ToNot(HaveOccurred())
+				n := 0
+				for _, cs := range hist {
+					for _, op := range cs.Ops {
+						if op.Kind == workspace.OpWrite {
+							n++
+						}
+					}
+				}
+				return n
+			}
+			for i := 0; i < 20; i++ {
+				code, out := call("client.workspace.write", fmt.Sprintf(`{"path":"Memory/clients/box/loop.md","content":"v%d"}`, i))
+				Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+			}
+			Expect(read("/Memory/clients/box/loop.md")).To(Equal("v19"))
+			Expect(versions("/Memory/clients/box/loop.md")).To(Equal(clientKeepVersions))
+			// Another file of the folder keeps its own history.
+			code, _ := call("client.workspace.write", `{"path":"Memory/clients/box/old.md","content":"v2"}`)
+			Expect(code).To(Equal(http.StatusOK))
+			Expect(versions("/Memory/clients/box/old.md")).To(Equal(1))
+			Expect(versions("/Memory/clients/box/loop.md")).To(Equal(clientKeepVersions))
+		})
+		It("does not prune the history of the owner's own writes", func() {
+			abs, err := f.files.Abs("alice", "/Memory/clients/box/mine.md")
+			Expect(err).ToNot(HaveOccurred())
+			for i := 0; i < 12; i++ {
+				_, err := f.files.Store().Put(context.Background(), f.files.Actor("alice"), abs, strings.NewReader(fmt.Sprintf("m%d", i)), workspace.PutOptions{Overwrite: true})
+				Expect(err).ToNot(HaveOccurred())
+			}
+			hist, err := f.files.Store().History(context.Background(), f.files.Actor("alice"), workspace.HistoryQuery{Path: abs, Limit: 1000})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(hist)).To(BeNumerically(">", clientKeepVersions))
+			code, _ := call("client.workspace.write", `{"path":"Memory/clients/box/other.md","content":"x"}`)
+			Expect(code).To(Equal(http.StatusOK))
+			hist, err = f.files.Store().History(context.Background(), f.files.Actor("alice"), workspace.HistoryQuery{Path: abs, Limit: 1000})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(hist)).To(BeNumerically(">", clientKeepVersions), "a client write pruned a file it did not write")
+		})
 		It("refuses a write to a read-only folder, to the parent and to a sibling, and changes nothing", func() {
 			for _, p := range []string{"Notes/new.md", "Notes/todo.md", "Reports/2026/new.md", "Memory/index.md", "Memory/clients/other/y.md", "Memory/clients/new.md", "Private/p.md"} {
 				code, _ := call("client.workspace.write", fmt.Sprintf(`{"path":%s,"content":"x"}`, js(p)))

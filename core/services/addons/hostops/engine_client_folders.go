@@ -63,6 +63,11 @@ const (
 	// then kept up to date by the writes of this host, is trusted before it is
 	// counted again. The owner can change the folder by other ways.
 	clientSizeTTL = 30 * time.Second
+	// clientKeepVersions is how many overwrites of one file the history keeps
+	// after a client write. Each overwrite keeps the old bytes for undo, so a
+	// client that writes one file in a loop would grow the store without
+	// bound. The owner's own writes are not pruned.
+	clientKeepVersions = 5
 	// maxClientPathSegments bounds a path below a folder.
 	maxClientPathSegments = 16
 	maxClientPathBytes    = 512
@@ -638,6 +643,7 @@ func (h *ClientFolderHost) write(ctx context.Context, c Call) (json.RawMessage, 
 	}
 	node.Rev = cs.Rev
 	h.Files.Written(ctx, node, owner)
+	h.pruneVersions(ctx, actor, target)
 	// Keep the counted size up to date, so the next write does not walk again.
 	size.bytes += int64(len(a.Content)) - old
 	if !existed {
@@ -651,6 +657,19 @@ func (h *ClientFolderHost) write(ctx context.Context, c Call) (json.RawMessage, 
 	digest := hex.EncodeToString(sum[:])
 	h.audit(ClientAudit{Op: op, Addon: c.AddonID, Client: cl.ClientID, Path: logPath(strings.Join(segs, "/")), Bytes: len(a.Content), SHA256: digest})
 	return json.Marshal(map[string]any{"path": strings.Join(segs, "/"), "bytes": len(a.Content), "sha256": digest, "revision": cs.Rev})
+}
+
+// pruneVersions limits the history of a file a client wrote to the newest
+// clientKeepVersions overwrites. The write is done: a store that cannot prune
+// is logged and the write stands.
+func (h *ClientFolderHost) pruneVersions(ctx context.Context, actor workspace.Actor, target string) {
+	p, ok := h.Files.Store().(workspace.Purger)
+	if !ok {
+		return
+	}
+	if _, err := p.PruneVersions(ctx, actor, target, clientKeepVersions); err != nil {
+		xlog.Warn("client.workspace.write: could not prune old versions", "path", logPath(target), "error", err)
+	}
 }
 
 // ensureFolder makes the write folder when it is not there yet. It acts as the

@@ -418,7 +418,10 @@ Rules the host enforces, for each call:
   the new size only.
 - A write is one change in the history of the owner's files, made as the owner,
   with the title "Paired client <id> wrote <name>", so the owner can tell which
-  client wrote a file and undo it. The write folder is counted once and the
+  client wrote a file and undo it. After a write, the history of that file
+  keeps only its newest five overwrites; older ones cannot be undone and their
+  bytes are removed, so a client that writes one file in a loop does not fill the
+  disk. Your own writes are never pruned. The write folder is counted once and the
   count is kept up to date by the writes (it is counted again after 30 seconds),
   with at most 4096 files and folders in it. Writes to one folder run one at a
   time; a write that waits reads the grant again before it runs, so a key that is
