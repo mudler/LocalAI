@@ -213,7 +213,7 @@ var _ = Describe("Chats per-chat settings", func() {
 	It("stores the settings on the chat and applies them to the next turn", func() {
 		id := s.create("alice")
 		rec := s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"settings": map[string]any{
-			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 8192,
+			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 16384,
 		}})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)["settings"]).To(HaveKeyWithValue("top_k", BeNumerically("==", 7)))
