@@ -86,6 +86,11 @@ export function usePlacementConfig(name, { onSaved, onError } = {}) {
     }
   }, [name, values, state.saved, onSaved, onError])
 
+  const shown = useMemo(() => {
+    const backend = state.parsed?.backend
+    return backend === undefined || backend === null ? values : { ...values, backend }
+  }, [values, state.parsed])
+
   const reload = useCallback(() => setNonce(n => n + 1), [])
-  return { status: state.status, error: state.error, values, setValue, preview, dirty, save, saving, reload }
+  return { status: state.status, error: state.error, values: shown, setValue, preview, dirty, save, saving, reload }
 }

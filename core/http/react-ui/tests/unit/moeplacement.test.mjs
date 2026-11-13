@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cacheLabel, hasMoeOptions, parseMoeOptions, setMoeOptions } from '../../src/utils/moePlacement.js'
+import { cacheLabel, hasMoeOptions, isLlamaCppBackend, parseMoeOptions, setMoeOptions } from '../../src/utils/moePlacement.js'
 
 const others = ['context_shift:true', 'parallel:2', 'devices:CUDA1,CUDA2']
 
@@ -70,4 +70,23 @@ test('moe options: the GPU choice on a list without expert entries changes nothi
 test('moe options: cache sizes are labelled in GB when whole', () => {
   assert.equal(cacheLabel(4096), '4 GB')
   assert.equal(cacheLabel(1500), '1500 MiB')
+})
+
+test('backend: llama.cpp and its spellings and pinned variants', () => {
+  for (const name of ['llama-cpp', 'llama.cpp', 'LLAMA-CPP', 'llama', 'go-llama',
+    'cuda12-llama-cpp', 'vulkan-llama-cpp', 'metal-darwin-arm64-llama-cpp', 'cuda13-nvidia-l4t-arm64-llama-cpp',
+    'llama-cpp-development', 'cpu-llama-cpp-quantization']) {
+    assert.equal(isLlamaCppBackend(name), true, name)
+  }
+})
+
+test('backend: unset resolves to llama.cpp for a GGUF file', () => {
+  for (const unset of [undefined, null, '', '  ']) assert.equal(isLlamaCppBackend(unset), true)
+})
+
+test('backend: other engines, and the separate ik-llama-cpp, are not llama.cpp', () => {
+  for (const name of ['vllm', 'mlx', 'whisper', 'transformers', 'stablediffusion-ggml', 'ik-llama-cpp',
+    'cuda12-ik-llama-cpp', 'llama-cpp-rpc', 'cloud-proxy', 'llamafile']) {
+    assert.equal(isLlamaCppBackend(name), false, name)
+  }
 })

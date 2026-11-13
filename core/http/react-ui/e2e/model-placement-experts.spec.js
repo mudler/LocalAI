@@ -7,6 +7,12 @@ import { mockLedger, mockPlacement, CONFIGS } from './ledger-fixtures.js'
 
 const NAME = 'qwen3-14b-instruct'
 const base = CONFIGS[NAME]
+const withBackend = (backend, extra = '') => ({
+  ...CONFIGS,
+  [NAME]: backend === null
+    ? `${base.replace('backend: llama-cpp\n', '')}${extra}`
+    : `${base.replace('backend: llama-cpp', `backend: ${backend}`)}${extra}`,
+})
 const withOptions = (...entries) => ({ ...CONFIGS, [NAME]: `${base}options:\n${entries.map(e => `  - ${e}\n`).join('')}` })
 
 const moe = (page, id) => page.getByTestId(`placement-moe-${id}`)
@@ -51,6 +57,32 @@ test.describe('Placement - experts: visibility', () => {
     await page.getByTestId('placement-mode-custom').click()
     await expect(block(page)).toBeVisible()
     await expect(page.getByTestId('placement-moe-auto-hint')).toHaveCount(0)
+  })
+
+  test('only the llama.cpp backend gets the block', async ({ page }) => {
+    await setup(page, { configs: withBackend('vllm') })
+    await expect(page.getByTestId('placement-memory')).toBeVisible()
+    await expect(block(page)).toHaveCount(0)
+  })
+
+  test('a pinned llama.cpp variant gets it, ik-llama-cpp does not', async ({ page }) => {
+    await setup(page, { configs: withBackend('cuda12-llama-cpp') })
+    await expect(block(page)).toBeVisible()
+    await page.goto('about:blank')
+    await setup(page, { configs: withBackend('ik-llama-cpp') })
+    await expect(page.getByTestId('placement-memory')).toBeVisible()
+    await expect(block(page)).toHaveCount(0)
+  })
+
+  test('no backend set resolves to llama.cpp, so the block shows', async ({ page }) => {
+    await setup(page, { configs: withBackend(null) })
+    await expect(block(page)).toBeVisible()
+  })
+
+  test('expert entries on another backend do not bring the block back', async ({ page }) => {
+    await setup(page, { configs: withBackend('vllm', 'options:\n  - cpu_moe:true\n') })
+    await expect(page.getByTestId('placement-memory')).toBeVisible()
+    await expect(block(page)).toHaveCount(0)
   })
 
   test('no GPU, no block', async ({ page }) => {
@@ -168,5 +200,17 @@ test.describe('Placement - experts: in the model editor', () => {
     await page.getByRole('button', { name: 'Save Changes' }).click()
     await expect.poll(() => patches.length).toBe(1)
     expect(patches[0].patch.options).toEqual(['parallel:2', 'cpu_moe:true'])
+  })
+
+  test('the editor hides the block for another backend and shows it for llama.cpp', async ({ page }) => {
+    await mockLedger(page, {})
+    await mockPlacement(page, { configs: withBackend('vllm'), expertCount: 64 })
+    await page.goto(`/app/model-editor/${NAME}`)
+    await expect(page.getByTestId('editor-placement')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('placement-memory')).toBeVisible()
+    await expect(block(page)).toHaveCount(0)
+    await mockPlacement(page, { configs: CONFIGS, expertCount: 64 })
+    await page.reload()
+    await expect(block(page)).toBeVisible({ timeout: 15_000 })
   })
 })

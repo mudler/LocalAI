@@ -10,6 +10,27 @@
 // those exactly as they are, in the same order. Pure functions, so the rules can
 // be tested without rendering anything.
 
+// Whether a model's `backend` value runs on the llama.cpp backend, the only one
+// that reads the three entries. It mirrors IsLlamaCppBackend in the server
+// (core/config/backend_capabilities.go) plus the loader's aliases:
+//
+//   unset or empty   true. A GGUF model with no backend resolves to llama.cpp.
+//   llama-cpp, llama.cpp, llama, go-llama
+//   a pinned variant: cuda12-llama-cpp, vulkan-llama-cpp, llama-cpp-development ...
+//   ik-llama-cpp     false. A separate engine that only shares the name suffix.
+//   anything else    false.
+export function isLlamaCppBackend(backend) {
+  if (backend === undefined || backend === null) return true
+  let name = String(backend).trim().toLowerCase().replace(/\./g, '-')
+  if (name === '') return true
+  if (name === 'llama' || name === 'go-llama') return true
+  for (const suffix of ['-development', '-quantization']) {
+    if (name.endsWith(suffix)) name = name.slice(0, -suffix.length)
+  }
+  if (name.endsWith('ik-llama-cpp')) return false
+  return name === 'llama-cpp' || name.endsWith('-llama-cpp')
+}
+
 export const MOE_KEYS = ['cpu_moe', 'n_cpu_moe', 'moe_cache_mib']
 
 // The generic passthrough spellings of the same switches (an entry whose name

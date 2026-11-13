@@ -709,6 +709,7 @@ export default function ModelEditor() {
                         main_gpu: values['main_gpu'],
                         context_size: values['context_size'],
                         options: values['options'],
+                        backend: values['backend'],
                       }}
                       onChange={handlePlacementChange}
                     />

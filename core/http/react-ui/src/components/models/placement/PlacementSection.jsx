@@ -8,7 +8,7 @@ import {
   parseSplit, placementFit, placementMode, searchLayers, shares, splitByFree,
 } from '../../../utils/placement'
 import {
-  MOE_CACHE_PRESETS, cacheLabel, parseMoeOptions, setMoeOptions,
+  MOE_CACHE_PRESETS, cacheLabel, isLlamaCppBackend, parseMoeOptions, setMoeOptions,
 } from '../../../utils/moePlacement'
 import Icon from '../../Icon'
 import './placement.css'
@@ -24,8 +24,10 @@ import MemoryBar from '../MemoryBar'
 // values and hand them in.
 //
 //   model     the installed model's name; the estimate is asked about it.
-//   values    { gpu_layers, tensor_split, main_gpu, context_size, options } as
-//             the editor holds them. An absent key is unset.
+//   values    { gpu_layers, tensor_split, main_gpu, context_size, options, backend }
+//             as the editor holds them. An absent key is unset. `backend` only
+//             decides whether the Experts block is shown: the expert entries are
+//             read by the llama.cpp backend alone.
 //   onChange  (path, value) => void. A value of undefined unsets the key.
 //
 // Everything on screen is worked out from three things the server returns: the
@@ -100,10 +102,13 @@ export default function PlacementSection({ model, values, onChange, headerAction
   // --- experts (mixture of experts) -----------------------------------------
   const moe = useMemo(() => parseMoeOptions(values.options), [values.options])
   const expertCount = estimate.data?.expertCount || 0
-  // Only a MoE model has experts. A model whose file already sets expert
-  // options keeps the block even when the estimate cannot be read, so the
-  // setting can be seen and undone.
-  const showMoe = hasGpu && mode !== 'cpu' && (expertCount > 0 || moe.experts !== 'gpu' || moe.cacheMib > 0)
+  // Only a MoE model has experts, and only the llama.cpp backend reads the
+  // expert entries, so the block is hidden for any other backend (even when the
+  // options already hold an entry: it would claim a placement that is ignored).
+  // A model whose file already sets expert options keeps the block even when the
+  // estimate cannot be read, so the setting can be seen and undone.
+  const showMoe = hasGpu && mode !== 'cpu' && isLlamaCppBackend(values.backend)
+    && (expertCount > 0 || moe.experts !== 'gpu' || moe.cacheMib > 0)
   const expertsOnCpu = moe.experts === 'some' || moe.experts === 'all'
   const writeMoe = (change) => {
     const next = { experts: moe.experts, layers: moe.layers ?? 1, cacheMib: moe.cacheMib, ...change }
