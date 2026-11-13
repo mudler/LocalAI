@@ -67,9 +67,9 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Go tests of the add-on
-        run: go test -tags auth -count=1 ./addons/sandbox/...
+        run: go test -tags "auth nosqlite purego_utp" -count=1 ./addons/sandbox/...
       - name: End to end with the real add-on process and the real supervisor
-        run: go test -tags auth -count=1 ./tests/addons/actione2e/...
+        run: go test -tags "auth nosqlite purego_utp" -count=1 ./tests/addons/actione2e/...
       - name: UI unit tests
         run: |
           npm ci --prefix core/http/react-ui
@@ -138,7 +138,7 @@ jobs:
           SANDBOX_TEST_IMAGE: ${{ steps.image.outputs.ref }}
         run: |
           export SANDBOX_TEST_RUNSC="$HOME/gvisor/runsc"
-          go test -tags auth -count=1 -timeout 45m ./addons/sandbox/internal/sandbox/gvisor/
+          go test -tags "auth nosqlite purego_utp" -count=1 -timeout 45m ./addons/sandbox/internal/sandbox/gvisor/
       - name: Install the host UI build tools
         # The smoke test packages the add-on, and the package build bundles
         # the add-on UI with the bundler the host UI installs.
@@ -221,4 +221,4 @@ jobs:
         if: steps.kvm.outputs.available == 'true'
         env:
           SANDBOX_TEST_IMAGE: ${{ steps.image.outputs.ref }}
-        run: go test -tags auth -count=1 -timeout 45m ./addons/sandbox/internal/sandbox/chv/
+        run: go test -tags "auth nosqlite purego_utp" -count=1 -timeout 45m ./addons/sandbox/internal/sandbox/chv/

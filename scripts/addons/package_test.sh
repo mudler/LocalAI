@@ -49,7 +49,7 @@ run_go() {
     shift
     report="$cache/logs/packaging-$name.json"
     rm -f "$report"
-    go test -count=1 -p 2 -tags auth "$@" -ginkgo.json-report="$report" >"$cache/logs/packaging-$name.log" 2>&1 || { tail -60 "$cache/logs/packaging-$name.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp "$@" -ginkgo.json-report="$report" >"$cache/logs/packaging-$name.log" 2>&1 || { tail -60 "$cache/logs/packaging-$name.log" >&2; exit 1; }
     go_cases "$report"
 }
 run_go specs ./pkg/addons/packaging

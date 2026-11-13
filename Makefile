@@ -25,7 +25,17 @@ export BUILD_TYPE?=
 export CUDA_MAJOR_VERSION?=13
 export CUDA_MINOR_VERSION?=0
 
+## Build tags. `nosqlite` and `purego_utp` are required whenever cgo is on: the
+## BitTorrent client in pkg/downloader would otherwise link a second copy of the
+## SQLite C library beside mattn/go-sqlite3 (a link-time "multiple definition"
+## failure) and the libutp C++ library. With them the client is pure Go, so the
+## cgo footprint of the binary does not change (pkg/downloader/nosqlite_guard.go
+## says so at compile time). They are added to GO_TAGS even when the caller sets
+## GO_TAGS, and exported through GOFLAGS so every `go` command a recipe runs,
+## ginkgo and its test builds included, gets them.
 GO_TAGS?=
+override GO_TAGS += nosqlite purego_utp
+export GOFLAGS := $(strip $(GOFLAGS) -tags=nosqlite,purego_utp)
 BUILD_ID?=
 NATIVE?=false
 
@@ -123,6 +133,7 @@ COVERAGE_ROOTS?=./pkg ./core $(ADDON_COVERAGE_ROOTS)
 ## auth implementation and its ~150 `//go:build auth` tests (otherwise they're
 ## invisible and the gate scores auth against a stub). `debug` matches `test`.
 COVERAGE_TAGS?=debug auth
+override COVERAGE_TAGS += nosqlite purego_utp
 ## Coverage is attributed to these packages via --coverpkg, so the in-process
 ## integration suites (COVERAGE_E2E_ROOTS) credit the core/http handlers they
 ## drive over HTTP — not just their own test package.
@@ -428,7 +439,7 @@ run-e2e-image:
 # it set LOCALAI_E2E_RUNSC_DIR or the Sandbox package is skipped.
 .PHONY: test-addons-shipped
 test-addons-shipped:
-	$(GOCMD) test -tags auth -count=1 -timeout 40m -v ./tests/addons/shipped/
+	$(GOCMD) test -tags "auth nosqlite purego_utp" -count=1 -timeout 40m -v ./tests/addons/shipped/
 
 test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
@@ -1674,7 +1685,7 @@ clean-localai-proxy-backend:
 ########################################################
 
 build-ui-test-server: build-mock-backend react-ui protogen-go
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 
 test-ui-e2e: build-ui-test-server
 	cd core/http/react-ui && npm install && npx playwright install --with-deps chromium && npx playwright test
@@ -1694,7 +1705,7 @@ PLAYWRIGHT_WORKERS_FLAG = $(if $(UI_TEST_WORKERS),--workers=$(UI_TEST_WORKERS),)
 ## downloading it as `test-ui-e2e` does.
 test-ui: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG)
 
 ## The specs tagged @production-chunks need the production code-split bundle
@@ -1704,7 +1715,7 @@ test-ui: build-mock-backend protogen-go
 ## this target is the only run that tests the bundle that ships.
 test-ui-stale-chunk: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test --grep @production-chunks --workers=1
 
 ## React UI code coverage from the Playwright e2e suite. Builds a
@@ -1719,7 +1730,7 @@ test-ui-stale-chunk: build-mock-backend protogen-go
 test-ui-coverage: build-mock-backend protogen-go
 	trap 'rm -rf "$(CURDIR)/core/http/react-ui/dist"' EXIT; \
 	( cd core/http/react-ui && bun install && bun run build:coverage-v8 ) && \
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
 	( cd core/http/react-ui && rm -rf .nyc_output coverage && \
 	    sh $(CURDIR)/scripts/ensure-playwright-browser.sh && \
 	    PW_V8_COVERAGE=1 bunx playwright test --grep-invert @production-chunks $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )

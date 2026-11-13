@@ -65,9 +65,9 @@ trap 'exit 143' HUP INT TERM
 
 # The binaries are built here, never taken from an earlier build: the server
 # embeds the UI build and every other part of the fixture.
-go build -p 2 -tags auth -o "$work/ui-test-server" ./tests/e2e-ui
+go build -p 2 -tags auth,nosqlite,purego_utp -o "$work/ui-test-server" ./tests/e2e-ui
 CGO_ENABLED=1 go build -p 2 -trimpath -o "$work/tables" ./addons/tables/cmd/tables
-go build -p 2 -tags auth -o "$work/tables-cluster" ./tests/addons/tablesacceptance/cmd/tables-cluster
+go build -p 2 -tags auth,nosqlite,purego_utp -o "$work/tables-cluster" ./tests/addons/tablesacceptance/cmd/tables-cluster
 
 evidence="$cache/tables-acceptance-evidence.json"
 rm -f "$evidence"
@@ -78,7 +78,7 @@ go_report="$cache/logs/tables-acceptance-go.json"
 rm -f "$go_report"
 TABLES_ACCEPTANCE_SERVER="$work/ui-test-server" TABLES_ACCEPTANCE_TABLES="$work/tables" \
 TABLES_ACCEPTANCE_MOCK="$root/tests/e2e/mock-backend/mock-backend" TABLES_ACCEPTANCE_EVIDENCE="$evidence" \
-    go test -count=1 -p 2 -tags auth -timeout 30m ./tests/addons/tablesacceptance -ginkgo.json-report="$go_report" >"$cache/logs/tables-acceptance-go.log" 2>&1 || {
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp -timeout 30m ./tests/addons/tablesacceptance -ginkgo.json-report="$go_report" >"$cache/logs/tables-acceptance-go.log" 2>&1 || {
         python3 -I - "$go_report" <<'PY' >&2 || true
 import json, sys
 try:
@@ -159,7 +159,7 @@ json.dump(ev, open(tmp, 'w'), indent=2)
 os.replace(tmp, evidence)
 PY
 if TABLES_ACCEPTANCE_CHECK_EVIDENCE=1 TABLES_ACCEPTANCE_EVIDENCE="$evidence" \
-    go test -count=1 -tags auth -run 'TestEvidenceManifest$' -v ./tests/addons/tablesacceptance >"$cache/logs/tables-acceptance-evidence.log" 2>&1 \
+    go test -count=1 -tags auth,nosqlite,purego_utp -run 'TestEvidenceManifest$' -v ./tests/addons/tablesacceptance >"$cache/logs/tables-acceptance-evidence.log" 2>&1 \
     && grep -q -- '--- PASS: TestEvidenceManifest' "$cache/logs/tables-acceptance-evidence.log"; then
     printf '{"case": "manifest: the evidence manifest names the platform, the commands, the package digests and every case", "status": "passed"}\n'
 else

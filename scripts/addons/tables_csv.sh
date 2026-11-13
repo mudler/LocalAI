@@ -55,7 +55,7 @@ run_go() {
     shift
     report="$cache/logs/tables-csv-$name.json"
     rm -f "$report"
-    go test -count=1 -p 2 -tags auth "$@" -ginkgo.json-report="$report" >"$cache/logs/tables-csv-$name.log" 2>&1 || { tail -40 "$cache/logs/tables-csv-$name.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp "$@" -ginkgo.json-report="$report" >"$cache/logs/tables-csv-$name.log" 2>&1 || { tail -40 "$cache/logs/tables-csv-$name.log" >&2; exit 1; }
     go_cases "$report"
 }
 run_go store ./addons/tables/internal/store -ginkgo.focus='CSV export'

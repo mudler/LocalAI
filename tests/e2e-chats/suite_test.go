@@ -52,7 +52,7 @@ var _ = BeforeSuite(func() {
 	binDir, err = os.MkdirTemp("", "e2e-chats-bin-*")
 	Expect(err).ToNot(HaveOccurred())
 	// The auth tag is needed: the sqlite auth database is part of what is tested.
-	localAIBin = build("E2E_LOCALAI_BIN", "local-ai", "./cmd/local-ai", "auth")
+	localAIBin = build("E2E_LOCALAI_BIN", "local-ai", "./cmd/local-ai", "auth,nosqlite,purego_utp")
 	mockBackendBin = build("E2E_MOCK_BACKEND", "mock-backend", "./tests/e2e/mock-backend")
 	cloudProxyBin = build("E2E_CLOUD_PROXY", "cloud-proxy", "./backend/go/cloud-proxy")
 	llm = newFakeLLM()

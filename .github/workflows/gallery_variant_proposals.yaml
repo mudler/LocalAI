@@ -3,6 +3,10 @@ on:
   schedule:
     - cron: 0 4 * * 1
   workflow_dispatch:
+# nosqlite and purego_utp: pkg/downloader needs them when cgo is on (see CONTRIBUTING.md, "Build tags").
+env:
+  GOFLAGS: -tags=nosqlite,purego_utp
+
 jobs:
   variant_proposals:
     if: github.repository == 'mudler/LocalAI'

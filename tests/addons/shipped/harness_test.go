@@ -94,7 +94,7 @@ func setupWorld() {
 	w.bin = os.Getenv("LOCALAI_E2E_BINARY")
 	if w.bin == "" {
 		w.bin = filepath.Join(w.work, "local-ai")
-		run(w.root, nil, "go", "build", "-tags", "auth", "-o", w.bin, "./cmd/local-ai")
+		run(w.root, nil, "go", "build", "-tags", "auth,nosqlite,purego_utp", "-o", w.bin, "./cmd/local-ai")
 	}
 	run(w.root, nil, "go", "build", "-o", filepath.Join(w.work, "mock-backend"), "./tests/e2e/mock-backend")
 	run(w.root, nil, "go", "build", "-o", filepath.Join(w.work, "fakejobs"), "./tests/addons/shipped/cmd/fakejobs")

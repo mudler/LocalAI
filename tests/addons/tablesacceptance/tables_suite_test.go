@@ -84,7 +84,7 @@ var _ = BeforeSuite(func() {
 			return p
 		}
 		target := filepath.Join(scratch, out)
-		args := append([]string{"build", "-p", "2", "-tags", "auth"}, extra...)
+		args := append([]string{"build", "-p", "2", "-tags", "auth,nosqlite,purego_utp"}, extra...)
 		args = append(args, "-o", target, pkgPath)
 		run(repoRoot, []string{"CGO_ENABLED=1"}, "go", args...)
 		return target
@@ -259,7 +259,7 @@ var _ = ReportAfterSuite("write the acceptance evidence manifest", func(report R
 	commandsMu.Lock()
 	ev.Commands = append(ev.Commands, commands...)
 	commandsMu.Unlock()
-	ev.Commands = append(ev.Commands, []string{"go", "test", "-count=1", "-tags", "auth", "./tests/addons/tablesacceptance"})
+	ev.Commands = append(ev.Commands, []string{"go", "test", "-count=1", "-tags", "auth,nosqlite,purego_utp", "./tests/addons/tablesacceptance"})
 	for v, p := range packages {
 		ev.Artifact.Versions[v] = digest{Archive: p.ArchiveDigest, Image: p.ImageDigest}
 	}

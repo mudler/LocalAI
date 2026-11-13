@@ -49,7 +49,7 @@ PY
 }
 report="$cache/logs/tables-ui-apply.json"
 rm -f "$report"
-go test -count=1 -p 2 -tags auth ./tests/addons/tablesadmin -ginkgo.focus='UI changes of a database' -ginkgo.json-report="$report" >"$cache/logs/tables-ui-apply.log" 2>&1 || { tail -40 "$cache/logs/tables-ui-apply.log" >&2; exit 1; }
+go test -count=1 -p 2 -tags auth,nosqlite,purego_utp ./tests/addons/tablesadmin -ginkgo.focus='UI changes of a database' -ginkgo.json-report="$report" >"$cache/logs/tables-ui-apply.log" 2>&1 || { tail -40 "$cache/logs/tables-ui-apply.log" >&2; exit 1; }
 go_cases "$report"
 
 # 3. The real owner, the real Tables executable, the built package.

@@ -58,7 +58,7 @@
           "-p",
           "2",
           "-tags",
-          "auth",
+          "auth,nosqlite,purego_utp",
           "<temporary SQLite probe>",
           "-ginkgo.json-report=<unique report>"
         ],
@@ -106,7 +106,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./pkg/addons/contract",
         "-ginkgo.json-report=../../../.cache/addons/logs/contracts.json"
       ],
@@ -117,7 +117,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./pkg/addons/packaging",
         "-ginkgo.json-report=../../../.cache/addons/logs/contracts-packaging.json"
       ],
@@ -128,7 +128,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         ".",
         "-ginkgo.json-report=.cache/addons/logs/contracts-architecture.json"
       ]
@@ -1088,7 +1088,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/catalog",
         "-ginkgo.json-report=../../../../.cache/addons/logs/catalog.json"
       ]
@@ -1203,7 +1203,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/packages",
         "-ginkgo.json-report=../../../../.cache/addons/logs/packages.json"
       ]
@@ -1299,7 +1299,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons",
         "-ginkgo.json-report=../../../.cache/addons/logs/lifecycle.json"
       ]
@@ -1445,7 +1445,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/runtime",
         "-ginkgo.json-report=../../../../.cache/addons/logs/runtime.json"
       ],
@@ -1456,7 +1456,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./addons/internal/protocol",
         "-ginkgo.json-report=../../../.cache/addons/logs/runtime-protocol.json"
       ]
@@ -1611,7 +1611,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/gateway",
         "-ginkgo.json-report=../../../../.cache/addons/logs/gateway.json"
       ],
@@ -1622,7 +1622,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/gateway-http.json"
       ],
@@ -1633,7 +1633,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/application",
         "-ginkgo.focus=execution binding owner resolver|workspace operation declarations",
         "-ginkgo.json-report=../../.cache/addons/logs/gateway-owner-binding.json"
@@ -1645,7 +1645,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/studio/session",
         "-ginkgo.json-report=../../../../.cache/addons/logs/gateway-session-scope.json"
       ]
@@ -2311,7 +2311,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/policy",
         "-ginkgo.json-report=../../../../.cache/addons/logs/policy.json"
       ]
@@ -2605,7 +2605,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/policy",
         "-ginkgo.json-report=../../../../.cache/addons/logs/proposals.json"
       ],
@@ -2616,7 +2616,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/proposals-http.json"
       ]
@@ -3097,7 +3097,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/artifacts",
         "-ginkgo.json-report=../../../../.cache/addons/logs/artifacts.json"
       ],
@@ -3108,7 +3108,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/gateway",
         "-ginkgo.json-report=../../../../.cache/addons/logs/artifacts-gateway.json"
       ],
@@ -3119,7 +3119,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/artifacts-http.json"
       ]
@@ -3631,7 +3631,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/apps",
         "-ginkgo.json-report=../../../../.cache/addons/logs/apps.json"
       ],
@@ -3642,7 +3642,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons",
         "-ginkgo.json-report=../../../.cache/addons/logs/apps-lifecycle.json"
       ],
@@ -3653,7 +3653,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/runtime",
         "-ginkgo.json-report=../../../../.cache/addons/logs/apps-runtime.json"
       ],
@@ -3664,7 +3664,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/apps-http.json"
       ]
@@ -4384,7 +4384,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./addons/tables/internal/store",
         "-ginkgo.json-report=../../../../.cache/addons/logs/tables-databases-store.json"
       ],
@@ -4395,7 +4395,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tables",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-databases.json"
       ]
@@ -4543,7 +4543,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./addons/tables/internal/store",
         "-ginkgo.json-report=../../../../.cache/addons/logs/tables-schema-store.json"
       ],
@@ -4554,7 +4554,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tables",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-schema.json"
       ]
@@ -4702,7 +4702,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./addons/tables/internal/store",
         "-ginkgo.json-report=../../../../.cache/addons/logs/tables-rows-store.json"
       ],
@@ -4713,7 +4713,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tables",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-rows.json"
       ]
@@ -5062,7 +5062,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tablesadmin",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-admin.json"
       ]
@@ -5820,7 +5820,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/hostops",
         "-ginkgo.json-report=../../../../.cache/addons/logs/host-admission.json"
       ]
@@ -5993,7 +5993,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/mail",
         "-ginkgo.json-report=../../../.cache/addons/logs/mail-addon.json"
       ]
@@ -6017,7 +6017,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/oauth",
         "-ginkgo.json-report=../../../.cache/addons/logs/oauth.json"
       ]

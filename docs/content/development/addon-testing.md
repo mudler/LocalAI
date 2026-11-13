@@ -38,7 +38,7 @@ Unknown suites, empty selections, skipped required tests, and failed commands re
 
 The bounded review verification used offline caches, `GOMAXPROCS=2`, and
 `GOFLAGS='-mod=readonly -p=2 "-ldflags=-s -w"'`. Direct commands used
-`go test -timeout=5m -count=1 -tags auth PACKAGE -ginkgo.json-report=REPORT`
+`go test -timeout=5m -count=1 -tags auth,nosqlite,purego_utp PACKAGE -ginkgo.json-report=REPORT`
 for `./pkg/addons/contract`, `./pkg/addons/packaging`, `.`,
 `./core/services/addons/apps`,
 `./core/services/addons/gateway`, and `./core/application`.
@@ -163,7 +163,7 @@ Verification performs these checks:
 4. Start the real UI test server with the mock backend on an isolated loopback port.
 5. Wait for server health, launch Chromium, and require a rendered React root.
 
-The SQLite probe uses `go test -count=1 -tags auth` and a machine-readable Ginkgo report.
+The SQLite probe uses `go test -count=1 -tags auth,nosqlite,purego_utp` and a machine-readable Ginkgo report.
 Verification rejects missing, empty, failed, skipped, or unexpected test cases.
 It records child commands, output, and status in `.cache/addons/logs/verify-*.jsonl`.
 Ginkgo reports use separate unique files in the same directory.
@@ -618,7 +618,7 @@ or a guarantee to detect revoke-and-restore changes between reads.
 Run from the repository root (these packages share the root Go module):
 
 ```sh
-go test -count=1 -v -tags auth ./pkg/addons/contract ./core/services/addons/apps ./core/services/addons/packages ./core/services/addons/runtime ./addons/internal/protocol ./core/config
+go test -count=1 -v -tags auth,nosqlite,purego_utp ./pkg/addons/contract ./core/services/addons/apps ./core/services/addons/packages ./core/services/addons/runtime ./addons/internal/protocol ./core/config
 ```
 
 `modelactions_test.go` covers strict keys, capability exclusion, traversal and

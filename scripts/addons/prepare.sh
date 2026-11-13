@@ -77,9 +77,9 @@ if [ "$mode" = --integration ]; then
     space
     (cd core/http/react-ui && npm run build)
     space
-    go build -p 2 -tags auth -o tests/e2e/mock-backend/mock-backend ./tests/e2e/mock-backend
+    go build -p 2 -tags auth,nosqlite,purego_utp -o tests/e2e/mock-backend/mock-backend ./tests/e2e/mock-backend
     space
-    go build -p 2 -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+    go build -p 2 -tags auth,nosqlite,purego_utp -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
     exit 0
 fi
 for file in tests/e2e/mock-backend/mock-backend tests/e2e-ui/ui-test-server core/http/react-ui/node_modules/.bin/playwright; do

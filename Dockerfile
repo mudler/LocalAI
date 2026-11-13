@@ -285,7 +285,7 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
 
 FROM build-requirements AS builder-base
 
-ARG GO_TAGS="auth"
+ARG GO_TAGS="auth nosqlite purego_utp"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"

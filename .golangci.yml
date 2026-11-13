@@ -1,5 +1,12 @@
 version: "2"
 
+# nosqlite and purego_utp keep the BitTorrent client pure Go. Without them
+# pkg/downloader does not compile (see nosqlite_guard.go).
+run:
+  build-tags:
+    - nosqlite
+    - purego_utp
+
 # Only issues introduced relative to master are reported. Pre-existing issues
 # in the codebase do not fail the lint job; they're treated as a baseline that
 # can be cleaned up incrementally. New code (added lines on a branch) is held

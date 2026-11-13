@@ -32,6 +32,10 @@ concurrency:
   group: model-library-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# nosqlite and purego_utp: pkg/downloader needs them when cgo is on (see CONTRIBUTING.md, "Build tags").
+env:
+  GOFLAGS: -tags=nosqlite,purego_utp
+
 jobs:
   model-library:
     name: 'Check the model library'

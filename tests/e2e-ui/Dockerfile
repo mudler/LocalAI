@@ -50,8 +50,8 @@ COPY --from=react-ui-builder /app/dist ./core/http/react-ui/dist
 
 # Generate protobuf Go code, build mock backend and UI test server
 RUN make protogen-go && \
-    go build -o /out/mock-backend ./tests/e2e/mock-backend && \
-    go build -o /out/ui-test-server ./tests/e2e-ui
+    go build -tags nosqlite,purego_utp -o /out/mock-backend ./tests/e2e/mock-backend && \
+    go build -tags nosqlite,purego_utp -o /out/ui-test-server ./tests/e2e-ui
 
 ###################################
 # Stage 3: Run Playwright tests

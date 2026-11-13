@@ -76,7 +76,7 @@ var _ = BeforeSuite(func() {
 	}
 	localAIBin = os.Getenv("LOCALAI_E2E_BINARY")
 	if localAIBin == "" {
-		localAIBin = build(filepath.Join(workDir, "local-ai"), "./cmd/local-ai", "auth")
+		localAIBin = build(filepath.Join(workDir, "local-ai"), "./cmd/local-ai", "auth,nosqlite,purego_utp")
 	}
 	mockBackend = build(filepath.Join(workDir, "mock-backend"), "./tests/e2e/mock-backend")
 	fixtureBin = build(filepath.Join(workDir, "mcpfixture"), "./tests/e2e-platform/mcpfixture")
