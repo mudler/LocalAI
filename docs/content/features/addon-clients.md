@@ -242,8 +242,11 @@ and LocalAI refuses a manifest that uses a tail and declares a lower level.
 - A tail has no name clash: a name may be used once in a path, tail included.
 - A route without a tail wins over a route with one, whatever the order in the
   manifest, so `/files/index` beats `/files/{path...}` for `/files/index`. Between
-  two routes with a tail, the one with the longer fixed part wins. Two routes of
-  the same method and shape (`/a/{x...}` and `/a/{y...}`) are a manifest error.
+  two routes with a tail, the one with the longer fixed part wins. The rule is
+  applied for each method: a route that does not tail only shadows the tail
+  routes of its own method. With `PUT /files/index` and `GET /files/{path...}`,
+  a `GET` of `/files/index` reaches the tail, and a `PUT` reaches the literal
+  route. Two routes of the same method and shape (`/a/{x...}` and `/a/{y...}`) are a manifest error.
 - Limits: a route with a tail takes a request path of at most 256 characters and
   12 segments, since a path to a file needs more room than a fixed route. A
   route without a tail keeps 128 characters and 6 segments. The declared path
@@ -315,14 +318,17 @@ fills its parameters. It cannot send a prompt of its own.
 | `client.jobs.cancel` | `id` | the job |
 
 The owner must grant the add-on the operations as for any host operation (for
-example the prefix `client.` in the host policy), and must hold the `mcp_jobs`
-feature.
+example the prefix `client.jobs.` in the host policy), and must hold the
+`mcp_jobs` feature. Prefer the narrow prefix: the prefix `client.` also covers
+`client.list` and `client.workspace.*`, and so gives the add-on the files of
+the client folders.
 
 The client is not an argument. LocalAI records each forwarded call under the
 owner and the client key. The add-on passes the `operationId` of the call to the
 host with each operation, and LocalAI finds the client in its own record. During
 a call that a client made, the add-on can use the operations that this page names
-for a client call (the three job operations) and no others. The host checks the
+for a client call and no others: the three job operations, and the three folder
+operations of [Folders of the owner](#folders-of-the-owner). The host checks the
 exact name, so a new operation under `client.` stays closed to a client call
 until it is named. A stream call lasts as long as the stream, so the add-on can ask for the
 state of a job while the client is connected. Each operation checks that the key
@@ -351,12 +357,12 @@ The host decides who is in the list, not the add-on:
 - Only the `id` and the `name` (printable characters, at most 64 bytes, as in
   `ClientRequest`). No key, no hash and no feature list.
 
-The call needs the owner to grant the add-on `client.list`, for example with the
-prefix `client.`, and the actor must be an administrator. Otherwise the add-on
+The call needs the owner to grant the add-on `client.list` (the prefix
+`client.list` is enough, and narrower than `client.`), and the actor must be an administrator. Otherwise the add-on
 gets the same refusal as for any host operation it does not hold. A call that
 a client made never reaches `client.list`: during such a call the add-on can use
-the job operations above and no others (the list is by exact name, not by
-prefix).
+only the job and folder operations of this page, by exact name and not by
+prefix.
 
 ### Folders of the owner
 
@@ -403,16 +409,30 @@ Rules the host enforces, for each call:
   JSON. `list` shows these files and folders only.
 - Names below the write folder use letters, digits, `_`, `.`, `~` and `-`, no
   leading dot, 128 characters per name, 16 segments per path.
-- Sizes: `read` returns a file of at most 1 MiB. `write` takes a file of at most
+- Sizes: `read` returns a file of at most 512 KiB, and an answer that would be
+  over the 1 MiB payload of a host operation once it is JSON-encoded (a file
+  full of `<` takes six bytes a character) is refused. `list` returns at most
+  200 entries a page, sorted by name; when more follow, the answer has
+  `"truncated": true` and `next`, which the add-on passes back as `after`. `write` takes a file of at most
   256 KiB and keeps at most 50 MiB in the write folder; replacing a file counts
   the new size only.
 - A write is one change in the history of the owner's files, made as the owner,
-  so the owner can see it and undo it.
+  with the title "Paired client <id> wrote <name>", so the owner can tell which
+  client wrote a file and undo it. The write folder is counted once and the
+  count is kept up to date by the writes (it is counted again after 30 seconds),
+  with at most 4096 files and folders in it. Writes to one folder run one at a
+  time; a write that waits reads the grant again before it runs, so a key that is
+  revoked, paused or narrowed meanwhile does not complete it.
 - **Audit.** The host logs each write with the add-on, the id of the client,
   the path, the byte count and the SHA-256 of the content, and each refused
   operation with its reason, at the info level with the other host operation
-  logs. The log never holds the content or a credential. The reason is not sent
-  to the add-on.
+  logs. The log never holds the content or a credential. The reason of a
+  refusal on the grant (a key that is revoked, paused, without a grant, or a path
+  outside the folders) is not sent to the add-on: it gets the generic refusal.
+  A refusal about the request itself is sent, in fixed words and with no path: a
+  file type that is not allowed, an invalid file name, a file or answer that is
+  too large, a folder that is full or has too many files, content that is not
+  text or not valid JSON.
 
 **The envelope of a client call.** A client call is recorded with the read
 scope. A call on a route that changes things (any method except `GET`) is
@@ -421,7 +441,8 @@ recorded with the apply scope, which `client.workspace.write` needs. Streams and
 does not widen what a client call may do: the broker allows a client call only
 the operations it names, by exact name, and these are the job operations and the
 three folder operations. Declare the folder operations in `hostOperations` and
-ask the owner for the prefix `client.workspace.`.
+ask the owner for the prefix `client.workspace.`, not for `client.`: that prefix
+also covers `client.list`, and every operation added under it later.
 
 **Example: a write folder that the memory loader reads.** The built-in memory
 reads `Memory/index.md` and, next to each index, topic files that the model
@@ -430,6 +451,15 @@ opens by name (`core/services/studio/memory.go` lists the three indexes,
 The folders with an index are `Memory/`, `Memory/agents/<agent>/` and
 `Memory/channels/<channel>/`. A write folder inside one of them needs no
 proposal: the files are read as the owner's own notes.
+
+**Security: this lets a paired client plant text that the owner's chats load.**
+What a client writes there is read like a note that the owner or the assistant
+saved. A client that is compromised, or an add-on that passes on what a person
+told it, can write text that steers the chats that read the folder. Memory
+notes come in a block that the prompt marks as saved data, but the model still
+reads it. Give such a folder only to a client that you trust as much as your own
+notes, keep it to one saved agent, and look at the history of the files, where
+each write has the client id in its title.
 
 ```json
 { "name": "kitchen", "features": ["client_self", "client_addons", "client_folders"],
