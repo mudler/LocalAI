@@ -785,7 +785,12 @@
     "items_one": "{{count}} 项",
     "items_other": "{{count}} 项",
     "textCut": "显示前 {{size}}。",
-    "actions": "文件操作"
+    "actions": "文件操作",
+    "officeFailed": "无法绘制带格式的视图，改为显示文本。",
+    "officeTooLarge": "此文件超过 {{size}}，太大无法绘制，改为显示文本。",
+    "slideOf": "第 {{n}} 张，共 {{total}} 张",
+    "prevSlide": "上一张幻灯片",
+    "nextSlide": "下一张幻灯片"
   },
   "managed": {
     "group": "由 LocalAI 管理",

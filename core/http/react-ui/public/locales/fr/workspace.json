@@ -785,7 +785,12 @@
     "items_one": "{{count}} élément",
     "items_other": "{{count}} éléments",
     "textCut": "Les premiers {{size}} sont affichés.",
-    "actions": "Actions du fichier"
+    "actions": "Actions du fichier",
+    "officeFailed": "La vue mise en forme n'a pas pu être dessinée, le texte est affiché à la place.",
+    "officeTooLarge": "Ce fichier dépasse {{size}} et est trop volumineux pour être dessiné, le texte est affiché à la place.",
+    "slideOf": "Diapositive {{n}} sur {{total}}",
+    "prevSlide": "Diapositive précédente",
+    "nextSlide": "Diapositive suivante"
   },
   "managed": {
     "group": "Géré par LocalAI",

@@ -785,7 +785,12 @@
     "items_one": "{{count}}개 항목",
     "items_other": "{{count}}개 항목",
     "textCut": "처음 {{size}}만 표시합니다.",
-    "actions": "파일 작업"
+    "actions": "파일 작업",
+    "officeFailed": "서식이 적용된 보기를 그릴 수 없어 텍스트를 대신 표시합니다.",
+    "officeTooLarge": "이 파일은 {{size}}를 넘어 그리기에는 너무 커서 텍스트를 대신 표시합니다.",
+    "slideOf": "슬라이드 {{n}} / {{total}}",
+    "prevSlide": "이전 슬라이드",
+    "nextSlide": "다음 슬라이드"
   },
   "managed": {
     "group": "LocalAI가 관리",

@@ -785,7 +785,12 @@
     "items_one": "{{count}} item",
     "items_other": "{{count}} item",
     "textCut": "Menampilkan {{size}} pertama.",
-    "actions": "Tindakan file"
+    "actions": "Tindakan file",
+    "officeFailed": "Tampilan berformat tidak dapat digambar, jadi teks yang ditampilkan.",
+    "officeTooLarge": "File ini lebih dari {{size}} dan terlalu besar untuk digambar, jadi teks yang ditampilkan.",
+    "slideOf": "Slide {{n}} dari {{total}}",
+    "prevSlide": "Slide sebelumnya",
+    "nextSlide": "Slide berikutnya"
   },
   "managed": {
     "group": "Dikelola oleh LocalAI",

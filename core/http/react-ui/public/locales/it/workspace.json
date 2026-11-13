@@ -785,7 +785,12 @@
     "items_one": "{{count}} elemento",
     "items_other": "{{count}} elementi",
     "textCut": "Sono mostrati i primi {{size}}.",
-    "actions": "Azioni del file"
+    "actions": "Azioni del file",
+    "officeFailed": "Non è stato possibile disegnare la vista formattata, quindi viene mostrato il testo.",
+    "officeTooLarge": "Questo file supera {{size}} ed è troppo grande per essere disegnato, quindi viene mostrato il testo.",
+    "slideOf": "Diapositiva {{n}} di {{total}}",
+    "prevSlide": "Diapositiva precedente",
+    "nextSlide": "Diapositiva successiva"
   },
   "managed": {
     "group": "Gestite da LocalAI",

@@ -785,7 +785,12 @@
     "items_one": "{{count}} Eintrag",
     "items_other": "{{count}} Einträge",
     "textCut": "Die ersten {{size}} werden gezeigt.",
-    "actions": "Dateiaktionen"
+    "actions": "Dateiaktionen",
+    "officeFailed": "Die formatierte Ansicht konnte nicht gezeichnet werden, stattdessen wird der Text angezeigt.",
+    "officeTooLarge": "Diese Datei ist größer als {{size}} und zu groß zum Zeichnen, stattdessen wird der Text angezeigt.",
+    "slideOf": "Folie {{n}} von {{total}}",
+    "prevSlide": "Vorherige Folie",
+    "nextSlide": "Nächste Folie"
   },
   "managed": {
     "group": "Von LocalAI verwaltet",

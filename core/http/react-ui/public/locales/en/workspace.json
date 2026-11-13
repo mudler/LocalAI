@@ -95,7 +95,12 @@
     "items_one": "{{count}} item",
     "items_other": "{{count}} items",
     "textCut": "Showing the first {{size}}.",
-    "actions": "File actions"
+    "actions": "File actions",
+    "officeFailed": "The formatted view could not be drawn, so the text is shown instead.",
+    "officeTooLarge": "This file is over {{size}}, too large to draw here, so the text is shown instead.",
+    "slideOf": "Slide {{n}} of {{total}}",
+    "prevSlide": "Previous slide",
+    "nextSlide": "Next slide"
   },
   "wellKnown": {
     "revert": "Revert to previous version",
