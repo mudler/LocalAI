@@ -41,6 +41,7 @@ var descriptions = map[string]description{
 	"client.jobs.start":     {"Start jobs for a client", "Start a saved task of the owner for a paired client.", RiskRunsJobs},
 	"client.jobs.get":       {"Read a client's job", "Read the state and result of a job that a paired client started.", RiskRead},
 	"client.jobs.cancel":    {"Cancel a client's job", "Cancel a job that a paired client started.", RiskRunsJobs},
+	"client.list":           {"List paired clients", "List the names of the paired clients that may use this add-on.", RiskRead},
 }
 
 // DescribeOperation gives the short title, one plain sentence and the risk word of a

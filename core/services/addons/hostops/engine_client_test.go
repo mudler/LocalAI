@@ -99,6 +99,20 @@ var _ = Describe("Client job operations", func() {
 		Expect(code).To(Equal(http.StatusForbidden))
 	})
 
+	It("opens a call that a client made to the three job operations by exact name, not by prefix", func() {
+		// A later operation under the client. family stays closed to a client
+		// call until ClientCallOps names it.
+		Expect(f.b.Register(Spec{Op: "client.other", Scope: "read", Feature: "mcp_jobs", Handler: func(context.Context, Call) (json.RawMessage, error) { return json.RawMessage(`{}`), nil }})).To(Succeed())
+		live("op1", client)
+		code, _ := f.call("secret", "op1", "client.other", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(ClientCallOps).To(Equal(map[string]bool{"client.jobs.start": true, "client.jobs.get": true, "client.jobs.cancel": true}))
+		// The same operation runs for a call that is not a client's.
+		live("op2", contract.Actor{UserID: "u1", CredentialID: "c1", Mode: "named-user"})
+		code, _ = f.call("secret", "op2", "client.other", `{}`)
+		Expect(code).To(Equal(http.StatusOK))
+	})
+
 	It("is a host service for any add-on the owner grants it to, by grant and not by add-on id", func() {
 		// Two add-ons with ids that mean nothing to the host. Only the owner's
 		// grant (the prefix list of the broker handler) decides.
@@ -138,5 +152,107 @@ var _ = Describe("Client job operations", func() {
 		}
 		code, _ := f.call("secret", "op1", "client.jobs.start", `{"task":"ask","params":{"q":"`+string(big)+`"}}`)
 		Expect(code).To(Equal(http.StatusBadRequest))
+	})
+})
+
+type fakeClientLister struct {
+	owner, addon string
+	list         []ClientEntry
+	err          error
+}
+
+func (f *fakeClientLister) List(_ context.Context, owner, addon string) ([]ClientEntry, error) {
+	f.owner, f.addon = owner, addon
+	return f.list, f.err
+}
+
+var _ = Describe("client.list", func() {
+	var (
+		f      *fixture
+		lister *fakeClientLister
+		admin  bool
+		has    bool
+	)
+	user := contract.Actor{UserID: "owner-1", CredentialID: "session-1", Mode: "named-user"}
+	live := func(addon, op string, actor contract.Actor) {
+		e := env(addon, op, "read", time.Now().Add(time.Minute))
+		e.Authority.Actor = actor
+		DeferCleanup(f.inflight.Begin(e))
+	}
+	BeforeEach(func() {
+		admin, has = true, true
+		lister = &fakeClientLister{list: []ClientEntry{{ID: "k1", Name: "kitchen"}, {ID: "k2", Name: "porch"}}}
+		f = &fixture{inflight: NewInFlight(), seen: &Call{}}
+		f.b = New(f.inflight, func(_, feature string) bool { return has && feature == "client_addons" }, contract.DefaultLimits())
+		f.b.SetAdminCheck(func(contract.Actor) bool { return admin })
+		Expect(RegisterClientList(f.b, lister)).To(Succeed())
+		f.h = f.b.Handler("notes-sync", "secret", []string{"client."})
+	})
+
+	It("returns the id and the name of each client, and the add-on and owner of the call", func() {
+		live("notes-sync", "op1", user)
+		code, out := f.call("secret", "op1", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+		Expect(string(out.Result)).To(Equal(`{"clients":[{"id":"k1","name":"kitchen"},{"id":"k2","name":"porch"}]}`))
+		Expect(lister.owner).To(Equal("owner-1"))
+		Expect(lister.addon).To(Equal("notes-sync"))
+	})
+
+	It("answers an empty list as an array", func() {
+		lister.list = nil
+		live("notes-sync", "op1", user)
+		code, out := f.call("secret", "op1", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(string(out.Result)).To(Equal(`{"clients":[]}`))
+	})
+
+	It("never takes the add-on, the owner or a client from the arguments", func() {
+		live("notes-sync", "op1", user)
+		for _, body := range []string{`{"addon":"other"}`, `{"addonId":"other"}`, `{"owner":"bob"}`, `{"user":"bob"}`, `{"client":"k1"}`, `{"extra":1}`} {
+			code, _ := f.call("secret", "op1", "client.list", body)
+			Expect(code).To(Equal(http.StatusBadRequest), body)
+		}
+		Expect(lister.addon).To(BeEmpty(), "the lister is not reached")
+	})
+
+	It("is refused to a call that a client made", func() {
+		live("notes-sync", "op1", contract.Actor{UserID: "owner-1", CredentialID: "client:key-9", Mode: "named-user"})
+		code, _ := f.call("secret", "op1", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(lister.addon).To(BeEmpty())
+	})
+
+	It("fails closed without the grant, without the feature, for a non-administrator and without a live call", func() {
+		live("notes-sync", "op1", user)
+		// No grant for the prefix.
+		f.h = f.b.Handler("notes-sync", "secret", []string{"workspace."})
+		code, out := f.call("secret", "op1", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error.Code).To(Equal(contract.HostUnknownOp))
+		f.h = f.b.Handler("notes-sync", "secret", []string{"client."})
+		has = false
+		code, out = f.call("secret", "op1", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error.Code).To(Equal(contract.HostFeature))
+		has, admin = true, false
+		code, out = f.call("secret", "op1", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error.Code).To(Equal(contract.HostFeature))
+		admin = true
+		code, out = f.call("secret", "no-such-call", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(out.Error.Code).To(Equal(contract.HostNoLiveOperation))
+		Expect(lister.addon).To(BeEmpty())
+	})
+
+	It("is refused for an add-on or an owner the host does not know", func() {
+		lister.err = ErrForbidden
+		live("notes-sync", "op1", user)
+		code, _ := f.call("secret", "op1", "client.list", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+	})
+
+	It("is the registry of a host that does not wire it", func() {
+		Expect(RegisterClientList(New(NewInFlight(), nil, contract.DefaultLimits()), nil)).To(Succeed())
 	})
 })

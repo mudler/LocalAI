@@ -17,14 +17,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -292,18 +289,8 @@ func mapError(c echo.Context, err error) error {
 	}
 }
 
-// printableName keeps the printable characters of a client name, of any script,
-// and cuts the result at 64 bytes on a character boundary. A control character
-// or an invalid byte is dropped.
-func printableName(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if r != utf8.RuneError && unicode.IsPrint(r) {
-			b.WriteRune(r)
-		}
-	}
-	return utils.TruncateUTF8(b.String(), 64)
-}
+// printableName is the label of a client as the add-on sees it.
+func printableName(s string) string { return auth.ClientDisplayName(s) }
 
 // stream forwards a server-sent event stream. It writes the headers and
 // flushes them at once, flushes after every chunk, writes a comment line when

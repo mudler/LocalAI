@@ -347,6 +347,69 @@ var _ = Describe("Client pairing and client keys", func() {
 			Expect(auth.RevokeClientKey(db, key.ID, other.ID)).ToNot(Succeed())
 		})
 	})
+
+	Describe("ActiveClientKeysForAddon", func() {
+		pair := func(addons ...string) *auth.UserAPIKey {
+			code, _, err := auth.CreatePairingCode(db, owner.ID, "c", []string{auth.FeatureClientAddons}, addons, 0, 0, secret)
+			Expect(err).ToNot(HaveOccurred())
+			_, key, err := auth.RedeemPairingCode(db, code, "c-"+strings.Join(addons, "-"), secret)
+			Expect(err).ToNot(HaveOccurred())
+			return key
+		}
+		ids := func(addon string) []string {
+			keys, err := auth.ActiveClientKeysForAddon(db, owner.ID, addon, time.Now())
+			Expect(err).ToNot(HaveOccurred())
+			out := []string{}
+			for _, k := range keys {
+				out = append(out, k.ID)
+			}
+			return out
+		}
+
+		It("lists the keys of the owner that stand now and may reach the add-on", func() {
+			a := pair("notes")
+			b := pair("notes", "other")
+			pair("other")
+			Expect(ids("notes")).To(ConsistOf(a.ID, b.ID))
+			Expect(ids("other")).To(HaveLen(2))
+			Expect(ids("unknown")).To(BeEmpty())
+			Expect(ids("")).To(BeEmpty())
+		})
+
+		It("leaves out a paused key, an expired key, a revoked key and a key of an owner that is no longer an administrator", func() {
+			paused := pair("notes")
+			expired := pair("notes")
+			revoked := pair("notes")
+			keep := pair("notes")
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", paused.ID).Update("disabled", true).Error).To(Succeed())
+			past := time.Now().Add(-time.Minute)
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", expired.ID).Update("expires_at", past).Error).To(Succeed())
+			Expect(auth.RevokeClientKey(db, revoked.ID, owner.ID)).To(Succeed())
+			Expect(ids("notes")).To(ConsistOf(keep.ID))
+			Expect(db.Model(&auth.User{}).Where("id = ?", owner.ID).Update("role", auth.RoleUser).Error).To(Succeed())
+			Expect(ids("notes")).To(BeEmpty())
+		})
+
+		It("leaves out a key that lacks client_addons even when the add-on is in its list", func() {
+			k := pair("notes")
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", k.ID).Update("features", auth.PermissionMap{auth.FeatureClientSelf: true}).Error).To(Succeed())
+			Expect(ids("notes")).To(BeEmpty())
+		})
+
+		It("never lists the keys of another owner", func() {
+			pair("notes")
+			other := createTestUser(db, "other@example.com", auth.RoleAdmin, auth.ProviderLocal)
+			keys, err := auth.ActiveClientKeysForAddon(db, other.ID, "notes", time.Now())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(keys).To(BeEmpty())
+		})
+	})
+
+	It("cleans a client name for an add-on", func() {
+		Expect(auth.ClientDisplayName("Küche 台所")).To(Equal("Küche 台所"))
+		Expect(auth.ClientDisplayName("a\x00b\nc")).To(Equal("abc"))
+		Expect(len(auth.ClientDisplayName(strings.Repeat("ü", 40)))).To(BeNumerically("<=", 64))
+	})
 })
 
 func lower(s string) string {

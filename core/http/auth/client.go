@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -528,6 +529,42 @@ func ListClientKeys(db *gorm.DB, ownerID string) ([]UserAPIKey, error) {
 	var keys []UserAPIKey
 	err := db.Where("user_id = ? AND kind = ?", ownerID, KeyKindClient).Order("created_at DESC").Find(&keys).Error
 	return keys, err
+}
+
+// ClientDisplayName is the label of a client as an add-on sees it. A client
+// chooses its own name when it pairs, so the label keeps the printable
+// characters of any script, drops control characters and invalid bytes, and is
+// cut at 64 bytes on a character boundary.
+func ClientDisplayName(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r != utf8.RuneError && unicode.IsPrint(r) {
+			b.WriteRune(r)
+		}
+	}
+	return utils.TruncateUTF8(b.String(), 64)
+}
+
+// ActiveClientKeysForAddon returns the client keys of the owner that stand now
+// and may reach the add-on: not expired, not paused, with an owner that is an
+// active administrator, holding client_addons with the add-on in the list.
+// Nothing here is a credential: callers copy the id and the name only.
+func ActiveClientKeysForAddon(db *gorm.DB, ownerID, addonID string, now time.Time) ([]UserAPIKey, error) {
+	if db == nil || ownerID == "" || addonID == "" {
+		return nil, nil
+	}
+	var keys []UserAPIKey
+	err := db.Preload("User").Where("user_id = ? AND kind = ?", ownerID, KeyKindClient).Order("created_at DESC").Find(&keys).Error
+	if err != nil {
+		return nil, err
+	}
+	out := keys[:0]
+	for _, k := range keys {
+		if k.CheckUsable(now) == nil && k.AllowsAddon(addonID) {
+			out = append(out, k)
+		}
+	}
+	return out, nil
 }
 
 // RevokeClientKey deletes a client key of the owner. The key stops working on

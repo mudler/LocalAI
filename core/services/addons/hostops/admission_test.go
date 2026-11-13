@@ -23,6 +23,7 @@ func (admissionInbox) Ingest(context.Context, string, contract.ConnectorInbound)
 }
 
 type admissionClientJobs struct{ ClientJobHost }
+type admissionClientLister struct{ ClientLister }
 
 func registeredBuiltinOperations() []string {
 	b := New(NewInFlight(), nil, contract.DefaultLimits())
@@ -41,6 +42,7 @@ func registeredBuiltinOperations() []string {
 	Expect(RegisterConnector(b, admissionInbox{})).To(Succeed())
 	Expect(RegisterConnectorTransfer(b, NewTransfers(nil))).To(Succeed())
 	Expect(RegisterClientJobs(b, admissionClientJobs{})).To(Succeed())
+	Expect(RegisterClientList(b, admissionClientLister{})).To(Succeed())
 	// Each registration error is checked above, so a duplicate cannot be hidden
 	// by the broker's map. Ops includes dynamic progress/stop and inbound specs.
 	return b.Ops()
@@ -67,6 +69,16 @@ var _ = Describe("Host operation request admission", func() {
 		s := Requests(&contract.HostOperations{Required: ops}, SupportedOperations(), nil)
 		Expect(s.MissingRequired).To(ConsistOf(ops), "requested and supported, not yet granted")
 		Expect(Requests(&contract.HostOperations{Required: ops}, SupportedOperations(), []string{"client.jobs."}).Granted).To(ConsistOf(ops))
+	})
+	It("lists client.list as supported with a description, so a manifest that requests it is admitted", func() {
+		Expect(SupportedOperations()).To(ContainElement("client.list"))
+		_, text, risk, ok := DescribeOperation("client.list")
+		Expect(ok).To(BeTrue())
+		Expect(text).NotTo(BeEmpty())
+		Expect(risk).To(Equal(RiskRead))
+		ops := &contract.HostOperations{Required: []string{"client.list"}}
+		Expect(Requests(ops, SupportedOperations(), []string{"client."}).Granted).To(ConsistOf("client.list"))
+		Expect(Requests(ops, SupportedOperations(), []string{"client.jobs."}).MissingRequired).To(ConsistOf("client.list"))
 	})
 	It("detects missing extra duplicate and case-changed operations with the parity oracle", func() {
 		registered := registeredBuiltinOperations()

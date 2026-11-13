@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -22,6 +23,34 @@ func (a *Application) RegisterAddonClientJobs() error {
 		return nil
 	}
 	return hostops.RegisterClientJobs(a.addonHostOps.Broker, addonClientJobs{a: a})
+}
+
+// RegisterAddonClientList registers client.list over the client keys of the
+// auth store. It registers nothing without a host operation channel.
+func (a *Application) RegisterAddonClientList() error {
+	if a.addonHostOps == nil {
+		return nil
+	}
+	return hostops.RegisterClientList(a.addonHostOps.Broker, addonClientList{a: a})
+}
+
+// addonClientList answers client.list: the clients of the owner that stand now
+// and may reach the add-on. The add-on and the owner come from the live call.
+type addonClientList struct{ a *Application }
+
+func (d addonClientList) List(ctx context.Context, ownerID, addonID string) ([]hostops.ClientEntry, error) {
+	if d.a.authDB == nil || !slices.Contains(d.a.installedAddonIDs(), addonID) {
+		return nil, fmt.Errorf("%w: no clients", hostops.ErrForbidden)
+	}
+	keys, err := auth.ActiveClientKeysForAddon(d.a.authDB.WithContext(ctx), ownerID, addonID, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]hostops.ClientEntry, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, hostops.ClientEntry{ID: k.ID, Name: auth.ClientDisplayName(k.Name)})
+	}
+	return out, nil
 }
 
 // addonClientJobs adapts the job host to the client operations.

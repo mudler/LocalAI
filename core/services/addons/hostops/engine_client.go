@@ -61,8 +61,19 @@ type ClientJobHost interface {
 	Cancel(ctx context.Context, c ClientCall, id string) (ClientJob, error)
 }
 
-// ClientOpPrefix starts the name of every operation a client call may make.
+// ClientOpPrefix starts the name of every operation that is about paired
+// clients. It is the family an owner grants (host policy prefix "client."); it
+// does not say which operations a client call may make: ClientCallOps does.
 const ClientOpPrefix = "client."
+
+// ClientCallOps are the operations a call that a paired client made may use,
+// by exact name. The broker refuses every other operation to such a call, also
+// one that starts with ClientOpPrefix.
+var ClientCallOps = map[string]bool{
+	"client.jobs.start":  true,
+	"client.jobs.get":    true,
+	"client.jobs.cancel": true,
+}
 
 func clientFrom(c Call) (ClientCall, error) {
 	id, ok := strings.CutPrefix(c.Actor.CredentialID, contract.ClientCredentialPrefix)

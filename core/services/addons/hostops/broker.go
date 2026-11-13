@@ -289,9 +289,12 @@ func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, g
 			return
 		}
 		actor := env.Authority.Actor
-		// A call that a paired client made reaches the client operations and
-		// nothing else, whatever the add-on holds: the client is not the owner.
-		if strings.HasPrefix(actor.CredentialID, contract.ClientCredentialPrefix) && !strings.HasPrefix(req.Op, ClientOpPrefix) {
+		// A call that a paired client made reaches the operations of
+		// ClientCallOps and nothing else, whatever the add-on holds: the client
+		// is not the owner. The list is of exact names, not a prefix, so an
+		// operation that is added under client. later is closed to a client
+		// call until it is named there.
+		if strings.HasPrefix(actor.CredentialID, contract.ClientCredentialPrefix) && !ClientCallOps[req.Op] {
 			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
 			return
 		}

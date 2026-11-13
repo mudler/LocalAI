@@ -86,5 +86,5 @@ func requestsWith(req *contract.HostOperations, registered []string, allows func
 // must not mistake that startup ordering for unsupported operations. The broker
 // still requires a registered handler and revalidates every request's authority.
 func SupportedOperations() []string {
-	return strings.Fields(`finetune.start finetune.get finetune.list finetune.checkpoints finetune.dataset finetune.export finetune.progress finetune.stop quantize.start quantize.get quantize.list quantize.import quantize.progress quantize.stop workspace.materialize workspace.commit workspace.export workspace.import workspace.changes workspace.admin egress.check egress.audit connector.inbound connector.file.put connector.file.get client.jobs.start client.jobs.get client.jobs.cancel`)
+	return strings.Fields(`finetune.start finetune.get finetune.list finetune.checkpoints finetune.dataset finetune.export finetune.progress finetune.stop quantize.start quantize.get quantize.list quantize.import quantize.progress quantize.stop workspace.materialize workspace.commit workspace.export workspace.import workspace.changes workspace.admin egress.check egress.audit connector.inbound connector.file.put connector.file.get client.jobs.start client.jobs.get client.jobs.cancel client.list`)
 }

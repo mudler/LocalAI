@@ -291,13 +291,42 @@ feature.
 The client is not an argument. LocalAI records each forwarded call under the
 owner and the client key. The add-on passes the `operationId` of the call to the
 host with each operation, and LocalAI finds the client in its own record. During
-a call that a client made, the add-on can use the `client.` operations and no
-others. A stream call lasts as long as the stream, so the add-on can ask for the
+a call that a client made, the add-on can use the operations that this page names
+for a client call (the three job operations) and no others. The host checks the
+exact name, so a new operation under `client.` stays closed to a client call
+until it is named. A stream call lasts as long as the stream, so the add-on can ask for the
 state of a job while the client is connected. Each operation checks that the key
 is still paired.
 
 A client sees only the jobs that were started for it. It may run 3 jobs at once.
 Ended jobs do not count against this limit.
+
+### Which clients an add-on can reach
+
+An add-on that wants to address one client (for example to prepare a file for
+it) asks which clients exist. The operation is not for a client call: the add-on
+uses it while it works for the owner.
+
+| Operation | Arguments | Result |
+|---|---|---|
+| `client.list` | none | `{"clients": [{"id": "...", "name": "..."}]}` |
+
+The host decides who is in the list, not the add-on:
+
+- Only clients of the owner of the call. The add-on is the one that made the
+  call, and an argument cannot name another add-on, another owner or a client.
+- Only clients that may reach this add-on (they hold `client_addons` and the
+  add-on is in their list) and that stand now: not revoked, not expired, not
+  paused, with an owner that is still an active administrator.
+- Only the `id` and the `name` (printable characters, at most 64 bytes, as in
+  `ClientRequest`). No key, no hash and no feature list.
+
+The call needs the owner to grant the add-on `client.list`, for example with the
+prefix `client.`, and the actor must be an administrator. Otherwise the add-on
+gets the same refusal as for any host operation it does not hold. A call that
+a client made never reaches `client.list`: during such a call the add-on can use
+the job operations above and no others (the list is by exact name, not by
+prefix).
 
 ### Which tools a job can use
 
