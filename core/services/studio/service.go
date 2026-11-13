@@ -135,6 +135,10 @@ type Deps struct {
 	// AgentOptions returns the tool-loop options of a model (its agent: block).
 	// Nil: nib's defaults.
 	AgentOptions func(model string) nibharness.AgentOptions
+	// PreserveThinking says whether the chat asks the model's template to keep
+	// the reasoning of earlier turns (see provider.Params.PreserveThinking).
+	// Nil: it asks.
+	PreserveThinking func(model string) bool
 	// Bus carries live events and control messages between the frontends that
 	// serve a chat. Nil: a bus for this process only.
 	Bus Bus
@@ -1883,6 +1887,9 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
 		// An image goes to the model with its message, not with every later one.
 		OnlyLastImages: true,
+		// The prompt of a new turn must start with the prompt of the turn
+		// before, so that the server reads only what is new.
+		PreserveThinking: s.d.PreserveThinking == nil || s.d.PreserveThinking(rec.Model),
 	}
 	m := nibharness.Model{
 		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,

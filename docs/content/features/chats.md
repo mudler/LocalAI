@@ -1651,6 +1651,18 @@ compacted so the model can go on. The transcript keeps every message; only what
 the model sees shrinks. A `compacted` event reports the size before and after.
 The window comes from `context_size` in the model's configuration.
 
+### Reasoning of earlier turns
+
+A chat asks the model's chat template to keep the reasoning of earlier turns
+(`chat_template_kwargs.preserve_thinking`). Some templates, such as the Qwen
+3 family, otherwise keep the reasoning of the last turn only. A new turn then
+renders the earlier answers without their reasoning, the prompt changes from
+the first answer of the turn before, and a backend with a prompt cache
+(llama.cpp) must read everything after that point again before the reply
+starts. A template that does not know the argument ignores it. To turn it off
+for a model, set `chat_template_kwargs: {preserve_thinking: false}` in its
+configuration. A model served by a remote proxy is not asked.
+
 ### The context window a chat needs
 
 Before you type, a chat already sends a fixed block to the model: the system

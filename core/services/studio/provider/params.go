@@ -53,6 +53,14 @@ type Params struct {
 	// describe_image. The last user message keeps its images for every
 	// request of its turn, tool calls included.
 	OnlyLastImages bool
+	// PreserveThinking asks the model's chat template to keep the reasoning
+	// of earlier turns (chat_template_kwargs.preserve_thinking). A template
+	// that keeps the reasoning of the last turn only renders every earlier
+	// answer again without it when a new turn starts: the prompt then changes
+	// from the first answer of the turn before, and the server evaluates
+	// everything after it again instead of reusing its cache. A template that
+	// does not know the argument ignores it.
+	PreserveThinking bool
 }
 
 // OlderImageNote takes the place of the images of an earlier user message.
@@ -89,7 +97,7 @@ func (p *Provider) LLMWith(user *auth.User, model string, params Params) cogito.
 }
 
 func (p Params) isZero() bool {
-	return p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil && !p.OnlyLastImages
+	return p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil && !p.OnlyLastImages && !p.PreserveThinking
 }
 
 type paramsTransport struct {
@@ -163,6 +171,9 @@ func (t *paramsTransport) rewrite(raw []byte) ([]byte, error) {
 	if err == nil && t.params.ReasoningEffort != "" {
 		err = set("reasoning_effort", t.params.ReasoningEffort)
 	}
+	if err == nil && t.params.PreserveThinking {
+		err = setTemplateKwarg(m, "preserve_thinking", true)
+	}
 	if err == nil && t.params.OnUsage != nil && string(m["stream"]) == "true" {
 		err = set("stream_options", map[string]bool{"include_usage": true})
 	}
@@ -176,6 +187,24 @@ func (t *paramsTransport) rewrite(raw []byte) ([]byte, error) {
 		return nil, fmt.Errorf("studio provider: set the chat settings: %w", err)
 	}
 	return json.Marshal(m)
+}
+
+// setTemplateKwarg sets one chat_template_kwargs key of the request and keeps
+// the others.
+func setTemplateKwarg(m map[string]json.RawMessage, key string, v any) error {
+	kw := map[string]any{}
+	if raw, ok := m["chat_template_kwargs"]; ok && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &kw); err != nil {
+			return err
+		}
+	}
+	kw[key] = v
+	b, err := json.Marshal(kw)
+	if err != nil {
+		return err
+	}
+	m["chat_template_kwargs"] = b
+	return nil
 }
 
 // addVideos appends video_url parts to the last user message of the request.
