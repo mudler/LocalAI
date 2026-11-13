@@ -15,11 +15,11 @@ import (
 var allowed = []string{
 	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile",
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox",
+	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/ext4image",
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/guestagent",
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/ociimage",
 	"github.com/mudler/LocalAI/core/services/studio/workspace",
 	"github.com/google/go-containerregistry/...",
-	"github.com/Microsoft/hcsshim/ext4/tar2ext4",
 }
 
 var _ = Describe("module imports", func() {
