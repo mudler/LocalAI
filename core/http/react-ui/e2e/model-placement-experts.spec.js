@@ -134,6 +134,16 @@ test.describe('Placement - experts: choices', () => {
     await expect(page.getByTestId('placement-moe-no-slider')).toBeVisible()
   })
 
+  test('an estimate with a layer count and an expert count shows both sliders and neither hint', async ({ page }) => {
+    await setup(page, { layerCount: 48 })
+    await page.getByTestId('placement-mode-custom').click()
+    await moe(page, 'some').click()
+    await expect(page.getByTestId('placement-slider')).toHaveAttribute('max', '48')
+    await expect(page.getByTestId('placement-moe-slider')).toHaveAttribute('max', '48')
+    await expect(page.getByTestId('placement-no-slider')).toHaveCount(0)
+    await expect(page.getByTestId('placement-moe-no-slider')).toHaveCount(0)
+  })
+
   test('the cache is shown for experts on the CPU, written in MiB, and removed with Off or with the experts', async ({ page }) => {
     const { patches } = await setup(page)
     await moe(page, 'all').click()

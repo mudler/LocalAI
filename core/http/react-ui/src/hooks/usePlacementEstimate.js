@@ -33,8 +33,8 @@ export function readEstimate(model, contextSize, layers) {
         bytes,
         sizeBytes: Number(data.size_bytes) || 0,
         maxContext: Number(data.model_max_context) || 0,
-        // Not sent by the server today. Read when present, so a slider can use
-        // it the day the estimate reports the model's layer count.
+        // The model's layer count (block_count). Absent when the server could
+        // not read it from the model file.
         layerCount: Number(data.block_count) || 0,
         // Experts of a mixture-of-experts model; absent for a dense model.
         expertCount: Number(data.expert_count) || 0,
