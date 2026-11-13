@@ -372,6 +372,11 @@ This option applies to the main model's expert weights.
 To keep experts from only the first 12 layers on CPU, replace `cpu_moe:true` with `n_cpu_moe:12`.
 Use one of these options at a time.
 
+In the web UI, the Placement section of the model editor and of the model page has an "Experts (MoE)" block that writes these entries for you.
+It appears for models whose file reports an expert count, on a machine with a GPU.
+It changes only `cpu_moe`, `n_cpu_moe` and `moe_cache_mib` in the `options` list and keeps every other entry.
+The memory bars in that section do not include expert placement.
+
 To speed up decoding when experts stay in host memory, you can add a GPU cache for them with `moe_cache_mib`:
 
 ```yaml

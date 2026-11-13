@@ -19,7 +19,9 @@ function GeneratedFile({ text, t }) {
       <pre className="modelpage-yaml__body" tabIndex={0} aria-label={t('page.config.generated')}>
         {lines.map((line, i) => {
           const key = /^([A-Za-z_][\w-]*):/.exec(line)?.[1]
-          const written = key && PLACEMENT_KEYS.includes(key)
+          // `options` holds many unrelated entries: only the expert lines count.
+          const written = (key && key !== 'options' && PLACEMENT_KEYS.includes(key))
+            || /^\s*-\s*["']?(cpu_moe|n_cpu_moe|moe_cache_mib)\b/.test(line)
           return (
             <span key={i} className={`modelpage-yaml__line${written ? ' modelpage-yaml__line--written' : ''}`} data-written={written ? 'true' : undefined}>
               {line}{'\n'}

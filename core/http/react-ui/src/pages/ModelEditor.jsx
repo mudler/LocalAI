@@ -184,7 +184,7 @@ export default function ModelEditor() {
     const flat = flattenConfig(loadedConfig, leafPaths)
     // A key the Placement section set back to Auto is stored as null, which
     // means unset. It must not come back as a field with a value.
-    for (const key of ['gpu_layers', 'tensor_split', 'main_gpu']) {
+    for (const key of ['gpu_layers', 'tensor_split', 'main_gpu', 'options']) {
       if (flat[key] === null) delete flat[key]
     }
     setValues(flat)
@@ -708,6 +708,7 @@ export default function ModelEditor() {
                         tensor_split: values['tensor_split'],
                         main_gpu: values['main_gpu'],
                         context_size: values['context_size'],
+                        options: values['options'],
                       }}
                       onChange={handlePlacementChange}
                     />

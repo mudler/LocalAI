@@ -7,6 +7,9 @@ import {
   ALL_LAYERS, CONTEXT_PRESETS, contextLabel, devicesFrom, estimateLayers, formatSplit, isAllLayers,
   parseSplit, placementFit, placementMode, searchLayers, shares, splitByFree,
 } from '../../../utils/placement'
+import {
+  MOE_CACHE_PRESETS, cacheLabel, parseMoeOptions, setMoeOptions,
+} from '../../../utils/moePlacement'
 import Icon from '../../Icon'
 import './placement.css'
 // eslint-disable-next-line no-unused-vars
@@ -15,12 +18,14 @@ import MemoryBar from '../MemoryBar'
 // The Placement section: where a model runs and how much of it goes to the GPU.
 // It edits three keys of the model's configuration (gpu_layers, tensor_split,
 // main_gpu) and reads a fourth (context_size) because the KV cache grows with
-// it. It owns no config state: the model editor and the model page each hold
-// the values and hand them in.
+// it. For a mixture-of-experts model it also edits three entries of the
+// `options` list (cpu_moe, n_cpu_moe, moe_cache_mib) and no other entry. It
+// owns no config state: the model editor and the model page each hold the
+// values and hand them in.
 //
 //   model     the installed model's name; the estimate is asked about it.
-//   values    { gpu_layers, tensor_split, main_gpu, context_size } as the
-//             editor holds them. An absent key is unset.
+//   values    { gpu_layers, tensor_split, main_gpu, context_size, options } as
+//             the editor holds them. An absent key is unset.
 //   onChange  (path, value) => void. A value of undefined unsets the key.
 //
 // Everything on screen is worked out from three things the server returns: the
@@ -91,6 +96,41 @@ export default function PlacementSection({ model, values, onChange, headerAction
   useEffect(() => {
     if (!typingContext.current) setContextText(contextValue ? String(contextValue) : '')
   }, [contextValue])
+
+  // --- experts (mixture of experts) -----------------------------------------
+  const moe = useMemo(() => parseMoeOptions(values.options), [values.options])
+  const expertCount = estimate.data?.expertCount || 0
+  // Only a MoE model has experts. A model whose file already sets expert
+  // options keeps the block even when the estimate cannot be read, so the
+  // setting can be seen and undone.
+  const showMoe = hasGpu && mode !== 'cpu' && (expertCount > 0 || moe.experts !== 'gpu' || moe.cacheMib > 0)
+  const expertsOnCpu = moe.experts === 'some' || moe.experts === 'all'
+  const writeMoe = (change) => {
+    const next = { experts: moe.experts, layers: moe.layers ?? 1, cacheMib: moe.cacheMib, ...change }
+    edit('options', setMoeOptions(values.options, next))
+  }
+  const chooseExperts = (next) => {
+    if (next === moe.experts) return
+    writeMoe({ experts: next, layers: moe.layers ?? 1 })
+  }
+  const someLayers = moe.layers ?? 0
+  const [expertText, setExpertText] = useState(String(someLayers))
+  const typingExperts = useRef(false)
+  useEffect(() => {
+    if (!typingExperts.current) setExpertText(String(someLayers))
+  }, [someLayers])
+  const cachePreset = MOE_CACHE_PRESETS.includes(moe.cacheMib)
+  const cacheShown = moe.cacheMib > 0 && !cachePreset ? String(moe.cacheMib) : ''
+  const [cacheText, setCacheText] = useState(cacheShown)
+  const typingCache = useRef(false)
+  useEffect(() => {
+    if (!typingCache.current) setCacheText(cacheShown)
+  }, [cacheShown])
+  const moeWrites = {
+    gpu: t('placement.modes.autoWrites'),
+    some: `n_cpu_moe: ${moe.experts === 'some' ? moe.layers : 'N'}`,
+    all: 'cpu_moe: true',
+  }
 
   // --- fit state -------------------------------------------------------
   const fit = placementFit({
@@ -332,6 +372,137 @@ export default function PlacementSection({ model, values, onChange, headerAction
           {contextValue ? t('placement.contextHint') : t('placement.contextUnset', { context: contextLabel(DEFAULT_CONTEXT) })}
         </p>
       </div>
+
+      {showMoe && (
+        <div className="placement__block" data-testid="placement-moe">
+          <div className="placement__row placement__row--wrap">
+            <span className="dk-eyebrow" id={`${testId}-moe`}>{t('placement.moe.title')}</span>
+            <span className="placement__keys dk-mono">cpu_moe, n_cpu_moe, moe_cache_mib</span>
+          </div>
+          {moe.experts === 'other' ? (
+            <p className="dk-hint placement__hint" data-testid="placement-moe-elsewhere">
+              {t('placement.moe.elsewhere', { entries: moe.elsewhere.join(', ') })}
+            </p>
+          ) : (
+            <>
+              <span className="dk-label" id={`${testId}-moe-on`}>{t('placement.moe.keepOn')}</span>
+              <div className="placement__modes" role="radiogroup" aria-labelledby={`${testId}-moe-on`}>
+                {['gpu', 'some', 'all'].map(option => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={moe.experts === option}
+                    className="placement__mode"
+                    data-testid={`placement-moe-${option}`}
+                    onClick={() => chooseExperts(option)}
+                  >
+                    <span className="placement__mode-name">{t(`placement.moe.modes.${option}`)}</span>
+                    <span className="placement__mode-writes dk-mono">{moeWrites[option]}</span>
+                  </button>
+                ))}
+              </div>
+              {mode === 'auto' && (
+                <p className="dk-hint placement__hint" data-testid="placement-moe-auto-hint">{t('placement.moe.autoHint')}</p>
+              )}
+              {moe.experts === 'some' && (
+                <div className="placement__block" data-testid="placement-moe-layers">
+                  <div className="placement__row">
+                    <label className="dk-label" htmlFor={`${testId}-moe-layers`}>{t('placement.moe.layers')}</label>
+                    <input
+                      id={`${testId}-moe-layers`}
+                      className="dk-input dk-input--mono placement__number"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      data-testid="placement-moe-layers-input"
+                      value={expertText}
+                      onFocus={() => { typingExperts.current = true }}
+                      onChange={e => {
+                        const text = e.target.value
+                        setExpertText(text)
+                        if (/^\d+$/.test(text.trim())) writeMoe({ layers: Number(text) })
+                      }}
+                      onBlur={() => { typingExperts.current = false; setExpertText(String(someLayers)) }}
+                    />
+                  </div>
+                  {layerCount > 0 ? (
+                    <div className="dk-range-wrap placement__slider">
+                      <input
+                        className="dk-range"
+                        type="range"
+                        min={0}
+                        max={layerCount}
+                        step={1}
+                        data-testid="placement-moe-slider"
+                        aria-label={t('placement.moe.layers')}
+                        aria-valuetext={t('placement.moe.sliderValue', { count: Math.min(someLayers, layerCount), total: layerCount })}
+                        value={Math.min(someLayers, layerCount)}
+                        style={cssVars({ '--dk-fill': `${(Math.min(someLayers, layerCount) / layerCount) * 100}%` })}
+                        onChange={e => writeMoe({ layers: Number(e.target.value) })}
+                      />
+                      <output className="dk-range-value">
+                        {t('placement.moe.sliderShort', { count: Math.min(someLayers, layerCount), total: layerCount })}
+                      </output>
+                    </div>
+                  ) : (
+                    <p className="dk-hint placement__hint" data-testid="placement-moe-no-slider">{t('placement.moe.noSlider')}</p>
+                  )}
+                </div>
+              )}
+              {expertsOnCpu && (
+                <div className="placement__block" data-testid="placement-moe-cache">
+                  <div className="placement__row placement__row--wrap">
+                    <span className="dk-label" id={`${testId}-moe-cache`}>{t('placement.moe.cache')}</span>
+                    <div className="dk-segmented" role="group" aria-labelledby={`${testId}-moe-cache`}>
+                      <button
+                        type="button"
+                        className="dk-seg"
+                        aria-pressed={moe.cacheMib === 0}
+                        data-testid="placement-moe-cache-0"
+                        onClick={() => writeMoe({ cacheMib: 0 })}
+                      >
+                        {t('placement.moe.cacheOff')}
+                      </button>
+                      {MOE_CACHE_PRESETS.map(mib => (
+                        <button
+                          key={mib}
+                          type="button"
+                          className="dk-seg"
+                          aria-pressed={moe.cacheMib === mib}
+                          data-testid={`placement-moe-cache-${mib}`}
+                          onClick={() => writeMoe({ cacheMib: mib })}
+                        >
+                          {cacheLabel(mib)}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      className="dk-input dk-input--mono placement__number"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      aria-label={t('placement.moe.cacheMib')}
+                      data-testid="placement-moe-cache-input"
+                      placeholder={t('placement.moe.cachePlaceholder')}
+                      value={cacheText}
+                      onFocus={() => { typingCache.current = true }}
+                      onChange={e => {
+                        const text = e.target.value
+                        setCacheText(text)
+                        if (/^\d+$/.test(text.trim())) writeMoe({ cacheMib: Number(text) })
+                      }}
+                      onBlur={() => { typingCache.current = false; setCacheText(cacheShown) }}
+                    />
+                  </div>
+                  <p className="dk-hint placement__hint" data-testid="placement-moe-cache-hint">{t('placement.moe.cacheHint')}</p>
+                </div>
+              )}
+            </>
+          )}
+          <p className="dk-hint placement__hint" data-testid="placement-moe-note">{t('placement.moe.estimateNote')}</p>
+        </div>
+      )}
 
       {multi && (
         <div className="placement__block" data-testid="placement-split">

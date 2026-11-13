@@ -3,7 +3,9 @@ import YAML from 'yaml'
 import { modelsApi } from '../utils/api'
 
 // The keys the Placement section writes, and the one it reads.
-export const PLACEMENT_KEYS = ['gpu_layers', 'tensor_split', 'main_gpu', 'context_size']
+// `options` is the engine's option list; the section edits only its expert
+// entries (see utils/moePlacement.js) and keeps the rest as they are.
+export const PLACEMENT_KEYS = ['gpu_layers', 'tensor_split', 'main_gpu', 'context_size', 'options']
 
 function pick(config) {
   const values = {}

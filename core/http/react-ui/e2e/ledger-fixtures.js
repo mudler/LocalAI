@@ -498,9 +498,10 @@ export function vramFor(entry, ctx, layers, layerCount = 40) {
 //               answers for a model with no weight files), 'error' (500) or
 //               'slow' (answers after a pause).
 //   layerCount  when set, the estimate also reports block_count.
+//   expertCount when set, the estimate also reports expert_count (a MoE model).
 //   configs     the YAML each installed model's edit endpoint returns.
 export async function mockPlacement(page, options = {}) {
-  const { estimate = 'ok', layerCount = 0, configs = CONFIGS, gallery = GALLERY, slowMs = 1500, modelLayers = 40, metadata = EDITOR_METADATA } = options
+  const { estimate = 'ok', layerCount = 0, expertCount = 0, configs = CONFIGS, gallery = GALLERY, slowMs = 1500, modelLayers = 40, metadata = EDITOR_METADATA } = options
   const state = { estimateCalls: [], patches: [], edits: [], configs: { ...configs }, estimate }
   await page.route('**/api/models/vram-estimate', async route => {
     const body = route.request().postDataJSON()
@@ -519,6 +520,7 @@ export async function mockPlacement(page, options = {}) {
         vram_display: `${(vram / GB).toFixed(2)} GB`,
         model_max_context: 131072,
         ...(layerCount ? { block_count: layerCount } : {}),
+        ...(expertCount ? { expert_count: expertCount } : {}),
       },
     })
   })
