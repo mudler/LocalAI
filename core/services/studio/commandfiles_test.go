@@ -174,6 +174,6 @@ var _ = Describe("the files a command saved", func() {
 		id := create(svc, alice)
 		sent(svc, alice, id, "hi")
 		idle(svc, alice, id)
-		Expect(h.TurnPrompt(id)).To(ContainSubstring("It starts in /workspace/home, the user's home"))
+		Expect(h.TurnPrompt(id)).To(ContainSubstring("It starts in $WORK, the chat's work folder in the user's home"))
 	})
 })
