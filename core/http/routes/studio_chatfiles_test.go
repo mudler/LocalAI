@@ -57,9 +57,9 @@ var _ = Describe("Chats file index API", func() {
 		rename := s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"title": "Renamed notes"})
 		Expect(rename.Code).To(Equal(http.StatusOK), rename.Body.String())
 		after := files()
-		Expect(after["notes.txt"]["path"]).To(ContainSubstring("Renamed notes/notes.txt"))
+		Expect(after["notes.txt"]["path"]).To(ContainSubstring("-renamed-notes/notes.txt"))
 		list := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/files", nil))
-		Expect(list["folder_path"]).To(HaveSuffix("Renamed notes"))
+		Expect(list["folder_path"]).To(HaveSuffix("-renamed-notes"))
 		Expect(list["stale"]).To(HaveLen(1), "the old folder name is reported, the model was given it")
 
 		Expect(s.do("bob", http.MethodGet, "/api/chats/"+id+"/files", nil).Code).To(Equal(http.StatusNotFound))
