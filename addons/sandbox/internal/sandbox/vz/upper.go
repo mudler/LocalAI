@@ -26,9 +26,20 @@ const upperData = "data"
 // the superblock and the name rules, and it stops at the caps below. These
 // are the same rules and caps as the Cloud Hypervisor backend applies to the
 // output of debugfs.
+//
+// Two more caps bound the memory and the time of a hostile image. A path is
+// at most 4096 bytes (PATH_MAX), and all the paths of one read together are
+// at most 128 MiB, because a chain of directories with long names makes the
+// path of every file below it long. The directory blocks that one read takes
+// from the image are at most twice the size of the image: several forged
+// directory inodes can map the same blocks, so without this the sum of the
+// directory sizes is not bounded by the image.
 const (
-	defaultDepth   = 512
-	defaultEntries = 1000000
+	defaultDepth     = 512
+	defaultEntries   = 1000000
+	defaultPathLen   = 4096
+	defaultPathBytes = 128 << 20
+	dirBudgetFactor  = 2
 )
 
 // readLimits bounds one read of an upper image. A zero field takes its
@@ -37,6 +48,10 @@ type readLimits struct {
 	depth   int   // directory levels, default 512
 	entries int   // entries of the walk, default 1,000,000
 	stage   int64 // file bytes that one read may stage on the host; zero means the size of the image
+
+	pathLen   int   // bytes of one path, default 4096
+	pathBytes int64 // bytes of all paths of one read, default 128 MiB
+	dirBytes  int64 // directory bytes that one read may take from the image; zero means twice the size of the image
 }
 
 func (l readLimits) withDefaults() readLimits {
@@ -45,6 +60,12 @@ func (l readLimits) withDefaults() readLimits {
 	}
 	if l.entries == 0 {
 		l.entries = defaultEntries
+	}
+	if l.pathLen == 0 {
+		l.pathLen = defaultPathLen
+	}
+	if l.pathBytes == 0 {
+		l.pathBytes = defaultPathBytes
 	}
 	return l
 }
@@ -88,7 +109,11 @@ func readUpper(ctx context.Context, imagePath, stageDir string, lim readLimits, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("vz: upper image: %w", err)
 	}
-	top, err := img.ReadDir(2, lim.entries)
+	if lim.dirBytes == 0 {
+		lim.dirBytes = dirBudgetFactor * st.Size()
+	}
+	dirBytes := lim.dirBytes
+	top, err := img.ReadDirContext(ctx, 2, lim.entries, &dirBytes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("vz: upper image: %w", err)
 	}
@@ -111,7 +136,7 @@ func readUpper(ctx context.Context, imagePath, stageDir string, lim readLimits, 
 	inodes := map[uint64]ext4ro.Inode{}
 	inoByPath := map[string]uint64{}
 	if data >= 0 {
-		if err := walk(ctx, img, lim, top[data].Ino, &entries, inodes, inoByPath); err != nil {
+		if err := walk(ctx, img, lim, &dirBytes, top[data].Ino, &entries, inodes, inoByPath); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -188,8 +213,8 @@ func (c *ctxReaderAt) ReadAt(p []byte, off int64) (int, error) {
 // on a directory that is reached twice (a directory hard link), a path that
 // appears twice, an inode outside the superblock range, an empty name, a name
 // with "/" (a forged record), a damaged attribute area, and on the depth and
-// entry caps.
-func walk(ctx context.Context, img *ext4ro.FS, lim readLimits, root uint64, entries *[]sandbox.IndexedEntry, inodes map[uint64]ext4ro.Inode, inoByPath map[string]uint64) error {
+// entry caps, the path caps and the directory byte budget.
+func walk(ctx context.Context, img *ext4ro.FS, lim readLimits, dirBytes *int64, root uint64, entries *[]sandbox.IndexedEntry, inodes map[uint64]ext4ro.Inode, inoByPath map[string]uint64) error {
 	rootIn, err := img.Stat(root)
 	if err != nil {
 		return fmt.Errorf("vz: upper image: %w", err)
@@ -197,6 +222,7 @@ func walk(ctx context.Context, img *ext4ro.FS, lim readLimits, root uint64, entr
 	visited := map[uint64]bool{root: true}
 	seen := map[string]bool{}
 	count := 0
+	var pathBytes int64
 	level := []upperNode{{path: "", ino: root, in: rootIn}}
 	for depth := 0; len(level) > 0; depth++ {
 		if depth > lim.depth {
@@ -225,8 +251,11 @@ func walk(ctx context.Context, img *ext4ro.FS, lim readLimits, root uint64, entr
 			if uint32(n.in.Mode)&sIFMT != sIFDIR {
 				continue
 			}
-			kids, err := img.ReadDir(n.ino, lim.entries-count+1)
+			kids, err := img.ReadDirContext(ctx, n.ino, lim.entries-count+1, dirBytes)
 			if err != nil {
+				if errors.Is(err, ext4ro.ErrDirBudget) {
+					return fmt.Errorf("vz: upper: the directories of the layer are more than the cap of %d bytes (at %q): %w", lim.dirBytes, n.path, err)
+				}
 				if errors.Is(err, ext4ro.ErrLimit) {
 					return fmt.Errorf("vz: upper layer has more than %d entries", lim.entries)
 				}
@@ -239,6 +268,13 @@ func walk(ctx context.Context, img *ext4ro.FS, lim readLimits, root uint64, entr
 				p := k.Name
 				if n.path != "" {
 					p = n.path + "/" + k.Name
+				}
+				if len(p) > lim.pathLen {
+					return fmt.Errorf("vz: upper: a path is longer than the cap of %d bytes (%d bytes, at %q)", lim.pathLen, len(p), n.path)
+				}
+				pathBytes += int64(len(p))
+				if pathBytes > lim.pathBytes {
+					return fmt.Errorf("vz: upper: the paths of the layer are more than the cap of %d bytes", lim.pathBytes)
 				}
 				if seen[p] {
 					return fmt.Errorf("vz: upper: path %q appears twice", p)
