@@ -23,7 +23,7 @@ type Model struct {
 	Author         string         `json:"author"`
 	Downloads      int            `json:"downloads"`
 	LastModified   string         `json:"lastModified"`
-	PipelineTag    string         `json:"pipelineTag"`
+	PipelineTag    string         `json:"pipeline_tag"`
 	Private        bool           `json:"private"`
 	Tags           []string       `json:"tags"`
 	CreatedAt      string         `json:"createdAt"`

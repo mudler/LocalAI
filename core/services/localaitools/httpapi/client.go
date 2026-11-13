@@ -142,6 +142,28 @@ func truncate(s string, n int) string {
 
 // ---- Models / gallery (read) ----
 
+func (c *Client) SearchModels(ctx context.Context, req localaitools.ModelSearchRequest) (*localaitools.ModelSearchResponse, error) {
+	v := url.Values{}
+	v.Set("q", req.Query)
+	if req.Providers != "" {
+		v.Set("providers", req.Providers)
+	}
+	if req.Limit > 0 {
+		v.Set("limit", strconv.Itoa(req.Limit))
+	}
+	if req.Format != "" {
+		v.Set("format", req.Format)
+	}
+	if req.Sort != "" {
+		v.Set("sort", req.Sort)
+	}
+	var out localaitools.ModelSearchResponse
+	if err := c.do(ctx, http.MethodGet, routeModelsSearch+"?"+v.Encode(), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	// /models/available already returns []gallery.Metadata — pass it
 	// through after applying the LLM-supplied filters client-side.

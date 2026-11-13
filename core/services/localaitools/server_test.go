@@ -73,6 +73,7 @@ func resultText(res *mcp.CallToolResult) string {
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.
 var expectedReadOnlyCatalog = sortedStrings(
 	ToolGallerySearch,
+	ToolSearchModels,
 	ToolGetBranding,
 	ToolGetJobStatus,
 	ToolGetMiddlewareStatus,
@@ -145,6 +146,7 @@ var _ = Describe("Tool dispatch", func() {
 
 	cases := []dispatchCase{
 		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
+		{ToolSearchModels, ModelSearchRequest{Query: "qwen"}, "SearchModels"},
 		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
 		{ToolListModels, ListModelsRequest{Capability: "image"}, "ListModels"},
 		{ToolListGalleries, struct{}{}, "ListGalleries"},

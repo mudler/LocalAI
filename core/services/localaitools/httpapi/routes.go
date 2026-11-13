@@ -14,6 +14,7 @@ import (
 const (
 	routeModelsApply            = "/models/apply"
 	routeModelsAvail            = "/models/available"
+	routeModelsSearch           = "/api/models/search"
 	routeModelsGall             = "/models/galleries"
 	routeModelsImport           = "/models/import-uri"
 	routeModelImport            = "/models/import"

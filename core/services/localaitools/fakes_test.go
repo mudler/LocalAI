@@ -25,6 +25,7 @@ type fakeClient struct {
 
 	// Per-method overrides. Tests set these.
 	gallerySearch         func(GallerySearchQuery) ([]gallery.Metadata, error)
+	searchModels          func(ModelSearchRequest) (*ModelSearchResponse, error)
 	listInstalledModels   func(Capability) ([]InstalledModel, error)
 	listGalleries         func() ([]config.Gallery, error)
 	getJobStatus          func(string) (*JobStatus, error)
@@ -91,6 +92,14 @@ func (f *fakeClient) recorded() []fakeCall {
 }
 
 var errNotConfigured = errors.New("fakeClient method not configured")
+
+func (f *fakeClient) SearchModels(_ context.Context, req ModelSearchRequest) (*ModelSearchResponse, error) {
+	f.record("SearchModels", req)
+	if f.searchModels != nil {
+		return f.searchModels(req)
+	}
+	return &ModelSearchResponse{}, nil
+}
 
 func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]gallery.Metadata, error) {
 	f.record("GallerySearch", q)

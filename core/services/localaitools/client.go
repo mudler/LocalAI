@@ -27,6 +27,10 @@ import (
 type LocalAIClient interface {
 	// ---- Models / gallery (read) ----
 	GallerySearch(ctx context.Context, q GallerySearchQuery) ([]gallery.Metadata, error)
+	// SearchModels asks remote providers (Hugging Face, Pirate Face) for
+	// models that are not in a configured gallery. A result's URI goes to
+	// ImportModelURI.
+	SearchModels(ctx context.Context, req ModelSearchRequest) (*ModelSearchResponse, error)
 	ListInstalledModels(ctx context.Context, capability Capability) ([]InstalledModel, error)
 	ListGalleries(ctx context.Context) ([]config.Gallery, error)
 	GetJobStatus(ctx context.Context, jobID string) (*JobStatus, error)

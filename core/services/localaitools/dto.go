@@ -3,6 +3,7 @@ package localaitools
 import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 )
 
 // DTOs for the LocalAIClient interface. Where the same shape already exists
@@ -21,6 +22,19 @@ type GallerySearchQuery struct {
 	Tag     string `json:"tag,omitempty"     jsonschema:"Optional tag filter (e.g. chat, embed, image)."`
 	Gallery string `json:"gallery,omitempty" jsonschema:"Restrict results to a specific gallery name."`
 }
+
+// ModelSearchRequest is the input for search_models.
+type ModelSearchRequest struct {
+	Query     string `json:"query"               jsonschema:"Search text, for example a model family or a repository name."`
+	Providers string `json:"providers,omitempty" jsonschema:"Comma separated providers to ask: huggingface, pirateface. Empty asks all."`
+	Limit     int    `json:"limit,omitempty"     jsonschema:"Results per provider. Defaults to 20, at most 50."`
+	Format    string `json:"format,omitempty"    jsonschema:"File format filter. Defaults to gguf; any turns it off."`
+	Sort      string `json:"sort,omitempty"      jsonschema:"downloads (default), likes, updated or trending."`
+}
+
+// ModelSearchResponse is what search_models returns: the merged results and
+// one status per provider. It is the wire shape of GET /api/models/search.
+type ModelSearchResponse = modelsearch.Response
 
 // InstalledModel is one entry in list_installed_models. Distinct from
 // config.ModelConfig (which is the full on-disk YAML — far too large to

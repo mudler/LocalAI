@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -159,6 +160,28 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(hits).To(HaveLen(1))
 			Expect(hits[0].Name).To(Equal("qwen2.5-7b-instruct"))
 			Expect(containsTagExact(hits[0].Tags, "chat")).To(BeTrue())
+		})
+	})
+
+	Describe("SearchModels", func() {
+		It("sends the query and parses the response", func() {
+			var got url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Path).To(Equal("/api/models/search"))
+				got = r.URL.Query()
+				_, _ = w.Write([]byte(`{"results":[{"provider":"pirateface","id":"o/r","title":"o/r","uri":"magnet:?xt=urn:btih:aa","seeders":3}],"providers":[{"name":"pirateface","ok":true,"count":1}]}`))
+			}))
+			defer srv.Close()
+			out, err := New(srv.URL, "").SearchModels(ctx, localaitools.ModelSearchRequest{Query: "a b", Providers: "pirateface", Limit: 5, Format: "any", Sort: "likes"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.Get("q")).To(Equal("a b"))
+			Expect(got.Get("providers")).To(Equal("pirateface"))
+			Expect(got.Get("limit")).To(Equal("5"))
+			Expect(got.Get("format")).To(Equal("any"))
+			Expect(got.Get("sort")).To(Equal("likes"))
+			Expect(out.Results).To(HaveLen(1))
+			Expect(out.Results[0].Seeders).To(Equal(int64(3)))
+			Expect(out.Providers[0].OK).To(BeTrue())
 		})
 	})
 

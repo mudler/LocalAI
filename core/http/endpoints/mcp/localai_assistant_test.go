@@ -32,6 +32,10 @@ func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capabili
 	return []localaitools.InstalledModel{{Name: "stub"}}, nil
 }
 
+func (stubClient) SearchModels(_ context.Context, _ localaitools.ModelSearchRequest) (*localaitools.ModelSearchResponse, error) {
+	return &localaitools.ModelSearchResponse{}, nil
+}
+
 func (stubClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
 	return []config.Gallery{{Name: "stub-gallery", URL: "http://example"}}, nil
 }

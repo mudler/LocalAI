@@ -9,6 +9,7 @@ export const API_CONFIG = {
 
     // Models gallery
     models: '/api/models',
+    modelsSearch: '/api/models/search',
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelsRecommended: '/api/models/recommended',

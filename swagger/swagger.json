@@ -13490,6 +13490,62 @@
                 }
             }
         },
+        "/api/models/search": {
+            "get": {
+                "description": "Fans the query out to the chosen providers and returns the merged results plus one status per provider, so a provider that is down does not fail the search. Each result's `uri` can be passed to POST /models/import-uri.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Search remote providers for installable models",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search text",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated provider names (default: all)",
+                        "name": "providers",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Results per provider (default 20, max 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "File format filter (default gguf, any disables it)",
+                        "name": "format",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "downloads (default), likes, updated or trending",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/storage": {
             "get": {
                 "description": "Per-model disk usage, shared-file relations and missing references under the models path",
@@ -22054,7 +22110,7 @@
             "type": "object",
             "properties": {
                 "block_count": {
-                    "description": "BlockCount is the number of layers of the model, read\nfrom the GGUF metadata. Absent when it is unknown.",
+                    "description": "BlockCount is the number of layers of the model, read from the GGUF\nmetadata. Absent when it is unknown.",
                     "type": "integer"
                 },
                 "context_length": {
@@ -22080,6 +22136,98 @@
                     "type": "integer"
                 },
                 "vram_display": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.ProviderStatus": {
+            "type": "object",
+            "properties": {
+                "cached": {
+                    "description": "Cached is true when the results came from the cache.",
+                    "type": "boolean"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "modelsearch.Response": {
+            "type": "object",
+            "properties": {
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.ProviderStatus"
+                    }
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Result"
+                    }
+                }
+            }
+        },
+        "modelsearch.Result": {
+            "type": "object",
+            "properties": {
+                "downloads": {
+                    "type": "integer"
+                },
+                "gated": {
+                    "description": "Gated is true when the provider says access needs approval. It is\nreported as is; nothing here tries to get around it.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is the owner/repo name.",
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "likes": {
+                    "type": "integer"
+                },
+                "pipeline_tag": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "seeders": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "uri": {
+                    "description": "URI is what the import route accepts: huggingface://owner/repo for\nHugging Face, the magnet link for Pirate Face.",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is a page a person can open.",
                     "type": "string"
                 }
             }
@@ -25734,7 +25882,7 @@
                     ]
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is off, progress or stream; empty means progress.",
+                    "description": "ReplyMode is off, progress, stream or reasoning; empty means progress.",
                     "type": "string"
                 },
                 "resources": {

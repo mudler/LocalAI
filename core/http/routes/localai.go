@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/tokens"
 	echoswagger "github.com/swaggo/echo-swagger"
 )
@@ -133,6 +134,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 		// URI model import endpoint
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
+
+		// Search of remote providers for models to import. Admin only, like
+		// the import it feeds: the server makes the outbound requests.
+		router.GET("/api/models/search", localai.ModelSearchEndpoint(modelsearch.Shared()), adminMiddleware)
 
 		// Custom model edit endpoint
 		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)

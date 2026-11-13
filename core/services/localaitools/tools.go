@@ -9,6 +9,7 @@ package localaitools
 const (
 	// Read-only tools.
 	ToolGallerySearch             = "gallery_search"
+	ToolSearchModels              = "search_models"
 	ToolListInstalledModels       = "list_installed_models"
 	ToolListGalleries             = "list_galleries"
 	ToolGetJobStatus              = "get_job_status"

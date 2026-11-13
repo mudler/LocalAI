@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -37,6 +38,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -162,6 +164,20 @@ func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, c
 var _ localaitools.LocalAIClient = (*Client)(nil)
 
 // ---- Models / gallery (read) ----
+
+// SearchModels uses the process-wide searcher, the one behind
+// GET /api/models/search, so both share one cache.
+func (c *Client) SearchModels(ctx context.Context, req localaitools.ModelSearchRequest) (*localaitools.ModelSearchResponse, error) {
+	names := modelsearch.ParseNames(req.Providers)
+	s := modelsearch.Shared()
+	for _, n := range names {
+		if !slices.Contains(s.Names(), n) {
+			return nil, fmt.Errorf("unknown provider %q; available: %s", n, strings.Join(s.Names(), ", "))
+		}
+	}
+	resp := s.Search(ctx, modelsearch.Query{Text: req.Query, Limit: req.Limit, Format: req.Format, Sort: req.Sort}, names)
+	return &resp, nil
+}
 
 func (c *Client) GallerySearch(_ context.Context, q localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	galleries := c.AppConfig.Galleries

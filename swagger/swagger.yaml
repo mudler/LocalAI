@@ -3503,8 +3503,8 @@ definitions:
     properties:
       block_count:
         description: |-
-          BlockCount is the number of layers of the model, read
-          from the GGUF metadata. Absent when it is unknown.
+          BlockCount is the number of layers of the model, read from the GGUF
+          metadata. Absent when it is unknown.
         type: integer
       context_length:
         type: integer
@@ -3524,6 +3524,72 @@ definitions:
       vram_bytes:
         type: integer
       vram_display:
+        type: string
+    type: object
+  modelsearch.ProviderStatus:
+    properties:
+      cached:
+        description: Cached is true when the results came from the cache.
+        type: boolean
+      count:
+        type: integer
+      error:
+        type: string
+      name:
+        type: string
+      ok:
+        type: boolean
+    type: object
+  modelsearch.Response:
+    properties:
+      providers:
+        items:
+          $ref: '#/definitions/modelsearch.ProviderStatus'
+        type: array
+      results:
+        items:
+          $ref: '#/definitions/modelsearch.Result'
+        type: array
+    type: object
+  modelsearch.Result:
+    properties:
+      downloads:
+        type: integer
+      gated:
+        description: |-
+          Gated is true when the provider says access needs approval. It is
+          reported as is; nothing here tries to get around it.
+        type: boolean
+      id:
+        description: ID is the owner/repo name.
+        type: string
+      last_modified:
+        type: string
+      license:
+        type: string
+      likes:
+        type: integer
+      pipeline_tag:
+        type: string
+      provider:
+        type: string
+      seeders:
+        type: integer
+      size_bytes:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      uri:
+        description: |-
+          URI is what the import route accepts: huggingface://owner/repo for
+          Hugging Face, the magnet link for Pirate Face.
+        type: string
+      url:
+        description: URL is a page a person can open.
         type: string
     type: object
   nodes.NodeModel:
@@ -6623,7 +6689,8 @@ definitions:
         - pt-BR
         type: string
       reply_mode:
-        description: ReplyMode is off, progress or stream; empty means progress.
+        description: ReplyMode is off, progress, stream or reasoning; empty means
+          progress.
         type: string
       resources:
         description: |-
@@ -20081,7 +20148,8 @@ paths:
         set to "accept wider token". Needs the kind (the platform), the bot token
         (kept sealed, never returned) and an agent of yours that names a model. The
         token is checked with the platform when its add-on runs: a token that the
-        platform refuses is a 400. reply_mode (off, progress, stream, reasoning; default progress; reasoning shows the model''s thinking to every sender of the binding),
+        platform refuses is a 400. reply_mode (off, progress, stream, reasoning; default
+        progress; reasoning shows the model''s thinking to every sender of the binding),
         conversation (sender, chat, window with window_minutes, thread; default sender),
         send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR;
         default auto, the language of the sentences the bot writes itself) say how
@@ -24188,6 +24256,45 @@ paths:
           schema:
             $ref: '#/definitions/localai.RecommendedModelsResponse'
       summary: Recommend models for this machine.
+      tags:
+      - models
+  /api/models/search:
+    get:
+      description: Fans the query out to the chosen providers and returns the merged
+        results plus one status per provider, so a provider that is down does not
+        fail the search. Each result's `uri` can be passed to POST /models/import-uri.
+      parameters:
+      - description: Search text
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: 'Comma separated provider names (default: all)'
+        in: query
+        name: providers
+        type: string
+      - description: Results per provider (default 20, max 50)
+        in: query
+        name: limit
+        type: integer
+      - description: File format filter (default gguf, any disables it)
+        in: query
+        name: format
+        type: string
+      - description: downloads (default), likes, updated or trending
+        in: query
+        name: sort
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modelsearch.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Search remote providers for installable models
       tags:
       - models
   /api/models/storage:

@@ -69,6 +69,8 @@ async function postJSON(endpoint, body, options = {}) {
 // Models API
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
+  // Remote providers (Hugging Face, Pirate Face). params come from searchParams().
+  search: (params, options) => fetchJSON(buildUrl(API_CONFIG.endpoints.modelsSearch, params), options),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
   listNativeCapabilities: () => fetchJSON('/v1/models/capabilities'),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),

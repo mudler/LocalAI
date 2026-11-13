@@ -1,0 +1,29 @@
+/* "Search online" panel of the import page: a query bar, provider switches and
+   a list of results. Kit card, input, switch, badge and button; only the layout
+   is here. */
+.import-search { display: flex; flex-direction: column; gap: var(--dk-space-3); padding: var(--dk-space-4) var(--dk-space-5); }
+.import-search__head .bt-h2 { margin: 0; }
+.import-search__head .dk-hint { margin: var(--dk-space-1) 0 0; }
+.import-search__bar { display: flex; gap: var(--dk-space-2); align-items: center; }
+.import-search__opts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-5); }
+.import-search__opt { display: inline-flex; align-items: center; gap: var(--dk-space-2); font-size: var(--dk-text-13); }
+.import-search__sort { margin-left: auto; }
+.import-search__out { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.import-search__out:empty { display: none; }
+.import-search__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--dk-edge); }
+.import-search__row { display: flex; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-3) 0; border-bottom: 1px solid var(--dk-edge); }
+.import-search__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.import-search__name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); min-width: 0; }
+.import-search__id { font-size: var(--dk-text-13); color: var(--dk-text); overflow-wrap: anywhere; text-decoration: none; }
+.import-search__id:hover { color: var(--dk-accent-text); text-decoration: underline; }
+.import-search__facts { display: flex; flex-wrap: wrap; gap: 0 var(--dk-space-4); margin: 0; font-size: var(--dk-text-12); color: var(--dk-muted); }
+.import-search__facts div { display: inline-flex; gap: var(--dk-space-1); }
+.import-search__facts dt::after { content: ':'; }
+.import-search__facts dd { margin: 0; color: var(--dk-text); }
+.import-search__row .dk-btn { flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .import-search { padding: var(--dk-space-4); }
+  .import-search__sort { margin-left: 0; }
+  .import-search__row { align-items: flex-start; }
+}

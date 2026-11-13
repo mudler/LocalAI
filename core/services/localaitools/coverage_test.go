@@ -27,6 +27,7 @@ import (
 var toolToHTTPRoute = map[string]string{
 	// Read-only tools.
 	ToolGallerySearch:             "GET /models/available",
+	ToolSearchModels:              "GET /api/models/search",
 	ToolListInstalledModels:       "GET /api/models/capabilities",
 	ToolListGalleries:             "GET /models/galleries",
 	ToolGetJobStatus:              "GET /models/jobs/:uuid",

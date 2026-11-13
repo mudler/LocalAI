@@ -338,6 +338,62 @@ These entries use `stablediffusion-ggml` and include the text encoder, vision pr
 The invalid `qwen-image-2.1-uncensored` chat entry was removed because llama.cpp cannot load its diffusion weights.
 This removal does not delete previously installed models. Remove that configuration before installing an image-generation entry.
 
+## Search Hugging Face and Pirate Face
+
+Models that are not in a gallery can be found from the import page (**Import a model**, panel **Search online**) or with the API. The search asks several providers at the same time and merges the answers. If one provider is down or slow, you still get the others, and the answer says which one failed.
+
+| Provider | Name | What it returns |
+|---|---|---|
+| Hugging Face | `huggingface` | Repositories from the Hugging Face model search, with downloads, likes, license and tags. The result `uri` is `huggingface://owner/repo`. |
+| Pirate Face | `pirateface` | Open-weight models offered as torrents, with size and seeders. The result `uri` is a `magnet:` link. |
+
+```bash
+curl 'http://localhost:8080/api/models/search?q=qwen&providers=huggingface,pirateface&limit=5&sort=downloads'
+```
+
+```json
+{
+  "results": [
+    {
+      "provider": "huggingface",
+      "id": "acme/Tiny-GGUF",
+      "title": "acme/Tiny-GGUF",
+      "uri": "huggingface://acme/Tiny-GGUF",
+      "url": "https://huggingface.co/acme/Tiny-GGUF",
+      "downloads": 3400,
+      "likes": 12,
+      "tags": ["gguf", "license:apache-2.0"],
+      "pipeline_tag": "text-generation",
+      "license": "apache-2.0",
+      "last_modified": "2026-01-02T03:04:05.000Z"
+    },
+    {
+      "provider": "pirateface",
+      "id": "acme/Tiny",
+      "title": "acme/Tiny",
+      "uri": "magnet:?xt=urn:btih:...",
+      "url": "https://huggingface.co/acme/Tiny",
+      "size_bytes": 1500000000,
+      "seeders": 6
+    }
+  ],
+  "providers": [
+    {"name": "huggingface", "ok": true, "count": 1},
+    {"name": "pirateface", "ok": true, "count": 1}
+  ]
+}
+```
+
+Query parameters:
+
+- `q` (required): the search text, up to 200 bytes.
+- `providers`: comma separated provider names. The default is all of them. An unknown name gives a 400 error.
+- `limit`: results per provider. The default is 20 and the maximum is 50.
+- `format`: file format filter. The default is `gguf`; `any` turns it off. Only Hugging Face can filter; Pirate Face ignores it.
+- `sort`: `downloads` (default), `likes`, `updated` or `trending`. Only Hugging Face can sort; Pirate Face keeps its own order.
+
+The endpoint is for administrators, like the import endpoints. Pass the `uri` of a result to `POST /models/import-uri` to install it. A `magnet:` uri only imports on a LocalAI version that can download magnet links. The server keeps answers for five minutes in memory, so a repeated search does not call the provider again. Hugging Face allows 500 unauthenticated requests per five minutes. Gated models are listed with `gated: true`; you still need access on Hugging Face to download them. The Assistant can run the same search with the `search_models` tool.
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
