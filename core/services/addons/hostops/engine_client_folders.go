@@ -14,11 +14,13 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 )
 
@@ -44,7 +46,9 @@ import (
 
 const (
 	// DefaultClientReadBytes is the largest file client.workspace.read returns.
-	DefaultClientReadBytes = 1 << 20
+	// The answer is JSON, and the encoder writes "<" as six bytes, so even
+	// this size can grow past one payload; read checks the encoded answer too.
+	DefaultClientReadBytes = 512 << 10
 	// DefaultClientWriteFileBytes is the largest file client.workspace.write
 	// stores, and DefaultClientWriteFolderBytes the most the write folder may
 	// hold in all.
@@ -52,9 +56,13 @@ const (
 	DefaultClientWriteFolderBytes = 50 << 20
 
 	maxClientListEntries = 200
-	// maxClientFolderWalk bounds the nodes counted to size the write folder. A
-	// folder with more is full for the purpose of a write.
-	maxClientFolderWalk = 4096
+	// DefaultClientFolderNodes bounds the nodes counted to size the write
+	// folder. A folder with more takes no write.
+	DefaultClientFolderNodes = 4096
+	// clientSizeTTL is how long the size of a write folder, counted once and
+	// then kept up to date by the writes of this host, is trusted before it is
+	// counted again. The owner can change the folder by other ways.
+	clientSizeTTL = 30 * time.Second
 	// maxClientPathSegments bounds a path below a folder.
 	maxClientPathSegments = 16
 	maxClientPathBytes    = 512
@@ -104,9 +112,66 @@ type ClientFolderHost struct {
 	// logger of the host (xlog), which is the only audit a host operation has.
 	Audit func(ClientAudit)
 
-	// mu serializes the writes, so two writes cannot both pass the check of
-	// the size of the folder.
-	mu sync.Mutex
+	// MaxFolderNodes and PayloadBytes replace the defaults when above zero.
+	// PayloadBytes is the largest answer a host operation may return.
+	MaxFolderNodes int
+	PayloadBytes   int64
+
+	// smu guards the two maps. Each write folder has one lock, so writes to it
+	// run one at a time and the check of its size is not raced, while a write
+	// that waits ends with its context.
+	smu   sync.Mutex
+	locks map[string]chan struct{}
+	sizes map[string]folderSize
+}
+
+// folderSize is the counted content of a write folder.
+type folderSize struct {
+	bytes int64
+	nodes int
+	at    time.Time
+}
+
+// errFolderTooBig means the folder has more nodes than MaxFolderNodes.
+var errFolderTooBig = errors.New("the folder has too many files")
+
+func (h *ClientFolderHost) maxNodes() int {
+	if h.MaxFolderNodes > 0 {
+		return h.MaxFolderNodes
+	}
+	return DefaultClientFolderNodes
+}
+
+func (h *ClientFolderHost) payloadBytes() int64 {
+	if h.PayloadBytes > 0 {
+		return h.PayloadBytes
+	}
+	return contract.DefaultLimits().PayloadBytes
+}
+
+// folderKey names the lock and the cached size of a write folder.
+func folderKey(owner string, folder []string) string {
+	return owner + "\x00" + strings.Join(folder, "/")
+}
+
+// lock takes the lock of a write folder, or gives up when ctx ends.
+func (h *ClientFolderHost) lock(ctx context.Context, key string) (unlock func(), err error) {
+	h.smu.Lock()
+	if h.locks == nil {
+		h.locks = map[string]chan struct{}{}
+	}
+	ch := h.locks[key]
+	if ch == nil {
+		ch = make(chan struct{}, 1)
+		h.locks[key] = ch
+	}
+	h.smu.Unlock()
+	select {
+	case ch <- struct{}{}:
+		return func() { <-ch }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (h *ClientFolderHost) readBytes() int64 {
@@ -324,6 +389,8 @@ func clientStoreErr(err error) error {
 
 type clientPathArgs struct {
 	Path string `json:"path"`
+	// After is the cursor of list: the last name of the page before.
+	After string `json:"after,omitempty"`
 }
 
 // list names the entries of a granted folder. The path "" lists the granted
@@ -372,21 +439,35 @@ func (h *ClientFolderHost) list(ctx context.Context, c Call) (json.RawMessage, e
 	if err != nil {
 		return nil, h.refuse(op, c, cl, a.Path, "the store refused the folder", clientStoreErr(err))
 	}
+	// The store sorts by name. A page holds at most maxClientListEntries of the
+	// entries that this operation shows (folders and text files), after the
+	// cursor; next is set when more follow.
 	out := []entry{}
-	truncated := false
+	next := ""
 	for _, n := range nodes {
+		var e entry
 		switch {
 		case n.Kind == workspace.KindDir:
-			out = append(out, entry{Name: n.Name, Dir: true})
+			e = entry{Name: n.Name, Dir: true}
 		case n.Kind == workspace.KindFile && clientTextExt(n.Name):
-			out = append(out, entry{Name: n.Name, Size: n.Size})
+			e = entry{Name: n.Name, Size: n.Size}
+		default:
+			continue
 		}
-		if len(out) >= maxClientListEntries {
-			truncated = len(nodes) > len(out)
+		if a.After != "" && e.Name <= a.After {
+			continue
+		}
+		if len(out) == maxClientListEntries {
+			next = out[len(out)-1].Name
 			break
 		}
+		out = append(out, e)
 	}
-	return json.Marshal(map[string]any{"path": strings.Join(segs, "/"), "entries": out, "truncated": truncated})
+	res := map[string]any{"path": strings.Join(segs, "/"), "entries": out, "truncated": next != ""}
+	if next != "" {
+		res["next"] = next
+	}
+	return json.Marshal(res)
 }
 
 // read returns one text file of a granted folder.
@@ -435,7 +516,17 @@ func (h *ClientFolderHost) read(ctx context.Context, c Call) (json.RawMessage, e
 	if int64(len(data)) > limit || !utf8.Valid(data) || slices.Contains(data, 0) {
 		return nil, h.refuse(op, c, cl, a.Path, "not text, or over the read limit", fmt.Errorf("%w: not a text file, or too large", ErrBadRequest))
 	}
-	return json.Marshal(map[string]any{"path": strings.Join(segs, "/"), "size": len(data), "content": string(data)})
+	out, err := json.Marshal(map[string]any{"path": strings.Join(segs, "/"), "size": len(data), "content": string(data)})
+	if err != nil {
+		return nil, err
+	}
+	// The encoder escapes some characters to six bytes, so the answer can be
+	// larger than the file. One that would not fit the payload of a host
+	// operation is refused here, not cut by the channel.
+	if int64(len(out)) > h.payloadBytes()-1024 {
+		return nil, h.refuse(op, c, cl, a.Path, "the encoded answer is over the payload limit", fmt.Errorf("%w: the file is too large to return", ErrBadRequest))
+	}
+	return out, nil
 }
 
 // write stores one text file inside the write folder.
@@ -481,8 +572,21 @@ func (h *ClientFolderHost) write(ctx context.Context, c Call) (json.RawMessage, 
 	}
 
 	owner := c.Actor.UserID
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	key := folderKey(owner, g.write)
+	unlock, err := h.lock(ctx, key)
+	if err != nil {
+		return nil, h.refuse(op, c, cl, a.Path, "gave up waiting for the folder: "+err.Error(), fmt.Errorf("%w: busy", ErrConflict))
+	}
+	defer unlock()
+	// The grant is read again once the lock is ours: a write that waited must
+	// not complete for a key that was revoked, paused or narrowed meanwhile.
+	cl, g2, err := h.begin(ctx, op, c)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Equal(g2.write, g.write) {
+		return nil, h.refuse(op, c, cl, a.Path, "the write folder changed while the call waited", fmt.Errorf("%w: no access", ErrForbidden))
+	}
 	if err := h.ensureFolder(ctx, owner, g.write); err != nil {
 		return nil, h.refuse(op, c, cl, a.Path, "the write folder is not available", clientStoreErr(err))
 	}
@@ -494,18 +598,31 @@ func (h *ClientFolderHost) write(ctx context.Context, c Call) (json.RawMessage, 
 	if err != nil || !strings.HasPrefix(target, abs+"/") {
 		return nil, h.refuse(op, c, cl, a.Path, "outside the write folder", fmt.Errorf("%w: no access", ErrForbidden))
 	}
-	total, ok := h.folderSize(ctx, actor, abs)
-	old := int64(0)
+	size, err := h.sizeOf(ctx, key, actor, abs)
+	switch {
+	case errors.Is(err, errFolderTooBig):
+		return nil, h.refuse(op, c, cl, a.Path, "the write folder has too many files", fmt.Errorf("%w: the folder has too many files", ErrBadRequest))
+	case err != nil:
+		// The size could not be counted: an outage, not a full folder.
+		h.audit(ClientAudit{Op: op, Addon: c.AddonID, Client: cl.ClientID, Path: logPath(a.Path), Reason: "the size of the write folder could not be counted: " + err.Error()})
+		return nil, err
+	}
+	old, existed := int64(0), false
 	if n, err := h.Files.Store().Stat(ctx, actor, target); err == nil {
 		if n.Kind != workspace.KindFile {
 			return nil, h.refuse(op, c, cl, a.Path, "the path is a folder", fmt.Errorf("%w: the path is not a file", ErrBadRequest))
 		}
-		old = n.Size
+		old, existed = n.Size, true
 	}
-	if !ok || total-old+int64(len(a.Content)) > h.writeFolderBytes() {
+	if size.bytes-old+int64(len(a.Content)) > h.writeFolderBytes() {
 		return nil, h.refuse(op, c, cl, a.Path, "over the folder limit", fmt.Errorf("%w: the folder is full", ErrBadRequest))
 	}
-	title := "A paired client wrote " + name
+	if !existed && size.nodes+1 > h.maxNodes() {
+		return nil, h.refuse(op, c, cl, a.Path, "the write folder has too many files", fmt.Errorf("%w: the folder has too many files", ErrBadRequest))
+	}
+	// The owner reads this title in the history of the files. It names the
+	// client by its id, so the owner can tell which client wrote the file.
+	title := "Paired client " + cl.ClientID + " wrote " + name
 	tx, err := h.Files.Store().Begin(ctx, actor, title)
 	if err != nil {
 		return nil, h.refuse(op, c, cl, a.Path, "the store refused the change", clientStoreErr(err))
@@ -521,6 +638,14 @@ func (h *ClientFolderHost) write(ctx context.Context, c Call) (json.RawMessage, 
 	}
 	node.Rev = cs.Rev
 	h.Files.Written(ctx, node, owner)
+	// Keep the counted size up to date, so the next write does not walk again.
+	size.bytes += int64(len(a.Content)) - old
+	if !existed {
+		size.nodes++
+	}
+	h.smu.Lock()
+	h.sizes[key] = size
+	h.smu.Unlock()
 
 	sum := sha256.Sum256([]byte(a.Content))
 	digest := hex.EncodeToString(sum[:])
@@ -544,31 +669,56 @@ func (h *ClientFolderHost) ensureFolder(ctx context.Context, owner string, folde
 	return nil
 }
 
-// folderSize adds up the files below a folder. It stops at maxClientFolderWalk
-// nodes and then answers false: a folder that large counts as full.
-func (h *ClientFolderHost) folderSize(ctx context.Context, actor workspace.Actor, abs string) (int64, bool) {
-	var total int64
-	seen := 0
-	var walk func(dir string) bool
-	walk = func(dir string) bool {
+// sizeOf returns the counted content of the write folder. It walks the folder
+// when nothing is counted yet or the count is older than clientSizeTTL, and
+// otherwise trusts the count that the writes of this host kept up to date. The
+// caller holds the lock of the folder.
+func (h *ClientFolderHost) sizeOf(ctx context.Context, key string, actor workspace.Actor, abs string) (folderSize, error) {
+	h.smu.Lock()
+	if h.sizes == nil {
+		h.sizes = map[string]folderSize{}
+	}
+	cur, ok := h.sizes[key]
+	h.smu.Unlock()
+	if ok && time.Since(cur.at) < clientSizeTTL {
+		return cur, nil
+	}
+	cur, err := h.walk(ctx, actor, abs)
+	if err != nil {
+		return folderSize{}, err
+	}
+	h.smu.Lock()
+	h.sizes[key] = cur
+	h.smu.Unlock()
+	return cur, nil
+}
+
+// walk adds up the files below a folder. It fails with errFolderTooBig past
+// MaxFolderNodes nodes, and with the error of the store when a listing fails.
+func (h *ClientFolderHost) walk(ctx context.Context, actor workspace.Actor, abs string) (folderSize, error) {
+	out := folderSize{at: time.Now()}
+	var rec func(dir string) error
+	rec = func(dir string) error {
 		nodes, err := h.Files.Store().List(ctx, actor, dir)
 		if err != nil {
-			return false
+			return err
 		}
 		for _, n := range nodes {
-			if seen++; seen > maxClientFolderWalk {
-				return false
+			if out.nodes++; out.nodes > h.maxNodes() {
+				return errFolderTooBig
 			}
 			if n.Kind == workspace.KindDir {
-				if !walk(n.Path) {
-					return false
+				if err := rec(n.Path); err != nil {
+					return err
 				}
 				continue
 			}
-			total += n.Size
+			out.bytes += n.Size
 		}
-		return true
+		return nil
 	}
-	ok := walk(abs)
-	return total, ok
+	if err := rec(abs); err != nil {
+		return folderSize{}, err
+	}
+	return out, nil
 }

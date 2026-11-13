@@ -7,14 +7,17 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 type fakeGrants struct {
+	mu    sync.Mutex
 	read  []string
 	write string
 	err   error
@@ -23,6 +26,8 @@ type fakeGrants struct {
 }
 
 func (g *fakeGrants) Grant(_ context.Context, c ClientCall, addon string) ([]string, string, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.seen = append(g.seen, c)
 	g.addon = addon
 	return g.read, g.write, g.err
@@ -180,7 +185,7 @@ var _ = Describe("client folder operations", func() {
 			Expect(code).To(Equal(http.StatusBadRequest))
 			f.put("alice", "/Notes/ok.txt", strings.Repeat("a", DefaultClientReadBytes))
 			code, _ = call("client.workspace.read", `{"path":"Notes/ok.txt"}`)
-			Expect(code).To(Equal(http.StatusOK), "the default cap is 1 MiB, inclusive")
+			Expect(code).To(Equal(http.StatusOK), "the default cap is 512 KiB, inclusive")
 		})
 		It("refuses a binary file with a text name and a missing file", func() {
 			f.put("alice", "/Notes/bin.txt", "a\x00b")
@@ -286,7 +291,7 @@ var _ = Describe("client folder operations", func() {
 		It("has a default folder limit of 50 MiB", func() {
 			Expect((&ClientFolderHost{}).writeFolderBytes()).To(Equal(int64(50 << 20)))
 			Expect((&ClientFolderHost{}).writeFileBytes()).To(Equal(int64(256 << 10)))
-			Expect((&ClientFolderHost{}).readBytes()).To(Equal(int64(1 << 20)))
+			Expect((&ClientFolderHost{}).readBytes()).To(Equal(int64(512 << 10)))
 		})
 		It("refuses a path that is a folder", func() {
 			code, _ := call("client.workspace.write", `{"path":"Memory/clients/box/dir.md/x.md","content":"x"}`)
@@ -312,6 +317,191 @@ var _ = Describe("client folder operations", func() {
 				Expect(code).To(Equal(http.StatusBadRequest), body)
 			}
 			Expect(f.read("bob", "/Memory/clients/box/x.md")).To(BeEmpty())
+		})
+	})
+
+	Describe("names that look like a granted folder", func() {
+		BeforeEach(func() {
+			grants.read = []string{"Notes", "Küche"}
+			f.put("alice", "/Küche/a.md", "nfc folder")
+		})
+		It("refuses a case variant and a decomposed (NFD) variant of a granted folder", func() {
+			Expect(func() int { code, _ := call("client.workspace.read", `{"path":"Küche/a.md"}`); return code }()).To(Equal(http.StatusOK), "the granted spelling works")
+			for _, p := range []string{"notes/todo.md", "NOTES/todo.md", "Notes2/todo.md", "kÜche/a.md", "Ku\u0308che/a.md"} {
+				for _, op := range []string{"client.workspace.read", "client.workspace.list"} {
+					code, _ := call(op, fmt.Sprintf(`{"path":%s}`, js(p)))
+					Expect(code).To(Equal(http.StatusForbidden), op+" "+p)
+				}
+			}
+			for _, p := range []string{"memory/clients/box/x.md", "Memory/Clients/box/x.md", "MEMORY/clients/box/x.md", "Memory/clients/bo\u0301x/x.md"} {
+				code, _ := call("client.workspace.write", fmt.Sprintf(`{"path":%s,"content":"x"}`, js(p)))
+				Expect(code).To(Equal(http.StatusForbidden), p)
+			}
+			Expect(f.read("alice", "/memory/clients/box/x.md")).To(BeEmpty())
+		})
+	})
+
+	Describe("the answer of read", func() {
+		It("stays under the payload limit when the encoder escapes the content", func() {
+			// "<" is one byte in the file and six in the answer.
+			f.put("alice", "/Notes/lt.txt", strings.Repeat("<", 100000))
+			code, out := call("client.workspace.read", `{"path":"Notes/lt.txt"}`)
+			Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+			Expect(int64(len(out.Result))).To(BeNumerically("<", contract.DefaultLimits().PayloadBytes))
+			f.put("alice", "/Notes/lt2.txt", strings.Repeat("<", 200000))
+			code, _ = call("client.workspace.read", `{"path":"Notes/lt2.txt"}`)
+			Expect(code).To(Equal(http.StatusBadRequest), "200 KB of escapes is over the payload, though under the file cap")
+			Expect(lastReason()).To(Equal("the encoded answer is over the payload limit"))
+		})
+		It("keeps a file at the default cap whose answer needs no escape", func() {
+			Expect(DefaultClientReadBytes * 2).To(BeNumerically("<=", contract.DefaultLimits().PayloadBytes))
+		})
+	})
+
+	Describe("list pages", func() {
+		It("counts only the entries it shows, and pages with a cursor", func() {
+			grants.read = []string{"Many"}
+			for i := 0; i < maxClientListEntries; i++ {
+				f.put("alice", fmt.Sprintf("/Many/f%03d.md", i), "x")
+			}
+			for i := 0; i < 5; i++ {
+				f.put("alice", fmt.Sprintf("/Many/skip%d.png", i), "x")
+			}
+			code, out := call("client.workspace.list", `{"path":"Many"}`)
+			Expect(code).To(Equal(http.StatusOK))
+			var page struct {
+				Entries   []struct{ Name string }
+				Truncated bool
+				Next      string
+			}
+			Expect(json.Unmarshal(out.Result, &page)).To(Succeed())
+			Expect(page.Entries).To(HaveLen(maxClientListEntries))
+			Expect(page.Truncated).To(BeFalse(), "the five png files are not shown and do not count")
+			f.put("alice", "/Many/g.md", "x")
+			code, out = call("client.workspace.list", `{"path":"Many"}`)
+			Expect(code).To(Equal(http.StatusOK))
+			page.Entries, page.Next = nil, ""
+			Expect(json.Unmarshal(out.Result, &page)).To(Succeed())
+			Expect(page.Truncated).To(BeTrue())
+			Expect(page.Next).To(Equal("f199.md"))
+			code, out = call("client.workspace.list", fmt.Sprintf(`{"path":"Many","after":%s}`, js(page.Next)))
+			Expect(code).To(Equal(http.StatusOK))
+			page.Entries, page.Next, page.Truncated = nil, "", true
+			Expect(json.Unmarshal(out.Result, &page)).To(Succeed())
+			Expect(page.Entries).To(HaveLen(1))
+			Expect(page.Entries[0].Name).To(Equal("g.md"))
+			Expect(page.Truncated).To(BeFalse())
+		})
+	})
+
+	Describe("the size of the write folder", func() {
+		It("refuses a new file past the node cap, and still allows an overwrite", func() {
+			host.MaxFolderNodes = 3 // old.md is one
+			for _, n := range []string{"a", "b"} {
+				code, _ := call("client.workspace.write", fmt.Sprintf(`{"path":"Memory/clients/box/%s.md","content":"x"}`, n))
+				Expect(code).To(Equal(http.StatusOK), n)
+			}
+			code, _ := call("client.workspace.write", `{"path":"Memory/clients/box/c.md","content":"x"}`)
+			Expect(code).To(Equal(http.StatusBadRequest))
+			Expect(lastReason()).To(Equal("the write folder has too many files"))
+			code, _ = call("client.workspace.write", `{"path":"Memory/clients/box/a.md","content":"yy"}`)
+			Expect(code).To(Equal(http.StatusOK))
+		})
+		It("does not call a folder with more nodes than the cap 'full'", func() {
+			host.MaxFolderNodes = 1
+			f.put("alice", "/Memory/clients/box/second.md", "x")
+			code, _ := call("client.workspace.write", `{"path":"Memory/clients/box/a.md","content":"x"}`)
+			Expect(code).To(Equal(http.StatusBadRequest))
+			Expect(lastReason()).To(Equal("the write folder has too many files"))
+			Expect(lastReason()).NotTo(Equal("over the folder limit"))
+		})
+		It("has a default cap of 4096 nodes", func() {
+			Expect((&ClientFolderHost{}).maxNodes()).To(Equal(4096))
+		})
+		It("is an outage, not a full folder, when the store cannot list", func() {
+			actor, _, err := host.fence(context.Background(), "alice", []string{"Notes"}, workspace.ModeRead)
+			Expect(err).NotTo(HaveOccurred())
+			abs, _ := f.files.Abs("alice", "/Private")
+			_, err = host.walk(context.Background(), actor, abs)
+			Expect(err).To(HaveOccurred())
+			Expect(err).NotTo(MatchError(errFolderTooBig))
+		})
+		It("lets a write that shrinks a file pass when the folder is at its limit", func() {
+			host.WriteFolderBytes = 100
+			code, _ := call("client.workspace.write", fmt.Sprintf(`{"path":"Memory/clients/box/a.txt","content":%q}`, strings.Repeat("a", 92)))
+			Expect(code).To(Equal(http.StatusOK))
+			code, _ = call("client.workspace.write", `{"path":"Memory/clients/box/new.txt","content":"x"}`)
+			Expect(code).To(Equal(http.StatusBadRequest))
+			code, _ = call("client.workspace.write", `{"path":"Memory/clients/box/a.txt","content":"small"}`)
+			Expect(code).To(Equal(http.StatusOK))
+			code, _ = call("client.workspace.write", `{"path":"Memory/clients/box/new.txt","content":"x"}`)
+			Expect(code).To(Equal(http.StatusOK))
+		})
+		It("names the client in the history title", func() {
+			code, out := call("client.workspace.write", `{"path":"Memory/clients/box/t.md","content":"x"}`)
+			Expect(code).To(Equal(http.StatusOK))
+			var res struct{ Revision int64 }
+			Expect(json.Unmarshal(out.Result, &res)).To(Succeed())
+			abs, _ := f.files.Abs("alice", "/Memory/clients/box")
+			hist, err := f.files.Store().History(context.Background(), f.files.Actor("alice"), workspace.HistoryQuery{Path: abs, Limit: 5})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hist).NotTo(BeEmpty())
+			Expect(hist[0].Title).To(Equal("Paired client key-9 wrote t.md"))
+		})
+	})
+
+	Describe("a write that waits for the folder", func() {
+		key := folderKey("alice", []string{"Memory", "clients", "box"})
+		It("does not complete for a key that was revoked while it waited", func() {
+			unlock, err := host.lock(context.Background(), key)
+			Expect(err).NotTo(HaveOccurred())
+			live("queued", "apply")
+			done := make(chan int, 1)
+			go func() {
+				defer GinkgoRecover()
+				code, _ := f.call("secret", "queued", "client.workspace.write", `{"path":"Memory/clients/box/late.md","content":"late"}`)
+				done <- code
+			}()
+			Eventually(func() int { grants.mu.Lock(); defer grants.mu.Unlock(); return len(grants.seen) }).Should(Equal(1))
+			Consistently(done, "100ms").ShouldNot(Receive())
+			grants.mu.Lock()
+			grants.err = fmt.Errorf("%w: revoked", ErrForbidden)
+			grants.mu.Unlock()
+			unlock()
+			Eventually(done).Should(Receive(Equal(http.StatusForbidden)))
+			Expect(f.read("alice", "/Memory/clients/box/late.md")).To(BeEmpty())
+			Expect(lastReason()).To(ContainSubstring("revoked"))
+		})
+		It("does not complete when the write folder was changed while it waited", func() {
+			unlock, err := host.lock(context.Background(), key)
+			Expect(err).NotTo(HaveOccurred())
+			live("queued", "apply")
+			done := make(chan int, 1)
+			go func() {
+				defer GinkgoRecover()
+				code, _ := f.call("secret", "queued", "client.workspace.write", `{"path":"Memory/clients/box/late.md","content":"late"}`)
+				done <- code
+			}()
+			Eventually(func() int { grants.mu.Lock(); defer grants.mu.Unlock(); return len(grants.seen) }).Should(Equal(1))
+			grants.mu.Lock()
+			grants.write = "Elsewhere"
+			grants.mu.Unlock()
+			unlock()
+			Eventually(done).Should(Receive(Equal(http.StatusForbidden)))
+			Expect(f.read("alice", "/Memory/clients/box/late.md")).To(BeEmpty())
+			Expect(f.read("alice", "/Elsewhere/late.md")).To(BeEmpty())
+		})
+		It("gives up when its context ends", func() {
+			unlock, err := host.lock(context.Background(), key)
+			Expect(err).NotTo(HaveOccurred())
+			defer unlock()
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+			_, err = host.lock(ctx, key)
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+			other, err := host.lock(context.Background(), folderKey("alice", []string{"Other"}))
+			Expect(err).NotTo(HaveOccurred(), "another folder has its own lock")
+			other()
 		})
 	})
 
