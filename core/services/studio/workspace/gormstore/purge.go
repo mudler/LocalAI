@@ -323,3 +323,91 @@ func (s *Workspace) blobsInUseLocked(ctx context.Context, shas []string) (map[st
 	}
 	return used, release, nil
 }
+
+// PruneVersions drops the oldest write rows of the file p. See Purger.
+func (s *Workspace) PruneVersions(ctx context.Context, a Actor, p string, keep int) (int, error) {
+	if keep < 1 {
+		return 0, ErrInvalid
+	}
+	t, err := s.db.BeginTx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = t.Rollback() }()
+	// The revision row lock makes writers and purges wait for each other.
+	if _, err := t.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`); err != nil {
+		return 0, err
+	}
+	n, err := lookupPath(ctx, t, p)
+	if errors.Is(err, ErrNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if n.kind != KindFile {
+		return 0, nil
+	}
+	if err := s.needWrite(ctx, t, a, n); err != nil {
+		return 0, err
+	}
+	// Newest first. The last column counts the rows of the change set: a
+	// write that shares its change set with another node stays, because
+	// dropping its row would change what an undo of that change set does to
+	// the other node.
+	rows, err := t.QueryContext(ctx, `SELECT j.id, j.rev, j.old_blob, j.new_blob,
+			(SELECT COUNT(*) FROM studio_ws_journal c WHERE c.rev = j.rev)
+		FROM studio_ws_journal j WHERE j.node_id = ? AND j.op = ? ORDER BY j.id DESC`, n.id, string(OpWrite))
+	if err != nil {
+		return 0, err
+	}
+	var ids, drop []int64
+	freed := map[string]struct{}{}
+	seen := 0
+	for rows.Next() {
+		var id, rev, rowsInSet int64
+		var ob, nb string
+		if err := rows.Scan(&id, &rev, &ob, &nb, &rowsInSet); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		seen++
+		if seen <= keep || rowsInSet != 1 {
+			continue
+		}
+		ids = append(ids, id)
+		drop = append(drop, rev)
+		freed[ob], freed[nb] = struct{}{}, struct{}{}
+	}
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	delete(freed, "")
+	if err := chunks(ids, func(part []int64) error {
+		_, err := t.ExecContext(ctx, `DELETE FROM studio_ws_journal WHERE id IN (`+inList(len(part))+`)`, idArgs(part)...)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	if err := chunks(drop, func(part []int64) error {
+		_, err := t.ExecContext(ctx, `DELETE FROM studio_ws_changesets WHERE rev IN (`+inList(len(part))+`)
+			AND NOT EXISTS (SELECT 1 FROM studio_ws_journal j WHERE j.rev = studio_ws_changesets.rev)`, idArgs(part)...)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+	if err := t.Commit(); err != nil {
+		return 0, err
+	}
+	shas := make([]string, 0, len(freed))
+	for sha := range freed {
+		shas = append(shas, sha)
+	}
+	s.removeBlobs(ctx, shas)
+	return len(ids), nil
+}

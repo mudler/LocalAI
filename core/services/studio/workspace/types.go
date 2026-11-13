@@ -517,4 +517,14 @@ type Purger interface {
 	// PurgeAll erases every deleted node at or under the folder p, the same
 	// way. A deleted node that sits above p is not touched.
 	PurgeAll(ctx context.Context, a Actor, p string, dryRun bool) (PurgeResult, error)
+	// PruneVersions limits the history of the one file p to its newest keep
+	// writes and returns how many older writes it dropped. Each overwrite of
+	// a file keeps the old bytes for undo, so a file that is written in a loop
+	// would grow the store without bound. The live content, the create of the
+	// file, its moves and deletes, and the writes that share a change set with
+	// another node are kept, as are all other nodes. A dropped write can no
+	// longer be undone, and its bytes go once nothing else refers to them.
+	// keep must be at least 1. The actor needs write access to the file. A path
+	// that is missing or is a folder is a no-op.
+	PruneVersions(ctx context.Context, a Actor, p string, keep int) (int, error)
 }

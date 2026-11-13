@@ -2,6 +2,7 @@ package jsonstore_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,6 +98,28 @@ var _ = Describe("The JSON store", func() {
 		hist, err := again.History(ctx, wstest.AdminActor, workspace.HistoryQuery{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(hist).To(HaveLen(2), "the purged file left its change sets behind or the others were lost")
+	})
+
+	It("a prune of old versions survives a restart", func() {
+		dir := GinkgoT().TempDir()
+		ctx := context.Background()
+		s := openStore(dir, jsonstore.Options{BlobGrace: -1})
+		for i := 0; i < 8; i++ {
+			_, err := s.Put(ctx, wstest.AdminActor, "/a.txt", strings.NewReader(fmt.Sprint("v", i)), workspace.PutOptions{Overwrite: true})
+			Expect(err).ToNot(HaveOccurred())
+		}
+		n, err := s.PruneVersions(ctx, wstest.AdminActor, "/a.txt", 2)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(n).To(Equal(5))
+		_, err = s.Put(ctx, wstest.AdminActor, "/b.txt", strings.NewReader("b"), workspace.PutOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s.Close()).To(Succeed())
+
+		again := openStore(dir, jsonstore.Options{BlobGrace: -1})
+		Expect(wstest.Tree(again)).To(Equal(map[string]string{"/a.txt": "v7", "/b.txt": "b"}))
+		hist, err := again.History(ctx, wstest.AdminActor, workspace.HistoryQuery{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(hist).To(HaveLen(4), "the create, two kept writes and the other file")
 	})
 
 	It("a file over the limit is refused and leaves nothing", func() {
