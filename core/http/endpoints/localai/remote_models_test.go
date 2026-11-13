@@ -37,8 +37,7 @@ var _ = Describe("remote model routes", func() {
 		repoState atomic.Int32
 		e         *echo.Echo
 		cl        *config.ModelConfigLoader
-		estIn     vram.ModelEstimateInput
-		estCtx    []uint32
+		readURIs  []string
 	)
 
 	get := func(target string) *httptest.ResponseRecorder {
@@ -49,6 +48,7 @@ var _ = Describe("remote model routes", func() {
 
 	BeforeEach(func() {
 		repoHits.Store(0)
+		readURIs = nil
 		repoState.Store(0)
 		hf = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch {
@@ -76,13 +76,9 @@ var _ = Describe("remote model routes", func() {
 				return &downloader.PirateFaceEntry{Revision: remoteRev, HF: &yes, Magnet: "magnet:?xt=urn:btih:aa",
 					Files: []downloader.PirateFaceFile{{Path: "tiny-q4_k_m.gguf", SHA256: "bb"}}}, nil
 			},
-			Estimate: func(_ stdContext, in vram.ModelEstimateInput, ctxs []uint32) (vram.MultiContextEstimate, error) {
-				estIn, estCtx = in, ctxs
-				m := vram.MultiContextEstimate{SizeBytes: 398_000_000, Estimates: map[string]vram.VRAMAt{}, BlockCount: 24, ModelMaxContext: 32768}
-				for _, c := range ctxs {
-					m.Estimates[strconvU(c)] = vram.VRAMAt{ContextLength: c, VRAMBytes: 1_000_000_000}
-				}
-				return m, nil
+			ReadMeta: func(_ stdContext, uri string) (*vram.GGUFMeta, error) {
+				readURIs = append(readURIs, uri)
+				return &vram.GGUFMeta{BlockCount: 24, EmbeddingLength: 896, HeadCount: 14, HeadCountKV: 2, MaximumContextLength: 32768}, nil
 			},
 		})
 		cl = config.NewModelConfigLoader(GinkgoT().TempDir())
@@ -174,36 +170,44 @@ var _ = Describe("remote model routes", func() {
 	})
 
 	Describe("estimate", func() {
-		It("returns the gallery estimate shape plus what was estimated", func() {
+		It("returns the gallery estimate shape plus what was estimated and every variant", func() {
 			rec := get("/api/models/remote/estimate?uri=huggingface://acme/Tiny-GGUF&file=tiny-q8_0.gguf&contexts=4096,8192")
 			Expect(rec.Code).To(Equal(http.StatusOK))
 			var out map[string]any
 			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
 			Expect(out).To(HaveKey("sizeBytes"))
 			Expect(out).To(HaveKey("sizeDisplay"))
-			Expect(out["estimates"].(map[string]any)).To(HaveKey("8192"))
-			Expect(out["estimates"].(map[string]any)["4096"].(map[string]any)["vramBytes"]).To(BeNumerically("==", 1_000_000_000))
+			Expect(out["sizeBytes"]).To(BeNumerically("==", 670_000_000))
+			ests := out["estimates"].(map[string]any)
+			Expect(ests).To(HaveKey("4096"))
+			Expect(ests).To(HaveKey("8192"))
+			Expect(ests["8192"].(map[string]any)["vramBytes"]).To(BeNumerically(">", 670_000_000))
 			Expect(out["blockCount"]).To(BeNumerically("==", 24))
+			Expect(out["modelMaxContext"]).To(BeNumerically("==", 32768))
 			Expect(out["file"]).To(Equal("tiny-q8_0.gguf"))
 			Expect(out["quantization"]).To(Equal("Q8_0"))
 			Expect(out["source"]).To(Equal("gguf-header"))
 			Expect(out).ToNot(HaveKey("approximate"))
-			Expect(estCtx).To(Equal([]uint32{4096, 8192}))
-			Expect(estIn.Files).To(HaveLen(1))
-			Expect(estIn.Files[0].Size).To(Equal(int64(670_000_000)))
+			Expect(out["variants"].([]any)).To(HaveLen(2))
+			Expect(readURIs).To(HaveLen(1))
+			Expect(readURIs[0]).To(HaveSuffix("/tiny-q8_0.gguf"))
 		})
 
 		It("defaults to the recommended variant and 8192 tokens", func() {
 			rec := get("/api/models/remote/estimate?uri=huggingface://acme/Tiny-GGUF")
 			Expect(rec.Code).To(Equal(http.StatusOK))
-			Expect(estCtx).To(Equal([]uint32{config.DefaultEstimateContextSize}))
-			Expect(estIn.Files[0].URI).To(HaveSuffix("/tiny-q4_k_m.gguf"))
+			var out map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+			Expect(out["estimates"].(map[string]any)).To(HaveKey(strconvU(config.DefaultEstimateContextSize)))
+			Expect(out["file"]).To(Equal("tiny-q4_k_m.gguf"))
 		})
 
 		It("estimates a Pirate Face file through Hugging Face", func() {
 			rec := get("/api/models/remote/estimate?uri=pirateface://acme/Tiny-GGUF&file=tiny-q4_k_m.gguf")
 			Expect(rec.Code).To(Equal(http.StatusOK))
-			Expect(estIn.Files[0].Size).To(Equal(int64(398_000_000)))
+			var out map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+			Expect(out["sizeBytes"]).To(BeNumerically("==", 398_000_000))
 		})
 
 		DescribeTable("rejects a bad request",

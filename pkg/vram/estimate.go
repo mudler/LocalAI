@@ -339,3 +339,37 @@ func EstimateModelMultiContext(ctx context.Context, input ModelEstimateInput, co
 	// 4. No estimation possible
 	return MultiContextEstimate{}, nil
 }
+
+// EstimateFromSize is the estimate of a model whose size is already known:
+// no file is read here. A GGUF model with metadata gets the exact KV cache
+// term; without it, or for another format, the size-only rule of thumb is used
+// and the result is marked approximate. It lets a caller read the header of
+// one quantization and reuse it for its siblings, which share the
+// architecture.
+func EstimateFromSize(sizeBytes uint64, gguf bool, meta *GGUFMeta, contexts []uint32, opts EstimateOptions) MultiContextEstimate {
+	if len(contexts) == 0 {
+		contexts = []uint32{8192}
+	}
+	p := modelProfile{sizeBytes: sizeBytes, meta: meta}
+	if gguf {
+		p.ggufSize = sizeBytes
+	}
+	res := MultiContextEstimate{
+		SizeBytes:   sizeBytes,
+		SizeDisplay: FormatBytes(sizeBytes),
+		Estimates:   buildEstimates(p, contexts, opts),
+		Approximate: !p.hasArchitecture(),
+	}
+	if meta != nil {
+		res.ModelMaxContext = meta.MaximumContextLength
+		res.BlockCount = meta.BlockCount
+		res.ExpertCount = meta.ExpertCount
+	}
+	return res
+}
+
+// ReadGGUFMetadata reads the architecture scalars of a remote GGUF file with
+// the shared cache the gallery estimates use.
+func ReadGGUFMetadata(ctx context.Context, uri string) (*GGUFMeta, error) {
+	return DefaultCachedGGUFReader().ReadMetadata(ctx, uri)
+}

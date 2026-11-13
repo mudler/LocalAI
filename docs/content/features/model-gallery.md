@@ -445,11 +445,17 @@ curl 'http://localhost:8080/api/models/remote/files?uri=huggingface://acme/Tiny-
   "sizeBytes": 398000000, "sizeDisplay": "398.0 MB",
   "estimates": {"8192": {"contextLength": 8192, "vramBytes": 1013000000, "vramDisplay": "1.0 GB"}},
   "modelMaxContext": 32768, "blockCount": 24,
-  "file": "tiny-q4_k_m.gguf", "quantization": "Q4_K_M", "source": "gguf-header"
+  "file": "tiny-q4_k_m.gguf", "quantization": "Q4_K_M", "source": "gguf-header",
+  "variants": [
+    {"file": "tiny-q4_k_m.gguf", "quantization": "Q4_K_M", "sizeBytes": 398000000, "sizeDisplay": "398.0 MB",
+     "estimates": {"8192": {"contextLength": 8192, "vramBytes": 1013000000, "vramDisplay": "1.0 GB"}}},
+    {"file": "tiny-q8_0.gguf", "quantization": "Q8_0", "sizeBytes": 670000000, "sizeDisplay": "670.0 MB",
+     "estimates": {"8192": {"contextLength": 8192, "vramBytes": 1296000000, "vramDisplay": "1.3 GB"}}}
+  ]
 }
 ```
 
-`source` says how good the figure is. `gguf-header` means the layer count, width and head count were read from the first bytes of the GGUF file, so the KV cache term is computed. `file-size` means only the size was known, so the figure is the file size plus 2 KiB per context token, and `approximate` is `true`: it can be well off for long contexts. `unknown` means no size was known at all.
+`source` says how good the figure is. `gguf-header` means the layer count, width and head count were read from the first bytes of the GGUF file, so the KV cache term is computed. `file-size` means only the size was known, so the figure is the file size plus 2 KiB per context token, and `approximate` is `true`: it can be well off for long contexts. `unknown` means no size was known at all. `variants` repeats the estimate for every quantization of a GGUF repository. Quantizations of one model share an architecture, so the header read for the chosen file serves all of them: one call answers a whole variant list.
 
 ## VRAM and download size estimates
 

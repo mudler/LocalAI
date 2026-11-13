@@ -186,9 +186,10 @@ type InspectorOptions struct {
 	// downloader.LookupPirateFace. This is the only call to the site's /api
 	// the Inspector makes, and never from a search.
 	PirateFace func(ctx context.Context, repoID string) (*downloader.PirateFaceEntry, error)
-	// Estimate computes the VRAM estimate. Default
-	// vram.EstimateModelMultiContext.
-	Estimate func(ctx context.Context, in vram.ModelEstimateInput, contexts []uint32) (vram.MultiContextEstimate, error)
+	// ReadMeta reads the architecture scalars of a remote GGUF file. Default
+	// vram.ReadGGUFMetadata, which keeps its answers in the shared estimate
+	// cache.
+	ReadMeta func(ctx context.Context, uri string) (*vram.GGUFMeta, error)
 	// QuantMatches decides whether a quantization preference selects a file
 	// group, the rule the import applies. Default: whole-token match.
 	QuantMatches func(base, preference string) bool
@@ -243,8 +244,8 @@ func NewInspector(o InspectorOptions) *Inspector {
 			return downloader.LookupPirateFace(ctx, repoID, "")
 		}
 	}
-	if o.Estimate == nil {
-		o.Estimate = vram.EstimateModelMultiContext
+	if o.ReadMeta == nil {
+		o.ReadMeta = vram.ReadGGUFMetadata
 	}
 	if o.QuantMatches == nil {
 		o.QuantMatches = func(base, pref string) bool {
@@ -747,6 +748,16 @@ func (i *Inspector) readme(ctx context.Context, id, rev string) string {
 	return readmeSummary(string(b))
 }
 
+// VariantEstimate is the estimate of one quantization.
+type VariantEstimate struct {
+	File         string `json:"file"`
+	Quantization string `json:"quantization"`
+	SizeBytes    uint64 `json:"sizeBytes"`
+	SizeDisplay  string `json:"sizeDisplay"`
+	// Estimates is keyed by context size, like the gallery estimate.
+	Estimates map[string]vram.VRAMAt `json:"estimates"`
+}
+
 // EstimateResult is the gallery estimate plus what was estimated.
 type EstimateResult struct {
 	vram.MultiContextEstimate
@@ -759,6 +770,11 @@ type EstimateResult struct {
 	// "file-size" when only the file size was known (the KV cache term is a
 	// rule of thumb) and "unknown" when no size was known at all.
 	Source string `json:"source"`
+	// Variants has the same estimate for every quantization of a GGUF
+	// repository. Quantizations of one model share an architecture, so the
+	// header read for the chosen file serves them all: one upstream read
+	// answers the whole variant list.
+	Variants []VariantEstimate `json:"variants,omitempty"`
 }
 
 // Estimate returns the VRAM estimate of one file group of a repository at
@@ -772,8 +788,8 @@ func (i *Inspector) Estimate(ctx context.Context, uri, file string, contexts []u
 	}
 	var files []RepoFile
 	res := &EstimateResult{File: file}
-	switch {
-	case len(rf.Variants) > 0:
+	gguf := len(rf.Variants) > 0
+	if gguf {
 		var v *Variant
 		for k := range rf.Variants {
 			if (file == "" && rf.Variants[k].Recommended) || (file != "" && containsString(rf.Variants[k].Files, file)) {
@@ -785,14 +801,7 @@ func (i *Inspector) Estimate(ctx context.Context, uri, file string, contexts []u
 			return nil, fmt.Errorf("%w: %s", ErrNoSuchFile, file)
 		}
 		res.File, res.Quantization = v.File, v.Quantization
-		for _, p := range v.Files {
-			for _, f := range rf.Files {
-				if f.Path == p {
-					files = append(files, f)
-				}
-			}
-		}
-	default:
+	} else {
 		for _, f := range rf.Files {
 			if file != "" && f.Path != file {
 				continue
@@ -805,31 +814,50 @@ func (i *Inspector) Estimate(ctx context.Context, uri, file string, contexts []u
 			return nil, fmt.Errorf("%w: %s", ErrNoSuchFile, file)
 		}
 	}
-	in := vram.ModelEstimateInput{}
-	known := false
-	for _, f := range files {
-		in.Files = append(in.Files, vram.FileInput{URI: fileURL(rf, f.Path), Size: f.Size})
-		if f.Size > 0 {
-			known = true
+	var size uint64
+	var variantSize uint64
+	if gguf {
+		for _, v := range rf.Variants {
+			if v.File == res.File {
+				variantSize = uint64(v.SizeBytes)
+			}
+		}
+		size = variantSize
+	} else {
+		for _, f := range files {
+			size += uint64(f.Size)
 		}
 	}
-	if !known {
+	if size == 0 {
 		res.MultiContextEstimate = vram.MultiContextEstimate{Estimates: map[string]vram.VRAMAt{}}
 		res.Source = "unknown"
 		return res, nil
 	}
-	if err := i.acquire(ctx); err != nil {
-		return nil, err
+
+	var meta *vram.GGUFMeta
+	if gguf {
+		if err := i.acquire(ctx); err != nil {
+			return nil, err
+		}
+		meta, _ = i.opt.ReadMeta(ctx, fileURL(rf, res.File))
+		i.release()
 	}
-	defer i.release()
-	est, err := i.opt.Estimate(ctx, in, contexts)
-	if err != nil {
-		return nil, err
-	}
-	res.MultiContextEstimate = est
+	res.MultiContextEstimate = vram.EstimateFromSize(size, gguf, meta, contexts, vram.EstimateOptions{})
 	res.Source = "file-size"
-	if !est.Approximate && est.BlockCount > 0 {
+	if !res.Approximate {
 		res.Source = "gguf-header"
+	}
+	if gguf {
+		for _, v := range rf.Variants {
+			if v.SizeBytes <= 0 {
+				continue
+			}
+			e := vram.EstimateFromSize(uint64(v.SizeBytes), true, meta, contexts, vram.EstimateOptions{})
+			res.Variants = append(res.Variants, VariantEstimate{
+				File: v.File, Quantization: v.Quantization,
+				SizeBytes: e.SizeBytes, SizeDisplay: e.SizeDisplay, Estimates: e.Estimates,
+			})
+		}
 	}
 	return res, nil
 }

@@ -13492,7 +13492,7 @@
         },
         "/api/models/remote/estimate": {
             "get": {
-                "description": "Same answer as GET /api/models/estimate/{id} for a gallery model, for one quantization of a Hugging Face or Pirate Face repository: the download size and the memory needed at each requested context size, plus `file`, `quantization` and `source`. `source` is `gguf-header` when the layer count, width and heads were read from the GGUF header (exact KV cache term), `file-size` when only the file size was known, and `unknown` when no size was known. `approximate` is true whenever the architecture was not read, so the figure is the file size plus a rule of thumb per context token. Hugging Face has no range-read for gated repositories: the estimate then falls back to file sizes. Estimates run through the same bounded upstream budget as the file listing.",
+                "description": "Same answer as GET /api/models/estimate/{id} for a gallery model, for one quantization of a Hugging Face or Pirate Face repository: the download size and the memory needed at each requested context size, plus `file`, `quantization` and `source`. `source` is `gguf-header` when the layer count, width and heads were read from the GGUF header (exact KV cache term), `file-size` when only the file size was known, and `unknown` when no size was known. `approximate` is true whenever the architecture was not read, so the figure is the file size plus a rule of thumb per context token. `variants` repeats the estimate for every quantization of a GGUF repository: they share one architecture, so the header read of the chosen file serves them all and one call answers a whole variant list. When the header cannot be read (a gated repository, a host without range requests) the figures fall back to file sizes and `approximate` is true. The header read runs through the same bounded upstream budget as the file listing.",
                 "tags": [
                     "models"
                 ],
@@ -22300,6 +22300,13 @@
                 "source": {
                     "description": "Source says where the architecture came from: \"gguf-header\" when the\nheader of the file was read (layers, width and heads are exact),\n\"file-size\" when only the file size was known (the KV cache term is a\nrule of thumb) and \"unknown\" when no size was known at all.",
                     "type": "string"
+                },
+                "variants": {
+                    "description": "Variants has the same estimate for every quantization of a GGUF\nrepository. Quantizations of one model share an architecture, so the\nheader read for the chosen file serves them all: one upstream read\nanswers the whole variant list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.VariantEstimate"
+                    }
                 }
             }
         },
@@ -22563,6 +22570,30 @@
                 "size_bytes": {
                     "description": "SizeBytes sums the shards; zero when sizes are unknown.",
                     "type": "integer"
+                }
+            }
+        },
+        "modelsearch.VariantEstimate": {
+            "type": "object",
+            "properties": {
+                "estimates": {
+                    "description": "Estimates is keyed by context size, like the gallery estimate.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/vram.VRAMAt"
+                    }
+                },
+                "file": {
+                    "type": "string"
+                },
+                "quantization": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "sizeDisplay": {
+                    "type": "string"
                 }
             }
         },

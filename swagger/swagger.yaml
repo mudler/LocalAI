@@ -3566,6 +3566,15 @@ definitions:
           "file-size" when only the file size was known (the KV cache term is a
           rule of thumb) and "unknown" when no size was known at all.
         type: string
+      variants:
+        description: |-
+          Variants has the same estimate for every quantization of a GGUF
+          repository. Quantizations of one model share an architecture, so the
+          header read for the chosen file serves them all: one upstream read
+          answers the whole variant list.
+        items:
+          $ref: '#/definitions/modelsearch.VariantEstimate'
+        type: array
     type: object
   modelsearch.GGUFInfo:
     properties:
@@ -3769,6 +3778,22 @@ definitions:
       size_bytes:
         description: SizeBytes sums the shards; zero when sizes are unknown.
         type: integer
+    type: object
+  modelsearch.VariantEstimate:
+    properties:
+      estimates:
+        additionalProperties:
+          $ref: '#/definitions/vram.VRAMAt'
+        description: Estimates is keyed by context size, like the gallery estimate.
+        type: object
+      file:
+        type: string
+      quantization:
+        type: string
+      sizeBytes:
+        type: integer
+      sizeDisplay:
+        type: string
     type: object
   nodes.NodeModel:
     properties:
@@ -24454,9 +24479,13 @@ paths:
         were read from the GGUF header (exact KV cache term), `file-size` when only
         the file size was known, and `unknown` when no size was known. `approximate`
         is true whenever the architecture was not read, so the figure is the file
-        size plus a rule of thumb per context token. Hugging Face has no range-read
-        for gated repositories: the estimate then falls back to file sizes. Estimates
-        run through the same bounded upstream budget as the file listing.'
+        size plus a rule of thumb per context token. `variants` repeats the estimate
+        for every quantization of a GGUF repository: they share one architecture,
+        so the header read of the chosen file serves them all and one call answers
+        a whole variant list. When the header cannot be read (a gated repository,
+        a host without range requests) the figures fall back to file sizes and `approximate`
+        is true. The header read runs through the same bounded upstream budget as
+        the file listing.'
       parameters:
       - description: 'Repository uri: huggingface://owner/repo or pirateface://owner/repo'
         in: query

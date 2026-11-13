@@ -340,62 +340,92 @@ var _ = Describe("Inspector.Files for Pirate Face", func() {
 
 var _ = Describe("Inspector.Estimate", func() {
 	var hf *fakeHF
-	var got vram.ModelEstimateInput
-	var gotCtx []uint32
-	BeforeEach(func() { hf = newFakeHF(); got = vram.ModelEstimateInput{} })
+	var readURIs []string
+	BeforeEach(func() { hf = newFakeHF(); readURIs = nil })
 	AfterEach(func() { hf.Close() })
 
-	est := func(approx bool, layers uint32) func(stdctx.Context, vram.ModelEstimateInput, []uint32) (vram.MultiContextEstimate, error) {
-		return func(_ stdctx.Context, in vram.ModelEstimateInput, ctxs []uint32) (vram.MultiContextEstimate, error) {
-			got, gotCtx = in, ctxs
-			return vram.MultiContextEstimate{SizeBytes: 398_000_000, Estimates: map[string]vram.VRAMAt{"8192": {ContextLength: 8192, VRAMBytes: 1}}, Approximate: approx, BlockCount: layers}, nil
+	meta := &vram.GGUFMeta{BlockCount: 24, EmbeddingLength: 896, HeadCount: 14, HeadCountKV: 2, MaximumContextLength: 32768}
+	reader := func(m *vram.GGUFMeta, err error) func(stdctx.Context, string) (*vram.GGUFMeta, error) {
+		return func(_ stdctx.Context, uri string) (*vram.GGUFMeta, error) {
+			readURIs = append(readURIs, uri)
+			return m, err
 		}
 	}
 
-	It("estimates the recommended variant by default with sizes and pinned file urls", func() {
-		in := inspector(hf, modelsearch.InspectorOptions{Estimate: est(false, 24)})
-		r, err := in.Estimate(stdctx.Background(), "huggingface://acme/Tiny-GGUF", "", []uint32{8192})
+	It("estimates the recommended variant by default, from the header, with a pinned file url", func() {
+		in := inspector(hf, modelsearch.InspectorOptions{ReadMeta: reader(meta, nil)})
+		r, err := in.Estimate(stdctx.Background(), "huggingface://acme/Tiny-GGUF", "", []uint32{4096, 8192})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.File).To(Equal("tiny-q4_k_m.gguf"))
 		Expect(r.Quantization).To(Equal("Q4_K_M"))
 		Expect(r.Source).To(Equal("gguf-header"))
 		Expect(r.Approximate).To(BeFalse())
-		Expect(gotCtx).To(Equal([]uint32{8192}))
-		Expect(got.Files).To(HaveLen(1))
-		Expect(got.Files[0].Size).To(Equal(int64(398_000_000)))
-		Expect(got.Files[0].URI).To(Equal(hf.URL + "/acme/Tiny-GGUF/resolve/" + rev + "/tiny-q4_k_m.gguf"))
+		Expect(r.BlockCount).To(Equal(uint32(24)))
+		Expect(r.SizeBytes).To(Equal(uint64(398_000_000)))
+		Expect(r.Estimates).To(HaveKey("4096"))
+		Expect(r.Estimates).To(HaveKey("8192"))
+		Expect(readURIs).To(Equal([]string{hf.URL + "/acme/Tiny-GGUF/resolve/" + rev + "/tiny-q4_k_m.gguf"}))
 	})
 
-	It("passes every shard of the chosen variant", func() {
-		in := inspector(hf, modelsearch.InspectorOptions{Estimate: est(false, 24)})
-		_, err := in.Estimate(stdctx.Background(), "acme/Tiny-GGUF", "big/Big-BF16-00001-of-00002.gguf", nil)
+	It("answers every variant from the one header read", func() {
+		in := inspector(hf, modelsearch.InspectorOptions{ReadMeta: reader(meta, nil)})
+		r, err := in.Estimate(stdctx.Background(), "acme/Tiny-GGUF", "", []uint32{8192})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(got.Files).To(HaveLen(2))
-		Expect(got.Files[0].URI).To(HaveSuffix("/big/Big-BF16-00001-of-00002.gguf"))
+		Expect(readURIs).To(HaveLen(1))
+		Expect(r.Variants).To(HaveLen(4))
+		byFile := map[string]modelsearch.VariantEstimate{}
+		for _, v := range r.Variants {
+			byFile[v.File] = v
+		}
+		small, big := byFile["tiny-q4_k_s.gguf"], byFile["big/Big-BF16-00001-of-00002.gguf"]
+		Expect(small.SizeBytes).To(Equal(uint64(380_000_000)))
+		Expect(big.SizeBytes).To(Equal(uint64(5_000_000_000)))
+		Expect(big.Estimates["8192"].VRAMBytes).To(BeNumerically(">", small.Estimates["8192"].VRAMBytes))
+		// the chosen variant's own figure is the same as its entry in the list
+		Expect(byFile["tiny-q4_k_m.gguf"].Estimates["8192"].VRAMBytes).To(Equal(r.Estimates["8192"].VRAMBytes))
 	})
 
-	It("marks a size-only estimate as approximate", func() {
-		in := inspector(hf, modelsearch.InspectorOptions{Estimate: est(true, 0)})
-		r, err := in.Estimate(stdctx.Background(), "acme/Tiny-GGUF", "tiny-q8_0.gguf", nil)
+	It("estimates a sharded variant on the sum of its shards, reading the first shard", func() {
+		in := inspector(hf, modelsearch.InspectorOptions{ReadMeta: reader(meta, nil)})
+		r, err := in.Estimate(stdctx.Background(), "acme/Tiny-GGUF", "big/Big-BF16-00001-of-00002.gguf", nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.SizeBytes).To(Equal(uint64(5_000_000_000)))
+		Expect(readURIs[0]).To(HaveSuffix("/big/Big-BF16-00001-of-00002.gguf"))
+	})
+
+	It("marks a size-only estimate as approximate when the header cannot be read", func() {
+		in := inspector(hf, modelsearch.InspectorOptions{ReadMeta: reader(nil, errors.New("range not supported"))})
+		r, err := in.Estimate(stdctx.Background(), "acme/Tiny-GGUF", "tiny-q8_0.gguf", []uint32{8192})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.Approximate).To(BeTrue())
 		Expect(r.Source).To(Equal("file-size"))
+		Expect(r.Estimates["8192"].VRAMBytes).To(Equal(uint64(670_000_000 + 1024*8192*2)))
+		Expect(r.Variants).ToNot(BeEmpty())
 	})
 
 	It("refuses a file that is not a weight file of the repository", func() {
-		in := inspector(hf, modelsearch.InspectorOptions{Estimate: est(false, 1)})
+		in := inspector(hf, modelsearch.InspectorOptions{ReadMeta: reader(meta, nil)})
 		_, err := in.Estimate(stdctx.Background(), "acme/Tiny-GGUF", "README.md", nil)
 		Expect(errors.Is(err, modelsearch.ErrNoSuchFile)).To(BeTrue())
 	})
 
-	It("answers unknown, without calling the estimator, when no size is known", func() {
+	It("estimates a non-GGUF repository on its total weight size, approximately", func() {
+		hf.repoBody.Store(`{"id":"acme/St","sha":"` + rev + `","tags":[],"siblings":[
+		 {"rfilename":"a.safetensors","size":3000000000},{"rfilename":"b.safetensors","size":2000000000}]}`)
+		in := inspector(hf, modelsearch.InspectorOptions{ReadMeta: reader(meta, nil)})
+		r, err := in.Estimate(stdctx.Background(), "acme/St", "", []uint32{8192})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.SizeBytes).To(Equal(uint64(5_000_000_000)))
+		Expect(r.Approximate).To(BeTrue())
+		Expect(readURIs).To(BeEmpty())
+		Expect(r.Variants).To(BeEmpty())
+	})
+
+	It("answers unknown, reading nothing, when no size is known", func() {
 		hf.status.Store(http.StatusUnauthorized)
 		yes := true
 		in := inspector(hf, modelsearch.InspectorOptions{
-			Estimate: func(stdctx.Context, vram.ModelEstimateInput, []uint32) (vram.MultiContextEstimate, error) {
-				Fail("estimator must not run")
-				return vram.MultiContextEstimate{}, nil
-			},
+			ReadMeta: reader(meta, nil),
 			PirateFace: func(stdctx.Context, string) (*downloader.PirateFaceEntry, error) {
 				return &downloader.PirateFaceEntry{Revision: rev, HF: &yes, Magnet: "m", Files: []downloader.PirateFaceFile{{Path: "tiny-q4_k_m.gguf"}}}, nil
 			},
@@ -404,11 +434,12 @@ var _ = Describe("Inspector.Estimate", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.Source).To(Equal("unknown"))
 		Expect(r.SizeBytes).To(BeZero())
+		Expect(readURIs).To(BeEmpty())
 	})
 
 	It("passes errors of the repository lookup through", func() {
 		hf.status.Store(http.StatusTooManyRequests)
-		_, err := inspector(hf, modelsearch.InspectorOptions{Estimate: est(false, 1)}).Estimate(stdctx.Background(), "acme/Tiny-GGUF", "", nil)
+		_, err := inspector(hf, modelsearch.InspectorOptions{ReadMeta: reader(meta, nil)}).Estimate(stdctx.Background(), "acme/Tiny-GGUF", "", nil)
 		Expect(errors.Is(err, modelsearch.ErrRateLimited)).To(BeTrue())
 	})
 })

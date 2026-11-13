@@ -249,3 +249,35 @@ var _ = Describe("FormatBytes", func() {
 		Expect(FormatBytes(2_500_000_000)).To(Equal("2.5 GB"))
 	})
 })
+
+var _ = Describe("EstimateFromSize", func() {
+	meta := &GGUFMeta{BlockCount: 24, EmbeddingLength: 896, HeadCount: 14, HeadCountKV: 2, MaximumContextLength: 32768}
+
+	It("uses the header for a GGUF model and says so", func() {
+		res := EstimateFromSize(400_000_000, true, meta, []uint32{4096, 8192}, EstimateOptions{})
+		Expect(res.Approximate).To(BeFalse())
+		Expect(res.BlockCount).To(Equal(uint32(24)))
+		Expect(res.ModelMaxContext).To(Equal(uint64(32768)))
+		Expect(res.Estimates["8192"].VRAMBytes).To(BeNumerically(">", res.Estimates["4096"].VRAMBytes))
+	})
+
+	It("scales with the file size when the architecture is shared", func() {
+		small := EstimateFromSize(400_000_000, true, meta, []uint32{8192}, EstimateOptions{})
+		big := EstimateFromSize(700_000_000, true, meta, []uint32{8192}, EstimateOptions{})
+		// weights plus the 4 percent of the overhead term; the KV cache is the same
+		delta := big.Estimates["8192"].VRAMBytes - small.Estimates["8192"].VRAMBytes
+		Expect(delta).To(BeNumerically("~", 312_000_000, 2))
+	})
+
+	It("falls back to the size rule and flags it without metadata", func() {
+		res := EstimateFromSize(400_000_000, true, nil, []uint32{8192}, EstimateOptions{})
+		Expect(res.Approximate).To(BeTrue())
+		Expect(res.Estimates["8192"].VRAMBytes).To(Equal(uint64(400_000_000 + 1024*8192*2)))
+	})
+
+	It("treats a non-GGUF size as approximate", func() {
+		res := EstimateFromSize(5_000_000_000, false, meta, nil, EstimateOptions{})
+		Expect(res.Approximate).To(BeTrue())
+		Expect(res.Estimates).To(HaveKey("8192"))
+	})
+})
