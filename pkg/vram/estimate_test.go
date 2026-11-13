@@ -27,6 +27,29 @@ var _ = Describe("EstimateMultiContext", func() {
 	ctx := context.Background()
 	defaultCtx := []uint32{8192}
 
+	Describe("approximate flag", func() {
+		files := []FileInput{{URI: "http://a/model.gguf", Size: 1_000_000_000}}
+
+		It("is false when the GGUF header gave layers and width", func() {
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil,
+				fakeGGUFReader{"http://a/model.gguf": {BlockCount: 24, EmbeddingLength: 896, HeadCount: 14, HeadCountKV: 2}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Approximate).To(BeFalse())
+		})
+
+		It("is true when only the file size is known", func() {
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, fakeGGUFReader{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Approximate).To(BeTrue())
+		})
+
+		It("is true for a size string and for a non-GGUF repository listing", func() {
+			res, err := EstimateModelMultiContext(ctx, ModelEstimateInput{Size: "1GB"}, defaultCtx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Approximate).To(BeTrue())
+		})
+	})
+
 	Describe("empty or non-GGUF inputs", func() {
 		It("returns zero size and vram for nil files", func() {
 			res, err := EstimateMultiContext(ctx, nil, defaultCtx, EstimateOptions{}, nil, nil)

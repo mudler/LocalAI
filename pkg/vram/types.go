@@ -67,6 +67,10 @@ type MultiContextEstimate struct {
 	ModelMaxContext uint64            `json:"modelMaxContext,omitempty"` // from GGUF metadata
 	BlockCount      uint32            `json:"blockCount,omitempty"`      // from GGUF metadata; the layer count
 	ExpertCount     uint32            `json:"expertCount,omitempty"`     // from GGUF metadata; zero for a dense model
+	// Approximate is true when the architecture was not read from a GGUF
+	// header, so the KV cache term is a rule of thumb (size plus 2 KiB per
+	// context token) and not computed from layers, width and heads.
+	Approximate bool `json:"approximate,omitempty"`
 }
 
 // VRAMForContext is a convenience method that returns the VRAMBytes for a

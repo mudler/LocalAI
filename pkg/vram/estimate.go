@@ -65,6 +65,12 @@ func resolveProfile(ctx context.Context, files []FileInput, sizeResolver SizeRes
 	return p
 }
 
+// hasArchitecture reports whether the VRAM figure comes from GGUF header
+// values (layers, width) and not from the size-only rule of thumb.
+func (p modelProfile) hasArchitecture() bool {
+	return p.ggufSize > 0 && p.meta != nil && (p.meta.BlockCount > 0 || p.meta.EmbeddingLength > 0)
+}
+
 // computeVRAM is pure arithmetic — no I/O. Returns VRAM bytes for a given
 // model profile and context length.
 func computeVRAM(p modelProfile, ctxLen uint32, opts EstimateOptions) uint64 {
@@ -168,6 +174,7 @@ func EstimateMultiContext(ctx context.Context, files []FileInput, contextSizes [
 		result.ExpertCount = p.meta.ExpertCount
 		result.BlockCount = p.meta.BlockCount
 	}
+	result.Approximate = !p.hasArchitecture()
 
 	return result, nil
 }
@@ -304,6 +311,7 @@ func EstimateModelMultiContext(ctx context.Context, input ModelEstimateInput, co
 				SizeBytes:   sizeBytes,
 				SizeDisplay: FormatBytes(sizeBytes),
 				Estimates:   buildEstimates(modelProfile{sizeBytes: sizeBytes}, contextSizes, EstimateOptions{}),
+				Approximate: true,
 			}, nil
 		}
 	}
@@ -323,6 +331,7 @@ func EstimateModelMultiContext(ctx context.Context, input ModelEstimateInput, co
 				SizeBytes:   totalBytes,
 				SizeDisplay: FormatBytes(totalBytes),
 				Estimates:   buildEstimates(modelProfile{sizeBytes: totalBytes}, contextSizes, EstimateOptions{}),
+				Approximate: true,
 			}, nil
 		}
 	}
