@@ -28,6 +28,7 @@ var toolToHTTPRoute = map[string]string{
 	// Read-only tools.
 	ToolGallerySearch:             "GET /models/available",
 	ToolSearchModels:              "GET /api/models/search",
+	ToolInspectRemoteModel:        "GET /api/models/remote/files", // and GET /api/models/remote/estimate when estimate is set
 	ToolListInstalledModels:       "GET /api/models/capabilities",
 	ToolListGalleries:             "GET /models/galleries",
 	ToolGetJobStatus:              "GET /models/jobs/:uuid",

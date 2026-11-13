@@ -13490,9 +13490,127 @@
                 }
             }
         },
+        "/api/models/remote/estimate": {
+            "get": {
+                "description": "Same answer as GET /api/models/estimate/{id} for a gallery model, for one quantization of a Hugging Face or Pirate Face repository: the download size and the memory needed at each requested context size, plus `file`, `quantization` and `source`. `source` is `gguf-header` when the layer count, width and heads were read from the GGUF header (exact KV cache term), `file-size` when only the file size was known, and `unknown` when no size was known. `approximate` is true whenever the architecture was not read, so the figure is the file size plus a rule of thumb per context token. Hugging Face has no range-read for gated repositories: the estimate then falls back to file sizes. Estimates run through the same bounded upstream budget as the file listing.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Estimate the memory a remote model file needs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Repository uri: huggingface://owner/repo or pirateface://owner/repo",
+                        "name": "uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "First file of a variant, as listed by /api/models/remote/files (default: the recommended variant)",
+                        "name": "file",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated context sizes (default 8192)",
+                        "name": "contexts",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.EstimateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/remote/files": {
+            "get": {
+                "description": "Reads one repository of Hugging Face or Pirate Face and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's `preference` is the value for `preferences.quantizations` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; `size_known` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the weight files of a remote model, grouped by quantization",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo or a huggingface.co url",
+                        "name": "uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quantization preference to dry-run the import with (default: the importer's)",
+                        "name": "quantization",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.RepoFiles"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/search": {
             "get": {
-                "description": "Fans the query out to the chosen providers and returns the merged results plus one status per provider, so a provider that is down does not fail the search. Each result's `uri` can be passed to POST /models/import-uri.",
+                "description": "Fans the query out to the chosen providers and returns the merged results plus one status per provider, so a provider that is down does not fail the search. Each result's `uri` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (`installed`, `installed_name`), the backend an import would likely pick (`backend`, a hint derived from the tags) and whether the repository likely has several quantizations (`has_variants`). Use /api/models/remote/files for the exact files, sizes and backend of one result.",
                 "tags": [
                     "models"
                 ],
@@ -22140,6 +22258,65 @@
                 }
             }
         },
+        "modelsearch.EstimateResult": {
+            "type": "object",
+            "properties": {
+                "approximate": {
+                    "description": "Approximate is true when the architecture was not read from a GGUF\nheader, so the KV cache term is a rule of thumb (size plus 2 KiB per\ncontext token) and not computed from layers, width and heads.",
+                    "type": "boolean"
+                },
+                "blockCount": {
+                    "description": "from GGUF metadata; the layer count",
+                    "type": "integer"
+                },
+                "estimates": {
+                    "description": "keys: context size as string",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/vram.VRAMAt"
+                    }
+                },
+                "expertCount": {
+                    "description": "from GGUF metadata; zero for a dense model",
+                    "type": "integer"
+                },
+                "file": {
+                    "description": "File is the first file of the variant that was estimated; empty when\nthe whole repository was.",
+                    "type": "string"
+                },
+                "modelMaxContext": {
+                    "description": "from GGUF metadata",
+                    "type": "integer"
+                },
+                "quantization": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "sizeDisplay": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source says where the architecture came from: \"gguf-header\" when the\nheader of the file was read (layers, width and heads are exact),\n\"file-size\" when only the file size was known (the KV cache term is a\nrule of thumb) and \"unknown\" when no size was known at all.",
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.GGUFInfo": {
+            "type": "object",
+            "properties": {
+                "architecture": {
+                    "type": "string"
+                },
+                "context_length": {
+                    "type": "integer"
+                },
+                "parameters": {
+                    "type": "integer"
+                }
+            }
+        },
         "modelsearch.ProviderStatus": {
             "type": "object",
             "properties": {
@@ -22158,6 +22335,110 @@
                 },
                 "ok": {
                     "type": "boolean"
+                }
+            }
+        },
+        "modelsearch.RepoFile": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is \"gguf\", \"mmproj\" or \"weights\" (safetensors, bin, pt).",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Size is in bytes; zero when the provider did not say.",
+                    "type": "integer"
+                }
+            }
+        },
+        "modelsearch.RepoFiles": {
+            "type": "object",
+            "properties": {
+                "backend": {
+                    "description": "The fields below are filled by the route, not by the Inspector.\nBackend and ImportFiles come from a dry run of the import (no download,\nno job) on this very listing; ImportError says why it could not run.",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description is the first paragraph of the model card, at most 400\ncharacters. Empty when the card could not be read.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.RepoFile"
+                    }
+                },
+                "gated": {
+                    "description": "Gated is reported as is. For Pirate Face it is also true when the site\nshows no magnet link, which is what a gated licence looks like there.",
+                    "type": "boolean"
+                },
+                "gguf": {
+                    "$ref": "#/definitions/modelsearch.GGUFInfo"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "import_error": {
+                    "type": "string"
+                },
+                "import_files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "installed": {
+                    "type": "boolean"
+                },
+                "installed_name": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "library_name": {
+                    "type": "string"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "pipeline_tag": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "revision": {
+                    "description": "Revision is the commit the file list and sizes come from.",
+                    "type": "string"
+                },
+                "size_known": {
+                    "description": "SizeKnown is false when no file size could be found, which happens for\na Pirate Face repository Hugging Face does not know.",
+                    "type": "boolean"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "uri": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "variants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Variant"
+                    }
                 }
             }
         },
@@ -22181,6 +22462,10 @@
         "modelsearch.Result": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the backend an import would likely pick, derived from the\ntags; a hint. RepoFiles.Backend is exact.",
+                    "type": "string"
+                },
                 "downloads": {
                     "type": "integer"
                 },
@@ -22188,8 +22473,19 @@
                     "description": "Gated is true when the provider says access needs approval. It is\nreported as is; nothing here tries to get around it.",
                     "type": "boolean"
                 },
+                "has_variants": {
+                    "description": "HasVariants is true when opening the model is likely to list several\nquantizations: a GGUF repository, or any Pirate Face one.",
+                    "type": "boolean"
+                },
                 "id": {
                     "description": "ID is the owner/repo name.",
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is true when an installed model comes from this repository;\nInstalledName is that model's name.",
+                    "type": "boolean"
+                },
+                "installed_name": {
                     "type": "string"
                 },
                 "last_modified": {
@@ -22233,6 +22529,40 @@
                 "url": {
                     "description": "URL is a page a person can open.",
                     "type": "string"
+                }
+            }
+        },
+        "modelsearch.Variant": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "description": "File is the first shard; pass it to the estimate route.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "preference": {
+                    "description": "Preference is the value for preferences.quantizations on\nPOST /models/import-uri that makes the import pick exactly this\nvariant. Empty when no safe value exists.",
+                    "type": "string"
+                },
+                "quantization": {
+                    "description": "Quantization is the label read from the file name, such as \"Q4_K_M\".",
+                    "type": "string"
+                },
+                "recommended": {
+                    "description": "Recommended marks the variant LocalAI would suggest first.",
+                    "type": "boolean"
+                },
+                "shards": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "description": "SizeBytes sums the shards; zero when sizes are unknown.",
+                    "type": "integer"
                 }
             }
         },
@@ -35495,6 +35825,20 @@
                     "$ref": "#/definitions/voiceprofile.AudioMetadata"
                 },
                 "transcript": {
+                    "type": "string"
+                }
+            }
+        },
+        "vram.VRAMAt": {
+            "type": "object",
+            "properties": {
+                "contextLength": {
+                    "type": "integer"
+                },
+                "vramBytes": {
+                    "type": "integer"
+                },
+                "vramDisplay": {
                     "type": "string"
                 }
             }

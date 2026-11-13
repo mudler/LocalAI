@@ -6,6 +6,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 
 - `gallery_search` — Search configured galleries for installable models.
 - `search_models` — Search Hugging Face and Pirate Face for models outside the galleries. Each result has a `uri` for `import_model_uri`.
+- `inspect_remote_model` — Look inside one `search_models` result: files grouped by quantization with sizes, licence, gated flag, the backend an import would pick, optionally a memory estimate. Nothing is downloaded.
 - `list_installed_models` — List models currently installed on this LocalAI. Optional `capability` filter (e.g. `chat`, `embed`, `image`).
 - `list_galleries` — List configured model galleries.
 - `list_backends` — List installed backends.

@@ -74,6 +74,7 @@ func resultText(res *mcp.CallToolResult) string {
 var expectedReadOnlyCatalog = sortedStrings(
 	ToolGallerySearch,
 	ToolSearchModels,
+	ToolInspectRemoteModel,
 	ToolGetBranding,
 	ToolGetJobStatus,
 	ToolGetMiddlewareStatus,
@@ -147,6 +148,7 @@ var _ = Describe("Tool dispatch", func() {
 	cases := []dispatchCase{
 		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
 		{ToolSearchModels, ModelSearchRequest{Query: "qwen"}, "SearchModels"},
+		{ToolInspectRemoteModel, RemoteModelRequest{URI: "huggingface://a/b"}, "InspectRemoteModel"},
 		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
 		{ToolListModels, ListModelsRequest{Capability: "image"}, "ListModels"},
 		{ToolListGalleries, struct{}{}, "ListGalleries"},

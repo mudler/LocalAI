@@ -31,6 +31,10 @@ type LocalAIClient interface {
 	// models that are not in a configured gallery. A result's URI goes to
 	// ImportModelURI.
 	SearchModels(ctx context.Context, req ModelSearchRequest) (*ModelSearchResponse, error)
+	// InspectRemoteModel reads one search result: its weight files grouped by
+	// quantization with sizes, licence, gated flag, the backend an import
+	// would pick, and optionally a memory estimate. Nothing is downloaded.
+	InspectRemoteModel(ctx context.Context, req RemoteModelRequest) (*RemoteModelInfo, error)
 	ListInstalledModels(ctx context.Context, capability Capability) ([]InstalledModel, error)
 	ListGalleries(ctx context.Context) ([]config.Gallery, error)
 	GetJobStatus(ctx context.Context, jobID string) (*JobStatus, error)

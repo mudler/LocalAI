@@ -15,6 +15,8 @@ const (
 	routeModelsApply            = "/models/apply"
 	routeModelsAvail            = "/models/available"
 	routeModelsSearch           = "/api/models/search"
+	routeModelsRemoteFiles      = "/api/models/remote/files"
+	routeModelsRemoteEstimate   = "/api/models/remote/estimate"
 	routeModelsGall             = "/models/galleries"
 	routeModelsImport           = "/models/import-uri"
 	routeModelImport            = "/models/import"

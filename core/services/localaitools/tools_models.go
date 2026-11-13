@@ -34,6 +34,20 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolInspectRemoteModel,
+		Description: "Look inside one search_models result before importing it: weight files grouped by quantization with sizes, licence, gated flag, a short description, whether it is already installed, and the backend an import would pick. Each variant has a preference to pass as the quantization of import_model_uri. With estimate set it also returns the memory needed at the given context sizes; approximate=true means the figure is a size-based rule of thumb. Nothing is downloaded.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args RemoteModelRequest) (*mcp.CallToolResult, any, error) {
+		if strings.TrimSpace(args.URI) == "" {
+			return errorResultf("uri is required"), nil, nil
+		}
+		info, err := client.InspectRemoteModel(ctx, args)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(info), nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolListInstalledModels,
 		Description: "List models currently installed on this LocalAI. Optional capability filter (chat, completion, embeddings, image, tts, transcript, rerank, vad).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {

@@ -36,6 +36,10 @@ func (stubClient) SearchModels(_ context.Context, _ localaitools.ModelSearchRequ
 	return &localaitools.ModelSearchResponse{}, nil
 }
 
+func (stubClient) InspectRemoteModel(_ context.Context, _ localaitools.RemoteModelRequest) (*localaitools.RemoteModelInfo, error) {
+	return &localaitools.RemoteModelInfo{}, nil
+}
+
 func (stubClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
 	return []config.Gallery{{Name: "stub-gallery", URL: "http://example"}}, nil
 }

@@ -24,6 +24,7 @@ import (
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
@@ -162,6 +163,29 @@ func (c *Client) SearchModels(ctx context.Context, req localaitools.ModelSearchR
 		return nil, err
 	}
 	return &out, nil
+}
+
+func (c *Client) InspectRemoteModel(ctx context.Context, req localaitools.RemoteModelRequest) (*localaitools.RemoteModelInfo, error) {
+	var files modelsearch.RepoFiles
+	if err := c.do(ctx, http.MethodGet, routeModelsRemoteFiles+"?"+url.Values{"uri": {req.URI}}.Encode(), nil, &files); err != nil {
+		return nil, err
+	}
+	info := &localaitools.RemoteModelInfo{RepoFiles: &files}
+	if req.Estimate || req.File != "" {
+		v := url.Values{"uri": {req.URI}}
+		if req.File != "" {
+			v.Set("file", req.File)
+		}
+		if req.Contexts != "" {
+			v.Set("contexts", req.Contexts)
+		}
+		var est modelsearch.EstimateResult
+		if err := c.do(ctx, http.MethodGet, routeModelsRemoteEstimate+"?"+v.Encode(), nil, &est); err != nil {
+			return nil, err
+		}
+		info.Estimate = &est
+	}
+	return info, nil
 }
 
 func (c *Client) GallerySearch(ctx context.Context, q localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
@@ -315,10 +339,16 @@ func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportMode
 		return nil, errors.New("uri is required")
 	}
 	body := map[string]any{"uri": req.URI}
+	// Server expects preferences as a JSON object.
+	prefs := map[string]string{}
 	if req.BackendPreference != "" {
-		// Server expects preferences as a JSON object; wrap the backend
-		// preference accordingly.
-		body["preferences"] = map[string]string{"backend": req.BackendPreference}
+		prefs["backend"] = req.BackendPreference
+	}
+	if req.Quantization != "" {
+		prefs["quantizations"] = req.Quantization
+	}
+	if len(prefs) > 0 {
+		body["preferences"] = prefs
 	}
 
 	rawReq, err := json.Marshal(body)

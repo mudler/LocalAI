@@ -185,6 +185,42 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("InspectRemoteModel", func() {
+		It("reads the files and, when asked, the estimate", func() {
+			var paths []string
+			var est url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				paths = append(paths, r.URL.Path)
+				switch r.URL.Path {
+				case "/api/models/remote/files":
+					Expect(r.URL.Query().Get("uri")).To(Equal("huggingface://o/r"))
+					_, _ = w.Write([]byte(`{"provider":"huggingface","id":"o/r","uri":"huggingface://o/r","files":[],"variants":[{"quantization":"Q4_K_M","file":"a.gguf","files":["a.gguf"],"size_bytes":5}],"backend":"llama-cpp","size_known":true}`))
+				case "/api/models/remote/estimate":
+					est = r.URL.Query()
+					_, _ = w.Write([]byte(`{"sizeBytes":5,"estimates":{"4096":{"contextLength":4096,"vramBytes":9}},"approximate":true,"source":"file-size"}`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			c := New(srv.URL, "")
+
+			out, err := c.InspectRemoteModel(ctx, localaitools.RemoteModelRequest{URI: "huggingface://o/r"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Variants).To(HaveLen(1))
+			Expect(out.Backend).To(Equal("llama-cpp"))
+			Expect(out.Estimate).To(BeNil())
+			Expect(paths).To(Equal([]string{"/api/models/remote/files"}))
+
+			out, err = c.InspectRemoteModel(ctx, localaitools.RemoteModelRequest{URI: "huggingface://o/r", Estimate: true, File: "a.gguf", Contexts: "4096"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Estimate).ToNot(BeNil())
+			Expect(out.Estimate.Approximate).To(BeTrue())
+			Expect(est.Get("file")).To(Equal("a.gguf"))
+			Expect(est.Get("contexts")).To(Equal("4096"))
+		})
+	})
+
 	Describe("ListGalleries", func() {
 		It("returns the configured galleries", func() {
 			out, err := c.ListGalleries(ctx)

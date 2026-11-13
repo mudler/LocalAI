@@ -365,7 +365,10 @@ curl 'http://localhost:8080/api/models/search?q=qwen&providers=huggingface,pirat
       "tags": ["gguf", "license:apache-2.0"],
       "pipeline_tag": "text-generation",
       "license": "apache-2.0",
-      "last_modified": "2026-01-02T03:04:05.000Z"
+      "last_modified": "2026-01-02T03:04:05.000Z",
+      "installed": false,
+      "backend": "llama-cpp",
+      "has_variants": true
     },
     {
       "provider": "pirateface",
@@ -393,7 +396,60 @@ Query parameters:
 - `format`: file format filter. The default is `gguf`; `any` turns it off. Only Hugging Face can filter; Pirate Face ignores it.
 - `sort`: `downloads` (default), `likes`, `updated` or `trending`. Only Hugging Face can sort; Pirate Face keeps its own order.
 
-The endpoint is for administrators, like the import endpoints. Pass the `uri` of a result to `POST /models/import-uri` to install it. A `pirateface://` uri only imports on a LocalAI version that can download over BitTorrent. The server keeps answers for five minutes in memory, so a repeated search does not call the provider again. Hugging Face allows 500 unauthenticated requests per five minutes. Gated models are listed with `gated: true`; you still need access on Hugging Face to download them. The Assistant can run the same search with the `search_models` tool.
+The endpoint is for administrators, like the import endpoints. Results also say whether an installed model already comes from the repository (`installed`, `installed_name`), the backend an import would likely pick (`backend`, a hint derived from the tags) and whether the repository likely has several quantizations (`has_variants`). Pass the `uri` of a result to `POST /models/import-uri` to install it. A `pirateface://` uri only imports on a LocalAI version that can download over BitTorrent. The server keeps answers for five minutes in memory, so a repeated search does not call the provider again. Hugging Face allows 500 unauthenticated requests per five minutes. Gated models are listed with `gated: true`; you still need access on Hugging Face to download them. The Assistant can run the same search with the `search_models` tool.
+
+### Look inside a search result
+
+A search result has no file list and no memory figure. Two more endpoints fill that in for one repository, without downloading anything. Both are for administrators and both call the provider (Hugging Face for the file list and the GGUF header), so answers are cached per repository for ten minutes, at most four upstream calls run at the same time, and a rate-limit answer (HTTP 429) is remembered for a minute instead of being retried.
+
+`GET /api/models/remote/files?uri=huggingface://owner/repo` lists the weight files with sizes, one variant per quantization (the shards of a split model are one variant):
+
+```bash
+curl 'http://localhost:8080/api/models/remote/files?uri=huggingface://acme/Tiny-GGUF'
+```
+
+```json
+{
+  "provider": "huggingface",
+  "id": "acme/Tiny-GGUF",
+  "uri": "huggingface://acme/Tiny-GGUF",
+  "revision": "9217f5db79a29953eb74d5343926648285ec7e67",
+  "gated": false,
+  "license": "apache-2.0",
+  "pipeline_tag": "text-generation",
+  "description": "Tiny is a very small chat model.",
+  "gguf": {"architecture": "qwen2", "context_length": 32768, "parameters": 630167424},
+  "size_known": true,
+  "backend": "llama-cpp",
+  "installed": false,
+  "variants": [
+    {"quantization": "Q4_K_M", "file": "tiny-q4_k_m.gguf", "files": ["tiny-q4_k_m.gguf"],
+     "size_bytes": 398000000, "shards": 1, "preference": "q4_k_m", "recommended": true},
+    {"quantization": "Q8_0", "file": "tiny-q8_0.gguf", "files": ["tiny-q8_0.gguf"],
+     "size_bytes": 670000000, "shards": 1, "preference": "q8_0"}
+  ],
+  "files": [{"path": "tiny-q4_k_m.gguf", "size": 398000000, "sha256": "...", "kind": "gguf"}]
+}
+```
+
+- `backend` is the backend a dry run of the import selects on this exact file list, and `import_files` are the files it would download. Add `quantization=q8_0` to dry-run the import with that choice. If no importer matches, `import_error` says why.
+- `preference` is the value for `preferences.quantizations` on `POST /models/import-uri` that selects exactly that variant.
+- `installed` and `installed_name` say that an installed model was made from this repository.
+- `gated` is reported as is. For Pirate Face it is also true when the site shows no magnet link, which is what a gated licence looks like there.
+- For `pirateface://` uris the file list comes from the Pirate Face index, which has no sizes. The sizes come from the Hugging Face commit the torrent mirrors. When Hugging Face does not know the repository, `size_known` is false and the sizes are 0.
+
+`GET /api/models/remote/estimate?uri=...&file=...&contexts=4096,8192` returns the same answer as `GET /api/models/estimate/{id}` for a gallery model, for one variant (`file` is the variant's first file; the default is the recommended variant):
+
+```json
+{
+  "sizeBytes": 398000000, "sizeDisplay": "398.0 MB",
+  "estimates": {"8192": {"contextLength": 8192, "vramBytes": 1013000000, "vramDisplay": "1.0 GB"}},
+  "modelMaxContext": 32768, "blockCount": 24,
+  "file": "tiny-q4_k_m.gguf", "quantization": "Q4_K_M", "source": "gguf-header"
+}
+```
+
+`source` says how good the figure is. `gguf-header` means the layer count, width and head count were read from the first bytes of the GGUF file, so the KV cache term is computed. `file-size` means only the size was known, so the figure is the file size plus 2 KiB per context token, and `approximate` is `true`: it can be well off for long contexts. `unknown` means no size was known at all.
 
 ## VRAM and download size estimates
 

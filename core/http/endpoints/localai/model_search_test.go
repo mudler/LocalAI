@@ -46,7 +46,7 @@ var _ = Describe("ModelSearchEndpoint", func() {
 		s.Register(hf)
 		s.Register(pf)
 		e = echo.New()
-		e.GET("/api/models/search", ModelSearchEndpoint(s))
+		e.GET("/api/models/search", ModelSearchEndpoint(s, nil))
 	})
 
 	It("returns results and a status per provider, even when one fails", func() {

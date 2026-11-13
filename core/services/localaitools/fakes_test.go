@@ -3,6 +3,7 @@ package localaitools
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -26,6 +27,7 @@ type fakeClient struct {
 	// Per-method overrides. Tests set these.
 	gallerySearch         func(GallerySearchQuery) ([]gallery.Metadata, error)
 	searchModels          func(ModelSearchRequest) (*ModelSearchResponse, error)
+	inspectRemoteModel    func(RemoteModelRequest) (*RemoteModelInfo, error)
 	listInstalledModels   func(Capability) ([]InstalledModel, error)
 	listGalleries         func() ([]config.Gallery, error)
 	getJobStatus          func(string) (*JobStatus, error)
@@ -99,6 +101,14 @@ func (f *fakeClient) SearchModels(_ context.Context, req ModelSearchRequest) (*M
 		return f.searchModels(req)
 	}
 	return &ModelSearchResponse{}, nil
+}
+
+func (f *fakeClient) InspectRemoteModel(_ context.Context, req RemoteModelRequest) (*RemoteModelInfo, error) {
+	f.record("InspectRemoteModel", req)
+	if f.inspectRemoteModel != nil {
+		return f.inspectRemoteModel(req)
+	}
+	return &RemoteModelInfo{RepoFiles: &modelsearch.RepoFiles{}}, nil
 }
 
 func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]gallery.Metadata, error) {

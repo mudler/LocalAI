@@ -36,6 +36,22 @@ type ModelSearchRequest struct {
 // one status per provider. It is the wire shape of GET /api/models/search.
 type ModelSearchResponse = modelsearch.Response
 
+// RemoteModelRequest is the input for inspect_remote_model.
+type RemoteModelRequest struct {
+	URI      string `json:"uri"                jsonschema:"Repository uri of a search result, for example huggingface://owner/repo or pirateface://owner/repo."`
+	Estimate bool   `json:"estimate,omitempty" jsonschema:"Also estimate the memory the model needs. Reads the GGUF header of the chosen file, so it costs one more upstream call."`
+	File     string `json:"file,omitempty"     jsonschema:"First file of the variant to estimate, as listed in variants. Defaults to the recommended variant. Implies estimate."`
+	Contexts string `json:"contexts,omitempty" jsonschema:"Comma separated context sizes for the estimate. Defaults to 8192."`
+}
+
+// RemoteModelInfo is what inspect_remote_model returns: the wire shape of
+// GET /api/models/remote/files, with the wire shape of
+// GET /api/models/remote/estimate under "estimate" when it was asked for.
+type RemoteModelInfo struct {
+	*modelsearch.RepoFiles
+	Estimate *modelsearch.EstimateResult `json:"estimate,omitempty"`
+}
+
 // InstalledModel is one entry in list_installed_models. Distinct from
 // config.ModelConfig (which is the full on-disk YAML — far too large to
 // serialise per request); this is a summary the LLM can scan cheaply.
@@ -209,6 +225,7 @@ type DeleteSchedulingRequest struct {
 type ImportModelURIRequest struct {
 	URI               string         `json:"uri"                          jsonschema:"The model source. Accepts HuggingFace URLs (https://huggingface.co/...), OCI image references, http(s) URLs to a manifest, file:// paths, or a bare HF repo (e.g. Qwen/Qwen3-4B-GGUF)."`
 	BackendPreference string         `json:"backend_preference,omitempty" jsonschema:"Optional backend name (e.g. llama-cpp). Required as the second-step retry when a previous import_model_uri call returned ambiguous_backend=true."`
+	Quantization      string         `json:"quantization,omitempty"       jsonschema:"Optional quantization to pick from a repository with several GGUF files, such as q4_k_m. Use the preference of a variant from inspect_remote_model."`
 	Overrides         map[string]any `json:"overrides,omitempty"          jsonschema:"Optional config overrides applied to the discovered model (e.g. context_size)."`
 }
 

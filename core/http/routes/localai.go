@@ -5,6 +5,7 @@ import (
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery/remotemodel"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -137,7 +138,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 		// Search of remote providers for models to import. Admin only, like
 		// the import it feeds: the server makes the outbound requests.
-		router.GET("/api/models/search", localai.ModelSearchEndpoint(modelsearch.Shared()), adminMiddleware)
+		router.GET("/api/models/search", localai.ModelSearchEndpoint(modelsearch.Shared(), cl), adminMiddleware)
+		// What one search result offers, and what it would need in memory.
+		// The two make the upstream calls of a repository listing and a
+		// GGUF header read; both are cached and rate limited per process.
+		router.GET("/api/models/remote/files", localai.RemoteModelFilesEndpoint(remotemodel.Shared(), cl), adminMiddleware)
+		router.GET("/api/models/remote/estimate", localai.RemoteModelEstimateEndpoint(remotemodel.Shared()), adminMiddleware)
 
 		// Custom model edit endpoint
 		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)
