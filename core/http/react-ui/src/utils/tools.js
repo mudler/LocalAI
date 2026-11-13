@@ -240,6 +240,7 @@ export function detectSource(input) {
     return { kind: 'huggingface', ref, file, ok: parts.length >= 2, scheme: lower.startsWith('http') ? 'https' : lower.split('://')[0] }
   }
   if (/^(oci|ocifile):\/\//i.test(uri)) return { kind: 'oci', ref: uri.replace(/^[a-z]+:\/\//i, ''), file: '', ok: true, scheme: lower.split('://')[0] }
+  if (/^pirateface:\/\//i.test(uri)) return { kind: 'pirateface', ref: uri.replace(/^pirateface:\/\//i, ''), file: '', ok: true, scheme: 'pirateface' }
   if (/^magnet:\?/i.test(uri)) {
     const hash = uri.match(/[?&]xt=urn:btih:([^&]+)/i)?.[1] || ''
     return { kind: 'magnet', ref: hash, file: '', ok: hash !== '', scheme: 'magnet' }

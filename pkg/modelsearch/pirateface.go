@@ -88,7 +88,8 @@ func parsePirateFace(body string, limit int) []Result {
 		out = append(out, Result{
 			ID:        m[1],
 			Title:     m[1],
-			URI:       m[5],
+			URI:       "pirateface://" + m[1],
+			Magnet:    m[5],
 			URL:       "https://huggingface.co/" + m[1],
 			SizeBytes: int64(size * pfUnits[strings.ToUpper(m[3])]),
 			Seeders:   seeders,

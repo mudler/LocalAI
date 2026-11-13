@@ -150,6 +150,7 @@
       "oci": "OCI image",
       "ollama": "Ollama model",
       "magnet": "Magnet link",
+      "pirateface": "Pirate Face model",
       "local": "File on this host",
       "unknown": "Not recognised"
     },
@@ -160,6 +161,7 @@
       "oci": "Image",
       "ollama": "Model",
       "magnet": "Info hash",
+      "pirateface": "Model",
       "local": "Path",
       "unknown": "Source"
     },

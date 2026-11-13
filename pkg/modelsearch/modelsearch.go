@@ -56,8 +56,10 @@ type Result struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	// URI is what the import route accepts: huggingface://owner/repo for
-	// Hugging Face, the magnet link for Pirate Face.
+	// Hugging Face, pirateface://owner/repo for Pirate Face.
 	URI string `json:"uri"`
+	// Magnet is the BitTorrent magnet link, when the provider lists one.
+	Magnet string `json:"magnet,omitempty"`
 	// URL is a page a person can open.
 	URL         string   `json:"url,omitempty"`
 	SizeBytes   int64    `json:"size_bytes,omitempty"`

@@ -22204,6 +22204,10 @@ const docTemplate = `{
                 "likes": {
                     "type": "integer"
                 },
+                "magnet": {
+                    "description": "Magnet is the BitTorrent magnet link, when the provider lists one.",
+                    "type": "string"
+                },
                 "pipeline_tag": {
                     "type": "string"
                 },
@@ -22226,7 +22230,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "uri": {
-                    "description": "URI is what the import route accepts: huggingface://owner/repo for\nHugging Face, the magnet link for Pirate Face.",
+                    "description": "URI is what the import route accepts: huggingface://owner/repo for\nHugging Face, pirateface://owner/repo for Pirate Face.",
                     "type": "string"
                 },
                 "url": {

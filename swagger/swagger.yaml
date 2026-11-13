@@ -3569,6 +3569,10 @@ definitions:
         type: string
       likes:
         type: integer
+      magnet:
+        description: Magnet is the BitTorrent magnet link, when the provider lists
+          one.
+        type: string
       pipeline_tag:
         type: string
       provider:
@@ -3586,7 +3590,7 @@ definitions:
       uri:
         description: |-
           URI is what the import route accepts: huggingface://owner/repo for
-          Hugging Face, the magnet link for Pirate Face.
+          Hugging Face, pirateface://owner/repo for Pirate Face.
         type: string
       url:
         description: URL is a page a person can open.

@@ -10,7 +10,7 @@ const ANSWER = {
   results: [
     { provider: 'huggingface', id: 'acme/Tiny-GGUF', title: 'acme/Tiny-GGUF', uri: 'huggingface://acme/Tiny-GGUF', url: 'https://huggingface.co/acme/Tiny-GGUF', downloads: 3400000, likes: 1240, license: 'apache-2.0', pipeline_tag: 'text-generation' },
     { provider: 'huggingface', id: 'acme/Locked-GGUF', title: 'acme/Locked-GGUF', uri: 'huggingface://acme/Locked-GGUF', url: 'https://huggingface.co/acme/Locked-GGUF', downloads: 5, gated: true },
-    { provider: 'pirateface', id: 'acme/Tiny', title: 'acme/Tiny', uri: MAGNET, url: 'https://huggingface.co/acme/Tiny', size_bytes: 1500000000, seeders: 6 },
+    { provider: 'pirateface', id: 'acme/Tiny', title: 'acme/Tiny', uri: 'pirateface://acme/Tiny', magnet: MAGNET, url: 'https://huggingface.co/acme/Tiny', size_bytes: 1500000000, seeders: 6 },
   ],
   providers: [{ name: 'huggingface', ok: true, count: 2 }, { name: 'pirateface', ok: true, count: 1 }],
 }
@@ -108,7 +108,8 @@ test.describe('Import: search online', () => {
     await page.getByTestId('model-search-input').fill('tiny')
     await page.getByTestId('model-search-submit').click()
     await panel(page).locator('.import-search__row').nth(2).getByTestId('model-search-pick').click()
-    await expect(page.getByTestId('import-source-input')).toHaveValue(MAGNET)
+    await expect(page.getByTestId('import-source-input')).toHaveValue('pirateface://acme/Tiny')
+    await expect(page.getByTestId('import-source-kind')).toHaveAttribute('data-kind', 'pirateface')
     await panel(page).locator('.import-search__row').first().getByTestId('model-search-pick').click()
     await expect(page.getByTestId('import-source-input')).toHaveValue('huggingface://acme/Tiny-GGUF')
     await expect(page.getByTestId('import-source-kind')).toHaveAttribute('data-kind', 'huggingface')

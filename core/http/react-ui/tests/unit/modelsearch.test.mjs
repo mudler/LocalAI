@@ -56,4 +56,5 @@ test('import source: a magnet link is recognised and shows its info hash', async
   assert.equal(s.ok, true)
   assert.equal(s.ref, '7158ba0f294cdd7da7f4d4f7a496c6162a63a622')
   assert.equal(detectSource('magnet:?dn=nothing').ok, false)
+  assert.equal(detectSource('pirateface://acme/Tiny').kind, 'pirateface')
 })

@@ -345,7 +345,7 @@ Models that are not in a gallery can be found from the import page (**Import a m
 | Provider | Name | What it returns |
 |---|---|---|
 | Hugging Face | `huggingface` | Repositories from the Hugging Face model search, with downloads, likes, license and tags. The result `uri` is `huggingface://owner/repo`. |
-| Pirate Face | `pirateface` | Open-weight models offered as torrents, with size and seeders. The result `uri` is a `magnet:` link. |
+| Pirate Face | `pirateface` | Open-weight models offered as torrents, with size and seeders. The result `uri` is `pirateface://owner/repo`, and the `magnet` field holds the magnet link. |
 
 ```bash
 curl 'http://localhost:8080/api/models/search?q=qwen&providers=huggingface,pirateface&limit=5&sort=downloads'
@@ -371,7 +371,8 @@ curl 'http://localhost:8080/api/models/search?q=qwen&providers=huggingface,pirat
       "provider": "pirateface",
       "id": "acme/Tiny",
       "title": "acme/Tiny",
-      "uri": "magnet:?xt=urn:btih:...",
+      "uri": "pirateface://acme/Tiny",
+      "magnet": "magnet:?xt=urn:btih:...",
       "url": "https://huggingface.co/acme/Tiny",
       "size_bytes": 1500000000,
       "seeders": 6
@@ -392,7 +393,7 @@ Query parameters:
 - `format`: file format filter. The default is `gguf`; `any` turns it off. Only Hugging Face can filter; Pirate Face ignores it.
 - `sort`: `downloads` (default), `likes`, `updated` or `trending`. Only Hugging Face can sort; Pirate Face keeps its own order.
 
-The endpoint is for administrators, like the import endpoints. Pass the `uri` of a result to `POST /models/import-uri` to install it. A `magnet:` uri only imports on a LocalAI version that can download magnet links. The server keeps answers for five minutes in memory, so a repeated search does not call the provider again. Hugging Face allows 500 unauthenticated requests per five minutes. Gated models are listed with `gated: true`; you still need access on Hugging Face to download them. The Assistant can run the same search with the `search_models` tool.
+The endpoint is for administrators, like the import endpoints. Pass the `uri` of a result to `POST /models/import-uri` to install it. A `pirateface://` uri only imports on a LocalAI version that can download over BitTorrent. The server keeps answers for five minutes in memory, so a repeated search does not call the provider again. Hugging Face allows 500 unauthenticated requests per five minutes. Gated models are listed with `gated: true`; you still need access on Hugging Face to download them. The Assistant can run the same search with the `search_models` tool.
 
 ## VRAM and download size estimates
 
