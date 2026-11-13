@@ -73,7 +73,9 @@
 //
 // The caps are named constants. A cap that is hit gives [ErrLimit].
 //
-//   - maxDirBytes (256 MiB): the size of one directory.
+//   - maxDirBytes (256 MiB): the size of one directory. A caller that lists
+//     many directories also passes a shared byte budget to
+//     [FS.ReadDirContext].
 //   - maxSymlink (4096): the length of a symlink target.
 //   - maxXattrBytes (1 MiB): the total value bytes of the attributes of
 //     one inode. Entries may share one value, so this cap stops a

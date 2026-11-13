@@ -1,6 +1,7 @@
 package ext4ro
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -85,5 +86,38 @@ var _ = Describe("large directories", func() {
 		img := buildImage(spec)
 		DeferCleanup(releaseImage, spec.name)
 		checkBigDir(img, 30000, 1)
+	})
+})
+
+var _ = Describe("ReadDirContext", func() {
+	It("stops on a cancelled context and spends the shared byte budget", func() {
+		f := mustOpen(loadGolden("golden-htree.img.gz"))
+		nodes, err := walkFS(f, defaultWalk)
+		Expect(err).To(Succeed())
+		many := nodes["/many"].Ino
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err = f.ReadDirContext(ctx, many, 1000, nil)
+		Expect(err).To(MatchError(context.Canceled))
+
+		// The directory has several blocks. A budget of one block fails, and
+		// the failure is an ErrLimit too.
+		budget := int64(4096)
+		_, err = f.ReadDirContext(context.Background(), many, 1000, &budget)
+		Expect(err).To(MatchError(ErrDirBudget))
+		Expect(err).To(MatchError(ErrLimit))
+
+		// A budget that fits is spent by the size of the directory, and a
+		// second read of the same directory does not fit in what is left.
+		in, err := f.Stat(many)
+		Expect(err).To(Succeed())
+		budget = in.Size + 4096
+		kids, err := f.ReadDirContext(context.Background(), many, 1000, &budget)
+		Expect(err).To(Succeed())
+		Expect(kids).To(HaveLen(600))
+		Expect(budget).To(Equal(int64(4096)))
+		_, err = f.ReadDirContext(context.Background(), many, 1000, &budget)
+		Expect(err).To(MatchError(ErrDirBudget))
 	})
 })

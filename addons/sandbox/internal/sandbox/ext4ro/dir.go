@@ -1,9 +1,14 @@
 package ext4ro
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
+
+// ErrDirBudget is the error of a read that goes over the byte budget that
+// was passed to [FS.ReadDirContext]. It wraps [ErrLimit].
+var ErrDirBudget = fmt.Errorf("%w: directory byte budget", ErrLimit)
 
 // DirEntry is a live entry of a directory.
 type DirEntry struct {
@@ -23,6 +28,17 @@ type DirEntry struct {
 // entries give ErrLimit. The order is the order on the disk. The reader does
 // not remove duplicate names.
 func (f *FS) ReadDir(ino uint64, limit int) ([]DirEntry, error) {
+	return f.ReadDirContext(context.Background(), ino, limit, nil)
+}
+
+// ReadDirContext is ReadDir with a context and a byte budget. The read stops
+// with the error of ctx when it ends. When dirBytes is not nil, every directory
+// block that the read takes from the disk comes off *dirBytes, and a read that
+// would go below zero gives ErrDirBudget. A caller that lists many directories
+// passes one budget to all of them: on a forged image several directory
+// inodes can map the same blocks, so the sum of their sizes can be far
+// larger than the image.
+func (f *FS) ReadDirContext(ctx context.Context, ino uint64, limit int, dirBytes *int64) ([]DirEntry, error) {
 	in, err := f.load(ino)
 	if err != nil {
 		return nil, err
@@ -45,6 +61,9 @@ func (f *FS) ReadDir(ino uint64, limit int) ([]DirEntry, error) {
 		return nil, fmt.Errorf("%w: directory %d has size %d", ErrCorrupt, ino, size)
 	}
 	nblk := size / f.bs
+	if dirBytes != nil && int64(size) > *dirBytes { // #nosec G115 -- size is at most maxDirBytes here
+		return nil, fmt.Errorf("%w: directory %d has %d bytes, more than the %d bytes left", ErrDirBudget, ino, size, *dirBytes)
+	}
 	budget := maxNodeVisits
 	buf := make([]byte, f.bs)
 	for lb := uint64(0); lb < nblk; {
@@ -56,6 +75,15 @@ func (f *FS) ReadDir(ino uint64, limit int) ([]DirEntry, error) {
 			return nil, fmt.Errorf("%w: directory %d has no block at %d", ErrCorrupt, ino, lb)
 		}
 		for k := uint64(0); k < r.n && lb < nblk; k, lb = k+1, lb+1 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			if dirBytes != nil {
+				if *dirBytes < int64(f.bs) { // #nosec G115 -- the block size is at most 64 KiB
+					return nil, fmt.Errorf("%w: all the bytes are read", ErrDirBudget)
+				}
+				*dirBytes -= int64(f.bs) // #nosec G115 -- as above
+			}
 			if err := f.readAt(buf, (r.phys+k)*f.bs); err != nil {
 				return nil, err
 			}
