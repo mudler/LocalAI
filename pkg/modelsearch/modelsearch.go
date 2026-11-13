@@ -73,6 +73,21 @@ type Result struct {
 	// reported as is; nothing here tries to get around it.
 	Gated        bool   `json:"gated,omitempty"`
 	LastModified string `json:"last_modified,omitempty"`
+
+	// The fields below are not set by a provider. The REST route and the
+	// assistant tool fill them from this server's state after the search
+	// (and after the cache, since they change).
+
+	// Installed is true when an installed model comes from this repository;
+	// InstalledName is that model's name.
+	Installed     bool   `json:"installed,omitempty"`
+	InstalledName string `json:"installed_name,omitempty"`
+	// Backend is the backend an import would likely pick, derived from the
+	// tags; a hint. RepoFiles.Backend is exact.
+	Backend string `json:"backend,omitempty"`
+	// HasVariants is true when opening the model is likely to list several
+	// quantizations: a GGUF repository, or any Pirate Face one.
+	HasVariants bool `json:"has_variants,omitempty"`
 }
 
 // ProviderStatus reports how one provider did.
