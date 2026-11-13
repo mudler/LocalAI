@@ -107,6 +107,14 @@ func (s *fsStore) Put(ctx context.Context, r io.Reader, max int64) (string, int6
 // Stage reads r into a durable temporary file. The slow part of an upload
 // happens here; Publish only renames.
 func (s *fsStore) Stage(ctx context.Context, r io.Reader, max int64) (Staged, error) {
+	return s.stageFile(ctx, r, max, nil)
+}
+
+// stageFile reads r into a temporary file. With sp nil the file is synced
+// before the call returns. With a pool, the sync and the close run on the
+// pool, in chunks, and the caller waits for the rest with sp.wait before it
+// publishes.
+func (s *fsStore) stageFile(ctx context.Context, r io.Reader, max int64, sp *syncPool) (Staged, error) {
 	tempDir := filepath.Join(s.root, "tmp")
 	if err := s.mkdir(tempDir); err != nil {
 		return nil, err
@@ -116,8 +124,12 @@ func (s *fsStore) Stage(ctx context.Context, r io.Reader, max int64) (Staged, er
 		return nil, err
 	}
 	st := &fsStaged{s: s, path: f.Name()}
+	handedOff := false
 	// Close and Sync are checked below; this cleanup is best-effort.
 	defer func() {
+		if handedOff {
+			return
+		}
 		_ = f.Close()
 		if err != nil {
 			st.Discard()
@@ -145,16 +157,33 @@ func (s *fsStore) Stage(ctx context.Context, r io.Reader, max int64) (Staged, er
 	if err = f.Chmod(0o400); err != nil {
 		return nil, err
 	}
-	if err = s.stage("file sync"); err != nil {
-		return nil, err
+	if sp != nil {
+		// The same descriptor is synced, not a new one: a write error that
+		// the kernel found earlier is reported to the descriptor that wrote.
+		handedOff = true
+		if err = sp.submit(func() error { return st.syncAndClose(f) }); err != nil {
+			st.Discard()
+			return nil, err
+		}
+		return st, nil
 	}
-	if err = f.Sync(); err != nil {
-		return nil, err
-	}
-	if err = f.Close(); err != nil {
+	if err = st.syncAndClose(f); err != nil {
 		return nil, err
 	}
 	return st, nil
+}
+
+// syncAndClose makes the bytes of the staged file durable and closes it.
+func (t *fsStaged) syncAndClose(f *os.File) (err error) {
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
+	if err = t.s.stage("file sync"); err != nil {
+		return err
+	}
+	return f.Sync()
 }
 
 type fsStaged struct {
