@@ -1,8 +1,13 @@
 # Release platform matrix of the Sandbox add-on package.
 #
-# The sandbox runs code in gVisor or in a Cloud Hypervisor guest, and both are
-# Linux only, so the macOS platforms are listed and stay disabled. The Linux
-# packages carry the runsc of package/runsc.json, the gvisor-profile tool, and
+# The sandbox runs code in gVisor or in a Cloud Hypervisor guest on Linux, and
+# in a Virtualization.framework guest on macOS with Apple silicon. The macOS
+# package carries no runtime file: package.sh signs its executable with the
+# virtualization entitlement (package/entitlements.plist), and
+# fetch-runtime.sh fetches nothing for it. The macOS platforms stay disabled
+# until a macOS runner shows the native check passing (see the rule below);
+# darwin/amd64 never gets a guest, because the backend needs Apple silicon.
+# The Linux packages carry the runsc of package/runsc.json, the gvisor-profile tool, and
 # the Cloud Hypervisor and virtiofsd of package/kvm.json (virtiofsd on amd64
 # only: upstream publishes no static arm64 build). fetch-runtime.sh puts them
 # in the runtime directory of the build.

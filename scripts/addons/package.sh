@@ -36,6 +36,9 @@
 # <repository>@sha256:<digest>, optional. It reaches the executable as the
 # flag -X main.profileImages=media=<ref>; a profile without an image is not
 # offered by that release.
+# The darwin/arm64 Sandbox executable is signed ad hoc with the virtualization
+# entitlement (addons/sandbox/package/entitlements.plist), by codesign on a Mac
+# and by rcodesign elsewhere. The script fails when neither exists.
 # Without SANDBOX_GUEST_IMAGE the script refuses to build or accept a Sandbox executable, unless
 # --local-check is given: the build then uses a stand-in reference that no
 # registry serves, and the receipt is not publishable anyway.
@@ -156,6 +159,32 @@ elif [ -n "$ldflags" ] && [ -z "$local_check" ]; then
             exit 2
         }
     done
+fi
+# The macOS Sandbox executable runs its guests with Virtualization.framework,
+# which refuses a process without the com.apple.security.virtualization
+# entitlement. Sign a copy of the executable ad hoc with it. On a Mac, codesign
+# does it. Anywhere else, rcodesign does it (github.com/indygreg/apple-platform-rs);
+# a Linux build host that cannot sign fails here, because an unsigned macOS
+# package would install and then never start a guest. A Developer ID signature
+# is needed only when the package is downloaded in a browser, which the add-on
+# installer does not do.
+if [ "$addon" = sandbox ]; then
+    case "$platform" in
+    darwin/arm64)
+        entitlements="addons/$addon/package/entitlements.plist"
+        signed="$scratch/$exe_name.signed"
+        if [ "$(uname -s)" = Darwin ] && command -v codesign >/dev/null 2>&1; then
+            cp "$executable" "$signed"
+            codesign --force --sign - --entitlements "$entitlements" "$signed"
+        elif command -v rcodesign >/dev/null 2>&1; then
+            rcodesign sign --entitlements-xml-file "$entitlements" "$executable" "$signed"
+        else
+            echo 'package.sh: the macOS sandbox executable must be signed with the virtualization entitlement: install rcodesign (or run on a Mac, where codesign does it)' >&2
+            exit 2
+        fi
+        executable=$signed
+        ;;
+    esac
 fi
 # The UI is a build output. Build it only when it is absent. An add-on in
 # another repository brings its own UI build output (or none).
