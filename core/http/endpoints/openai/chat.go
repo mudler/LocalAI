@@ -619,7 +619,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						u, err := processStream(predInput, input, config, cl, startupOptions, ml, responses, id, created)
 						ended <- streamWorkerResult{usage: u, err: err}
 					} else {
-						u, err := processStreamWithTools(noActionName, predInput, input, config, cl, startupOptions, ml, responses, id, created, &textContentToReturn)
+						u, err := processStreamWithTools(noActionName, strictMode, predInput, input, config, cl, startupOptions, ml, responses, id, created, &textContentToReturn)
 						ended <- streamWorkerResult{usage: u, err: err}
 					}
 				}()
