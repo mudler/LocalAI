@@ -190,6 +190,28 @@ var _ = Describe("Client routes", func() {
 			Expect(id).To(Equal("file"))
 		})
 
+		It("decides precedence for each method: a literal route of another method does not shadow the tail", func() {
+			mixed := []ClientRoute{
+				{ID: "get-tail", Method: "GET", Path: "/files/{path...}"},
+				{ID: "put-index", Method: "PUT", Path: "/files/index", MaxBodyBytes: 10},
+			}
+			r, params, found, mismatch := MatchClientRoute(mixed, "GET", "/files/index")
+			Expect(found).To(BeTrue())
+			Expect(mismatch).To(BeFalse())
+			Expect(r.ID).To(Equal("get-tail"), "the literal route is a PUT; a GET falls to the tail")
+			Expect(params).To(Equal(map[string]string{"path": "index"}))
+			r, _, found, _ = MatchClientRoute(mixed, "PUT", "/files/index")
+			Expect(found).To(BeTrue())
+			Expect(r.ID).To(Equal("put-index"))
+			_, _, found, mismatch = MatchClientRoute(mixed, "PUT", "/files/other")
+			Expect(found).To(BeFalse())
+			Expect(mismatch).To(BeTrue(), "no PUT route matches, and a GET route does")
+			// The same two routes in the other order give the same answers.
+			rev := []ClientRoute{mixed[1], mixed[0]}
+			r, _, _, _ = MatchClientRoute(rev, "GET", "/files/index")
+			Expect(r.ID).To(Equal("get-tail"))
+		})
+
 		It("prefers the tail with the longer fixed part", func() {
 			id, params, _ := match("GET", "/files/a/b/c")
 			Expect(id).To(Equal("deep"), "both /files/{path...} and /files/a/{rest...} match; the second has the longer fixed part")
