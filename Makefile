@@ -100,9 +100,12 @@ else
 endif
 
 ## ./addons/... holds the Go tests of every add-on (sandbox, office, tables,
-## fine-tuning, quantization and the shared packages). The Sandbox add-on is
-## Linux only and does not compile elsewhere, so the add-on tests run on Linux
-## only. tests/addons/actione2e and tests/addons/clientflow are the
+## fine-tuning, quantization and the shared packages). The Sandbox add-on
+## compiles for macOS on Apple silicon too (CGO_ENABLED=0 GOOS=darwin
+## GOARCH=arm64, its VM backend), but its tests need Linux tools and the
+## darwin ones need a signed binary and a guest image, so the add-on tests
+## run on Linux only; sandbox-tests.yml vets the darwin build.
+## tests/addons/actione2e and tests/addons/clientflow are the
 ## tests/addons suites that build everything they need themselves (clientflow
 ## needs the auth build tag, which the coverage run sets); the other
 ## tests/addons suites need the fixtures and executables that
