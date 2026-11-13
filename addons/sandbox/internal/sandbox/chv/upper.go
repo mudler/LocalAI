@@ -28,12 +28,21 @@ type readLimits struct {
 	// (the files that UpperIndex.Plan selects). Zero means the size of the
 	// upper image file, which is the last element of argv.
 	stage int64
+
+	// pathLen is the bytes of one path (default 4096) and pathBytes the bytes
+	// of all paths of one read (default 128 MiB). A chain of folders with
+	// long names makes the path of every file below it long, so the depth
+	// and entry caps alone do not bound the memory of the paths.
+	pathLen   int
+	pathBytes int64
 }
 
 const (
-	defaultDepth   = 512
-	defaultEntries = 1000000
-	defaultOutput  = 512 << 20
+	defaultDepth     = 512
+	defaultEntries   = 1000000
+	defaultOutput    = 512 << 20
+	defaultPathLen   = 4096
+	defaultPathBytes = 128 << 20
 )
 
 func (l readLimits) withDefaults() readLimits {
@@ -45,6 +54,12 @@ func (l readLimits) withDefaults() readLimits {
 	}
 	if l.output == 0 {
 		l.output = defaultOutput
+	}
+	if l.pathLen == 0 {
+		l.pathLen = defaultPathLen
+	}
+	if l.pathBytes == 0 {
+		l.pathBytes = defaultPathBytes
 	}
 	return l
 }
@@ -173,11 +188,12 @@ func (r upperReader) bounds(ctx context.Context, lim readLimits) (fsBounds, erro
 // the entries below it. It fails on a directory that is reached twice (a
 // directory hard link), a path that appears twice, an inode outside the
 // superblock range, an empty name, a name with "/" (a forged record), a
-// damaged attribute area, and on the depth and entry caps.
+// damaged attribute area, and on the depth, entry and path caps.
 func (r upperReader) walk(ctx context.Context, lim readLimits, b fsBounds, root lsEntry, entries *[]sandbox.IndexedEntry, inodes map[uint64]inode, inoByPath map[string]uint64) error {
 	visited := map[uint64]bool{root.Ino: true}
 	seen := map[string]bool{}
 	count := 0
+	var pathBytes int64
 	level := []upperNode{{path: "", ls: root}}
 	for depth := 0; len(level) > 0; depth++ {
 		if depth > lim.depth {
@@ -255,6 +271,13 @@ func (r upperReader) walk(ctx context.Context, lim readLimits, b fsBounds, root 
 				p := k.Name
 				if n.path != "" {
 					p = n.path + "/" + k.Name
+				}
+				if len(p) > lim.pathLen {
+					return fmt.Errorf("chv: upper: a path is longer than the cap of %d bytes (%d bytes, at %q)", lim.pathLen, len(p), n.path)
+				}
+				pathBytes += int64(len(p))
+				if pathBytes > lim.pathBytes {
+					return fmt.Errorf("chv: upper: the paths of the layer are more than the cap of %d bytes", lim.pathBytes)
 				}
 				if seen[p] {
 					return fmt.Errorf("chv: upper: path %q appears twice", p)
