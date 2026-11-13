@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -205,17 +206,19 @@ func (v *VM) Done() <-chan struct{} { return v.done }
 // Start boots the machine and returns when the framework says it runs, not
 // when the guest is ready.
 func (v *VM) Start(ctx context.Context) error {
+	res := make(chan error, 1)
 	v.mu.Lock()
 	if v.started {
 		v.mu.Unlock()
 		return errors.New("vmm: the machine was started already")
 	}
 	v.started = true
-	v.mu.Unlock()
-	res := make(chan error, 1)
+	// Queue the start while holding the lock, so that a Stop that reads
+	// started=true is queued behind it.
 	v.q.Async(func() {
 		v.vm.StartWithCompletionHandler(func(err error) { res <- err })
 	})
+	v.mu.Unlock()
 	select {
 	case err := <-res:
 		if err != nil {
@@ -223,6 +226,14 @@ func (v *VM) Start(ctx context.Context) error {
 			return fmt.Errorf("vmm: start: %w", err)
 		}
 	case <-ctx.Done():
+		// The framework cannot stop a machine that is still starting, and
+		// the start goes on after the context ends. Wait for it (Stop does
+		// that too), then stop the machine, so that no VM runs untracked
+		// and keeps the disk images open.
+		select {
+		case <-res:
+		case <-time.After(stopTimeout):
+		}
 		v.Stop()
 		return ctx.Err()
 	}
@@ -250,9 +261,17 @@ func (v *VM) poll() {
 	}
 }
 
+// stopTimeout bounds how long Stop waits for a machine that is not in a state
+// from which it can stop, and for the stop itself.
+const stopTimeout = 30 * time.Second
+
 // Stop ends the machine at once, as if the power was cut, and returns when it
 // is stopped. It is safe to call more than once and on a machine that never
-// started.
+// started. The framework refuses to stop a machine in some states (for
+// example while it starts), so Stop tries again until the machine has
+// stopped or stopTimeout has passed. Done closes only when the framework
+// state is stopped or error: after a timeout Stop logs and returns with the
+// machine still running, and Done stays open.
 func (v *VM) Stop() {
 	select {
 	case <-v.done:
@@ -266,19 +285,44 @@ func (v *VM) Stop() {
 		v.finish()
 		return
 	}
-	res := make(chan error, 1)
-	v.q.Async(func() {
-		if !v.vm.CanStop() {
-			res <- errors.New("cannot stop in this state")
+	deadline := time.Now().Add(stopTimeout)
+	var lastErr error
+	for {
+		var st virtualization.VZVirtualMachineState
+		res := make(chan error, 1)
+		asked := false
+		v.onQueue(func() {
+			st = v.vm.State()
+			if st == virtualization.VZVirtualMachineStateStopped || st == virtualization.VZVirtualMachineStateError || !v.vm.CanStop() {
+				return
+			}
+			asked = true
+			v.vm.StopWithCompletionHandler(func(err error) { res <- err })
+		})
+		if st == virtualization.VZVirtualMachineStateStopped || st == virtualization.VZVirtualMachineStateError {
+			v.finish()
 			return
 		}
-		v.vm.StopWithCompletionHandler(func(err error) { res <- err })
-	})
-	select {
-	case <-res:
-	case <-time.After(10 * time.Second):
+		if asked {
+			select {
+			case err := <-res:
+				if err != nil {
+					lastErr = err
+					log.Printf("vmm: stop: %v", err)
+				}
+			case <-time.After(10 * time.Second):
+				lastErr = errors.New("the stop did not complete in 10 s")
+				log.Printf("vmm: stop: %v", lastErr)
+			}
+		}
+		if !time.Now().Before(deadline) {
+			log.Printf("vmm: the machine did not stop: state %d, last error %v", st, lastErr)
+			return
+		}
+		if !asked {
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
-	v.finish()
 }
 
 // Listen calls accept for each connection that the guest opens to the host
