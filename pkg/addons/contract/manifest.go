@@ -82,7 +82,8 @@ func (r VersionRange) isHostAPI() bool {
 // Level 5: capabilities.connector.kinds[].toolOnly.
 // Level 6: capabilities.executionProvider.jobs.
 // Level 7: capabilities.client (routes that a paired client may call).
-const HostFeatureLevel uint64 = 7
+// Level 8: a wildcard tail ({name...}) as the last segment of a client route.
+const HostFeatureLevel uint64 = 8
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -116,6 +117,9 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if m.usesClientTail() {
+		return 8
+	}
 	if m.Capabilities.Client != nil {
 		return 7
 	}
@@ -140,6 +144,18 @@ func (m Manifest) usedFeatureLevel() uint64 {
 		}
 	}
 	return BaseFeatureLevel
+}
+
+// usesClientTail reports whether a client route ends in a wildcard tail.
+func (m Manifest) usesClientTail() bool {
+	if c := m.Capabilities.Client; c != nil {
+		for _, r := range c.Routes {
+			if strings.HasSuffix(r.Path, "...}") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // usesToolOnly reports whether a connector kind declares toolOnly.

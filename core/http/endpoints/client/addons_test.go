@@ -248,6 +248,37 @@ var _ = Describe("client add-on proxy", func() {
 		Expect(string(raw)).ToNot(ContainSubstring("owner"))
 	})
 
+	It("forwards a wildcard tail as one slash-joined parameter, and lets a literal route win", func() {
+		host.byAddon = map[string][]contract.ClientRoute{"notes-sync": {
+			{ID: "file", Method: "GET", Path: "/files/{path...}"},
+			{ID: "index", Method: "GET", Path: "/files/index"},
+		}}
+		resp, _ := do("GET", "/api/client/addons/notes-sync/files/2026/11/trip.md", key, nil)
+		Expect(resp.StatusCode).To(Equal(200))
+		resp, _ = do("GET", "/api/client/addons/notes-sync/files/index", key, nil)
+		Expect(resp.StatusCode).To(Equal(200))
+		calls := host.called()
+		Expect(calls).To(HaveLen(2))
+		Expect(calls[0].RouteID).To(Equal("file"))
+		Expect(calls[0].Params).To(Equal(map[string]string{"path": "2026/11/trip.md"}))
+		Expect(calls[0].Path).To(Equal("/files/2026/11/trip.md"))
+		Expect(calls[1].RouteID).To(Equal("index"))
+		// A tail never carries an escape, a dot segment or an empty segment.
+		for target, want := range map[string]int{
+			"/api/client/addons/notes-sync/files":                                                             404,
+			"/api/client/addons/notes-sync/files/a//b":                                                        404,
+			"/api/client/addons/notes-sync/files/a/b/":                                                        404,
+			"/api/client/addons/notes-sync/files/a/%2e%2e/b":                                                  400,
+			"/api/client/addons/notes-sync/files/a%2fb":                                                       400,
+			"/api/client/addons/notes-sync/files/a%5cb":                                                       400,
+			"/api/client/addons/notes-sync/files/" + strings.Repeat("a/", contract.MaxClientTailPathSegments): 404,
+		} {
+			resp, _ := do("GET", target, key, nil)
+			Expect(resp.StatusCode).To(Equal(want), target)
+		}
+		Expect(host.called()).To(HaveLen(2), "no refused request reached the add-on")
+	})
+
 	It("passes a JSON body within the limit", func() {
 		resp, _ := do("POST", "/api/client/addons/demo/jobs", key, strings.NewReader(`{"x":1}`))
 		Expect(resp.StatusCode).To(Equal(200))

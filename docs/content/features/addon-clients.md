@@ -189,7 +189,8 @@ because LocalAI does not know the certificate of the proxy.
 ## The routes of an add-on
 
 The add-on declares the routes in `manifest.json`, under `capabilities.client`.
-This needs `featureLevel` 7 and `capabilities.service`.
+This needs `featureLevel` 7 (8 when a route uses a wildcard tail) and
+`capabilities.service`.
 
 ```json
 {
@@ -212,12 +213,40 @@ This needs `featureLevel` 7 and `capabilities.service`.
 |---|---|
 | `id` | Names the route in the request. Lower case letters, digits and dashes. |
 | `method` | `GET`, `POST`, `PUT`, `PATCH` or `DELETE`. |
-| `path` | Starts with `/`. A segment is lower case letters, digits, `-` or `_`, or `{name}` for one variable segment. At most 6 segments and 128 characters. No dot, no escape, no empty segment. |
+| `path` | Starts with `/`. A segment is lower case letters, digits, `-` or `_`, or `{name}` for one variable segment. The last segment may be `{name...}`, a wildcard tail (see below). At most 6 segments and 128 characters. No dot, no escape, no empty segment. |
 | `stream` | `true` for a server-sent event stream. The method must be `GET`. |
 | `maxBodyBytes` | The largest request body. Default 65536, at most 1048576. A `GET` or `DELETE` takes no body. |
 | `timeoutSeconds` | The time one call may run. Default 10, at most 60. Not for a stream. |
 
 At most 32 routes. Two routes that match the same request are refused.
+
+### A wildcard tail
+
+The last segment of a path may be `{name...}`. It matches **one or more**
+segments, so `/files/{path...}` serves `/files/notes.md` and
+`/files/2026/11/trip.md`, and not `/files`. This needs `featureLevel` 8. A host
+of level 7 refuses the manifest with the plain reason "needs a newer LocalAI",
+and LocalAI refuses a manifest that uses a tail and declares a lower level.
+
+- Each matched part follows the rule of a variable segment: 1 to 128 characters
+  from letters, digits, `_`, `.`, `~`, `:` and `-`. A part that is `.` or `..`,
+  an empty part, a percent escape, a backslash and a space match nothing. This
+  is the same rule as for `{name}`, applied to every part.
+- The add-on gets the parts as one parameter, joined with `/`: for
+  `/files/2026/11/trip.md` the parameter `path` is `2026/11/trip.md`.
+  **The add-on must validate it itself** before it uses it as a path of its own.
+  The host cannot know what the add-on does with the value. It guarantees only
+  the rules above, so a name such as `.hidden` or `a.b` still arrives, and a
+  link or a long path is for the add-on to refuse.
+- A tail has no name clash: a name may be used once in a path, tail included.
+- A route without a tail wins over a route with one, whatever the order in the
+  manifest, so `/files/index` beats `/files/{path...}` for `/files/index`. Between
+  two routes with a tail, the one with the longer fixed part wins. Two routes of
+  the same method and shape (`/a/{x...}` and `/a/{y...}`) are a manifest error.
+- Limits: a route with a tail takes a request path of at most 256 characters and
+  12 segments, since a path to a file needs more room than a fixed route. A
+  route without a tail keeps 128 characters and 6 segments. The declared path
+  keeps 6 segments and 128 characters, tail included.
 
 A client calls `/api/client/addons/{addon id}{path}` with its key. LocalAI
 forwards the request only if the method and the path match a declared route:
