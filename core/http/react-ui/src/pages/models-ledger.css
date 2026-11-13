@@ -910,3 +910,24 @@ tr[data-selected="true"] .ledger-mark {
 
 /* Sizes in the cleanup legend: sans, tabular figures. */
 .ledger-space__fig { font-variant-numeric: tabular-nums; }
+
+/* Online sources: Hugging Face and Pirate Face rows go through the same table. */
+.ledger-group--static > td { cursor: default; }
+.ledger-group__toggle--static { cursor: default; }
+.ledger-group__toggle--static:hover { color: var(--dk-muted); }
+.ledger-group__tag,
+.dk-chip__tag {
+  padding: 1px 6px;
+  border: 1px solid var(--dk-edge);
+  border-radius: 999px;
+  font: var(--dk-weight-semibold) 10px / 1.4 var(--dk-font-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.dk-chip__tag { margin-left: var(--dk-space-2); }
+.ledger-group__count { margin-left: auto; }
+.ledger-builds--gated { color: var(--dk-warn-text, var(--dk-muted)); font-weight: var(--dk-weight-semibold); }
+.ledger-more { display: flex; justify-content: center; padding: var(--dk-space-3) 0; }
+.remote-notices { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-bottom: var(--dk-space-3); }
+.ledger-estimate-note { margin: 0 0 var(--dk-space-3); font-size: var(--dk-text-12); color: var(--dk-muted); }

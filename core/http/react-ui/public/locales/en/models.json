@@ -866,5 +866,65 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "heading": "From {{source}}",
+    "placeholder": "Search {{source}}",
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "downloads": "downloads",
+    "seeds": "seeds",
+    "gated": "Gated",
+    "ggufOnly": "GGUF only",
+    "hint": {
+      "title": "Search {{source}}",
+      "text": "Type a model name in the search box. Results come live from the source, not from your libraries."
+    },
+    "failed": {
+      "title": "{{source}} did not answer",
+      "text": "The search failed. Try again in a moment.",
+      "stale": "These are the last results. {{message}}"
+    },
+    "none": {
+      "title": "Nothing found on {{source}}",
+      "text": "Try another name.",
+      "gguf": "Nothing found in GGUF format. Turn off GGUF only to widen the search.",
+      "fits": "Every result is too big for this machine. Turn off the fits filter to see them."
+    },
+    "loadMore": "Load more",
+    "chooseBuild": "Choose build {{variant}}",
+    "recommended": "Recommended",
+    "fits": "Fits",
+    "spill": "Spills to CPU",
+    "over": "Too big",
+    "installed": "{{model}} is installed.",
+    "ambiguous": "Several backends could run this model. Use Import model to pick one.",
+    "gatedTitle": "Access is gated.",
+    "gatedBody": "This repository needs approval on Hugging Face. The install fails unless this server has access.",
+    "gatedP2p": "This model is gated. The Pirate Face site shows no magnet link until its licence is accepted there, so LocalAI cannot install it.",
+    "sizesUnknown": "No file sizes found. Hugging Face does not list this repository, so the fit cannot be estimated.",
+    "importError": "No backend matches these files.",
+    "importErrorBody": "The install can still fail. Use Import model to choose a backend.",
+    "approximate": "Approximate fit. The model header could not be read, so memory is the file size plus a rule of thumb for the context.",
+    "noEstimate": "No size is known, so there is no fit estimate for this model.",
+    "files": {
+      "failed": {
+        "title": "Could not read the file list",
+        "body": "The source did not answer. Try again."
+      },
+      "rateLimited": {
+        "title": "The source asked to slow down",
+        "body": "Too many requests. Wait a minute and try again."
+      },
+      "notFound": {
+        "title": "Repository not found",
+        "body": "It is private, removed or not listed on this source."
+      }
+    }
   }
 }

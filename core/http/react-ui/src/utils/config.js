@@ -10,6 +10,8 @@ export const API_CONFIG = {
     // Models gallery
     models: '/api/models',
     modelsSearch: '/api/models/search',
+    modelsRemoteFiles: '/api/models/remote/files',
+    modelsRemoteEstimate: '/api/models/remote/estimate',
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelsRecommended: '/api/models/recommended',

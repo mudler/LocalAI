@@ -333,5 +333,65 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "heading": "De {{source}}",
+    "placeholder": "Pesquisar em {{source}}",
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_other": "{{count}} resultados",
+    "downloads": "downloads",
+    "seeds": "seeds",
+    "gated": "Acesso restrito",
+    "ggufOnly": "Somente GGUF",
+    "hint": {
+      "title": "Pesquisar em {{source}}",
+      "text": "Digite o nome de um modelo na caixa de busca. Os resultados vêm ao vivo da fonte, não das suas bibliotecas."
+    },
+    "failed": {
+      "title": "{{source}} não respondeu",
+      "text": "A busca falhou. Tente novamente em instantes.",
+      "stale": "Estes são os últimos resultados. {{message}}"
+    },
+    "none": {
+      "title": "Nada encontrado em {{source}}",
+      "text": "Tente outro nome.",
+      "gguf": "Nada encontrado no formato GGUF. Desative “Somente GGUF” para ampliar a busca.",
+      "fits": "Todos os resultados são grandes demais para esta máquina. Desative o filtro de compatibilidade para vê-los."
+    },
+    "loadMore": "Carregar mais",
+    "chooseBuild": "Escolher a variante {{variant}}",
+    "recommended": "Recomendada",
+    "fits": "Cabe",
+    "spill": "Passa parte para a CPU",
+    "over": "Grande demais",
+    "installed": "{{model}} está instalado.",
+    "ambiguous": "Vários backends poderiam executar este modelo. Use “Importar modelo” para escolher um.",
+    "gatedTitle": "O acesso é restrito.",
+    "gatedBody": "Este repositório precisa de aprovação no Hugging Face. A instalação falha se este servidor não tiver acesso.",
+    "gatedP2p": "Este modelo tem acesso restrito. O site Pirate Face não mostra link magnet até que a licença seja aceita lá, então o LocalAI não pode instalá-lo.",
+    "sizesUnknown": "Nenhum tamanho de arquivo encontrado. O Hugging Face não lista este repositório, então não é possível estimar se cabe.",
+    "importError": "Nenhum backend corresponde a estes arquivos.",
+    "importErrorBody": "A instalação ainda pode falhar. Use “Importar modelo” para escolher um backend.",
+    "approximate": "Estimativa aproximada. Não foi possível ler o cabeçalho do modelo, então a memória é o tamanho do arquivo mais uma regra prática para o contexto.",
+    "noEstimate": "Nenhum tamanho conhecido, então não há estimativa para este modelo.",
+    "files": {
+      "failed": {
+        "title": "Não foi possível ler a lista de arquivos",
+        "body": "A fonte não respondeu. Tente novamente."
+      },
+      "rateLimited": {
+        "title": "A fonte pediu para ir mais devagar",
+        "body": "Muitas solicitações. Aguarde um minuto e tente novamente."
+      },
+      "notFound": {
+        "title": "Repositório não encontrado",
+        "body": "Ele é privado, foi removido ou não está listado nesta fonte."
+      }
+    }
   }
 }

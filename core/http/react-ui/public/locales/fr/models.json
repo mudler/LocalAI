@@ -405,5 +405,65 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "heading": "Depuis {{source}}",
+    "placeholder": "Rechercher sur {{source}}",
+    "resultCount_one": "{{count}} résultat",
+    "resultCount_other": "{{count}} résultats",
+    "downloads": "téléchargements",
+    "seeds": "sources",
+    "gated": "Accès restreint",
+    "ggufOnly": "GGUF uniquement",
+    "hint": {
+      "title": "Rechercher sur {{source}}",
+      "text": "Saisissez un nom de modèle dans la zone de recherche. Les résultats viennent en direct de la source, pas de vos bibliothèques."
+    },
+    "failed": {
+      "title": "{{source}} n’a pas répondu",
+      "text": "La recherche a échoué. Réessayez dans un instant.",
+      "stale": "Ce sont les derniers résultats. {{message}}"
+    },
+    "none": {
+      "title": "Rien trouvé sur {{source}}",
+      "text": "Essayez un autre nom.",
+      "gguf": "Rien trouvé au format GGUF. Désactivez « GGUF uniquement » pour élargir la recherche.",
+      "fits": "Tous les résultats sont trop gros pour cette machine. Désactivez le filtre d’adéquation pour les voir."
+    },
+    "loadMore": "Charger plus",
+    "chooseBuild": "Choisir la variante {{variant}}",
+    "recommended": "Recommandée",
+    "fits": "Tient en mémoire",
+    "spill": "Déborde sur le CPU",
+    "over": "Trop gros",
+    "installed": "{{model}} est installé.",
+    "ambiguous": "Plusieurs backends pourraient exécuter ce modèle. Utilisez « Importer un modèle » pour en choisir un.",
+    "gatedTitle": "L’accès est restreint.",
+    "gatedBody": "Ce dépôt demande une approbation sur Hugging Face. L’installation échoue si ce serveur n’y a pas accès.",
+    "gatedP2p": "Ce modèle est à accès restreint. Le site Pirate Face n’affiche aucun lien magnet tant que sa licence n’y est pas acceptée, donc LocalAI ne peut pas l’installer.",
+    "sizesUnknown": "Aucune taille de fichier trouvée. Hugging Face ne référence pas ce dépôt, donc l’adéquation ne peut pas être estimée.",
+    "importError": "Aucun backend ne correspond à ces fichiers.",
+    "importErrorBody": "L’installation peut quand même échouer. Utilisez « Importer un modèle » pour choisir un backend.",
+    "approximate": "Adéquation approximative. L’en-tête du modèle n’a pas pu être lu : la mémoire est donc la taille du fichier plus une règle empirique pour le contexte.",
+    "noEstimate": "Aucune taille connue, donc pas d’estimation d’adéquation pour ce modèle.",
+    "files": {
+      "failed": {
+        "title": "Impossible de lire la liste des fichiers",
+        "body": "La source n’a pas répondu. Réessayez."
+      },
+      "rateLimited": {
+        "title": "La source demande de ralentir",
+        "body": "Trop de requêtes. Attendez une minute puis réessayez."
+      },
+      "notFound": {
+        "title": "Dépôt introuvable",
+        "body": "Il est privé, supprimé ou absent de cette source."
+      }
+    }
   }
 }

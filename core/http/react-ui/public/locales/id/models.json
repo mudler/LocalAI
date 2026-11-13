@@ -330,5 +330,65 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "heading": "Dari {{source}}",
+    "placeholder": "Cari di {{source}}",
+    "resultCount_one": "{{count}} hasil",
+    "resultCount_other": "{{count}} hasil",
+    "downloads": "unduhan",
+    "seeds": "seed",
+    "gated": "Dibatasi",
+    "ggufOnly": "Hanya GGUF",
+    "hint": {
+      "title": "Cari di {{source}}",
+      "text": "Ketik nama model di kotak pencarian. Hasilnya datang langsung dari sumber, bukan dari pustaka Anda."
+    },
+    "failed": {
+      "title": "{{source}} tidak merespons",
+      "text": "Pencarian gagal. Coba lagi sebentar lagi.",
+      "stale": "Ini hasil terakhir. {{message}}"
+    },
+    "none": {
+      "title": "Tidak ada hasil di {{source}}",
+      "text": "Coba nama lain.",
+      "gguf": "Tidak ada hasil dalam format GGUF. Matikan “Hanya GGUF” untuk memperluas pencarian.",
+      "fits": "Semua hasil terlalu besar untuk mesin ini. Matikan filter muat untuk melihatnya."
+    },
+    "loadMore": "Muat lebih banyak",
+    "chooseBuild": "Pilih varian {{variant}}",
+    "recommended": "Disarankan",
+    "fits": "Muat",
+    "spill": "Sebagian di CPU",
+    "over": "Terlalu besar",
+    "installed": "{{model}} sudah terpasang.",
+    "ambiguous": "Beberapa backend dapat menjalankan model ini. Gunakan Impor model untuk memilih salah satu.",
+    "gatedTitle": "Akses dibatasi.",
+    "gatedBody": "Repositori ini perlu persetujuan di Hugging Face. Pemasangan gagal kecuali server ini punya akses.",
+    "gatedP2p": "Model ini dibatasi. Situs Pirate Face tidak menampilkan tautan magnet sampai lisensinya diterima di sana, sehingga LocalAI tidak dapat memasangnya.",
+    "sizesUnknown": "Ukuran berkas tidak ditemukan. Hugging Face tidak mencantumkan repositori ini, sehingga kecocokan tidak dapat diperkirakan.",
+    "importError": "Tidak ada backend yang cocok dengan berkas ini.",
+    "importErrorBody": "Pemasangan masih bisa gagal. Gunakan Impor model untuk memilih backend.",
+    "approximate": "Perkiraan kasar. Header model tidak dapat dibaca, jadi memori dihitung dari ukuran berkas ditambah aturan praktis untuk konteks.",
+    "noEstimate": "Ukuran tidak diketahui, jadi tidak ada perkiraan kecocokan untuk model ini.",
+    "files": {
+      "failed": {
+        "title": "Daftar berkas tidak dapat dibaca",
+        "body": "Sumber tidak merespons. Coba lagi."
+      },
+      "rateLimited": {
+        "title": "Sumber meminta untuk memperlambat",
+        "body": "Terlalu banyak permintaan. Tunggu semenit lalu coba lagi."
+      },
+      "notFound": {
+        "title": "Repositori tidak ditemukan",
+        "body": "Repositori ini privat, dihapus, atau tidak tercantum di sumber ini."
+      }
+    }
   }
 }

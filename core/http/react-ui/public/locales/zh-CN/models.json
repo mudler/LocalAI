@@ -317,5 +317,65 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "heading": "来自 {{source}}",
+    "placeholder": "在 {{source}} 中搜索",
+    "resultCount_one": "{{count}} 个结果",
+    "resultCount_other": "{{count}} 个结果",
+    "downloads": "次下载",
+    "seeds": "个做种",
+    "gated": "需授权",
+    "ggufOnly": "仅 GGUF",
+    "hint": {
+      "title": "在 {{source}} 中搜索",
+      "text": "在搜索框中输入模型名称。结果实时来自该来源，而不是你的模型库。"
+    },
+    "failed": {
+      "title": "{{source}} 没有响应",
+      "text": "搜索失败。请稍后重试。",
+      "stale": "以下是上一次的结果。{{message}}"
+    },
+    "none": {
+      "title": "在 {{source}} 中没有找到",
+      "text": "换个名称试试。",
+      "gguf": "没有找到 GGUF 格式的结果。关闭“仅 GGUF”可扩大搜索范围。",
+      "fits": "所有结果对这台机器来说都太大。关闭“能放下”筛选即可查看。"
+    },
+    "loadMore": "加载更多",
+    "chooseBuild": "选择版本 {{variant}}",
+    "recommended": "推荐",
+    "fits": "能放下",
+    "spill": "部分转到 CPU",
+    "over": "太大",
+    "installed": "{{model}} 已安装。",
+    "ambiguous": "有多个后端可以运行此模型。请在“导入模型”中选择一个。",
+    "gatedTitle": "访问受限。",
+    "gatedBody": "此仓库需要在 Hugging Face 上获得批准。如果此服务器没有访问权限，安装会失败。",
+    "gatedP2p": "此模型需要授权。在 Pirate Face 网站接受其许可之前不会显示磁力链接，因此 LocalAI 无法安装。",
+    "sizesUnknown": "没有找到文件大小。Hugging Face 没有收录此仓库，因此无法估算是否能放下。",
+    "importError": "没有与这些文件匹配的后端。",
+    "importErrorBody": "安装仍可能失败。请在“导入模型”中选择后端。",
+    "approximate": "这是粗略估算。无法读取模型头信息，因此内存按文件大小加上上下文的经验值计算。",
+    "noEstimate": "大小未知，因此没有该模型的估算。",
+    "files": {
+      "failed": {
+        "title": "无法读取文件列表",
+        "body": "该来源没有响应。请重试。"
+      },
+      "rateLimited": {
+        "title": "该来源要求放慢速度",
+        "body": "请求过多。请等待一分钟后重试。"
+      },
+      "notFound": {
+        "title": "未找到仓库",
+        "body": "它是私有的、已被删除，或未被此来源收录。"
+      }
+    }
   }
 }

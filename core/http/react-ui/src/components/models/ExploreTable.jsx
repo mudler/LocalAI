@@ -9,6 +9,9 @@ import { ENTITY_GROUPS, groupForEntity } from '../../utils/entityGroups'
 const GROUP_ORDER = ['text', 'vision', 'audio', 'visual', 'other']
 
 function SortHead({ col, label, sort, order, onSort, className }) {
+  // A list that cannot be sorted (an online search keeps its provider's order)
+  // shows the plain heading.
+  if (!onSort) return <th scope="col" className={className}>{label}</th>
   const active = sort === col
   return (
     <th scope="col" className={className} aria-sort={active ? (order === 'asc' ? 'ascending' : 'descending') : undefined}>
@@ -40,15 +43,23 @@ function SkeletonRows({ count = 8 }) {
 // The Explore ledger: one dense table of gallery models, each row carrying its
 // own fit on this machine. Selection is a surface step and a check mark.
 // Arrow keys move it, Enter installs, Esc closes the inspector.
+//
+// The rows of an online search use the same table. Such a row sets `title` (the
+// repository, shown instead of its key), `sub` (its own line under the name),
+// `gated` and `remote`; `heading` puts a section header over a flat list, and
+// `onRowVisible` is told, once per row, when it scrolls into view so its size
+// can be fetched lazily. A table with no `onSort` has plain column headings.
 export default function ExploreTable({
   models, loading, grouped, collapsedGroups, onToggleGroup,
   selectedName, onSelect, onOpen, onInstall, onRetry,
   estimates, pendingEstimates, contextSize, contextLabel, budget, ramAvailable,
   isInstalling, progressOf, failedOp,
-  sort, order, onSort, density, t,
+  sort, order, onSort, density, heading, onRowVisible, t,
 }) {
   const bodyRef = useRef(null)
   useRestoreRowFocus(selectedName, bodyRef)
+  const visibleRef = useRef(onRowVisible)
+  visibleRef.current = onRowVisible
 
   const entries = models.map(model => ({ model, name: model.name || model.id }))
   // The order a reader expects: what most people install first, then the rest.
@@ -59,6 +70,7 @@ export default function ExploreTable({
       .map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon, items: entries.filter(e => groupForEntity(e.model).id === g.id) }))
       .filter(s => s.items.length > 0)
     : [{ id: null, items: entries }]
+  const remoteRows = models.length > 0 && models.every(m => m.remote)
   const names = sections.flatMap(s => (s.id && collapsedGroups.has(s.id) ? [] : s.items.map(e => e.name)))
 
   const move = useCallback((name) => {
@@ -69,8 +81,29 @@ export default function ExploreTable({
 
   // What "previous" and "next" on a model's page walk: the rows on screen, in
   // the order they are shown, without the ones a collapsed group hides.
-  const walkOrder = names.join('\n')
+  // An online result has no page of its own to walk to.
+  const walkOrder = remoteRows ? '' : names.join('\n')
   useEffect(() => { publishWalk('explore', walkOrder ? walkOrder.split('\n') : []) }, [walkOrder])
+
+  // Tell the page which rows have been seen, so an online row's size is
+  // fetched when the row is on screen and not for a list nobody scrolled to.
+  const rowList = names.join('\n')
+  useEffect(() => {
+    if (!visibleRef.current || typeof IntersectionObserver === 'undefined' || !bodyRef.current) return undefined
+    const seen = new Set()
+    const io = new IntersectionObserver(items => {
+      for (const item of items) {
+        const name = item.target.getAttribute('data-entity')
+        if (item.isIntersecting && name && !seen.has(name)) {
+          seen.add(name)
+          visibleRef.current?.(name)
+          io.unobserve(item.target)
+        }
+      }
+    }, { rootMargin: '120px' })
+    bodyRef.current.querySelectorAll('tr[data-entity]').forEach(el => io.observe(el))
+    return () => io.disconnect()
+  }, [rowList])
 
   // The row that takes Tab: the selected one, else the first.
   const tabbable = names.includes(selectedName) ? selectedName : names[0]
@@ -83,7 +116,8 @@ export default function ExploreTable({
     const installing = isInstalling(name)
     const progress = progressOf(name)
     const failed = !installing && !model.installed ? failedOp(name) : null
-    const sub = [model.backend, model.license].filter(Boolean).join(' · ')
+    const sub = model.sub ?? [model.backend, model.license].filter(Boolean).join(' · ')
+    const title = model.title || name
 
     return (
       <tr
@@ -110,9 +144,10 @@ export default function ExploreTable({
           <span className="ledger-mark" aria-hidden="true"><Icon name="check" /></span>
         </td>
         <td className="ledger-name-cell">
-          <span className="dk-table-name ledger-name"><span className="ledger-name__text">{name}</span></span>
+          <span className="dk-table-name ledger-name"><span className="ledger-name__text">{title}</span></span>
           <span className="dk-table-sub" title={failed ? failed.error : undefined}>
             {failed ? failed.error : (sub || ' ')}
+            {!failed && model.gated && <span className="ledger-builds ledger-builds--gated" data-testid="row-gated">{t('remote.gated')}</span>}
             {!failed && model.has_variants && <span className="ledger-builds">{t('ledger.builds')}</span>}
           </span>
         </td>
@@ -139,7 +174,7 @@ export default function ExploreTable({
                 type="button"
                 className="dk-btn dk-btn--secondary dk-btn--sm"
                 data-testid="discover-row-retry"
-                aria-label={t('ledger.retryNamed', { model: name })}
+                aria-label={t('ledger.retryNamed', { model: title })}
                 onClick={e => { e.stopPropagation(); onRetry(name, failed) }}
               >
                 <Icon name="refresh" /> {t('ledger.retry')}
@@ -149,23 +184,25 @@ export default function ExploreTable({
                 type="button"
                 className="dk-btn dk-btn--primary dk-btn--sm"
                 data-testid="discover-row-install"
-                aria-label={t('ledger.installNamed', { model: name })}
+                aria-label={t('ledger.installNamed', { model: title })}
                 onClick={e => { e.stopPropagation(); onInstall(name) }}
               >
                 <Icon name="download" /> {t('actions.install')}
               </button>
             )}
-            <button
-              type="button"
-              className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm ledger-open"
-              data-row-open
-              data-testid="row-open"
-              aria-label={t('page.openFor', { model: name })}
-              title={t('page.openFor', { model: name })}
-              onClick={e => { e.stopPropagation(); onOpen?.(name) }}
-            >
-              <Icon name="arrow-right" />
-            </button>
+            {onOpen && (
+              <button
+                type="button"
+                className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm ledger-open"
+                data-row-open
+                data-testid="row-open"
+                aria-label={t('page.openFor', { model: title })}
+                title={t('page.openFor', { model: title })}
+                onClick={e => { e.stopPropagation(); onOpen(name) }}
+              >
+                <Icon name="arrow-right" />
+              </button>
+            )}
           </span>
         </td>
       </tr>
@@ -194,6 +231,18 @@ export default function ExploreTable({
           <SkeletonRows />
         ) : (
           <tbody ref={bodyRef}>
+            {heading && (
+              <tr className="ledger-group ledger-group--static" data-testid="discover-rail-heading">
+                <td colSpan={5}>
+                  <div className="ledger-group__toggle ledger-group__toggle--static">
+                    {heading.icon && <Icon name={heading.icon} className="ledger-group__icon" />}
+                    <span className="ledger-group__label">{heading.label}</span>
+                    {heading.tag && <span className="ledger-group__tag">{heading.tag}</span>}
+                    <span className="ledger-group__count">{models.length}</span>
+                  </div>
+                </td>
+              </tr>
+            )}
             {sections.map(section => (
               section.id ? [
                 <tr key={`g-${section.id}`} className="ledger-group">

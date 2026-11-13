@@ -71,6 +71,20 @@ export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   // Remote providers (Hugging Face, Pirate Face). params come from searchParams().
   search: (params, options) => fetchJSON(buildUrl(API_CONFIG.endpoints.modelsSearch, params), options),
+  // What one search result offers: files grouped by quantization, licence,
+  // gated flag, description, the backend an import would pick.
+  remoteFiles: (uri, options) => fetchJSON(buildUrl(API_CONFIG.endpoints.modelsRemoteFiles, { uri }), options),
+  // The gallery estimate for a remote repository: one variant, and every
+  // variant in `variants`. file is the first file of a variant; omitted means
+  // the recommended one.
+  remoteEstimate: (uri, file, contexts, options) => fetchJSON(
+    buildUrl(API_CONFIG.endpoints.modelsRemoteEstimate, {
+      uri,
+      ...(file ? { file } : {}),
+      ...(contexts?.length ? { contexts: contexts.join(',') } : {}),
+    }),
+    options,
+  ),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
   listNativeCapabilities: () => fetchJSON('/v1/models/capabilities'),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),

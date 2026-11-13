@@ -317,5 +317,65 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "heading": "Da {{source}}",
+    "placeholder": "Cerca su {{source}}",
+    "resultCount_one": "{{count}} risultato",
+    "resultCount_other": "{{count}} risultati",
+    "downloads": "download",
+    "seeds": "seed",
+    "gated": "Accesso limitato",
+    "ggufOnly": "Solo GGUF",
+    "hint": {
+      "title": "Cerca su {{source}}",
+      "text": "Scrivi il nome di un modello nella casella di ricerca. I risultati arrivano in tempo reale dalla fonte, non dalle tue librerie."
+    },
+    "failed": {
+      "title": "{{source}} non ha risposto",
+      "text": "La ricerca non è riuscita. Riprova tra un momento.",
+      "stale": "Questi sono gli ultimi risultati. {{message}}"
+    },
+    "none": {
+      "title": "Nessun risultato su {{source}}",
+      "text": "Prova un altro nome.",
+      "gguf": "Nessun risultato in formato GGUF. Disattiva «Solo GGUF» per ampliare la ricerca.",
+      "fits": "Tutti i risultati sono troppo grandi per questa macchina. Disattiva il filtro di compatibilità per vederli."
+    },
+    "loadMore": "Carica altri",
+    "chooseBuild": "Scegli la variante {{variant}}",
+    "recommended": "Consigliata",
+    "fits": "Ci sta",
+    "spill": "Passa in parte alla CPU",
+    "over": "Troppo grande",
+    "installed": "{{model}} è installato.",
+    "ambiguous": "Più backend potrebbero eseguire questo modello. Usa «Importa modello» per sceglierne uno.",
+    "gatedTitle": "L’accesso è limitato.",
+    "gatedBody": "Questo repository richiede un’approvazione su Hugging Face. L’installazione fallisce se questo server non ha accesso.",
+    "gatedP2p": "Questo modello ha accesso limitato. Il sito Pirate Face non mostra un link magnet finché la licenza non viene accettata lì, quindi LocalAI non può installarlo.",
+    "sizesUnknown": "Nessuna dimensione dei file trovata. Hugging Face non elenca questo repository, quindi non si può stimare se ci sta.",
+    "importError": "Nessun backend corrisponde a questi file.",
+    "importErrorBody": "L’installazione può comunque fallire. Usa «Importa modello» per scegliere un backend.",
+    "approximate": "Stima approssimativa. L’intestazione del modello non si è potuta leggere, quindi la memoria è la dimensione del file più una regola empirica per il contesto.",
+    "noEstimate": "Nessuna dimensione nota, quindi per questo modello non c’è una stima.",
+    "files": {
+      "failed": {
+        "title": "Impossibile leggere l’elenco dei file",
+        "body": "La fonte non ha risposto. Riprova."
+      },
+      "rateLimited": {
+        "title": "La fonte chiede di rallentare",
+        "body": "Troppe richieste. Attendi un minuto e riprova."
+      },
+      "notFound": {
+        "title": "Repository non trovato",
+        "body": "È privato, rimosso o non elencato in questa fonte."
+      }
+    }
   }
 }
