@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -71,6 +72,27 @@ var _ = Describe("conversion of old data as the previous release wrote it", func
 		app := boot("")
 		names := agentNames(app, "alice")
 		Expect(names).To(ConsistOf("Helper"))
+	})
+
+	It("waits with a Telegram connector until its add-on runs, and keeps the agent and the token out of the report", func() {
+		const dummyToken = "123456:TEST"
+		cfg, _ := json.Marshal(map[string]any{"token": dummyToken, "admins": "ada_l"})
+		writeJSON(filepath.Join(data, "pool.json"), map[string]any{"alice:Helper": map[string]any{"name": "alice:Helper", "model": "m", "system_prompt": "Help.",
+			"connectors": []any{map[string]any{"type": "telegram", "config": string(cfg)}}}})
+		app := boot("")
+		Expect(agentNames(app, "alice")).To(ConsistOf("Helper"))
+		rep, ok, err := app.StudioConversion(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		var found bool
+		for _, it := range rep.ForUser("alice").Items {
+			if it.Kind == convert.KindConnector {
+				found = true
+				Expect(it.Status).To(Equal(convert.StatusFailed), "item = %+v", it)
+			}
+			Expect(it.Reason + it.Name).NotTo(ContainSubstring(dummyToken))
+		}
+		Expect(found).To(BeTrue(), "items = %+v", rep.Items)
 	})
 
 	It("keeps what a chat of the old page said, with the name of each tool it called", func() {

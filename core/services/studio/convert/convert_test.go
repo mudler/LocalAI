@@ -50,6 +50,10 @@ type fakeTargets struct {
 	// mcpErr is what CreateMCPConnector returns, by connector name; it runs
 	// before the name check.
 	mcpErr map[string]error
+	// bindings is what CreateConnector made, by user; connErr is what it returns
+	// while set.
+	bindings map[string][]convert.ConnectorIn
+	connErr  error
 }
 
 func newTargets() *fakeTargets {
@@ -57,7 +61,7 @@ func newTargets() *fakeTargets {
 		agents: map[string][]convert.AgentIn{}, triggers: map[string][]convert.TriggerIn{}, skills: map[string]convert.SkillRec{},
 		chats: map[string][]convert.ChatIn{}, failSave: map[string]bool{},
 		invalidSave: map[string]bool{},
-		admins:      map[string]bool{}, mcp: map[string][]convert.MCPIn{}, mcpErr: map[string]error{}}
+		admins:      map[string]bool{}, mcp: map[string][]convert.MCPIn{}, mcpErr: map[string]error{}, bindings: map[string][]convert.ConnectorIn{}}
 }
 
 func (f *fakeTargets) IsAdmin(_ context.Context, u string) (bool, error) { return f.admins[u], nil }
@@ -102,11 +106,26 @@ func (f *fakeTargets) SaveAgent(_ context.Context, u string, in convert.AgentIn)
 	f.nextID++
 	return fmt.Sprintf("agent-%d", f.nextID), nil
 }
+func (f *fakeTargets) CreateConnector(_ context.Context, u string, in convert.ConnectorIn) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.connErr != nil {
+		return "", f.connErr
+	}
+	f.bindings[u] = append(f.bindings[u], in)
+	return fmt.Sprintf("bind-%s-%d", u[:1], len(f.bindings[u])), nil
+}
+
 func (f *fakeTargets) CreateTrigger(_ context.Context, u string, in convert.TriggerIn) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.trigErr != nil {
 		return f.trigErr
+	}
+	for _, t := range f.triggers[u] {
+		if strings.EqualFold(t.Name, in.Name) {
+			return fmt.Errorf("%w: %s", convert.ErrNameTaken, in.Name)
+		}
 	}
 	f.triggers[u] = append(f.triggers[u], in)
 	return nil
@@ -272,21 +291,89 @@ var _ = Describe("converting the old agents", func() {
 		Expect(without.agents[""][0].Name).To(Equal("Legacy"))
 	})
 
-	It("drops every connector and keeps its token out of the report", func() {
+	It("makes a switched-off binding of the Telegram connector, drops the others and keeps tokens out of the report", func() {
 		dir := GinkgoT().TempDir()
 		poolFixture(dir)
 		tg := newTargets()
 		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
 		it, ok := find(r, convert.KindConnector, "Support: telegram")
 		Expect(ok).To(BeTrue(), "telegram = %+v", it)
-		Expect(it.Status).To(Equal(convert.StatusDropped))
+		Expect(it.Status).To(Equal(convert.StatusConverted), "telegram = %+v", it)
+		Expect(it.Reason).To(ContainSubstring("switched off"), "telegram = %+v", it)
+		Expect(it.Reason).To(ContainSubstring("not valid: 1"), "telegram = %+v", it)
+		Expect(tg.bindings[alice]).To(HaveLen(1), "bindings = %+v", tg.bindings)
+		b := tg.bindings[alice][0]
+		Expect(b.Kind).To(Equal("telegram"))
+		Expect(b.Token).To(Equal(token))
+		Expect(b.Allow).To(Equal([]string{"@ada_l", "@bo_b"}), "binding = %+v", b)
+		Expect(b.AgentID).To(Equal("agent-1"), "the binding is for the converted agent: %+v, agents %+v", b, tg.agents)
+		Expect(tg.bindings[bob]).To(BeEmpty())
 		it, ok = find(r, convert.KindConnector, "Support: slack")
 		Expect(ok).To(BeTrue(), "slack = %+v", it)
 		Expect(it.Status).To(Equal(convert.StatusDropped))
+		Expect(it.Reason).To(ContainSubstring("slack connector is not rebuilt"))
 		raw, _ := json.Marshal(r)
 		for _, secret := range []string{token, "xoxb-SLACK-SECRET", "SECRET", "mcp.example", "Keep the queue empty", "Be kind"} {
 			Expect(string(raw)).NotTo(ContainSubstring(secret), "the report has %q", secret)
 		}
+	})
+
+	It("keeps the token out of the reason when the target fails", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		tg.connErr = fmt.Errorf("could not write %s", token)
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
+		it, _ := find(r, convert.KindConnector, "Support: telegram")
+		Expect(it.Status).To(Equal(convert.StatusFailed), "telegram = %+v", it)
+		raw, _ := json.Marshal(r)
+		Expect(string(raw)).NotTo(ContainSubstring(token))
+	})
+
+	It("makes the Telegram binding once, and tries again after a failure that may pass without losing the agent", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		marks := memMarks()
+		src := convert.Sources{StateDir: dir, AuthEnabled: true}
+		tg.connErr = fmt.Errorf("%w: the add-on is not running", convert.ErrConnectorsUnavailable)
+		r := run(src, tg, marks)
+		it, _ := find(r, convert.KindConnector, "Support: telegram")
+		Expect(it.Status).To(Equal(convert.StatusFailed), "telegram = %+v", it)
+		Expect(tg.bindings[alice]).To(BeEmpty())
+		Expect(tg.agents[alice]).To(HaveLen(1), "the agent converts, and keeps what it names: %+v", tg.agents[alice])
+		tg.connErr = nil
+		run(src, tg, marks)
+		run(src, tg, marks)
+		Expect(tg.bindings[alice]).To(HaveLen(1), "a rerun made %d bindings", len(tg.bindings[alice]))
+		Expect(tg.agents[alice]).To(HaveLen(1), "a rerun made more agents: %+v", tg.agents[alice])
+	})
+
+	It("drops a Telegram connector the target refuses for good, once", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		marks := memMarks()
+		src := convert.Sources{StateDir: dir, AuthEnabled: true}
+		tg.connErr = fmt.Errorf("%w: connectors: invalid binding: the platform refused the bot token", convert.ErrInvalid)
+		r := run(src, tg, marks)
+		it, _ := find(r, convert.KindConnector, "Support: telegram")
+		Expect(it.Status).To(Equal(convert.StatusDropped), "telegram = %+v", it)
+		Expect(it.Reason).To(Equal("the platform refused the bot token"))
+		tg.connErr = nil
+		run(src, tg, marks)
+		Expect(tg.bindings[alice]).To(BeEmpty(), "a dropped connector is not met again")
+	})
+
+	It("drops a Telegram connector that has no token", func() {
+		dir := GinkgoT().TempDir()
+		write(filepath.Join(dir, "pool.json"), mustJSON(map[string]any{alice + ":Bot": map[string]any{"name": alice + ":Bot", "model": "m",
+			"connectors": []any{map[string]any{"type": "telegram", "config": mustJSON(map[string]any{"admins": "ada_l"})}}}}))
+		tg := newTargets()
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
+		it, _ := find(r, convert.KindConnector, "Bot: telegram")
+		Expect(it.Status).To(Equal(convert.StatusDropped), "telegram = %+v", it)
+		Expect(tg.bindings[alice]).To(BeEmpty())
 	})
 
 	It("turns a cron task into a switched-off trigger and drops the other tasks", func() {

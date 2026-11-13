@@ -19,7 +19,7 @@ changes or deletes the old data.
 | A scheduled task with a cron text | A trigger, **switched off**; `{{.name}}` parts of the prompt are filled from the task's parameters |
 | An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector](/features/chats-connectors/#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
 | A local MCP command of an agent (`mcp_stdio_servers`) | The same, only when the owner is an administrator; otherwise it is dropped, with the reason |
-| A Telegram connector of an agent | A [connector binding](/features/chats-connectors/), **switched off**; the old `admins` become the allowlist |
+| A Telegram connector of an agent | A [connector binding](/features/chats-connectors/) for the converted agent, **switched off**, with the bot token sealed on the server; the old `admins` become the allowlist |
 | A skill folder (shared or personal) | A shared or personal skill |
 | A conversation saved in the database | A chat with its transcript (the newest 5000 messages) |
 
@@ -58,13 +58,25 @@ with the connectors it names; if one of them fails for a reason that may pass
 An agent that an earlier start already converted keeps what it had: make its MCP
 connectors again on the **MCP servers** tab of **Connections**.
 
+A converted Telegram connector keeps its bot token, sealed on the server and never
+shown, and belongs to the same owner and agent. The old `admins` (user names, with
+or without `@`, or numeric IDs) become its allowlist; an entry that is not a valid
+name or ID is left out, and the report counts them. The binding is off, so the bot
+answers nobody. Open it in **Connectors**, check the allowlist, and turn it on. The
+binding needs the Telegram add-on to be installed and running. Without it, or when
+the connectors are off, the connector waits for the next start and the report says
+so; the agent is not held back, because it does not name the binding. A token that
+Telegram refuses is dropped, with the reason. The report lists the other settings of
+the connector that were not kept, by name only.
+
 ## What is not converted
 
 Every dropped field is named in the report, without its value. The main ones:
 actions, the prepare script of MCP servers, knowledge-base settings other than the
 collection grant, planning and memory switches, the webhooks of old tasks, skills
 from a git repository, skill resource files, and connectors other than
-Telegram. A name that is taken becomes `Name (2)`. A task is converted into a
+Telegram. A name that is taken becomes `Name (2)` (`Name (3)` and so on): this holds for agents, triggers
+and MCP connectors, and the report says `renamed to Name (2)`. A task is converted into a
 trigger; to run it through the [agent jobs API](/features/agent-jobs/) with
 parameters and a webhook, make it again as a task.
 
@@ -89,7 +101,7 @@ gets one notification in the [inbox](/features/chats-agents/).
 A run is safe to repeat. A converted item is marked and is not converted
 again. An item that cannot convert for good, such as a task with no cron text,
 a name or an instruction text that is too long, a skill name that is not valid,
-a cron text with month or day names, or more than 50 triggers, is marked as
+a cron text with month or day names, a Telegram connector with no token, or more than 50 triggers, is marked as
 dropped, with the reason, and is not met again. One that failed for another
 reason, such as a full disk, is tried again at the next start.
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -187,7 +188,18 @@ func (t studioTargets) CreateTrigger(ctx context.Context, user string, in conver
 	if h == nil {
 		return studio.ErrTriggersOff
 	}
-	_, err := h.CreateTrigger(ctx, user, studio.TriggerInput{Name: in.Name, Prompt: in.Prompt, Kind: triggers.KindSchedule,
+	// The trigger service allows two triggers of one name; a conversion does
+	// not make that confusion, so it asks for a new name instead.
+	mine, err := h.ListTriggers(ctx, user)
+	if err != nil {
+		return err
+	}
+	for _, m := range mine {
+		if strings.EqualFold(strings.TrimSpace(m.Name), strings.TrimSpace(in.Name)) {
+			return convert.ErrNameTaken
+		}
+	}
+	_, err = h.CreateTrigger(ctx, user, studio.TriggerInput{Name: in.Name, Prompt: in.Prompt, Kind: triggers.KindSchedule,
 		Schedule: in.Schedule, TZ: in.TZ, Model: in.Model, AgentID: in.AgentID, Enabled: false})
 	return invalid(err)
 }
@@ -290,6 +302,33 @@ func (t studioTargets) CreateMCPConnector(ctx context.Context, user string, in c
 		return "", fmt.Errorf("%w: %s", convert.ErrInvalid, strings.TrimPrefix(err.Error(), mcpconns.ErrForbidden.Error()+": "))
 	}
 	return c.ID, err
+}
+
+// CreateConnector makes a switched-off binding of the user, through the same
+// service as the Connectors page, so the token is checked, sealed and never
+// returned. It starts off so that the bot answers nobody until its owner has
+// read the allowlist and turned it on.
+func (t studioTargets) CreateConnector(ctx context.Context, user string, in convert.ConnectorIn) (string, error) {
+	conns := t.svc.Connectors()
+	if conns == nil {
+		return "", convert.ErrConnectorsUnavailable
+	}
+	kinds, err := conns.ConnectorKinds(ctx)
+	if err != nil {
+		return "", fmt.Errorf("%w: the add-ons could not be listed", convert.ErrConnectorsUnavailable)
+	}
+	if !slices.ContainsFunc(kinds, func(k studio.ConnectorKind) bool { return k.ID == in.Kind }) {
+		return "", fmt.Errorf("%w: the %s add-on is not installed or not running", convert.ErrConnectorsUnavailable, in.Kind)
+	}
+	info, err := conns.CreateConnector(ctx, user, studio.ConnectorInput{Kind: in.Kind, Name: in.Name, Token: in.Token,
+		AgentID: in.AgentID, Allow: in.Allow, Enabled: false})
+	if err != nil {
+		if errors.Is(err, studio.ErrConnectorsOff) {
+			return "", convert.ErrConnectorsUnavailable
+		}
+		return "", invalid(err)
+	}
+	return info.ID, nil
 }
 
 // invalid marks an error that says the item is not valid for the service, so the

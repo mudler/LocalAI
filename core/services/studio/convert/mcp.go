@@ -160,20 +160,13 @@ func (r *run) mcpConnectors(ctx context.Context, owner string, a oldAgent) ([]st
 
 // createMCP makes the connector, adding a number to the name when it is taken.
 func (r *run) createMCP(ctx context.Context, owner, base string, in MCPIn) (id, name string, err error) {
-	base = truncateRunes(base, 70)
-	for n := 1; n <= 9; n++ {
-		in.Name = base
-		if n > 1 {
-			in.Name = fmt.Sprintf("%s (%d)", base, n)
-		}
-		if id, err = r.tg.CreateMCPConnector(ctx, owner, in); err == nil {
-			return id, in.Name, nil
-		}
-		if !errors.Is(err, ErrNameTaken) {
-			return "", "", err
-		}
-	}
-	return "", "", err
+	name, err = freeName(truncateRunes(base, 70), 0, func(n string) error {
+		in.Name = n
+		var e error
+		id, e = r.tg.CreateMCPConnector(ctx, owner, in)
+		return e
+	})
+	return id, name, err
 }
 
 func truncateRunes(s string, n int) string {

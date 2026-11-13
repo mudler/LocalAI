@@ -118,6 +118,59 @@ var _ = Describe("conversion fixes", func() {
 		Expect(it.Status).To(Equal(convert.StatusDropped), "item = %+v", it)
 	})
 
+	It("drops the internal prefix from the reason of a trigger the target refuses", func() {
+		dir := GinkgoT().TempDir()
+		write(filepath.Join(dir, "agent_tasks.json"), mustJSON(map[string]any{"tasks": []any{
+			map[string]any{"id": "c", "name": "Monthly", "model": "m", "prompt": "p", "cron": "0 0 1 JAN *"},
+		}}))
+		tg := newTargets()
+		tg.trigErr = fmt.Errorf(`%w: studio: invalid trigger: month: cannot read "jan", use a number from 1 to 12`, convert.ErrInvalid)
+		r := run(convert.Sources{StateDir: dir, DataDir: dir}, tg, memMarks())
+		it, _ := find(r, convert.KindTrigger, "Monthly")
+		Expect(it.Reason).To(HavePrefix("invalid trigger: month"), "item = %+v", it)
+		Expect(it.Reason).NotTo(ContainSubstring("studio:"), "item = %+v", it)
+	})
+
+	It("numbers the name of a trigger that is taken, and makes nothing twice", func() {
+		dir := GinkgoT().TempDir()
+		write(filepath.Join(dir, "agent_tasks.json"), mustJSON(map[string]any{"tasks": []any{
+			map[string]any{"id": "a", "name": "alpha", "model": "m", "prompt": "p", "cron": "0 8 * * *"},
+			map[string]any{"id": "b", "name": "beta", "model": "m", "prompt": "p", "cron": "0 9 * * *"},
+		}}))
+		tg := newTargets()
+		tg.triggers[""] = []convert.TriggerIn{{Name: "alpha"}}
+		marks := memMarks()
+		src := convert.Sources{StateDir: dir, DataDir: dir}
+		r := run(src, tg, marks)
+		it, _ := find(r, convert.KindTrigger, "alpha")
+		Expect(it.Status).To(Equal(convert.StatusConverted), "item = %+v", it)
+		Expect(it.Reason).To(HavePrefix("renamed to alpha (2)."), "item = %+v", it)
+		it, _ = find(r, convert.KindTrigger, "beta")
+		Expect(it.Reason).NotTo(ContainSubstring("renamed"), "item = %+v", it)
+		var names []string
+		for _, t := range tg.triggers[""] {
+			names = append(names, t.Name)
+		}
+		Expect(names).To(Equal([]string{"alpha", "alpha (2)", "beta"}))
+		run(src, tg, marks)
+		Expect(tg.triggers[""]).To(HaveLen(3), "a second run made more triggers: %+v", tg.triggers[""])
+	})
+
+	It("keeps a numbered trigger name within the length limit", func() {
+		dir := GinkgoT().TempDir()
+		long := strings.Repeat("n", 80)
+		write(filepath.Join(dir, "agent_tasks.json"), mustJSON(map[string]any{"tasks": []any{
+			map[string]any{"id": "a", "name": long, "model": "m", "prompt": "p", "cron": "0 8 * * *"},
+		}}))
+		tg := newTargets()
+		tg.triggers[""] = []convert.TriggerIn{{Name: long}}
+		run(convert.Sources{StateDir: dir, DataDir: dir}, tg, memMarks())
+		Expect(tg.triggers[""]).To(HaveLen(2))
+		got := tg.triggers[""][1].Name
+		Expect(len([]rune(got))).To(BeNumerically("<=", 80), "name = %q", got)
+		Expect(got).To(HaveSuffix(" (2)"))
+	})
+
 	It("reports a failure as new only the first time it has that reason", func() {
 		dir := GinkgoT().TempDir()
 		poolFixture(dir)
@@ -173,6 +226,7 @@ var _ = Describe("conversion fixes", func() {
 		Expect(tg.agents[alice]).To(HaveLen(1), "agents %+v", tg.agents[alice])
 		Expect(tg.agents[alice][0].Name).To(Equal("Null"))
 		Expect(tg.triggers[alice]).To(BeEmpty())
+		Expect(tg.bindings[alice]).To(BeEmpty(), "a deleted agent got a Telegram binding")
 	})
 
 	It("makes a malformed source a failed item and still runs the other steps", func() {
