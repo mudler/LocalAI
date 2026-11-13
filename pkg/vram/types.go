@@ -23,6 +23,8 @@ type GGUFMeta struct {
 	HeadCount            uint32
 	HeadCountKV          uint32
 	MaximumContextLength uint64
+	// ExpertCount is <arch>.expert_count, zero for a dense model.
+	ExpertCount uint32
 }
 
 // GGUFMetadataReader reads GGUF metadata from a URI (e.g. via HTTP Range).
@@ -63,6 +65,7 @@ type MultiContextEstimate struct {
 	SizeDisplay     string            `json:"sizeDisplay"`
 	Estimates       map[string]VRAMAt `json:"estimates"`                // keys: context size as string
 	ModelMaxContext uint64            `json:"modelMaxContext,omitempty"` // from GGUF metadata
+	ExpertCount     uint32            `json:"expertCount,omitempty"`     // from GGUF metadata; zero for a dense model
 }
 
 // VRAMForContext is a convenience method that returns the VRAMBytes for a

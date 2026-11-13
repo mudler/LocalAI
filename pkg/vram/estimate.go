@@ -164,6 +164,9 @@ func EstimateMultiContext(ctx context.Context, files []FileInput, contextSizes [
 	if p.meta != nil && p.meta.MaximumContextLength > 0 {
 		result.ModelMaxContext = p.meta.MaximumContextLength
 	}
+	if p.meta != nil {
+		result.ExpertCount = p.meta.ExpertCount
+	}
 
 	return result, nil
 }

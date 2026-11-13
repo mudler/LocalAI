@@ -130,6 +130,20 @@ var _ = Describe("EstimateMultiContext", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.ModelMaxContext).To(Equal(uint64(131072)))
 		})
+
+		It("populates ExpertCount from GGUF metadata and leaves it zero for a dense model", func() {
+			files := []FileInput{{URI: "http://a/model.gguf", Size: 8_000_000_000}}
+
+			moe := fakeGGUFReader{"http://a/model.gguf": &GGUFMeta{BlockCount: 32, EmbeddingLength: 4096, ExpertCount: 64}}
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, moe)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.ExpertCount).To(Equal(uint32(64)))
+
+			dense := fakeGGUFReader{"http://a/model.gguf": &GGUFMeta{BlockCount: 32, EmbeddingLength: 4096}}
+			res, err = EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, dense)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.ExpertCount).To(BeZero())
+		})
 	})
 
 	Describe("multi-context behavior", func() {

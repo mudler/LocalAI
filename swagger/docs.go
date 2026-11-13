@@ -22062,6 +22062,10 @@ const docTemplate = `{
                 "context_note": {
                     "type": "string"
                 },
+                "expert_count": {
+                    "description": "ExpertCount is the number of experts of a mixture-of-experts model, read\nfrom the GGUF metadata. Absent for a dense model or when it is unknown.",
+                    "type": "integer"
+                },
                 "model_max_context": {
                     "type": "integer"
                 },

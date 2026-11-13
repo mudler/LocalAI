@@ -31,6 +31,15 @@ var _ = Describe("DefaultGGUFReader", func() {
 		}))
 	})
 
+	It("reads the expert count of a mixture-of-experts model", func() {
+		server := serveGGUF(moeRemoteGGUF())
+
+		meta, err := vram.DefaultGGUFReader().ReadMetadata(context.Background(), server.URL+"/model.gguf")
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(meta.ExpertCount).To(Equal(uint32(128)))
+	})
+
 	It("rejects an overflowing tokenizer array without allocating it", func() {
 		server := serveGGUF(malformedGGUFArray(math.MaxUint64))
 
@@ -85,6 +94,18 @@ func validRemoteGGUF() []byte {
 	payload = appendGGUFUint32(payload, "llama.attention.head_count", 32)
 	payload = appendGGUFUint32(payload, "llama.attention.head_count_kv", 8)
 	payload = appendGGUFUint32(payload, "llama.context_length", 8192)
+	return payload
+}
+
+func moeRemoteGGUF() []byte {
+	payload := ggufHeader(7)
+	payload = appendGGUFStringValue(payload, "general.architecture", "qwen3moe")
+	payload = appendGGUFUint32(payload, "qwen3moe.block_count", 48)
+	payload = appendGGUFUint32(payload, "qwen3moe.embedding_length", 2048)
+	payload = appendGGUFUint32(payload, "qwen3moe.attention.head_count", 32)
+	payload = appendGGUFUint32(payload, "qwen3moe.attention.head_count_kv", 4)
+	payload = appendGGUFUint32(payload, "qwen3moe.context_length", 8192)
+	payload = appendGGUFUint32(payload, "qwen3moe.expert_count", 128)
 	return payload
 }
 

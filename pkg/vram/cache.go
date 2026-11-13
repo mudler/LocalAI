@@ -15,7 +15,7 @@ import (
 )
 
 const persistentCacheEntryLimit = 4096
-const persistentCacheVersion = 1
+const persistentCacheVersion = 2
 
 var defaultPersistentGuard = &persistentGenerationGuard{}
 var defaultCacheMu sync.RWMutex
