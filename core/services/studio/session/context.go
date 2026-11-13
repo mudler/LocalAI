@@ -114,6 +114,7 @@ func (c *Chat) Compact(ctx context.Context) (before, after int, err error) {
 	if err := c.persist(ctx); err != nil {
 		return before, after, err
 	}
+	c.forgetFiles() // the summary may have dropped the list of files
 	c.appendEntry(ctx, Entry{Turn: turn, Role: RoleCompacted, Text: CompactedText(before, after)})
 	c.emit(Event{Kind: KindCompacted, Turn: turn, Before: before, After: after})
 	return before, after, nil

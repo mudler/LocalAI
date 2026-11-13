@@ -320,13 +320,12 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
 	}
-	// The files go last: the prompt is cut at its end, and a block that
-	// changes between turns leaves the start of the prompt as it was.
-	if fp := s.filesPrompt(ctx, x); fp != "" {
-		if !canRead {
-			fp += "\n" + filesNote
-		}
-		prompt = strings.TrimSpace(prompt + "\n\n" + fp)
+	// The files change at most turns that write one, so they are not in the
+	// prompt: a changed prompt makes the server read the whole conversation
+	// again. The session gives the list with the message when it changed.
+	fp := s.filesPrompt(ctx, x)
+	if fp != "" && !canRead {
+		fp += "\n" + filesNote
 	}
 	// A conversation names its own work folder (the session takes the folder
 	// name); a sub-agent saves in its parent's files, so it names the parent's.
@@ -344,7 +343,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The action policy of a run that nobody watches: the tools that change
 	// files or run commands on this machine are checked at each call.
 	tools = s.gateBuiltinActs(ctx, rec, tools)
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, Context: turnContext, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, Context: turnContext, Files: fp, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
 }
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets

@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -166,6 +167,14 @@ type Chat struct {
 
 	// turnBlock is the TurnTools.Context of the turn that runs. hostMu guards it.
 	turnBlock string
+	// releasedState is the hash of the harness state the chat held when it
+	// released it. mu guards it.
+	releasedState [sha256.Size]byte
+	// filesSeen is the TurnTools.Files the model read last, in front of a
+	// message. It is empty when the model's context holds no list: a new
+	// harness that started without its saved history, a compaction or a
+	// clear. hostMu guards it.
+	filesSeen string
 	// hostMu guards host, the host-side tools of the chat (see applyChatTools).
 	hostMu sync.Mutex
 	host   hostTools
@@ -409,6 +418,8 @@ func (c *Chat) startHarnessWith(ctx context.Context, prime bool) error {
 		}
 	}
 	if hs == nil {
+		// The new session has no history that names the files.
+		c.forgetFiles()
 		if sum := c.summary(ctx); sum != "" {
 			env.SystemPrompt += "\n\nThe conversation so far, from the transcript:\n" + sum
 		}
@@ -464,8 +475,14 @@ func (c *Chat) reopen(ctx context.Context) error {
 		}
 		// The whole record: another frontend may have run turns since.
 		c.mu.Lock()
+		// Another writer replaced the history (an edit, a clear, a turn on
+		// another frontend): it may not hold the list of files the model read.
+		replaced := sha256.Sum256(rec.HarnessState) != c.releasedState
 		c.rec, c.released, c.turn = rec, false, rec.Turns
 		c.mu.Unlock()
+		if replaced {
+			c.forgetFiles()
+		}
 	}
 	// A chat that ran a turn holds the host tools of that turn. Its next turn
 	// asks the hook again before the model runs, so the open does not wait on
@@ -538,6 +555,8 @@ func (c *Chat) onHarnessEvent(e Event) {
 	case KindCompacted:
 		// Only the token counts travel; the transcript keeps every message.
 		e.Text, e.Tool = "", nil
+		// The summary may have dropped the list of files.
+		c.forgetFiles()
 	case KindPaused:
 		// Only the step limit travels.
 		e.Text, e.Tool, e.Before, e.After = "", nil, 0, 0
@@ -1556,6 +1575,7 @@ func (c *Chat) releaseMemory(ctx context.Context) {
 		return
 	}
 	c.mu.Lock()
+	c.releasedState = sha256.Sum256(c.rec.HarnessState)
 	c.rec.HarnessState, c.released = nil, true
 	c.mu.Unlock()
 	c.evMu.Lock()

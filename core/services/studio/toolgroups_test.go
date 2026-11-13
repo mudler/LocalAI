@@ -115,8 +115,10 @@ var _ = Describe("the switchable groups of built-in tools", func() {
 		Expect(prompt).NotTo(ContainSubstring("same files as the file tools"))
 		Expect(prompt).NotTo(ContainSubstring("Skills you write yourself"), "nothing can save a skill")
 		Expect(prompt).NotTo(ContainSubstring("Working files:"), "nothing can save in a work folder")
-		Expect(prompt).To(ContainSubstring("notes.txt"), "the chat still lists its files")
-		Expect(prompt).To(ContainSubstring("file tools are switched off for this chat"))
+		// The list of files reaches the model with the message (see
+		// chatfiles_prefix_test.go).
+		Expect(lastSent(h, id)).To(ContainSubstring("notes.txt"), "the chat still lists its files")
+		Expect(lastSent(h, id)).To(ContainSubstring("file tools are switched off for this chat"))
 		Expect(prompt).To(ContainSubstring("load_skill"), "the skills stay loadable")
 		Expect(h.ToolNames(id)).To(ContainElement("load_skill"))
 	})

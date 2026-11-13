@@ -31,6 +31,15 @@ func newFilesChat() (*studio.Service, *studiotest.ToolHarness) {
 	})
 }
 
+// lastSent is the last message the model of chat id was given.
+func lastSent(h *studiotest.ToolHarness, id string) string {
+	msgs := h.SentRaw(id)
+	if len(msgs) == 0 {
+		return ""
+	}
+	return msgs[len(msgs)-1]
+}
+
 func chatFiles(svc *studio.Service, user, id string) map[string]studio.ChatFile {
 	cf, err := svc.ChatFiles(context.Background(), user, id)
 	Expect(err).NotTo(HaveOccurred())
@@ -81,9 +90,11 @@ var _ = Describe("chatfiles", func() {
 		f = files["data.csv"]
 		Expect(f.Origin).To(Equal(session.FileFromUser), "data.csv = %+v, want an upload that is not media", f)
 		Expect(f.Media).To(BeFalse(), "data.csv = %+v, want an upload that is not media", f)
-		prompt := h.TurnPrompt(id)
-		Expect(prompt).To(ContainSubstring("Files in this conversation"), "the turn prompt does not list the uploads:\n%s", prompt)
-		Expect(prompt).To(ContainSubstring("\n- data.csv (8 B, text/csv) uploaded by the user, turn 1"), "the turn prompt does not list the uploads:\n%s", prompt)
+		// The list reaches the model with the message, not in the prompt (see
+		// chatfiles_prefix_test.go).
+		prompt := lastSent(h, id)
+		Expect(prompt).To(ContainSubstring("Files in this conversation"), "the message does not list the uploads:\n%s", prompt)
+		Expect(prompt).To(ContainSubstring("\n- data.csv (8 B, text/csv) uploaded by the user, turn 1"), "the message does not list the uploads:\n%s", prompt)
 
 		sent(svc, alice, id, "write")
 		waitKind(evs, session.KindFiles)
@@ -95,7 +106,7 @@ var _ = Describe("chatfiles", func() {
 		Expect(f.GuestPath).To(Equal("/workspace/home/notes/out.md"), "out.md = %+v, want a file created by a tool", f)
 		sent(svc, alice, id, "again")
 		idle(svc, alice, id)
-		Expect(h.TurnPrompt(id)).To(ContainSubstring("/workspace/home/notes/\n- out.md (5 B, text/markdown) created by you"))
+		Expect(lastSent(h, id)).To(ContainSubstring("/workspace/home/notes/\n- out.md (5 B, text/markdown) created by you"))
 
 		_, err = svc.ChatFiles(ctx, "bob", id)
 		Expect(err).To(MatchError(session.ErrNotFound), "bob lists alice's chat files: %v", err)
@@ -122,7 +133,7 @@ var _ = Describe("chatfiles", func() {
 		Expect(cur).To(ContainSubstring("quarterly-numbers/a.txt"), "path after the rename = %q (was %q)", cur, old)
 		sent(svc, alice, id, "next")
 		idle(svc, alice, id)
-		p := h.TurnPrompt(id)
+		p := lastSent(h, id)
 		Expect(p).To(ContainSubstring(strings.TrimSuffix(cur, "a.txt")+"\n- a.txt ("), "the prompt after the rename lacks the new path or the note:\n%s", p)
 		Expect(p).To(ContainSubstring("was renamed to"), "the prompt after the rename lacks the new path or the note:\n%s", p)
 	})
@@ -134,6 +145,7 @@ var _ = Describe("chatfiles", func() {
 		idle(svc, alice, id)
 		Expect(chatFiles(svc, alice, id)).To(BeEmpty())
 		Expect(h.TurnPrompt(id)).NotTo(ContainSubstring("Files in this conversation"))
+		Expect(strings.Join(h.SentRaw(id), "\n")).NotTo(ContainSubstring("Files in this conversation"))
 	})
 
 	It("a fork lists the files its messages attached", func() {

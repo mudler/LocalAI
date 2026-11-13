@@ -847,8 +847,11 @@ over 100 MB and more than 128 MB of media in one message stay files only.
 ## The files of a chat
 
 Each chat lists the files that belong to it: the files you attached, the files
-the model created, and the files it changed. The model gets the same list at
-every turn, so it knows which files exist and where they are now.
+the model created, and the files it changed. The model gets the list in front
+of your message whenever it changed since the model last read it, so it knows
+which files exist and where they are now. The list is not in the system
+prompt: it changes at most turns that write a file, and a changed system
+prompt makes a backend with a prompt cache read the whole conversation again.
 
 - **Where attachments live.** In the chat's own folder in your files:
   `/Chats/<date>-<title slug>/<name>`, for example

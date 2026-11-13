@@ -309,7 +309,21 @@ var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/";
 // withoutHostNotes removes the sentences of the note that the host adds on
 // its own (withoutDeniedNote, withoutWorkFolderNote).
 func withoutHostNotes(text string) string {
-	return withoutWorkFolderNote(withoutDeniedNote(withoutAbsentNote(text)))
+	return withoutWorkFolderNote(withoutDeniedNote(withoutAbsentNote(withoutFilesBlock(text))))
+}
+
+// withoutFilesBlock removes the list of the chat's files that a message
+// carries when the list changed (session.FilesOpen).
+func withoutFilesBlock(text string) string {
+	a := strings.Index(text, session.FilesOpen)
+	if a < 0 {
+		return text
+	}
+	b := strings.Index(text[a:], session.FilesClose)
+	if b < 0 {
+		return text
+	}
+	return text[:a] + strings.TrimPrefix(text[a+b+len(session.FilesClose):], "\n\n")
 }
 
 // AbsentNoteStart and AbsentNoteEnd bound the sentence that tells the model a
