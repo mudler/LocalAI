@@ -255,20 +255,34 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 	var err error
 	var modelConfig gallery.ModelConfig
 
-	hf := hfapi.NewClient()
-
-	hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
-	hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
-	hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
-
-	hfDetails, err := hf.GetModelDetails(hfrepoID)
-	if err != nil {
-		// maybe not a HF repository
-		// TODO: maybe we can check if the URI is a valid HF repository
-		xlog.Debug("Failed to get model details, maybe not a HF repository", "uri", uri, "hfrepoID", hfrepoID)
+	var hfDetails *hfapi.ModelDetails
+	if ref, ok := pirateFaceImportRef(uri); ok {
+		// A Pirate Face page URL or pirateface:// shorthand. The index lists
+		// the files; the config downloads them over BitTorrent.
+		if ref.Path == "" {
+			uri = string(ref.URI())
+		}
+		hfDetails, err = pirateFaceModelDetails(ref)
+		if err != nil {
+			xlog.Debug("Failed to list Pirate Face model", "uri", uri, "error", err)
+			hfDetails = nil
+		}
 	} else {
-		xlog.Debug("Got model details", "uri", uri)
-		xlog.Debug("Model details", "details", hfDetails)
+		hf := hfapi.NewClient()
+
+		hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
+		hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
+		hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
+
+		hfDetails, err = hf.GetModelDetails(hfrepoID)
+		if err != nil {
+			// maybe not a HF repository
+			// TODO: maybe we can check if the URI is a valid HF repository
+			xlog.Debug("Failed to get model details, maybe not a HF repository", "uri", uri, "hfrepoID", hfrepoID)
+		} else {
+			xlog.Debug("Got model details", "uri", uri)
+			xlog.Debug("Model details", "details", hfDetails)
+		}
 	}
 
 	// handle local config files ("/my-model.yaml" or "file://my-model.yaml")

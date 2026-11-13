@@ -73,6 +73,8 @@ type RunCMD struct {
 	addonHostOpsFlagPresent    bool
 	addonHostPolicyFlagPresent bool
 
+	TorrentFlags `embed:""`
+
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	Color     string   `env:"COLOR" hidden:""`
 	NoColor   string   `env:"NO_COLOR" hidden:""`
@@ -333,6 +335,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	r.RemovedAssistantOptions.warn()
 	r.resolveLegacyCollections()
 	r.normalizeDataPath()
+	if err := r.TorrentFlags.Apply(); err != nil {
+		return err
+	}
 
 	if r.Version {
 		fmt.Println(internal.Version)

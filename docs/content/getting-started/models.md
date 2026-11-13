@@ -220,6 +220,7 @@ To run models via URI, specify a URI to a model file or a configuration file whe
 - `file://path/to/model` (absolute path to a file within your models directory)
 - `huggingface://repository_id/model_file` (e.g., `huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf`)
 - From OCIs: `oci://container_image:tag`, `ollama://model_id:tag`
+- Over BitTorrent: `pirateface://owner/repo[/file]`, a `magnet:` link, or a `.torrent` file (see [Download over BitTorrent](#download-over-bittorrent))
 - From configuration files: `https://gist.githubusercontent.com/.../phi-2.yaml`
 
 {{% notice note %}}
@@ -235,7 +236,48 @@ local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 local-ai run ollama://gemma:2b
 local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
 local-ai run oci://localai/phi-2:latest
+local-ai run pirateface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 ```
+
+### Download over BitTorrent
+
+LocalAI can download a model file with BitTorrent. The same URIs work wherever `huggingface://` works: on the command line, in the `uri` of a `files:` entry, in a gallery entry, and in the import form.
+
+| URI | Meaning |
+|---|---|
+| `pirateface://<owner>/<repo>/<file>` | One file of a model that [Pirate Face](https://pirateface.co) lists. LocalAI asks the Pirate Face index for the magnet link, the `.torrent` file and the file's SHA-256. |
+| `pirateface://<owner>/<repo>` | A whole model. Only the import form and `local-ai run` accept it, because they choose the files to install. |
+| `https://pirateface.co/<owner>/<repo>` | The model page. Paste it in the import form, or give it to `local-ai run`: LocalAI lists the files and imports the model like a Hugging Face repository. |
+| `magnet:?xt=urn:btih:...` | Any magnet link. It does not need a tracker or a web seed. |
+| `https://.../model.torrent`, `/path/model.torrent`, `file:///path/model.torrent` | A `.torrent` file. |
+
+Pirate Face is an index. It does not host files: the files come from BitTorrent peers and from a web seed that Pirate Face runs in front of Hugging Face. A model with a licence gate shows no magnet link until you accept its terms on the Pirate Face site, and LocalAI does not go around that.
+
+**Choose a file in a torrent with several files.** One URI downloads one file. Add `#<path in the torrent>` to a magnet link or `.torrent` URI, or write one `files:` entry per file:
+
+```yaml
+files:
+  - filename: llama-cpp/models/m/model-Q4_K_M.gguf
+    uri: "magnet:?xt=urn:btih:3accbbbe7e0070616755f5f7f4aadc3bbc4db813&tr=...#model-Q4_K_M.gguf"
+    sha256: 2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d
+```
+
+If you give no selector, LocalAI uses the only file of a single-file torrent. Otherwise it looks for the `filename` of the entry in the torrent, by path and then by base name, and stops with an error that lists the files when it cannot decide. A BEP 53 `so=` parameter that names one file also works. LocalAI downloads only the chosen file and refuses a torrent whose file names would leave the target directory.
+
+**Integrity.** The BitTorrent piece hashes always protect the transfer. For a `pirateface://` URI, LocalAI also checks the SHA-256 from the index. For any other magnet or `.torrent`, add `sha256:` to the `files:` entry. Without it, only the piece hashes vouch for the file, and a warning goes to the log.
+
+**Network behaviour.** Downloads use BitTorrent web seeds and peers at the same time. The web seed starts at once; peers join when found. By default LocalAI opens no port for the network: it accepts no incoming peer connection, uses no DHT, and asks no router to forward a port. It stops sharing when the file is complete.
+
+| Flag | Environment variable | Default | Effect |
+|---|---|---|---|
+| `--torrent-mode` | `LOCALAI_TORRENT_MODE` | `swarm` | `swarm`: web seeds and peers. `webseed`: web seeds only. Opens no socket and contacts no tracker or peer, so it behaves like an HTTP download that checks the torrent's piece hashes. |
+| `--torrent-listen-port` | `LOCALAI_TORRENT_LISTEN_PORT` | `0` | A port above 0 listens on all interfaces and lets LocalAI ask the router (UPnP, NAT-PMP) to forward it. |
+| `--torrent-dht` | `LOCALAI_TORRENT_DHT` | off | Find peers with the DHT. This opens a UDP socket. Use it for magnet links that name no tracker. |
+| `--torrent-metadata-timeout` | `LOCALAI_TORRENT_METADATA_TIMEOUT` | `90s` | How long to wait for peers to send the file list of a magnet link that has no `.torrent` file. The error says that no peers were found. |
+| `--torrent-fallback` | `LOCALAI_TORRENT_FALLBACK` | on | If a Pirate Face download fails over BitTorrent, download the same file from Hugging Face, at the revision Pirate Face lists. |
+| `--pirateface-url` | `LOCALAI_PIRATEFACE_URL` | `https://pirateface.co` | The index to ask. |
+
+A magnet link or `.torrent` file that does not come from Pirate Face has no Hugging Face file behind it, so there is no fallback: if no peer answers, the download fails. A magnet link with no `.torrent` file needs `swarm` mode, because only peers can send the file list. Downloads resume: LocalAI keeps the `.partial` file and checks again which pieces it already has.
 
 ## Method 4: Manual Installation
 
