@@ -119,7 +119,7 @@ var _ = Describe("chatfiles", func() {
 		waitKind(evs, session.KindFiles)
 		cur := chatFiles(svc, alice, id)["a.txt"].GuestPath
 		Expect(cur).NotTo(Equal(old), "path after the rename = %q (was %q)", cur, old)
-		Expect(cur).To(ContainSubstring("Quarterly numbers/a.txt"), "path after the rename = %q (was %q)", cur, old)
+		Expect(cur).To(ContainSubstring("quarterly-numbers/a.txt"), "path after the rename = %q (was %q)", cur, old)
 		sent(svc, alice, id, "next")
 		idle(svc, alice, id)
 		p := h.TurnPrompt(id)

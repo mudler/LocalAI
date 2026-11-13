@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -162,6 +163,7 @@ var _ = Describe("the work folder of a chat", func() {
 				Expect(a.Folder).NotTo(BeEmpty())
 				Expect(b.Folder).NotTo(BeEmpty())
 				Expect(strings.EqualFold(a.Folder, b.Folder)).To(BeFalse(), "both chats hold %q", a.Folder)
+				Expect(b.Folder).To(Equal(a.Folder+"-2"), "the second chat gets a dash and a number, not a space")
 			})
 
 			It("renames a folder name that has no folder yet", func() {
@@ -172,11 +174,29 @@ var _ = Describe("the work folder of a chat", func() {
 				Expect(c.SetTitle(ctx, "Second title")).To(Succeed())
 				rec, err := r.store.GetChat(ctx, "alice", "c1")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(rec.Folder).To(HaveSuffix("Second title"))
+				Expect(rec.Folder).To(HaveSuffix("-second-title"))
 				starts := len(r.h.Starts())
 				turn(c, session.Message{Text: "again"})
 				Expect(r.lastSent()).To(ContainSubstring(workfiles.Note(workfiles.GuestFolder(rec.Folder))))
 				Expect(r.h.Starts()).To(HaveLen(starts), "the new folder name restarted the harness")
+			})
+
+			It("keeps a folder made in the old style when the title changes", func() {
+				ctx := context.Background()
+				r := newWorkRig(withHome(mk(), "alice"))
+				old := "2026-10-18 Old title"
+				Expect(r.store.CreateChat(ctx, session.ChatRecord{ID: "c1", Principal: "alice", Title: "Old title", Folder: old,
+					Created: time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC), Updated: time.Now()})).To(Succeed())
+				user := workspace.Actor{Principal: "alice"}
+				Expect(r.ws.Mkdir(ctx, user, session.ChatsPath("alice")+"/"+old)).Error().NotTo(HaveOccurred())
+				c := r.open("alice", "c1")
+				Expect(c.SetTitle(ctx, "New title")).To(Succeed())
+				rec, err := r.store.GetChat(ctx, "alice", "c1")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rec.Title).To(Equal("New title"))
+				Expect(rec.Folder).To(Equal(old), "a folder in the old style was renamed")
+				_, err = r.ws.Stat(ctx, user, session.ChatsPath("alice")+"/"+old)
+				Expect(err).NotTo(HaveOccurred(), "the old folder is gone")
 			})
 
 			It("gives chats with different titles the same prompt and names each folder in its note", func() {

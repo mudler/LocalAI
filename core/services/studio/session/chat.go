@@ -1256,7 +1256,7 @@ func (c *Chat) reserveFolder(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	name, err := uniqueName(FolderName(rec.Created, rec.Title), taken)
+	name, err := uniqueName(FolderName(rec.Created, rec.Title), "-", taken)
 	if err != nil {
 		return "", err
 	}
@@ -1402,7 +1402,10 @@ func (c *Chat) SetTitle(ctx context.Context, title string) error {
 	c.mu.Lock()
 	old, created := c.rec.Folder, c.rec.Created
 	c.mu.Unlock()
-	if base := FolderName(created, title); old != "" && !strings.EqualFold(base, old) {
+	// A folder made before the ASCII form keeps its name: renaming it would
+	// move files that a chat, a trigger or the user may name by path. Only a
+	// folder in the new form follows the title.
+	if base := FolderName(created, title); old != "" && isSlugFolder(old) && !strings.EqualFold(base, old) {
 		if err := c.renameFolder(ctx, old, base); err != nil {
 			return err
 		}
@@ -1438,7 +1441,7 @@ func (c *Chat) renameFolder(ctx context.Context, old, base string) error {
 	taken, err := c.folderTaken(ctx, old)
 	var name string
 	if err == nil {
-		name, err = uniqueName(base, taken)
+		name, err = uniqueName(base, "-", taken)
 	}
 	if err == nil && name != old {
 		_, err = c.m.o.Workspace.Move(ctx, user, chats+"/"+old, chats+"/"+name)
