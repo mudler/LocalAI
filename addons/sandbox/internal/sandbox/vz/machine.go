@@ -15,6 +15,9 @@ type machine interface {
 	// Listen calls accept for each connection that the guest opens to a host
 	// port. accept must not block.
 	Listen(port uint32, accept func(net.Conn)) error
+	// Unlisten removes the listener of a port. The machine then refuses new
+	// connections to it. It must not be called from accept.
+	Unlisten(port uint32)
 	// Dial opens a connection to a port that the guest listens on.
 	Dial(ctx context.Context, port uint32) (net.Conn, error)
 	// Done is closed when the machine has stopped.

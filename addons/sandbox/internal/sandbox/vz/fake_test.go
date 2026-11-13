@@ -41,6 +41,33 @@ func (m *fakeMachine) Listen(port uint32, accept func(net.Conn)) error {
 	return nil
 }
 
+func (m *fakeMachine) Unlisten(port uint32) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.listeners, port)
+}
+
+// connect opens a guest connection to a host port, like a guest process does.
+// It returns false when nothing listens there: the framework refuses it.
+func (m *fakeMachine) connect(port uint32) (net.Conn, bool) {
+	m.mu.Lock()
+	accept := m.listeners[port]
+	m.mu.Unlock()
+	if accept == nil {
+		return nil, false
+	}
+	host, guest := net.Pipe()
+	accept(host)
+	return guest, true
+}
+
+// listening reports whether a listener exists for a port.
+func (m *fakeMachine) listening(port uint32) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.listeners[port] != nil
+}
+
 func (m *fakeMachine) Start(ctx context.Context) error {
 	if m.fail != nil {
 		return m.fail

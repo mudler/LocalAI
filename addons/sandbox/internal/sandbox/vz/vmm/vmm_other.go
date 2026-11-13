@@ -49,6 +49,9 @@ func (*VM) Start(context.Context) error { return ErrUnsupported }
 // Listen always fails on this system.
 func (*VM) Listen(uint32, func(net.Conn)) error { return ErrUnsupported }
 
+// Unlisten does nothing on this system.
+func (*VM) Unlisten(uint32) {}
+
 // Dial always fails on this system.
 func (*VM) Dial(context.Context, uint32) (net.Conn, error) { return nil, ErrUnsupported }
 

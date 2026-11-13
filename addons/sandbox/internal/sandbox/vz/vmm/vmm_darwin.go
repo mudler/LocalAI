@@ -48,6 +48,9 @@ type VM struct {
 	// keep holds the Objective-C objects that the framework uses but does not
 	// retain on our behalf (listeners and delegates).
 	keep []any
+	// listeners holds the objects of each listener, so that Unlisten can
+	// release them.
+	listeners map[uint32][]any
 }
 
 // Check reports why this host cannot run a VM, or nil. It fails when the
@@ -296,9 +299,30 @@ func (v *VM) Listen(port uint32, accept func(net.Conn)) error {
 		l := virtualization.NewVZVirtioSocketListener()
 		l.SetDelegate(d)
 		v.sock.SetSocketListenerForPort(l, port)
-		v.keep = append(v.keep, l, d)
+		v.mu.Lock()
+		if v.listeners == nil {
+			v.listeners = map[uint32][]any{}
+		}
+		v.listeners[port] = []any{l, d}
+		v.mu.Unlock()
 	})
 	return nil
+}
+
+// Unlisten removes the listener of a port. The framework refuses every new
+// connection of the guest to it. Connections that Listen already handed out
+// stay open. Dial is not affected: it opens connections to the guest.
+// Unlisten must not be called from accept, which runs on the queue of the VM.
+func (v *VM) Unlisten(port uint32) {
+	v.onQueue(func() {
+		v.mu.Lock()
+		_, ok := v.listeners[port]
+		delete(v.listeners, port)
+		v.mu.Unlock()
+		if ok {
+			v.sock.RemoveSocketListenerForPort(port)
+		}
+	})
 }
 
 // Dial opens a connection to a port that the guest listens on. It returns an

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -125,10 +126,22 @@ func (s *sbx) boot(ctx context.Context) error {
 	v := &vmHandle{b: s.b, m: m}
 	timeout := s.b.opts.ReadyTimeout
 	ready := make(chan error, 1)
+	// The listener is one-shot, as in the Cloud Hypervisor backend: the
+	// first connection is the ready frame, and the listener goes as soon as
+	// it is read. Any other connection that arrives meanwhile is closed
+	// without a goroutine, so a guest process cannot pile up connections.
+	var taken atomic.Bool
 	err = m.Listen(guestagent.AgentPort, func(c net.Conn) {
+		if !taken.CompareAndSwap(false, true) {
+			_ = c.Close()
+			return
+		}
 		go func() {
 			defer func() { _ = c.Close() }()
 			_, err := guestagent.ReadReady(c, timeout)
+			// Unlisten waits for the queue of the VM, so it cannot run in
+			// accept itself.
+			m.Unlisten(guestagent.AgentPort)
 			select {
 			case ready <- err:
 			default:
