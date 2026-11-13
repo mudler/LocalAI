@@ -184,6 +184,22 @@ var _ = Describe("install-time host operation grants in the manager", func() {
 		Expect(ok).To(BeFalse())
 	})
 
+	It("installs a manifest that requests the client job operations once they are approved", func() {
+		ops := []string{"client.jobs.cancel", "client.jobs.get", "client.jobs.start"}
+		r := newUpdateRig(false)
+		g := newGrantSim(r.m)
+		rel := publish(r, ops, nil, "a")
+		_, e := install(r, "i1", nil)
+		var refusal *HostRequirementsRefusal
+		Expect(errors.As(e, &refusal)).To(BeTrue())
+		Expect(refusal.Blocked()).To(BeFalse(), "approval is required, the operations are not unsupported")
+		Expect(failureOf(r, "i1")).To(Equal("approval_required"))
+
+		_, e = install(r, "i2", &HostApproval{Digest: rel.Digest, Ops: ops})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(g.stagedOps("i2")).To(Equal(ops))
+	})
+
 	It("never admits another package with the approval of one digest", func() {
 		r := newUpdateRig(false)
 		g := newGrantSim(r.m)

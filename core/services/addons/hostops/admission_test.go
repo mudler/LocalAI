@@ -22,6 +22,8 @@ func (admissionInbox) Ingest(context.Context, string, contract.ConnectorInbound)
 	panic("admission parity must not invoke handlers")
 }
 
+type admissionClientJobs struct{ ClientJobHost }
+
 func registeredBuiltinOperations() []string {
 	b := New(NewInFlight(), nil, contract.DefaultLimits())
 	Expect(RegisterEngineJobs(b, &fakeFT{}, &fakeQ{}, backends{})).To(Succeed())
@@ -38,6 +40,7 @@ func registeredBuiltinOperations() []string {
 	Expect(RegisterEgress(b, &fakeEgress{})).To(Succeed())
 	Expect(RegisterConnector(b, admissionInbox{})).To(Succeed())
 	Expect(RegisterConnectorTransfer(b, NewTransfers(nil))).To(Succeed())
+	Expect(RegisterClientJobs(b, admissionClientJobs{})).To(Succeed())
 	// Each registration error is checked above, so a duplicate cannot be hidden
 	// by the broker's map. Ops includes dynamic progress/stop and inbound specs.
 	return b.Ops()
@@ -57,6 +60,13 @@ var _ = Describe("Host operation request admission", func() {
 			}
 		}
 		Expect(supported).To(ConsistOf(registered), "startup admission must match the case-sensitive runtime registry")
+	})
+	It("lists the client job operations as supported, so a manifest that requests them is admitted", func() {
+		ops := []string{"client.jobs.start", "client.jobs.get", "client.jobs.cancel"}
+		Expect(SupportedOperations()).To(ContainElements(ops))
+		s := Requests(&contract.HostOperations{Required: ops}, SupportedOperations(), nil)
+		Expect(s.MissingRequired).To(ConsistOf(ops), "requested and supported, not yet granted")
+		Expect(Requests(&contract.HostOperations{Required: ops}, SupportedOperations(), []string{"client.jobs."}).Granted).To(ConsistOf(ops))
 	})
 	It("detects missing extra duplicate and case-changed operations with the parity oracle", func() {
 		registered := registeredBuiltinOperations()

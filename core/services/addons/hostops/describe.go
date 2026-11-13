@@ -38,6 +38,9 @@ var descriptions = map[string]description{
 	"connector.inbound":     {"Receive messages", "Let a connector hand incoming messages from outside to a chat.", RiskNetwork},
 	"connector.file.put":    {"Receive files", "Move files from a connector into chats.", RiskChangesData},
 	"connector.file.get":    {"Send files", "Move files from chats to a connector.", RiskChangesData},
+	"client.jobs.start":     {"Start jobs for a client", "Start a saved task of the owner for a paired client.", RiskRunsJobs},
+	"client.jobs.get":       {"Read a client's job", "Read the state and result of a job that a paired client started.", RiskRead},
+	"client.jobs.cancel":    {"Cancel a client's job", "Cancel a job that a paired client started.", RiskRunsJobs},
 }
 
 // DescribeOperation gives the short title, one plain sentence and the risk word of a
