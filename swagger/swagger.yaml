@@ -3501,6 +3501,11 @@ definitions:
     type: object
   modeladmin.VRAMResponse:
     properties:
+      block_count:
+        description: |-
+          BlockCount is the number of layers of the model, read
+          from the GGUF metadata. Absent when it is unknown.
+        type: integer
       context_length:
         type: integer
       context_note:

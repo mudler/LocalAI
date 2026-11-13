@@ -65,6 +65,7 @@ type MultiContextEstimate struct {
 	SizeDisplay     string            `json:"sizeDisplay"`
 	Estimates       map[string]VRAMAt `json:"estimates"`                // keys: context size as string
 	ModelMaxContext uint64            `json:"modelMaxContext,omitempty"` // from GGUF metadata
+	BlockCount      uint32            `json:"blockCount,omitempty"`      // from GGUF metadata; the layer count
 	ExpertCount     uint32            `json:"expertCount,omitempty"`     // from GGUF metadata; zero for a dense model
 }
 

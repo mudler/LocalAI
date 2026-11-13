@@ -22056,6 +22056,10 @@ const docTemplate = `{
         "modeladmin.VRAMResponse": {
             "type": "object",
             "properties": {
+                "block_count": {
+                    "description": "BlockCount is the number of layers of the model, read\nfrom the GGUF metadata. Absent when it is unknown.",
+                    "type": "integer"
+                },
                 "context_length": {
                     "type": "integer"
                 },

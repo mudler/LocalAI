@@ -144,6 +144,19 @@ var _ = Describe("EstimateMultiContext", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.ExpertCount).To(BeZero())
 		})
+
+		It("populates BlockCount from GGUF metadata and leaves it zero when there is no metadata", func() {
+			files := []FileInput{{URI: "http://a/model.gguf", Size: 8_000_000_000}}
+
+			withMeta := fakeGGUFReader{"http://a/model.gguf": &GGUFMeta{BlockCount: 32, EmbeddingLength: 4096}}
+			res, err := EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, withMeta)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.BlockCount).To(Equal(uint32(32)))
+
+			res, err = EstimateMultiContext(ctx, files, defaultCtx, EstimateOptions{}, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.BlockCount).To(BeZero())
+		})
 	})
 
 	Describe("multi-context behavior", func() {

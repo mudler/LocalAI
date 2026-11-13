@@ -40,6 +40,15 @@ var _ = Describe("DefaultGGUFReader", func() {
 		Expect(meta.ExpertCount).To(Equal(uint32(128)))
 	})
 
+	It("reads the layer count", func() {
+		server := serveGGUF(moeRemoteGGUF())
+
+		meta, err := vram.DefaultGGUFReader().ReadMetadata(context.Background(), server.URL+"/model.gguf")
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(meta.BlockCount).To(Equal(uint32(48)))
+	})
+
 	It("rejects an overflowing tokenizer array without allocating it", func() {
 		server := serveGGUF(malformedGGUFArray(math.MaxUint64))
 

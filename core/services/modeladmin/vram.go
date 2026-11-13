@@ -31,6 +31,9 @@ type VRAMResponse struct {
 	// ExpertCount is the number of experts of a mixture-of-experts model, read
 	// from the GGUF metadata. Absent for a dense model or when it is unknown.
 	ExpertCount uint32 `json:"expert_count,omitempty"`
+	// BlockCount is the number of layers of the model, read from the GGUF
+	// metadata. Absent when it is unknown.
+	BlockCount uint32 `json:"block_count,omitempty"`
 }
 
 // EstimateVRAM computes a VRAM estimate for an installed model. It mirrors
@@ -111,6 +114,7 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		},
 		ModelMaxContext: multi.ModelMaxContext,
 		ExpertCount:     multi.ExpertCount,
+		BlockCount:      multi.BlockCount,
 	}
 
 	if contextDefaulted && multi.ModelMaxContext > 0 {

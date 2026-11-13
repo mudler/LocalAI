@@ -166,6 +166,7 @@ func EstimateMultiContext(ctx context.Context, files []FileInput, contextSizes [
 	}
 	if p.meta != nil {
 		result.ExpertCount = p.meta.ExpertCount
+		result.BlockCount = p.meta.BlockCount
 	}
 
 	return result, nil
