@@ -46,17 +46,22 @@ type Backend struct {
 
 	liveMu sync.Mutex
 	live   map[*vmHandle]struct{} // the VMs that run now
+	closed bool                   // set by Close: no new VM starts
 }
 
 // Close releases the lock on StateDir, so that another New can use the folder.
 // It stops the VMs that the backend started, so that no VM runs without a
 // backend that watches it. The session folders stay: the next New on the same
 // StateDir removes them (the suspended ones too, unless KeepSuspended is
-// set). Close is safe to call twice.
+// set). After Close, Create and Resume return an error that wraps
+// sandbox.ErrUnsupported. Close is safe to call twice.
 func (b *Backend) Close() error {
 	if b == nil {
 		return nil
 	}
+	b.liveMu.Lock()
+	b.closed = true
+	b.liveMu.Unlock()
 	b.stopAll()
 	b.lockMu.Lock()
 	defer b.lockMu.Unlock()

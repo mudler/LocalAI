@@ -415,7 +415,7 @@ var _ = Describe("the backend over a fake machine", func() {
 	})
 
 	Describe("the owner process", func() {
-		It("removes the folders that an earlier process left", func() {
+		It("removes the folders that a closed backend left", func() {
 			f := &farm{}
 			b := testBackend(f, vmm.HostLimits{})
 			fx := newFixture(b, nil)
@@ -437,6 +437,29 @@ var _ = Describe("the backend over a fake machine", func() {
 			Expect(os.IsNotExist(err)).To(BeTrue())
 			// The handle of the old process reports gone.
 			_, _, err = running.Checkpoint(context.Background(), "x")
+			Expect(err).To(MatchError(sandbox.ErrGone))
+		})
+
+		// A crashed owner does not run Close: its VMs die with the process,
+		// and the kernel drops its lock. The test drops only the lock, so the
+		// old handles are still alive when the new backend starts.
+		It("removes the folders that a crashed owner left", func() {
+			f := &farm{}
+			b := testBackend(f, vmm.HostLimits{})
+			fx := newFixture(b, nil)
+			running := fx.create()
+			susp := fx.create()
+			ref, err := susp.Suspend(context.Background())
+			Expect(err).To(Succeed())
+			Expect(b.lock.Close()).To(Succeed())
+			b2, err := newBackend(Options{StateDir: b.opts.StateDir, CacheDir: b.opts.CacheDir}, f.make)
+			Expect(err).To(Succeed())
+			DeferCleanup(func() { _ = b2.Close() })
+			Expect(folders(b2)).To(BeEmpty(), "the sweep left a session folder")
+			_, _, err = running.Checkpoint(context.Background(), "x")
+			Expect(err).To(MatchError(sandbox.ErrGone))
+			// A snapshot that the sweep removed is gone, not a file error.
+			_, err = b2.Resume(context.Background(), ref, fx.spec.Env)
 			Expect(err).To(MatchError(sandbox.ErrGone))
 		})
 
@@ -479,6 +502,31 @@ var _ = Describe("the backend over a fake machine", func() {
 			for _, m := range f.machines {
 				Expect(m.done).To(BeClosed(), "a VM outlived its backend")
 			}
+		})
+
+		It("refuses Create and Resume after Close", func() {
+			f := &farm{}
+			b := testBackend(f, vmm.HostLimits{})
+			fx := newFixture(b, nil)
+			susp := fx.create()
+			ref, err := susp.Suspend(context.Background())
+			Expect(err).To(Succeed())
+			made := f.count()
+			Expect(b.Close()).To(Succeed())
+			_, err = b.Create(context.Background(), fx.spec)
+			Expect(err).To(MatchError(sandbox.ErrUnsupported))
+			Expect(err).To(MatchError(ContainSubstring("closed")))
+			_, err = b.Resume(context.Background(), ref, fx.spec.Env)
+			Expect(err).To(MatchError(sandbox.ErrUnsupported))
+			Expect(f.count()).To(Equal(made), "a closed backend made a machine")
+			Expect(folders(b)).To(ConsistOf(filepath.Base(susp.dir)), "a closed backend made a folder")
+		})
+
+		It("refuses a Resume of a folder that does not exist", func() {
+			b := testBackend(&farm{}, vmm.HostLimits{})
+			fx := newFixture(b, nil)
+			_, err := b.Resume(context.Background(), sandbox.SnapshotRef{Backend: snapshotBackend, Path: filepath.Join(b.opts.StateDir, "0123456789ab")}, fx.spec.Env)
+			Expect(err).To(MatchError(sandbox.ErrGone))
 		})
 
 		It("removes the state on Destroy even after the VM died", func() {

@@ -2,7 +2,9 @@ package vz
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +15,13 @@ import (
 
 // Resume boots a new guest over the files of a suspended sandbox. The
 // processes of the earlier guest are gone: Suspend did not save the memory.
+//
+// A snapshot whose folder is gone (the sweep of a new process removed it, or
+// Destroy did) gives an error that wraps sandbox.ErrGone.
 func (b *Backend) Resume(ctx context.Context, snap sandbox.SnapshotRef, env sandbox.Env) (sandbox.Sandbox, error) {
+	if b.isClosed() {
+		return nil, errClosed()
+	}
 	if snap.Backend != snapshotBackend {
 		return nil, fmt.Errorf("vz: %w: snapshot of backend %q", workspace.ErrInvalid, snap.Backend)
 	}
@@ -25,11 +33,17 @@ func (b *Backend) Resume(ctx context.Context, snap sandbox.SnapshotRef, env sand
 	// then run one after the other, and the second sees the folder running.
 	unlock, err := lockFile(ctx, filepath.Join(dir, "lock"))
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("vz: %w: the session folder is gone", sandbox.ErrGone)
+		}
 		return nil, err
 	}
 	defer unlock()
 	st, err := loadState(dir)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("vz: %w: the session folder is gone", sandbox.ErrGone)
+		}
 		return nil, err
 	}
 	switch {

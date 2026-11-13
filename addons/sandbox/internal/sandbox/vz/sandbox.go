@@ -155,7 +155,10 @@ func (s *sbx) boot(ctx context.Context) error {
 		v.stop()
 		return err
 	}
-	s.b.track(v)
+	if err := s.b.track(v); err != nil {
+		v.stop()
+		return err
+	}
 	if err := m.Start(ctx); err != nil {
 		v.stop()
 		return fmt.Errorf("vz: guest not ready: %w", err)

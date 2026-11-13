@@ -119,11 +119,29 @@ func newID() string {
 	return hex.EncodeToString(b)
 }
 
-// track records a running VM, so that Close can stop it.
-func (b *Backend) track(v *vmHandle) {
+// errClosed is the error of a backend after Close.
+func errClosed() error {
+	return fmt.Errorf("vz: %w: the backend is closed", sandbox.ErrUnsupported)
+}
+
+// isClosed reports whether Close ran.
+func (b *Backend) isClosed() bool {
 	b.liveMu.Lock()
 	defer b.liveMu.Unlock()
+	return b.closed
+}
+
+// track records a running VM, so that Close can stop it. It refuses a VM
+// after Close: a boot that was already under way when Close ran would
+// otherwise start a VM that nothing stops.
+func (b *Backend) track(v *vmHandle) error {
+	b.liveMu.Lock()
+	defer b.liveMu.Unlock()
+	if b.closed {
+		return errClosed()
+	}
 	b.live[v] = struct{}{}
+	return nil
 }
 
 func (b *Backend) untrack(v *vmHandle) {
@@ -169,6 +187,9 @@ func (b *Backend) limits(cpus int, memory int64) (uint, uint64) {
 
 // Create materializes the view, starts a guest and waits for its agent.
 func (b *Backend) Create(ctx context.Context, spec sandbox.Spec) (sandbox.Sandbox, error) {
+	if b.isClosed() {
+		return nil, errClosed()
+	}
 	spec = spec.WithDefaults()
 	if err := spec.Check(); err != nil {
 		return nil, err
