@@ -218,6 +218,13 @@ func (a *Application) initStudioService() {
 				}
 				return svc.CommandView(ctx, act)
 			},
+			WorkDir: func(ctx context.Context, act workspace.Actor, create bool) string {
+				svc := svcRef.Load()
+				if svc == nil {
+					return ""
+				}
+				return svc.CommandWorkDir(ctx, act, create)
+			},
 		})
 		if r := a.studioHostExec.Unavailable(); r != "" {
 			xlog.Info("Chats: the built-in bash cannot run commands on this machine", "reason", r)

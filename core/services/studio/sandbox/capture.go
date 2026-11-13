@@ -64,10 +64,15 @@ func RunCapped(ctx context.Context, sb Sandbox, args []string, stdin io.Reader, 
 // RunCappedIn is RunCapped in the folder dir of the guest (empty:
 // DefaultDir).
 func RunCappedIn(ctx context.Context, sb Sandbox, args []string, dir string, stdin io.Reader, limit int) (string, int, error) {
+	return RunCappedEnv(ctx, sb, args, dir, nil, stdin, limit)
+}
+
+// RunCappedEnv is RunCappedIn with extra environment entries (see Cmd.Env).
+func RunCappedEnv(ctx context.Context, sb Sandbox, args []string, dir string, env []string, stdin io.Reader, limit int) (string, int, error) {
 	rctx, stop := context.WithCancel(ctx)
 	defer stop()
 	out := &CapWriter{Max: limit, Full: stop}
-	p, err := sb.Exec(rctx, Cmd{Args: args, Dir: dir, Stdin: stdin, Stdout: out, Stderr: out})
+	p, err := sb.Exec(rctx, Cmd{Args: args, Dir: dir, Env: env, Stdin: stdin, Stdout: out, Stderr: out})
 	if err != nil {
 		return "", 0, err
 	}

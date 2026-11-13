@@ -135,7 +135,7 @@ var _ = Describe("commands of a scoped chat", func() {
 		plain := create(r.svc, alice)
 		sent(r.svc, alice, plain, "hi")
 		idle(r.svc, alice, plain)
-		Expect(r.h.TurnPrompt(plain)).To(ContainSubstring("It starts in /workspace/home, the user's home"))
+		Expect(r.h.TurnPrompt(plain)).To(ContainSubstring("It starts in $WORK, the chat's work folder in the user's home"))
 
 		for mode, kept := range map[string]string{agents.FolderWrite: "/workspace/home or /workspace/chat is kept", agents.FolderRead: "under /workspace/chat is kept"} {
 			a, err := r.svc.SaveAgentWithFolder(r.ctx, alice, agents.Agent{Name: "Acme " + mode, Addons: []string{"sandbox"}}, &studio.AgentFolderWrite{Path: "/Projects/Acme", Mode: mode})
@@ -146,7 +146,7 @@ var _ = Describe("commands of a scoped chat", func() {
 			idle(r.svc, alice, rec.ID)
 			Expect(r.fx.commands()).To(BeEmpty(), "the built-in bash ran")
 			prompt := r.h.TurnPrompt(rec.ID)
-			Expect(prompt).To(ContainSubstring("It starts in /workspace/home, the agent's folder"), mode)
+			Expect(prompt).To(ContainSubstring("It starts in $WORK, the chat's work folder /workspace/chat/work"), mode)
 			Expect(prompt).To(ContainSubstring("the chat's own folder is /workspace/chat, and shared folders are read only"), mode)
 			Expect(prompt).To(ContainSubstring(kept), mode)
 			Expect(prompt).NotTo(ContainSubstring("the user's home"), mode)

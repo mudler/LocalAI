@@ -426,7 +426,10 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	} else if over {
 		return JobResult{Text: "Not started: " + (&bgjob.LimitError{Scope: bgjob.ScopeUser, Max: bgjob.PerUser}).Error() + "."}, nil
 	}
-	in, err := b.j.Start(ctx, b.scope(a), c.Command, c.Label)
+	// The job starts in the chat's work folder, as a foreground command does.
+	call, _ := contract.ExecutionCallFrom(ctx)
+	call.WorkDir = b.s.CommandWorkDir(ctx, a, true)
+	in, err := b.j.Start(contract.WithExecutionCall(ctx, call), b.scope(a), c.Command, c.Label)
 	if err != nil {
 		if t, ok := b.errText(err); ok {
 			return JobResult{Text: t}, nil

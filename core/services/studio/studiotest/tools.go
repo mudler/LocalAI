@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // ToolStep is one action of a scripted turn. Set one field.
@@ -300,9 +301,10 @@ const (
 // workFolderNote matches the sentence of a turn's note that names the chat's
 // work folder (workfiles.Note). Sent and the script leave it out, so a spec
 // keys on the words of the person whether the chat can save files or not.
-// The folder's name comes from the chat's title and may hold a quote, so the
-// match ends at the work folder's own name.
-var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"\. ?`)
+// The folder of a chat made before the slug names comes from its title and may
+// hold a quote, so the match ends at the work folder's own name. The rest of
+// the sentence is workfiles.ShellHint.
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\.(?: ` + regexp.QuoteMeta(workfiles.ShellHint) + `)? ?`)
 
 // withoutHostNotes removes the sentences of the note that the host adds on
 // its own (withoutDeniedNote, withoutWorkFolderNote).

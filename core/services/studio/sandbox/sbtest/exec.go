@@ -64,6 +64,14 @@ func testExec(newBackend NewBackend) {
 		Expect(r.code).To(Equal(0), "%+v", r)
 		Expect(r.stdout).To(Equal("bar\nproj\n"))
 	})
+	It("$WORK names the folder the command starts in", func() {
+		f := setup(newBackend, nil)
+		dir, env := sandbox.WorkStart(sandbox.DefaultDir+"/proj", sandbox.DefaultDir)
+		Expect(env).To(Equal([]string{"WORK=" + sandbox.DefaultDir + "/proj"}))
+		r := f.runCmd(sandbox.Cmd{Args: []string{"sh", "-c", `start=$(pwd -P); cd "$WORK" && [ "$(pwd -P)" = "$start" ] && basename "$start"`}, Env: env, Dir: dir})
+		Expect(r.code).To(Equal(0), "%+v", r)
+		Expect(r.stdout).To(Equal("proj\n"))
+	})
 	It("a signal stops a process", func() {
 		f := setup(newBackend, nil)
 		var out syncBuffer

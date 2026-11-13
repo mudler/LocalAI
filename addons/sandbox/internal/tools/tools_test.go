@@ -141,6 +141,15 @@ var _ = Describe("Sandbox tools", func() {
 		Expect(string(f.got[0].Args)).To(ContainSubstring("ffmpeg"))
 	})
 
+	It("passes the work folder the host named to the runner", func() {
+		f := &fakeRunner{out: "ok"}
+		const work = "/workspace/home/Chats/2026-10-18 Café · Q1/work"
+		_, err := act(f, env("bash", "alice", "conv1", map[string]any{"command": "pwd", "execution": map[string]any{"workDir": work}}))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.got[0].Call).To(Equal(sandbox.CallOptions{WorkDir: work}))
+		Expect(string(f.got[0].Args)).NotTo(ContainSubstring("workDir"))
+	})
+
 	It("runs with no options when the host sent none, and refuses options it cannot read", func() {
 		f := &fakeRunner{}
 		_, err := act(f, env("bash", "alice", "conv1", map[string]any{"command": "x"}))
@@ -259,7 +268,7 @@ var _ = Describe("Sandbox tools", func() {
 			}
 		}
 		Expect(bash).NotTo(BeNil())
-		Expect(bash.Description).To(ContainSubstring(workfiles.ToolHint))
+		Expect(bash.Description).To(ContainSubstring(workfiles.ShellHintShort))
 		Expect(len(bash.Description)).To(BeNumerically("<=", contract.MaxToolDescriptionLen))
 	})
 

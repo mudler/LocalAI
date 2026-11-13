@@ -25,7 +25,7 @@ Rules:
 
 - Change only the keys the user asked for. Read the file first and keep every other key.
 - Keep files small (at most 64 KiB). Use 2-space indentation.
-- A script, draft or test data goes in the chat's work folder that the prompt or the note of the turn names (`/workspace/home/Chats/<chat>/work/`), not in `LocalAI/` or at the top of the home.
+- A script, draft or test data goes in the chat's work folder, `"$WORK"` in the shell (the file tools take the path the note names), not in `LocalAI/` or at the top of the home.
 - After a change, tell the user in one line what changed and where they see it ("I saved your shortcut. It shows above the message box.").
 - A page is `pages/<name>/index.html` with an optional `page.json` and its data files; it runs sandboxed, as the user, with no network. To build one, use the `localai-apps` skill.
 

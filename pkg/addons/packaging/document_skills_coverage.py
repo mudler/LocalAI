@@ -32,6 +32,12 @@ def normalize(text):
     text = text.replace('The guest directory `/usr/local/lib/localai/document-skills/pdf/` contains', 'The `scripts/` directory contains')
     text = text.replace('The guest directory `scripts/` contains', 'The `scripts/` directory contains')
     text = text.replace('python3 scripts/', 'python scripts/')
+    # The add-on later said the shell starts in the work folder and that "$WORK"
+    # holds it, with a quoting rule. Map that sentence back to the one the
+    # fingerprints were made from.
+    text = text.replace(
+        "in the chat's work folder, where the shell starts and that `\"$WORK\"` holds (the note of the turn names it too), for example `python3 \"$WORK/build.py\"`, or run a one-off script inline with `python3 - <<'EOF'`. Quote every path with double quotes. Save only",
+        "in the chat's work folder that the prompt or the note of the turn names (`/workspace/home/Chats/<chat>/work/`), for example `python3 /workspace/home/Chats/<chat>/work/build.py`, or run a one-off script inline with `python3 - <<'EOF'`. Save only")
     # The add-on later said the work folder may also be named in the turn note.
     text = text.replace('that the prompt or the note of the turn names (', 'that the prompt names (')
     return text
