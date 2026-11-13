@@ -1455,7 +1455,7 @@ LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
 Sandbox and Web, plus the other first-party add-ons including Google Drive and Gmail). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
-its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
+its own platform. The Sandbox add-on runs on Linux, and on macOS with Apple silicon through Virtualization.framework; its macOS platform is listed in the platform file and stays disabled until a macOS runner shows its native check passing. No add-on is built for Windows yet, so the
 official library lists nothing there.
 
 Which index the library reads depends on the build:
@@ -6595,9 +6595,10 @@ The add-on runs commands in one of these backends, chosen by an administrator on
 
 | Choice | What it is |
 |---|---|
-| Automatic | KVM (Cloud Hypervisor) when the host has it, otherwise gVisor, otherwise nothing. It never picks the host backend, not even as a last resort. |
+| Automatic | KVM (Cloud Hypervisor) when the host has it, then gVisor, then a macOS virtual machine (on a Mac with Apple silicon), otherwise nothing. It never picks the host backend, not even as a last resort. |
 | gVisor | `runsc` with user namespaces. Needs `runsc` (the package carries it), `taskset`, and on Ubuntu 24.04 and later an AppArmor profile (the package carries `gvisor-profile`, which prints it). |
 | KVM | Cloud Hypervisor with `virtiofsd`, `mke2fs`, `debugfs` and `/dev/kvm`. The package carries Cloud Hypervisor and, on amd64, `virtiofsd`. `bwrap` is used when present and not in a container. |
+| macOS virtual machine (`vz`) | One Linux VM for each chat, run by the Virtualization.framework of macOS. Needs a Mac with Apple silicon and the add-on package for macOS, whose executable carries the virtualization entitlement. The Settings tab shows it only on a Mac, or when it is the saved choice. |
 | Off | No sandbox. Every tool answers that the host cannot run commands. |
 | Host | Runs commands on the host as the user LocalAI runs as, with no isolation. |
 
@@ -6605,7 +6606,7 @@ The add-on runs commands in one of these backends, chosen by an administrator on
 
 The Sandbox reports a backend as `isolated` or as `host` (see
 [Execution provider and status payload](#execution-provider-and-status-payload)).
-Only gVisor and KVM report `isolated`. The `host` backend runs the command as a
+Only gVisor, KVM and the macOS virtual machine report `isolated`. The `host` backend runs the command as a
 normal process of the user LocalAI runs as. No kernel boundary separates it from
 the rest of the machine, so it is never `isolated`.
 
@@ -6621,8 +6622,26 @@ the rest of the machine, so it is never `isolated`.
   it. The add-on checks this at start with a small test sandbox.
 - **KVM.** Cloud Hypervisor needs `/dev/kvm` for the user LocalAI runs as. Pass the
   device to the owner container only when you choose or expect this backend.
-- **Automatic.** The add-on tries KVM, then gVisor. If `/dev/kvm` is missing, it uses
-  gVisor, so an owner container without `/dev/kvm` still has an isolated sandbox.
+- **macOS virtual machine.** The add-on runs each sandbox as a VM of Apple's
+  Virtualization.framework, with the same guest image, kernel and guest agent as
+  KVM, so the guest has a kernel of its own and no network device. It needs a Mac
+  with Apple silicon, the `linux/arm64` variant of the guest image, and the
+  `com.apple.security.virtualization` entitlement on the add-on executable (the
+  macOS package is signed ad hoc with it). The add-on needs no other program: it
+  converts the image and reads and makes the disk images in its own code. The
+  limits of a sandbox become the CPU count and the memory of the VM, within what
+  the Mac allows. Two differences from KVM matter. First, the VMs belong to the
+  add-on process: when the add-on stops or crashes, every VM stops with it, and
+  the next start removes the sandboxes it left. Second, a sleeping sandbox keeps
+  its files but not its running programs: macOS does not let the add-on save the
+  memory of a VM, so a sandbox that sleeps after 10 minutes of idle time (see
+  Limits above) wakes with a fresh guest over the same files. A command or a
+  background job that was still running in it is gone, as after a refresh. A
+  sandbox that runs a background job does not sleep.
+- **Automatic.** The add-on tries KVM, then gVisor, then the macOS virtual machine. If
+  `/dev/kvm` is missing, it uses gVisor, so an owner container without `/dev/kvm`
+  still has an isolated sandbox. On a Mac the first two are not available, so it uses
+  the macOS virtual machine.
 
 When the owner runs in a container, the container that runs the add-on must meet
 these needs. In a split deployment that container is the owner, not the frontends.
@@ -6764,7 +6783,7 @@ With `--addons-role frontend` a frontend runs no proxy; the owner does, and the 
 
 ### Packaging and setting up the Sandbox add-on
 
-The Sandbox package is for Linux on amd64 and arm64. The macOS platforms are listed in its platform file and stay disabled.
+The Sandbox package is for Linux on amd64 and arm64. The macOS platforms are listed in its platform file and stay disabled. The `darwin/arm64` package is ready to enable: `scripts/addons/package.sh` signs its executable ad hoc with the virtualization entitlement (`addons/sandbox/package/entitlements.plist`) with `codesign` on a Mac or with `rcodesign` anywhere else, and fails when neither exists; `fetch-runtime.sh` fetches nothing for it, because its guests run in the Virtualization.framework of the system. A Mac that installs the package needs no other program. `darwin/amd64` has no guest backend.
 
 - **`runsc`.** `addons/sandbox/package/runsc.json` pins one gVisor release (20261012.0) with the URL, the checksum the release publishes for each tarball, and the checksum of the `runsc` inside it. `addons/sandbox/package/fetch-runtime.sh <os/arch> <dir>` downloads it, checks both checksums, and the release workflow puts `runsc` and `gvisor-bin/` in the package. At run time the add-on checks `runsc` against the pinned checksum, copies it with its helpers to `runsc/` in its data directory as executable files, and uses that copy. A `runsc` that does not match is never used. Without one in the package, a `runsc` in a system folder (`/usr/local/sbin`, `/usr/local/bin`, `/usr/sbin`, `/usr/bin`, `/sbin`, `/bin`) is used as it is. The add-on does not read `PATH`: LocalAI starts it with none, so it looks for `runsc`, `taskset` and the KVM tools in those folders only.
 - **AppArmor.** On Ubuntu 24.04 and later, a program needs an AppArmor profile to make user namespaces. The package carries `gvisor-profile`, a small program that prints the profile of one `runsc`. The add-on copies it next to `runsc`, and when gVisor fails for this reason the page tells an administrator the exact step, with the real paths. Run it once, as root, on the machine that runs LocalAI (not inside a container):
@@ -6776,7 +6795,7 @@ The Sandbox package is for Linux on amd64 and arm64. The macOS platforms are lis
   ```
 
   The profile names the binary by path, so a new `runsc` at a new path needs a new profile. Inside a container, AppArmor is that of the host: use a profile that allows user namespaces for the container (or `--security-opt apparmor=unconfined`), together with a seccomp profile that allows `unshare` and `clone` with `CLONE_NEWUSER`.
-- **The guest images.** The guest runs a Debian userland, the guest kernel and the guest agent. There is one image for each sandbox profile, and the Dockerfile has one target for each: `base` (the default target) and `media` (base plus ffmpeg, sox, ImageMagick and `rsvg-convert`). The `sandbox guest image` workflow (`.github/workflows/sandbox-images.yml`) builds `addons/sandbox/images/guest/Dockerfile` for amd64 and arm64, pushes the two images to the project registry (`quay.io/go-skynet/sandbox-guest` and `-media`, which must allow anonymous pulls) and outputs each reference by digest. The package build passes them in `SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest>` (base) and, optionally, `SANDBOX_GUEST_IMAGE_MEDIA`. `scripts/addons/package.sh` builds the add-on with `-ldflags "-X main.guestImage=... -X main.profileImages=media=..."`. `package.sh` refuses a Sandbox build without the base variable; `--local-check` builds with a stand-in reference no registry serves, for a check that does not publish. To build an image by hand: `docker buildx build -f addons/sandbox/images/guest/Dockerfile --target <base|media> .` from the repository root.
+- **The guest images.** The guest runs a Debian userland, the guest kernel and the guest agent. There is one image for each sandbox profile, and the Dockerfile has one target for each: `base` (the default target) and `media` (base plus ffmpeg, sox, ImageMagick and `rsvg-convert`). The `sandbox guest image` workflow (`.github/workflows/sandbox-images.yml`) builds `addons/sandbox/images/guest/Dockerfile` for amd64 and arm64, pushes the two images to the project registry (`quay.io/go-skynet/sandbox-guest` and `-media`, which must allow anonymous pulls) and outputs each reference by digest. Each digest names an index of both architectures, so a Mac with Apple silicon pulls the `linux/arm64` image, and its kernel, by the same reference as an arm64 Linux host. The package build passes them in `SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest>` (base) and, optionally, `SANDBOX_GUEST_IMAGE_MEDIA`. `scripts/addons/package.sh` builds the add-on with `-ldflags "-X main.guestImage=... -X main.profileImages=media=..."`. `package.sh` refuses a Sandbox build without the base variable; `--local-check` builds with a stand-in reference no registry serves, for a check that does not publish. To build an image by hand: `docker buildx build -f addons/sandbox/images/guest/Dockerfile --target <base|media> .` from the repository root.
 - **The build check of a profile.** The tools of each profile, with the command that proves each one works, are in the add-on manifest (`execution.profiles`). The Dockerfile copies the manifest into the image and runs `check-tools.sh <profile>` in each target, so an image does not build when a listed tool is missing. `sh addons/sandbox/images/guest/check-tools_test.sh` tests the script.
 - **KVM.** `addons/sandbox/package/kvm.json` pins Cloud Hypervisor v54.0 (amd64 and arm64) and virtiofsd v1.14.0 (amd64) with checksums, and `fetch-runtime.sh` puts them in the package. The add-on checks each against the checksum compiled into it and copies it, as an executable file, to `kvm-bin/` in its data directory. Upstream publishes no static virtiofsd for arm64, so on arm64 install virtiofsd 1.13 or later in a system folder. The KVM backend also needs `mke2fs` and `debugfs` from e2fsprogs (the LocalAI image installs them) and access to `/dev/kvm` for the user LocalAI runs as. Bubblewrap is optional in a container: the add-on does not use it when it finds `/.dockerenv` or `/run/.containerenv`, or when `SANDBOX_NO_BWRAP=1` is set in its environment (`SANDBOX_NO_BWRAP=0` forces it). `addons/sandbox/images/host/Dockerfile` still builds an image with the same programs for a product that wants them in one place.
 - **Tests in CI.** The `sandbox tests` workflow (`.github/workflows/sandbox-tests.yml`) runs the Go tests and the end-to-end suite, the gVisor integration suite on amd64 and arm64 (with the pinned `runsc` and its profile loaded), the KVM integration suite on a runner that has `/dev/kvm` (it skips, and says so, on one without), and the release smoke test.

@@ -12,6 +12,10 @@ Run an agent harness's shell commands in an isolated guest. The guest sees a wor
 | `sandbox/chv` | The Cloud Hypervisor backend. It is a nested module with its own `go.mod` |
 | `sandbox/ociimage` | Image code that `chv` and `gvisor` share: references with digests, the checks of an OCI layout, the cache per digest. A nested module |
 | `sandbox/gvisor` | The gVisor backend for hosts without KVM. A nested module |
+| `sandbox/vz` | The Virtualization.framework backend for Macs with Apple silicon. `vz/vmm` is the only package that calls the framework |
+| `sandbox/ext4ro` | A read-only ext4 reader in Go. It reads the upper image of a `vz` sandbox, where no `debugfs` exists |
+| `sandbox/ext4mk` | A formatter in Go that makes the empty ext4 upper image of a `vz` sandbox, where no `mke2fs` exists |
+| `sandbox/ext4image` | The conversion of an OCI guest image into `root.ext4` and a kernel, in Go. `chv` and `vz` share it |
 | `sandbox/images/guest` | Dockerfile of the guest image: Debian, Python with the Paper office libraries (`docx`, `openpyxl` and `pptx` imports) and the PDF libraries, Poppler, the guest kernel and the agent |
 | `sandbox/images/host` | Dockerfile of the sandbox host image: pinned `cloud-hypervisor`, `virtiofsd`, `bwrap` and e2fsprogs |
 
@@ -23,7 +27,7 @@ Run an agent harness's shell commands in an isolated guest. The guest sees a wor
 - `Refresh` and `Suspend` run a checkpoint of their own and drop its conflicts, for example those with the reasons `read-only`, `unsupported` and `bad-name`. A caller that needs the conflicts runs `Checkpoint` first.
 - A file that the guest edits again after an earlier checkpoint is not a conflict. An edit of a file that another writer changed is a conflict copy. The guest keeps its own version until the next `Refresh`.
 - `Refresh` checkpoints, rebuilds the lower layer from the current revision, clears the upper layer and restarts the guest. **Processes do not survive a refresh.** When the checkpoint fails, `Refresh` changes nothing.
-- `Suspend` checkpoints and saves the guest memory and devices. A `Suspend` that fails after it detached the guest processes leaves them detached, so the end of the host context does not kill them later. `Resume` restores them: processes continue, also background ones, and open files keep working.
+- `Suspend` checkpoints and saves the guest memory and devices. A `Suspend` that fails after it detached the guest processes leaves them detached, so the end of the host context does not kill them later. `Resume` restores them: processes continue, also background ones, and open files keep working. The `vz` backend is the exception: it saves the files only, and `Resume` boots a new guest, so processes do not survive (see its section).
 - `Destroy` stops the guest and deletes its files. Committed change sets stay. Uncommitted changes are lost.
 
 ## Guest
@@ -129,6 +133,27 @@ if errors.Is(err, sandbox.ErrUnsupported) {
 - Every file of the image belongs to the calling user, which the sandbox sees as uid 1000. The unpacked image keeps its file modes on disk; the read-only root mount protects it. Setuid and setgid bits are dropped, there are no device nodes (the sandbox has its own `/dev`), and fifos in the image are not kept.
 - Each sandbox folder under `StateDir` keeps `console.log`, the standard output and error of the guest agent.
 
+## Virtualization.framework backend (vz)
+
+For a Mac with Apple silicon. Each sandbox is one Linux VM, run by Apple's Virtualization.framework from the add-on process. It passes the same `sbtest` suite as `chv`, with the same guest image and guest agent. The image and its kernel are the `linux/arm64` variant of the guest image.
+
+```go
+b, err := vz.New(vz.Options{StateDir: stateDir, CacheDir: cacheDir, DefaultImage: guestImage})
+if errors.Is(err, sandbox.ErrUnsupported) {
+	// not macOS on Apple silicon, or the process lacks the virtualization entitlement
+}
+```
+
+- **Host requirements.** macOS on Apple silicon (tested on macOS 26; the framework needs macOS 13 or later for the devices used here), and a process that holds the `com.apple.security.virtualization` entitlement. `New` checks both and returns `sandbox.ErrUnsupported` with the first problem. The release signs the executable ad hoc with the entitlement (`package/entitlements.plist`, step in `scripts/addons/package.sh`). No Apple developer account is needed for a binary that the add-on installer downloads. A binary that a browser downloads carries a quarantine mark and needs a Developer ID signature and notarization. It never boots a VM otherwise.
+- **Devices.** One read-only virtio block device with the root image, one read-write virtio block device with the upper image, one read-only virtio-fs share with the tag `lower`, a virtio socket device, a virtio console that writes `console.log`, and an entropy device. The guest has no network device: `ls /sys/class/net` shows `lo` and `sit0`, the tunnel pseudo-device that the kernel makes itself (the same kernel as under `chv`). No interface has a device behind it. It reaches the host only through the virtio sockets, as under `chv`. The kernel is the one of the guest image, an uncompressed arm64 `Image`.
+- **Limits.** `Spec.CPUs` and `Spec.Memory` become the CPU count and the memory size of the VM, rounded to whole MiB and capped to what the Mac allows. `Spec.Disk` is the size of the sparse upper image. The 64 connection cap, the console log cap and the kernel panic detection work as under `chv`.
+- **The upper image.** The backend makes the empty ext4 image with `ext4mk` and reads it with `ext4ro`, in Go, while the guest file system is frozen. A hostile image fails the checkpoint with an error, under the same rules and caps as `chv`: each record is checked against the superblock and the name rules, at most 512 directory levels and 1,000,000 entries, and no directory loops.
+- **The lower tree.** The guest sees the files of the host as owned by uid 0 and gid 0, with the mode of the host file, and read only. The agent user edits them through `CAP_DAC_OVERRIDE`. A write goes to the upper layer through the overlay: the file is copied up with the same owner and mode, and the file on the host does not change.
+- **VMs die with the add-on.** Apple's framework runs a VM in a service that belongs to the process that started it. When the add-on process exits, is killed or crashes, every VM stops, and nothing can attach to it again. The next `New` on the same `StateDir` removes every session folder that is left, the suspended ones too, unless `Options.KeepSuspended` is set, and takes an exclusive lock on `StateDir` (`.lock`). Changes that no checkpoint committed are lost; a handle from the old process returns `ErrGone`. `Backend.Close` stops the VMs of the backend. Use one `StateDir` per backend.
+- **Suspend does not keep processes.** macOS refuses to save the memory of a VM for a process without a graphical session (the save fails with a permission error). `Suspend` therefore commits a checkpoint, stops the VM and keeps the files. `Resume` boots a new VM over the same lower and upper layer. Files and open changes are kept, **processes are not**: a process handle from before the suspend returns `ErrGone`. Plan on a background process not surviving an idle sandbox, as it does not survive a `Refresh`. The suite skips the one spec that expects a running process to survive (`suspend-processes`) and runs every other spec.
+- **No host program.** The backend needs no `mke2fs`, `debugfs`, `virtiofsd` or `bwrap`: converting, making and reading the images is Go code, and the framework serves the shared folder. The VMs run with the rights of the user who runs LocalAI.
+- The image cache folder of this backend holds a `root.ext4` and a kernel for each digest, like `chv`; do not share the folder with another backend.
+
 ## Testing a backend
 
 ```go
@@ -137,11 +162,13 @@ func TestSuite(t *testing.T) {
 }
 ```
 
+The `vz` tests run on a Mac with Apple silicon only, from a test binary that carries the virtualization entitlement (sign it with `codesign --force --sign - --entitlements addons/sandbox/package/entitlements.plist <binary>`). They need `SANDBOX_TEST_IMAGE`, a guest image with a `linux/arm64` variant, and skip without it. When it is set, a host that cannot run the backend fails them. `SANDBOX_TEST_KERNEL` replaces the kernel of the image with another arm64 `Image`. The parts of `vz` that need no VM (the upper image reader, the state, the sweep, the console watch, the lifecycle over a fake machine) also run on Linux.
+
 The `chv` tests need `SANDBOX_TEST_IMAGE` (the guest image, with a digest) and a host that can run the backend. They skip and say why when either is missing. The `gvisor` tests need `SANDBOX_TEST_IMAGE` and `SANDBOX_TEST_RUNSC` (the `runsc` binary, with the AppArmor profile loaded). They skip when either is not set; when both are set, a host that cannot run the backend fails them. A guest image from before the gVisor mode of the agent does not work: build the image again, or add a fresh agent to it with `sandbox/ociimage/cmd/ocipatch`.
 
 ## Releasing the images
 
-A release tag `vX.Y.Z` on `main` makes CI push both images for `linux/amd64` and `linux/arm64`. CI writes their digests to the job summary. Tags that are not on `main` are not published.
+A release tag `vX.Y.Z` on `main` makes CI push both images for `linux/amd64` and `linux/arm64`. CI writes their digests to the job summary. One digest names a multi-platform index: a Mac with Apple silicon pulls its `linux/arm64` image by that same digest. Tags that are not on `main` are not published.
 
 To release the chv backend:
 
