@@ -76,7 +76,7 @@ var Consumers = []Consumer{
 	{
 		ID:          "model-mcp-sessions",
 		Surface:     "MCP sessions built from a model's MCP configuration, cached by model name and shared by every user of the model",
-		Files:       []string{"core/http/endpoints/mcp/tools.go", "core/http/endpoints/mcp/executor.go"},
+		Files:       []string{"core/http/endpoints/mcp/tools.go", "core/http/endpoints/mcp/toolcache.go", "core/http/endpoints/mcp/executor.go"},
 		Decision:    Reject,
 		Reason:      "a shared session has no current-user state, so it cannot carry an actor",
 		Enforcement: "DiscoverMCPTools drops a tool in the add-on namespace; ExecuteMCPToolCall and ExecuteMCPToolCallRemote refuse it with ErrAddonToolsUnsupported",
