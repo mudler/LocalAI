@@ -6618,7 +6618,8 @@ definitions:
         - pt-BR
         type: string
       reply_mode:
-        description: ReplyMode is off, progress or stream; empty means progress.
+        description: ReplyMode is off, progress, stream or reasoning; empty means
+          progress.
         type: string
       resources:
         description: |-
@@ -20076,7 +20077,8 @@ paths:
         set to "accept wider token". Needs the kind (the platform), the bot token
         (kept sealed, never returned) and an agent of yours that names a model. The
         token is checked with the platform when its add-on runs: a token that the
-        platform refuses is a 400. reply_mode (off, progress, stream, reasoning; default progress; reasoning shows the model''s thinking to every sender of the binding),
+        platform refuses is a 400. reply_mode (off, progress, stream, reasoning; default
+        progress; reasoning shows the model''s thinking to every sender of the binding),
         conversation (sender, chat, window with window_minutes, thread; default sender),
         send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR;
         default auto, the language of the sentences the bot writes itself) say how
