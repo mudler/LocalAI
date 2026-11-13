@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/chv"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/gvisor"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/vz"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/host"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 
@@ -232,6 +233,15 @@ func newSelector(dataDir string) (*backends.Selector, error) {
 				return nil, err
 			}
 			return gvisor.New(gvisor.Options{StateDir: filepath.Join(dataDir, "run", "gvisor"), CacheDir: filepath.Join(dataDir, "images", "gvisor"), Runsc: runsc, DefaultImage: guestImage})
+		},
+		VZ: func() (sandbox.Backend, error) {
+			if runtime.GOOS != "darwin" || runtime.GOARCH != "arm64" {
+				return nil, unsupported("the Virtualization.framework backend needs macOS on Apple silicon")
+			}
+			if err := noImage(); err != nil {
+				return nil, err
+			}
+			return vz.New(vz.Options{StateDir: filepath.Join(dataDir, "run", "vz"), CacheDir: filepath.Join(dataDir, "images", "vz"), DefaultImage: guestImage})
 		},
 		Host: func() (sandbox.Backend, error) {
 			return host.New(host.Options{Root: filepath.Join(dataDir, "run", "host"), Log: func(principal, command string) {

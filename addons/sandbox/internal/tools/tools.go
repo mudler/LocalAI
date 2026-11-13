@@ -141,7 +141,8 @@ func New(r Runner, s Settings, a Admin, opts ...Option) contract.Runtime {
 
 // Close stops every sandbox the runner holds. The add-on process calls it
 // before it exits: a gVisor sandbox is detached from the process that started
-// it and would otherwise stay on the host.
+// it and would otherwise stay on the host. (A VM of the vz backend stops with
+// the process either way.)
 func (r *runtime) Close(ctx context.Context) error {
 	if c, ok := r.run.(interface{ Close(context.Context) error }); ok {
 		return c.Close(ctx)
@@ -201,7 +202,7 @@ func Definitions() []contract.ToolDefinition {
 	}, contract.ToolDefinition{
 		Name: ToolSetBackend, Kind: contract.ToolKindRead, UIOnly: true,
 		Description: "Choose the backend that runs commands. Administrators only. The Settings page calls it; no model does.",
-		InputSchema: json.RawMessage(`{"type":"object","properties":{"backend":{"type":"string","enum":["auto","gvisor","kvm","host","off"]}},"required":["backend"],"additionalProperties":false}`),
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"backend":{"type":"string","enum":["auto","gvisor","kvm","vz","host","off"]}},"required":["backend"],"additionalProperties":false}`),
 	}, contract.ToolDefinition{
 		Name: ToolConfirmHost, Kind: contract.ToolKindRead, UIOnly: true,
 		Description: "Confirm that commands may run on this host without isolation, by typing the phrase. Administrators only. The Settings page calls it; no model does.",
@@ -255,7 +256,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 			status.Readiness, status.Explanation = "unavailable", "The Sandbox could not start."
 		} else {
 			switch r.settings.Status().Active {
-			case "gvisor", "kvm":
+			case "gvisor", "kvm", "vz":
 				status.Readiness, status.Isolation = "available", "isolated"
 				// The guest has no network device: its connections reach the
 				// network only through the proxy that asks the host.
