@@ -101057,3 +101057,47 @@
         model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
       template:
         use_tokenizer_template: true
+- kind: model
+  id: lfm3-1.7b-artemis-q4-k-m
+  name: lfm3-1.7b-artemis-q4-k-m
+  version: 0.0.0-gallery.42838a2b268f
+  description: |
+    TurinTech Artemis Q4_K_M quantization of Liquid AI's LFM3 1.7B, a text model
+    for local agents and tool use. Embedded chat template and 8192-token context.
+    Thinking is on by default, as in Liquid AI's chat template, and a request can
+    turn it off with "reasoning_effort": "none".
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-1.7B
+    - https://huggingface.co/turintech/LFM3-1.7B-Artemis-GGUF
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+  icon: https://huggingface.co/turintech/LFM3-1.7B-Artemis-GGUF/resolve/06fab8cd5f9e8ac86658e2b77bbd7bd3af640c97/assets/turintech-logo-v2.png
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/LFM3-1.7B-Artemis-GGUF/LFM3-1.7B-Artemis-Q4_K_M.gguf
+        sha256: fc1781679f925fe22c0984cf052ee552fbed3cc95916872d6d493b93b927270f
+        uri: https://huggingface.co/turintech/LFM3-1.7B-Artemis-GGUF/resolve/main/LFM3-1.7B-Artemis-Q4_K_M.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 8192
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/LFM3-1.7B-Artemis-GGUF/LFM3-1.7B-Artemis-Q4_K_M.gguf
+      template:
+        use_tokenizer_template: true
