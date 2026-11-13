@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"gorm.io/gorm"
@@ -44,10 +45,15 @@ const (
 	// that name it, and no other: that list is frozen by a test, so a route
 	// added later does not widen every key that holds the feature.
 	FeatureClientInference = "client_inference"
+	// FeatureClientFolders switches on the folder grant of a key: the folders of
+	// the owner's workspace that the key may read and the one it may write,
+	// reached by an add-on through the client.workspace.* host operations. It
+	// opens no route by itself; it only says that the grant of the key counts.
+	FeatureClientFolders = "client_folders"
 )
 
 // ClientFeatures lists every feature that a client key can hold.
-var ClientFeatures = []string{FeatureClientSelf, FeatureClientAddons, FeatureClientInference}
+var ClientFeatures = []string{FeatureClientSelf, FeatureClientAddons, FeatureClientInference, FeatureClientFolders}
 
 // sharedClientFeatures are the client features whose routes are also routes of
 // users. A row with one of them only adds a way in for a client key; it does
@@ -90,17 +96,21 @@ var (
 // ClientPairingCode is a one-time code an owner creates so that one client can
 // obtain its credential. Only the hash of the code is stored.
 type ClientPairingCode struct {
-	ID        string        `gorm:"primaryKey;size:36"`
-	CodeHash  string        `gorm:"size:64;uniqueIndex;not null"`
-	OwnerID   string        `gorm:"size:36;index;not null"`
-	Name      string        `gorm:"size:255"` // label of the client the code is for
-	Features  PermissionMap `gorm:"type:text"`
-	Addons    AddonList     `gorm:"type:text"` // add-ons the issued key may reach
-	Models    ModelList     `gorm:"type:text"` // models the issued key may use (client_inference)
-	KeyTTL    int64         // life of the issued key in seconds; 0 means no expiry
-	ExpiresAt time.Time     `gorm:"index;not null"`
-	UsedAt    *time.Time
-	CreatedAt time.Time
+	ID       string        `gorm:"primaryKey;size:36"`
+	CodeHash string        `gorm:"size:64;uniqueIndex;not null"`
+	OwnerID  string        `gorm:"size:36;index;not null"`
+	Name     string        `gorm:"size:255"` // label of the client the code is for
+	Features PermissionMap `gorm:"type:text"`
+	Addons   AddonList     `gorm:"type:text"` // add-ons the issued key may reach
+	Models   ModelList     `gorm:"type:text"` // models the issued key may use (client_inference)
+	// ReadFolders and WriteFolder are the folder grant of the issued key
+	// (client_folders), relative to the workspace of the owner.
+	ReadFolders FolderList `gorm:"type:text"`
+	WriteFolder string     `gorm:"size:255"`
+	KeyTTL      int64      // life of the issued key in seconds; 0 means no expiry
+	ExpiresAt   time.Time  `gorm:"index;not null"`
+	UsedAt      *time.Time
+	CreatedAt   time.Time
 }
 
 // ErrInvalidClientInput matches every refusal of the input of a pairing code or
@@ -268,8 +278,16 @@ var ErrClientModels error = &clientInputError{msg: "client_inference needs a lis
 type PairingOption func(*pairingOptions)
 
 type pairingOptions struct {
-	models     []string
-	modelCheck ClientModelCheck
+	models      []string
+	modelCheck  ClientModelCheck
+	readFolders []string
+	writeFolder string
+}
+
+// WithFolders sets the folder grant of the issued key, for a code that carries
+// client_folders.
+func WithFolders(read []string, write string) PairingOption {
+	return func(o *pairingOptions) { o.readFolders, o.writeFolder = read, write }
 }
 
 // WithModels sets the models the issued key may use, for a code that carries
@@ -376,6 +394,14 @@ func CreatePairingCode(db *gorm.DB, ownerID, name string, features, addons []str
 	if err := checkClientModels(models, po.modelCheck); err != nil {
 		return "", nil, err
 	}
+	// The same rule for folders: the feature and the grant go together.
+	readFolders, writeFolder, err := NormalizeClientFolders(po.readFolders, po.writeFolder)
+	if err != nil {
+		return "", nil, err
+	}
+	if perms[FeatureClientFolders] != (len(readFolders) > 0 || writeFolder != "") {
+		return "", nil, ErrClientFolders
+	}
 	if ttl <= 0 {
 		ttl = DefaultPairingCodeTTL
 	}
@@ -402,15 +428,17 @@ func CreatePairingCode(db *gorm.DB, ownerID, name string, features, addons []str
 		return "", nil, err
 	}
 	rec := &ClientPairingCode{
-		ID:        uuid.New().String(),
-		CodeHash:  hashPairingCode(code, hmacSecret),
-		OwnerID:   ownerID,
-		Name:      utils.TruncateUTF8(name, 255),
-		Features:  perms,
-		Addons:    list,
-		Models:    models,
-		KeyTTL:    int64(keyTTL / time.Second),
-		ExpiresAt: now.Add(ttl),
+		ID:          uuid.New().String(),
+		CodeHash:    hashPairingCode(code, hmacSecret),
+		OwnerID:     ownerID,
+		Name:        utils.TruncateUTF8(name, 255),
+		Features:    perms,
+		Addons:      list,
+		Models:      models,
+		ReadFolders: readFolders,
+		WriteFolder: writeFolder,
+		KeyTTL:      int64(keyTTL / time.Second),
+		ExpiresAt:   now.Add(ttl),
 	}
 	if err := db.Create(rec).Error; err != nil {
 		return "", nil, fmt.Errorf("store pairing code: %w", err)
@@ -505,12 +533,14 @@ func RedeemPairingCode(db *gorm.DB, code, clientName, hmacSecret string) (string
 			KeyHash:   h,
 			KeyPrefix: prefix,
 			// Never the role of the owner: the key is not a stand-in for the user.
-			Role:      RoleUser,
-			Kind:      KeyKindClient,
-			Features:  rec.Features,
-			Addons:    rec.Addons,
-			Models:    rec.Models,
-			ExpiresAt: expires,
+			Role:        RoleUser,
+			Kind:        KeyKindClient,
+			Features:    rec.Features,
+			Addons:      rec.Addons,
+			Models:      rec.Models,
+			ReadFolders: rec.ReadFolders,
+			WriteFolder: rec.WriteFolder,
+			ExpiresAt:   expires,
 		}
 		if err := tx.Create(k).Error; err != nil {
 			return fmt.Errorf("store client key: %w", err)
@@ -707,4 +737,145 @@ func SetClientKeyModels(db *gorm.DB, id, ownerID string, models []string, check 
 		return nil, gorm.ErrRecordNotFound
 	}
 	return list, nil
+}
+
+// FolderList is a list of folder names stored as JSON text.
+type FolderList []string
+
+// Value implements driver.Valuer.
+func (l FolderList) Value() (driver.Value, error) { return listValue(l) }
+
+// Scan implements sql.Scanner.
+func (l *FolderList) Scan(value any) error { return listScan((*[]string)(l), value) }
+
+// Limits of a folder grant.
+const (
+	// MaxClientReadFolders bounds the folders a key may read.
+	MaxClientReadFolders = 8
+	// MaxClientFolderBytes and MaxClientFolderSegments bound one folder name.
+	MaxClientFolderBytes    = 255
+	MaxClientFolderSegments = 8
+)
+
+// ErrClientFolders is the refusal of a folder grant that does not fit the
+// features: client_folders needs at least one folder, and a folder without
+// that feature has no use.
+var ErrClientFolders error = &clientInputError{msg: "client_folders needs a read folder or a write folder, and only client_folders takes them"}
+
+// NormalizeClientFolder validates one folder of a grant and returns it in its
+// clean form. The folder is relative to the workspace of the owner: it is not
+// an absolute path, has no parent reference or dot segment, no empty segment
+// (so no trailing slash), no NUL or other control character and no backslash.
+// It names at least one folder, so a grant never covers the whole workspace.
+func NormalizeClientFolder(f string) (string, error) {
+	bad := func() (string, error) {
+		return "", invalidClientInput("invalid folder %q", utils.TruncateUTF8(f, 64))
+	}
+	if f == "" || len(f) > MaxClientFolderBytes || strings.HasPrefix(f, "/") || strings.ContainsRune(f, '\\') || !utf8.ValidString(f) || strings.ContainsFunc(f, unicode.IsControl) {
+		return bad()
+	}
+	segs := strings.Split(f, "/")
+	if len(segs) > MaxClientFolderSegments {
+		return bad()
+	}
+	for _, s := range segs {
+		if s == "" || s == "." || s == ".." || strings.TrimSpace(s) != s {
+			return bad()
+		}
+	}
+	// The workspace has its own rules for a name; a folder it would refuse
+	// could never be reached.
+	if _, err := workspace.SplitPath("/" + f); err != nil {
+		return bad()
+	}
+	return f, nil
+}
+
+// NormalizeClientFolders validates the folder grant of a code or a key: up to
+// MaxClientReadFolders read folders (duplicates removed, sorted) and at most
+// one write folder. A key that may write a folder may also read it, so the
+// write folder is not repeated in the read list by the caller.
+func NormalizeClientFolders(read []string, write string) (FolderList, string, error) {
+	seen := map[string]bool{}
+	out := FolderList{}
+	for _, f := range read {
+		n, err := NormalizeClientFolder(f)
+		if err != nil {
+			return nil, "", err
+		}
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	if len(out) > MaxClientReadFolders {
+		return nil, "", invalidClientInput("at most %d read folders", MaxClientReadFolders)
+	}
+	slices.Sort(out)
+	if write != "" {
+		w, err := NormalizeClientFolder(write)
+		if err != nil {
+			return nil, "", err
+		}
+		write = w
+	}
+	return out, write, nil
+}
+
+// SetClientKeyFolders replaces the folder grant of a client key of the owner.
+// Empty lists are allowed and give the key no access. A key without
+// client_folders takes only empty lists.
+func SetClientKeyFolders(db *gorm.DB, id, ownerID string, read []string, write string) (FolderList, string, error) {
+	list, w, err := NormalizeClientFolders(read, write)
+	if err != nil {
+		return nil, "", err
+	}
+	var k UserAPIKey
+	if err := db.Where("id = ? AND user_id = ? AND kind = ?", id, ownerID, KeyKindClient).First(&k).Error; err != nil {
+		return nil, "", err
+	}
+	if !k.Features[FeatureClientFolders] && (len(list) > 0 || w != "") {
+		return nil, "", ErrClientFolders
+	}
+	res := db.Model(&UserAPIKey{}).Where("id = ? AND user_id = ? AND kind = ?", id, ownerID, KeyKindClient).
+		Updates(map[string]any{"read_folders": list, "write_folder": w})
+	if res.Error != nil {
+		return nil, "", res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, "", gorm.ErrRecordNotFound
+	}
+	return list, w, nil
+}
+
+// ErrClientFolderDenied is the refusal of ClientFolderGrant. Its text is for the
+// log of the host: a caller turns it into one generic refusal.
+var ErrClientFolderDenied = errors.New("client folder access denied")
+
+// ClientFolderGrant returns the folder grant of a client key for an add-on. The
+// key must stand now (it exists, is not expired or paused, its owner is an
+// active administrator), hold client_folders, and be allowed to reach the
+// add-on. Anything else is ErrClientFolderDenied. A key without a grant gets an
+// empty one, which reaches nothing. It reads the key from the store on every
+// call, so a change of the grant or a revoke applies to the next operation.
+func ClientFolderGrant(ctx context.Context, db *gorm.DB, keyID, ownerID, addonID string, now time.Time) (read []string, write string, err error) {
+	if db == nil || keyID == "" || ownerID == "" || addonID == "" {
+		return nil, "", fmt.Errorf("%w: no client", ErrClientFolderDenied)
+	}
+	var k UserAPIKey
+	if e := db.WithContext(ctx).Preload("User").Where("id = ? AND user_id = ? AND kind = ?", keyID, ownerID, KeyKindClient).First(&k).Error; e != nil {
+		if errors.Is(e, gorm.ErrRecordNotFound) {
+			return nil, "", fmt.Errorf("%w: the client is not paired", ErrClientFolderDenied)
+		}
+		return nil, "", e
+	}
+	switch {
+	case k.CheckUsable(now) != nil:
+		return nil, "", fmt.Errorf("%w: the client key is expired, paused or its owner is not an active administrator", ErrClientFolderDenied)
+	case !k.AllowsAddon(addonID):
+		return nil, "", fmt.Errorf("%w: the client may not reach this add-on", ErrClientFolderDenied)
+	case !k.ClientAllows(FeatureClientFolders):
+		return nil, "", fmt.Errorf("%w: the client has no folder grant", ErrClientFolderDenied)
+	}
+	return slices.Clone(k.ReadFolders), k.WriteFolder, nil
 }

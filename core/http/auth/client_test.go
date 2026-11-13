@@ -3,6 +3,7 @@
 package auth_test
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"sync"
@@ -402,6 +403,122 @@ var _ = Describe("Client pairing and client keys", func() {
 			keys, err := auth.ActiveClientKeysForAddon(db, other.ID, "notes", time.Now())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(keys).To(BeEmpty())
+		})
+	})
+
+	Describe("the folder grant", func() {
+		feats := []string{auth.FeatureClientSelf, auth.FeatureClientAddons, auth.FeatureClientFolders}
+		pairFolders := func(read []string, write string) *auth.UserAPIKey {
+			code, _, err := auth.CreatePairingCode(db, owner.ID, "c", feats, []string{"notes"}, 0, 0, secret, auth.WithFolders(read, write))
+			Expect(err).ToNot(HaveOccurred())
+			_, key, err := auth.RedeemPairingCode(db, code, "c", secret)
+			Expect(err).ToNot(HaveOccurred())
+			return key
+		}
+		grant := func(k *auth.UserAPIKey, addon string) ([]string, string, error) {
+			return auth.ClientFolderGrant(context.Background(), db, k.ID, owner.ID, addon, time.Now())
+		}
+
+		DescribeTable("refuses a folder that is not relative to the workspace",
+			func(f string) {
+				_, err := auth.NormalizeClientFolder(f)
+				Expect(err).To(MatchError(auth.ErrInvalidClientInput))
+			},
+			Entry("empty", ""),
+			Entry("absolute", "/Notes"),
+			Entry("parent", ".."),
+			Entry("parent in the middle", "Notes/../Secrets"),
+			Entry("dot", "Notes/."),
+			Entry("backslash", `Notes\x`),
+			Entry("NUL", "Notes\x00x"),
+			Entry("control character", "Notes\nx"),
+			Entry("empty segment", "Notes//x"),
+			Entry("trailing slash", "Notes/"),
+			Entry("space at the end of a segment", "Notes /x"),
+			Entry("invalid UTF-8", "Notes/\xff"),
+			Entry("too many segments", "a/b/c/d/e/f/g/h/i"),
+			Entry("too long", strings.Repeat("a", 256)),
+		)
+		It("accepts a clean folder, with spaces and other scripts inside a name", func() {
+			for _, f := range []string{"Notes", "Memory/clients/box", "My Notes/2026", "Küche/台所"} {
+				got, err := auth.NormalizeClientFolder(f)
+				Expect(err).ToNot(HaveOccurred(), f)
+				Expect(got).To(Equal(f))
+			}
+		})
+		It("keeps the feature and the grant together on a code", func() {
+			_, _, err := auth.CreatePairingCode(db, owner.ID, "c", feats, []string{"notes"}, 0, 0, secret)
+			Expect(err).To(MatchError(auth.ErrClientFolders))
+			_, _, err = auth.CreatePairingCode(db, owner.ID, "c", []string{auth.FeatureClientSelf}, nil, 0, 0, secret, auth.WithFolders([]string{"Notes"}, ""))
+			Expect(err).To(MatchError(auth.ErrClientFolders))
+			_, _, err = auth.CreatePairingCode(db, owner.ID, "c", feats, []string{"notes"}, 0, 0, secret, auth.WithFolders(nil, "Memory/box"))
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("copies the grant from the code to the key, sorted and without repeats", func() {
+			k := pairFolders([]string{"B", "A", "B"}, "Memory/box")
+			Expect(k.ReadFolders).To(Equal(auth.FolderList{"A", "B"}))
+			Expect(k.WriteFolder).To(Equal("Memory/box"))
+			var stored auth.UserAPIKey
+			Expect(db.First(&stored, "id = ?", k.ID).Error).To(Succeed())
+			Expect(stored.ReadFolders).To(Equal(auth.FolderList{"A", "B"}))
+			Expect(stored.WriteFolder).To(Equal("Memory/box"))
+		})
+		It("gives the grant of a key that stands and may reach the add-on", func() {
+			k := pairFolders([]string{"Notes"}, "Memory/box")
+			read, write, err := grant(k, "notes")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(read).To(Equal([]string{"Notes"}))
+			Expect(write).To(Equal("Memory/box"))
+		})
+		It("refuses a paused key, an expired key, a revoked key, an add-on it may not reach, a missing feature and a demoted owner", func() {
+			k := pairFolders([]string{"Notes"}, "")
+			_, _, err := grant(k, "other")
+			Expect(err).To(MatchError(auth.ErrClientFolderDenied))
+			_, _, err = grant(&auth.UserAPIKey{ID: "nope"}, "notes")
+			Expect(err).To(MatchError(auth.ErrClientFolderDenied))
+			noFeature := pairFolders([]string{"Notes"}, "")
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", noFeature.ID).Update("features", auth.PermissionMap{auth.FeatureClientAddons: true}).Error).To(Succeed())
+			_, _, err = grant(noFeature, "notes")
+			Expect(err).To(MatchError(auth.ErrClientFolderDenied))
+
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", k.ID).Update("disabled", true).Error).To(Succeed())
+			_, _, err = grant(k, "notes")
+			Expect(err).To(MatchError(auth.ErrClientFolderDenied), "paused")
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", k.ID).Update("disabled", false).Error).To(Succeed())
+			_, _, err = grant(k, "notes")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", k.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error).To(Succeed())
+			_, _, err = grant(k, "notes")
+			Expect(err).To(MatchError(auth.ErrClientFolderDenied), "expired")
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", k.ID).Update("expires_at", nil).Error).To(Succeed())
+			Expect(db.Model(&auth.User{}).Where("id = ?", owner.ID).Update("role", auth.RoleUser).Error).To(Succeed())
+			_, _, err = grant(k, "notes")
+			Expect(err).To(MatchError(auth.ErrClientFolderDenied), "owner demoted")
+			Expect(db.Model(&auth.User{}).Where("id = ?", owner.ID).Update("role", auth.RoleAdmin).Error).To(Succeed())
+			Expect(auth.RevokeClientKey(db, k.ID, owner.ID)).To(Succeed())
+			_, _, err = grant(k, "notes")
+			Expect(err).To(MatchError(auth.ErrClientFolderDenied), "revoked")
+		})
+		It("applies an edit of the grant to the next call, and an empty grant is no access", func() {
+			k := pairFolders([]string{"Notes"}, "Memory/box")
+			read, write, err := auth.SetClientKeyFolders(db, k.ID, owner.ID, []string{"Journal"}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(read).To(Equal(auth.FolderList{"Journal"}))
+			Expect(write).To(BeEmpty())
+			r, w, err := grant(k, "notes")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r).To(Equal([]string{"Journal"}))
+			Expect(w).To(BeEmpty())
+			_, _, err = auth.SetClientKeyFolders(db, k.ID, owner.ID, []string{}, "")
+			Expect(err).ToNot(HaveOccurred())
+			r, w, _ = grant(k, "notes")
+			Expect(r).To(BeEmpty())
+			Expect(w).To(BeEmpty())
+			_, _, err = auth.SetClientKeyFolders(db, k.ID, owner.ID, []string{"../x"}, "")
+			Expect(err).To(MatchError(auth.ErrInvalidClientInput))
+			other := createTestUser(db, "other@example.com", auth.RoleAdmin, auth.ProviderLocal)
+			_, _, err = auth.SetClientKeyFolders(db, k.ID, other.ID, []string{"A"}, "")
+			Expect(err).To(HaveOccurred(), "an owner edits only its own clients")
 		})
 	})
 

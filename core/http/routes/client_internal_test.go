@@ -327,6 +327,71 @@ var _ = Describe("client routes", func() {
 		Expect(code).To(Equal(http.StatusForbidden), "the key cannot change its own list")
 	})
 
+	It("carries the folder grant on the code and on the key, checks it, shows it, and lets the owner change it", func() {
+		folders := []string{auth.FeatureClientSelf, auth.FeatureClientFolders}
+		for name, body := range map[string]map[string]any{
+			"client_folders without a folder":    {"features": folders},
+			"folders without client_folders":     {"features": []string{auth.FeatureClientSelf}, "readFolders": []string{"Notes"}},
+			"a write folder without the feature": {"features": []string{auth.FeatureClientSelf}, "writeFolder": "Notes"},
+			"an absolute folder":                 {"features": folders, "readFolders": []string{"/Notes"}},
+			"a parent reference":                 {"features": folders, "readFolders": []string{"Notes/../Secrets"}},
+			"a backslash":                        {"features": folders, "writeFolder": "Notes\\x"},
+			"a NUL":                              {"features": folders, "writeFolder": "Notes\u0000x"},
+			"too many read folders":              {"features": folders, "readFolders": []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}},
+		} {
+			code, out := do(http.MethodPost, clientCodesPath, admin, body)
+			Expect(code).To(Equal(http.StatusBadRequest), name)
+			Expect(out["error"]).ToNot(BeEmpty(), name)
+		}
+
+		code, made := do(http.MethodPost, clientCodesPath, admin, map[string]any{"features": folders, "readFolders": []string{"Reports", "Notes", "Notes"}, "writeFolder": "Memory/clients/box"})
+		Expect(code).To(Equal(http.StatusCreated))
+		Expect(made["readFolders"]).To(Equal([]any{"Notes", "Reports"}))
+		Expect(made["writeFolder"]).To(Equal("Memory/clients/box"))
+		_, listed := do(http.MethodGet, clientCodesPath, admin, nil)
+		Expect(listed["codes"].([]any)[0].(map[string]any)["writeFolder"]).To(Equal("Memory/clients/box"))
+
+		_, paired := do(http.MethodPost, clientPairPath, "", map[string]string{"code": made["code"].(string)})
+		key, id := paired["key"].(string), paired["id"].(string)
+		Expect(paired["readFolders"]).To(Equal([]any{"Notes", "Reports"}))
+		Expect(paired["writeFolder"]).To(Equal("Memory/clients/box"))
+		_, self := do(http.MethodGet, clientSelfPath, key, nil)
+		Expect(self["readFolders"]).To(Equal([]any{"Notes", "Reports"}))
+
+		// A field that is absent stays as it is.
+		code, put := do(http.MethodPut, "/api/client/keys/"+id, admin, map[string]any{"readFolders": []string{"Journal"}})
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(put["readFolders"]).To(Equal([]any{"Journal"}))
+		Expect(put["writeFolder"]).To(Equal("Memory/clients/box"))
+		code, put = do(http.MethodPut, "/api/client/keys/"+id, admin, map[string]any{"writeFolder": ""})
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(put["writeFolder"]).To(Equal(""))
+		_, keys := do(http.MethodGet, clientKeysPath, admin, nil)
+		got := keys["clients"].([]any)[0].(map[string]any)
+		Expect(got["readFolders"]).To(Equal([]any{"Journal"}))
+		Expect(got["writeFolder"]).To(Equal(""))
+		// Empty lists are the way to take the access away.
+		code, put = do(http.MethodPut, "/api/client/keys/"+id, admin, map[string]any{"readFolders": []string{}})
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(put["readFolders"]).To(Equal([]any{}))
+		// A refused change leaves the grant as it was.
+		code, _ = do(http.MethodPut, "/api/client/keys/"+id, admin, map[string]any{"readFolders": []string{"Notes"}, "writeFolder": "../x"})
+		Expect(code).To(Equal(http.StatusBadRequest))
+		_, keys = do(http.MethodGet, clientKeysPath, admin, nil)
+		Expect(keys["clients"].([]any)[0].(map[string]any)["readFolders"]).To(Equal([]any{}))
+		// A key that was paired without the feature takes no folder.
+		plain, plainID := pair(auth.FeatureClientSelf)
+		code, _ = do(http.MethodPut, "/api/client/keys/"+plainID, admin, map[string]any{"readFolders": []string{"Notes"}})
+		Expect(code).To(Equal(http.StatusBadRequest))
+		// Only an administrator edits the grant: not the client, and not the client of another feature set.
+		code, _ = do(http.MethodPut, "/api/client/keys/"+id, key, map[string]any{"readFolders": []string{"Notes"}})
+		Expect(code).To(Equal(http.StatusForbidden))
+		code, _ = do(http.MethodPut, "/api/client/keys/"+id, plain, map[string]any{"readFolders": []string{"Notes"}})
+		Expect(code).To(Equal(http.StatusForbidden))
+		code, _ = do(http.MethodPut, "/api/client/keys/"+id, "", map[string]any{"readFolders": []string{"Notes"}})
+		Expect(code).To(BeNumerically(">=", 400))
+	})
+
 	It("tells a client in one call what it may use: features, add-ons, models and the version of the instance", func() {
 		code, made := do(http.MethodPost, clientCodesPath, admin, map[string]any{
 			"features": []string{auth.FeatureClientSelf, auth.FeatureClientAddons, auth.FeatureClientInference},
