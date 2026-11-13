@@ -25733,7 +25733,7 @@ const docTemplate = `{
                     ]
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is off, progress or stream; empty means progress.",
+                    "description": "ReplyMode is off, progress, stream or reasoning; empty means progress.",
                     "type": "string"
                 },
                 "resources": {
