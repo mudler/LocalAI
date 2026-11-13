@@ -74,7 +74,10 @@ type Job struct {
 	ID, Owner   string // ID is the ID of the chat that runs the job
 	TaskID      string
 	Parameters  map[string]string
-	TriggeredBy string // manual, api, rerun
+	TriggeredBy string // manual, api, rerun, client
+	// ClientID is the id of the paired client that a job was started for, or
+	// empty. A client sees only the jobs with its own id.
+	ClientID    string
 	Attachments int
 	Created     time.Time
 	// Ended is when the watcher saw the job end and Error the text of the
@@ -93,7 +96,15 @@ type Job struct {
 // Filter narrows ListJobs.
 type Filter struct {
 	TaskID string
-	// Limit is the most jobs returned, newest first. Zero or less: all.
+	// ClientID keeps only the jobs that were started for this paired client.
+	ClientID string
+	// Active keeps only the jobs whose end was not recorded yet, and Finished
+	// only the ones whose end was. Both set keeps none.
+	Active, Finished bool
+	// OldestFirst orders the answer oldest first instead of newest first.
+	OldestFirst bool
+	// Limit is the most jobs returned, in the order of the filter. Zero or
+	// less: all.
 	Limit int
 }
 
@@ -116,6 +127,9 @@ type Store interface {
 	GetJob(ctx context.Context, owner, id string) (Job, error)
 	// ListJobs returns the jobs of the owner, newest first.
 	ListJobs(ctx context.Context, owner string, f Filter) ([]Job, error)
+	// CountJobs returns how many jobs of the owner match the filter (Limit and
+	// OldestFirst do not matter), without reading the jobs.
+	CountJobs(ctx context.Context, owner string, f Filter) (int, error)
 	// AllJobs returns the jobs of every owner, newest first.
 	AllJobs(ctx context.Context) ([]Job, error)
 	DeleteJob(ctx context.Context, owner, id string) error

@@ -319,7 +319,21 @@ type Change struct {
 	On bool `json:",omitempty"`
 	// Chat is the chat that asked for the change.
 	Chat string `json:",omitempty"`
+	// Binding, Place, Thread and Code are set on a change that a chat of a
+	// messaging app asked for and that waits for the owner's answer there: the
+	// connection, the platform chat and thread where it was written, and the
+	// code that answers it ("confirm CODE"). Expires is when it lapses, in Unix
+	// seconds.
+	Binding string `json:",omitempty"`
+	Place   string `json:",omitempty"`
+	Thread  string `json:",omitempty"`
+	Code    string `json:",omitempty"`
+	Expires int64  `json:",omitempty"`
 }
+
+// FromConnector says whether the change waits for an answer in a chat of a
+// messaging app.
+func (c Change) FromConnector() bool { return c.Binding != "" && c.Code != "" }
 
 // The kinds of change.
 const (

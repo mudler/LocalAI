@@ -144,7 +144,7 @@ test('the Files pane tags the settings files and says what they do', async ({ pa
   await mockDiscovery(page, state)
   await stubChat(page, state)
   await page.goto('/app/chats/c1')
-  await page.getByTestId('chat-files-chip').click({ timeout: 15_000 })
+  await page.getByTestId('chat-files-toggle').click({ timeout: 15_000 })
   const pane = page.getByTestId('chat-files-pane')
   await expect(pane.getByTestId('chat-file-wellknown')).toHaveText('Your profile')
   await expect(pane.getByTestId('chat-file-wellknown')).toHaveCount(1)

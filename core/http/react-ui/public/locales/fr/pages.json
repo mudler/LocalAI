@@ -122,7 +122,13 @@
     "sourceTitle": "Source de « {{title}} »",
     "sourceLines_one": "{{count}} ligne",
     "sourceLines_other": "{{count}} lignes",
-    "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici."
+    "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici.",
+    "embed": {
+      "desc": "Vous avez autorisé l'ouverture de cette page. Sur l'accueil, dans un emplacement et dans le volet, elle s'exécute dès que l'écran s'affiche, sans clic : il lui faut donc un accord à part.",
+      "item": "S'exécuter sur l'accueil, dans les emplacements de l'app et dans le volet",
+      "note": "Elle démarre à l'affichage de l'écran, sans clic. Une modification de son auteur redemande l'accord.",
+      "allow": "Autoriser sur l'accueil, dans les emplacements et dans le volet"
+    }
   },
   "frame": {
     "filesFailed": "Des fichiers à côté de cette page ne se sont pas chargés : {{files}}. La console du navigateur indique pourquoi.",
@@ -134,5 +140,47 @@
     "open": "Ouvrir {{site}}",
     "cancel": "Annuler",
     "lookalike": "Cette adresse utilise des lettres d'autres alphabets et se lit {{display}}. Elle peut imiter un autre site : vérifiez-la avant de l'ouvrir."
+  },
+  "view": {
+    "startPage": "Page de démarrage",
+    "makeStart": "En faire ma première page épinglée",
+    "startAlone": "C'est votre seule page épinglée.",
+    "startFailed": "La page de démarrage n'a pas pu être enregistrée : {{message}}"
+  },
+  "dock": {
+    "button": "Volet",
+    "buttonTitle": "Afficher ou masquer le volet (Ctrl+\\)",
+    "region": "Pages à côté de la discussion",
+    "tabs": "Pages du volet",
+    "closeTab": "Fermer {{title}}",
+    "add": "Ouvrir une autre page dans le volet",
+    "hide": "Masquer le volet",
+    "hideKeys": "Masquer le volet (Ctrl+\\)",
+    "openFull": "Ouvrir {{title}} en pleine page",
+    "by": {
+      "assistant": "Page créée par l'assistant",
+      "you": "Page créée par vous"
+    },
+    "shared": "Partagée : {{folder}}",
+    "askPrompt": "Modifie la page {{title}} dans pages/{{name}}/ pour que ",
+    "live": "En direct : se met à jour quand les fichiers changent",
+    "liveShort": "En direct",
+    "sandboxed": "Isolée, sans réseau",
+    "resize": "Largeur du volet",
+    "resizeHint": "Faites glisser le bord ou utilisez les flèches. Un double-clic ou Entrée rétablit la largeur.",
+    "fullScreen": "Volet en plein écran",
+    "halfScreen": "Volet à mi-écran",
+    "sheetHint": "Tirez la poignée vers le haut pour le plein écran, vers le bas pour fermer",
+    "pickTitle": "Ouvrir une page dans le volet",
+    "pickEmpty": "Vous n'avez pas encore de pages. Demandez à l'assistant d'en créer une.",
+    "missing": "La page {{name}} n'existe plus, ou vous ne pouvez pas la lire pour le moment.",
+    "off": "Un administrateur a désactivé les pages partagées.",
+    "error": "La page n'a pas pu être chargée.",
+    "allowText": "Cette page vient d'un dossier partagé. Elle ne s'exécute ici qu'après votre autorisation.",
+    "allow": "Examiner et autoriser",
+    "run": "L'exécuter ici",
+    "sendLabel": "La page demande d'envoyer ce message à cette discussion :",
+    "saveFailed": "Le volet n'a pas été enregistré : {{message}}",
+    "openInDock": "Ouvrir dans le volet"
   }
 }

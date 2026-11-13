@@ -98,6 +98,20 @@ var RouteFeatureRegistry = []RouteFeature{
 }
 ```
 
+A route may have a second row with a **client feature** (`client_self`,
+`client_addons`, `client_inference`). A user passes the row of its user feature, and
+the key of a paired client passes the row of a feature in its list; a route with no
+client row is refused to every client key. The rows of `client_inference` are a
+frozen list (spec "freezes the routes of client_inference" in
+`core/http/auth/features_client_test.go`): do not add a route to it unless a client
+should reach it, and add it to the spec in the same change. A client route needs a
+model name in the request. The check that decides is `auth.CheckClientModel`, which
+`setModelAndConfig` (and the realtime handshake) calls with the name the handler
+resolved, so a route that resolves its model in another place must call it there;
+`RequireClientModels` is only the cheap early check and the installer of the gate. A
+route without the gate refuses a client key. Test a client route with the real
+binder, not with a stub handler (`core/http/middleware/client_models_test.go`).
+
 ## Adding a new feature
 
 When you need a new toggleable feature (not just a new endpoint under an existing feature):

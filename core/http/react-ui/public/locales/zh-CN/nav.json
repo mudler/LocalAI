@@ -134,5 +134,8 @@
   "inboxOpsFailed_one": "{{count}} 个操作失败",
   "inboxOpsFailed_other": "{{count}} 个操作失败",
   "inboxOpsFailedAnnounce": "有操作失败。请在通知的“活动”标签页中查看。",
-  "activityEntry": "活动"
+  "activityEntry": "活动",
+  "navLinkExternal": "确认后在新标签页中打开 {{site}}",
+  "navLinkAsk": "打开此链接？",
+  "startPage": "起始页"
 }

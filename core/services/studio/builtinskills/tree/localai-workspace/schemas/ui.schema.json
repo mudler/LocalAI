@@ -13,21 +13,34 @@
     "accent": {
       "type": "string",
       "title": "Accent colour",
-      "description": "A colour such as #3b82f6 for buttons and links. Empty keeps the default.",
+      "description": "A colour such as #3b82f6 for buttons and links. Empty keeps the default. It must keep a contrast of at least 4.5:1 against the page in the theme in use; a fainter colour is not used and the default shows instead.",
       "pattern": "^$|^#[0-9a-fA-F]{6}$",
-      "x-ui": { "widget": "color" }
+      "x-ui": { "widget": "color", "contrast": 4.5 }
     },
     "density": {
       "enum": ["comfortable", "compact"],
       "title": "Density",
       "description": "compact shows more on one screen."
     },
+    "look": {
+      "type": "object",
+      "title": "Look",
+      "description": "The font, the corners and the look of messages and code. Only the values of each list; there is no CSS.",
+      "properties": {
+        "font": { "enum": ["default", "system", "serif", "mono"], "description": "The font of messages and the message box. default is Geist." },
+        "radius": { "enum": ["sharp", "soft", "round"], "description": "The corners of cards, buttons and messages. soft is the default." },
+        "bubble": { "enum": ["card", "filled", "tinted", "outline", "plain"], "description": "How your own messages look in a chat. card is the default." },
+        "messageWidth": { "enum": ["narrow", "medium", "wide", "full"], "description": "How wide a chat is: narrow 640 px, medium 760 px (default), wide 920 px, full the whole window." },
+        "codeTheme": { "enum": ["auto", "mono", "vivid", "ink"], "description": "The colours of code in a chat, all from the theme: auto (default), mono (no colours), vivid (more colours), ink (a block in the inverse colours of the theme)." }
+      },
+      "x-ui": { "widget": "look" }
+    },
     "defaultModel": {
       "type": "string",
       "title": "Default model",
-      "description": "The model a new chat starts with.",
+      "description": "The model a new chat starts with. Kept from older versions: used only when defaults.json has no chat. Set the chat default in defaults.json.",
       "maxLength": 200,
-      "x-ui": { "widget": "model" }
+      "x-ui": { "widget": "model", "hidden": true }
     },
     "homeBackground": {
       "type": "object",
@@ -95,9 +108,131 @@
       },
       "x-ui": { "widget": "background" }
     },
+    "strings": {
+      "type": "object",
+      "title": "Text",
+      "description": "Your own text for a few labels of the app, by key. Only the keys listed here can change: the text of security, permission and consent prompts cannot. A text may use only the placeholders of its key, written as {name}.",
+      "properties": {
+        "home.headline": { "type": "string", "minLength": 1, "maxLength": 120, "description": "The big line at the top of Home, when home.json has no headline. Placeholders: {user.name}, {time_of_day}, {date}.", "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"] },
+        "composer.placeholder": { "type": "string", "minLength": 1, "maxLength": 120, "description": "The hint in an empty message box when a model is chosen. Placeholder: {model}.", "x-placeholders": ["{model}"] },
+        "chat.empty.title": { "type": "string", "minLength": 1, "maxLength": 120, "description": "The headline of an empty chat, when persona.json has no emptyChat title. No placeholders.", "x-placeholders": [] },
+        "nav.newChat": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The name of the New chat button. No placeholders.", "x-placeholders": [] },
+        "nav.home": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The name of Home in the sidebar. No placeholders.", "x-placeholders": [] },
+        "nav.recentChats": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The title of the recent chats in the sidebar. No placeholders.", "x-placeholders": [] },
+        "nav.allChats": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The name of All chats in the sidebar. No placeholders.", "x-placeholders": [] }
+      },
+      "additionalProperties": false,
+      "x-ui": { "widget": "strings" }
+    },
+    "sound": {
+      "type": "object",
+      "title": "Notification sounds",
+      "description": "Short sounds for events, played only while the tab is in the background, after the person has used the page, and never inside quiet hours. Off unless enabled is true. The sounds are built in; nothing is downloaded.",
+      "properties": {
+        "enabled": { "type": "boolean", "description": "true turns the sounds on. Default false." },
+        "volume": { "type": "number", "minimum": 0, "maximum": 1, "description": "0 to 1. Default 0.5." },
+        "quietHours": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[from, to] as 24-hour HH:MM in the time zone of the device, for example [\"22:00\", \"07:00\"]. No sound from the first time until the second; the span may cross midnight. Leave the key out for no quiet hours.",
+          "items": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+        },
+        "events": {
+          "type": "object",
+          "description": "The sound of each event. none is silent. A missing event uses its default.",
+          "properties": {
+            "replyDone": { "enum": ["none", "soft-chime", "double-tap", "bell", "pop", "low-tone"], "description": "A reply is finished. Default soft-chime." },
+            "approval": { "enum": ["none", "soft-chime", "double-tap", "bell", "pop", "low-tone"], "description": "A tool or a change waits for approval. Default double-tap." },
+            "taskDone": { "enum": ["none", "soft-chime", "double-tap", "bell", "pop", "low-tone"], "description": "A trigger or an agent job ended. Default bell." },
+            "error": { "enum": ["none", "soft-chime", "double-tap", "bell", "pop", "low-tone"], "description": "A request or a job failed. Default low-tone." }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-ui": { "widget": "sound" }
+    },
+    "voice": {
+      "type": "object",
+      "title": "Voice for replies",
+      "description": "Reading replies aloud. The text of a reply is sent to the default text-to-speech model of defaults.json (key tts); the settings page names it and says when it is not a local model. Off unless readAloud is button or auto.",
+      "properties": {
+        "readAloud": { "enum": ["off", "button", "auto"], "description": "off never reads; button shows a speaker on each reply; auto reads each finished reply. Default off." },
+        "voice": { "type": "string", "maxLength": 100, "description": "The voice name the model takes. Empty uses the model's own default." },
+        "speed": { "type": "number", "minimum": 0.5, "maximum": 2, "description": "Playback speed, 0.5 to 2. Default 1." },
+        "skipCode": { "type": "boolean", "description": "true leaves out code blocks and tables and says \"code block omitted\" instead. Default true." }
+      },
+      "x-ui": { "widget": "voice" }
+    },
+    "slots": {
+      "type": "object",
+      "title": "Slots",
+      "description": "Small places of the app that show your page tiles, tool buttons and commands, drawn left to right: chatHeader (at most 4, the bar over a chat), sidebarFooter (at most 3, the foot of the sidebar), composerToolbar (at most 6, beside the attach button). A slot is about 40 px high: a page whose widget block has compact runs in that strip; another page is a button that opens it.",
+      "properties": {
+        "chatHeader": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {"enum": ["page", "tool", "command"], "description": "page: a page tile; tool: a button that runs one tool after you approve it; command: one of your commands."},
+              "page": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "type page: the folder name of the page under pages/."},
+              "folder": {"type": "integer", "minimum": 1, "description": "type page: the id of the shared folder of the page; leave it out for a page of your home."},
+              "tool": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$", "description": "type tool: the name of a tool you have."},
+              "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
+              "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
+              "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
+              "command": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "type command: the name of one of your commands in commands.json, without the slash."}
+            },
+            "additionalProperties": false
+          }
+        },
+        "sidebarFooter": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {"enum": ["page", "tool", "command"], "description": "page: a page tile; tool: a button that runs one tool after you approve it; command: one of your commands."},
+              "page": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "type page: the folder name of the page under pages/."},
+              "folder": {"type": "integer", "minimum": 1, "description": "type page: the id of the shared folder of the page; leave it out for a page of your home."},
+              "tool": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$", "description": "type tool: the name of a tool you have."},
+              "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
+              "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
+              "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
+              "command": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "type command: the name of one of your commands in commands.json, without the slash."}
+            },
+            "additionalProperties": false
+          }
+        },
+        "composerToolbar": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {"enum": ["page", "tool", "command"], "description": "page: a page tile; tool: a button that runs one tool after you approve it; command: one of your commands."},
+              "page": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "type page: the folder name of the page under pages/."},
+              "folder": {"type": "integer", "minimum": 1, "description": "type page: the id of the shared folder of the page; leave it out for a page of your home."},
+              "tool": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$", "description": "type tool: the name of a tool you have."},
+              "arguments": {"type": "object", "maxProperties": 16, "additionalProperties": {"type": ["string", "number", "boolean"]}, "description": "type tool: the fixed arguments of the call, names and plain values."},
+              "label": {"type": "string", "minLength": 1, "maxLength": 40, "description": "The text of the button. type tool needs one."},
+              "icon": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$", "description": "The name of an icon, such as wand or calendar."},
+              "command": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "type command: the name of one of your commands in commands.json, without the slash."}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-ui": { "widget": "slots", "hidden": true }
+    },
     "pinnedPages": {
       "type": "array",
-      "description": "Pages shown in the sidebar. Pages come in a later release.",
+      "description": "Pages pinned in the sidebar, by page name. The first entry is the start page: it has its own screen and is marked Start page.",
       "maxItems": 20,
       "items": { "type": "string", "maxLength": 200 },
       "x-ui": { "hidden": true }

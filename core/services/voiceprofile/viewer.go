@@ -15,7 +15,9 @@ import (
 //   - a profile with an owner is seen, used and deleted by that user and by
 //     administrators;
 //   - a profile the viewer may not see answers ErrNotFound, never a refusal,
-//     so the existence of another user's profile does not leak.
+//     so the existence of another user's profile does not leak;
+//   - a viewer with None set (NoProfiles) sees no profile at all, not even an
+//     instance-wide one: it is the caller of a paired client.
 //
 // Without accounts the one person is the administrator: use AdminViewer.
 type Viewer struct {
@@ -24,7 +26,15 @@ type Viewer struct {
 	// Admin is true for an administrator, and for every caller of a server
 	// without accounts.
 	Admin bool
+	// None makes the viewer see and use no saved profile. It wins over Admin
+	// and UserID.
+	None bool
 }
+
+// NoProfiles is the viewer of a caller that must not touch any saved voice
+// profile, whoever owns it: the paired client of an owner. The profiles are
+// the owner's recordings, and the client has no account of its own.
+func NoProfiles() Viewer { return Viewer{None: true} }
 
 // UnsafeVoice reports whether a voice value that is not a profile reference
 // looks like a path: it has a path separator or "..". The TTS backends that
@@ -39,12 +49,12 @@ func AdminViewer() Viewer { return Viewer{Admin: true} }
 
 // CanSee reports whether the viewer may list, preview and synthesize with p.
 func (v Viewer) CanSee(p Profile) bool {
-	return v.Admin || p.OwnerID == "" || p.OwnerID == v.UserID
+	return !v.None && (v.Admin || p.OwnerID == "" || p.OwnerID == v.UserID)
 }
 
 // CanDelete reports whether the viewer may delete p.
 func (v Viewer) CanDelete(p Profile) bool {
-	return v.Admin || (p.OwnerID != "" && p.OwnerID == v.UserID)
+	return !v.None && (v.Admin || (p.OwnerID != "" && p.OwnerID == v.UserID))
 }
 
 // NewOwner is the owner stamped on a profile the viewer creates. An
@@ -90,6 +100,9 @@ func (s *Store) GetFor(ctx context.Context, v Viewer, id string) (Profile, error
 // CreateFor stores a profile owned by the viewer (see Viewer.NewOwner). A user
 // who is not an administrator may own at most MaxProfilesPerUser profiles and MaxBytesPerUser bytes of audio.
 func (s *Store) CreateFor(ctx context.Context, v Viewer, input CreateInput, references []ReferenceInput) (Profile, error) {
+	if v.None {
+		return Profile{}, ErrForbidden
+	}
 	input.OwnerID = v.NewOwner()
 	input.MaxOwned, input.MaxOwnedBytes = 0, 0
 	if input.OwnerID != "" {

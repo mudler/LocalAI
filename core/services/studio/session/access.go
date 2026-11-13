@@ -198,6 +198,11 @@ func (c *Chat) syncAccess(ctx context.Context, x Access) error {
 		c.accMu.Lock()
 		c.acc = x
 		c.accMu.Unlock()
+		// The host tools were built for the old access: the next start asks
+		// the hook again.
+		c.hostMu.Lock()
+		c.host.fp = ""
+		c.hostMu.Unlock()
 	}
 	if closed {
 		return nil // reopen starts the harness with the new prompt

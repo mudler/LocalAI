@@ -16,13 +16,14 @@ const SETTINGS = {
   'shortcuts.json': 'shortcuts',
   'home.json': 'home',
   'ui.json': 'ui',
+  'defaults.json': 'defaults',
 }
 const WELL_KNOWN = Object.fromEntries(Object.entries(SETTINGS).flatMap(([f, tag]) => [[`/LocalAI/${f}`, tag], [`/${f}`, tag]]))
 
 const PAGE_RE = /^\/pages\/([^/]+)\//
 
 // wellKnownTag is the tag the Files pane gives a path: profile, persona,
-// shortcuts, home, ui, page, or '' for any other file.
+// shortcuts, home, ui, defaults, page, or '' for any other file.
 export function wellKnownTag(path) {
   const p = String(path || '')
   if (WELL_KNOWN[p]) return WELL_KNOWN[p]
@@ -82,6 +83,7 @@ export function describeChanges(changes, pagesSeen = new Set()) {
   if (tags.has('shortcuts')) notes.push({ key: 'shortcuts', action: '', toast: 'shortcut' })
   if (tags.has('home')) notes.push({ key: 'home', action: 'home', toast: 'home' })
   if (tags.has('ui')) notes.push({ key: 'ui', action: 'appearance', toast: 'ui' })
+  if (tags.has('defaults')) notes.push({ key: 'defaults', action: 'defaults' })
   const pages = new Map()
   for (const p of paths) {
     const m = PAGE_RE.exec(p)

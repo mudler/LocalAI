@@ -74,7 +74,11 @@ func widgetJSON(w *pages.Widget) *schema.PagesWidget {
 	if w == nil {
 		return nil
 	}
-	return &schema.PagesWidget{Size: w.Size, Title: w.Title}
+	out := &schema.PagesWidget{Size: w.Size, Title: w.Title}
+	if w.Compact != nil {
+		out.Compact = &schema.PagesCompact{Width: w.Compact.Width}
+	}
+	return out
 }
 
 func pageFileJSON(f pages.File) schema.PagesFile {
@@ -98,7 +102,7 @@ func (h *Handlers) ListPages(c echo.Context) error {
 	if err != nil {
 		return failPage(c, err)
 	}
-	out := schema.PagesList{Pages: make([]schema.PagesPage, 0, len(list))}
+	out := schema.PagesList{Pages: make([]schema.PagesPage, 0, len(list)), PageAreaEnabled: h.svc.PageAreaOn()}
 	for _, p := range list {
 		out.Pages = append(out.Pages, pageJSON(p))
 	}

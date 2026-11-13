@@ -1,8 +1,9 @@
 // eslint-disable-next-line no-unused-vars
-import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useModels } from '../hooks/useModels'
-import { readLastModel, writeLastModel, readPreferredModel } from '../utils/lastModel'
+import { readLastModel, writeLastModel, readPreferredModel, readChatStart, subscribeChatStart } from '../utils/lastModel'
+import { startPick } from '../utils/defaults'
 import Icon from './Icon'
 import './home/composer.css'
 
@@ -24,6 +25,9 @@ const FILTER_FROM = 8
 //   searchable        true: always a filter box; false: never; omitted: from 8 models
 //   variant           "chip" (default, the compact Home chip) or "field" (a form control)
 //   autoSelect        choose the remembered or the first model when the value is not listed
+//   startsChat        the picker of a new chat: it starts as defaults.json says
+//                     (startPick): with ask, or a default that is not installed,
+//                     it chooses nothing and a note says why
 //   models, loading   the list is already held by the caller, so no second fetch
 //   grouped, loadedIds, showWarm, describe, onOpen, footer, labels
 //   defaultChoice, defaultSelected, onChooseDefault   a first row for "use the default"
@@ -32,7 +36,7 @@ const ModelPicker = forwardRef(function ModelPicker(
   {
     value, onChange, capability, loadedIds, disabled = false, placeholder,
     models: givenModels, loading: givenLoading, grouped = false, describe, onOpen, footer,
-    showWarm = true, labels, autoSelect = true, rememberSelection = true,
+    showWarm = true, labels, autoSelect = true, rememberSelection = true, startsChat = false,
     defaultChoice, defaultSelected = false, onChooseDefault, id, describedBy,
     multiple = false, allowCustom = false, clearable = false, searchable,
     variant = 'chip', className = '',
@@ -66,14 +70,29 @@ const ModelPicker = forwardRef(function ModelPicker(
   const usableNames = useMemo(() => names.filter(usable), [names, usable])
 
   // The remembered model if it is still there, otherwise the first one.
-  // Auto-select is not a user choice, so it is not written back.
+  // Auto-select is not a user choice, so it is not written back. A new chat
+  // starts as defaults.json says, which is read after the first render: a
+  // model chosen here before it came is changed, one the person chose is not.
+  const chatStart = useSyncExternalStore(subscribeChatStart, readChatStart)
+  const autoPicked = useRef('')
+  const plan = useMemo(() => (startsChat ? startPick(chatStart, usableNames, readLastModel(capability)) : null), [startsChat, chatStart, usableNames, capability])
   useEffect(() => {
     if (multiple || allowCustom || !autoSelect || defaultSelected || usableNames.length === 0) return
+    const auto = !value || value === autoPicked.current || !usableNames.includes(value)
+    if (plan) {
+      if (!auto || value === plan.model) return
+      autoPicked.current = plan.model
+      onChange(plan.model)
+      return
+    }
     if (value && usableNames.includes(value)) return
     const preferred = readPreferredModel(capability)
     const remembered = preferred && usableNames.includes(preferred) ? preferred : readLastModel(capability)
     onChange(remembered && usableNames.includes(remembered) ? remembered : usableNames[0])
-  }, [usableNames, value, onChange, capability, autoSelect, defaultSelected, multiple, allowCustom])
+  }, [usableNames, value, onChange, capability, autoSelect, defaultSelected, multiple, allowCustom, plan])
+  const startNote = plan && autoSelect && !value && plan.note
+    ? (plan.note === 'missing' ? t('picker.defaultMissing', { model: plan.missing }) : t('picker.chooseModel'))
+    : ''
 
   const showFilter = searchable ?? names.length >= FILTER_FROM
 
@@ -204,14 +223,17 @@ const ModelPicker = forwardRef(function ModelPicker(
           aria-expanded={open}
           aria-controls={listId}
           disabled={disabled}
-          title={labels?.title || t('picker.title')}
+          title={startNote || labels?.title || t('picker.title')}
+          data-note={startNote ? plan.note : undefined}
           data-testid="home-model-chip"
           onClick={() => (open ? close() : openMenu())}
           onKeyDown={(e) => { if (e.key === 'ArrowDown' && !open) { e.preventDefault(); openMenu() } }}
         >
           <Icon name="cube" />
           {showWarm && !multiple && !defaultSelected && <span className={`home-dot${value && isWarm(value) ? '' : ' home-dot--cold'}`} aria-hidden="true" />}
-          <span id={labels?.label ? `${instanceId}-selection` : undefined} className="home-chip__text">{label}</span>
+          {startNote
+            ? <span id={labels?.label ? `${instanceId}-selection` : undefined} className="home-chip__text home-chip__note" data-testid="model-picker-note">{startNote}</span>
+            : <span id={labels?.label ? `${instanceId}-selection` : undefined} className="home-chip__text">{label}</span>}
           {!multiple && current && byId.get(current)?.alias_of && !byId.get(current)?.alias_error && (
             <small className="home-chip__alias">{t('picker.aliasOf', { target: byId.get(current).alias_of })}</small>
           )}

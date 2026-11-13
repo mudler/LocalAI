@@ -36,7 +36,7 @@ const OFF_LINKS = new Set(['server', 'tools', 'agent', 'connection'])
 // How the host says a capability asks first, for the rows that do.
 function asksFirst(cap, subject, view) {
   if (cap === 'memory.write') return subject?.note_save === 'ask'
-  if (cap === 'triggers.propose') return Boolean(view?.proposal_mode) && view.proposal_mode !== 'auto'
+  if (cap === 'triggers.propose' || cap === 'triggers.change') return Boolean(view?.proposal_mode) && view.proposal_mode !== 'auto'
   return false
 }
 

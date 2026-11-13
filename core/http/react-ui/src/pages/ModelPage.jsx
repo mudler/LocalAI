@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
 import { groupForEntity } from '../utils/entityGroups'
 import { modelBudget } from '../utils/modelBudget'
+import { DEFAULT_ESTIMATE_CONTEXT_SIZE } from '../utils/contextDefaults'
 import { cssVars, diskState, fitFor, gbLabel, leavesFree } from '../utils/modelLedger'
 import { modelPath, walkFor } from '../utils/modelWalk'
 import { formatBytes } from '../utils/format'
@@ -38,7 +39,7 @@ import ConfigTab from '../components/models/page/ConfigTab'
 import LogsTab from '../components/models/page/LogsTab'
 import '../components/models/page/model-page.css'
 
-const CONTEXT_DEFAULT = 8192
+const CONTEXT_DEFAULT = DEFAULT_ESTIMATE_CONTEXT_SIZE
 
 // How long "starting" outlasts a click when the operation never shows up in the
 // list: the install call returned but the server queued nothing visible.

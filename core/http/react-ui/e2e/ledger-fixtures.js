@@ -420,25 +420,27 @@ export async function mockLedger(page, options = {}) {
   return state
 }
 
-// The "Best for this machine" shelf sizes candidates at a 4K context, which the
-// gallery estimates above do not carry (they start at 8K). Call this after
-// mockLedger to add that figure, so the shelf has fits to rank. There is no
-// recommendation endpoint: the shelf ranks the chat gallery against
-// /api/resources and /api/models/estimate on the client.
+// The "Best for this machine" shelf draws what GET /api/models/recommended
+// answers. Call this after mockLedger to give it the four smallest chat models
+// of the gallery, each with a 32K window and the memory the fixture estimates
+// for it, the way the server would after fitting them to the machine.
 export async function stubRecommendations(page, gallery = GALLERY) {
-  await page.route('**/api/models/estimate/*', route => {
-    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop())
-    const entry = gallery.find(e => e.name === name)
-    if (!entry) return route.fulfill({ status: 404, json: { error: 'model not found' } })
-    const base = entry.estimate.estimates[8192]
-    const vram = Math.round(base.vramBytes * 0.9)
-    return route.fulfill({
-      json: {
-        ...entry.estimate,
-        estimates: { ...entry.estimate.estimates, 4096: { vramBytes: vram, vramDisplay: `${(vram / GB).toFixed(2)} GB` } },
-      },
-    })
-  })
+  const chat = gallery
+    .filter(e => e.facets.includes('chat'))
+    .sort((a, b) => a.estimate.sizeBytes - b.estimate.sizeBytes)
+    .slice(0, 4)
+  const models = chat.map((e, i) => ({
+    id: e.name, name: e.name, role: i === 0 ? 'default' : 'alternative', reason: e.description,
+    license: e.license, context_size: 32768,
+    memory_bytes: e.estimate.estimates[32768]?.vramBytes ?? e.estimate.sizeBytes,
+    size_bytes: e.estimate.sizeBytes, fit: 'fits', fit_reasons: [], installed: false,
+  }))
+  await page.route('**/api/models/recommended', route => route.fulfill({
+    json: {
+      tier: 'gpu-large', hardware: { detected: true, kind: 'gpu', memory_bytes: 24 * GB, scope: 'local' },
+      models, nothing_fits: false, min_context: 16384, recommended_context: 32768,
+    },
+  }))
 }
 
 // ---- the model page and the Placement section ----

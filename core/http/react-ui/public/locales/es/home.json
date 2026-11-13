@@ -147,9 +147,49 @@
     "disabled": "desactivado",
     "pinned": "fijado",
     "useTyped": "Usar \"{{name}}\"",
+    "chooseModel": "Elige un modelo",
+    "defaultMissing": "Tu modelo predeterminado {{model}} no está instalado. Elige un modelo.",
     "empty": "No hay modelos disponibles",
     "add": "Añadir un modelo",
     "remove": "Quitar {{name}}",
     "clear": "Borrar"
+  },
+  "starters": {
+    "title": "Recomendado para tu equipo",
+    "tier": {
+      "cpu": "Solo CPU",
+      "gpu-small": "GPU pequeña",
+      "gpu-mid": "GPU de gama media",
+      "gpu-large": "GPU grande"
+    },
+    "undetected": "No pudimos detectar tu hardware, así que estos son los modelos para un equipo sin GPU.",
+    "cluster": "Dimensionado para la mejor máquina de tu clúster.",
+    "nothingFits": "Ninguno de los modelos recomendados cabe en este equipo. Este es el más pequeño; puede ir lento o no cargar.",
+    "facts": {
+      "size": "{{size}} de descarga",
+      "window": "{{window}} de contexto",
+      "memory": "unos {{memory}} de memoria"
+    },
+    "fit": {
+      "tight": "Justo",
+      "does_not_fit": "No cabe"
+    },
+    "reasons": {
+      "little_headroom": "Cabe, pero deja poca memoria libre.",
+      "below_chat_minimum": "La ventana de contexto sería demasiado pequeña para el chat.",
+      "exceeds_memory": "Necesita más memoria de la que tiene este equipo.",
+      "estimate_unavailable": "No se pudo estimar su uso de memoria.",
+      "hardware_unknown": "No se pudo leer tu hardware, así que no se comprueba si cabe."
+    },
+    "more": "Más modelos",
+    "fewer": "Menos modelos",
+    "askAdmin": "Solo un administrador puede instalar modelos. Pídele que instale uno de estos.",
+    "installModel": "Instalar {{model}}",
+    "cpuNote": "No se detectó GPU. Estos modelos responden con soltura en un procesador.",
+    "gpuNote": "Elegidos para caber en tu tarjeta gráfica con espacio para un chat completo.",
+    "install": "Instalar",
+    "installing": "Instalando",
+    "installStarted": "Instalando {{model}}…",
+    "installFailed": "Error de instalación: {{message}}"
   }
 }

@@ -130,7 +130,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 |-----------|---------|-------------|----------------------|
 | `--f16` | `false` | Enable GPU acceleration | `$LOCALAI_F16`, `$F16` |
 | `-t, --threads` | Automatic | Number of threads used for parallel computation. See the default thread count below | `$LOCALAI_THREADS`, `$THREADS` |
-| `--context-size` | | Default context size for models (`-1` = each model's full trained context from GGUF metadata) | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
+| `--context-size` | | Context size for models that set no `context_size` (`-1` = each model's full trained context from GGUF metadata). Unset: automatic, 32768 for a model that can serve chats (capped by its trained window and by memory), at most 8192 for other models | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
 
 ### Default thread count
 
@@ -157,6 +157,9 @@ settings bypasses this automatic default.
 | `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
 | `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
 | `--disable-csrf` | `false` | Disable CSRF middleware (enabled by default) | `$LOCALAI_DISABLE_CSRF` |
+| `--tls-cert` | | PEM file with the certificate (and its chain) that the API server presents. Needs `--tls-key`. TLS is off when no certificate and no `--tls-self-signed` is set. TLS 1.3 is the minimum, and HTTP/2 is offered. See [Paired clients]({{% relref "features/addon-clients" %}}#tls-and-the-pinned-certificate) | `$LOCALAI_TLS_CERT` |
+| `--tls-key` | | PEM file with the private key of `--tls-cert` | `$LOCALAI_TLS_KEY` |
+| `--tls-self-signed` | `false` | Serve TLS with a self-signed certificate that LocalAI makes once and keeps in the `tls` folder of the data path (the key has mode 0600). It is reused at each start, so its fingerprint holds, and it is replaced only when fewer than 30 days remain or the files are damaged. The SHA-256 fingerprint is logged at start and shown with each pairing code, so that a paired client can pin it. Without a data path (`--data-path -`) the certificate lives in memory and changes at each start. Not with `--tls-cert` | `$LOCALAI_TLS_SELF_SIGNED` |
 | `--disable-http-compression` | `false` | Disable gzip compression of HTTP responses. Compression is enabled by default; streaming endpoints (streaming chat completions, SSE bridges, WebSocket upgrades) and already-compressed formats are never compressed | `$LOCALAI_DISABLE_HTTP_COMPRESSION` |
 | `--http-compression-min-length` | `1024` | Minimum response size in bytes before gzip compression is applied. Smaller responses are sent as-is because the gzip envelope would outweigh the saving | `$LOCALAI_HTTP_COMPRESSION_MIN_LENGTH` |
 | `--upload-limit` | `0` | Upload limit in MB for request bodies; `0` means not set, and then 15 MB applies, except to uploads of the Files page, which are limited only by the 256 MiB workspace file size, and to chat messages with attachments, which are limited to 1 GiB. When set, it applies to both too, lower or higher (a file is never above 256 MiB and a message never above 1 GiB) | `$LOCALAI_UPLOAD_LIMIT`, `$UPLOAD_LIMIT` |

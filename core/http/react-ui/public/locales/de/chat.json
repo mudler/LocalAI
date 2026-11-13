@@ -93,7 +93,8 @@
     "selectModel": "Bitte wählen Sie ein Modell",
     "copied": "In die Zwischenablage kopiert",
     "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
-    "newChatForModel": "Ein Chat behält sein Modell. Neuer Chat mit {{model}} gestartet."
+    "newChatForModel": "Ein Chat behält sein Modell. Neuer Chat mit {{model}} gestartet.",
+    "windowSet": "Das Kontextfenster von {{model}} beträgt jetzt {{window}} Token."
   },
   "menu": {
     "trigger": "Chats",
@@ -245,7 +246,8 @@
     "group": {
       "context": "Kontext",
       "skills": "Skills und Agenten",
-      "help": "Hilfe"
+      "help": "Hilfe",
+      "yours": "Deine"
     },
     "models": {
       "label": "Modelle",
@@ -298,7 +300,9 @@
       "builtin": "eingebaut",
       "addon": "Add-on",
       "shared": "geteilt",
-      "yours": "deins"
+      "yours": "deins",
+      "prompt": "Prompt",
+      "tool": "Werkzeug"
     },
     "collides": "nur mit /skill",
     "errors": {
@@ -324,7 +328,9 @@
     "effort": {
       "label": "Denkaufwand",
       "desc": "Wie intensiv das Modell nachdenkt"
-    }
+    },
+    "userTool": "Benutze das Werkzeug {{tool}}.",
+    "unavailable": "Werkzeug nicht verfügbar"
   },
   "shortcuts": {
     "onMessage": "Auf einer Nachricht: kopieren, bearbeiten, neu erzeugen",
@@ -332,8 +338,8 @@
   },
   "files": {
     "title": "Dateien in diesem Chat",
-    "chip": "Dateien",
-    "chipTitle": "Dateien in diesem Chat: was du angehängt hast und was der Assistent erstellt oder geändert hat",
+    "button": "Dateien",
+    "buttonTitle": "Dateien in diesem Chat: was du angehängt hast und was der Assistent erstellt oder geändert hat",
     "close": "Dateien schließen",
     "emptyTitle": "Noch keine Dateien in diesem Chat",
     "emptyBody": "Zieh Dateien hierher, um sie an deine nächste Nachricht anzuhängen. Dateien, die der Assistent erstellt oder ändert, erscheinen auch hier.",
@@ -894,6 +900,18 @@
       "start": "Live starten",
       "close": "Schließen",
       "notShown": "Installiert, aber das Modell wurde nicht gefunden. Versuche es erneut oder lade die Seite neu."
+    }
+  },
+  "readAloud": {
+    "read": "Vorlesen",
+    "stop": "Vorlesen beenden",
+    "ask": "Dein Standardmodell für Sprachausgabe steht auf \"jedes Mal fragen\". Wähle in den Standards ein Modell, um vorzulesen.",
+    "none": "Es ist kein Sprachausgabe-Modell installiert.",
+    "missing": "Dein Standardmodell für Sprachausgabe ist nicht installiert. Wähle in den Standards ein anderes.",
+    "failed": "Das konnte nicht vorgelesen werden.",
+    "omitted": {
+      "code": "Codeblock ausgelassen.",
+      "table": "Tabelle ausgelassen."
     }
   }
 }

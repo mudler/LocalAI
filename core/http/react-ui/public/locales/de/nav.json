@@ -134,5 +134,8 @@
   "inboxOpsFailed_one": "{{count}} Vorgang fehlgeschlagen",
   "inboxOpsFailed_other": "{{count}} Vorgänge fehlgeschlagen",
   "inboxOpsFailedAnnounce": "Ein Vorgang ist fehlgeschlagen. Siehe den Tab Aktivität in den Benachrichtigungen.",
-  "activityEntry": "Aktivität"
+  "activityEntry": "Aktivität",
+  "navLinkExternal": "Öffnet {{site}} nach Bestätigung in einem neuen Tab",
+  "navLinkAsk": "Diesen Link öffnen?",
+  "startPage": "Startseite"
 }

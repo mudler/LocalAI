@@ -75,12 +75,17 @@ export const modelsApi = {
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   // variant is optional. Omitting it lets the server auto-select the best
   // build for this host, which is what the listing's auto_variant predicted.
-  install: (id, variant) => postJSON(
-    variant
-      ? `${API_CONFIG.endpoints.installModel(id)}?variant=${encodeURIComponent(variant)}`
-      : API_CONFIG.endpoints.installModel(id),
+  // contextSize is optional too: the window to write into the installed config,
+  // as the recommendation reports it.
+  install: (id, variant, contextSize) => postJSON(
+    buildUrl(API_CONFIG.endpoints.installModel(id), {
+      ...(variant ? { variant } : {}),
+      ...(contextSize > 0 ? { context_size: contextSize } : {}),
+    }),
     {}
   ),
+  // The curated first-run choice for this machine. Open to every signed-in user.
+  recommended: () => fetchJSON(API_CONFIG.endpoints.modelsRecommended),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
   estimate: (id, contexts) => fetchJSON(
     buildUrl(API_CONFIG.endpoints.modelEstimate(id),
@@ -225,6 +230,9 @@ export const chatsApi = {
   setGoal: (id, text) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'PUT', body: JSON.stringify({ text }) }),
   clearGoal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'DELETE' }),
   resumeGoal: (id) => postJSON(API_CONFIG.endpoints.chatGoalResume(id), {}),
+  // The dock: the pages shown beside the chat, kept with the chat.
+  dock: (id) => fetchJSON(API_CONFIG.endpoints.chatDock(id)),
+  setDock: (id, dock) => fetchJSON(API_CONFIG.endpoints.chatDock(id), { method: 'PUT', body: JSON.stringify(dock) }),
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 
@@ -358,9 +366,14 @@ const frameHeaders = ({ hash, token }) => ({
 export const sharedPagesApi = {
   list: () => fetchJSON('/api/chats/shared-pages'),
   get: (folder, name) => fetchJSON(sharedUrl(folder, name)),
-  allow: (folder, name, hash, once) => fetchJSON(`${sharedUrl(folder, name)}/consent`, {
-    method: 'PUT', body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }),
-  }),
+  // opts is once (a boolean, for one visit) or {once, embed}: embed also
+  // allows the version on Home and in the slots, where it runs without a click.
+  allow: (folder, name, hash, opts) => {
+    const { once = false, embed = false } = typeof opts === 'object' && opts ? opts : { once: !!opts }
+    return fetchJSON(`${sharedUrl(folder, name)}/consent`, {
+      method: 'PUT', body: JSON.stringify({ hash, ...(once ? { once: true } : {}), ...(embed && !once ? { embed: true } : {}) }),
+    })
+  },
   revoke: (folder, name) => fetchJSON(`${sharedUrl(folder, name)}/consent`, { method: 'DELETE' }),
   // frame is {hash, token}: the version the frame runs and its visit token.
   read: (folder, name, frame, path) => fetchJSON(`${sharedUrl(folder, name)}/file${q({ path })}`, { headers: frameHeaders(frame) }),
@@ -454,6 +467,7 @@ export const chatHostExecApi = {
 // the chat's owner; the settings and the audit, for administrators.
 export const chatEgressApi = {
   get: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/egress`),
+  draft: (model, agentId) => fetchJSON(`/api/chats/draft/egress${draftQuery(model, agentId)}`),
   setPreset: (chat, preset) => fetchJSON(`/api/chats/${enc2(chat)}/egress`, { method: 'PUT', body: JSON.stringify({ preset }) }),
   deleteRule: (chat, host, port) => fetchJSON(`/api/chats/${enc2(chat)}/egress/rules/${enc2(host)}/${enc2(String(port))}`, { method: 'DELETE' }),
   consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/egress/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),

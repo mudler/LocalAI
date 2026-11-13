@@ -651,6 +651,7 @@
     "allowedHostsOff": "Ils s’appliquent quand le réseau est activé.",
     "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur.",
     "limitNote": "Réseau de cette conversation. L’administrateur fixe le maximum qu’une conversation peut atteindre.",
+    "draftNote": "La conversation démarre avec ce réglage. L’administrateur fixe le maximum qu’une conversation peut atteindre, et cette limite s’applique.",
     "asksAbove": "Cette conversation demande {{choice}} ; la limite de l’administrateur est {{limit}}.",
     "unverified": "L’application de la politique réseau n’est pas vérifiée pour le fournisseur réel. Ces paramètres ne s’appliquent pas à ses commandes.",
     "configuredPolicy": "Politique réseau configurée : {{preset}} (non appliquée)."
@@ -1433,7 +1434,7 @@
     "notAllowed": "Votre administrateur ne vous a pas donné ce profil",
     "absent": "Cette version n'a pas d'image pour ce profil",
     "unavailable": "{{title}} n'est pas disponible : {{reason}}.",
-    "draft": "Une nouvelle conversation démarre dans {{title}}. Vous pouvez changer le profil dans la conversation.",
+    "draft": "La nouvelle conversation démarre dans {{title}}. Choisissez un profil ici, ou changez-le plus tard dans la conversation.",
     "source": {
       "chat": "Cette conversation utilise {{title}}, à votre choix.",
       "agent": "Cette conversation utilise {{title}}, défini par son agent.",
@@ -1477,6 +1478,29 @@
       "ownerError": "Les paramètres du propriétaire sont indisponibles ou ont changé : {{message}}",
       "save": "Enregistrer",
       "loadError": "Les profils de sandbox n'ont pas pu être lus."
+    }
+  },
+  "harness": {
+    "title": "La fenêtre de contexte de ce modèle est trop petite pour le chat",
+    "admin": {
+      "reason": "Elle fait {{window}} jetons et le chat en demande au moins {{minimum}} ; {{recommended}} est mieux.",
+      "checking": "Vérification que {{target}} jetons tiennent dans la mémoire de cette machine…",
+      "fits": "{{target}} jetons tiennent dans la mémoire de cette machine (environ {{need}}).",
+      "fitsLess": "{{recommended}} jetons ne tiennent pas dans la mémoire de cette machine. {{target}} tiennent (environ {{need}}).",
+      "unknown": "La mémoire nécessaire n'a pas pu être estimée.",
+      "none": "Même {{minimum}} jetons ne tiennent pas dans la mémoire de cette machine. Choisissez un modèle plus petit.",
+      "fix": "Fixer la fenêtre à {{target}}"
+    },
+    "user": {
+      "reason": "Elle fait {{window}} jetons et le chat en demande au moins {{minimum}}.",
+      "switch": "Passez ce chat à un modèle installé dont la fenêtre est plus grande.",
+      "askAdmin": "Aucun modèle installé que vous pouvez utiliser n'a une fenêtre assez grande. Demandez à un administrateur de l'agrandir ou d'installer un autre modèle.",
+      "use": "Utiliser {{model}} ({{window}} jetons)"
+    },
+    "chat": {
+      "title": "La taille de contexte de ce chat est trop petite",
+      "reason": "Le réglage de ce chat est de {{window}} jetons et le chat en demande au moins {{minimum}}.",
+      "fix": "Utiliser la fenêtre du modèle"
     }
   }
 }

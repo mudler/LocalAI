@@ -35,6 +35,10 @@ var publicRouteRegistry = []publicRouteRule{
 	{Method: http.MethodGet, Path: "/api/auth/oidc/login"},
 	{Method: http.MethodGet, Path: "/api/auth/oidc/callback"},
 
+	// A client redeems its one-time pairing code here; it has no credential
+	// yet. The handler rate limits and answers every failure the same way.
+	{Method: http.MethodPost, Path: "/api/client/pair"},
+
 	// CORS preflight. An OPTIONS request cannot carry credentials by HTTP
 	// spec, so preflights targeting any endpoint must not be gated on auth;
 	// the CORS middleware (registered after auth in app.go) answers them.

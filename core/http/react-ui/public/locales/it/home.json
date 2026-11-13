@@ -147,9 +147,49 @@
     "disabled": "disattivato",
     "pinned": "fissato",
     "useTyped": "Usa \"{{name}}\"",
+    "chooseModel": "Scegli un modello",
+    "defaultMissing": "Il tuo modello predefinito {{model}} non è installato. Scegli un modello.",
     "empty": "Nessun modello disponibile",
     "add": "Aggiungi un modello",
     "remove": "Rimuovi {{name}}",
     "clear": "Cancella"
+  },
+  "starters": {
+    "title": "Consigliato per la tua macchina",
+    "tier": {
+      "cpu": "Solo CPU",
+      "gpu-small": "GPU piccola",
+      "gpu-mid": "GPU di fascia media",
+      "gpu-large": "GPU grande"
+    },
+    "undetected": "Non siamo riusciti a rilevare il tuo hardware, quindi questi sono i modelli per un computer senza GPU.",
+    "cluster": "Dimensionato sulla macchina migliore del tuo cluster.",
+    "nothingFits": "Nessuno dei modelli consigliati entra in questa macchina. Questo è il più piccolo; potrebbe essere lento o non caricarsi.",
+    "facts": {
+      "size": "{{size}} da scaricare",
+      "window": "{{window}} di contesto",
+      "memory": "circa {{memory}} di memoria"
+    },
+    "fit": {
+      "tight": "Al limite",
+      "does_not_fit": "Non entra"
+    },
+    "reasons": {
+      "little_headroom": "Entra, ma lascia poca memoria libera.",
+      "below_chat_minimum": "La finestra di contesto sarebbe troppo piccola per la chat.",
+      "exceeds_memory": "Richiede più memoria di quella di questa macchina.",
+      "estimate_unavailable": "Non è stato possibile stimare l'uso di memoria.",
+      "hardware_unknown": "Non è stato possibile leggere il tuo hardware, quindi l'idoneità non è verificata."
+    },
+    "more": "Altri modelli",
+    "fewer": "Meno modelli",
+    "askAdmin": "Solo un amministratore può installare i modelli. Chiedigli di installarne uno.",
+    "installModel": "Installa {{model}}",
+    "cpuNote": "Nessuna GPU rilevata. Questi modelli restano reattivi su un processore.",
+    "gpuNote": "Scelti per entrare nella tua scheda grafica con spazio per una chat completa.",
+    "install": "Installa",
+    "installing": "Installazione",
+    "installStarted": "Installazione di {{model}}…",
+    "installFailed": "Installazione non riuscita: {{message}}"
   }
 }

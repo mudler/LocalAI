@@ -12,6 +12,7 @@ import (
 const (
 	CapTriggersPropose  = contract.CapTriggersPropose
 	CapTriggersRun      = contract.CapTriggersRun
+	CapTriggersChange   = contract.CapTriggersChange
 	CapProposalsConfirm = contract.CapProposalsConfirm
 )
 

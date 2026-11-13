@@ -26,7 +26,8 @@
     "check": {
       "required": "Wajib diisi.",
       "tooLong": "Maksimal {{max}} karakter.",
-      "format": "Nilai ini memiliki format yang salah."
+      "format": "Nilai ini memiliki format yang salah.",
+      "placeholder": "Sebuah placeholder di teks ini tidak benar."
     },
     "source": {
       "label": "Sumber",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "Asisten",
-      "lede": "Nama dan instruksi yang digunakan asisten di setiap chat."
+      "lede": "Nama, gambar, sapaan, dan instruksi asisten di setiap chat."
     },
     "user": {
       "title": "Anda",
@@ -152,12 +153,50 @@
         "noneEligible": "Belum ada halaman dengan tampilan ringkas untuk Beranda. Minta asisten menambahkannya ke sebuah halaman.",
         "pick": "Halaman",
         "unavailable": "{{name}} (tidak tersedia)",
-        "sharedLabel": "bersama",
-        "sizes": {
-          "small": "Kecil",
-          "medium": "Sedang",
-          "large": "Besar"
-        }
+        "sharedLabel": "bersama"
+      },
+      "size": "Ukuran",
+      "preview": "Beginilah Beranda menggambar widget Anda. S satu kolom, M dua, L satu baris penuh. Celah kosong menutup sendiri.",
+      "area": {
+        "label": "Area halaman",
+        "none": "Tidak ada",
+        "pickHint": "Halaman yang mengisi area di bawah kotak pesan pada Beranda. Halaman ini tidak dapat mengakses jaringan atau berkas Anda yang lain.",
+        "pickOff": "Administrator mematikan area halaman, jadi Beranda tidak menampilkan halaman di sana. Pilihan Anda tetap disimpan.",
+        "off": "Area halaman dimatikan",
+        "offHint": "Administrator mematikannya untuk semua orang di server ini. Halaman yang Anda pilih tetap ada di tata letak Beranda dan akan tampil lagi saat area dinyalakan kembali.",
+        "by": {
+          "assistant": "Halaman dari asisten",
+          "you": "Halaman dari Anda"
+        },
+        "byAuthor": "Halaman dibagikan oleh {{author}}",
+        "edit": "Ubah",
+        "reload": "Muat ulang",
+        "loading": "Memuat halaman",
+        "runsAsYou": "Berjalan atas nama Anda",
+        "runsAsYouHint": "Halaman membaca dan menulis berkas di foldernya dengan hak akses Anda. Halaman tidak dapat mengakses jaringan atau berkas Anda yang lain.",
+        "askPrompt": "Ubah halaman di pages/{{name}}/ agar ",
+        "askTitle": "Minta asisten mengubah halaman ini",
+        "frameTitle": "{{title}} (area halaman di Beranda)",
+        "failedTitle": "Halaman ini gagal dimuat.",
+        "why": {
+          "script": "Skripnya menimbulkan galat dan halaman tidak menampilkan apa pun.",
+          "scriptLine": "Skripnya menimbulkan galat di baris {{line}} dan halaman tidak menampilkan apa pun.",
+          "noPaint": "Halaman tidak menampilkan apa pun dalam 5 detik.",
+          "navigated": "Halaman mencoba keluar dari bingkainya.",
+          "busy": "Halaman membuat komputer sibuk terlalu lama.",
+          "silent": "Halaman berhenti merespons.",
+          "noStart": "Halaman tidak mulai berjalan.",
+          "missing": "Halaman \"{{name}}\" dipindahkan atau dihapus, atau Anda tidak dapat lagi membukanya.",
+          "read": "Halaman tidak dapat dibaca.",
+          "invalid": "Halaman yang dipilih untuk area halaman bukan nama halaman yang valid.",
+          "sharedOff": "Administrator mematikan halaman bersama di server ini."
+        },
+        "revert": "Kembalikan",
+        "openFile": "Buka berkas",
+        "remove": "Hapus dari Beranda",
+        "nothingToRevert": "Tidak ada versi sebelumnya untuk dikembalikan.",
+        "revertFailed": "Pengembalian gagal.",
+        "removeFailed": "Halaman tidak dapat dihapus dari Beranda."
       }
     },
     "fields": {
@@ -169,6 +208,18 @@
         "system_prompt": {
           "label": "Prompt sistem",
           "help": "Ditambahkan ke setiap chat, setelah prompt chat dan instruksi agen."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Gambar dari file Anda. PNG, JPG, WebP, GIF, atau AVIF."
+        },
+        "greeting": {
+          "label": "Sapaan",
+          "help": "Baris pertama asisten di chat baru. Ditampilkan, tidak dikirim ke model."
+        },
+        "emptyChat": {
+          "label": "Chat kosong",
+          "help": "Yang ditampilkan chat baru di atas kotak pesan."
         }
       },
       "user": {
@@ -222,6 +273,20 @@
         "chatBackground": {
           "label": "Latar belakang obrolan",
           "help": "Warna, gradasi, atau gambar dari berkas Anda di belakang obrolan Anda. Halaman lain tidak berubah."
+        },
+        "look": {
+          "label": "Tampilan",
+          "help": "Font, sudut, pesan, dan kode, dari daftar tetap."
+        },
+        "strings": {
+          "label": "Teks",
+          "help": "Hanya kunci di daftar ini yang bisa diubah."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Judul",
+          "help": "Kosong memakai sapaan sesuai waktu."
         }
       }
     },
@@ -256,6 +321,236 @@
       "pickFailed": "Folder tidak dapat dibaca.",
       "pickEmpty": "Tidak ada gambar atau folder di sini.",
       "pickClose": "Tutup"
+    },
+    "nav": {
+      "title": "Navigasi",
+      "lede": "Urutkan ulang, ganti nama, sembunyikan, atau kelompokkan bilah samping. Seret baris atau pakai tombol panah. Perubahan langsung terlihat di kanan.",
+      "preview": "Pratinjau langsung",
+      "discard": "Buang perubahan",
+      "saved": "Tersimpan.",
+      "reset": "Setel ulang ke bawaan",
+      "fixed": "Chat baru, Chat, pengaturan, dan pencarian selalu ditampilkan.",
+      "homeFixed": "Beranda selalu tetap ada.",
+      "hide": "Sembunyikan {{name}}",
+      "show": "Tampilkan {{name}}",
+      "drag": "Pindahkan {{name}} (seret, atau pakai tombol panah)",
+      "name": "Nama {{name}}",
+      "was": "sebelumnya {{name}}",
+      "moveUp": "Naikkan {{name}}",
+      "moveDown": "Turunkan {{name}}",
+      "remove": "Hapus {{name}}",
+      "addLink": "Tambah tautan",
+      "addGroup": "Tambah grup",
+      "newGroup": "Grup baru",
+      "missing": "hilang",
+      "missingHint": "{{kind}} ini sudah tidak ada. Bilah samping melewatinya.",
+      "unavailable": "tidak ditampilkan untuk Anda",
+      "unavailableHint": "Akun Anda atau server ini belum menampilkan entri ini.",
+      "tag": {
+        "builtin": "bawaan",
+        "group": "grup",
+        "page": "halaman",
+        "chat": "chat",
+        "url": "tautan"
+      },
+      "add": {
+        "page": "Halaman",
+        "pageHint": "Salah satu halaman Anda",
+        "chat": "Chat",
+        "chatHint": "Sematkan percakapan",
+        "url": "URL",
+        "urlHint": "Dibuka di tab baru",
+        "address": "Alamat",
+        "name": "Nama (opsional)",
+        "confirm": "Tambah",
+        "back": "Kembali",
+        "urlInvalid": "Gunakan alamat http atau https tanpa nama pengguna.",
+        "pick": {
+          "page": "Pilih halaman",
+          "chat": "Pilih chat"
+        },
+        "none": {
+          "page": "Anda tidak punya halaman untuk ditambahkan.",
+          "chat": "Tidak ada chat untuk ditambahkan."
+        }
+      }
+    },
+    "blocked": "Perbaiki nilai yang ditandai untuk menyimpan.",
+    "storedIn": "Disimpan di",
+    "placeholders": {
+      "unknown_one": "{{names}} bukan placeholder teks ini.",
+      "unknown_other": "{{names}} bukan placeholder teks ini.",
+      "unknownUse_one": "{{names}} bukan placeholder teks ini. Gunakan {{use}}.",
+      "unknownUse_other": "{{names}} bukan placeholder teks ini. Gunakan {{use}}.",
+      "none_one": "{{names}} bukan placeholder. Teks ini tidak memakai placeholder.",
+      "none_other": "{{names}} bukan placeholder. Teks ini tidak memakai placeholder.",
+      "brace": "Ada kurung kurawal tanpa pasangan. Tulis placeholder sebagai {name}.",
+      "hint": "Placeholder yang bisa dipakai",
+      "insert": "Sisipkan placeholder ini"
+    },
+    "avatar": {
+      "path": "Path gambar",
+      "remove": "Hapus",
+      "bad": "Gunakan gambar dari file Anda: path tanpa garis miring di awal dan tanpa .., berakhiran .png, .jpg, .jpeg, .webp, .gif, atau .avif."
+    },
+    "emptyChat": {
+      "title": "Judul",
+      "subtitle": "Baris di bawah judul",
+      "titleSample": "Tanyakan apa saja",
+      "subtitleSample": "Katakan apa yang Anda perlukan.",
+      "showShortcuts": "Tampilkan pintasan saya di atas kotak pesan"
+    },
+    "look": {
+      "font": {
+        "label": "Font",
+        "default": "Geist, bawaan",
+        "system": "Sistem",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Sudut",
+        "sharp": "Tajam",
+        "soft": "Lembut",
+        "round": "Bulat"
+      },
+      "bubble": {
+        "label": "Gaya pesan",
+        "card": "Kartu",
+        "filled": "Penuh",
+        "tinted": "Berwarna",
+        "outline": "Garis tepi",
+        "plain": "Polos"
+      },
+      "messageWidth": {
+        "label": "Lebar pesan",
+        "narrow": "Sempit 640",
+        "medium": "Sedang 760",
+        "wide": "Lebar 920",
+        "full": "Penuh"
+      },
+      "codeTheme": {
+        "label": "Warna kode",
+        "auto": "Otomatis",
+        "mono": "Mono",
+        "vivid": "Cerah",
+        "ink": "Tinta"
+      },
+      "note": "Setiap nilai berasal dari daftar tetap, dan warna aksen harus tetap mudah dibaca. Tidak ada kotak CSS, jadi tampilan tidak bisa menyembunyikan atau merusak halaman."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Terlalu pudar: {{ratio}}:1 pada mode {{mode}}",
+      "failLong": "Warna aksen ini punya kontras {{ratio}}:1 terhadap halaman mode {{mode}} dan butuh 4,5:1. LocalAI menampilkan warna aksen bawaan.",
+      "mode": {
+        "light": "terang",
+        "dark": "gelap"
+      }
+    },
+    "headline": {
+      "title": "Judul Beranda",
+      "lede": "Baris besar di bagian atas Beranda."
+    },
+    "strings": {
+      "title": "Teks",
+      "lede": "Kata-kata Anda sendiri untuk beberapa label. Perintah keamanan, izin, dan persetujuan tetap memakai teksnya.",
+      "changed_one": "{{count}} diubah",
+      "changed_other": "{{count}} diubah",
+      "find": "Cari teks",
+      "key": "Kunci",
+      "default": "Bawaan",
+      "yours": "Teks Anda",
+      "yoursFor": "Teks Anda untuk {{key}}",
+      "same": "Sama dengan bawaan",
+      "hint": "Pertahankan placeholder sebuah teks, seperti {model}. Placeholder yang salah ditandai sebelum disimpan. Kotak kosong memakai teks bawaan."
+    },
+    "frames": {
+      "stopped": "Halaman ini dihentikan",
+      "why": {
+        "busy": "Halaman membuat komputer sibuk terlalu lama (lebih dari 3 detik kerja dalam 10 detik).",
+        "silent": "Halaman berhenti merespons lebih dari 5 detik.",
+        "noStart": "Halaman tidak mulai dalam 10 detik.",
+        "navigated": "Halaman mencoba keluar dari bingkainya."
+      },
+      "capped": "Dijeda: aplikasi menjalankan paling banyak {{max}} halaman sekaligus.",
+      "run": "Jalankan"
+    },
+    "slots": {
+      "title": "Slot",
+      "lede": "Tempat kecil di aplikasi yang menampilkan ubin halaman, tombol alat, dan perintah Anda, dari kiri ke kanan. Slot tidak pernah menutupi judul, model, atau pengaturan.",
+      "where": "Letak slot",
+      "map": "Peta slot",
+      "editing": "Sedang diedit",
+      "count": "{{count}} dari {{max}}",
+      "names": {
+        "chatHeader": "Kepala chat",
+        "sidebarFooter": "Kaki bilah samping",
+        "composerToolbar": "Bilah kotak pesan"
+      },
+      "badge": {
+        "chatHeader": "Di kepala chat",
+        "sidebarFooter": "Di bilah samping",
+        "composerToolbar": "Di kotak pesan"
+      },
+      "hint": {
+        "chatHeader": "Bilah di atas setiap chat. Halaman dengan tata letak ringkas berjalan dalam strip setinggi 40 px; klik membukanya sebagai kartu di bawah ubin.",
+        "sidebarFooter": "Kaki bilah samping, di setiap layar. Bilah samping yang diciutkan menyembunyikannya.",
+        "composerToolbar": "Di samping tombol lampiran kotak pesan. Cocok untuk tombol alat."
+      },
+      "empty": "Belum ada apa-apa. Tambahkan ubin halaman, tombol alat, atau perintah.",
+      "addItem": "Tambah item",
+      "full": "Slot ini penuh ({{max}} item).",
+      "incomplete": "Lengkapi setiap item baru sebelum menyimpan: halaman, alat beserta teksnya, atau perintah.",
+      "add": {
+        "page": "Ubin halaman",
+        "pageHint": "Halaman buatan Anda atau yang dibagikan kepada Anda",
+        "tool": "Tombol alat",
+        "toolHint": "Menjalankan satu alat, bertanya dulu",
+        "command": "Perintah",
+        "commandHint": "Salah satu perintah Anda"
+      },
+      "kind": {
+        "tool": "Tombol alat, bertanya dulu",
+        "command": "Perintah",
+        "pageMissing": "Halaman tidak ditemukan",
+        "pageCompact": "Ubin halaman, ringkas",
+        "pageButton": "Halaman, terbuka saat diklik"
+      },
+      "form": {
+        "page": "Halaman",
+        "pickPage": "Pilih halaman",
+        "shared": "dibagikan",
+        "pageHint": "Halaman dengan tata letak ringkas berjalan di slot. Halaman lain tampil sebagai tombol yang membukanya.",
+        "tool": "Nama alat",
+        "arguments": "Argumen tetap (opsional)",
+        "argumentsHint": "Nama dengan nilai sederhana, paling banyak {{max}}: teks, angka, true atau false, seperti contoh.",
+        "argumentsBad": "Tidak valid: tulis nama dengan nilai sederhana seperti contoh, paling banyak {{max}}.",
+        "command": "Nama perintah",
+        "commandHint": "Nama salah satu perintah Anda, tanpa garis miring. Satu klik menaruh teksnya di kotak pesan.",
+        "label": "Teks (opsional)",
+        "labelNeeded": "Teks tombol",
+        "icon": "Ikon (opsional)"
+      },
+      "tool": {
+        "title": "Menjalankan alat {{tool}} setelah Anda menyetujuinya",
+        "confirmTitle": "Jalankan {{label}}?",
+        "confirmChat": "Ini mengirim pesan ke chat ini yang meminta asisten menjalankan alat ini:",
+        "confirmDraft": "Ini membuka chat baru dengan pesan yang meminta asisten menjalankan alat ini. Anda yang mengirimnya.",
+        "tool": "Alat",
+        "arguments": "Argumen",
+        "stillAsks": "Jika alat memerlukan persetujuan Anda, chat tetap memintanya.",
+        "run": "Jalankan"
+      },
+      "tile": {
+        "missing": "Halaman {{name}} sudah tidak ada. Ubah slot di pengaturan Anda.",
+        "off": "Halaman bersama dimatikan di server ini.",
+        "error": "Halaman {{name}} tidak dapat dibaca. Ubah slot di pengaturan Anda.",
+        "open": "Buka {{title}}",
+        "allow": "Izinkan {{title}} berjalan di sini",
+        "expand": "Tampilkan {{title}}",
+        "close": "Tutup {{title}}",
+        "sandboxed": "Terisolasi, tanpa jaringan"
+      }
     }
   },
   "discovery": {
@@ -315,7 +610,8 @@
       "offersOff": "Saran dari asisten dimatikan.",
       "undoing": "Mengurungkan…",
       "undone": "Diurungkan.",
-      "undoFailed": "Tidak diurungkan: {{message}}"
+      "undoFailed": "Tidak diurungkan: {{message}}",
+      "defaults": "Model bawaan Anda sudah disimpan. Asisten memakainya mulai pesan berikutnya."
     },
     "toast": {
       "shortcutAdded": "Ditambahkan ke kotak pesanmu: {{label}}",
@@ -522,7 +818,8 @@
       "user": "Asisten melupakan apa yang Anda ceritakan tentang diri Anda, dan jawaban Anda atas tawarannya.",
       "shortcuts": "Kotak pesan kembali menampilkan pintasan bawaan.",
       "home": "Beranda kehilangan widgetnya.",
-      "ui": "Tema, warna aksen, kepadatan, model bawaan, dan halaman yang disematkan kembali ke bawaan."
+      "ui": "Tema, warna aksen, kepadatan, model bawaan, dan halaman yang disematkan kembali ke bawaan.",
+      "defaults": "Model bawaan Anda terlupakan. Alat kembali memilih sendiri model yang terpasang."
     }
   },
   "newFile": "File baru",
@@ -738,5 +1035,232 @@
     "writeHelp": "Mereka juga dapat menambah, mengubah, dan menghapus berkas di sini.",
     "failed": "Tidak dapat membuka berbagi: {{message}}",
     "lost": "Anda tidak dapat lagi membagikan folder ini di sini."
+  },
+  "defaults": {
+    "lede": "Satu model untuk tiap jenis pekerjaan. Anda bisa memilih model lain untuk satu permintaan saja.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Dipakai untuk: chat baru, judul chat, ringkasan"
+      },
+      "image": {
+        "label": "Pembuatan gambar",
+        "use": "Dipakai untuk: “gambar”, “buat gambar”, halaman Gambar"
+      },
+      "tts": {
+        "label": "Teks ke suara",
+        "use": "Dipakai untuk: membacakan, “ucapkan ini”, balasan suara"
+      },
+      "stt": {
+        "label": "Suara ke teks",
+        "use": "Dipakai untuk: dikte, mikrofon, file audio"
+      },
+      "embeddings": {
+        "label": "Embedding",
+        "use": "Dipakai untuk: pencarian Pengetahuan, pencarian file"
+      },
+      "video": {
+        "label": "Pembuatan video",
+        "use": "Dipakai untuk: “buat klip pendek”, halaman Video"
+      },
+      "rerank": {
+        "label": "Reranking",
+        "use": "Dipakai untuk: mengurutkan hasil Pengetahuan"
+      },
+      "vision": {
+        "label": "Pemahaman gambar",
+        "use": "Dipakai untuk: gambar yang Anda lampirkan ke chat"
+      }
+    },
+    "automatic": "Otomatis (yang pertama terpasang)",
+    "asking": "Bertanya setiap kali",
+    "modeLabel": "Pilihan untuk {{kind}}",
+    "mode": {
+      "default": "Bawaan",
+      "ask": "Tanya setiap kali"
+    },
+    "noModel": "Belum ada model",
+    "notInstalled": "Belum terpasang",
+    "installOne": "Pasang satu",
+    "missing": "Model ini tidak terpasang lagi. Asisten akan bertanya model mana yang dipakai sampai Anda memilih yang lain.",
+    "fromOld": "Diatur sebelum halaman ini ada. Pilih model di sini untuk menyimpannya sebagai bawaan.",
+    "modelsFailed": "Daftar model terpasang tidak termuat. Muat ulang halaman untuk mencoba lagi.",
+    "help": {
+      "title": "Asisten membaca pengaturan bawaan Anda",
+      "body": "Saat Anda mengatakan “gambar seekor rubah” atau “bacakan ini”, asisten memeriksa pengaturan bawaan Anda lebih dulu dan memakai model yang tercatat untuk jenis pekerjaan itu.",
+      "example": "Gambar seekor rubah di salju",
+      "tool": "memeriksa bawaan › image",
+      "used": "Memakai <code>{{model}}</code>, model bawaan Anda untuk gambar.",
+      "exampleModel": "model gambar Anda"
+    },
+    "preview": "Yang tersimpan"
+  },
+  "identity": {
+    "messageName": "Kirim pesan ke {{name}}...",
+    "preview": {
+      "title": "Pratinjau",
+      "home": "Beranda",
+      "newChat": "Chat baru",
+      "firstMessage": "Pesan pertama",
+      "assistant": "Asisten",
+      "noGreeting": "Belum ada sapaan. Chat baru dimulai kosong."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Pratinjau langsung",
+      "question": "Tunjukkan cara membaca file di Python.",
+      "answer": "Buka dengan context manager agar tertutup sendiri:",
+      "comment": "seluruh file",
+      "after": "Untuk file besar, baca f baris demi baris.",
+      "button": "Jalankan",
+      "box": "Kirim pesan ke asisten..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Pratinjau",
+      "sidebar": "Bilah samping"
+    }
+  },
+  "commands": {
+    "title": "Perintah",
+    "lede": "Perintah garis miring milik Anda. Sebuah perintah menaruh prompt di kotak pesan. Anda membacanya dan mengirimnya sendiri.",
+    "form": "Perintah",
+    "new": "Perintah baru",
+    "empty": "Belum ada perintah. Tambahkan satu dan perintah itu muncul di menu garis miring.",
+    "type": {
+      "prompt": "Diperluas menjadi prompt",
+      "tool": "Memanggil alat"
+    },
+    "field": {
+      "name": "Nama",
+      "description": "Deskripsi",
+      "what": "Fungsinya",
+      "template": "Templat prompt",
+      "tool": "Alat",
+      "args": "Argumen"
+    },
+    "nameHint": "Huruf kecil, angka, dan tanda hubung.",
+    "templateHint": "Tulis {{example}} di tempat argumen berada.",
+    "noArgs": "Templat ini tidak punya argumen.",
+    "argKind": {
+      "number": "angka",
+      "text": "teks"
+    },
+    "argDefault": "bawaan",
+    "argsHint": "Ketik {{example}} untuk mengisi argumen secara berurutan. Argumen yang kosong memakai nilai bawaan.",
+    "toolHint": "Alat yang sudah Anda miliki. Perintah ini meminta asisten memakainya, dan alat itu tetap punya langkah persetujuannya sendiri.",
+    "toolUnknown": "Alat ini saat ini tidak termasuk alat dalam sebuah obrolan.",
+    "expands": "Menaruh ini di kotak pesan",
+    "valid": "Valid",
+    "invalid": "Perlu diperbaiki",
+    "save": "Simpan",
+    "delete": "Hapus",
+    "preview": {
+      "title": "Pratinjau menu garis miring",
+      "builtin": "Bawaan sistem",
+      "none": "Belum ada perintah.",
+      "keys": "Enter mengisi kotak"
+    },
+    "problem": {
+      "nameEmpty": "Beri nama pada perintah.",
+      "nameFormat": "Nama diawali huruf dan hanya berisi huruf kecil, angka, dan tanda hubung, paling banyak 32.",
+      "nameBuiltin": "Nama ini milik perintah bawaan sistem. Pilih nama lain.",
+      "nameTaken": "Perintah lain sudah memakai nama ini.",
+      "descriptionEmpty": "Tulis deskripsi singkat untuk menu.",
+      "descriptionLong": "Deskripsi paling banyak {{max}} karakter.",
+      "toolEmpty": "Sebutkan alatnya.",
+      "toolFormat": "Nama alat hanya berisi huruf, angka, titik, titik dua, tanda hubung, dan garis bawah, paling banyak 128.",
+      "templateEmpty": "Tulis prompt-nya.",
+      "templateLong": "Prompt paling banyak {{template}} karakter.",
+      "argFormat": "Nama argumen diawali huruf dan hanya berisi huruf kecil, angka, dan garis bawah.",
+      "argTwice": "Ada argumen yang tercantum dua kali.",
+      "argDefault": "Setiap argumen perlu nilai bawaan.",
+      "argDefaultLong": "Nilai bawaan paling banyak 200 karakter.",
+      "argMissing": "Ada argumen di templat yang namanya tidak valid.",
+      "argUnused": "Ada argumen yang tidak dipakai di templat.",
+      "braces": "Ada kurung kurawal ganda yang belum ditutup.",
+      "argCount": "Sebuah perintah punya paling banyak {{args}} argumen."
+    }
+  },
+  "sound": {
+    "title": "Suara",
+    "play": "Putar suara untuk {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Pakai volume bawaan",
+    "names": {
+      "none": "Tidak ada",
+      "soft-chime": "Denting lembut",
+      "double-tap": "Ketuk ganda",
+      "bell": "Lonceng",
+      "pop": "Pop",
+      "low-tone": "Nada rendah"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Balasan selesai",
+        "hint": "Jawaban panjang sudah siap"
+      },
+      "approval": {
+        "label": "Perlu persetujuan Anda",
+        "hint": "Sebuah alat atau perubahan meminta izin sebelum berjalan"
+      },
+      "taskDone": {
+        "label": "Tugas atau jadwal selesai",
+        "hint": "Sebuah pemicu atau pekerjaan agen telah berakhir"
+      },
+      "error": {
+        "label": "Kesalahan",
+        "hint": "Sebuah permintaan atau pekerjaan gagal"
+      }
+    },
+    "notify": {
+      "title": "Suara notifikasi",
+      "lede": "Suara singkat saat ada yang butuh perhatian Anda. Suara tetap mati sampai Anda menyalakannya.",
+      "rule": "Suara baru mulai setelah Anda memakai halaman. Balasan, persetujuan, atau kesalahan hanya berbunyi saat tab ini berada di latar belakang. Tidak ada yang berbunyi pada jam tenang."
+    },
+    "quiet": {
+      "title": "Jam tenang",
+      "between": "Tidak ada suara antara {{from}} dan {{to}}",
+      "none": "Tidak ada jam tenang. Nyalakan untuk memilih rentang waktu.",
+      "from": "Dari",
+      "to": "Sampai"
+    },
+    "voice": {
+      "title": "Suara untuk balasan",
+      "lede": "Bacakan balasan dengan suara.",
+      "readAloud": "Bacakan balasan",
+      "mode": {
+        "off": "Tidak pernah",
+        "button": "Saat saya menekan speaker",
+        "auto": "Setiap balasan"
+      },
+      "modeHint": {
+        "off": "Balasan tidak dibacakan.",
+        "button": "Tombol speaker muncul di bawah setiap balasan.",
+        "auto": "Setiap balasan yang selesai langsung dibacakan. Browser mungkin meminta Anda mengeklik halaman dulu."
+      },
+      "voice": "Suara",
+      "voicePlaceholder": "Bawaan model",
+      "voiceHint": "Nama suara yang diterima model teks-ke-suara Anda. Kosongkan untuk memakai suara awal model.",
+      "speed": "Kecepatan",
+      "speedReset": "Pakai kecepatan normal",
+      "skipCode": "Lewati kode dan tabel",
+      "skipCodeHint": "Mengucapkan \"blok kode dilewati\" sebagai gantinya.",
+      "sample": "Putar contoh",
+      "stop": "Berhenti",
+      "sampleText": "Halo, beginilah suara balasan Anda nanti.",
+      "sampleFailed": "Contoh tidak dapat diputar.",
+      "madeBy": "Suara dibuat oleh {{model}}, model teks-ke-suara bawaan Anda.",
+      "madeByAuto": "Suara dibuat oleh {{model}}, model teks-ke-suara pertama yang terpasang. Anda belum memilih model bawaan.",
+      "change": "Ubah di Bawaan",
+      "model": {
+        "ask": "Pengaturan bawaan Anda meminta untuk bertanya setiap kali, jadi tidak ada model untuk membaca. Pilih model teks-ke-suara.",
+        "missing": "{{model}} adalah model teks-ke-suara bawaan Anda, tetapi belum terpasang.",
+        "none": "Belum ada model teks-ke-suara yang terpasang."
+      },
+      "remote": "{{model}} bukan model lokal. Teks setiap balasan yang Anda bacakan dikirim ke server lain."
+    }
   }
 }

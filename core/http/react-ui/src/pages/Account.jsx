@@ -8,7 +8,9 @@ import { totalsOf, groupUsage, compactCount } from '../utils/traffic'
 import { timeUntil, initialOf } from '../utils/access'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, useLoad } from '../components/ui'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
-import { AboutYouTab, AppearanceTab } from '../components/wellknown/SettingsTabs'
+import { AboutYouTab, AppearanceTab, NavigationTab, SlotsTab, StringsTab } from '../components/wellknown/SettingsTabs'
+import DefaultsTab from '../components/wellknown/DefaultsTab'
+import SoundTab from '../components/wellknown/SoundTab'
 import MemoryTab from '../components/MemoryTab'
 import MemorySettings from '../components/MemorySettings'
 import './access.css'
@@ -21,10 +23,15 @@ const TABS = [
   { id: 'about', labelKey: 'account.tabs.about', files: true },
   { id: 'memory', labelKey: 'account.tabs.memory', files: true },
   { id: 'appearance', labelKey: 'account.tabs.appearance', files: true },
+  { id: 'defaults', labelKey: 'account.tabs.defaults', files: true },
+  { id: 'navigation', labelKey: 'account.tabs.navigation', files: true },
+  { id: 'slots', labelKey: 'account.tabs.slots', files: true },
+  { id: 'strings', labelKey: 'account.tabs.strings', files: true },
+  { id: 'sound', labelKey: 'account.tabs.sound', files: true },
 ]
 
-// Wide tabs hold two cards side by side.
-const WIDE_TABS = new Set(['about'])
+// Wide tabs hold two cards side by side, or a form and its preview.
+const WIDE_TABS = new Set(['about', 'appearance', 'defaults', 'navigation', 'slots', 'strings', 'sound'])
 
 const WINDOW_WORDS = { '1m': 'minute', '5m': '5 minutes', '1h': 'hour', '6h': '6 hours', '1d': 'day', '7d': 'week', '30d': '30 days' }
 
@@ -303,6 +310,11 @@ export default function Account() {
         {tab === 'about' && <AboutYouTab />}
         {tab === 'memory' && <MemorySettings addToast={addToast}><MemoryTab addToast={addToast} embedded /></MemorySettings>}
         {tab === 'appearance' && <AppearanceTab />}
+        {tab === 'defaults' && <DefaultsTab />}
+        {tab === 'navigation' && <NavigationTab />}
+        {tab === 'slots' && <SlotsTab />}
+        {tab === 'strings' && <StringsTab />}
+        {tab === 'sound' && <SoundTab />}
       </div>
     </Page>
   )

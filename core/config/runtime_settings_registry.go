@@ -643,6 +643,10 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsEgressAllowPrivate },
 		func(o *ApplicationConfig) bool { return o.ChatsEgressAllowPrivate },
 		func(o *ApplicationConfig, v bool) { o.ChatsEgressAllowPrivate = v }),
+	field("client_jobs_allow_all_tools",
+		func(s *RuntimeSettings) **bool { return &s.ClientJobsAllowAllTools },
+		func(o *ApplicationConfig) bool { return o.ClientJobsAllowAllTools },
+		func(o *ApplicationConfig, v bool) { o.ClientJobsAllowAllTools = v }),
 	withApply(field("chats_egress_ports",
 		func(s *RuntimeSettings) **string { return &s.ChatsEgressPorts },
 		func(o *ApplicationConfig) string { return o.ChatsEgressPorts },
@@ -850,6 +854,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
 		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
 		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
+
+	// The page area of Home: stored as the negation, like shared pages.
+	field("home_page_area_enabled",
+		func(s *RuntimeSettings) **bool { return &s.HomePageAreaEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisablePageArea },
+		func(o *ApplicationConfig, v bool) { o.DisablePageArea = !v }),
 
 	// Built-in chat tools: the host-commands mode and the add-on pins.
 	field("chats_host_exec",

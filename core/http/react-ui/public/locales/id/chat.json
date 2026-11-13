@@ -124,7 +124,8 @@
     "copied": "Berhasil disalin ke papan klip",
     "copyFailed": "Gagal menyalin ke papan klip",
     "newChatForModel": "Obrolan mempertahankan modelnya. Obrolan baru dimulai dengan {{model}}.",
-    "chatCopied": "Obrolan disalin ke papan klip"
+    "chatCopied": "Obrolan disalin ke papan klip",
+    "windowSet": "Jendela konteks {{model}} sekarang {{window}} token."
   },
   "menu": {
     "trigger": "Obrolan",
@@ -297,7 +298,8 @@
       "skills": "Skill dan agen",
       "help": "Bantuan",
       "chat": "Obrolan",
-      "view": "Lihat"
+      "view": "Lihat",
+      "yours": "Milik Anda"
     },
     "models": {
       "label": "Model",
@@ -350,7 +352,9 @@
       "builtin": "bawaan",
       "addon": "add-on",
       "shared": "bersama",
-      "yours": "milik Anda"
+      "yours": "milik Anda",
+      "prompt": "prompt",
+      "tool": "alat"
     },
     "collides": "hanya dengan /skill",
     "errors": {
@@ -396,7 +400,9 @@
     "effort": {
       "label": "Upaya penalaran",
       "desc": "Pilih seberapa keras model berpikir"
-    }
+    },
+    "userTool": "Gunakan alat {{tool}}.",
+    "unavailable": "alat tidak tersedia"
   },
   "shortcuts": {
     "onMessage": "Pada pesan: salin, ubah, buat ulang",
@@ -414,8 +420,8 @@
   },
   "files": {
     "title": "File di obrolan ini",
-    "chip": "File",
-    "chipTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
+    "button": "File",
+    "buttonTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
     "close": "Tutup file",
     "emptyTitle": "Belum ada file di obrolan ini",
     "emptyBody": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya. File yang dibuat atau diubah asisten juga muncul di sini.",
@@ -1006,6 +1012,18 @@
       "start": "Mulai Live",
       "close": "Tutup",
       "notShown": "Terpasang, tetapi modelnya tidak muncul. Coba lagi atau muat ulang."
+    }
+  },
+  "readAloud": {
+    "read": "Bacakan",
+    "stop": "Hentikan pembacaan",
+    "ask": "Model teks-ke-suara bawaan Anda diatur untuk bertanya setiap kali. Pilih model di Bawaan untuk membacakan.",
+    "none": "Belum ada model teks-ke-suara yang terpasang.",
+    "missing": "Model teks-ke-suara bawaan Anda belum terpasang. Pilih model lain di Bawaan.",
+    "failed": "Ini tidak dapat dibacakan.",
+    "omitted": {
+      "code": "Blok kode dilewati.",
+      "table": "Tabel dilewati."
     }
   }
 }

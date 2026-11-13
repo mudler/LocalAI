@@ -26,7 +26,8 @@
     "check": {
       "required": "必填。",
       "tooLong": "最多 {{max}} 个字符。",
-      "format": "此值的格式不正确。"
+      "format": "此值的格式不正确。",
+      "placeholder": "此文字中的占位符不正确。"
     },
     "source": {
       "label": "源文件",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "助手",
-      "lede": "助手在每次聊天中使用的名称和指令。"
+      "lede": "助手在每个对话中使用的名称、头像、问候语和指令。"
     },
     "user": {
       "title": "您",
@@ -152,12 +153,50 @@
         "noneEligible": "还没有页面具有用于主页的紧凑视图。请让助手为某个页面添加一个。",
         "pick": "页面",
         "unavailable": "{{name}}（不可用）",
-        "sharedLabel": "共享",
-        "sizes": {
-          "small": "小",
-          "medium": "中",
-          "large": "大"
-        }
+        "sharedLabel": "共享"
+      },
+      "size": "大小",
+      "preview": "主页会这样排列你的小组件。S 占一列，M 占两列，L 占满一行。空位会自动补上。",
+      "area": {
+        "label": "页面区域",
+        "none": "无",
+        "pickHint": "在主页输入框下方占满该区域的页面。它无法访问网络或你的其他文件。",
+        "pickOff": "管理员已关闭页面区域，因此主页不会在那里显示页面。你的选择会保留。",
+        "off": "页面区域已关闭",
+        "offHint": "管理员已为此服务器上的所有人关闭它。你选择的页面仍保留在主页布局中，重新开启后会再次显示。",
+        "by": {
+          "assistant": "由助手创建的页面",
+          "you": "由你创建的页面"
+        },
+        "byAuthor": "{{author}} 共享的页面",
+        "edit": "编辑",
+        "reload": "重新加载",
+        "loading": "正在加载页面",
+        "runsAsYou": "以你的身份运行",
+        "runsAsYouHint": "该页面以你的权限读写其文件夹中的文件。它无法访问网络或你的其他文件。",
+        "askPrompt": "修改 pages/{{name}}/ 中的页面，使它",
+        "askTitle": "请助手修改此页面",
+        "frameTitle": "{{title}}（主页的页面区域）",
+        "failedTitle": "此页面未能加载。",
+        "why": {
+          "script": "它的脚本报错，页面没有绘制任何内容。",
+          "scriptLine": "它的脚本在第 {{line}} 行报错，页面没有绘制任何内容。",
+          "noPaint": "它在 5 秒内没有显示任何内容。",
+          "navigated": "它试图离开自己的框架。",
+          "busy": "它让电脑忙碌了太久。",
+          "silent": "它不再响应。",
+          "noStart": "它没有启动。",
+          "missing": "页面“{{name}}”已被移动或删除，或者你已无法再打开它。",
+          "read": "无法读取该页面。",
+          "invalid": "为页面区域选择的页面不是有效的页面名称。",
+          "sharedOff": "管理员已在此服务器上关闭共享页面。"
+        },
+        "revert": "还原",
+        "openFile": "打开文件",
+        "remove": "从主页移除",
+        "nothingToRevert": "没有可以还原的更早版本。",
+        "revertFailed": "还原未成功。",
+        "removeFailed": "无法从主页移除该页面。"
       }
     },
     "fields": {
@@ -169,6 +208,18 @@
         "system_prompt": {
           "label": "系统提示词",
           "help": "会添加到每次聊天中，位于聊天自身的提示词和代理指令之后。"
+        },
+        "avatar": {
+          "label": "头像",
+          "help": "你文件中的一张图片。PNG、JPG、WebP、GIF 或 AVIF。"
+        },
+        "greeting": {
+          "label": "问候语",
+          "help": "新对话中助手的第一句话。只显示，不发送给模型。"
+        },
+        "emptyChat": {
+          "label": "空对话",
+          "help": "新对话在消息框上方显示的内容。"
         }
       },
       "user": {
@@ -222,6 +273,20 @@
         "chatBackground": {
           "label": "聊天背景",
           "help": "在聊天后面显示一种颜色、渐变或你文件中的图片。其他页面保持不变。"
+        },
+        "look": {
+          "label": "外观",
+          "help": "字体、圆角、消息和代码，均来自固定列表。"
+        },
+        "strings": {
+          "label": "文字",
+          "help": "只有这里列出的键可以更改。"
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "标题",
+          "help": "留空则使用按时段的问候语。"
         }
       }
     },
@@ -256,6 +321,236 @@
       "pickFailed": "无法读取该文件夹。",
       "pickEmpty": "这里没有图片或文件夹。",
       "pickClose": "关闭"
+    },
+    "nav": {
+      "title": "导航",
+      "lede": "重新排序、重命名、隐藏或分组侧边栏。拖动一行，或使用箭头键。更改会立即显示在右侧。",
+      "preview": "实时预览",
+      "discard": "放弃更改",
+      "saved": "已保存。",
+      "reset": "恢复默认",
+      "fixed": "新建聊天、聊天、设置和搜索始终显示。",
+      "homeFixed": "首页始终保留。",
+      "hide": "隐藏 {{name}}",
+      "show": "显示 {{name}}",
+      "drag": "移动 {{name}}（拖动，或使用方向键）",
+      "name": "{{name}} 的名称",
+      "was": "原名 {{name}}",
+      "moveUp": "上移 {{name}}",
+      "moveDown": "下移 {{name}}",
+      "remove": "移除 {{name}}",
+      "addLink": "添加链接",
+      "addGroup": "添加分组",
+      "newGroup": "新分组",
+      "missing": "已失效",
+      "missingHint": "此{{kind}}已不存在，侧边栏会跳过它。",
+      "unavailable": "未向你显示",
+      "unavailableHint": "你的账户或此服务器尚未显示此条目。",
+      "tag": {
+        "builtin": "内置",
+        "group": "分组",
+        "page": "页面",
+        "chat": "聊天",
+        "url": "链接"
+      },
+      "add": {
+        "page": "页面",
+        "pageHint": "你的页面之一",
+        "chat": "聊天",
+        "chatHint": "固定一个对话",
+        "url": "网址",
+        "urlHint": "在新标签页中打开",
+        "address": "地址",
+        "name": "名称（可选）",
+        "confirm": "添加",
+        "back": "返回",
+        "urlInvalid": "请使用不含用户名的 http 或 https 地址。",
+        "pick": {
+          "page": "选择页面",
+          "chat": "选择聊天"
+        },
+        "none": {
+          "page": "没有可添加的页面。",
+          "chat": "没有可添加的聊天。"
+        }
+      }
+    },
+    "blocked": "请修正标出的值后再保存。",
+    "storedIn": "保存在",
+    "placeholders": {
+      "unknown_one": "{{names}} 不是此文字的占位符。",
+      "unknown_other": "{{names}} 不是此文字的占位符。",
+      "unknownUse_one": "{{names}} 不是此文字的占位符。请使用 {{use}}。",
+      "unknownUse_other": "{{names}} 不是此文字的占位符。请使用 {{use}}。",
+      "none_one": "{{names}} 不是占位符。此文字不使用占位符。",
+      "none_other": "{{names}} 不是占位符。此文字不使用占位符。",
+      "brace": "有一个花括号没有配对。占位符的写法是 {name}。",
+      "hint": "可用的占位符",
+      "insert": "插入此占位符"
+    },
+    "avatar": {
+      "path": "图片路径",
+      "remove": "移除",
+      "bad": "请使用你文件中的图片：路径开头不带斜杠，不含 ..，以 .png、.jpg、.jpeg、.webp、.gif 或 .avif 结尾。"
+    },
+    "emptyChat": {
+      "title": "标题",
+      "subtitle": "标题下方的一行",
+      "titleSample": "有什么都可以问我",
+      "subtitleSample": "说说你需要什么。",
+      "showShortcuts": "在消息框上方显示我的快捷方式"
+    },
+    "look": {
+      "font": {
+        "label": "字体",
+        "default": "Geist，默认",
+        "system": "系统",
+        "serif": "衬线",
+        "mono": "等宽"
+      },
+      "radius": {
+        "label": "圆角",
+        "sharp": "直角",
+        "soft": "柔和",
+        "round": "圆润"
+      },
+      "bubble": {
+        "label": "消息样式",
+        "card": "卡片",
+        "filled": "填充",
+        "tinted": "浅色",
+        "outline": "描边",
+        "plain": "无"
+      },
+      "messageWidth": {
+        "label": "消息宽度",
+        "narrow": "窄 640",
+        "medium": "中 760",
+        "wide": "宽 920",
+        "full": "全宽"
+      },
+      "codeTheme": {
+        "label": "代码颜色",
+        "auto": "自动",
+        "mono": "单色",
+        "vivid": "鲜明",
+        "ink": "墨色"
+      },
+      "note": "每个值都来自固定列表，强调色必须保持可读的对比度。没有 CSS 输入框，所以外观不会遮挡或破坏页面。"
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "太浅：在{{mode}}下为 {{ratio}}:1",
+      "failLong": "此强调色与{{mode}}页面的对比度为 {{ratio}}:1，需要 4.5:1。LocalAI 会改用默认强调色。",
+      "mode": {
+        "light": "浅色主题",
+        "dark": "深色主题"
+      }
+    },
+    "headline": {
+      "title": "首页标题",
+      "lede": "首页顶部的大标题。"
+    },
+    "strings": {
+      "title": "文字",
+      "lede": "用你自己的话替换部分标签。安全、权限和同意提示保持原样。",
+      "changed_one": "已更改 {{count}} 项",
+      "changed_other": "已更改 {{count}} 项",
+      "find": "查找文字",
+      "key": "键",
+      "default": "默认",
+      "yours": "你的文字",
+      "yoursFor": "{{key}} 的文字",
+      "same": "与默认相同",
+      "hint": "请保留文字中的占位符，例如 {model}。错误的占位符会在保存前标出。留空则使用默认文字。"
+    },
+    "frames": {
+      "stopped": "此页面已停止",
+      "why": {
+        "busy": "它占用电脑的时间过长（10 秒内工作超过 3 秒）。",
+        "silent": "它超过 5 秒没有响应。",
+        "noStart": "它没有在 10 秒内启动。",
+        "navigated": "它试图离开自己的框架。"
+      },
+      "capped": "已暂停：应用中最多同时运行 {{max}} 个页面。",
+      "run": "运行"
+    },
+    "slots": {
+      "title": "插槽",
+      "lede": "应用中的小位置，从左到右显示你的页面磁贴、工具按钮和命令。它们不会遮住标题、模型或设置。",
+      "where": "插槽的位置",
+      "map": "插槽地图",
+      "editing": "编辑中",
+      "count": "{{count}} / {{max}}",
+      "names": {
+        "chatHeader": "聊天标题栏",
+        "sidebarFooter": "侧边栏底部",
+        "composerToolbar": "输入框工具栏"
+      },
+      "badge": {
+        "chatHeader": "在聊天标题栏中",
+        "sidebarFooter": "在侧边栏中",
+        "composerToolbar": "在输入框中"
+      },
+      "hint": {
+        "chatHeader": "每个聊天上方的栏。带紧凑布局的页面在 40 像素高的条中运行；点击后在磁贴下方以卡片打开。",
+        "sidebarFooter": "每个界面的侧边栏底部。折叠侧边栏时会隐藏。",
+        "composerToolbar": "在消息框的附件按钮旁边。适合放工具按钮。"
+      },
+      "empty": "这里还没有内容。添加一个页面磁贴、工具按钮或命令。",
+      "addItem": "添加项目",
+      "full": "此插槽已满（{{max}} 个项目）。",
+      "incomplete": "保存前请填写每个新项目：一个页面、一个工具及其文字，或一个命令。",
+      "add": {
+        "page": "页面磁贴",
+        "pageHint": "你创建或与你共享的页面",
+        "tool": "工具按钮",
+        "toolHint": "运行一个工具，先询问",
+        "command": "命令",
+        "commandHint": "你的一个命令"
+      },
+      "kind": {
+        "tool": "工具按钮，先询问",
+        "command": "命令",
+        "pageMissing": "找不到页面",
+        "pageCompact": "页面磁贴，紧凑",
+        "pageButton": "页面，点击后打开"
+      },
+      "form": {
+        "page": "页面",
+        "pickPage": "选择页面",
+        "shared": "共享",
+        "pageHint": "带紧凑布局的页面在插槽中运行。其他页面显示为打开它的按钮。",
+        "tool": "工具名称",
+        "arguments": "固定参数（可选）",
+        "argumentsHint": "名称及简单值，最多 {{max}} 个：文本、数字、true 或 false，参照示例。",
+        "argumentsBad": "无效：请参照示例写名称及简单值，最多 {{max}} 个。",
+        "command": "命令名称",
+        "commandHint": "你的一个命令的名称，不带斜杠。点击后会把它的文本放进消息框。",
+        "label": "文字（可选）",
+        "labelNeeded": "按钮文字",
+        "icon": "图标（可选）"
+      },
+      "tool": {
+        "title": "在你批准后运行工具 {{tool}}",
+        "confirmTitle": "运行 {{label}}？",
+        "confirmChat": "这会向此聊天发送一条消息，请助手运行此工具：",
+        "confirmDraft": "这会打开一个新聊天，其中有一条请助手运行此工具的消息。由你发送。",
+        "tool": "工具",
+        "arguments": "参数",
+        "stillAsks": "如果工具需要你的批准，聊天仍会询问。",
+        "run": "运行"
+      },
+      "tile": {
+        "missing": "页面 {{name}} 已不存在。请在设置中修改插槽。",
+        "off": "此服务器已关闭共享页面。",
+        "error": "无法读取页面 {{name}}。请在设置中修改插槽。",
+        "open": "打开 {{title}}",
+        "allow": "允许 {{title}} 在此运行",
+        "expand": "显示 {{title}}",
+        "close": "关闭 {{title}}",
+        "sandboxed": "沙盒隔离，无网络"
+      }
     }
   },
   "discovery": {
@@ -315,7 +610,8 @@
       "offersOff": "助手的建议已关闭。",
       "undoing": "正在撤销…",
       "undone": "已撤销。",
-      "undoFailed": "未能撤销：{{message}}"
+      "undoFailed": "未能撤销：{{message}}",
+      "defaults": "已保存你的默认模型。从你的下一条消息起，助手就会使用它们。"
     },
     "toast": {
       "shortcutAdded": "已添加到你的输入框：{{label}}",
@@ -522,7 +818,8 @@
       "user": "助手会忘记你告诉它的关于你的信息，以及你对它的建议的回答。",
       "shortcuts": "消息框会重新显示默认快捷方式。",
       "home": "主页会失去它的小组件。",
-      "ui": "你的主题、强调色、密度、默认模型和固定的页面会恢复为默认值。"
+      "ui": "你的主题、强调色、密度、默认模型和固定的页面会恢复为默认值。",
+      "defaults": "你的默认模型会被忘记。工具会重新自行选择已安装的模型。"
     }
   },
   "newFile": "新建文件",
@@ -738,5 +1035,232 @@
     "writeHelp": "他们还可以在这里添加、修改和删除文件。",
     "failed": "无法打开共享：{{message}}",
     "lost": "你无法再在这里共享此文件夹。"
+  },
+  "defaults": {
+    "lede": "每种任务一个模型。单次请求时，你可以另选一个。",
+    "kinds": {
+      "chat": {
+        "label": "聊天",
+        "use": "用于：新聊天、聊天标题、摘要"
+      },
+      "image": {
+        "label": "图像生成",
+        "use": "用于：“画一幅”“生成一张图片”、图像页面"
+      },
+      "tts": {
+        "label": "文字转语音",
+        "use": "用于：朗读、“把这句念出来”、语音回复"
+      },
+      "stt": {
+        "label": "语音转文字",
+        "use": "用于：听写、麦克风、音频文件"
+      },
+      "embeddings": {
+        "label": "嵌入",
+        "use": "用于：知识库搜索、文件搜索"
+      },
+      "video": {
+        "label": "视频生成",
+        "use": "用于：“做一段短视频”、视频页面"
+      },
+      "rerank": {
+        "label": "重排序",
+        "use": "用于：对知识库结果排序"
+      },
+      "vision": {
+        "label": "图像理解",
+        "use": "用于：你附加到聊天中的图片"
+      }
+    },
+    "automatic": "自动（第一个已安装的）",
+    "asking": "每次询问",
+    "modeLabel": "{{kind}}的选择",
+    "mode": {
+      "default": "默认",
+      "ask": "每次询问"
+    },
+    "noModel": "未设置模型",
+    "notInstalled": "未安装",
+    "installOne": "安装一个",
+    "missing": "这个模型已不再安装。在你另选一个之前，助手会询问该用哪个模型。",
+    "fromOld": "在本页面出现之前设置的。在这里选择一个模型，即可保存为默认值。",
+    "modelsFailed": "已安装模型的列表没有加载出来。请刷新页面重试。",
+    "help": {
+      "title": "助手会读取你的默认值",
+      "body": "当你说“画一只狐狸”或“把这个读出来”时，助手会先查看你的默认值，并使用为该类任务设定的模型。",
+      "example": "画一只雪地里的狐狸",
+      "tool": "已查看默认值 › image",
+      "used": "正在使用 <code>{{model}}</code>，这是你的图像默认模型。",
+      "exampleModel": "你的图像模型"
+    },
+    "preview": "已保存的内容"
+  },
+  "identity": {
+    "messageName": "给 {{name}} 发消息...",
+    "preview": {
+      "title": "预览",
+      "home": "首页",
+      "newChat": "新对话",
+      "firstMessage": "第一条消息",
+      "assistant": "助手",
+      "noGreeting": "未设置问候语。新对话以空白开始。"
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "实时预览",
+      "question": "教我用 Python 读取文件。",
+      "answer": "用上下文管理器打开，它会自动关闭：",
+      "comment": "整个文件",
+      "after": "大文件可以逐行遍历 f。",
+      "button": "运行",
+      "box": "给助手发消息..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "预览",
+      "sidebar": "侧边栏"
+    }
+  },
+  "commands": {
+    "title": "命令",
+    "lede": "你自己的斜杠命令。命令会把一段提示词放进消息框，由你阅读后自己发送。",
+    "form": "命令",
+    "new": "新建命令",
+    "empty": "还没有命令。添加一个，它就会出现在斜杠菜单里。",
+    "type": {
+      "prompt": "展开为提示词",
+      "tool": "调用工具"
+    },
+    "field": {
+      "name": "名称",
+      "description": "说明",
+      "what": "作用",
+      "template": "提示词模板",
+      "tool": "工具",
+      "args": "参数"
+    },
+    "nameHint": "小写字母、数字和连字符。",
+    "templateHint": "在参数的位置写 {{example}}。",
+    "noArgs": "这个模板没有参数。",
+    "argKind": {
+      "number": "数字",
+      "text": "文本"
+    },
+    "argDefault": "默认值",
+    "argsHint": "输入 {{example}} 可按顺序填写参数。缺少的参数使用默认值。",
+    "toolHint": "你已有的工具。命令会请助手使用它，工具仍保留自己的批准步骤。",
+    "toolUnknown": "这个工具目前不在聊天的工具之中。",
+    "expands": "会放进消息框的内容",
+    "valid": "有效",
+    "invalid": "需要修正",
+    "save": "保存",
+    "delete": "删除",
+    "preview": {
+      "title": "斜杠菜单预览",
+      "builtin": "内置",
+      "none": "还没有命令。",
+      "keys": "按 Enter 填入消息框"
+    },
+    "problem": {
+      "nameEmpty": "请给命令起个名字。",
+      "nameFormat": "名称以字母开头，只能包含小写字母、数字和连字符，最多 32 个字符。",
+      "nameBuiltin": "这个名称属于内置命令，请换一个。",
+      "nameTaken": "已有另一个命令使用这个名称。",
+      "descriptionEmpty": "请为菜单写一句简短的说明。",
+      "descriptionLong": "说明最多 {{max}} 个字符。",
+      "toolEmpty": "请填写工具名称。",
+      "toolFormat": "工具名称只能包含字母、数字、点、冒号、连字符和下划线，最多 128 个字符。",
+      "templateEmpty": "请写出提示词。",
+      "templateLong": "提示词最多 {{template}} 个字符。",
+      "argFormat": "参数名以字母开头，只能包含小写字母、数字和下划线。",
+      "argTwice": "有参数被重复列出。",
+      "argDefault": "每个参数都需要默认值。",
+      "argDefaultLong": "默认值最多 200 个字符。",
+      "argMissing": "模板中有参数的名称无效。",
+      "argUnused": "有参数没有在模板中使用。",
+      "braces": "有一对双大括号没有闭合。",
+      "argCount": "一个命令最多有 {{args}} 个参数。"
+    }
+  },
+  "sound": {
+    "title": "声音",
+    "play": "播放“{{event}}”的声音",
+    "volume": "音量",
+    "volumeReset": "使用默认音量",
+    "names": {
+      "none": "无",
+      "soft-chime": "轻柔铃声",
+      "double-tap": "双击声",
+      "bell": "铃铛",
+      "pop": "啵声",
+      "low-tone": "低音"
+    },
+    "events": {
+      "replyDone": {
+        "label": "回复完成",
+        "hint": "较长的回答已经准备好"
+      },
+      "approval": {
+        "label": "需要你的批准",
+        "hint": "某个工具或更改在运行前请求确认"
+      },
+      "taskDone": {
+        "label": "任务或计划完成",
+        "hint": "某个触发器或智能体任务已结束"
+      },
+      "error": {
+        "label": "错误",
+        "hint": "某个请求或任务失败"
+      }
+    },
+    "notify": {
+      "title": "通知声音",
+      "lede": "有事需要你时播放简短的声音。在你打开之前保持关闭。",
+      "rule": "声音只在你操作过页面之后才会响起。回复、批准和错误的声音只在此标签页位于后台时播放。静音时段内不会播放任何声音。"
+    },
+    "quiet": {
+      "title": "静音时段",
+      "between": "{{from}} 到 {{to}} 之间不播放声音",
+      "none": "没有静音时段。打开后可选择时间段。",
+      "from": "从",
+      "to": "到"
+    },
+    "voice": {
+      "title": "回复的语音",
+      "lede": "让回复被朗读出来。",
+      "readAloud": "朗读回复",
+      "mode": {
+        "off": "从不",
+        "button": "点按喇叭时",
+        "auto": "每条回复"
+      },
+      "modeHint": {
+        "off": "回复不会被朗读。",
+        "button": "每条回复下方会显示一个喇叭按钮。",
+        "auto": "每条完成的回复会立即朗读。浏览器可能要求你先点击一下页面。"
+      },
+      "voice": "声音",
+      "voicePlaceholder": "模型默认",
+      "voiceHint": "你的语音合成模型接受的声音名称。留空则使用模型一开始的声音。",
+      "speed": "语速",
+      "speedReset": "使用正常语速",
+      "skipCode": "跳过代码和表格",
+      "skipCodeHint": "改为说“代码块已省略”。",
+      "sample": "播放示例",
+      "stop": "停止",
+      "sampleText": "你好，你的回复听起来就是这样。",
+      "sampleFailed": "无法播放示例。",
+      "madeBy": "语音由 {{model}} 生成，它是你的默认语音合成模型。",
+      "madeByAuto": "语音由 {{model}} 生成，它是已安装的第一个语音合成模型。你还没有选择默认模型。",
+      "change": "在默认值中更改",
+      "model": {
+        "ask": "你的默认值设为每次询问，所以没有可用于朗读的模型。请选择一个语音合成模型。",
+        "missing": "{{model}} 是你的默认语音合成模型，但它没有安装。",
+        "none": "没有安装语音合成模型。"
+      },
+      "remote": "{{model}} 不是本地模型。你让朗读的每条回复的文本都会发送到另一台服务器。"
+    }
   }
 }

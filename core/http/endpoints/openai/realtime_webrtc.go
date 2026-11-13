@@ -107,6 +107,14 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 		if req.Model == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "model is required"})
 		}
+		// A client key cannot reach this route today (it is not one of the
+		// routes of client_inference). The check stays so that adding the route
+		// later cannot open every model: without the gate it refuses.
+		if auth.ClientKey(c) != nil {
+			if d := auth.CheckClientModel(c, req.Model); d != nil {
+				return auth.ClientModelDenialResponse(c, d)
+			}
+		}
 
 		// Create a MediaEngine with Opus support
 		m := &webrtc.MediaEngine{}
@@ -244,6 +252,7 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 			IsAdmin:          isCurrentUserAdmin(c, application),
 			VoiceViewer:      realtimeVoiceViewer(c),
 			User:             auth.GetUser(c),
+			Client:           realtimeClient(c),
 		}
 		go func() {
 			defer transport.Close()

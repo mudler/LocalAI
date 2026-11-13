@@ -6,7 +6,8 @@ import LoadingSpinner from '../LoadingSpinner'
 import SchemaFields from './SchemaFields'
 import Versions from './Versions'
 import { useWellKnown, loadSchema } from '../../hooks/useWellKnown'
-import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText, wellKnownProblem, WELL_KNOWN_FILES } from '../../utils/wellKnown'
+import { fieldsFromSchema, checkField, changedValues, editMeetsChange, parseSource, sourceText, wellKnownProblem, WELL_KNOWN_FILES } from '../../utils/wellKnown'
+import { accentContrast } from './contrast'
 import './wellKnown.css'
 
 // shown is a value as the conflict note lists it: text as it is, an object as JSON.
@@ -53,6 +54,30 @@ export function StoredIn({ file, onRevert, canRevert, busy, versionsOf, onRevert
   )
 }
 
+// FileFooter is the line under a settings editor that names its file, with
+// Source and a revert to the previous version. Every editor of a settings
+// file draws the same line. The path is shown as data, never as part of the
+// translated copy, so the copy names no file. children go after the path
+// (a saved time, for example); sourceOpen, when given, marks Source as a
+// toggle, and sourceLabel replaces its label (Form, while the source shows);
+// extra goes after Revert (a reset, for example).
+export function FileFooter({ name, file, onSource, sourceOpen, sourceLabel, onRevert, canRevert, extra, children }) {
+  const { t } = useTranslation('workspace')
+  return (
+    <footer className="wk-stored" data-testid={`wk-stored-${name}`}>
+      <Icon name="file" />
+      <span>{t('wellKnown.storedIn')} <code>{file}</code></span>
+      {children}
+      <span className="wk-stored__acts">
+        <button type="button" className="wk-linkbtn" onClick={onSource} aria-expanded={sourceOpen} data-testid={`wk-stored-source-${name}`}>{sourceLabel || t('wellKnown.source.label')}</button>
+        <span aria-hidden="true">·</span>
+        <button type="button" className="wk-linkbtn" onClick={onRevert} disabled={!canRevert} data-testid={`wk-stored-revert-${name}`}>{t('wellKnown.revert')}</button>
+        {extra && <><span aria-hidden="true">·</span>{extra}</>}
+      </span>
+    </footer>
+  )
+}
+
 // WellKnownCard edits one well-known file: a form drawn from its schema, a
 // Source view of the raw JSON with the same validation, the file name with
 // a revert to the previous version, and the answer to a conflict.
@@ -61,7 +86,12 @@ export function StoredIn({ file, onRevert, canRevert, busy, versionsOf, onRevert
 //                    not have (they are saved with the next Save), and the
 //                    line under such a field
 //   onSaved(doc)  after a save or a revert
-export default function WellKnownCard({ name, title, lede, prefill, options, onSaved, onChange, testId, children }) {
+//   only, omit    the keys of the schema the form shows (a tab that edits a
+//                 part of a file); the other keys are never sent, so a save
+//                 keeps them
+//   footer        a line under the form that names the file, with Source and
+//                 a revert to the previous version
+export default function WellKnownCard({ name, title, lede, prefill, options, onSaved, onChange, testId, only, omit, footer = false, children }) {
   const { t, i18n } = useTranslation('workspace')
   const wk = useWellKnown(name)
   const { doc } = wk
@@ -87,7 +117,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
     return () => { live = false }
   }, [name])
 
-  const fields = useMemo(() => fieldsFromSchema(schema), [schema])
+  const fields = useMemo(() => fieldsFromSchema(schema).filter(f => (!only || only.includes(f.key)) && !(omit || []).includes(f.key)), [schema, only, omit])
   // fileData is what the file holds: the server marks the values it filled in
   // itself (the account's name) as prefilled, and those are not in the file.
   const fileData = useMemo(() => {
@@ -125,7 +155,16 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
   const set = (k, v) => { setValues(prev => ({ ...prev, [k]: v })); setDirty(true); setProblem(null) }
 
   const pending = useMemo(() => changedValues(fields, baseRef.current, values), [fields, values])
-  const canSave = mode === 'source' ? dirty : Object.keys(pending).length > 0
+  // A value the form already knows is wrong is not sent: a broken
+  // placeholder (the server refuses it too) or an accent that would be too
+  // faint on the page (the server cannot know the theme, so the form checks).
+  const blocked = useMemo(() => fields.some(f => {
+    if (!(f.key in pending)) return false
+    if (checkField(f, values[f.key])) return true
+    if (f.contrast) return accentContrast(values[f.key], values.theme)?.ok === false
+    return false
+  }), [fields, pending, values])
+  const canSave = mode === 'source' ? dirty : Object.keys(pending).length > 0 && !blocked
 
   const done = (d) => {
     setDirty(false)
@@ -298,8 +337,15 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
               {busy ? <LoadingSpinner size="sm" /> : <Icon name="save" />} {t('wellKnown.save')}
             </button>
             {status && <span className="wk-status" role="status">{status}</span>}
+            {blocked && mode === 'form' && <span className="wk-status" role="status" data-testid={`wk-blocked-${name}`}>{t('wellKnown.blocked')}</span>}
           </div>
         </form>
+      )}
+      {footer && (
+        <FileFooter
+          name={name} file={file} onRevert={revert} canRevert={!busy && !!doc?.exists}
+          onSource={() => { setSource(sourceText({ ...fileData, ...(dirty ? values : {}) })); setMode('source') }}
+        />
       )}
     </section>
   )

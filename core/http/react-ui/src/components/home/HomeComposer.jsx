@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { useTranslation, Trans } from 'react-i18next'
 import { availableActions, commandNames, SLASH_GROUPS } from './homeActions'
-import { filterCommands, slashQuery } from '../../utils/slashCommands'
+import { expandTypedUserCommand, filterCommands, slashQuery } from '../../utils/slashCommands'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
@@ -37,7 +37,7 @@ function Marked({ text, upto }) {
 // Home uses it as is. Chat uses the same bar and adds what a conversation
 // needs, all optional:
 //   lead         a chip drawn before the model picker (Home's Setup chip)
-//   chips        more chips after the MCP chip (the agent picker and the files chip)
+//   chips        more chips after the MCP chip (the agent picker)
 //   slash        { actions, groups, label, desc, groupLabel, ctx, argsLabel,
 //                argLabel, badgeLabel, noteLabel } for a menu of registry
 //                commands (utils/slashCommands.js); ctx goes to the argument
@@ -183,6 +183,10 @@ export default function HomeComposer({
   const submit = () => {
     const exact = actions.find(c => c.addonId && c.cmd === message.trim())
     if (exact) { onMessage(''); onRunAction(exact.id, exact); return }
+    // A command of the user is never sent as typed: its prompt goes in the box
+    // first, and the person sends it by hand.
+    const own = expandTypedUserCommand(message, actions, slash?.ctx)
+    if (own !== null) { onMessage(own); return }
     onSubmit()
   }
 

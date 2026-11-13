@@ -5,15 +5,19 @@ import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWa
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
 import { savedFailure } from '../utils/chatFailure'
+import { newOptimistic, adoptedSeq } from '../utils/optimisticSend'
+import { emitSound } from '../utils/soundBus'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused', 'loops', 'cleared', 'goal', 'resync',
+  'paused', 'loops', 'cleared', 'goal', 'dock', 'resync',
 ]
 
+// How long a message that was not sent takes to leave (the fade in chat.css).
+const RETRACT_MS = 240
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
 const SETTLE_READS = 8
 const SETTLE_MS = 250
@@ -44,6 +48,8 @@ export function useServerChat({ seed = null } = {}) {
   const [activeId, setActiveId] = useState(() => seed?.id ?? null)
   const [detail, setDetail] = useState(() => seed?.detail ?? null)
   const [messages, setMessages] = useState([])
+  // The message being sent, drawn before the server has it (utils/optimisticSend.js).
+  const [sending, setSending] = useState(null)
   const [live, setLive] = useState(emptyLive)
   const [notes, setNotes] = useState([])
   // What the last model request used ({ used, limit, completion,
@@ -76,6 +82,9 @@ export function useServerChat({ seed = null } = {}) {
   const [pausedSteps, setPausedSteps] = useState(0)
 
   const sourceRef = useRef(null)
+  const sendingRef = useRef(null)
+  const messagesRef = useRef([])
+  messagesRef.current = messages
   const reconnectRef = useRef(null)
   // True while the event stream has been down for more than a moment. A short
   // break (the browser reconnects at once) does not show.
@@ -188,6 +197,8 @@ export function useServerChat({ seed = null } = {}) {
     const source = new EventSource(resumeUrl(chatsApi.eventsUrl(id), lastEventRef.current, id))
     sourceRef.current = source
 
+    // A turn that failed says so once: the error, not the end of the turn, sounds.
+    let turnFailed = false
     const on = {
       turn_start: () => {
         epochRef.current++
@@ -235,6 +246,9 @@ export function useServerChat({ seed = null } = {}) {
       // The goal changed, here or in another tab: the chat carries it and the
       // transcript its line.
       goal: () => refreshChat(id),
+      // The dock changed: a page was docked here, in another tab or by the
+      // assistant. The chat's detail carries it.
+      dock: () => refreshDetail(id),
       // The loops of the chat changed (in this tab, another one, or a run).
       loops: () => refreshDetail(id),
       sub_agent_started: () => setTicks(t => ({ ...t, subAgents: t.subAgents + 1 })),
@@ -248,7 +262,7 @@ export function useServerChat({ seed = null } = {}) {
         setUsage(e.usage)
         setUsageHistory(h => pushUsage(h, e.usage))
       },
-      trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
+      trigger_proposed: () => { setTicks(t => ({ ...t, proposals: t.proposals + 1 })); emitSound('approval') },
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
       // The network of the chat's isolated commands changed: a card asked or
       // was answered, or the preset or a rule changed. The network panel and
@@ -256,15 +270,21 @@ export function useServerChat({ seed = null } = {}) {
       egress_consent: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       egress_card: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       // A command of the built-in bash waits for a yes (chats_host_exec ask).
-      host_exec_consent: (e) => { if (e.ids?.[0]) setLive(l => consentAsk(l, id, e.ids[0], e.text)) },
+      host_exec_consent: (e) => { if (e.ids?.[0]) { setLive(l => consentAsk(l, id, e.ids[0], e.text)); emitSound('approval') } },
       error: (e) => {
         if (!e.text) return
         setError(e.text)
         // Only the error that ended the turn has a code.
-        if (e.code) setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+        if (e.code) {
+          setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+          turnFailed = true
+          emitSound('error')
+        }
       },
       turn_end: async () => {
         notifyTurnEnd()
+        if (!turnFailed) emitSound('replyDone')
+        turnFailed = false
         // The server publishes the end of a turn just before it records it, so
         // a read at once can still say running. Read again, a few times, until
         // the record agrees, unless a new turn started meanwhile.
@@ -317,6 +337,9 @@ export function useServerChat({ seed = null } = {}) {
     setReconnecting(false)
     activeRef.current = id
     setActiveId(id)
+    // The message of a new chat belongs to the chat that is created for it;
+    // any other chat that opens leaves it behind.
+    setSending(o => (o && o.chatId === null && id ? { ...o, chatId: id } : (o && o.chatId !== id ? null : o)))
     epochRef.current++
     setLive(emptyLive())
     setNotes([])
@@ -365,20 +388,62 @@ export function useServerChat({ seed = null } = {}) {
   // Sends go out one after another, so two messages typed quickly reach the
   // server in the order they were typed and cannot swap on the wire.
   const sendChain = useRef(Promise.resolve())
+  // The entry takes the row of the server's copy once the transcript has it:
+  // remember which line that is, so the row stays this element for good.
+  useEffect(() => {
+    if (!sending || sending.seq) return
+    const seq = adoptedSeq(sending, messages)
+    if (seq) setSending(o => (o && o === sending ? { ...o, seq, status: o.status === 'failed' ? o.status : 'sent' } : o))
+  }, [sending, messages])
+
+  // Draws the message of the person now. The first message of a new chat calls
+  // it before the chat exists; send() then finds the entry.
+  const showSending = useCallback((id, text, attached = []) => {
+    const base = messagesRef.current.filter(m => m.role === 'user').length
+    const entry = newOptimistic({ chatId: id, text, files: attached, base: id ? base : 0 })
+    sendingRef.current = entry
+    setSending(entry)
+  }, [])
+
+  // The send did not happen: the message leaves the way it came, a short fade,
+  // and the caller gives the text back to the box.
+  const dropSending = useCallback(() => {
+    const entry = sendingRef.current
+    if (!entry) return
+    sendingRef.current = null
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    if (still) { setSending(o => (o && o.key === entry.key ? null : o)); return }
+    setSending(o => (o && o.key === entry.key ? { ...o, status: 'failed' } : o))
+    setTimeout(() => setSending(o => (o && o.key === entry.key ? null : o)), RETRACT_MS)
+  }, [])
+
   // command: { skill } or { agent } of a message typed as a slash command.
   const send = useCallback((id, text, attached = [], command) => {
     setError('')
+    // Shown before anything goes out, unless the page showed it already (the
+    // first message of a new chat).
+    if (!sendingRef.current || sendingRef.current.text !== text) showSending(id, text, attached)
+    const entry = sendingRef.current
+    setSending(o => (o && o.key === entry.key && !o.chatId ? { ...o, chatId: id } : o))
     const run = async () => {
-      const res = await chatsApi.send(id, text, attached, command)
-      // Another chat may be open by now: its state is not this chat's.
-      if (res.started && activeRef.current === id) setDetail(d => (d ? { ...d, running: true } : d))
-      await refreshChat(id)
-      return res
+      try {
+        const res = await chatsApi.send(id, text, attached, command)
+        // Another chat may be open by now: its state is not this chat's.
+        if (res.started && activeRef.current === id) setDetail(d => (d ? { ...d, running: true } : d))
+        await refreshChat(id)
+        // A message that waits for a running turn shows in the waiting list.
+        if (sendingRef.current?.key === entry.key) sendingRef.current = null
+        setSending(o => (o && o.key === entry.key ? { ...o, status: 'sent' } : o))
+        return res
+      } catch (e) {
+        if (sendingRef.current?.key === entry.key) dropSending()
+        throw e
+      }
     }
     const result = sendChain.current.then(run, run)
     sendChain.current = result.catch(() => {})
     return result
-  }, [refreshChat, setError])
+  }, [refreshChat, setError, showSending, dropSending])
 
   const act = useCallback(async (id, call) => {
     setError('')
@@ -522,6 +587,7 @@ export function useServerChat({ seed = null } = {}) {
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
     hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '', job: !!detail.host_consent.job } : null,
+    sending, showSending, dropSending,
     select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, stopJob, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),

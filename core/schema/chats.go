@@ -337,9 +337,37 @@ type ChatsConversation struct {
 	Settings *ChatsSettings `json:"settings,omitempty"`
 	// Goal is the chat's goal, when it has one.
 	Goal *ChatsGoal `json:"goal,omitempty"`
+	// Dock is the panel of pages the interface shows beside the chat, when
+	// something opened one.
+	Dock *ChatsDock `json:"dock,omitempty"`
 	// Place is set on a chat that a messaging connection started, when the
 	// connection kept where it lives.
 	Place *ChatsPlace `json:"place,omitempty"`
+	// Harness says whether the chat has the context window the chat agent
+	// needs. It is set when a single chat is opened, created or changed.
+	Harness *ChatsHarness `json:"harness,omitempty"`
+}
+
+// ChatsHarness is the window check of a chat for the user who asks. The
+// chat agent sends a fixed block of tokens with every request, so a model
+// with a smaller window fails every turn.
+type ChatsHarness struct {
+	// OK is false when the window of the chat is below Minimum.
+	OK bool `json:"ok"`
+	// Window is the window the chat runs with, in tokens (0 when unknown).
+	Window int `json:"window"`
+	// Minimum is the smallest window that works for this user's role, and
+	// Recommended is the window to aim at.
+	Minimum     int `json:"minimum"`
+	Recommended int `json:"recommended"`
+	// CanFix is true when this user may change what limits the window: an
+	// administrator for the model's window, the chat's owner for the chat's
+	// own context size.
+	CanFix bool `json:"can_fix"`
+	// Admin is true when Minimum is the administrator's.
+	Admin bool `json:"admin"`
+	// Source is what limits the window when OK is false: "model" or "chat".
+	Source string `json:"source,omitempty"`
 }
 
 // ChatsGoal is the persistent objective of a chat. While State is active the
@@ -378,6 +406,30 @@ type ChatsGoalRequest struct {
 type ChatsGoalResponse struct {
 	Goal     *ChatsGoal `json:"goal"`
 	Replaced *ChatsGoal `json:"replaced,omitempty"`
+}
+
+// ChatsDockTab is one page of a dock: a page of your home (folder 0 or
+// absent) or of a shared folder (its folder_id).
+type ChatsDockTab struct {
+	// Page is the folder name of the page (^[a-z0-9][a-z0-9-]{0,63}$).
+	Page   string `json:"page"`
+	Folder int64  `json:"folder,omitempty"`
+}
+
+// ChatsDock is the panel of pages beside a chat: its tabs (at most 6, each
+// page once), the index of the tab in front, whether the panel shows and its
+// width in CSS pixels (0 for the default, else 320 to 4096; the interface
+// keeps it under 60% of its window).
+type ChatsDock struct {
+	Open   bool           `json:"open"`
+	Tabs   []ChatsDockTab `json:"tabs"`
+	Active int            `json:"active"`
+	Width  int            `json:"width,omitempty"`
+}
+
+// ChatsDockResponse is the dock of a chat; null when it has none.
+type ChatsDockResponse struct {
+	Dock *ChatsDock `json:"dock"`
 }
 
 // ChatsConversationList is the response of the list endpoint.
@@ -2955,7 +3007,7 @@ type ChatsAdminConnectorList struct {
 }
 
 // ChatsWellKnownFile is a well-known file of the home (persona.json,
-// user.json, shortcuts.json, setups.json, home.json, ui.json, or the data file of a Home
+// user.json, shortcuts.json, setups.json, defaults.json, home.json, ui.json, or the data file of a Home
 // widget), validated against its JSON Schema.
 type ChatsWellKnownFile struct {
 	Name   string `json:"name"`
@@ -2976,6 +3028,10 @@ type ChatsWellKnownFile struct {
 	// Prefilled names the keys of data that do not come from the file, and
 	// where they come from ("account").
 	Prefilled map[string]string `json:"prefilled,omitempty"`
+	// Withheld names the keys of the file that the server leaves out of data
+	// because an administrator turned their feature off (pageArea of home
+	// while the page area of Home is off). The file keeps them.
+	Withheld []string `json:"withheld,omitempty"`
 }
 
 // ChatsWellKnownWrite changes a well-known file. The keys of values replace

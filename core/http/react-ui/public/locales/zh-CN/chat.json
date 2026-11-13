@@ -93,7 +93,8 @@
     "selectModel": "请选择一个模型",
     "copied": "已复制到剪贴板",
     "copyFailed": "无法复制到剪贴板",
-    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。"
+    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。",
+    "windowSet": "{{model}} 的上下文窗口现在是 {{window}} 个 token。"
   },
   "menu": {
     "trigger": "聊天",
@@ -245,7 +246,8 @@
     "group": {
       "context": "上下文",
       "skills": "技能和智能体",
-      "help": "帮助"
+      "help": "帮助",
+      "yours": "你的"
     },
     "models": {
       "label": "模型",
@@ -298,7 +300,9 @@
       "builtin": "内置",
       "addon": "附加组件",
       "shared": "共享",
-      "yours": "你的"
+      "yours": "你的",
+      "prompt": "提示词",
+      "tool": "工具"
     },
     "collides": "仅通过 /skill",
     "errors": {
@@ -324,7 +328,9 @@
     "effort": {
       "label": "推理强度",
       "desc": "选择模型思考的深度"
-    }
+    },
+    "userTool": "使用 {{tool}} 工具。",
+    "unavailable": "工具不可用"
   },
   "shortcuts": {
     "onMessage": "在消息上：复制、编辑、重新生成",
@@ -332,8 +338,8 @@
   },
   "files": {
     "title": "此对话中的文件",
-    "chip": "文件",
-    "chipTitle": "此对话中的文件：你附加的文件，以及助手创建或修改的文件",
+    "button": "文件",
+    "buttonTitle": "此对话中的文件：你附加的文件，以及助手创建或修改的文件",
     "close": "关闭文件",
     "emptyTitle": "此对话中还没有文件",
     "emptyBody": "将文件拖到这里，即可附加到下一条消息。助手创建或修改的文件也会显示在这里。",
@@ -894,6 +900,18 @@
       "start": "启动 Live",
       "close": "关闭",
       "notShown": "已安装，但未找到该模型。请重试或刷新页面。"
+    }
+  },
+  "readAloud": {
+    "read": "朗读",
+    "stop": "停止朗读",
+    "ask": "你的默认语音合成模型设为“每次询问”。请在默认值中选择一个模型以便朗读。",
+    "none": "没有安装语音合成模型。",
+    "missing": "你的默认语音合成模型没有安装。请在默认值中选择另一个。",
+    "failed": "无法朗读这条内容。",
+    "omitted": {
+      "code": "代码块已省略。",
+      "table": "表格已省略。"
     }
   }
 }

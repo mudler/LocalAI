@@ -2,11 +2,14 @@ package worker
 
 import (
 	"context"
+	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
@@ -54,11 +57,66 @@ var _ = Describe("model.unload and the backend process", func() {
 		Expect(pidAlive(s.processes["model#0"].proc.CurrentPID())).To(BeTrue())
 	})
 
-	It("keeps a backend whose Free fails for another reason", func() {
+	It("stops a backend whose Free fails, because it may still hold its model", func() {
 		backend := &modelStopBackend{freeErr: status.Error(codes.Internal, "boom")}
-		s, addr, _ := unloadSupervisor(backend)
+		s, _, _ := unloadSupervisor(backend)
+		old := s.processes["model#0"].proc
 
 		Expect(s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model"}).Success).To(BeTrue())
-		Expect(s.getAddr("model#0")).To(Equal(addr))
+		Expect(old.Done()).To(BeClosed())
+		Expect(s.getAddr("model#0")).To(BeEmpty(), "installBackend must not take its already-running path")
+	})
+
+	Context("logging", func() {
+		var logs *lockedBuffer
+
+		BeforeEach(func() {
+			logs = &lockedBuffer{}
+			handler := slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelInfo})
+			xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelInfo))
+		})
+
+		AfterEach(func() {
+			xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
+		})
+
+		It("says when the address has no process", func() {
+			s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{}}
+
+			reply := s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model", Address: "127.0.0.1:1"})
+
+			Expect(reply.Success).To(BeTrue())
+			Expect(logs.String()).To(ContainSubstring("has no process in this worker"))
+		})
+
+		It("says when the request names an older instance and keeps the live process", func() {
+			backend := &modelStopBackend{}
+			s, addr, _ := unloadSupervisor(backend)
+
+			reply := s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model", ProcessInstance: "older"})
+
+			Expect(reply.Success).To(BeTrue())
+			Expect(backend.freeCalls.Load()).To(BeZero())
+			Expect(s.getAddr("model#0")).To(Equal(addr))
+			Expect(logs.String()).To(And(ContainSubstring("older process instance"), ContainSubstring("requestedInstance=older")))
+		})
+
+		It("says when Free succeeds and the process is kept", func() {
+			s, _, _ := unloadSupervisor(&modelStopBackend{})
+
+			Expect(s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model"}).Success).To(BeTrue())
+			Expect(logs.String()).To(ContainSubstring("Free() succeeded"))
+		})
+
+		It("says when Free fails and the process is stopped", func() {
+			s, _, _ := unloadSupervisor(&modelStopBackend{freeErr: status.Error(codes.Internal, "boom")})
+
+			Expect(s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model"}).Success).To(BeTrue())
+			Expect(logs.String()).To(And(
+				ContainSubstring("Free() failed"),
+				ContainSubstring("Stopping backend process after Free() did not succeed"),
+				ContainSubstring("Stopped backend process after model.unload"),
+			))
+		})
 	})
 })

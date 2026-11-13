@@ -9,7 +9,34 @@ type RouteFeature struct {
 
 // RouteFeatureRegistry is the single source of truth for endpoint -> feature mappings.
 // To gate a new endpoint, add an entry here -- no other file changes needed.
+//
+// A route may appear in more than one row: one row with a user feature, and one
+// row with a client feature. A user passes the row of its feature, and a client
+// key passes the row of a feature in its allow-list. A route with no client row
+// is refused to every client key.
 var RouteFeatureRegistry = []RouteFeature{
+	// Client routes: the only routes a client key can reach, each under one
+	// client feature of the key's allow-list. A route missing here is refused
+	// to every client key (see the spec "has every client route classified and every client key
+	// route registered" in core/http/routes).
+	{"GET", "/api/client/self", FeatureClientSelf},
+	{"GET", "/api/client/addons/:addon/*", FeatureClientAddons},
+	{"POST", "/api/client/addons/:addon/*", FeatureClientAddons},
+	{"PUT", "/api/client/addons/:addon/*", FeatureClientAddons},
+	{"PATCH", "/api/client/addons/:addon/*", FeatureClientAddons},
+	{"DELETE", "/api/client/addons/:addon/*", FeatureClientAddons},
+	// The inference routes of a paired client (client_inference). This list is
+	// frozen by the spec "freezes the routes of client_inference" in
+	// features_client_test.go: add a route here only on purpose, since every key
+	// that holds the feature gets it. These rows do not gate users: each route
+	// keeps its user row above or below (GET /v1/models has none).
+	{"POST", "/v1/chat/completions", FeatureClientInference},
+	{"POST", "/v1/audio/transcriptions", FeatureClientInference},
+	{"POST", "/tts", FeatureClientInference},
+	{"POST", "/v1/audio/speech", FeatureClientInference},
+	{"POST", "/v1/audio/classification", FeatureClientInference},
+	{"GET", "/v1/realtime", FeatureClientInference},
+	{"GET", "/v1/models", FeatureClientInference},
 	{"POST", "/api/chats", FeatureChats},
 	{"GET", "/api/chats", FeatureChats},
 	{"GET", "/api/chats/:id", FeatureChats},
@@ -31,6 +58,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/:id/goal", FeatureChats},
 	{"PUT", "/api/chats/:id/goal", FeatureChats},
 	{"DELETE", "/api/chats/:id/goal", FeatureChats},
+	{"GET", "/api/chats/:id/dock", FeatureChats},
+	{"PUT", "/api/chats/:id/dock", FeatureChats},
 	{"POST", "/api/chats/:id/goal/resume", FeatureChats},
 	{"PATCH", "/api/chats/:id/pending/:pid", FeatureChats},
 	{"DELETE", "/api/chats/:id/pending/:pid", FeatureChats},
@@ -81,6 +110,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"PUT", "/api/chats/:id/skills", FeatureChats},
 	{"GET", "/api/chats/draft/tools", FeatureChats},
 	{"GET", "/api/chats/draft/addons", FeatureChats},
+	{"GET", "/api/chats/draft/egress", FeatureChats},
 	{"GET", "/api/chats/:id/addons", FeatureChats},
 	{"PUT", "/api/chats/:id/addons", FeatureChats},
 	{"PUT", "/api/chats/:id/connections", FeatureChats},

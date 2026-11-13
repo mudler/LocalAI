@@ -95,7 +95,8 @@
     "copied": "Copiado para a área de transferência",
     "copyFailed": "Não foi possível copiar para a área de transferência",
     "chatCopied": "Chat copiado para a área de transferência",
-    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}."
+    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}.",
+    "windowSet": "A janela de contexto de {{model}} agora é de {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",
@@ -248,7 +249,8 @@
     "group": {
       "context": "Contexto",
       "skills": "Skills e agentes",
-      "help": "Ajuda"
+      "help": "Ajuda",
+      "yours": "Seus"
     },
     "models": {
       "label": "Modelos",
@@ -301,7 +303,9 @@
       "builtin": "embutida",
       "addon": "complemento",
       "shared": "compartilhada",
-      "yours": "sua"
+      "yours": "sua",
+      "prompt": "prompt",
+      "tool": "ferramenta"
     },
     "collides": "só com /skill",
     "errors": {
@@ -327,7 +331,9 @@
     "effort": {
       "label": "Esforço de raciocínio",
       "desc": "Escolha o quanto o modelo pensa"
-    }
+    },
+    "userTool": "Use a ferramenta {{tool}}.",
+    "unavailable": "ferramenta indisponível"
   },
   "shortcuts": {
     "onMessage": "Numa mensagem: copiar, editar, regenerar",
@@ -335,8 +341,8 @@
   },
   "files": {
     "title": "Arquivos deste chat",
-    "chip": "Arquivos",
-    "chipTitle": "Arquivos deste chat: o que você anexou e o que o assistente criou ou alterou",
+    "button": "Arquivos",
+    "buttonTitle": "Arquivos deste chat: o que você anexou e o que o assistente criou ou alterou",
     "close": "Fechar arquivos",
     "emptyTitle": "Ainda não há arquivos neste chat",
     "emptyBody": "Solte arquivos aqui para anexá-los à sua próxima mensagem. Arquivos que o assistente criar ou alterar também aparecem aqui.",
@@ -899,6 +905,18 @@
       "start": "Iniciar o Live",
       "close": "Fechar",
       "notShown": "Instalado, mas o modelo não apareceu. Tente novamente ou recarregue a página."
+    }
+  },
+  "readAloud": {
+    "read": "Ler em voz alta",
+    "stop": "Parar de ler",
+    "ask": "O seu modelo de texto para fala padrão está em \"perguntar a cada vez\". Escolha um modelo em Padrões para ler em voz alta.",
+    "none": "Nenhum modelo de texto para fala está instalado.",
+    "missing": "O seu modelo de texto para fala padrão não está instalado. Escolha outro em Padrões.",
+    "failed": "Não foi possível ler isto em voz alta.",
+    "omitted": {
+      "code": "Bloco de código omitido.",
+      "table": "Tabela omitida."
     }
   }
 }

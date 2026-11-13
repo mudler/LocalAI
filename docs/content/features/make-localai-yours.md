@@ -20,12 +20,20 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | What | Say, for example | File |
 |---|---|---|
 | The assistant's name and how it answers | "Call yourself Ada and keep answers short" | `LocalAI/persona.json` |
+| The assistant's picture, greeting and empty chat | "Use Pictures/ada.png as your picture and greet me by name" | `LocalAI/persona.json` |
+| The headline of Home | "Say 'Rise and shine' at the top of Home" | `LocalAI/home.json` |
 | Standing rules of one saved agent | "Always answer this agent's users in French" | `LocalAI/agents/<agent>/profile.md` |
 | What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `LocalAI/user.json` |
 | Shortcuts in the message box | "Make this a shortcut" | `LocalAI/shortcuts.json` |
 | Saved setups of a new chat | "Save this as a setup called Coding" | `LocalAI/setups.json` |
+| The model for pictures, speech and other work | "Use kokoro for speech from now on" | `LocalAI/defaults.json` |
 | The widgets on Home | "Show my open tasks on Home" | `LocalAI/home.json` and a data file |
-| The look | "Use the light theme and a compact layout" | `LocalAI/ui.json` |
+| The look | "Use the light theme, a serif font and round corners" | `LocalAI/ui.json` |
+| A few labels of the app | "Call the New chat button New thread" | `LocalAI/ui.json` |
+| The sidebar | "Hide Agents and rename Skills to Recipes" | `LocalAI/nav.json` |
+| Your own slash commands | "Add a /standup command that writes my standup" | `LocalAI/commands.json` |
+| Sounds and reading replies aloud | "Play a chime when a reply is ready, but not at night" | `LocalAI/ui.json` |
+| Small tiles and buttons in the chat header, the sidebar or the message box | "Put the weather page in the chat header" | `LocalAI/ui.json` (`slots`) |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
 | Updates on a schedule | "Every morning, update this widget" | a trigger you confirm |
 
@@ -92,6 +100,35 @@ The persona is added to the prompt of every chat at the start of each turn,
 after the chat's own system prompt and the instructions of its agent, which
 take precedence, and before the server's default prompt text. A change applies
 from the next message.
+
+#### Picture, greeting and empty chat
+
+The same file sets how the assistant shows itself. None of these keys reaches
+the model; they change only what you see.
+
+```json
+{
+  "name": "Juniper",
+  "avatar": "Pictures/avatars/juniper.png",
+  "greeting": "Hi {user.name}, what are we working on?",
+  "emptyChat": { "title": "Ask Juniper anything", "subtitle": "I remember your projects.", "showShortcuts": true }
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `avatar` | A picture in your files, such as `Pictures/avatars/juniper.png`, written without a leading slash. Allowed types: png, jpg, jpeg, webp, gif, avif (no SVG). It shows on Home, above each reply and in an empty chat. Without it, the first letter of the name shows. |
+| `greeting` | The first line of the assistant in an empty chat. At most 200 characters. |
+| `emptyChat.title` | The headline of an empty chat. At most 80 characters. |
+| `emptyChat.subtitle` | One line under the headline. At most 200 characters. |
+| `emptyChat.showShortcuts` | `false` hides your shortcuts in an empty chat. Default `true`. |
+
+The texts can use the placeholders `{user.name}` (the name in `user.json`, or
+your account name), `{time_of_day}` (the greeting of the hour, such as "Good
+morning") and `{date}` (the short date of Home). Any other `{name}`, or a brace
+without its pair, is refused when you save. The identity shows in your own
+chats; a chat with an agent and the LocalAI assistant of **Manage** keep their
+own name.
 
 ### LocalAI/agents/\<agent\>/profile.md
 
@@ -200,10 +237,79 @@ the setup is not changed. A saved agent decides the model and tools of its
 chat, so the chip is off while you have one chosen. The line under the box
 then says why and keeps "Manage setups" at hand.
 
+## Default models
+
+`LocalAI/defaults.json`, edited in **Account > Defaults**, holds one model for
+each kind of work:
+
+```json
+{
+  "chat": "qwen3-8b-instruct",
+  "image": "flux.1-schnell",
+  "tts": "kokoro-82m",
+  "stt": "whisper-large-v3-turbo",
+  "embeddings": "bge-m3",
+  "rerank": "bge-reranker-v2-m3",
+  "video": null,
+  "vision": "ask"
+}
+```
+
+The keys are `chat` (the model a new chat starts with), `image`, `tts` (text
+to speech), `stt` (speech to text), `embeddings`, `rerank`, `video` and
+`vision` (image understanding). A value is one of three things:
+
+- the name of an installed model;
+- `"ask"`: the assistant asks you which model to use, every time;
+- `null`, or no key: you made no choice, and LocalAI picks the first installed
+  model that can do the work, as it did before this file existed.
+
+The assistant reads the file before it makes a picture, reads text aloud,
+transcribes, embeds, reranks, makes a video or looks at an image. It says which
+default it used ("Made with flux.1-schnell, your default for images"). Say
+"use sd-3.5-medium this time" to use another model for one request; that
+never changes your default. To change the default itself, use the Defaults tab
+or ask ("use kokoro for speech from now on"); the assistant tells you what it
+changed and never edits the file on its own.
+
+If the model of a default is not installed any more, or is switched off, the
+assistant does not use another one. It tells you, asks which model to use for
+this request and offers to set a new default. The Defaults tab marks such a row
+"Not installed".
+
+The model picker of a new chat follows `chat` too. With `"ask"` it chooses no
+model and says **Choose a model**. With a model that is not installed it
+chooses no other model and names the missing one. With no `chat` key it starts
+with the last model you used, as before. A row with no installed model shows **Install one**, which
+opens the model gallery.
+
+Each row of the tab lists only the installed models that can do that kind of
+work. A pick is saved at once. The line under the tab names the file, as on
+the other tabs: **Source** shows it, and **Revert to previous version** writes
+the earlier version back.
+
+The `defaultModel` key of `ui.json` is the older way to set the chat model.
+It is still read, but only when `defaults.json` has no `chat`. The Defaults
+tab shows it in the Chat row and never writes it; choose a model in the row
+to keep it in `defaults.json`.
+
 ## Home
 
 `LocalAI/home.json` and the data files of its widgets. **Edit layout** on Home adds,
 removes and orders the widgets.
+
+`headline` replaces the greeting at the top of Home. It takes the placeholders
+of the greeting (`{user.name}`, `{time_of_day}`, `{date}`), and an empty value
+keeps the greeting of the time of day. Edit it in **Account > About you and the
+assistant**. A `home.json` with a headline and no widgets is valid.
+
+`pageArea` puts one of your pages in a full-width area below the composer, above
+the widgets. Pick it in **Edit layout** under **Page area**, or ask the
+assistant. See [A page in the page area of Home](/features/pages/#a-page-in-the-page-area-of-home).
+
+```json
+{ "headline": "{time_of_day}, {user.name}" }
+```
 
 
 ```json
@@ -218,6 +324,33 @@ removes and orders the widgets.
 ```
 
 Home has at most 12 widgets.
+
+Every widget, whatever its type, has a `size`: `s`, `m` or `l`. Home is a grid
+of 4 columns (2 on a medium window, 1 on a phone), and a size is the room a
+widget takes on it:
+
+| Size | Width | Height at most |
+|---|---|---|
+| `s` | 1 column | 1 row unit (about 130 px) |
+| `m` | 2 columns | 2 row units |
+| `l` | the full row | 3 row units |
+
+A width never goes past the columns the grid has, so on 2 columns `m` and `l`
+are both 2 wide, and on a phone every widget is 1 wide. A `list`, `metric` or
+`chats` widget is only as high as what it shows, in whole row units, up to the
+height of its size: an `l` list of three items is 2 units high, not 3. A list
+shows its first 8 items and the chats widget the last 5 chats; what does not
+fit in the height of the size scrolls inside the tile. A page widget always
+takes the full height of its size. A later small
+widget fills a hole that a bigger one leaves, and a short widget grows back
+into the room under it, up to the height of its size. A hole in the last row closes:
+the tiles of that row stretch over it, so Home never ends in a partial row. A
+hole higher up, which no later widget fits, stays; **Edit layout** shows it,
+and another order or size closes it.
+Without `size`, a page widget takes the size of its page's `widget` block
+(`small`, `medium`, `large`), a `list` or `chats` widget takes `m`, and a
+`metric` widget takes `s`. **Edit layout** shows the grid as Home draws it, with
+an S, M and L control on every row.
 
 A `list` or `metric` widget reads its `source`, a data file in your home:
 
@@ -258,7 +391,7 @@ Its `title` is optional: without it, the tile shows the title of the page's
 `widget` block, or the page's own title. Only a page whose `page.json` has a
 `widget` block can be a tile, and Home shows at most three page widgets; the
 server refuses a layout with more, and says so. **Customise Home** lists the
-pages that can be a tile, with their size. A tile whose page is gone, or has no
+pages that can be a tile. A tile whose page is gone, or has no
 `widget` block, says so calmly and links to **Customise Home**; a shared page
 you have not allowed shows **Allow this page**.
 
@@ -326,12 +459,69 @@ before they allow it, and a change by its author asks again. See
 `LocalAI/ui.json`, edited in **Account > Appearance**:
 
 ```json
-{ "theme": "light", "accent": "#3b82f6", "density": "compact", "defaultModel": "qwen3-8b" }
+{ "theme": "light", "accent": "#3b82f6", "density": "compact" }
 ```
 
 `theme` is `dark`, `light` or `system`. The Appearance tab applies a change at
-once and keeps it when you save. `defaultModel` is the model a new chat starts
-with. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
+once and keeps it when you save. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
+
+`accent` must keep a contrast of at least 4.5:1 against the page in the theme
+you use. The Appearance tab shows the ratio beside the colour and does not save
+a colour that fails. If the file holds an accent that fails in the current
+theme (for example a dark teal in the dark theme), LocalAI does not use it and
+shows the default accent; the Appearance tab says why. The check runs again
+when you change the theme. Text on a filled accent (a button) takes the text
+or the page colour of the theme, whichever reads better.
+
+### Fonts, corners, messages and code
+
+`look` changes the font, the corners and the look of your messages and of code.
+Each key takes one value of a fixed list; there is no CSS. Every colour comes
+from the theme, so each value works in the light and the dark theme. Leave a
+key out for the default. The Appearance tab shows a live preview.
+
+```json
+{ "look": { "font": "serif", "radius": "round", "bubble": "tinted", "messageWidth": "wide", "codeTheme": "ink" } }
+```
+
+| Key | Values (default first) |
+|---|---|
+| `font` | `default` (Geist), `system`, `serif`, `mono`. For messages and the message box; code stays monospace. |
+| `radius` | `soft`, `sharp`, `round`. The corners of cards, buttons and messages. |
+| `bubble` | `card`, `filled`, `tinted`, `outline`, `plain`. How your own messages look. |
+| `messageWidth` | `medium` (760 px), `narrow` (640 px), `wide` (920 px), `full`. |
+| `codeTheme` | `auto`, `mono` (no colours), `vivid` (more colours), `ink` (a block in the inverse colours of the theme). |
+
+A value outside its list is refused when you save. Keys you add inside `look`
+stay in the file.
+
+### Your own text for a few labels
+
+`strings` replaces a few labels of the app with your own words. Edit them in
+**Account > Text and commands**, or ask the assistant. Only these keys can change:
+
+| Key | Where | Placeholders |
+|---|---|---|
+| `home.headline` | The top of Home, when `home.json` has no `headline` | `{user.name}`, `{time_of_day}`, `{date}` |
+| `composer.placeholder` | The hint in an empty message box, when a model is chosen | `{model}` |
+| `chat.empty.title` | The headline of an empty chat, when `persona.json` has no `emptyChat.title` | none |
+| `nav.newChat` | The New chat button | none |
+| `nav.home` | Home in the sidebar | none |
+| `nav.recentChats` | The title of the recent chats in the sidebar | none |
+| `nav.allChats` | All chats in the sidebar | none |
+
+```json
+{ "strings": { "nav.newChat": "New thread", "composer.placeholder": "Ask {model}..." } }
+```
+
+The text of security, permission, consent and trust prompts cannot change: the
+server refuses any key that is not in the list. A text with a placeholder its
+key does not take, or a brace without its pair, is refused too. An empty box in
+the Text and commands tab removes the key, and the default text shows again.
+
+Home can be renamed in two places: `nav.home` here, and a `label` on the
+`home` item of `nav.json` (see "Navigation"). The more specific one wins: a
+`nav.json` label beats `nav.home`, which beats the built-in label.
 
 ### Home and chat backgrounds
 
@@ -379,9 +569,215 @@ theme, so they stay readable over any picture. Keys you add yourself stay in the
 Appearance tab. To remove a background, press **Remove the background** or
 delete its key.
 
+## Navigation
+
+`LocalAI/nav.json`, edited in **Account > Navigation**, sets the order of the
+sidebar: which built-in entries show and in what order, their names, groups with
+a title, and links of your own to one of your pages, to a chat or to a web
+address. Ask the assistant ("move Models under a group called Tools and hide
+Agents") or use the tab: drag a row or use the arrows, rename it in place, hide
+it with the eye, press **Add group** or **Add link**. A live copy of the sidebar
+on the right shows the result as you edit. **Reset to default** is always there.
+Without the file the sidebar is the default one.
+
+```json
+{
+  "items": [
+    { "id": "home" },
+    { "id": "files" },
+    { "type": "chat", "chat": "c_8f2a", "label": "Gate repair" },
+    { "group": "Create" },
+    { "id": "agents", "hidden": true },
+    { "id": "skills", "label": "Recipes" },
+    { "group": "Tools" },
+    { "id": "models" },
+    { "type": "url", "url": "https://localai.io/docs", "label": "Docs" }
+  ]
+}
+```
+
+An item is exactly one of three kinds:
+
+| Item | Meaning |
+|---|---|
+| `{ "id": "files" }` | A built-in entry. `label` renames it, `hidden: true` takes it out. The ids are `home`, `files`, `pages`, `agents`, `connections`, `memory`, `skills`, `models` and `addons`. LocalAI fixes this list: an id it does not know is ignored. |
+| `{ "group": "Create" }` | A section title. The items after it, up to the next group, are listed under it. A group with nothing to show is not drawn. |
+| `{ "type": "page", "page": "task-board" }` | A link of your own. `type` is `page` (a page in `pages/`), `chat` (the id of a chat) or `url` (an `http` or `https` address, with no user name or password). `label` and `icon` are optional. |
+
+Some things never change. New chat, Chats (the recent chats and All chats), the
+settings entries and the search are not items, so the file cannot move, rename
+or hide them. Home can be moved and renamed but not hidden (a file with
+`{"id": "home", "hidden": true}` breaks the schema); its `nav.json` label wins over
+the `nav.home` text of `ui.json`. A built-in entry
+that the list does not name is added after the last item, in the default order,
+so a short list never loses an entry. An entry that your account or this server
+does not offer (for example Models for a user who is not an administrator, or
+Pages while you have no page) stays out of the sidebar whatever the file says.
+The pinned pages stay under **Pages**, and the pinned apps under **Add-ons**; if
+you hide the entry, they go with it.
+
+A link to a page or a chat that no longer exists shows dimmed with "missing" in
+the editor and is skipped in the sidebar; it comes back if the page or chat does.
+A link to a web address asks before it leaves LocalAI, with the same question as
+the links of a page, and opens in a new tab. The list holds at most 60 items, 12
+groups and 30 links. The legacy navigation (`features.addon_navigation` off)
+ignores this file.
+
+When the file has an error, the sidebar keeps the last good version and the
+editor says what is wrong, with **Revert**. A save from the tab merges your edit
+with the file as it is then, item by item, so a change that the assistant made
+while the tab was open is not lost. Keys you add yourself stay in the file.
+
+## Commands
+
+`LocalAI/commands.json`, edited in **Account > Text and commands**, holds your own
+slash commands. They show in the slash menu of the message box, on Home and in a
+chat, under **Yours**, first in the list, with their description and a badge:
+`prompt` or `tool`. Ask the assistant ("add a /standup command that writes my
+standup from yesterday's chats") or use the tab: **New command**, a name, what
+it does, and **Save**. A live copy of the slash menu next to the form shows the
+result.
+
+```json
+{
+  "commands": [
+    {
+      "name": "standup",
+      "description": "Write my standup from yesterday's chats",
+      "type": "prompt",
+      "template": "Look at my chats from the last {{days}} day(s). Write a standup. Keep it under {{words}} words.",
+      "args": [{ "name": "days", "default": 1 }, { "name": "words", "default": 120 }]
+    },
+    { "name": "summarize", "description": "Summarize this chat", "type": "tool", "tool": "summarize_chat" }
+  ]
+}
+```
+
+A command is one of two types:
+
+| Type | What choosing it does |
+|---|---|
+| `prompt` | Puts the `template` in the message box. Write an argument as `{{name}}`; every one must be listed in `args` with a `default`. Type `/standup 2 80` to fill the arguments in order (the last one takes the rest of the text), or choose the command to use the defaults. |
+| `tool` | Puts a sentence in the message box that asks the assistant to use the named tool, such as "Use the summarize_chat tool." The tool must be one you already have. |
+
+A command never runs by itself. It fills the message box with text you can read
+and change, and you send it. A tool command only asks: the tool keeps its own
+approval step, as for any request you write by hand. A command cannot set a
+system prompt, and `commands.json` is never added to the prompt of a chat; the
+server refuses a command with a `system_prompt` key. If you type a full command
+and press Enter, the prompt goes in the box first and nothing is sent.
+
+A name has lowercase letters, digits and dashes, starts with a letter and is
+unique. It cannot be the name of a built-in command (`/model`, `/clear`,
+`/help` and the others; the schema lists them under `x-reserved-names`). A
+skill with the same name as one of your commands is then reached through
+`/skill <name>`. A tool command whose tool the chat does not have is marked
+"tool not available". The list holds at most 30 commands, and a command at
+most 8 arguments. A file with an error is ignored: the menu keeps the last good
+version, and the tab says what is wrong, with **Revert**. Keys you add yourself
+at the top of the file stay.
+
+## Sound and reading aloud
+
+`sound` and `voice` in `LocalAI/ui.json`, edited in **Account > Sound**, give you
+short sounds for events and reading replies aloud. Both are off until you turn
+them on, so without these keys nothing changes.
+
+```json
+{
+  "sound": {
+    "enabled": true,
+    "volume": 0.55,
+    "quietHours": ["22:00", "07:00"],
+    "events": { "replyDone": "soft-chime", "approval": "double-tap", "taskDone": "bell", "error": "none" }
+  },
+  "voice": { "readAloud": "button", "voice": "", "speed": 1, "skipCode": true }
+}
+```
+
+| Key | Values |
+|---|---|
+| `sound.enabled` | `true` turns the sounds on. Default `false`. |
+| `sound.volume` | 0 to 1. Default 0.5. |
+| `sound.quietHours` | `[from, to]` as 24-hour `HH:MM` in the time zone of your device. No sound from the first time until the second; the span may cross midnight. Leave it out for no quiet hours. |
+| `sound.events` | One sound for each of `replyDone` (a reply is finished), `approval` (something waits for your approval), `taskDone` (a trigger or an agent job ended) and `error`. The sounds are `none`, `soft-chime`, `double-tap`, `bell`, `pop` and `low-tone`. |
+| `voice.readAloud` | `off` (default), `button` (a speaker under each reply) or `auto` (each finished reply is read). |
+| `voice.voice` | The voice name your text-to-speech model takes. Empty uses the model's own voice. |
+| `voice.speed` | 0.5 to 2. Default 1. |
+| `voice.skipCode` | `true` (default) says "code block omitted" for code blocks and tables instead of reading them. |
+
+The sounds are made by your browser, so nothing is downloaded. A browser plays
+audio only after you have used the page, so no sound plays before your first
+click or key press. A reply, an approval and an error play only while the tab is
+in the background, because you see them where you are looking. A finished task
+plays wherever you are in the app. Nothing plays in quiet hours. The play
+buttons of the Sound tab always play, so you can try a sound.
+
+Reading aloud uses the text-to-speech default of
+[Default models](#default-models) (the `tts` key). The Sound tab names that
+model. The text of each reply you have read aloud is sent to it: with a model
+that runs on this server nothing leaves it, but a model that forwards to another
+service (a remote model) sends the text there, and the tab says so. With `tts`
+set to `ask`, or a model that is not installed, nothing is read and the tab says
+why. Without a `tts` default, LocalAI uses the first installed text-to-speech
+model.
+
+## Slots
+
+`slots` in `LocalAI/ui.json`, edited in **Account > Slots**, puts small items
+in three places of the app, left to right:
+
+| Slot | Where | Items |
+|---|---|---|
+| `chatHeader` | The bar over a chat, before find and settings | at most 4 |
+| `sidebarFooter` | The foot of the sidebar, on every screen (hidden while the sidebar is collapsed) | at most 3 |
+| `composerToolbar` | Beside the attach button of the message box of a chat | at most 6 |
+
+```json
+{
+  "slots": {
+    "chatHeader": [
+      { "type": "page", "page": "weather" },
+      { "type": "page", "page": "standup", "folder": 4 }
+    ],
+    "sidebarFooter": [{ "type": "page", "page": "focus-timer" }],
+    "composerToolbar": [
+      { "type": "tool", "tool": "summarize_chat", "label": "Summarize chat", "icon": "sparkles", "arguments": { "words": 120 } },
+      { "type": "command", "command": "translate" }
+    ]
+  }
+}
+```
+
+An item is one of three kinds. Each kind takes only its own fields; `label`
+and `icon` are optional on all of them except that a tool button needs a
+`label`.
+
+| Item | What it does |
+|---|---|
+| `{ "type": "page", "page": "weather" }` | A page tile. A page whose `page.json` widget block has `compact` runs in the slot, in a strip about 40 px high, and a click opens it as a card under the tile, at its widget size. The card is the same frame: the page is told its new size and is not reloaded. A page without `compact` is a button that opens the page. `folder` names the shared folder of a shared page. |
+| `{ "type": "tool", "tool": "summarize_chat", "label": "Summarize chat" }` | A tool button with fixed `arguments` (at most 16 plain values, 2 KiB). A click first asks you, and shows the tool and its arguments. In a chat it then sends a visible message that asks the assistant to run that tool; in the sidebar it opens a new chat with that message as a draft for you to send. The tool's own approval in the chat still applies. |
+| `{ "type": "command", "command": "translate" }` | One of your [commands](#commands), by its name without the slash. A click puts the text of the command in the message box, with the defaults of its arguments, as choosing it in the slash menu does; you read it and send it. In the sidebar it opens a new chat with that text as a draft. An item whose command is not in `commands.json` shows nothing. |
+
+A slot never hides the shell: the chat's title, the model, find and settings
+stay. The same item can be in two slots, but only once in one slot. The server
+refuses a file with an unknown slot, a slot over its cap, an item without the
+field of its kind or with the field of another kind, or an item listed twice.
+A save from the tab sends only `slots`, merged item by item with the file as it
+is then, so a change that the assistant made while the tab was open is not lost.
+Without `slots` the app looks as before.
+
+Pages in slots and on Home run in the same sandbox as everywhere, and the app
+keeps at most eight page frames running at once (the Home tiles and the slots
+together); the others show as a card that runs on a click, which stops the
+frame that started first. A page frame that keeps the computer busy or stops
+answering is stopped with **Reload**; see
+[Pages](/features/pages/#a-page-in-a-slot). A page of a shared folder runs in a
+slot only after you allow it there, apart from opening it.
+
 ## The LocalAI folder
 
-The five settings files live in one visible folder, `LocalAI/`, at the top of
+The settings files live in one visible folder, `LocalAI/`, at the top of
 your home. Your own files stay at the top; **Files** lists them first and puts
 `LocalAI/` and `Chats/` last, under **Managed by LocalAI**, with a short line
 on what each holds. Moving a managed folder or a settings file to the Trash,
@@ -500,8 +896,8 @@ text.
 The built-in skill `localai-workspace` tells the assistant what each file does,
 where the schemas are (`/workspace/shared-builtin-skills/localai-workspace/schemas/`
 in the chat's files) and how to change a file without losing other keys. It has
-recipes for "add a shortcut", "show my open tasks on Home", "call me X and
-keep answers short" and "every morning update this". Its line in the index of
+recipes for "add a shortcut", "show my open tasks on Home" and "every morning
+update this". Its line in the index of
 skills costs about 44 tokens a turn; like any skill, you can switch it off for
 a chat in the **Skills** menu.
 
@@ -509,7 +905,7 @@ a chat in the **Skills** menu.
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `home`, `ui`, or `widget-data` with `?path=` |
+| GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `setups`, `defaults`, `home`, `ui`, `nav`, `commands`, or `widget-data` with `?path=` |
 | PUT | `/api/chats/wellknown/{name}` | Changes a file: `{"values": {...}, "replace": false}` |
 | POST | `/api/chats/wellknown/{name}/revert` | Writes the previous valid version back, or the version `{"rev": N}` |
 | GET | `/api/chats/wellknown/{name}/versions` | The versions of the file, newest first: `rev`, `at`, `kind` (`user` or `agent`), `chat` and `chat_title`, and `data` when valid |

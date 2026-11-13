@@ -1098,6 +1098,7 @@
     "allowedHostsOff": "They apply when the network is on.",
     "allowedHostsNote": "{{count}} hosts are always allowed by your administrator.",
     "limitNote": "This chat’s network. The administrator sets the most a chat can reach.",
+    "draftNote": "The chat starts with this setting. The administrator sets the most a chat can reach, and that limit applies.",
     "asksAbove": "This chat asks for {{choice}}; the administrator limit is {{limit}}.",
     "unverified": "Network-policy enforcement is not verified for the actual provider. These settings do not currently apply to its commands.",
     "configuredPolicy": "Configured network policy: {{preset}} (not enforced)."
@@ -1750,7 +1751,7 @@
     "notAllowed": "Your administrator has not given you this profile",
     "absent": "This release has no image for it",
     "unavailable": "{{title}} is not available: {{reason}}.",
-    "draft": "A new chat starts in {{title}}. You can change the profile in the chat.",
+    "draft": "The new chat starts in {{title}}. Pick a profile here, or change it later in the chat.",
     "source": {
       "chat": "This chat runs in {{title}}, your choice.",
       "agent": "This chat runs in {{title}}, set by its agent.",
@@ -1794,6 +1795,29 @@
       "ownerError": "Owner settings are unavailable or changed: {{message}}",
       "save": "Save",
       "loadError": "The sandbox profiles could not be read."
+    }
+  },
+  "harness": {
+    "title": "The context window of this model is too small for the chat",
+    "admin": {
+      "reason": "It is {{window}} tokens and the chat needs at least {{minimum}}; {{recommended}} is better.",
+      "checking": "Checking whether {{target}} tokens fit in this machine's memory…",
+      "fits": "{{target}} tokens fit in this machine's memory (about {{need}}).",
+      "fitsLess": "{{recommended}} tokens do not fit in this machine's memory. {{target}} do (about {{need}}).",
+      "unknown": "The memory this needs could not be estimated.",
+      "none": "Not even {{minimum}} tokens fit in this machine's memory. Pick a smaller model.",
+      "fix": "Set the window to {{target}}"
+    },
+    "user": {
+      "reason": "It is {{window}} tokens and the chat needs at least {{minimum}}.",
+      "switch": "Switch this chat to an installed model with a larger window.",
+      "askAdmin": "No installed model you can use has a large enough window. Ask an administrator to raise it or to install another model.",
+      "use": "Use {{model}} ({{window}} tokens)"
+    },
+    "chat": {
+      "title": "The context size of this chat is too small",
+      "reason": "The setting of this chat is {{window}} tokens and the chat needs at least {{minimum}}.",
+      "fix": "Use the window of the model"
     }
   }
 }

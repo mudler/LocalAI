@@ -307,7 +307,30 @@ var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"\
 // withoutHostNotes removes the sentences of the note that the host adds on
 // its own (withoutDeniedNote, withoutWorkFolderNote).
 func withoutHostNotes(text string) string {
-	return withoutWorkFolderNote(withoutDeniedNote(text))
+	return withoutWorkFolderNote(withoutDeniedNote(withoutAbsentNote(text)))
+}
+
+// AbsentNoteStart and AbsentNoteEnd bound the sentence that tells the model a
+// turn has no reminder tool. Sent leaves it out, as it does the denied note.
+const (
+	AbsentNoteStart = "No reminder or schedule tool this turn: "
+	AbsentNoteEnd   = "cannot be done here."
+)
+
+// withoutAbsentNote removes that sentence, and the empty note around it.
+func withoutAbsentNote(text string) string {
+	a := strings.Index(text, AbsentNoteStart)
+	if a < 0 {
+		return text
+	}
+	b := strings.Index(text[a:], AbsentNoteEnd)
+	if b < 0 {
+		return text
+	}
+	text = text[:a] + text[a+b+len(AbsentNoteEnd):]
+	text = strings.Replace(text, "(System note: )\n\n", "", 1)
+	text = strings.Replace(text, "(System note:  )\n\n", "", 1)
+	return strings.Replace(text, " )\n\n", ")\n\n", 1)
 }
 
 // withoutWorkFolderNote removes the sentence that names the work folder, and

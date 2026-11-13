@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useUiString } from './wellknown/Identity'
 import { groupConversations } from '../utils/homeConversations'
 import Icon from './Icon'
 import { knownKind, resolveOrigin } from '../utils/originChats'
@@ -47,6 +48,7 @@ export default function ChatsList({
   idPrefix = 'chats',
 }) {
   const { t, i18n } = useTranslation('chat')
+  const uiString = useUiString()
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -310,7 +312,7 @@ export default function ChatsList({
         )}
         {onNew && (
           <button type="button" className="cx-btn" onClick={() => onNew()} data-testid="chats-new">
-            <Icon name="plus" /> {t('menu.newChat')}
+            <Icon name="plus" /> {uiString('nav.newChat', t('menu.newChat'))}
           </button>
         )}
       </div>

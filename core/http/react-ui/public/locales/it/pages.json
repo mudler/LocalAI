@@ -122,7 +122,13 @@
     "sourceTitle": "Codice di \"{{title}}\"",
     "sourceLines_one": "{{count}} riga",
     "sourceLines_other": "{{count}} righe",
-    "sourceNote": "Il codice è mostrato come testo. Qui non viene eseguito nulla."
+    "sourceNote": "Il codice è mostrato come testo. Qui non viene eseguito nulla.",
+    "embed": {
+      "desc": "Hai permesso di aprire questa pagina. Nella Home, in uno slot e nel pannello parte appena appare lo schermo, senza un clic, quindi serve un consenso a parte.",
+      "item": "Funzionare nella Home, negli slot dell'app e nel pannello",
+      "note": "Parte quando appare lo schermo, senza un clic. Una modifica del suo autore chiede di nuovo.",
+      "allow": "Consenti nella Home, negli slot e nel pannello"
+    }
   },
   "frame": {
     "filesFailed": "Alcuni file accanto a questa pagina non sono stati caricati: {{files}}. La console del browser spiega il motivo.",
@@ -134,5 +140,47 @@
     "open": "Apri {{site}}",
     "cancel": "Annulla",
     "lookalike": "Questo indirizzo usa lettere di altri alfabeti e si legge come {{display}}. Potrebbe imitare un altro sito: controllalo prima di aprirlo."
+  },
+  "view": {
+    "startPage": "Pagina iniziale",
+    "makeStart": "Rendi questa la mia prima pagina fissata",
+    "startAlone": "È la tua unica pagina fissata.",
+    "startFailed": "Non è stato possibile salvare la pagina iniziale: {{message}}"
+  },
+  "dock": {
+    "button": "Pannello",
+    "buttonTitle": "Mostra o nascondi il pannello (Ctrl+\\)",
+    "region": "Pagine accanto alla chat",
+    "tabs": "Pagine nel pannello",
+    "closeTab": "Chiudi {{title}}",
+    "add": "Apri un'altra pagina nel pannello",
+    "hide": "Nascondi il pannello",
+    "hideKeys": "Nascondi il pannello (Ctrl+\\)",
+    "openFull": "Apri {{title}} a pagina intera",
+    "by": {
+      "assistant": "Pagina creata dall'assistente",
+      "you": "Pagina creata da te"
+    },
+    "shared": "Condivisa: {{folder}}",
+    "askPrompt": "Cambia la pagina {{title}} in pages/{{name}}/ in modo che ",
+    "live": "In diretta: si aggiorna quando i file cambiano",
+    "liveShort": "In diretta",
+    "sandboxed": "Isolata, senza rete",
+    "resize": "Larghezza del pannello",
+    "resizeHint": "Trascina il bordo o usa le frecce. Doppio clic o Invio ripristina la larghezza.",
+    "fullScreen": "Pannello a schermo intero",
+    "halfScreen": "Pannello a metà schermo",
+    "sheetHint": "Trascina la maniglia in alto per lo schermo intero, in basso per chiudere",
+    "pickTitle": "Apri una pagina nel pannello",
+    "pickEmpty": "Non hai ancora pagine. Chiedi all'assistente di crearne una.",
+    "missing": "La pagina {{name}} non esiste più, o al momento non puoi leggerla.",
+    "off": "Un amministratore ha disattivato le pagine condivise.",
+    "error": "Non è stato possibile caricare la pagina.",
+    "allowText": "Questa pagina viene da una cartella condivisa. Qui viene eseguita solo dopo che l'hai consentita.",
+    "allow": "Controlla e consenti",
+    "run": "Eseguila qui",
+    "sendLabel": "La pagina chiede di inviare questo messaggio a questa chat:",
+    "saveFailed": "Il pannello non è stato salvato: {{message}}",
+    "openInDock": "Apri nel pannello"
   }
 }

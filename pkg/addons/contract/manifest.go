@@ -81,7 +81,8 @@ func (r VersionRange) isHostAPI() bool {
 // Level 4: the setup text (the top-level setup and connector kind setup).
 // Level 5: capabilities.connector.kinds[].toolOnly.
 // Level 6: capabilities.executionProvider.jobs.
-const HostFeatureLevel uint64 = 6
+// Level 7: capabilities.client (routes that a paired client may call).
+const HostFeatureLevel uint64 = 7
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -115,6 +116,9 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if m.Capabilities.Client != nil {
+		return 7
+	}
 	if p := m.Capabilities.ExecutionProvider; p != nil && p.Jobs != nil {
 		return 6
 	}
@@ -252,6 +256,10 @@ type Capabilities struct {
 	// hands to each call (see credentials.go). It needs a connector
 	// kind that holds the binding.
 	Credentials []CredentialSlot `json:"credentials,omitempty"`
+
+	// Client declares the routes that a paired client may call (see
+	// client.go). It needs the service capability and feature level 7.
+	Client *ClientCapability `json:"client,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -562,6 +570,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateConnector(c.Connector, c.UI); e != nil {
+		return e
+	}
+	if e := validateClient(c.Client, c.Service); e != nil {
 		return e
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {

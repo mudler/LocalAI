@@ -89,11 +89,17 @@ type localAIStandIn struct {
 	// listed is what GET /v1/models/capabilities answers: the models the
 	// caller may use.
 	listed []map[string]any
+	// wellknown is the data of the well-known files, by name, that
+	// GET /api/chats/wellknown/{name} answers.
+	wellknown map[string]map[string]any
+	// disabled lists installed models that the capability list marks disabled.
+	disabled map[string]bool
 }
 
 func newStandIn() *localAIStandIn {
 	s := &localAIStandIn{
 		installed: map[string][]string{},
+		wellknown: map[string]map[string]any{},
 		forbid:    map[string]bool{},
 		seen:      map[string][]byte{},
 		headers:   map[string]http.Header{},
@@ -106,7 +112,16 @@ func newStandIn() *localAIStandIn {
 		defer s.mu.Unlock()
 		var data []map[string]any
 		for name, caps := range s.installed {
-			data = append(data, map[string]any{"id": name, "capabilities": caps})
+			data = append(data, map[string]any{"id": name, "capabilities": caps, "disabled": s.disabled[name]})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+	})
+	mux.HandleFunc("/api/chats/wellknown/", func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		data := s.wellknown[strings.TrimPrefix(r.URL.Path, "/api/chats/wellknown/")]
+		if data == nil {
+			data = map[string]any{}
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 	})

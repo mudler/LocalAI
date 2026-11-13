@@ -21,7 +21,7 @@ function kindOf(v) {
 
 // ImagePicker walks the folders of the user's files and offers the pictures in
 // the open one. Its choice is a path without a leading slash, as the file stores it.
-function ImagePicker({ onPick, onClose, pre }) {
+export function ImagePicker({ onPick, onClose, pre }) {
   const { t } = useTranslation('workspace')
   const [at, setAt] = useState('/')
   const [state, setState] = useState({ status: 'loading', entries: [] })

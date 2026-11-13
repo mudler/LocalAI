@@ -92,14 +92,15 @@ endif
 ## ./addons/... holds the Go tests of every add-on (sandbox, office, tables,
 ## fine-tuning, quantization and the shared packages). The Sandbox add-on is
 ## Linux only and does not compile elsewhere, so the add-on tests run on Linux
-## only. tests/addons/actione2e is the one
-## tests/addons suite that builds everything it needs itself; the other
+## only. tests/addons/actione2e and tests/addons/clientflow are the
+## tests/addons suites that build everything they need themselves (clientflow
+## needs the auth build tag, which the coverage run sets); the other
 ## tests/addons suites need the fixtures and executables that
 ## scripts/addons/verify.sh prepares, so the addons-tests workflow runs them
 ## through verify.sh.
 ifeq ($(OS),Linux)
-ADDON_TEST_PATHS:=./addons/... ./tests/addons/actione2e/...
-ADDON_COVERAGE_ROOTS:=./addons ./tests/addons/actione2e
+ADDON_TEST_PATHS:=./addons/... ./tests/addons/actione2e/... ./tests/addons/clientflow/...
+ADDON_COVERAGE_ROOTS:=./addons ./tests/addons/actione2e ./tests/addons/clientflow
 else
 ADDON_TEST_PATHS:=
 ADDON_COVERAGE_ROOTS:=
@@ -1766,13 +1767,13 @@ test-i18n:
 ## because -ginkgo.focus is an error for a test binary that has no Ginkgo.
 POSTGRES_STORE_PKGS = ./core/services/studio/agents ./core/services/studio/connectors \
 	./core/services/studio/notify ./core/services/studio/store ./core/services/studio/triggers \
-	./core/services/studio/workspace/gormstore
+	./core/services/studio/workspace/gormstore ./core/services/studio/jobs ./core/http/auth
 test-postgres:
 	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }
 	@out=$$($(GOCMD) test -count=1 -v -tags "$(COVERAGE_TAGS)" $(POSTGRES_STORE_PKGS) -ginkgo.focus 'PostgreSQL' -ginkgo.v -ginkgo.no-color 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
 	printf '%s\n' "$$out" | grep -E '^(Ran [0-9]+ of|ok |FAIL|\s*\[SKIPPED\])' ; \
 	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'a PostgreSQL test skipped' >&2; exit 1; fi; \
-	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 6 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
+	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 8 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
 
 ## The multi-frontend paths run against the in-process bus (testutil.FakeBus)
 ## under the race detector: two frontends, a worker and the cluster state, with

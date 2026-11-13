@@ -26,7 +26,8 @@
     "check": {
       "required": "Obbligatorio.",
       "tooLong": "Massimo {{max}} caratteri.",
-      "format": "Questo valore ha un formato errato."
+      "format": "Questo valore ha un formato errato.",
+      "placeholder": "Un segnaposto di questo testo non è corretto."
     },
     "source": {
       "label": "Sorgente",
@@ -36,7 +37,7 @@
     },
     "persona": {
       "title": "Assistente",
-      "lede": "Nome e istruzioni che l'assistente usa in ogni chat."
+      "lede": "Nome, immagine, saluto e istruzioni dell'assistente in ogni chat."
     },
     "user": {
       "title": "Tu",
@@ -152,12 +153,50 @@
         "noneEligible": "Nessuna pagina ha ancora una vista compatta per la Home. Chiedi all’assistente di aggiungerne una a una pagina.",
         "pick": "Pagina",
         "unavailable": "{{name}} (non disponibile)",
-        "sharedLabel": "condivisa",
-        "sizes": {
-          "small": "Piccolo",
-          "medium": "Medio",
-          "large": "Grande"
-        }
+        "sharedLabel": "condivisa"
+      },
+      "size": "Dimensione",
+      "preview": "Così la Home disegna i tuoi widget. S è una colonna, M due, L l'intera riga. Un vuoto si chiude da solo.",
+      "area": {
+        "label": "Area pagina",
+        "none": "Nessuna",
+        "pickHint": "Una pagina che riempie l'area sotto il campo di scrittura nella Home. Non può raggiungere la rete né i tuoi altri file.",
+        "pickOff": "Un amministratore ha disattivato l'area pagina, quindi la Home non mostra nessuna pagina lì. La tua scelta resta salvata.",
+        "off": "L'area pagina è disattivata",
+        "offHint": "Un amministratore l'ha disattivata per tutti su questo server. La pagina scelta resta nel layout della tua Home e riappare quando l'area viene riattivata.",
+        "by": {
+          "assistant": "Pagina dell'assistente",
+          "you": "Pagina tua"
+        },
+        "byAuthor": "Pagina condivisa da {{author}}",
+        "edit": "Modifica",
+        "reload": "Ricarica",
+        "loading": "Caricamento della pagina",
+        "runsAsYou": "Gira come te",
+        "runsAsYouHint": "La pagina legge e scrive i file della sua cartella con i tuoi permessi. Non può raggiungere la rete né i tuoi altri file.",
+        "askPrompt": "Modifica la pagina in pages/{{name}}/ in modo che ",
+        "askTitle": "Chiedi all'assistente di modificare questa pagina",
+        "frameTitle": "{{title}} (area pagina della Home)",
+        "failedTitle": "Questa pagina non si è caricata.",
+        "why": {
+          "script": "Il suo script ha generato un errore e la pagina non ha disegnato nulla.",
+          "scriptLine": "Il suo script ha generato un errore alla riga {{line}} e la pagina non ha disegnato nulla.",
+          "noPaint": "Non ha mostrato nulla entro 5 secondi.",
+          "navigated": "Ha provato a uscire dal suo riquadro.",
+          "busy": "Ha tenuto il computer occupato troppo a lungo.",
+          "silent": "Ha smesso di rispondere.",
+          "noStart": "Non è partita.",
+          "missing": "La pagina «{{name}}» è stata spostata o eliminata, oppure non puoi più aprirla.",
+          "read": "Non è stato possibile leggere la pagina.",
+          "invalid": "La pagina scelta per l'area pagina non è un nome di pagina valido.",
+          "sharedOff": "Un amministratore ha disattivato le pagine condivise su questo server."
+        },
+        "revert": "Ripristina",
+        "openFile": "Apri il file",
+        "remove": "Rimuovi dalla Home",
+        "nothingToRevert": "Non c'è una versione precedente da ripristinare.",
+        "revertFailed": "Il ripristino non è riuscito.",
+        "removeFailed": "Non è stato possibile rimuovere la pagina dalla Home."
       }
     },
     "fields": {
@@ -169,6 +208,18 @@
         "system_prompt": {
           "label": "Prompt di sistema",
           "help": "Aggiunto a ogni chat, dopo il prompt della chat e le istruzioni dell'agente."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Un'immagine dei tuoi file. PNG, JPG, WebP, GIF o AVIF."
+        },
+        "greeting": {
+          "label": "Saluto",
+          "help": "La prima riga dell'assistente in una nuova chat. Viene mostrata, non inviata al modello."
+        },
+        "emptyChat": {
+          "label": "Chat vuota",
+          "help": "Cosa mostra una nuova chat sopra la casella del messaggio."
         }
       },
       "user": {
@@ -222,6 +273,20 @@
         "chatBackground": {
           "label": "Sfondo delle chat",
           "help": "Un colore, un gradiente o un'immagine dei tuoi file dietro le tue chat. Le altre pagine restano come sono."
+        },
+        "look": {
+          "label": "Aspetto",
+          "help": "Carattere, angoli, messaggi e codice, da elenchi fissi."
+        },
+        "strings": {
+          "label": "Testi",
+          "help": "Solo le chiavi elencate qui possono cambiare."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Titolo",
+          "help": "Vuoto mantiene il saluto dell'ora del giorno."
         }
       }
     },
@@ -256,6 +321,236 @@
       "pickFailed": "Non è stato possibile leggere la cartella.",
       "pickEmpty": "Qui non ci sono immagini né cartelle.",
       "pickClose": "Chiudi"
+    },
+    "nav": {
+      "title": "Navigazione",
+      "lede": "Riordina, rinomina, nascondi o raggruppa la barra laterale. Trascina una riga o usa le frecce. Le modifiche compaiono subito a destra.",
+      "preview": "Anteprima dal vivo",
+      "discard": "Annulla le modifiche",
+      "saved": "Salvato.",
+      "reset": "Ripristina predefiniti",
+      "fixed": "Nuova chat, Chat, impostazioni e la ricerca sono sempre visibili.",
+      "homeFixed": "Home resta sempre.",
+      "hide": "Nascondi {{name}}",
+      "show": "Mostra {{name}}",
+      "drag": "Sposta {{name}} (trascina o usa le frecce)",
+      "name": "Nome di {{name}}",
+      "was": "era {{name}}",
+      "moveUp": "Sposta {{name}} su",
+      "moveDown": "Sposta {{name}} giù",
+      "remove": "Rimuovi {{name}}",
+      "addLink": "Aggiungi collegamento",
+      "addGroup": "Aggiungi gruppo",
+      "newGroup": "Nuovo gruppo",
+      "missing": "mancante",
+      "missingHint": "Questo elemento ({{kind}}) non esiste più. La barra laterale lo salta.",
+      "unavailable": "non mostrato per te",
+      "unavailableHint": "Il tuo account o questo server non mostra ancora questa voce.",
+      "tag": {
+        "builtin": "integrata",
+        "group": "gruppo",
+        "page": "pagina",
+        "chat": "chat",
+        "url": "collegamento"
+      },
+      "add": {
+        "page": "Pagina",
+        "pageHint": "Una delle tue pagine",
+        "chat": "Chat",
+        "chatHint": "Fissa una conversazione",
+        "url": "URL",
+        "urlHint": "Si apre in una nuova scheda",
+        "address": "Indirizzo",
+        "name": "Nome (facoltativo)",
+        "confirm": "Aggiungi",
+        "back": "Indietro",
+        "urlInvalid": "Usa un indirizzo http o https senza nome utente.",
+        "pick": {
+          "page": "Scegli una pagina",
+          "chat": "Scegli una chat"
+        },
+        "none": {
+          "page": "Non hai pagine da aggiungere.",
+          "chat": "Non ci sono chat da aggiungere."
+        }
+      }
+    },
+    "blocked": "Correggi i valori segnati per salvare.",
+    "storedIn": "Salvato in",
+    "placeholders": {
+      "unknown_one": "{{names}} non è un segnaposto di questo testo.",
+      "unknown_other": "{{names}} non sono segnaposto di questo testo.",
+      "unknownUse_one": "{{names}} non è un segnaposto di questo testo. Usa {{use}}.",
+      "unknownUse_other": "{{names}} non sono segnaposto di questo testo. Usa {{use}}.",
+      "none_one": "{{names}} non è un segnaposto. Questo testo non ne prevede.",
+      "none_other": "{{names}} non sono segnaposto. Questo testo non ne prevede.",
+      "brace": "Una graffa non ha la sua coppia. Scrivi un segnaposto come {name}.",
+      "hint": "Segnaposto che puoi usare",
+      "insert": "Inserisci questo segnaposto"
+    },
+    "avatar": {
+      "path": "Percorso dell'immagine",
+      "remove": "Rimuovi",
+      "bad": "Usa un'immagine dei tuoi file: un percorso senza barra iniziale e senza .., che termina con .png, .jpg, .jpeg, .webp, .gif o .avif."
+    },
+    "emptyChat": {
+      "title": "Titolo",
+      "subtitle": "Riga sotto il titolo",
+      "titleSample": "Chiedimi qualsiasi cosa",
+      "subtitleSample": "Dimmi cosa ti serve.",
+      "showShortcuts": "Mostra le mie scorciatoie sopra la casella del messaggio"
+    },
+    "look": {
+      "font": {
+        "label": "Carattere",
+        "default": "Geist, predefinito",
+        "system": "Sistema",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Angoli",
+        "sharp": "Netti",
+        "soft": "Morbidi",
+        "round": "Arrotondati"
+      },
+      "bubble": {
+        "label": "Stile dei messaggi",
+        "card": "Scheda",
+        "filled": "Pieno",
+        "tinted": "Tinta",
+        "outline": "Contorno",
+        "plain": "Semplice"
+      },
+      "messageWidth": {
+        "label": "Larghezza dei messaggi",
+        "narrow": "Stretta 640",
+        "medium": "Media 760",
+        "wide": "Larga 920",
+        "full": "Piena"
+      },
+      "codeTheme": {
+        "label": "Colori del codice",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Vivaci",
+        "ink": "Inchiostro"
+      },
+      "note": "Ogni valore viene da un elenco fisso e il colore d'accento deve restare leggibile. Non c'è una casella CSS, quindi un aspetto non può nascondere o rompere una pagina."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Troppo tenue: {{ratio}}:1 sul tema {{mode}}",
+      "failLong": "Questo colore d'accento ha un contrasto di {{ratio}}:1 sulla pagina {{mode}} e serve 4,5:1. LocalAI mostra invece il colore predefinito.",
+      "mode": {
+        "light": "chiaro",
+        "dark": "scuro"
+      }
+    },
+    "headline": {
+      "title": "Titolo della Home",
+      "lede": "La riga grande in cima alla Home."
+    },
+    "strings": {
+      "title": "Testi",
+      "lede": "Parole tue per alcune etichette. I messaggi di sicurezza, permesso e consenso restano i loro.",
+      "changed_one": "{{count}} modificato",
+      "changed_other": "{{count}} modificati",
+      "find": "Cerca un testo",
+      "key": "Chiave",
+      "default": "Predefinito",
+      "yours": "Il tuo testo",
+      "yoursFor": "Il tuo testo per {{key}}",
+      "same": "Come il predefinito",
+      "hint": "Mantieni i segnaposto di un testo, come {model}. Uno sbagliato viene segnalato prima del salvataggio. Una casella vuota mantiene il predefinito."
+    },
+    "frames": {
+      "stopped": "Questa pagina è stata fermata",
+      "why": {
+        "busy": "Ha tenuto occupato il computer troppo a lungo (più di 3 secondi di lavoro in 10 secondi).",
+        "silent": "Ha smesso di rispondere per più di 5 secondi.",
+        "noStart": "Non è partita entro 10 secondi.",
+        "navigated": "Ha provato a uscire dal suo riquadro."
+      },
+      "capped": "In pausa: nell'app girano al massimo {{max}} pagine insieme.",
+      "run": "Avvia"
+    },
+    "slots": {
+      "title": "Slot",
+      "lede": "Piccoli spazi dell'app che mostrano i riquadri delle tue pagine, i pulsanti degli strumenti e i comandi, da sinistra a destra. Non nascondono mai il titolo, il modello o le impostazioni.",
+      "where": "Dove sono gli slot",
+      "map": "Mappa degli slot",
+      "editing": "In modifica",
+      "count": "{{count}} di {{max}}",
+      "names": {
+        "chatHeader": "Intestazione della chat",
+        "sidebarFooter": "Fondo della barra laterale",
+        "composerToolbar": "Barra del messaggio"
+      },
+      "badge": {
+        "chatHeader": "Nell'intestazione",
+        "sidebarFooter": "Nella barra laterale",
+        "composerToolbar": "Nel messaggio"
+      },
+      "hint": {
+        "chatHeader": "La barra sopra ogni chat. Una pagina con un layout compatto gira in una striscia alta 40 px; un clic la apre come scheda sotto il riquadro.",
+        "sidebarFooter": "Il fondo della barra laterale, in ogni schermata. Una barra chiusa lo nasconde.",
+        "composerToolbar": "Accanto al pulsante per allegare della casella del messaggio. Adatto ai pulsanti degli strumenti."
+      },
+      "empty": "Ancora niente. Aggiungi un riquadro di pagina, un pulsante di strumento o un comando.",
+      "addItem": "Aggiungi elemento",
+      "full": "Questo slot è pieno ({{max}} elementi).",
+      "incomplete": "Completa ogni nuovo elemento prima di salvare: una pagina, oppure uno strumento e il suo testo, oppure un comando.",
+      "add": {
+        "page": "Riquadro di pagina",
+        "pageHint": "Una pagina tua o condivisa con te",
+        "tool": "Pulsante di strumento",
+        "toolHint": "Esegue uno strumento, chiede prima",
+        "command": "Comando",
+        "commandHint": "Uno dei tuoi comandi"
+      },
+      "kind": {
+        "tool": "Pulsante di strumento, chiede prima",
+        "command": "Comando",
+        "pageMissing": "Pagina non trovata",
+        "pageCompact": "Riquadro di pagina, compatto",
+        "pageButton": "Pagina, si apre con un clic"
+      },
+      "form": {
+        "page": "Pagina",
+        "pickPage": "Scegli una pagina",
+        "shared": "condivisa",
+        "pageHint": "Una pagina con un layout compatto gira nello slot. Le altre pagine sono un pulsante che le apre.",
+        "tool": "Nome dello strumento",
+        "arguments": "Argomenti fissi (facoltativo)",
+        "argumentsHint": "Nomi con valori semplici, al massimo {{max}}: testo, numeri, true o false, come nell'esempio.",
+        "argumentsBad": "Non valido: scrivi nomi con valori semplici, come nell'esempio, al massimo {{max}}.",
+        "command": "Nome del comando",
+        "commandHint": "Il nome di uno dei tuoi comandi, senza la barra. Un clic mette il suo testo nella casella del messaggio.",
+        "label": "Testo (facoltativo)",
+        "labelNeeded": "Testo del pulsante",
+        "icon": "Icona (facoltativa)"
+      },
+      "tool": {
+        "title": "Esegue lo strumento {{tool}} dopo la tua approvazione",
+        "confirmTitle": "Eseguire {{label}}?",
+        "confirmChat": "Questo invia a questa chat un messaggio che chiede all'assistente di eseguire questo strumento:",
+        "confirmDraft": "Questo apre una nuova chat con un messaggio che chiede all'assistente di eseguire questo strumento. Lo invii tu.",
+        "tool": "Strumento",
+        "arguments": "Argomenti",
+        "stillAsks": "Se lo strumento richiede la tua approvazione, la chat la chiede comunque.",
+        "run": "Esegui"
+      },
+      "tile": {
+        "missing": "La pagina {{name}} non esiste più. Modifica gli slot nelle impostazioni.",
+        "off": "Le pagine condivise sono disattivate su questo server.",
+        "error": "Impossibile leggere la pagina {{name}}. Modifica gli slot nelle impostazioni.",
+        "open": "Apri {{title}}",
+        "allow": "Consenti a {{title}} di funzionare qui",
+        "expand": "Mostra {{title}}",
+        "close": "Chiudi {{title}}",
+        "sandboxed": "Isolata, senza rete"
+      }
     }
   },
   "discovery": {
@@ -315,7 +610,8 @@
       "offersOff": "I suggerimenti dell'assistente sono disattivati.",
       "undoing": "Annullamento…",
       "undone": "Annullato.",
-      "undoFailed": "Non annullato: {{message}}"
+      "undoFailed": "Non annullato: {{message}}",
+      "defaults": "Ho salvato i tuoi modelli predefiniti. L’assistente li usa dal tuo prossimo messaggio."
     },
     "toast": {
       "shortcutAdded": "Aggiunto alla tua casella di scrittura: {{label}}",
@@ -522,7 +818,8 @@
       "user": "L'assistente dimentica quello che gli hai detto di te e le tue risposte alle sue proposte.",
       "shortcuts": "Il campo di scrittura mostra di nuovo le scorciatoie predefinite.",
       "home": "La Home perde i suoi widget.",
-      "ui": "Tema, colore, densità, modello predefinito e pagine fissate tornano ai valori predefiniti."
+      "ui": "Tema, colore, densità, modello predefinito e pagine fissate tornano ai valori predefiniti.",
+      "defaults": "I tuoi modelli predefiniti vengono dimenticati. Gli strumenti tornano a scegliere da soli un modello installato."
     }
   },
   "newFile": "Nuovo file",
@@ -738,5 +1035,232 @@
     "writeHelp": "Possono anche aggiungere, modificare ed eliminare file qui.",
     "failed": "Impossibile aprire la condivisione: {{message}}",
     "lost": "Non puoi più condividere questa cartella da qui."
+  },
+  "defaults": {
+    "lede": "Un modello per ogni tipo di lavoro. Per una singola richiesta puoi sceglierne un altro.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Usato per: nuove chat, titoli delle chat, riassunti"
+      },
+      "image": {
+        "label": "Generazione di immagini",
+        "use": "Usato per: «disegna», «crea un’immagine», la pagina Immagini"
+      },
+      "tts": {
+        "label": "Sintesi vocale",
+        "use": "Usato per: lettura ad alta voce, «dillo», risposte vocali"
+      },
+      "stt": {
+        "label": "Riconoscimento vocale",
+        "use": "Usato per: dettatura, il microfono, file audio"
+      },
+      "embeddings": {
+        "label": "Embedding",
+        "use": "Usato per: ricerca nella Conoscenza, ricerca di file"
+      },
+      "video": {
+        "label": "Generazione di video",
+        "use": "Usato per: «fai una breve clip», la pagina Video"
+      },
+      "rerank": {
+        "label": "Riordinamento",
+        "use": "Usato per: ordinare i risultati della Conoscenza"
+      },
+      "vision": {
+        "label": "Comprensione delle immagini",
+        "use": "Usato per: le immagini che alleghi a una chat"
+      }
+    },
+    "automatic": "Automatico (il primo installato)",
+    "asking": "Chiede ogni volta",
+    "modeLabel": "Scelta per {{kind}}",
+    "mode": {
+      "default": "Predefinito",
+      "ask": "Chiedi ogni volta"
+    },
+    "noModel": "Nessun modello impostato",
+    "notInstalled": "Non installato",
+    "installOne": "Installane uno",
+    "missing": "Questo modello non è più installato. L’assistente chiede quale modello usare finché non ne scegli un altro.",
+    "fromOld": "Impostato prima che esistesse questa pagina. Scegli qui un modello per salvarlo come predefinito.",
+    "modelsFailed": "L’elenco dei modelli installati non si è caricato. Ricarica la pagina per riprovare.",
+    "help": {
+      "title": "L’assistente legge i tuoi predefiniti",
+      "body": "Quando dici «disegna una volpe» o «leggi questo ad alta voce», l’assistente controlla prima i tuoi predefiniti e usa il modello indicato per quel tipo di lavoro.",
+      "example": "Disegna una volpe nella neve",
+      "tool": "predefiniti controllati › image",
+      "used": "Uso <code>{{model}}</code>, il tuo predefinito per le immagini.",
+      "exampleModel": "il tuo modello per le immagini"
+    },
+    "preview": "Ciò che è salvato"
+  },
+  "identity": {
+    "messageName": "Scrivi a {{name}}...",
+    "preview": {
+      "title": "Anteprima",
+      "home": "Home",
+      "newChat": "Nuova chat",
+      "firstMessage": "Primo messaggio",
+      "assistant": "Assistente",
+      "noGreeting": "Nessun saluto impostato. Una nuova chat parte vuota."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Anteprima dal vivo",
+      "question": "Mostrami come leggere un file in Python.",
+      "answer": "Aprilo con un context manager, così si chiude da solo:",
+      "comment": "tutto il file",
+      "after": "Per file grandi, scorri f riga per riga.",
+      "button": "Eseguilo",
+      "box": "Scrivi all'assistente..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Anteprima",
+      "sidebar": "Barra laterale"
+    }
+  },
+  "commands": {
+    "title": "Comandi",
+    "lede": "I tuoi comandi con la barra. Un comando inserisce un prompt nella casella del messaggio. Lo leggi e lo invii tu.",
+    "form": "Comando",
+    "new": "Nuovo comando",
+    "empty": "Ancora nessun comando. Aggiungine uno e comparirà nel menu con la barra.",
+    "type": {
+      "prompt": "Si espande in un prompt",
+      "tool": "Chiama uno strumento"
+    },
+    "field": {
+      "name": "Nome",
+      "description": "Descrizione",
+      "what": "Cosa fa",
+      "template": "Modello del prompt",
+      "tool": "Strumento",
+      "args": "Argomenti"
+    },
+    "nameHint": "Lettere minuscole, cifre e trattini.",
+    "templateHint": "Scrivi {{example}} dove va un argomento.",
+    "noArgs": "Questo modello non ha argomenti.",
+    "argKind": {
+      "number": "numero",
+      "text": "testo"
+    },
+    "argDefault": "predefinito",
+    "argsHint": "Scrivi {{example}} per riempire gli argomenti in ordine. Quelli mancanti usano il valore predefinito.",
+    "toolHint": "Uno strumento che hai già. Il comando chiede all'assistente di usarlo e lo strumento mantiene il proprio passaggio di approvazione.",
+    "toolUnknown": "Questo strumento non è tra gli strumenti di una chat in questo momento.",
+    "expands": "Inserisce questo nella casella del messaggio",
+    "valid": "Valido",
+    "invalid": "Da correggere",
+    "save": "Salva",
+    "delete": "Elimina",
+    "preview": {
+      "title": "Anteprima del menu con la barra",
+      "builtin": "Integrati",
+      "none": "Ancora nessun comando.",
+      "keys": "Invio riempie la casella"
+    },
+    "problem": {
+      "nameEmpty": "Dai un nome al comando.",
+      "nameFormat": "Un nome inizia con una lettera e ha solo lettere minuscole, cifre e trattini, al massimo 32.",
+      "nameBuiltin": "Questo nome appartiene a un comando integrato. Scegline un altro.",
+      "nameTaken": "Un altro comando ha già questo nome.",
+      "descriptionEmpty": "Scrivi una breve descrizione per il menu.",
+      "descriptionLong": "La descrizione ha al massimo {{max}} caratteri.",
+      "toolEmpty": "Indica lo strumento.",
+      "toolFormat": "Il nome di uno strumento ha solo lettere, cifre, punti, due punti, trattini e trattini bassi, al massimo 128.",
+      "templateEmpty": "Scrivi il prompt.",
+      "templateLong": "Il prompt ha al massimo {{template}} caratteri.",
+      "argFormat": "Il nome di un argomento inizia con una lettera e ha solo lettere minuscole, cifre e trattini bassi.",
+      "argTwice": "Un argomento è elencato due volte.",
+      "argDefault": "Ogni argomento ha bisogno di un valore predefinito.",
+      "argDefaultLong": "Un valore predefinito ha al massimo 200 caratteri.",
+      "argMissing": "Un argomento del modello non ha un nome valido.",
+      "argUnused": "Un argomento non è usato nel modello.",
+      "braces": "Una doppia graffa non è chiusa.",
+      "argCount": "Un comando ha al massimo {{args}} argomenti."
+    }
+  },
+  "sound": {
+    "title": "Suoni",
+    "play": "Riproduci il suono per {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Usa il volume predefinito",
+    "names": {
+      "none": "Nessuno",
+      "soft-chime": "Campanella dolce",
+      "double-tap": "Doppio tocco",
+      "bell": "Campana",
+      "pop": "Pop",
+      "low-tone": "Tono basso"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Risposta finita",
+        "hint": "Una risposta lunga è pronta"
+      },
+      "approval": {
+        "label": "Serve la tua approvazione",
+        "hint": "Uno strumento o una modifica chiede prima di partire"
+      },
+      "taskDone": {
+        "label": "Attività o pianificazione completata",
+        "hint": "Un trigger o un lavoro di un agente è terminato"
+      },
+      "error": {
+        "label": "Errore",
+        "hint": "Una richiesta o un lavoro non è riuscito"
+      }
+    },
+    "notify": {
+      "title": "Suoni di notifica",
+      "lede": "Brevi suoni quando qualcosa ha bisogno di te. Restano spenti finché non li attivi.",
+      "rule": "Il suono parte solo dopo che hai usato la pagina. Una risposta, un'approvazione o un errore suonano solo mentre questa scheda è in secondo piano. Durante le ore di silenzio non suona nulla."
+    },
+    "quiet": {
+      "title": "Ore di silenzio",
+      "between": "Nessun suono tra le {{from}} e le {{to}}",
+      "none": "Nessuna ora di silenzio. Attiva per scegliere un intervallo.",
+      "from": "Dalle",
+      "to": "Alle"
+    },
+    "voice": {
+      "title": "Voce per le risposte",
+      "lede": "Fai leggere le risposte ad alta voce.",
+      "readAloud": "Leggi le risposte ad alta voce",
+      "mode": {
+        "off": "Mai",
+        "button": "Quando premo l'altoparlante",
+        "auto": "Ogni risposta"
+      },
+      "modeHint": {
+        "off": "Le risposte non vengono lette ad alta voce.",
+        "button": "Sotto ogni risposta compare un pulsante con l'altoparlante.",
+        "auto": "Ogni risposta finita viene letta subito. Il browser può chiederti prima di fare clic sulla pagina."
+      },
+      "voice": "Voce",
+      "voicePlaceholder": "Predefinita del modello",
+      "voiceHint": "Il nome della voce che accetta il tuo modello di sintesi vocale. Lascia vuoto per la voce con cui parte il modello.",
+      "speed": "Velocità",
+      "speedReset": "Usa la velocità normale",
+      "skipCode": "Salta codice e tabelle",
+      "skipCodeHint": "Dice \"blocco di codice omesso\" al suo posto.",
+      "sample": "Riproduci un esempio",
+      "stop": "Ferma",
+      "sampleText": "Ciao, ecco come suoneranno le tue risposte.",
+      "sampleFailed": "Non è stato possibile riprodurre l'esempio.",
+      "madeBy": "La voce è generata da {{model}}, il tuo modello di sintesi vocale predefinito.",
+      "madeByAuto": "La voce è generata da {{model}}, il primo modello di sintesi vocale installato. Non hai scelto un modello predefinito.",
+      "change": "Cambia in Predefiniti",
+      "model": {
+        "ask": "I tuoi predefiniti dicono di chiedere ogni volta, quindi non c'è un modello con cui leggere. Scegli un modello di sintesi vocale.",
+        "missing": "{{model}} è il tuo modello di sintesi vocale predefinito, ma non è installato.",
+        "none": "Nessun modello di sintesi vocale è installato."
+      },
+      "remote": "{{model}} non è un modello locale. Il testo di ogni risposta che fai leggere ad alta voce viene inviato a un altro server."
+    }
   }
 }

@@ -101,6 +101,7 @@ func agentGrantSwitch(s *Service) CapabilitySwitch {
 // group is off, so the capability is not usable either.
 var toolGroupOf = map[string]string{
 	contract.CapTriggersPropose: builtins.GroupTriggers,
+	contract.CapTriggersChange:  builtins.GroupTriggers,
 	contract.CapMemoryWrite:     builtins.GroupChanges,
 	contract.CapProfileWrite:    builtins.GroupChanges,
 	contract.CapSkillsWrite:     builtins.GroupChanges,

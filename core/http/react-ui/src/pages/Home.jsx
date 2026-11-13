@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
+import { useChatEgress } from '../hooks/useChatEgress'
 import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 // eslint-disable-next-line no-unused-vars
 import { SlashHelpCard } from '../components/chat/CommandCards'
@@ -42,11 +43,17 @@ import HomeResume from '../components/home/HomeResume'
 // eslint-disable-next-line no-unused-vars
 import HomeFirstRun from '../components/home/HomeFirstRun'
 // eslint-disable-next-line no-unused-vars
+import StarterModels from '../components/StarterModels'
+// eslint-disable-next-line no-unused-vars
 import HomeWidgets from '../components/wellknown/HomeWidgets'
+// eslint-disable-next-line no-unused-vars
+import PageAreaHost from '../components/wellknown/PageAreaHost'
 // eslint-disable-next-line no-unused-vars
 import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
 // eslint-disable-next-line no-unused-vars
 import BackgroundLayer from '../components/wellknown/BackgroundLayer'
+// eslint-disable-next-line no-unused-vars
+import { AssistantAvatar, useIdentity, useUiString } from '../components/wellknown/Identity'
 import { useWellKnown } from '../hooks/useWellKnown'
 import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
@@ -90,6 +97,10 @@ export default function Home() {
   const { t: tw } = useTranslation('workspace')
   const { t: tc } = useTranslation('chats')
   const { t: tch } = useTranslation('chat')
+  // How the assistant shows itself (persona.json, the headline of home.json)
+  // and the text overrides of ui.json.
+  const identity = useIdentity()
+  const uiString = useUiString()
   // The command list that /help drew under the composer, or null.
   const [help, setHelp] = useState(null)
   const { isAdmin, hasFeature, user } = useAuth()
@@ -112,12 +123,16 @@ export default function Home() {
   const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '' })
   // The composer is the chat page's (useChatComposer): the draft is Home's,
   // the switches are a draft that goes with the new chat.
-  // A new chat shows the default sandbox profile; the choice is made in the chat.
-  const sandboxProfile = useChatSandboxProfile(null, 0)
   const composer = useChatComposer({
     draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
   })
+  // The sandbox profile and the network of the new chat: picked here, saved
+  // with the chat when it is created (createChat).
+  const sandboxProfile = useChatSandboxProfile(null, 0)
+  const egress = useChatEgress(null, 0, { model: composer.draftModel, agentId: composer.agentId, profilesApply: Boolean(sandboxProfile.applies) })
+  const { saveDraft: saveProfileDraft } = sandboxProfile
+  const { saveDraft: saveNetworkDraft } = egress
   const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
   const { text: message, setText: setMessage, files } = drafts
   // The reasoning effort picked before the chat exists; the new chat gets it
@@ -415,6 +430,10 @@ export default function Home() {
   // switches, then the reasoning effort in its settings.
   const createChat = useCallback(async () => {
     const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+    const profileError = await saveProfileDraft(chat.id)
+    if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
+    const networkError = await saveNetworkDraft(chat.id)
+    if (networkError) addToast(networkError, 'error')
     if (draftEffort) {
       const settings = settingsWithEffort(null, draftEffort)
       try {
@@ -425,7 +444,7 @@ export default function Home() {
       }
     }
     return chat
-  }, [draftModel, agentId, draftEffort, switches, addToast, tch])
+  }, [draftModel, agentId, draftEffort, switches, addToast, tch, tc, saveProfileDraft, saveNetworkDraft])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -707,6 +726,15 @@ export default function Home() {
 
   // ----- Non-admin, nothing installed -------------------------------------
 
+  // The hint of the empty box: the override of ui.json strings, else the
+  // assistant's name when there is one, else the composer's own.
+  const ownName = !agentPicked && identity.name
+  const homePlaceholder = firstRun
+    ? t('input.placeholderFirstRun')
+    : selectedModel
+      ? uiString('composer.placeholder', ownName ? tw('identity.messageName', { name: identity.name }) : undefined, { model: selectedModel })
+      : undefined
+
   if (firstRun && !isAdmin) {
     return (
       <div className="home-page">
@@ -716,6 +744,7 @@ export default function Home() {
             <h1>{t('wizard.noModelsTitle')}</h1>
             <p>{t('wizard.noModelsBody')}</p>
           </div>
+          <StarterModels />
           <div className="home-wizard-actions">
             <a className="home-secondary" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
               <Icon name="book" /> {t('quickLinks.documentation')}
@@ -732,7 +761,10 @@ export default function Home() {
       {chatsOn && <BackgroundLayer bgKey="homeBackground" testId="home-bg" />}
       <div className="home-col">
         <header className="home-header">
-          <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
+          {!agentPicked && (identity.avatar || identity.name) && (
+            <AssistantAvatar avatar={identity.avatar} name={identity.name} size="md" testId="home-assistant-avatar" />
+          )}
+          <h1 className="home-greeting" data-testid="home-headline">{identity.headline || t(`greeting.${greetingKey()}`)}</h1>
           <span className="home-date">{dateLabel}</span>
         </header>
 
@@ -749,6 +781,7 @@ export default function Home() {
           <ChatComposer
             composer={composer}
             sandboxProfile={sandboxProfile}
+            egress={egress}
             filesOn={chatServer.files}
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
@@ -775,7 +808,7 @@ export default function Home() {
             sending={sending}
             sendTitle={sendTitle}
             textareaRef={textareaRef}
-            placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
+            placeholder={homePlaceholder}
             slashSurface="home"
             slashContext={slashContext}
             onRunAction={runAction}
@@ -837,6 +870,14 @@ export default function Home() {
           )}
           <span className="sr-only" aria-live="polite">{liveNote}</span>
         </div>
+
+        {/* The page area of home.json: a page below the composer, under a strip
+            the shell draws. A failure of the page replaces only this area. */}
+        {chatsOn && !firstRun && (
+          <Suspense fallback={null}>
+            <PageAreaHost wk={homeFile} />
+          </Suspense>
+        )}
 
         {/* The examples and the widgets read the pages strings, which load
             when they first show. Their own boundary keeps that wait to them:

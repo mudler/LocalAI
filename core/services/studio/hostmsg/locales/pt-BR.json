@@ -166,5 +166,15 @@
   "hold.undoable": "O proprietário pode desfazer na interface web.",
   "hold.not_undoable": "Não dá para desfazer daqui.",
   "hold.note_waiting": "Aguardando uma pessoa verificada confirmar neste chat: {title} (código {code}).",
-  "hold.note_expired": "Ninguém confirmou a tempo, então foi descartado: {title}."
+  "hold.note_expired": "Ninguém confirmou a tempo, então foi descartado: {title}.",
+  "trigchange.ask.update": "Mudança proposta para {name}: {fields}. Depois: {when}. Nada muda até você aprovar. Responda \"confirmar {code}\" para aplicar ou \"cancelar {code}\" para deixar como está, aqui, em 24 horas, ou abra o Studio.",
+  "trigchange.ask.delete": "Excluir {name} ({when})? Ele continua rodando até você aprovar. Responda \"confirmar {code}\" para excluir ou \"cancelar {code}\" para manter, aqui, em 24 horas, ou abra o Studio.",
+  "trigchange.ask.pause": "Pausar {name} ({when})? Ele continua rodando até você aprovar. Responda \"confirmar {code}\" para pausar ou \"cancelar {code}\" para deixar ativo, aqui, em 24 horas, ou abra o Studio.",
+  "trigchange.ask.resume": "Retomar {name} ({when})? Ele continua pausado até você aprovar. Responda \"confirmar {code}\" para retomar ou \"cancelar {code}\" para deixar pausado, aqui, em 24 horas, ou abra o Studio.",
+  "trigchange.ask.withdraw": "Retirar a proposta {name}? Ela continua esperando até você aprovar. Responda \"confirmar {code}\" para retirar ou \"cancelar {code}\" para deixar esperando, aqui, em 24 horas, ou abra o Studio.",
+  "trigchange.done.update": "{name} alterado: {fields}. Agora: {when}.",
+  "trigchange.done.delete": "{name} excluído.",
+  "trigchange.done.pause": "{name} pausado. Não roda até ser retomado.",
+  "trigchange.done.resume": "{name} retomado: {when}.",
+  "trigchange.done.withdraw": "Proposta {name} retirada. Nunca rodou."
 }

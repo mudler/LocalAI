@@ -49,6 +49,7 @@
   "approval.default": "Padrão: {{value}}.",
   "approval.summary": "Gatilhos: {{mode}}",
   "approval.effect": "Propostas: {{mode}}",
+  "approval.effectChange": "Alterações e exclusões: {{mode}}",
   "approval.limits": "Limites",
   "approval.acts.title": "Execuções podem agir",
   "approval.acts.help": "Desligado: as execuções de um gatilho criado neste chat só leem e relatam. Ligado: elas também podem fazer o que você marcar abaixo, e só o que o agente tem.",

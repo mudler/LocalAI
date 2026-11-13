@@ -211,6 +211,7 @@ var capabilityWords = map[string]capabilityPhrase{
 	contract.CapFilesUpload:      {"receive files", "receiving files"},
 	contract.CapTriggersPropose:  {"set reminders and scheduled tasks", "reminders and scheduled tasks"},
 	contract.CapTriggersRun:      {"run scheduled tasks", "running scheduled tasks"},
+	contract.CapTriggersChange:   {"change or delete reminders and scheduled tasks", "changing or deleting reminders and scheduled tasks"},
 	contract.CapTalkbackChannels: {"write to other channels", "writing to other channels"},
 	contract.CapTalkbackNewChan:  {"start conversations in new channels", "starting conversations in new channels"},
 	contract.CapProfileWrite:     {"change the agent's rules", "changing the agent's rules"},
@@ -273,7 +274,7 @@ func thenCheck(by, capability string) []string {
 		return nil
 	}
 	out := slices.Clone(chain[i+1:])
-	if capability == contract.CapTriggersPropose {
+	if capability == contract.CapTriggersPropose || capability == contract.CapTriggersChange {
 		out = append(out, ByApproval)
 	}
 	return out

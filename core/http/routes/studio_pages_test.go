@@ -6,6 +6,9 @@ package routes_test
 import (
 	"net/http"
 	"strings"
+	"sync/atomic"
+
+	"github.com/mudler/LocalAI/core/services/studio"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -232,5 +235,62 @@ var _ = Describe("Chats pages endpoints", func() {
 		Expect(decodeJSON(rec)["name"]).To(Equal("task-board"))
 		Expect(s.do("bob", http.MethodGet, "/api/chats/pages/task-board", nil).Code).To(Equal(http.StatusOK))
 		Expect(s.do("bob", http.MethodPost, "/api/chats/page-starters/nope/copy", nil).Code).To(Equal(http.StatusNotFound))
+	})
+})
+
+var _ = Describe("The page area switch in the list of pages", func() {
+	It("says whether an administrator turned the page area of Home off", func() {
+		var on atomic.Bool
+		on.Store(true)
+		s := newStudioServerWith(newTestFiles(), func(d *studio.Deps) { d.PageAreaOn = on.Load })
+		list := func() map[string]any {
+			rec := s.do("alice", http.MethodGet, "/api/chats/pages", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			return decodeJSON(rec)
+		}
+		Expect(list()).To(HaveKeyWithValue("page_area_enabled", true))
+		on.Store(false)
+		Expect(list()).To(HaveKeyWithValue("page_area_enabled", false))
+	})
+
+	It("keeps pageArea out of the home.json it serves while the page area is off, and keeps the file's value", func() {
+		var on atomic.Bool
+		on.Store(true)
+		s := newStudioServerWith(newTestFiles(), func(d *studio.Deps) { d.PageAreaOn = on.Load })
+		Expect(s.putFile("alice", "/LocalAI/home.json", `{"pageArea":"today","widgets":[]}`).Code).To(Equal(http.StatusOK))
+		home := func() map[string]any {
+			rec := s.do("alice", http.MethodGet, "/api/chats/wellknown/home", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			return decodeJSON(rec)
+		}
+		Expect(home()["data"]).To(HaveKeyWithValue("pageArea", "today"))
+		Expect(home()).NotTo(HaveKey("withheld"))
+
+		on.Store(false)
+		d := home()
+		Expect(d["data"]).NotTo(HaveKey("pageArea"), "the area is off: home.json has no page area in effect")
+		Expect(d["data"]).To(HaveKey("widgets"))
+		Expect(d["withheld"]).To(ConsistOf("pageArea"), "the UI says why")
+
+		// A whole-file write from an editor that never saw the key keeps it.
+		rec := s.do("alice", http.MethodPut, "/api/chats/wellknown/home", map[string]any{"replace": true, "values": map[string]any{"widgets": []any{}}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["data"]).NotTo(HaveKey("pageArea"), "nor does the answer to a write")
+		// A write that sets it is answered without it too.
+		rec = s.do("alice", http.MethodPut, "/api/chats/wellknown/home", map[string]any{"values": map[string]any{"pageArea": "board"}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["data"]).NotTo(HaveKey("pageArea"))
+
+		on.Store(true)
+		Expect(home()["data"]).To(HaveKeyWithValue("pageArea", "board"), "the choice is kept for when the area is on again")
+		rec = s.do("alice", http.MethodPut, "/api/chats/wellknown/home", map[string]any{"replace": true, "values": map[string]any{"widgets": []any{}}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(home()["data"]).NotTo(HaveKey("pageArea"), "with the area on, a whole-file write without the key removes it")
+	})
+
+	It("is on when the server does not say", func() {
+		s := newStudioServer()
+		rec := s.do("alice", http.MethodGet, "/api/chats/pages", nil)
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("page_area_enabled", true))
 	})
 })

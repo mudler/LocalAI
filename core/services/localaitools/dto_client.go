@@ -34,8 +34,9 @@ type GenerateImageRequest struct {
 
 // ImageResult is the result of generate_image.
 type ImageResult struct {
-	Model  string       `json:"model"`
-	Images []OutputFile `json:"images"`
+	Model     string       `json:"model"`
+	ModelNote string       `json:"model_note,omitempty" jsonschema:"Say it to the user: the default that was used."`
+	Images    []OutputFile `json:"images"`
 }
 
 // EditImageRequest is the input for generate_image when it gets an image.
@@ -61,8 +62,9 @@ type SpeakRequest struct {
 
 // AudioResult is the result of speak and generate_sound.
 type AudioResult struct {
-	Model string     `json:"model"`
-	Audio OutputFile `json:"audio"`
+	Model     string     `json:"model"`
+	ModelNote string     `json:"model_note,omitempty" jsonschema:"Say it to the user: the default that was used."`
+	Audio     OutputFile `json:"audio"`
 }
 
 // TranscribeAudioRequest is the input for transcribe_audio.
@@ -75,10 +77,11 @@ type TranscribeAudioRequest struct {
 
 // TranscriptResult is the result of transcribe_audio.
 type TranscriptResult struct {
-	Model    string  `json:"model"`
-	Text     string  `json:"text"`
-	Language string  `json:"language,omitempty"`
-	Duration float64 `json:"duration_seconds,omitempty"`
+	Model     string  `json:"model"`
+	ModelNote string  `json:"model_note,omitempty" jsonschema:"Say it to the user: the default that was used."`
+	Text      string  `json:"text"`
+	Language  string  `json:"language,omitempty"`
+	Duration  float64 `json:"duration_seconds,omitempty"`
 }
 
 // DescribeImageRequest is the input for describe_image.
@@ -91,6 +94,7 @@ type DescribeImageRequest struct {
 // DescribeImageResult is the result of describe_image.
 type DescribeImageResult struct {
 	Model       string `json:"model"`
+	ModelNote   string `json:"model_note,omitempty" jsonschema:"Say it to the user: the default that was used."`
 	Description string `json:"description"`
 }
 
@@ -104,6 +108,7 @@ type EmbedRequest struct {
 // they are too long for a tool result.
 type EmbedResult struct {
 	Model      string      `json:"model"`
+	ModelNote  string      `json:"model_note,omitempty" jsonschema:"Say it to the user: the default that was used."`
 	Count      int         `json:"count"`
 	Dimensions int         `json:"dimensions"`
 	Vectors    OutputFile  `json:"vectors"           jsonschema:"JSON file, one vector per text."`
@@ -156,8 +161,9 @@ type RerankItem struct {
 
 // RerankResult is the result of rerank, best first.
 type RerankResult struct {
-	Model   string       `json:"model"`
-	Results []RerankItem `json:"results"`
+	Model     string       `json:"model"`
+	ModelNote string       `json:"model_note,omitempty" jsonschema:"Say it to the user: the default that was used."`
+	Results   []RerankItem `json:"results"`
 }
 
 // VideoRefInput is one reference video: ordered frame images, because the
@@ -191,8 +197,9 @@ type GenerateVideoRequest struct {
 
 // VideoResult is the result of generate_video.
 type VideoResult struct {
-	Model string     `json:"model"`
-	Video OutputFile `json:"video"`
+	Model     string     `json:"model"`
+	ModelNote string     `json:"model_note,omitempty" jsonschema:"Say it to the user: the default that was used."`
+	Video     OutputFile `json:"video"`
 }
 
 // UpscaleImageRequest is the input for upscale_image.

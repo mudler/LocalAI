@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import { useActivitySummary } from '../hooks/useActivityFeed'
 import { useOperations } from '../hooks/useOperations'
 import { useInbox } from '../hooks/useInbox'
-import { badgeText, entryVisible, hasUnreadFailure } from '../utils/inbox'
+import { badgeText, entryVisible, failed as inboxFailed, hasUnreadFailure } from '../utils/inbox'
+import { emitSound } from '../utils/soundBus'
 import { recentRecords } from '../utils/opsActivity'
 import '../components/inbox/inbox-entry.css'
 
@@ -104,6 +105,8 @@ export function InboxProvider({ features, children }) {
   useEffect(() => {
     const list = inbox.arrived || []
     if (list.length === 0) return
+    // A finished trigger or job has its own sound; a failure the error sound.
+    emitSound(list.some(n => inboxFailed(n)) ? 'error' : 'taskDone')
     // An item with a code is worded by the panel, in a language file that is
     // not loaded yet; its stored title is English, so it is announced by count.
     setAnnounce(list.length === 1 && !list[0].code

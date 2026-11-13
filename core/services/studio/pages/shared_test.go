@@ -267,6 +267,58 @@ var _ = Describe("shared pages", func() {
 		Expect(evs[0].Action).To(Equal("allow_once"))
 	})
 
+	It("the consent for Home and the slots is its own, kept against the hash", func() {
+		r := newSharedRig()
+		p, _ := r.svc.GetShared(ctx, "marta", r.team, "standup")
+		_, err := r.trust.Allow(ctx, "marta", r.team, "standup", p.Hash, false)
+		Expect(err).NotTo(HaveOccurred())
+		rev, _ := r.trust.State(ctx, "marta", p)
+		Expect(rev.State).To(Equal(pages.StateAllowed))
+		Expect(rev.Embed).To(BeFalse(), "opening a page is not running it on Home or in a slot")
+
+		_, err = r.trust.AllowEmbed(ctx, "marta", r.team, "standup", "0000")
+		Expect(err).To(MatchError(pages.ErrChanged))
+		c, err := r.trust.AllowEmbed(ctx, "marta", r.team, "standup", p.Hash)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.Embed).To(BeTrue())
+		Expect(c.Kind).To(Equal(pages.ConsentAlways))
+		Expect(r.trust.Check(ctx, "marta", r.team, "standup", p.Hash, "")).To(Succeed(), "embed is also a lasting consent")
+		rev, _ = r.trust.State(ctx, "marta", p)
+		Expect(rev.Embed).To(BeTrue())
+
+		// Allowing the same version again keeps it; a visit does not touch it.
+		_, err = r.trust.Allow(ctx, "marta", r.team, "standup", p.Hash, false)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = r.trust.Allow(ctx, "marta", r.team, "standup", p.Hash, true)
+		Expect(err).NotTo(HaveOccurred())
+		rev, _ = r.trust.State(ctx, "marta", p)
+		Expect(rev.Embed).To(BeTrue())
+		// Another viewer has none.
+		rev, _ = r.trust.State(ctx, "sara", p)
+		Expect(rev.Embed).To(BeFalse())
+
+		// A change of the code asks again, for the page and for Home.
+		adminPut(r.f, team+"/pages/standup/index.html", "<p>standup v3</p>\n")
+		p2, _ := r.svc.GetShared(ctx, "marta", r.team, "standup")
+		rev, _ = r.trust.State(ctx, "marta", p2)
+		Expect(rev.State).To(Equal(pages.StateChanged))
+		Expect(rev.Embed).To(BeFalse())
+		_, err = r.trust.Allow(ctx, "marta", r.team, "standup", p2.Hash, false)
+		Expect(err).NotTo(HaveOccurred())
+		rev, _ = r.trust.State(ctx, "marta", p2)
+		Expect(rev.Embed).To(BeFalse(), "a consent to a new version does not carry the old embed")
+
+		// A revoke removes both.
+		_, err = r.trust.AllowEmbed(ctx, "marta", r.team, "standup", p2.Hash)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(r.trust.Revoke(ctx, "marta", r.team, "standup")).To(Succeed())
+		rev, _ = r.trust.State(ctx, "marta", p2)
+		Expect(rev.State).To(Equal(pages.StateNone))
+		Expect(rev.Embed).To(BeFalse())
+		evs, _ := r.trust.Events(ctx, "marta", 10)
+		Expect(evs[1].Action).To(Equal("allow_embed"))
+	})
+
 	It("a revoked grant closes the page even with a consent", func() {
 		r := newSharedRig()
 		p, _ := r.svc.GetShared(ctx, "marta", r.team, "standup")

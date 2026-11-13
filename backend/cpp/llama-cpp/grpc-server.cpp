@@ -199,7 +199,10 @@ static std::string base64_encode_bytes(const unsigned char* data, size_t len) {
 /////////////////////////////////
 ////////////////////////////////
 
-bool loaded_model; // TODO: add a mutex for this, but happens only once loading the model
+// Set once, after the model is loaded. Atomic because the main thread polls it
+// while LoadModel runs on a gRPC thread; LoadModel itself is serialized by
+// load_model_mutex in BackendServiceImpl.
+std::atomic<bool> loaded_model{false};
 
 static std::function<void(int)> shutdown_handler;
 static std::atomic_flag is_terminating = ATOMIC_FLAG_INIT;
@@ -2488,7 +2491,7 @@ private:
             if (!translator) {
                 return;
             }
-            events = translator->on_result(res.text, res.audio, res.response_done, res.cancelled, res.n_decoded);
+            events = translator->on_result(res.content.text, res.audio, res.response_done, res.cancelled, res.n_decoded);
             if (translator->done()) {
                 translator.reset();
                 response_active = false;
@@ -2511,6 +2514,11 @@ private:
     // distributed route is rejected instead of answered from the wrong model
     // (#10952). Written under LoadModel, read by the inference RPCs.
     std::string loaded_model_identity;
+    // Serializes LoadModel. ctx_server.load_model() ends with init(), which
+    // must run once per server_context: a second call rebuilds the slots and
+    // the queue callbacks while the main loop uses them, and replaces the
+    // model under it. So one process loads one model, once.
+    std::mutex load_model_mutex;
 
 public:
     BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
@@ -2551,6 +2559,34 @@ public:
     grpc::Status LoadModel(ServerContext* context, const backend::ModelOptions* request, backend::Result* result) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+
+        // Never call load_model() twice on the same server_context. A load that
+        // is running makes try_to_lock fail. Nothing below runs in these cases,
+        // so the state of the loaded model is not touched.
+        std::unique_lock<std::mutex> load_lock(load_model_mutex, std::try_to_lock);
+        if (!load_lock.owns_lock()) {
+            const std::string error_msg =
+                "llama-cpp: a model load is already in progress in this process; "
+                "restart the backend process to load again";
+            result->set_message(error_msg);
+            result->set_success(false);
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, error_msg);
+        }
+        if (loaded_model) {
+            if (loaded_model_identity == request->model()) {
+                // Same model: a repeated request is a no-op, not a reload.
+                result->set_message("Model already loaded");
+                result->set_success(true);
+                return Status::OK;
+            }
+            const std::string error_msg =
+                "llama-cpp: this process already holds model \"" + loaded_model_identity +
+                "\" and cannot load \"" + request->model() + "\"; restart the backend process to load another model";
+            result->set_message(error_msg);
+            result->set_success(false);
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, error_msg);
+        }
+
         // Implement LoadModel RPC
         common_params params;
         params_parse(ctx_server, request, params);

@@ -317,6 +317,15 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 // at once, applied is true, and the person can undo it. It is checked as a
 // proposal is: a schedule that changes runs at most once an hour.
 func (h *Triggers) ProposeChange(ctx context.Context, user, chatID string, target triggers.Trigger, p TriggerPatch) (rec triggers.Trigger, applied bool, err error) {
+	return h.proposeChange(ctx, user, chatID, target, p, nil)
+}
+
+// changeAsk is the place in a messaging app where a change waits for the
+// owner's answer: with it, even a pause or a resume waits, and the record gets
+// a code and a time to lapse.
+type changeAsk struct{ Binding, Chat, Thread string }
+
+func (h *Triggers) proposeChange(ctx context.Context, user, chatID string, target triggers.Trigger, p TriggerPatch, ask *changeAsk) (rec triggers.Trigger, applied bool, err error) {
 	owner := principal(user)
 	if target.Owner != owner || target.Proposed {
 		return triggers.Trigger{}, false, triggers.ErrNotFound
@@ -335,32 +344,46 @@ func (h *Triggers) ProposeChange(ctx context.Context, user, chatID string, targe
 	if len(fields) == 0 {
 		return triggers.Trigger{}, false, bad("nothing changes: the trigger already has these values")
 	}
+	op := triggers.ChangeUpdate
 	if len(fields) == 1 && fields[0] == "enabled" {
-		rec, err := h.switchByChange(ctx, user, chatID, target.ID, after.Enabled)
-		return rec, err == nil, err
+		if ask == nil {
+			rec, err := h.switchByChange(ctx, user, chatID, target.ID, after.Enabled)
+			return rec, err == nil, err
+		}
+		op = triggers.ChangePause
+		if after.Enabled {
+			op = triggers.ChangeResume
+		}
 	}
 	rec = after
 	rec.SourceChatID = target.SourceChatID
-	rec.Change = triggers.Change{Op: triggers.ChangeUpdate, Target: target.ID, Stamp: stamp(target), On: after.Enabled, Chat: chatID}
-	rec, err = h.keepChange(ctx, owner, rec)
+	rec.Change = triggers.Change{Op: op, Target: target.ID, Stamp: stamp(target), On: after.Enabled, Chat: chatID}
+	rec, err = h.keepChange(ctx, owner, rec, ask)
 	return rec, false, err
 }
 
 // ProposeDelete asks for the deletion of the trigger target of the user, from
 // the chat chatID. Nothing is deleted until the person answers.
 func (h *Triggers) ProposeDelete(ctx context.Context, user, chatID string, target triggers.Trigger) (triggers.Trigger, error) {
+	return h.proposeDelete(ctx, user, chatID, target, nil)
+}
+
+// proposeDelete is ProposeDelete that can wait for the answer in a messaging
+// app (ask) and, only then, can be about a proposal that still waits: the
+// answer withdraws it.
+func (h *Triggers) proposeDelete(ctx context.Context, user, chatID string, target triggers.Trigger, ask *changeAsk) (triggers.Trigger, error) {
 	owner := principal(user)
-	if target.Owner != owner || target.Proposed {
+	if target.Owner != owner || (target.Proposed && ask == nil) {
 		return triggers.Trigger{}, triggers.ErrNotFound
 	}
 	rec := withDefinition(triggers.Trigger{Owner: owner, SourceChatID: target.SourceChatID}, target)
 	rec.Change = triggers.Change{Op: triggers.ChangeDelete, Target: target.ID, Stamp: stamp(target), On: target.Enabled, Chat: chatID}
-	return h.keepChange(ctx, owner, rec)
+	return h.keepChange(ctx, owner, rec, ask)
 }
 
 // keepChange stores a waiting change record. The same change of the same
 // trigger asked again returns the one that waits.
-func (h *Triggers) keepChange(ctx context.Context, owner string, rec triggers.Trigger) (triggers.Trigger, error) {
+func (h *Triggers) keepChange(ctx context.Context, owner string, rec triggers.Trigger, ask *changeAsk) (triggers.Trigger, error) {
 	rec.Enabled = false // the record never runs; Change.On says what the change wants
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
@@ -385,6 +408,12 @@ func (h *Triggers) keepChange(ctx context.Context, owner string, rec triggers.Tr
 	}
 	rec.ID, rec.Owner, rec.Proposed, rec.Enabled = newID(), owner, true, false
 	rec.Outcome, rec.OutcomeAt, rec.Touched, rec.Since = "", time.Time{}, false, time.Time{}
+	if ask != nil {
+		now := h.o.Clock().UTC()
+		rec.Change.Binding, rec.Change.Place, rec.Change.Thread = ask.Binding, ask.Chat, ask.Thread
+		rec.Change.Code = freshCode(mine, ask.Binding)
+		rec.Change.Expires = now.Add(ProposalTTL).Unix()
+	}
 	if err := h.o.Store.PutTrigger(ctx, rec); err != nil {
 		return triggers.Trigger{}, err
 	}

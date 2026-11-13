@@ -138,7 +138,7 @@ other are not sent again, and the ones the client had are cut off. The server
 keeps the last 2048 events or 4 MiB of each running chat, and the ring stays
 for 30 seconds after the turn ends, so a client that reconnects at once also
 gets `turn_end`. Events that do not come from the turn itself (`files`, `goal`,
-`loops`, `cleared` and the cards) have no id and are not replayed: they tell
+`dock`, `loops`, `cleared` and the cards) have no id and are not replayed: they tell
 the client to read the record again.
 
 When the server cannot give what was missed, the stream starts with a `resync`
@@ -573,7 +573,9 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
   default. `settings` replaces all of them, so send the whole object; `{}`
   clears it.
 - `context_size` is the window, in tokens, that the loop plans with when it
-  decides to compact the conversation. It does not reload the model.
+  decides to compact the conversation. It does not reload the model and does
+  not change the window the backend loads, so it cannot make a small model
+  large enough; only the model's own `context_size` does that.
 - A new `title` (1 to 80 characters) or `model` needs a chat with no turn running (409 otherwise).
   The history stays when the model changes.
 
@@ -987,7 +989,10 @@ curl .../api/chats/3f1c.../files
 
 In the chat:
 
-- **The Files pane** lists what the chat made for you first. The working
+- **The Files pane** opens from the **Files** button in the chat header, next
+  to **Dock**, which shows how many files the chat holds. It shares the right
+  side with the dock, so opening one hides the other. It lists what the chat
+  made for you first. The working
   files are in a group of their own under it, **Working files · N**, folded
   and quieter; open it to see and preview them. The files you attached are
   listed as before. **Download all files as ZIP**, at the top of the pane,
@@ -1368,6 +1373,7 @@ The routes, for the chat's owner (another user's chat is 404):
 |---|---|
 | `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is true when the add-on that serves `bash` reports, in its typed execution status, that it enforces the network policy and the status is available and isolated (the Sandbox does, except on the host backend). It is false when commands run on this machine (`applies_reason` `host`), no Sandbox serves `bash`, or the add-on does not report enforcement (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{%relref "features/addons#host-controls" %}})); it is absent when no add-on runs the commands or that add-on has no such control. The chat shows the Network row only when `applies` is true and `addon` is set; otherwise it shows a line that says why the settings do not apply. A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
+| `GET /api/chats/draft/egress?model=&agent_id=` | The network a new chat would start with: the same shape as `GET /api/chats/{id}/egress`, with the default preset (or the saved agent's) under the ceiling, `addon` for the add-on that would run the commands, and no rules or cards. `applies` is always false: no sandbox is bound to a chat that does not exist, so nothing reports enforcement yet. A new chat's composer offers the presets from it; the choice is sent with `PUT /api/chats/{id}/egress` once the chat exists. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
 | `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). The same answer sent twice is one answer (204, nothing changes). Another answer to a card already answered is 409 `already_answered`. A host the ceiling does not admit refuses the card and gives 400 `egress_above_ceiling` on this answer and on every later one, so a stale card never ends in a conflict loop. In `GET /api/chats/{id}/egress` such a card has `above_ceiling`: no answer can make it work. |
 
@@ -1408,7 +1414,7 @@ starting profile of its chats.
 |---|---|
 | `GET /api/chats/{id}/sandbox-profile` | `{applies, addon, profile, selected, source, default, fallback, fallback_reason, newer_image, profiles}`. `source` is `chat`, `agent` or `default`. Each profile has `id`, `title`, `description`, `tools`, the limits, `allowed` and `state` (`phase` `idle`, `pulling` with `percent`, `ready`, `failed` with `error`, or `absent`). `applies` is false when commands run in no sandbox with profiles. |
 | `PUT /api/chats/{id}/sandbox-profile {profile}` | Sets the profile, or goes back to the agent's or the default with an empty one. 400 `sandbox_profile_unknown`, 403 `sandbox_profile_not_allowed`, 409 for a sub-agent. |
-| `GET /api/chats/sandbox-profiles` | The profiles you may pick for a saved agent, and the default. |
+| `GET /api/chats/sandbox-profiles` | The profiles you may pick for a saved agent or a new chat, and the default. A new chat's composer offers them before the first message and sends the choice with `PUT /api/chats/{id}/sandbox-profile` once the chat exists. |
 | `GET /api/chats/admin/sandbox-profiles` | Administrators: the profiles with their limits and the state of their images. |
 
 ### Commands on this machine
@@ -1620,6 +1626,51 @@ When a chat fills the model's context window, the older part is
 compacted so the model can go on. The transcript keeps every message; only what
 the model sees shrinks. A `compacted` event reports the size before and after.
 The window comes from `context_size` in the model's configuration.
+
+### The context window a chat needs
+
+Before you type, a chat already sends a fixed block to the model: the system
+message, the always-on tools, the LocalAI tools (or the three tool-search
+tools when they are deferred) and the chat template. That block is about 7,000
+tokens for a regular user and more for an administrator, and the chat loop
+needs at least 1,024 tokens free for the reply. A model with a smaller window
+fails every turn with the failure code `context_too_small`, and so would every
+new chat. A window that is only just large enough makes the chat compact its
+conversation on every turn.
+
+| Who | Minimum | Recommended |
+|-----|---------|-------------|
+| Regular user | 16384 | 32768 |
+| Administrator (the chat has the LocalAI management tools) | 24576 | 32768 |
+
+You do not have to do anything for a model that sets no `context_size`. When
+the model can serve chats, LocalAI aims at 32768 tokens, capped by the
+window the model was trained for, and steps down through 24576 and 16384 (and
+only then 8192, 6144 and 4096) when the next window does not fit the memory of
+the machine. Embedding, rerank and other models that cannot serve a chat keep
+the smaller automatic window of 8192.
+
+A `context_size` that you set is never changed, even when it is below the
+minimum: it stays as you wrote it. The chat tells you instead. When the window
+of the chat's model is below the minimum, a banner appears above the message
+box, and `GET /api/chats/{id}` returns a `harness` object with `ok`, `window`,
+`minimum`, `recommended`, `can_fix`, `admin` and `source`.
+
+- An administrator sees whether the recommended window fits the memory of the
+  machine and a button that sets the model's `context_size` to it, or to the
+  largest step that fits and reaches the minimum. When nothing fits, the banner
+  suggests a smaller model.
+- A regular user cannot change a model. The banner lists the installed models
+  whose window is large enough, to move the chat with one click, or says to ask
+  an administrator.
+- `source` is `model` when the model's window is too small, and `chat` when the
+  chat's own `context_size` setting is below the minimum. The owner of the chat
+  can change that setting.
+
+Changing the `context_size` of a model needs an administrator; the server
+refuses it for anyone else, whatever the page shows. A turn that fails because
+the window is too small ends with the failure code `context_too_small` and a
+message that names the window and the minimum.
 
 ### Compact or clear the context yourself
 
@@ -1859,8 +1910,9 @@ group the parent switched off. A trigger run with no agent copies these
 switches from the chat that proposed it, as it copies the others. Each group
 keeps its own rules for the runs that start by themselves (for example a
 trigger or connector run never gets the trigger tools). `load_skill`, `page_errors`
-(it reads the errors of a page's script, see [Pages]({{%relref "features/pages" %}}))
-and the goal and loop tools have no switch.
+(it reads the errors of a page's script, see [Pages]({{%relref "features/pages" %}})),
+`open_page` (it opens a page of your home in the dock beside the chat) and the
+goal and loop tools have no switch.
 
 The trigger tools have a group too, `triggers`: `propose_trigger`,
 `list_triggers`, `update_trigger` and `delete_trigger` switch together, and the

@@ -86,3 +86,4 @@
 /* The background of ui.json (homeBackground) is a layer under the page's
    content; its rules are in components/wellknown/wellKnown.css. */
 .home-page { position: relative; isolation: isolate; }
+.home-header .wk-avatar { align-self: center; }

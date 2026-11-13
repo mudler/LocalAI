@@ -93,7 +93,8 @@
     "selectModel": "Por favor selecciona un modelo",
     "copied": "Copiado al portapapeles",
     "copyFailed": "No se pudo copiar al portapapeles",
-    "newChatForModel": "Un chat conserva su modelo. Se inició un chat nuevo con {{model}}."
+    "newChatForModel": "Un chat conserva su modelo. Se inició un chat nuevo con {{model}}.",
+    "windowSet": "La ventana de contexto de {{model}} ahora es de {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",
@@ -245,7 +246,8 @@
     "group": {
       "context": "Contexto",
       "skills": "Skills y agentes",
-      "help": "Ayuda"
+      "help": "Ayuda",
+      "yours": "Tuyos"
     },
     "models": {
       "label": "Modelos",
@@ -298,7 +300,9 @@
       "builtin": "integrada",
       "addon": "complemento",
       "shared": "compartida",
-      "yours": "tuya"
+      "yours": "tuya",
+      "prompt": "prompt",
+      "tool": "herramienta"
     },
     "collides": "solo con /skill",
     "errors": {
@@ -324,7 +328,9 @@
     "effort": {
       "label": "Esfuerzo de razonamiento",
       "desc": "Cuánto piensa el modelo"
-    }
+    },
+    "userTool": "Usa la herramienta {{tool}}.",
+    "unavailable": "herramienta no disponible"
   },
   "shortcuts": {
     "onMessage": "En un mensaje: copiar, editar, regenerar",
@@ -332,8 +338,8 @@
   },
   "files": {
     "title": "Archivos de este chat",
-    "chip": "Archivos",
-    "chipTitle": "Archivos de este chat: lo que adjuntaste y lo que el asistente creó o cambió",
+    "button": "Archivos",
+    "buttonTitle": "Archivos de este chat: lo que adjuntaste y lo que el asistente creó o cambió",
     "close": "Cerrar archivos",
     "emptyTitle": "Todavía no hay archivos en este chat",
     "emptyBody": "Suelta archivos aquí para adjuntarlos a tu próximo mensaje. Los archivos que el asistente cree o cambie también aparecen aquí.",
@@ -896,6 +902,18 @@
       "start": "Iniciar Live",
       "close": "Cerrar",
       "notShown": "Instalado, pero el modelo no apareció. Reintenta o recarga la página."
+    }
+  },
+  "readAloud": {
+    "read": "Leer en voz alta",
+    "stop": "Dejar de leer",
+    "ask": "Tu modelo de texto a voz por defecto está en \"preguntar cada vez\". Elige un modelo en Predeterminados para leer en voz alta.",
+    "none": "No hay ningún modelo de texto a voz instalado.",
+    "missing": "Tu modelo de texto a voz por defecto no está instalado. Elige otro en Predeterminados.",
+    "failed": "No se pudo leer en voz alta.",
+    "omitted": {
+      "code": "Bloque de código omitido.",
+      "table": "Tabla omitida."
     }
   }
 }

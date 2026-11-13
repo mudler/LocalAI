@@ -49,6 +49,7 @@
   "approval.default": "默认值：{{value}}。",
   "approval.summary": "触发器：{{mode}}",
   "approval.effect": "建议：{{mode}}",
+  "approval.effectChange": "更改和删除：{{mode}}",
   "approval.limits": "限制",
   "approval.acts.title": "运行可执行的操作",
   "approval.acts.help": "关闭：由此聊天创建的触发器，其运行只读取和汇报。开启：运行还可以执行你在下面勾选的操作，且仅限智能体具备的操作。",

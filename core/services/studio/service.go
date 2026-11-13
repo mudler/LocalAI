@@ -258,6 +258,9 @@ type Deps struct {
 	// SharedPagesOn says whether the pages of shared folders are on; an
 	// administrator switches them at run time. Nil: on.
 	SharedPagesOn func() bool
+	// PageAreaOn says whether the page area of Home is on; an administrator
+	// switches it at run time. Nil: on.
+	PageAreaOn func() bool
 	// RemoteModel says whether a model runs on a remote service (a cloud
 	// proxy), so a cost shown to the person can say that the tokens leave the
 	// server. Nil: no model is remote.
@@ -574,6 +577,9 @@ func New(d Deps) (*Service, error) {
 		s.d.PageErrors = d.PageErrors
 	}
 	if err := s.registerPageErrors(); err != nil {
+		return nil, err
+	}
+	if err := s.registerOpenPage(); err != nil {
 		return nil, err
 	}
 	if err := s.registerTriggerTools(); err != nil {
@@ -1052,6 +1058,9 @@ func (s *Service) PageErrors() pages.ErrorStore { return s.d.PageErrors }
 
 // SharedPagesOn says whether the pages of shared folders are on now.
 func (s *Service) SharedPagesOn() bool { return s.d.SharedPagesOn == nil || s.d.SharedPagesOn() }
+
+// PageAreaOn says whether the page area of Home is on now.
+func (s *Service) PageAreaOn() bool { return s.d.PageAreaOn == nil || s.d.PageAreaOn() }
 
 // UserName returns the name of an account to show to another user: its
 // display name when the server has accounts, the principal otherwise.

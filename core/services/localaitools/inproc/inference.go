@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -28,11 +29,36 @@ import (
 // of ctx.
 func (c *Client) inference(ctx context.Context) *localaitools.Inference {
 	return &localaitools.Inference{
-		Do:     c.doAsUser(ctx),
-		Models: c,
-		Vision: c.VisionModel,
-		Files:  c.clientFiles(),
+		Do:       c.doAsUser(ctx),
+		Models:   c,
+		Vision:   c.VisionModel,
+		Files:    c.clientFiles(),
+		Defaults: c.userDefault,
 	}
+}
+
+// userDefault reads the default of the acting user from defaults.json. A user
+// that cannot be told, or files that cannot be read, leave it unset: a tool
+// works without defaults.
+func (c *Client) userDefault(ctx context.Context, key string) wellknown.Default {
+	files, principal, err := c.userFiles(ctx)
+	if err != nil {
+		return wellknown.Default{}
+	}
+	return wellknown.New(files).DefaultFor(ctx, principal, key)
+}
+
+// HasModel implements localaitools.ModelChecker: the model is installed and
+// not disabled. Set Models to replace it; a Models that cannot answer trusts the name.
+func (c *Client) HasModel(ctx context.Context, name string) (bool, error) {
+	if mc, ok := c.Models.(localaitools.ModelChecker); ok {
+		return mc.HasModel(ctx, name)
+	}
+	if c.Models != nil || c.ConfigLoader == nil {
+		return true, nil
+	}
+	m, ok := c.ConfigLoader.GetModelConfig(name)
+	return ok && !m.IsDisabled(), nil
 }
 
 // doAsUser returns the function that sends a request through the in-process

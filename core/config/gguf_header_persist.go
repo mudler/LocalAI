@@ -8,11 +8,13 @@ import (
 	"runtime/debug"
 
 	gguf "github.com/gpustack/gguf-parser-go"
+
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 )
 
 // ggufHeaderCacheSchema is the on-disk format version. A file written with any
 // other value is ignored, so bump it when persistedGGUFHeader changes shape.
-const ggufHeaderCacheSchema = 1
+const ggufHeaderCacheSchema = 2
 
 // ggufHeaderSpec makes the header cache a GGUF cache: the schema, the estimator
 // fingerprint and the GGUF field mapping. The file name is the generic one.
@@ -31,7 +33,7 @@ var ggufHeaderSpec = headerCacheSpec[ggufHeader]{
 // the file bytes or an estimator output whose inputs are fixed in code (no
 // device metrics, fixed candidate contexts and offload), keyed by the estimator
 // fingerprint. Nothing hardware-dependent is stored: the per-device budget is
-// read at decision time from perDeviceVRAM, not from this file.
+// read at decision time from perDeviceVRAM and systemTotalRAM, not from this file.
 type persistedGGUFHeader struct {
 	Name             string         `json:"name"`
 	Architecture     string         `json:"architecture"`
@@ -44,6 +46,7 @@ type persistedGGUFHeader struct {
 	HasMTP           bool           `json:"has_mtp"`
 	TrainedContext   int            `json:"trained_context"`
 	Footprints       map[int]uint64 `json:"footprints,omitempty"`
+	RAMFootprints    map[int]uint64 `json:"ram_footprints,omitempty"`
 	MaxCtxFootprint  uint64         `json:"max_ctx_footprint"`
 	// TrainedPanic is the estimator panic message, kept so the replay still
 	// happens for this file. The replay panics with the message as a string,
@@ -71,8 +74,8 @@ func ggufEstimatorFingerprint() string {
 			}
 		}
 	}
-	return fmt.Sprintf("gguf-parser=%s;candidates=%v;auto=%d;ngl=%d",
-		parser, contextFitCandidates, DefaultAutoContextSize, DefaultNGPULayers)
+	return fmt.Sprintf("gguf-parser=%s;candidates=%v;auto=%d;chat=%d;ngl=%d",
+		parser, contextFitCandidates, DefaultAutoContextSize, harnessctx.RecommendedContext, DefaultNGPULayers)
 }
 
 // decodeGGUFHeader rebuilds a snapshot from its file form. An absent header
@@ -105,6 +108,7 @@ func toPersistedHeader(h ggufHeader) persistedGGUFHeader {
 		HasMTP:           h.HasMTP,
 		TrainedContext:   h.TrainedContext,
 		Footprints:       h.footprints,
+		RAMFootprints:    h.ramFootprints,
 		MaxCtxFootprint:  h.maxCtxFootprint,
 		TrainedPanic:     panicked,
 	}
@@ -127,6 +131,7 @@ func fromPersistedHeader(p persistedGGUFHeader) ggufHeader {
 		HasMTP:           p.HasMTP,
 		TrainedContext:   p.TrainedContext,
 		footprints:       p.Footprints,
+		ramFootprints:    p.RAMFootprints,
 		maxCtxFootprint:  p.MaxCtxFootprint,
 		trainedPanic:     panicked,
 	}

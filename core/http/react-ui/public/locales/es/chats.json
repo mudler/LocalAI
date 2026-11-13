@@ -651,6 +651,7 @@
     "allowedHostsOff": "Se aplican cuando la red está activada.",
     "allowedHostsNote": "Tu administrador permite siempre {{count}} hosts.",
     "limitNote": "Red de este chat. El administrador fija lo máximo que un chat puede alcanzar.",
+    "draftNote": "El chat empieza con este ajuste. El administrador fija lo máximo a lo que puede llegar un chat, y ese límite se aplica.",
     "asksAbove": "Este chat pide {{choice}}; el límite del administrador es {{limit}}.",
     "unverified": "No se ha verificado la aplicación de la política de red para el proveedor real. Esta configuración no se aplica a sus comandos.",
     "configuredPolicy": "Política de red configurada: {{preset}} (no aplicada)."
@@ -1433,7 +1434,7 @@
     "notAllowed": "Tu administrador no te ha dado este perfil",
     "absent": "Esta versión no tiene imagen para este perfil",
     "unavailable": "{{title}} no está disponible: {{reason}}.",
-    "draft": "Un chat nuevo empieza en {{title}}. Puedes cambiar el perfil en el chat.",
+    "draft": "El chat nuevo empieza en {{title}}. Elige un perfil aquí o cámbialo más tarde en el chat.",
     "source": {
       "chat": "Este chat usa {{title}}, por tu elección.",
       "agent": "Este chat usa {{title}}, fijado por su agente.",
@@ -1477,6 +1478,29 @@
       "ownerError": "Los ajustes del propietario no están disponibles o han cambiado: {{message}}",
       "save": "Guardar",
       "loadError": "No se pudieron leer los perfiles de sandbox."
+    }
+  },
+  "harness": {
+    "title": "La ventana de contexto de este modelo es demasiado pequeña para el chat",
+    "admin": {
+      "reason": "Tiene {{window}} tokens y el chat necesita al menos {{minimum}}; {{recommended}} es mejor.",
+      "checking": "Comprobando si {{target}} tokens caben en la memoria de esta máquina…",
+      "fits": "{{target}} tokens caben en la memoria de esta máquina (unos {{need}}).",
+      "fitsLess": "{{recommended}} tokens no caben en la memoria de esta máquina. {{target}} sí caben (unos {{need}}).",
+      "unknown": "No se pudo estimar la memoria que esto necesita.",
+      "none": "Ni siquiera {{minimum}} tokens caben en la memoria de esta máquina. Elige un modelo más pequeño.",
+      "fix": "Fijar la ventana en {{target}}"
+    },
+    "user": {
+      "reason": "Tiene {{window}} tokens y el chat necesita al menos {{minimum}}.",
+      "switch": "Cambia este chat a un modelo instalado con una ventana mayor.",
+      "askAdmin": "Ningún modelo instalado que puedas usar tiene una ventana suficiente. Pide a un administrador que la aumente o que instale otro modelo.",
+      "use": "Usar {{model}} ({{window}} tokens)"
+    },
+    "chat": {
+      "title": "El tamaño de contexto de este chat es demasiado pequeño",
+      "reason": "El ajuste de este chat es de {{window}} tokens y el chat necesita al menos {{minimum}}.",
+      "fix": "Usar la ventana del modelo"
     }
   }
 }

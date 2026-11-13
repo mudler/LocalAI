@@ -87,6 +87,9 @@ async function clockFrame(page) {
 
 async function home(page, theme = 'light') {
   await page.route('**/api/chats/triggers*', (r) => r.fulfill({ json: { triggers: [] } }))
+  // Other workers make agents on the same server, and the Home composer
+  // offers them, which moves the tiles; the tiles are checked without them.
+  await page.route('**/api/chats/agents*', (r) => r.fulfill({ json: { agents: [] } }))
   await page.addInitScript((t) => { try { localStorage.setItem('localai-theme', t) } catch { /* private mode */ } }, theme)
   await page.goto('/app')
 }
@@ -126,12 +129,14 @@ test('a page tile runs the page in its compact mode, at its size', async ({ page
   // The news tile reads its data with fetch, once it is in view.
   await tile(page, 'news').scrollIntoViewIfNeeded()
   await expect(tileFrame(page, 'news').locator('li')).toHaveCount(4)
-  // Heights by size: small < medium < large, and a large tile spans two columns.
+  // A large tile fills a full row and is the tallest; the grid may stretch a
+  // small tile to close a hole, so only the large one is compared.
   const h = async (id) => (await tile(page, id).locator('.wk-ptile__body').boundingBox()).height
-  expect(await h('clock')).toBeLessThan(await h('board'))
+  await expect(tile(page, 'news')).toHaveAttribute('data-cw', '4')
   expect(await h('board')).toBeLessThan(await h('news'))
   const open = tile(page, 'clock').getByTestId('page-tile-open')
   await expect(open).toHaveAttribute('href', `/app/pages/${CLOCK}`)
+  await tile(page, 'clock').scrollIntoViewIfNeeded()
   await expect(tile(page, 'clock')).toHaveAttribute('data-frame', 'live')
   if (shots) {
     await tile(page, 'clock').scrollIntoViewIfNeeded()
@@ -237,14 +242,16 @@ test('Customise Home lists the pages that can be a tile, with their size', async
   const options = await picks.first().locator('option').allTextContents()
   expect(options).toEqual(expect.arrayContaining(['Clock', 'News ticker', 'Task board']))
   expect(options).not.toContain('Plain page')
-  await expect(editor.getByTestId('home-layout-page-size').first()).toHaveAttribute('data-size', 'small')
+  // The size control shows the size of the page's widget block until a size is chosen.
+  await expect(editor.getByTestId('home-layout-size').first().locator('[aria-pressed="true"]')).toHaveAttribute('data-filter', 's')
   // Three page widgets: the limit says so and no fourth can be added.
   await expect(editor.getByTestId('home-layout-page-limit')).toBeVisible()
   await expect(editor.getByTestId('home-layout-add-page')).toBeDisabled()
   if (shots) await editor.screenshot({ path: `${shots}/home-tiles-editor.png` })
   // Swap the board for the clock... and back: a save keeps the layout valid.
   await picks.nth(1).selectOption({ label: 'News ticker' })
-  await expect(editor.getByTestId('home-layout-page-size').nth(1)).toHaveAttribute('data-size', 'large')
+  const pageRows = editor.getByTestId('home-layout-row').filter({ has: page.getByTestId('home-layout-page') })
+  await expect(pageRows.nth(1).getByTestId('home-layout-size').locator('[aria-pressed="true"]')).toHaveAttribute('data-filter', 'l')
   await picks.nth(1).selectOption({ label: 'Task board' })
   await editor.getByTestId('home-layout-save').click()
   await expect(editor).toHaveCount(0)

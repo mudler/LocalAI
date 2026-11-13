@@ -124,7 +124,8 @@
     "check": {
       "required": "Required.",
       "tooLong": "At most {{max}} characters.",
-      "format": "This value has the wrong format."
+      "format": "This value has the wrong format.",
+      "placeholder": "A placeholder of this text is not right."
     },
     "source": {
       "label": "Source",
@@ -134,7 +135,7 @@
     },
     "persona": {
       "title": "Assistant",
-      "lede": "Name and instructions the assistant uses in every chat."
+      "lede": "Name, picture, greeting and instructions of the assistant in every chat."
     },
     "user": {
       "title": "You",
@@ -250,12 +251,50 @@
         "noneEligible": "No page has a compact view for Home yet. Ask the assistant to add one to a page.",
         "pick": "Page",
         "unavailable": "{{name}} (not available)",
-        "sharedLabel": "shared",
-        "sizes": {
-          "small": "Small",
-          "medium": "Medium",
-          "large": "Large"
-        }
+        "sharedLabel": "shared"
+      },
+      "size": "Size",
+      "preview": "Home draws your widgets like this. S is one column, M two, L the full row. A gap closes by itself.",
+      "area": {
+        "label": "Page area",
+        "none": "None",
+        "pickHint": "A page that fills the area below the composer on Home. It cannot reach the network or your other files.",
+        "pickOff": "An administrator turned the page area off, so Home shows no page there. Your choice is kept.",
+        "off": "The page area is turned off",
+        "offHint": "An administrator turned it off for everyone on this server. The page you chose stays in your Home layout and shows again when it is turned back on.",
+        "by": {
+          "assistant": "Page by the assistant",
+          "you": "Page by you"
+        },
+        "byAuthor": "Page shared by {{author}}",
+        "edit": "Edit",
+        "reload": "Reload",
+        "loading": "Loading the page",
+        "runsAsYou": "Runs as you",
+        "runsAsYouHint": "The page reads and writes the files of its folder with your rights. It cannot reach the network or your other files.",
+        "askPrompt": "Change the page in pages/{{name}}/ so that ",
+        "askTitle": "Ask the assistant to change this page",
+        "frameTitle": "{{title}} (page area on Home)",
+        "failedTitle": "This page did not load.",
+        "why": {
+          "script": "Its script raised an error and the page drew nothing.",
+          "scriptLine": "Its script raised an error at line {{line}} and the page drew nothing.",
+          "noPaint": "It showed nothing within 5 seconds.",
+          "navigated": "It tried to leave its frame.",
+          "busy": "It kept the computer busy for too long.",
+          "silent": "It stopped answering.",
+          "noStart": "It did not start.",
+          "missing": "The page \"{{name}}\" was moved or deleted, or you can no longer open it.",
+          "read": "The page could not be read.",
+          "invalid": "The page chosen for the page area is not a valid page name.",
+          "sharedOff": "An administrator turned shared pages off on this server."
+        },
+        "revert": "Revert",
+        "openFile": "Open the file",
+        "remove": "Remove from Home",
+        "nothingToRevert": "There is no earlier version to go back to.",
+        "revertFailed": "The revert did not work.",
+        "removeFailed": "The page could not be removed from Home."
       }
     },
     "fields": {
@@ -267,6 +306,18 @@
         "system_prompt": {
           "label": "System prompt",
           "help": "Added to every chat, after the chat's own prompt and the agent's instructions."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "A picture from your files. PNG, JPG, WebP, GIF or AVIF."
+        },
+        "greeting": {
+          "label": "Greeting",
+          "help": "The first line of the assistant in a new chat. It is shown, not sent to the model."
+        },
+        "emptyChat": {
+          "label": "Empty chat",
+          "help": "What a new chat shows above the message box."
         }
       },
       "user": {
@@ -320,6 +371,20 @@
         "chatBackground": {
           "label": "Chat background",
           "help": "A colour, a gradient or a picture from your files behind your chats. Other pages stay as they are."
+        },
+        "look": {
+          "label": "Look",
+          "help": "Font, corners, messages and code, from fixed lists."
+        },
+        "strings": {
+          "label": "Text",
+          "help": "Only the keys listed here can change."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Headline",
+          "help": "Empty keeps the greeting of the time of day."
         }
       }
     },
@@ -354,6 +419,236 @@
       "pickFailed": "The folder could not be read.",
       "pickEmpty": "No pictures or folders here.",
       "pickClose": "Close"
+    },
+    "nav": {
+      "title": "Navigation",
+      "lede": "Reorder, rename, hide or group the sidebar. Drag a row, or use the arrows. Changes show on the right at once.",
+      "preview": "Live preview",
+      "discard": "Discard changes",
+      "saved": "Saved.",
+      "reset": "Reset to default",
+      "fixed": "New chat, Chats, settings and the search are always shown.",
+      "homeFixed": "Home always stays.",
+      "hide": "Hide {{name}}",
+      "show": "Show {{name}}",
+      "drag": "Move {{name}} (drag, or use the arrow keys)",
+      "name": "Name of {{name}}",
+      "was": "was {{name}}",
+      "moveUp": "Move {{name}} up",
+      "moveDown": "Move {{name}} down",
+      "remove": "Remove {{name}}",
+      "addLink": "Add link",
+      "addGroup": "Add group",
+      "newGroup": "New group",
+      "missing": "missing",
+      "missingHint": "This {{kind}} no longer exists. The sidebar skips it.",
+      "unavailable": "not shown to you",
+      "unavailableHint": "Your account or this server does not show this entry yet.",
+      "tag": {
+        "builtin": "built in",
+        "group": "group",
+        "page": "page",
+        "chat": "chat",
+        "url": "link"
+      },
+      "add": {
+        "page": "Page",
+        "pageHint": "One of your pages",
+        "chat": "Chat",
+        "chatHint": "Pin a conversation",
+        "url": "URL",
+        "urlHint": "Opens in a new tab",
+        "address": "Address",
+        "name": "Name (optional)",
+        "confirm": "Add",
+        "back": "Back",
+        "urlInvalid": "Use an http or https address without a user name.",
+        "pick": {
+          "page": "Choose a page",
+          "chat": "Choose a chat"
+        },
+        "none": {
+          "page": "You have no pages to add.",
+          "chat": "There are no chats to add."
+        }
+      }
+    },
+    "blocked": "Fix the marked values to save.",
+    "storedIn": "Stored in",
+    "placeholders": {
+      "unknown_one": "{{names}} is not a placeholder of this text.",
+      "unknown_other": "{{names}} are not placeholders of this text.",
+      "unknownUse_one": "{{names}} is not a placeholder of this text. Use {{use}}.",
+      "unknownUse_other": "{{names}} are not placeholders of this text. Use {{use}}.",
+      "none_one": "{{names}} is not a placeholder. This text takes none.",
+      "none_other": "{{names}} are not placeholders. This text takes none.",
+      "brace": "A brace has no pair. Write a placeholder as {name}.",
+      "hint": "Placeholders you can use",
+      "insert": "Insert this placeholder"
+    },
+    "avatar": {
+      "path": "Path of the picture",
+      "remove": "Remove",
+      "bad": "Use a picture in your files: a path without a leading slash and without .., ending in .png, .jpg, .jpeg, .webp, .gif or .avif."
+    },
+    "emptyChat": {
+      "title": "Headline",
+      "subtitle": "Line under the headline",
+      "titleSample": "Ask me anything",
+      "subtitleSample": "Say what you need.",
+      "showShortcuts": "Show my shortcuts above the message box"
+    },
+    "look": {
+      "font": {
+        "label": "Font",
+        "default": "Geist, default",
+        "system": "System",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Corners",
+        "sharp": "Sharp",
+        "soft": "Soft",
+        "round": "Round"
+      },
+      "bubble": {
+        "label": "Message style",
+        "card": "Card",
+        "filled": "Filled",
+        "tinted": "Tinted",
+        "outline": "Outline",
+        "plain": "Plain"
+      },
+      "messageWidth": {
+        "label": "Message width",
+        "narrow": "Narrow 640",
+        "medium": "Medium 760",
+        "wide": "Wide 920",
+        "full": "Full"
+      },
+      "codeTheme": {
+        "label": "Code colours",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Vivid",
+        "ink": "Ink"
+      },
+      "note": "Each value comes from a fixed list, and the accent must keep a readable contrast. There is no CSS box, so a look cannot hide or break a page."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Too faint: {{ratio}}:1 on {{mode}}",
+      "failLong": "This accent has a contrast of {{ratio}}:1 against the {{mode}} page and needs 4.5:1. LocalAI shows the default accent instead.",
+      "mode": {
+        "light": "light",
+        "dark": "dark"
+      }
+    },
+    "headline": {
+      "title": "Home headline",
+      "lede": "The big line at the top of Home."
+    },
+    "strings": {
+      "title": "Text",
+      "lede": "Your own words for a few labels. Security, permission and consent prompts keep theirs.",
+      "changed_one": "{{count}} changed",
+      "changed_other": "{{count}} changed",
+      "find": "Find a text",
+      "key": "Key",
+      "default": "Default",
+      "yours": "Your text",
+      "yoursFor": "Your text for {{key}}",
+      "same": "Same as default",
+      "hint": "Keep the placeholders of a text, such as {model}. A wrong one is flagged before you save. An empty box keeps the default."
+    },
+    "frames": {
+      "stopped": "This page was stopped",
+      "why": {
+        "busy": "It kept the computer busy for too long (more than 3 seconds of work in 10 seconds).",
+        "silent": "It stopped answering for more than 5 seconds.",
+        "noStart": "It did not start within 10 seconds.",
+        "navigated": "It tried to leave its frame."
+      },
+      "capped": "Paused: at most {{max}} pages run at once in the app.",
+      "run": "Run"
+    },
+    "slots": {
+      "title": "Slots",
+      "lede": "Small places of the app that show your page tiles, tool buttons and commands, from left to right. They never hide the title, the model or the settings.",
+      "where": "Where the slots are",
+      "map": "Map of the slots",
+      "editing": "Editing",
+      "count": "{{count}} of {{max}}",
+      "names": {
+        "chatHeader": "Chat header",
+        "sidebarFooter": "Sidebar footer",
+        "composerToolbar": "Composer toolbar"
+      },
+      "badge": {
+        "chatHeader": "In the chat header",
+        "sidebarFooter": "In the sidebar",
+        "composerToolbar": "In the composer"
+      },
+      "hint": {
+        "chatHeader": "The bar over every chat. A page with a compact layout runs in a strip 40 px high; a click opens it as a card under the tile.",
+        "sidebarFooter": "The foot of the sidebar, on every screen. A collapsed sidebar hides it.",
+        "composerToolbar": "Beside the attach button of the message box. Good for tool buttons."
+      },
+      "empty": "Nothing here yet. Add a page tile, a tool button or a command.",
+      "addItem": "Add item",
+      "full": "This slot is full ({{max}} items).",
+      "incomplete": "Fill in each new item before you save: a page, or a tool and its text, or a command.",
+      "add": {
+        "page": "Page tile",
+        "pageHint": "A page you made or were shared",
+        "tool": "Tool button",
+        "toolHint": "Runs one tool, asks first",
+        "command": "Command",
+        "commandHint": "One of your commands"
+      },
+      "kind": {
+        "tool": "Tool button, asks first",
+        "command": "Command",
+        "pageMissing": "Page not found",
+        "pageCompact": "Page tile, compact",
+        "pageButton": "Page, opens when clicked"
+      },
+      "form": {
+        "page": "Page",
+        "pickPage": "Choose a page",
+        "shared": "shared",
+        "pageHint": "A page with a compact layout runs in the slot. Any other page shows as a button that opens it.",
+        "tool": "Tool name",
+        "arguments": "Fixed arguments (optional)",
+        "argumentsHint": "Names with plain values, at most {{max}}: text, numbers, true or false, as in the example.",
+        "argumentsBad": "Not valid: write names with plain values, as in the example, at most {{max}}.",
+        "command": "Command name",
+        "commandHint": "The name of one of your commands, without the slash. A click puts its text in the message box.",
+        "label": "Text (optional)",
+        "labelNeeded": "Text of the button",
+        "icon": "Icon (optional)"
+      },
+      "tool": {
+        "title": "Runs the tool {{tool}} after you approve it",
+        "confirmTitle": "Run {{label}}?",
+        "confirmChat": "This sends a message to this chat that asks the assistant to run this tool:",
+        "confirmDraft": "This opens a new chat with a message that asks the assistant to run this tool. You send it.",
+        "tool": "Tool",
+        "arguments": "Arguments",
+        "stillAsks": "If the tool needs your approval, the chat still asks for it.",
+        "run": "Run"
+      },
+      "tile": {
+        "missing": "The page {{name}} is gone. Change the slots in your settings.",
+        "off": "Shared pages are off on this server.",
+        "error": "The page {{name}} could not be read. Change the slots in your settings.",
+        "open": "Open {{title}}",
+        "allow": "Allow {{title}} to run here",
+        "expand": "Show {{title}}",
+        "close": "Close {{title}}",
+        "sandboxed": "Sandboxed, no network"
+      }
     }
   },
   "discovery": {
@@ -413,7 +708,8 @@
       "offersOff": "Suggestions from the assistant are off.",
       "undoing": "Undoing…",
       "undone": "Undone.",
-      "undoFailed": "Not undone: {{message}}"
+      "undoFailed": "Not undone: {{message}}",
+      "defaults": "Saved your default models. The assistant uses them from your next message."
     },
     "toast": {
       "shortcutAdded": "Added to your composer: {{label}}",
@@ -561,7 +857,8 @@
       "user": "The assistant forgets what you told it about you, and your answers to its offers.",
       "shortcuts": "The message box shows the default shortcuts again.",
       "home": "Home loses its widgets.",
-      "ui": "Your theme, accent, density, Home and chat backgrounds, default model and pinned pages go back to the defaults."
+      "ui": "Your theme, accent, density, Home and chat backgrounds, default model and pinned pages go back to the defaults.",
+      "defaults": "Your default models are forgotten. Tools pick an installed model themselves again."
     }
   },
   "newFile": "New file",
@@ -759,5 +1056,232 @@
     "writeHelp": "They can also add, change and delete files here.",
     "failed": "Could not open sharing: {{message}}",
     "lost": "You can no longer share this folder here."
+  },
+  "defaults": {
+    "lede": "One model per kind of work. You can pick another for a single request.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Use for: new chats, chat titles, summaries"
+      },
+      "image": {
+        "label": "Image generation",
+        "use": "Use for: \"draw\", \"make an image\", the Images page"
+      },
+      "tts": {
+        "label": "Text to speech",
+        "use": "Use for: read-aloud, \"say this\", voice replies"
+      },
+      "stt": {
+        "label": "Speech to text",
+        "use": "Use for: dictation, the microphone, audio files"
+      },
+      "embeddings": {
+        "label": "Embeddings",
+        "use": "Use for: Knowledge search, file search"
+      },
+      "video": {
+        "label": "Video generation",
+        "use": "Use for: \"make a short clip\", the Video page"
+      },
+      "rerank": {
+        "label": "Reranking",
+        "use": "Use for: sorting Knowledge results"
+      },
+      "vision": {
+        "label": "Image understanding",
+        "use": "Use for: images you attach to a chat"
+      }
+    },
+    "automatic": "Automatic (first installed)",
+    "asking": "Asks each time",
+    "modeLabel": "Choice for {{kind}}",
+    "mode": {
+      "default": "Default",
+      "ask": "Ask each time"
+    },
+    "noModel": "No model set",
+    "notInstalled": "Not installed",
+    "installOne": "Install one",
+    "missing": "This model is not installed any more. The assistant asks which model to use until you pick another.",
+    "fromOld": "Set before this page existed. Choose a model here to save it as your default.",
+    "modelsFailed": "The list of installed models did not load. Reload the page to try again.",
+    "help": {
+      "title": "The assistant reads your defaults",
+      "body": "When you say \"draw a fox\" or \"read this aloud\", the assistant checks your defaults first and uses the model listed for that kind of work.",
+      "example": "Draw a fox in the snow",
+      "tool": "checked your defaults › image",
+      "used": "Using <code>{{model}}</code>, your default for images.",
+      "exampleModel": "your image model"
+    },
+    "preview": "What is saved"
+  },
+  "identity": {
+    "messageName": "Message {{name}}...",
+    "preview": {
+      "title": "Preview",
+      "home": "Home",
+      "newChat": "New chat",
+      "firstMessage": "First message",
+      "assistant": "Assistant",
+      "noGreeting": "No greeting set. A new chat starts empty."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Live preview",
+      "question": "Show me how to read a file in Python.",
+      "answer": "Open it with a context manager so it closes itself:",
+      "comment": "whole file",
+      "after": "For big files, loop over f line by line instead.",
+      "button": "Run it",
+      "box": "Message the assistant..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Preview",
+      "sidebar": "Sidebar"
+    }
+  },
+  "commands": {
+    "title": "Commands",
+    "lede": "Your own slash commands. A command puts a prompt in the message box. You read it and send it yourself.",
+    "form": "Command",
+    "new": "New command",
+    "empty": "No commands yet. Add one and it shows in the slash menu.",
+    "type": {
+      "prompt": "Expands to a prompt",
+      "tool": "Calls a tool"
+    },
+    "field": {
+      "name": "Name",
+      "description": "Description",
+      "what": "What it does",
+      "template": "Prompt template",
+      "tool": "Tool",
+      "args": "Arguments"
+    },
+    "nameHint": "Lowercase letters, digits and dashes.",
+    "templateHint": "Write {{example}} where an argument goes.",
+    "noArgs": "This template has no arguments.",
+    "argKind": {
+      "number": "number",
+      "text": "text"
+    },
+    "argDefault": "default",
+    "argsHint": "Type {{example}} to fill arguments in order. Missing ones use the default.",
+    "toolHint": "A tool you already have. The command asks the assistant to use it, and the tool keeps its own approval step.",
+    "toolUnknown": "This tool is not among the tools of a chat right now.",
+    "expands": "Puts this in the message box",
+    "valid": "Valid",
+    "invalid": "Needs a fix",
+    "save": "Save",
+    "delete": "Delete",
+    "preview": {
+      "title": "Slash menu preview",
+      "builtin": "Built in",
+      "none": "No commands yet.",
+      "keys": "Enter fills the box"
+    },
+    "problem": {
+      "nameEmpty": "Give the command a name.",
+      "nameFormat": "A name starts with a letter and has only lowercase letters, digits and dashes, at most 32.",
+      "nameBuiltin": "This name belongs to a built-in command. Pick another.",
+      "nameTaken": "Another command already has this name.",
+      "descriptionEmpty": "Write a short description for the menu.",
+      "descriptionLong": "The description has at most {{max}} characters.",
+      "toolEmpty": "Name the tool.",
+      "toolFormat": "A tool name has only letters, digits, dots, colons, dashes and underscores, at most 128.",
+      "templateEmpty": "Write the prompt.",
+      "templateLong": "The prompt has at most {{template}} characters.",
+      "argFormat": "An argument name starts with a letter and has only lowercase letters, digits and underscores.",
+      "argTwice": "An argument is listed twice.",
+      "argDefault": "Each argument needs a default.",
+      "argDefaultLong": "A default has at most 200 characters.",
+      "argMissing": "An argument of the template has no valid name.",
+      "argUnused": "An argument is not used in the template.",
+      "braces": "A double brace is not closed.",
+      "argCount": "A command has at most {{args}} arguments."
+    }
+  },
+  "sound": {
+    "title": "Sound",
+    "play": "Play the sound for {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Use the default volume",
+    "names": {
+      "none": "None",
+      "soft-chime": "Soft chime",
+      "double-tap": "Double tap",
+      "bell": "Bell",
+      "pop": "Pop",
+      "low-tone": "Low tone"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Reply finished",
+        "hint": "A long answer is ready"
+      },
+      "approval": {
+        "label": "Needs your approval",
+        "hint": "A tool or a change asks before it runs"
+      },
+      "taskDone": {
+        "label": "Task or schedule done",
+        "hint": "A trigger or an agent job ended"
+      },
+      "error": {
+        "label": "Error",
+        "hint": "A request or a job failed"
+      }
+    },
+    "notify": {
+      "title": "Notification sounds",
+      "lede": "Short sounds when something needs you. They stay off until you turn them on.",
+      "rule": "Sound starts only after you have used the page. A reply, an approval or an error plays only while this tab is in the background. Nothing plays in quiet hours."
+    },
+    "quiet": {
+      "title": "Quiet hours",
+      "between": "No sounds between {{from}} and {{to}}",
+      "none": "No quiet hours. Turn this on to pick a time span.",
+      "from": "From",
+      "to": "To"
+    },
+    "voice": {
+      "title": "Voice for replies",
+      "lede": "Have replies read aloud.",
+      "readAloud": "Read replies aloud",
+      "mode": {
+        "off": "Never",
+        "button": "When I press the speaker",
+        "auto": "Every reply"
+      },
+      "modeHint": {
+        "off": "Replies are not read aloud.",
+        "button": "A speaker button shows under each reply.",
+        "auto": "Each finished reply is read at once. The browser may ask you to click the page first."
+      },
+      "voice": "Voice",
+      "voicePlaceholder": "Model default",
+      "voiceHint": "The voice name your text-to-speech model takes. Leave it empty for the voice the model starts with.",
+      "speed": "Speed",
+      "speedReset": "Use normal speed",
+      "skipCode": "Skip code and tables",
+      "skipCodeHint": "Say \"code block omitted\" instead.",
+      "sample": "Play sample",
+      "stop": "Stop",
+      "sampleText": "Hello, this is how your replies will sound.",
+      "sampleFailed": "The sample could not be played.",
+      "madeBy": "Speech is made by {{model}}, your text-to-speech default.",
+      "madeByAuto": "Speech is made by {{model}}, the first text-to-speech model installed. You have not picked a default.",
+      "change": "Change in Defaults",
+      "model": {
+        "ask": "Your defaults say to ask each time, so there is no model to read with. Pick a text-to-speech model.",
+        "missing": "{{model}} is your text-to-speech default, but it is not installed.",
+        "none": "No text-to-speech model is installed."
+      },
+      "remote": "{{model}} is not a local model. The text of each reply you have read aloud is sent to another server."
+    }
   }
 }

@@ -1,0 +1,33 @@
+/* The page area of Home: a page of the workspace below the composer, under a
+   thin strip the shell draws. The frame is clipped to the body, so a page
+   cannot cover the strip, the composer or the widgets. The body is as high
+   as the page reports (--wk-area-h, set by PageArea), 240px until it does,
+   never less than 160px or more than 60% of the window: the page scrolls
+   inside. */
+.wk-area { display: flex; flex-direction: column; margin: var(--sp-4) 0; border: 1px solid var(--color-border-card); border-radius: var(--r-lg); overflow: hidden; background: var(--color-bg-secondary); }
+.wk-area__bar { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; min-height: 40px; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4); border-bottom: 1px solid var(--color-border-card); background: var(--color-bg-primary); }
+.wk-area__name { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: var(--font-weight-semibold); font-size: var(--text-sm); }
+.wk-area__icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--dk-accent-text); }
+.wk-area__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-area__pills { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; min-width: 0; }
+.wk-area__tools { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: auto; flex-shrink: 0; }
+.wk-area__body { position: relative; min-width: 0; height: clamp(160px, var(--wk-area-h, 240px), 60vh); overflow: hidden; contain: paint; }
+.wk-area .pg-frame.wk-area__frame { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; background: var(--color-bg-secondary); }
+.wk-area__fill { position: absolute; inset: var(--sp-4); width: auto; height: auto; }
+.wk-area__idle { border-radius: var(--r-md); background: var(--color-bg-tertiary); opacity: 0.5; }
+.wk-area__calm { height: 100%; box-sizing: border-box; padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: var(--sp-1); overflow: auto; }
+.wk-area__calm-icon { width: 18px; height: 18px; color: var(--color-text-muted); margin-bottom: var(--sp-1); }
+.wk-area__calm-title { margin: 0; font-size: var(--text-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.wk-area__calm-text { margin: 0 0 var(--sp-2); font-size: var(--text-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.wk-area__ask { position: absolute; inset: 0; overflow: auto; padding: var(--sp-2); background: color-mix(in srgb, var(--color-bg-secondary) 94%, transparent); }
+.wk-area__ask .pg-ask { margin: 0; }
+.wk-area--wait { min-height: 120px; position: relative; }
+.wk-area__failed, .wk-area__off { margin: var(--sp-4) 0; }
+.wk-area__note { color: var(--color-text-muted); }
+.wk-area__pick { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-3); }
+.wk-area__pick .wk-area__pick-hint { flex: 1 1 100%; margin: 0; }
+.wk-area__pick-label { font-weight: var(--font-weight-semibold); font-size: var(--text-sm); }
+
+@media (max-width: 640px) {
+  .wk-area__bar { padding-left: var(--sp-3); gap: var(--sp-2); }
+}

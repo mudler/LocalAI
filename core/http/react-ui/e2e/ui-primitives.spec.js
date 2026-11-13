@@ -9,6 +9,11 @@ import { mockChat } from './chat-fixtures.js'
 const CATALOG = '/app/ui-catalog'
 const SHOTS = process.env.UI_SHOTS_DIR
 
+// A height read from boundingBox() can be off by 1/65536 px, as Chromium
+// gives a box at a sub-pixel position. Round to 1/100 px: the contract is
+// the size scale, not the float.
+const px = (n) => Math.round(n * 100) / 100
+
 async function openCatalog(page, { theme = 'light' } = {}) {
   await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
   await page.goto(CATALOG)
@@ -37,7 +42,7 @@ test.describe('UI primitives', () => {
 
   test('buttons: one size scale for the component and the legacy classes', async ({ page }) => {
     await openCatalog(page)
-    const box = async (id) => (await page.getByTestId(id).boundingBox()).height
+    const box = async (id) => px((await page.getByTestId(id).boundingBox()).height)
     expect(await box('btn-primary')).toBe(36)
     expect(await box('btn-primary-sm')).toBe(28)
     expect(await box('legacy-primary')).toBe(36)
@@ -98,7 +103,7 @@ test.describe('UI primitives', () => {
     await expect(first).toHaveAttribute('aria-checked', 'false')
     await expect(page.getByRole('switch', { name: 'Opposite switch' })).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByRole('switch', { name: 'Disabled off' })).toBeDisabled()
-    expect((await first.boundingBox()).height).toBe(26)
+    expect(px((await first.boundingBox()).height)).toBe(26)
   })
 
   test('slider: the range and the box agree, keys move a step, reset clears, the bad value is flagged', async ({ page }) => {
@@ -120,8 +125,8 @@ test.describe('UI primitives', () => {
     const bad = page.getByRole('textbox', { name: 'Out of range' })
     await expect(bad).toHaveAttribute('aria-invalid', 'true')
     // The box and the reset button share the control height.
-    expect((await box.boundingBox()).height).toBe(36)
-    expect((await set.getByTestId('cat-slider-reset').boundingBox()).height).toBe(36)
+    expect(px((await box.boundingBox()).height)).toBe(36)
+    expect(px((await set.getByTestId('cat-slider-reset').boundingBox()).height)).toBe(36)
   })
 
   for (const theme of ['light', 'dark']) {

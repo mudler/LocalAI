@@ -12,6 +12,7 @@ import { hubs, hubOwnsPath } from './components/hub/hubConfig'
 import Icon from './components/Icon'
 // eslint-disable-next-line no-unused-vars
 import AppearanceSync from './components/wellknown/AppearanceSync'
+import SoundSync from './components/wellknown/SoundSync'
 import { displayVersion } from './utils/version'
 import { apiUrl } from './utils/basePath'
 import { InboxProvider } from './contexts/InboxContext'
@@ -124,6 +125,7 @@ export default function App() {
     <UpdatesProvider features={features}>
       <div className={layoutClasses}>
         <AppearanceSync />
+        <SoundSync />
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} features={features} />
         <main className="main-content" {...(sidebarOpen ? { 'aria-hidden': 'true', inert: '' } : {})}>
           {/* Mobile header — primary actions reachable without opening the
@@ -179,7 +181,7 @@ export default function App() {
                   content area isn't blank while a chunk arrives (hub pages get
                   their own boundary in HubLayout so the tab bar stays put). */}
               <Suspense fallback={<RouteFallback />}>
-                <Outlet context={{ addToast }} />
+                <Outlet context={{ addToast, features }} />
               </Suspense>
             </div>
           </div>

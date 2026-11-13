@@ -134,5 +134,8 @@
   "inboxOpsFailed_one": "{{count}} operación fallida",
   "inboxOpsFailed_other": "{{count}} operaciones fallidas",
   "inboxOpsFailedAnnounce": "Una operación falló. Mira la pestaña Actividad en Notificaciones.",
-  "activityEntry": "Actividad"
+  "activityEntry": "Actividad",
+  "navLinkExternal": "Abre {{site}} en una pestaña nueva tras confirmar",
+  "navLinkAsk": "¿Abrir este enlace?",
+  "startPage": "Página de inicio"
 }

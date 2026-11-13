@@ -59,7 +59,9 @@ export default function NetworkRow({ egress }) {
           {t('egress.asksAbove', { choice: presetLabel(egress, asked, t), limit: presetLabel(egress, egress.ceiling || 'off', t) })}
         </p>
       )}
-      <p className="chat-network__note" data-testid="chat-network-limit-note">{t('egress.limitNote')}</p>
+      <p className="chat-network__note" data-testid={egress.draft ? 'chat-network-draft' : 'chat-network-limit-note'}>
+        {t(egress.draft ? 'egress.draftNote' : 'egress.limitNote')}
+      </p>
       {kind && <AdminHint isAdmin={isAdmin} egress={egress} testId="chat-network-limit-admin" />}
       {hosts.length > 0 && egress.effective && egress.effective !== 'off' && (
         <p className="chat-network__note" data-testid="chat-network-allowed-note">{t('egress.allowedHostsNote', { count: hosts.length })}</p>

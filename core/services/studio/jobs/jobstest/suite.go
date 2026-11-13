@@ -140,6 +140,61 @@ func Run(newStore NewStore) {
 		Expect(ids(all)).To(Equal("other new mid old "), "all")
 	})
 
+	It("ListJobsFilteredByClient", func() {
+		s := newStore()
+		for i, c := range []string{"c1", "c2", "c1", ""} {
+			j := job("j"+string(rune('a'+i)), "u1", "t1", time.Duration(i)*time.Hour)
+			j.ClientID = c
+			Expect(s.PutJob(ctx, j)).To(Succeed())
+		}
+		other := job("jz", "u2", "t1", 0)
+		other.ClientID = "c1"
+		Expect(s.PutJob(ctx, other)).To(Succeed())
+		l, err := s.ListJobs(ctx, "u1", jobs.Filter{ClientID: "c1"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(l).To(HaveLen(2))
+		Expect([]string{l[0].ID, l[1].ID}).To(Equal([]string{"jc", "ja"}), "newest first, one owner")
+		l, _ = s.ListJobs(ctx, "u1", jobs.Filter{ClientID: "none"})
+		Expect(l).To(BeEmpty())
+	})
+
+	It("FiltersActiveAndFinishedCountsAndOrdersOldestFirst", func() {
+		s := newStore()
+		for i, ended := range []bool{true, false, true, true, false} {
+			j := job("j"+string(rune('a'+i)), "u1", "t1", time.Duration(i)*time.Hour)
+			j.ClientID = "c1"
+			if ended {
+				j.Ended = j.Created.Add(time.Minute)
+			}
+			Expect(s.PutJob(ctx, j)).To(Succeed())
+		}
+		other := job("jz", "u2", "t1", 0)
+		other.ClientID = "c1"
+		Expect(s.PutJob(ctx, other)).To(Succeed())
+		ids := func(l []jobs.Job) []string {
+			out := []string{}
+			for _, j := range l {
+				out = append(out, j.ID)
+			}
+			return out
+		}
+		l, _ := s.ListJobs(ctx, "u1", jobs.Filter{ClientID: "c1", Active: true})
+		Expect(ids(l)).To(Equal([]string{"je", "jb"}), "active")
+		l, _ = s.ListJobs(ctx, "u1", jobs.Filter{ClientID: "c1", Finished: true})
+		Expect(ids(l)).To(Equal([]string{"jd", "jc", "ja"}), "finished")
+		l, _ = s.ListJobs(ctx, "u1", jobs.Filter{ClientID: "c1", Finished: true, OldestFirst: true, Limit: 2})
+		Expect(ids(l)).To(Equal([]string{"ja", "jc"}), "oldest first, limited")
+		l, _ = s.ListJobs(ctx, "u1", jobs.Filter{Active: true, Finished: true})
+		Expect(l).To(BeEmpty(), "both keep none")
+		n, err := s.CountJobs(ctx, "u1", jobs.Filter{ClientID: "c1", Finished: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(3))
+		n, _ = s.CountJobs(ctx, "u1", jobs.Filter{Active: true})
+		Expect(n).To(Equal(2))
+		n, _ = s.CountJobs(ctx, "u1", jobs.Filter{})
+		Expect(n).To(Equal(5), "one owner")
+	})
+
 	It("DeletingATaskKeepsItsJobs", func() {
 		s := newStore()
 		_ = s.PutTask(ctx, task("t1", "u1", "A"))

@@ -65,7 +65,11 @@
     "failed": "The page could not be loaded: {{message}}",
     "back": "All pages",
     "navigated": "The page tried to open another address and was stopped. Reload to start it again.",
-    "untrusted": "This page comes from a shared folder. It does not run until you allow it."
+    "untrusted": "This page comes from a shared folder. It does not run until you allow it.",
+    "startPage": "Start page",
+    "makeStart": "Make this my first pinned page",
+    "startAlone": "It is your only pinned page.",
+    "startFailed": "The start page could not be saved: {{message}}"
   },
   "send": {
     "label": "This page wants to send a message to the assistant",
@@ -169,7 +173,13 @@
     "sourceTitle": "Source of \"{{title}}\"",
     "sourceLines_one": "{{count}} line",
     "sourceLines_other": "{{count}} lines",
-    "sourceNote": "The source is shown as text. Nothing in it runs here."
+    "sourceNote": "The source is shown as text. Nothing in it runs here.",
+    "embed": {
+      "desc": "You allowed this page to open. On Home, in a slot and in the dock it runs as soon as the screen shows, without a click, so it needs its own yes.",
+      "item": "Run on Home, in the slots of the app and in the dock",
+      "note": "It starts when the screen shows, without a click. A change by its author asks again.",
+      "allow": "Allow on Home, in slots and in the dock"
+    }
   },
   "frame": {
     "filesFailed": "Files next to this page did not load: {{files}}. The browser console says why.",
@@ -181,5 +191,41 @@
     "open": "Open {{site}}",
     "cancel": "Cancel",
     "lookalike": "This address uses letters from other alphabets and reads as {{display}}. It may imitate another site: check it before you open it."
+  },
+  "dock": {
+    "button": "Dock",
+    "buttonTitle": "Show or hide the dock (Ctrl+\\)",
+    "region": "Pages beside the chat",
+    "tabs": "Docked pages",
+    "closeTab": "Close {{title}}",
+    "add": "Open another page in the dock",
+    "hide": "Hide the dock",
+    "hideKeys": "Hide the dock (Ctrl+\\)",
+    "openFull": "Open {{title}} as a full page",
+    "by": {
+      "assistant": "Page by the assistant",
+      "you": "Page by you"
+    },
+    "shared": "Shared: {{folder}}",
+    "askPrompt": "Change the page {{title}} in pages/{{name}}/ so that ",
+    "live": "Live: updates as files change",
+    "liveShort": "Live",
+    "sandboxed": "Sandboxed, no network",
+    "resize": "Width of the dock",
+    "resizeHint": "Drag the edge or use the arrow keys. Double-click or press Enter to reset the width.",
+    "fullScreen": "Make the dock full screen",
+    "halfScreen": "Make the dock half the screen",
+    "sheetHint": "Drag the handle up for full screen, down to close",
+    "pickTitle": "Open a page in the dock",
+    "pickEmpty": "You have no pages yet. Ask the assistant to make one.",
+    "missing": "The page {{name}} is gone, or you cannot read it now.",
+    "off": "An administrator turned shared pages off.",
+    "error": "The page could not be loaded.",
+    "allowText": "This page is from a shared folder. It runs here only after you allow it.",
+    "allow": "Review and allow",
+    "run": "Run it here",
+    "sendLabel": "The page asks to send this message to this chat:",
+    "saveFailed": "The dock was not saved: {{message}}",
+    "openInDock": "Open in dock"
   }
 }

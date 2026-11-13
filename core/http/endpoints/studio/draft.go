@@ -59,6 +59,29 @@ func (h *Handlers) DraftTools(c echo.Context) error {
 	return writeToolsPanel(c, p)
 }
 
+// DraftEgress returns the network a new chat would start with.
+// @Summary Read the network a new chat would start with.
+// @Description What GET /api/chats/{id}/egress returns, for a chat that does not exist yet, as GET /api/chats/draft/tools takes it: the preset the chat would start with (the instance default, or the saved agent's, under the administrator's ceiling), the ceiling, the add-on that would run its commands and draw the network controls (addon), and applies, which stays false before the chat exists because no sandbox is bound to it yet and so nothing reports enforcement: use addon, and the profiles of GET /api/chats/sandbox-profiles, to decide whether to offer the presets. It has no rules and no cards. The composer of a new chat shows the presets from it and sets the chosen one with PUT /api/chats/{id}/egress after the chat is created.
+// @Tags chats
+// @Param model query string false "the model of the new chat"
+// @Param agent_id query string false "a saved agent of yours"
+// @Success 200 {object} schema.ChatsEgress "The network of the new chat"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 403 {object} schema.ErrorResponse "Refused"
+// @Failure 404 {object} schema.ErrorResponse "No such agent"
+// @Router /api/chats/draft/egress [get]
+func (h *Handlers) DraftEgress(c echo.Context) error {
+	model, agentID, ok := h.draftQuery(c)
+	if !ok {
+		return nil
+	}
+	v, err := h.svc.DraftEgress(c.Request().Context(), userID(c), model, agentID)
+	if err != nil {
+		return failFor(c, err)
+	}
+	return c.JSON(http.StatusOK, v.JSON())
+}
+
 // DraftAddons lists the add-ons a new chat could use.
 // @Summary List the add-ons a new chat could use.
 // @Description What GET /api/chats/{id}/addons lists, for a chat that does not exist yet, as GET /api/chats/draft/tools takes it: the add-ons with their switch and whether the chat could run commands at its first turn. The draft's current switches may be passed (addons_off, builtins_off, builtins_on: comma-separated lists, as the create request takes them) so the answer is the one the chat would get: with the shell group off, commands is switched_off.

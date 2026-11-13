@@ -140,6 +140,10 @@ type ChatRecord struct {
 	// Goal is the chat's persistent objective, or nil. The store's UpdateGoal
 	// changes it; UpdateChat leaves it alone, like the switches.
 	Goal *Goal
+	// Dock is the side panel of pages the chat shows in the interface, or
+	// nil. The store's UpdateDock changes it; UpdateChat leaves it alone,
+	// like the switches.
+	Dock *Dock
 	// Jobs is the index of the chat's background jobs: where each runs and
 	// how it stands. The process that runs a job writes its stub at the start
 	// and at the end (the store's UpdateJobs); UpdateChat leaves it alone,

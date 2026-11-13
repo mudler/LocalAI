@@ -66,6 +66,18 @@ func listVisibleModelNames(c echo.Context, bcl *config.ModelConfigLoader, ml *mo
 		return nil, err
 	}
 
+	// A client key sees the models of its own list, and only those that it can
+	// still use (a model that gained tools is not offered).
+	if ck := auth.ClientKey(c); ck != nil {
+		kept := make([]string, 0, len(modelNames))
+		for _, m := range modelNames {
+			if ck.AllowsModel(m) && bcl.ClientModelProblem(m) == nil {
+				kept = append(kept, m)
+			}
+		}
+		return kept, nil
+	}
+
 	// Filter models by user's allowlist if auth is enabled
 	if authDB != nil {
 		if user := auth.GetUser(c); user != nil && user.Role != auth.RoleAdmin {

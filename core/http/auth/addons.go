@@ -95,6 +95,11 @@ func AddonActor(c echo.Context) (contract.Actor, error) {
 	}
 	a := contract.Actor{UserID: u.ID, Mode: "named-user"}
 	if k := GetAPIKey(c); k != nil {
+		// A client key is not its owner. Add-ons see a client through the
+		// client routes, never as a named user.
+		if k.IsClientKey() {
+			return contract.Actor{}, errAddonIdentity
+		}
 		a.CredentialID = "key:" + k.ID
 	} else if s, ok := c.Get("_auth_session").(*Session); ok {
 		a.CredentialID = "session:" + s.ID
@@ -134,7 +139,8 @@ func validateActor(ctx context.Context, db *gorm.DB, a contract.Actor, admin boo
 		if err := db.Where("id = ? AND user_id = ?", id, u.ID).First(&k).Error; err != nil {
 			return storeError(err)
 		}
-		if k.IsPaused(now) || (k.ExpiresAt != nil && !k.ExpiresAt.After(now)) {
+		k.User = u
+		if k.IsClientKey() || k.CheckUsable(now) != nil {
 			return errAddonIdentity
 		}
 		if k.Role != RoleAdmin {

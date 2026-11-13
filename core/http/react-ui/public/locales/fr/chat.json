@@ -90,7 +90,8 @@
     "copied": "Copié dans le presse-papiers",
     "copyFailed": "Impossible de copier dans le presse-papiers",
     "chatCopied": "Conversation copiée dans le presse-papiers",
-    "newChatForModel": "Un chat garde son modèle. Nouveau chat lancé avec {{model}}."
+    "newChatForModel": "Un chat garde son modèle. Nouveau chat lancé avec {{model}}.",
+    "windowSet": "La fenêtre de contexte de {{model}} est maintenant de {{window}} jetons."
   },
   "menu": {
     "trigger": "Conversations",
@@ -243,7 +244,8 @@
     "group": {
       "context": "Contexte",
       "skills": "Skills et agents",
-      "help": "Aide"
+      "help": "Aide",
+      "yours": "Les vôtres"
     },
     "models": {
       "label": "Modèles",
@@ -296,7 +298,9 @@
       "builtin": "intégrée",
       "addon": "module",
       "shared": "partagée",
-      "yours": "la vôtre"
+      "yours": "la vôtre",
+      "prompt": "prompt",
+      "tool": "outil"
     },
     "collides": "seulement avec /skill",
     "errors": {
@@ -322,7 +326,9 @@
     "effort": {
       "label": "Effort de raisonnement",
       "desc": "Choisir à quel point le modèle réfléchit"
-    }
+    },
+    "userTool": "Utilise l'outil {{tool}}.",
+    "unavailable": "outil indisponible"
   },
   "shortcuts": {
     "onMessage": "Sur un message : copier, modifier, régénérer",
@@ -330,8 +336,8 @@
   },
   "files": {
     "title": "Fichiers de cette conversation",
-    "chip": "Fichiers",
-    "chipTitle": "Fichiers de cette conversation : ce que vous avez joint et ce que l'assistant a créé ou modifié",
+    "button": "Fichiers",
+    "buttonTitle": "Fichiers de cette conversation : ce que vous avez joint et ce que l'assistant a créé ou modifié",
     "close": "Fermer les fichiers",
     "emptyTitle": "Aucun fichier dans cette conversation",
     "emptyBody": "Déposez des fichiers ici pour les joindre à votre prochain message. Les fichiers que l'assistant crée ou modifie apparaissent aussi ici.",
@@ -894,6 +900,18 @@
       "start": "Démarrer Live",
       "close": "Fermer",
       "notShown": "Installé, mais le modèle n'est pas apparu. Réessayez ou rechargez la page."
+    }
+  },
+  "readAloud": {
+    "read": "Lire à voix haute",
+    "stop": "Arrêter la lecture",
+    "ask": "Votre modèle de synthèse vocale par défaut est réglé sur « demander à chaque fois ». Choisissez un modèle dans Valeurs par défaut pour lire à voix haute.",
+    "none": "Aucun modèle de synthèse vocale n'est installé.",
+    "missing": "Votre modèle de synthèse vocale par défaut n'est pas installé. Choisissez-en un autre dans Valeurs par défaut.",
+    "failed": "Cela n'a pas pu être lu à voix haute.",
+    "omitted": {
+      "code": "Bloc de code omis.",
+      "table": "Tableau omis."
     }
   }
 }

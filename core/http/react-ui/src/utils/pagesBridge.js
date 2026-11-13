@@ -18,6 +18,11 @@ const MAX_IN_FLIGHT = 8
 // cannot bury the person in questions.
 const LINK_BURST = 5
 const LINK_EVERY_MS = 3000
+// Messages a page asks to send (chat.send), as the server limits them after
+// Send (see the Limits of docs/content/features/pages.md): each one is a question to the
+// person, so a burst is small and the rest wait.
+const SEND_BURST = 3
+const SEND_EVERY_MS = 20000
 // Errors of a page's script that the host records (page.error): the text is cut
 // here and again on the server, and a burst is bounded, so a throw inside a 60
 // fps loop cannot flood the server.
@@ -53,9 +58,21 @@ export function pageCsp(modules) {
 }
 
 // The bridge inside the frame. INFO is replaced with the page's name, title,
-// theme, mode ('page', or 'widget' in a tile on Home) and tile size, the notes of the files that did not go in (written to the console)
-// and the banner that says so in the page. It is plain ES5 and must never
-// contain a closing script tag.
+// theme, mode ('page', 'widget' in a tile, or 'area' in the page area of Home)
+// and tile size (empty in the area, which is always the full width), the notes of the
+// files that did not go in (written to the console) and the banner that says
+// so in the page. It is plain ES5 (with Reflect.apply) and must never contain
+// a closing script tag.
+//
+// A tile changes size without a reload: the host sends {event: 'mode', data:
+// {mode, size}}, the bridge updates localai.page and the data-mode and
+// data-size attributes of <html>, then calls the page's 'mode' listeners.
+//
+// A frame with a budget (utils/frameWatch.js: a tile, the page area and the
+// dock; INFO.beat is true) gets about once a second from the bridge a
+// {beat: 1, busy} over the port, busy being the time in ms that
+// the page kept the thread busy since the last beat (long tasks, and how late
+// the beat's own timer fired). A page that stops the beats is stopped.
 //
 // It also gives fetch() and XMLHttpRequest the files of the page's folder: a
 // relative URL (data.json, ./data/x.json?v=2) is read with files.read and
@@ -63,16 +80,62 @@ export function pageCsp(modules) {
 // refused with a TypeError, because the frame has no network. The resolution
 // of a URL is the one of resolvePagePath in pageAssets.js; the unit tests
 // check that both agree.
+//
+// The budget must hold against the page: this script runs before any of the
+// page's, so it keeps here the functions the beats and the port depend on
+// (the clock, the timer, the long task observer, the getters of a message
+// event, the setter and post of a port). A page that replaces them later
+// changes only its own copy. The observer starts here, before the page, and
+// the init message is taken in the capture phase and stopped, so no script
+// of the page sees the port.
 const BOOTSTRAP = `(function () {
   'use strict'
   var info = INFO
-  document.documentElement.setAttribute('data-theme', info.theme)
-  document.documentElement.setAttribute('data-mode', info.mode)
-  if (info.size) document.documentElement.setAttribute('data-size', info.size)
-  document.documentElement.style.colorScheme = info.theme
-  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [] }
+  var apply = Reflect.apply
+  function own(C, key) {
+    try {
+      var d = C && C.prototype && Object.getOwnPropertyDescriptor(C.prototype, key)
+      return d || null
+    } catch (err) { return null }
+  }
+  function getter(C, key) { var d = own(C, key); return d && d.get ? d.get : null }
+  function read(get, obj, key) { return get ? apply(get, obj, []) : obj[key] }
+  var clock = Date.now, every = typeof setInterval === 'function' ? setInterval : null, parentWin = window.parent
+  var evData = getter(typeof MessageEvent === 'function' && MessageEvent, 'data')
+  var evPorts = getter(typeof MessageEvent === 'function' && MessageEvent, 'ports')
+  var evSource = getter(typeof MessageEvent === 'function' && MessageEvent, 'source')
+  var stopEvent = (own(typeof Event === 'function' && Event, 'stopImmediatePropagation') || {}).value || null
+  var portPost = (own(typeof MessagePort === 'function' && MessagePort, 'postMessage') || {}).value || null
+  var portOnMessage = (own(typeof MessagePort === 'function' && MessagePort, 'onmessage') || {}).set || null
+  var listEntries = (own(typeof PerformanceObserverEntryList === 'function' && PerformanceObserverEntryList, 'getEntries') || {}).value || null
+  var entryDuration = getter(typeof PerformanceEntry === 'function' && PerformanceEntry, 'duration')
+  function post(m) {
+    if (portPost) apply(portPost, port, [m])
+    else port.postMessage(m)
+  }
+  // The long tasks of the page, from before its first line.
+  var busy = 0
+  try {
+    if (typeof PerformanceObserver === 'function') {
+      new PerformanceObserver(function (list) {
+        var es = listEntries ? apply(listEntries, list, []) : list.getEntries()
+        for (var k = 0; k < es.length; k++) busy += read(entryDuration, es[k], 'duration')
+      }).observe({ entryTypes: ['longtask'] })
+    }
+  } catch (err) { /* no long tasks here: the late timer still counts */ }
+  var MODES = { page: 1, widget: 1, area: 1 }, SIZES = { compact: 1, small: 1, medium: 1, large: 1 }
+  var root = document.documentElement
+  function setMode() {
+    root.setAttribute('data-mode', info.mode)
+    if (info.size) root.setAttribute('data-size', info.size)
+    else if (root.removeAttribute) root.removeAttribute('data-size')
+  }
+  root.setAttribute('data-theme', info.theme)
+  setMode()
+  root.style.colorScheme = info.theme
+  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [], 'mode': [] }
   function deliver(ev) {
-    var m = ev.data
+    var m = read(evData, ev, 'data')
     if (!m || typeof m !== 'object') return
     if (typeof m.id === 'number' && waiting[m.id]) {
       var w = waiting[m.id]
@@ -85,30 +148,80 @@ const BOOTSTRAP = `(function () {
       } else w[0](m.result)
       return
     }
+    if (m.event === 'mode') {
+      var d = m.data || {}
+      if (!MODES[d.mode] || (d.mode === 'widget' ? !SIZES[d.size] : d.size)) return
+      if (d.mode === info.mode && (d.size || '') === info.size) return
+      info.mode = d.mode
+      info.size = d.size || ''
+      setMode()
+      m = { event: 'mode', data: { mode: info.mode, size: info.size } }
+    }
     if (typeof m.event === 'string' && listeners[m.event]) {
       listeners[m.event].slice().forEach(function (fn) {
         try { fn(m.data) } catch (err) { setTimeout(function () { throw err }) }
       })
     }
   }
+  // Only the parent's init: the page's own messages go on to its listeners.
   window.addEventListener('message', function (e) {
-    if (port || e.source !== window.parent || !e.data || e.data.type !== 'localai:init' || !e.ports || e.ports.length !== 1) return
-    port = e.ports[0]
-    port.onmessage = deliver
-    for (var i = 0; i < queue.length; i++) port.postMessage(queue[i])
+    var d = read(evData, e, 'data')
+    if (read(evSource, e, 'source') !== parentWin || !d || d.type !== 'localai:init') return
+    if (stopEvent) apply(stopEvent, e, [])
+    else if (e.stopImmediatePropagation) e.stopImmediatePropagation()
+    var ports = read(evPorts, e, 'ports')
+    if (port || !ports || ports.length !== 1) return
+    port = ports[0]
+    if (portOnMessage) apply(portOnMessage, port, [deliver])
+    else port.onmessage = deliver
+    for (var i = 0; i < queue.length; i++) post(queue[i])
     queue = []
-  })
+    if (info.beat) beat()
+  }, true)
+  // The beats of the budget, for a frame with a budget: the time since the last one
+  // beyond the timer's own period is time the page held the thread, and so
+  // is each long task. The load of the page is not counted: a page that never
+  // loads gets no port and the host stops it for no first beat.
+  var lastBeat = 0
+  function beat() {
+    if (lastBeat || !every) return
+    lastBeat = clock()
+    busy = 0
+    every(function () {
+      var t = clock(), late = t - lastBeat - 1000
+      lastBeat = t
+      var b = late > 50 && late > busy ? late : busy
+      busy = 0
+      try { post({ beat: 1, busy: (b + 0.5) | 0 }) } catch (err) { /* the host closed the port */ }
+    }, 1000)
+  }
   function call(method, params) {
     return new Promise(function (resolve, reject) {
       var id = ++seq
       waiting[id] = [resolve, reject]
       var m = { id: id, method: method, params: params }
-      if (port) port.postMessage(m)
+      if (port) post(m)
       else queue.push(m)
     })
   }
+  // The height of the page's content: the box of <html>, which is as high as
+  // what the page draws unless the page makes it fill the frame.
+  var rootRect = (own(typeof Element === 'function' && Element, 'getBoundingClientRect') || {}).value || null
+  function contentHeight() {
+    try {
+      var r = rootRect ? apply(rootRect, root, []) : root.getBoundingClientRect ? root.getBoundingClientRect() : null
+      return r && r.height > 0 ? Math.ceil(r.height) : 0
+    } catch (err) { return 0 }
+  }
   var api = {
-    page: Object.freeze({ name: info.name, title: info.title, mode: info.mode, size: info.size }),
+    page: Object.freeze({
+      name: info.name, title: info.title,
+      get mode() { return info.mode },
+      get size() { return info.size },
+      // Asks the host for a height (the page area of Home follows it, within
+      // its limits); with no argument, the height of the document.
+      resize: function (height) { return call('page.resize', { height: height === undefined ? contentHeight() : height }) }
+    }),
     files: Object.freeze({
       read: function (path) { return call('files.read', { path: path }) },
       write: function (path, content, opts) { return call('files.write', { path: path, content: content, base: opts && opts.base }) },
@@ -410,8 +523,10 @@ const BOOTSTRAP = `(function () {
 // the page's modules (head, from inlinePageAssets), then the page. All go
 // before the page's own markup, so nothing the page wrote runs first or can
 // hide the policy.
-export const PAGE_MODES = ['page', 'widget']
+export const PAGE_MODES = ['page', 'widget', 'area']
 export const WIDGET_SIZES = ['small', 'medium', 'large']
+// The sizes of a tile: the three of Home, and compact, the strip of a slot.
+export const TILE_SIZES = ['compact', ...WIDGET_SIZES]
 
 const newlines = (text) => (text.match(/\n/g) || []).length
 
@@ -428,15 +543,19 @@ export function noticeColours() {
   return { bg: read('--dk-warn-wash'), fg: read('--dk-warn-text'), accent: read('--dk-warn') }
 }
 
-export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '', colors = {} } = {}) {
+// beat: the frame has a budget (PageFrame's budget), so the bridge sends the
+// beats whatever the mode: a page in the dock is watched as a tile is.
+export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '', colors = {}, beat = false } = {}) {
   const widget = mode === 'widget'
+  const area = mode === 'area'
   const info = scriptJSON({
     // The lines LocalAI puts before the page: the bridge takes them off the
     // line of an error. The JSON has no line break, so they are these of the
     // bridge and the head.
     shift: newlines(BOOTSTRAP) + newlines(head),
     name: String(name || ''), title: String(title || name || ''), theme: theme === 'dark' ? 'dark' : 'light',
-    mode: widget ? 'widget' : 'page', size: widget ? (WIDGET_SIZES.includes(size) ? size : 'medium') : '',
+    mode: widget ? 'widget' : area ? 'area' : 'page', size: widget ? (TILE_SIZES.includes(size) ? size : 'medium') : '',
+    beat: beat === true,
     notes: (Array.isArray(notes) ? notes : []).slice(0, 50).map((n) => ({ level: n.level === 'error' ? 'error' : 'warn', message: String(n.message || '').slice(0, 500) })),
     banner: String(banner || '').slice(0, 1000), dismiss: String(dismiss || ''),
     colors: Object.fromEntries(['bg', 'fg', 'accent'].filter((k) => /^#[0-9a-fA-F]{3,8}$/.test(colors && colors[k])).map((k) => [k, colors[k]])),
@@ -480,9 +599,13 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 // {id, result} or {id, error}. What a page can reach is the four handlers:
 //
 //   files.read(path), files.write(path, content, base), files.list(dir)
-//   chat.send(text)   resolves to {sent, chat_id}; the host asks the person first
+//   chat.send(text)   resolves to {sent, chat_id}; the host asks the person first.
+//                     A burst is limited as for links
 //   link.open(url)    resolves to {opened}; only http and https, and the host
 //                     asks the person first (links.open gets the checked target)
+//   page.resize(h)    the page asks for a height in px; resize(h) (the page area)
+//                     clamps it and returns what it applies, and a frame
+//                     without resize answers {height: null}
 //   page.error(...)   the bridge reports what the page's script threw; errors.report
 //                     keeps it for the assistant. Without errors (a shared page)
 //                     it records nothing. Bursts are dropped, and a failure is
@@ -490,13 +613,32 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 //
 // The server checks every path again with the user's rights; the checks here
 // only refuse a malformed call early.
-export function createPageHost({ post, files, chat, links, errors, now = Date.now }) {
+//
+// A message {beat: 1, busy} is the frame's beat (see BOOTSTRAP): it goes to
+// onBeat(busy) and gets no answer.
+// bucket is a token bucket on the clock now: take() says whether one more
+// call fits in a burst of burst, with one token back every everyMs.
+function bucket(now, burst, everyMs) {
+  let tokens = burst
+  let at = now()
+  return {
+    take() {
+      const t = now()
+      tokens = Math.min(burst, tokens + Math.floor((t - at) / everyMs))
+      if (t - at >= everyMs) at = t
+      if (tokens < 1) return false
+      tokens--
+      return true
+    },
+  }
+}
+
+export function createPageHost({ post, files, chat, links, errors, resize, onBeat, now = Date.now }) {
   let closed = false
   let inFlight = 0
-  let linkTokens = LINK_BURST
-  let linkAt = now()
-  let errorTokens = ERROR_BURST
-  let errorAt = now()
+  const linkBudget = bucket(now, LINK_BURST, LINK_EVERY_MS)
+  const errorBudget = bucket(now, ERROR_BURST, ERROR_EVERY_MS)
+  const sendBudget = bucket(now, SEND_BURST, SEND_EVERY_MS)
 
   const answer = (msg) => { if (!closed) post(msg) }
 
@@ -524,31 +666,28 @@ export function createPageHost({ post, files, chat, links, errors, now = Date.no
       case 'chat.send': {
         const text = typeof p.text === 'string' ? p.text.trim() : ''
         if (text === '' || text.length > MAX_TEXT) throw bad('text is empty or longer than 4000 characters')
+        if (!sendBudget.take()) throw { code: 'busy', message: 'too many messages at once; wait a moment' }
         return chat.send(text)
       }
       case 'link.open': {
         const target = pageLinkTarget(p.url)
         if (target.error) throw { code: 'invalid', message: LINK_ERRORS[target.error] }
         if (!links) throw { code: 'unavailable', message: 'links do not open here' }
-        const t = now()
-        linkTokens = Math.min(LINK_BURST, linkTokens + Math.floor((t - linkAt) / LINK_EVERY_MS))
-        if (t - linkAt >= LINK_EVERY_MS) linkAt = t
-        if (linkTokens < 1) throw { code: 'busy', message: 'too many links at once; wait a moment' }
-        linkTokens--
+        if (!linkBudget.take()) throw { code: 'busy', message: 'too many links at once; wait a moment' }
         // The host shows one question: a new link replaces the one before,
         // which answers {opened: false}.
         return { opened: Boolean((await links.open(target))?.opened) }
+      }
+      case 'page.resize': {
+        if (typeof p.height !== 'number' || !Number.isFinite(p.height) || p.height < 0) throw bad('height must be a number of pixels')
+        return { height: resize ? (resize(p.height) ?? null) : null }
       }
       case 'page.error': {
         // Silent by design: a page that throws gets no error back for it.
         const message = typeof p.message === 'string' ? p.message.trim().slice(0, MAX_ERROR_MESSAGE) : ''
         if (message === '') throw bad('message')
         if (!errors || isNoiseError(message)) return { recorded: false }
-        const t = now()
-        errorTokens = Math.min(ERROR_BURST, errorTokens + Math.floor((t - errorAt) / ERROR_EVERY_MS))
-        if (t - errorAt >= ERROR_EVERY_MS) errorAt = t
-        if (errorTokens < 1) return { recorded: false }
-        errorTokens--
+        if (!errorBudget.take()) return { recorded: false }
         const int = (v, max) => (Number.isInteger(v) && v > 0 && v <= max ? v : 0)
         try {
           await errors.report({
@@ -569,7 +708,12 @@ export function createPageHost({ post, files, chat, links, errors, now = Date.no
 
   return {
     async receive(data) {
-      if (closed || !isObject(data) || !Number.isInteger(data.id) || data.id < 1) return
+      if (closed || !isObject(data)) return
+      if (data.beat === 1 && data.id === undefined) {
+        onBeat?.(Number.isFinite(data.busy) && data.busy > 0 ? data.busy : 0)
+        return
+      }
+      if (!Number.isInteger(data.id) || data.id < 1) return
       const { id, method } = data
       if (typeof method !== 'string' || method.length > 40) return answer({ id, error: bad('method') })
       if (inFlight >= MAX_IN_FLIGHT) return answer({ id, error: { code: 'busy', message: 'too many calls at once' } })
@@ -588,11 +732,17 @@ export function createPageHost({ post, files, chat, links, errors, now = Date.no
       }
       return undefined
     },
-    // Sends an event to the page: files.changed ({paths}) and visibility
-    // ({visible}: the tab or the tile went out of sight, or came back).
+    // Sends an event to the page: files.changed ({paths}), visibility
+    // ({visible}: the tab or the tile went out of sight, or came back) and
+    // mode ({mode, size}: the tile changed size; only known values pass).
     emit(event, payload) {
       if (event === 'files.changed') answer({ event, data: payload })
       else if (event === 'visibility') answer({ event, data: { visible: Boolean(payload?.visible) } })
+      else if (event === 'mode') {
+        const mode = PAGE_MODES.includes(payload?.mode) ? payload.mode : 'page'
+        const size = mode === 'widget' ? (TILE_SIZES.includes(payload?.size) ? payload.size : 'medium') : ''
+        answer({ event, data: { mode, size } })
+      }
     },
     close() { closed = true },
   }

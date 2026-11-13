@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/nav.json",
+  "title": "LocalAI/nav.json",
+  "description": "The order of the sidebar: built-in entries, groups and your own links. New chat, Chats, the settings entries and the search always stay; this file cannot move, rename or hide them. Without this file the sidebar shows its default order.",
+  "x-builtin-ids": ["home", "files", "pages", "agents", "connections", "memory", "skills", "models", "addons"],
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 60,
+      "description": "The sidebar from top to bottom. A built-in entry is {id}, a group is {group}, a link is {type, page|chat|url}. A built-in entry that is not listed is added after the last item in the default order, so a short list never loses an entry. An id the server does not know is ignored.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Built-in entry",
+            "description": "One of: home, files, pages, agents, connections, memory, skills, models, addons. Home cannot be hidden.",
+            "pattern": "^[a-z][a-z0-9-]{0,39}$"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group",
+            "description": "A section title. The items after it, up to the next group, are listed under it.",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "type": { "enum": ["page", "chat", "url"], "title": "Link type", "description": "page opens one of your pages, chat opens one conversation, url opens an address in a new tab after the person confirms." },
+          "page": { "type": "string", "title": "Page", "description": "For a page link: the name of a page, the folder pages/<name>/ of your home.", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+          "chat": { "type": "string", "title": "Chat", "description": "For a chat link: the id of the chat.", "pattern": "^[A-Za-z0-9_.-]{1,80}$" },
+          "url": { "type": "string", "title": "Address", "description": "For a url link: an http or https address without a user name or password.", "maxLength": 2048 },
+          "label": { "type": "string", "title": "Label", "description": "The name shown in the sidebar. For a built-in entry it replaces the default name; leave it out to keep the default.", "minLength": 1, "maxLength": 40 },
+          "icon": { "type": "string", "title": "Icon", "description": "An icon name such as file-code, chat or globe. Used by links; a built-in entry keeps its own icon.", "maxLength": 40, "pattern": "^[a-z0-9-]+$" },
+          "hidden": { "type": "boolean", "title": "Hidden", "description": "true takes a built-in entry out of the sidebar. Home cannot be hidden." }
+        },
+        "oneOf": [
+          { "required": ["id"] },
+          { "required": ["group"] },
+          { "required": ["type"] }
+        ],
+        "allOf": [
+          { "if": { "properties": { "type": { "const": "page" } }, "required": ["type"] }, "then": { "required": ["page"] } },
+          { "if": { "properties": { "type": { "const": "chat" } }, "required": ["type"] }, "then": { "required": ["chat"] } },
+          { "if": { "properties": { "type": { "const": "url" } }, "required": ["type"] }, "then": { "required": ["url"] } }
+        ]
+      }
+    }
+  },
+  "required": ["items"]
+}

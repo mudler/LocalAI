@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { pinsOf, withPin } from '../utils/pages'
+import { pinsOf, startOf, withPin, withStart } from '../utils/pages'
 import { useWellKnown, wellKnownStore } from './useWellKnown'
 
 // The pinned pages are `pinnedPages` in ui.json of the user's home. ui.json is
@@ -26,8 +26,27 @@ export async function setPin(name, pinned) {
   throw new Error('LocalAI/ui.json keeps changing; try again')
 }
 
+// setStart makes name the first pinned page, or moves it behind the others.
+// Like a pin, it starts from the version it read and is tried again on top of
+// a newer document, so the order is merged by value: the pages another tab or
+// the assistant pinned in between stay.
+export async function setStart(name, on) {
+  let doc = await wellKnownStore.load('ui')
+  for (let i = 0; i < MAX_TRIES; i++) {
+    const next = withStart(doc?.data, name, on)
+    try {
+      await wellKnownStore.save('ui', { pinnedPages: next.pinnedPages }, { version: doc?.version ?? 0 })
+      return
+    } catch (e) {
+      if (!e?.conflict) throw e
+      doc = e.current
+    }
+  }
+  throw new Error('LocalAI/ui.json keeps changing; try again')
+}
+
 export function usePinnedPages(enabled = true) {
   const { doc, error, loading, reload } = useWellKnown('ui', { enabled })
   const pins = useMemo(() => pinsOf(doc?.data), [doc])
-  return { pins, loaded: !loading, error: error?.message || '', setPin, refresh: reload }
+  return { pins, start: startOf(pins), loaded: !loading, error: error?.message || '', setPin, setStart, refresh: reload }
 }

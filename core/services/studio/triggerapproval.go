@@ -63,16 +63,18 @@ func ParseClock(text string) (hour, minute int, err error) {
 }
 
 // timerSchedule turns "in 10 minutes" (in) or "at 18:00" (at) into a one-off
-// schedule text and the zone it is read in. A delay needs no zone (UTC is used
-// when none is given); a time of day needs one, since the host does not know
-// where the person is. A time of day that is less than a minute away, or past,
-// means the next day.
+// schedule text and the zone it is read in. at is a time of day, the next time
+// it is that time, or a date and a time ("2026-11-15 09:00"), which names the
+// day. A delay needs no zone (UTC is used when none is given); a time needs
+// one, since the host does not know where the person is. A time of day that is
+// less than a minute away, or past, means the next day; a date and time that
+// is past or less than a minute away is refused, not moved.
 func timerSchedule(now time.Time, in, at, tz string) (schedule, zone string, err error) {
 	if (in == "") == (at == "") {
-		return "", "", errors.New(`when needs exactly one of "in" (a delay such as "10 minutes") or "at" (a time of day such as "18:00")`)
+		return "", "", errors.New(`when needs exactly one of "in" (a delay such as "10 minutes") or "at" (a time of day such as "18:00", or a date and time such as "2026-11-15 09:00")`)
 	}
 	if at != "" && tz == "" {
-		return "", "", errors.New(`"at" needs time_zone: ask the person where they are, or use "in" with a delay`)
+		return "", "", errors.New(`"at" needs a time zone: pass time_zone (as an argument, or inside when next to "at"), ask the person where they are, or use "in" with a delay`)
 	}
 	if tz == "" {
 		tz = "UTC"
@@ -97,6 +99,11 @@ func timerSchedule(now time.Time, in, at, tz string) (schedule, zone string, err
 		if rounded := target.Truncate(time.Minute); rounded.Before(target) {
 			target = rounded.Add(time.Minute)
 		}
+	} else if dt, ok := parseDateTime(at, loc); ok {
+		target = dt
+		if target.Sub(now) < MinOneOff {
+			return "", "", fmt.Errorf("%s in %s is past or less than a minute away; it is now %s", at, tz, now.In(loc).Format("2006-01-02 15:04"))
+		}
 	} else {
 		h, m, cerr := ParseClock(at)
 		if cerr != nil {
@@ -109,6 +116,17 @@ func timerSchedule(now time.Time, in, at, tz string) (schedule, zone string, err
 		}
 	}
 	return "once " + target.In(loc).Format("2006-01-02 15:04"), tz, nil
+}
+
+// parseDateTime reads "2026-11-15 09:00" (or with a T) in loc.
+func parseDateTime(text string, loc *time.Location) (time.Time, bool) {
+	text = strings.TrimSpace(text)
+	for _, layout := range []string{"2006-01-02 15:04", "2006-01-02T15:04"} {
+		if t, err := time.ParseInLocation(layout, text, loc); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 // ---- Approval ----

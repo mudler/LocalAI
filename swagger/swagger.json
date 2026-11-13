@@ -6703,6 +6703,55 @@
                 }
             }
         },
+        "/api/chats/draft/egress": {
+            "get": {
+                "description": "What GET /api/chats/{id}/egress returns, for a chat that does not exist yet, as GET /api/chats/draft/tools takes it: the preset the chat would start with (the instance default, or the saved agent's, under the administrator's ceiling), the ceiling, the add-on that would run its commands and draw the network controls (addon), and applies, which stays false before the chat exists because no sandbox is bound to it yet and so nothing reports enforcement: use addon, and the profiles of GET /api/chats/sandbox-profiles, to decide whether to offer the presets. It has no rules and no cards. The composer of a new chat shows the presets from it and sets the chosen one with PUT /api/chats/{id}/egress after the chat is created.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the network a new chat would start with.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the model of the new chat",
+                        "name": "model",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "a saved agent of yours",
+                        "name": "agent_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The network of the new chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgress"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Refused",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/draft/tools": {
             "get": {
                 "description": "What GET /api/chats/{id}/tools lists, for a chat that does not exist yet: a chat on model, with the saved agent agent_id when it is set (the agent's model, when it has one, replaces model). Every switch is in its default state. The composer of a new chat shows it and sends the person's choices in the switches of POST /api/chats.",
@@ -8929,7 +8978,7 @@
         },
         "/api/chats/shared-pages/{folder}/{name}/consent": {
             "put": {
-                "description": "hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. Each consent and revoke is audited.",
+                "description": "hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. embed is a lasting consent that also lets the version run on Home and in the slots of ui.json, where it starts without a click; it cannot go with once (400). A lasting consent to the same version keeps embed. Each consent and revoke is audited.",
                 "tags": [
                     "pages"
                 ],
@@ -10020,7 +10069,7 @@
         },
         "/api/chats/wellknown/{name}": {
             "get": {
-                "description": "name is persona, user, shortcuts, setups, home, ui or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.",
+                "description": "name is persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.",
                 "tags": [
                     "chats"
                 ],
@@ -10028,7 +10077,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -10070,7 +10119,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -10135,7 +10184,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -10184,7 +10233,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -10217,7 +10266,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, setups, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -10714,6 +10763,89 @@
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/dock": {
+            "get": {
+                "description": "The dock is the panel of pages that the interface shows beside the chat. It is stored with the chat, so every browser and every frontend shows the same one. The assistant opens a page of your home in it with its open_page tool.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get a chat's dock.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The dock, or null",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDockResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replaces the dock: its tabs (at most 6 pages, each once; folder is the id of a shared folder, absent for a page of your home), the index of the tab in front, whether the panel is open and its width in CSS pixels (0 for the default, else 320 to 4096). A dock with no tab clears it. The page names are not checked here: a page that is gone shows as missing in the interface, and a shared page still needs your consent before it runs. Watchers of the chat get a dock event. A sub-agent run has no dock (409).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set a chat's dock.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the dock",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The dock as stored, or null when it was cleared",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDockResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The dock is out of its bounds",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A sub-agent run has no dock",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -13336,6 +13468,23 @@
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/recommended": {
+            "get": {
+                "description": "Returns the curated models for the hardware tier of the machine, best first, with the context window each would be installed with and whether it fits. Every signed-in user may read it; installing stays admin-only. The hardware is the host, or the best single node of a cluster.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Recommend models for this machine.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RecommendedModelsResponse"
                         }
                     }
                 }
@@ -21675,6 +21824,109 @@
                 }
             }
         },
+        "localai.RecommendedHardwareInfo": {
+            "type": "object",
+            "properties": {
+                "detected": {
+                    "description": "Detected is false when no memory figure could be read; the cpu tier is\nthen shown without a fit verdict.",
+                    "type": "boolean"
+                },
+                "kind": {
+                    "description": "Kind is \"gpu\", \"cpu\" or \"unknown\".",
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the per-device VRAM on a GPU host and the system memory\notherwise.",
+                    "type": "integer"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "Scope is \"local\" or \"cluster\"; NodeName names the cluster node sized for.",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RecommendedModel": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "description": "ContextSize is the window the install will use. Pass it as the\ncontext_size parameter of the install route so the installed config\ncarries it. 0 when it could not be computed; then install without it.",
+                    "type": "integer"
+                },
+                "fit": {
+                    "description": "Fit is \"fits\", \"tight\", \"does_not_fit\" or \"unknown\".",
+                    "type": "string"
+                },
+                "fit_reasons": {
+                    "description": "FitReasons are stable keys a client turns into text.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "description": "ID is the gallery name; pass it to the install route.",
+                    "type": "string"
+                },
+                "installed": {
+                    "type": "boolean"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the estimated memory at ContextSize.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is the one-line reason the curated list gives.",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is \"default\" or \"alternative\", as the curated list has it.",
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "description": "SizeBytes is the size of the weights to download.",
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.RecommendedModelsResponse": {
+            "type": "object",
+            "properties": {
+                "hardware": {
+                    "$ref": "#/definitions/localai.RecommendedHardwareInfo"
+                },
+                "min_context": {
+                    "description": "MinContext and RecommendedContext are the chat windows the fit is judged by.",
+                    "type": "integer"
+                },
+                "models": {
+                    "description": "Models are ranked best first. The first one is the recommendation.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.RecommendedModel"
+                    }
+                },
+                "nothing_fits": {
+                    "description": "NothingFits is true when no curated model fits the machine. Models then\nholds the smallest one, with a fit of does_not_fit.",
+                    "type": "boolean"
+                },
+                "recommended_context": {
+                    "type": "integer"
+                },
+                "tier": {
+                    "description": "Tier is the hardware tier: cpu, gpu-small, gpu-mid or gpu-large.",
+                    "type": "string"
+                }
+            }
+        },
         "localai.TTSModelVoices": {
             "type": "object",
             "properties": {
@@ -25535,11 +25787,27 @@
                 "created": {
                     "type": "string"
                 },
+                "dock": {
+                    "description": "Dock is the panel of pages the interface shows beside the chat, when\nsomething opened one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    ]
+                },
                 "goal": {
                     "description": "Goal is the chat's goal, when it has one.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsGoal"
+                        }
+                    ]
+                },
+                "harness": {
+                    "description": "Harness says whether the chat has the context window the chat agent\nneeds. It is set when a single chat is opened, created or changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHarness"
                         }
                     ]
                 },
@@ -25614,11 +25882,27 @@
                 "created": {
                     "type": "string"
                 },
+                "dock": {
+                    "description": "Dock is the panel of pages the interface shows beside the chat, when\nsomething opened one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    ]
+                },
                 "goal": {
                     "description": "Goal is the chat's goal, when it has one.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsGoal"
+                        }
+                    ]
+                },
+                "harness": {
+                    "description": "Harness says whether the chat has the context window the chat agent\nneeds. It is set when a single chat is opened, created or changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHarness"
                         }
                     ]
                 },
@@ -25824,6 +26108,46 @@
                 },
                 "title": {
                     "description": "Title is optional; the conversation is named after its first message otherwise.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsDock": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer"
+                },
+                "open": {
+                    "type": "boolean"
+                },
+                "tabs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsDockTab"
+                    }
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsDockResponse": {
+            "type": "object",
+            "properties": {
+                "dock": {
+                    "$ref": "#/definitions/schema.ChatsDock"
+                }
+            }
+        },
+        "schema.ChatsDockTab": {
+            "type": "object",
+            "properties": {
+                "folder": {
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the folder name of the page (^[a-z0-9][a-z0-9-]{0,63}$).",
                     "type": "string"
                 }
             }
@@ -26649,6 +26973,38 @@
                 },
                 "replaced": {
                     "$ref": "#/definitions/schema.ChatsGoal"
+                }
+            }
+        },
+        "schema.ChatsHarness": {
+            "type": "object",
+            "properties": {
+                "admin": {
+                    "description": "Admin is true when Minimum is the administrator's.",
+                    "type": "boolean"
+                },
+                "can_fix": {
+                    "description": "CanFix is true when this user may change what limits the window: an\nadministrator for the model's window, the chat's owner for the chat's\nown context size.",
+                    "type": "boolean"
+                },
+                "minimum": {
+                    "description": "Minimum is the smallest window that works for this user's role, and\nRecommended is the window to aim at.",
+                    "type": "integer"
+                },
+                "ok": {
+                    "description": "OK is false when the window of the chat is below Minimum.",
+                    "type": "boolean"
+                },
+                "recommended": {
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "Source is what limits the window when OK is false: \"model\" or \"chat\".",
+                    "type": "string"
+                },
+                "window": {
+                    "description": "Window is the window the chat runs with, in tokens (0 when unknown).",
+                    "type": "integer"
                 }
             }
         },
@@ -29652,6 +30008,13 @@
                 "version": {
                     "description": "Version is what a write sends back in If-Match. It is 0 when the file\ndoes not exist.",
                     "type": "integer"
+                },
+                "withheld": {
+                    "description": "Withheld names the keys of the file that the server leaves out of data\nbecause an administrator turned their feature off (pageArea of home\nwhile the page area of Home is off). The file keeps them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -32920,12 +33283,25 @@
                 }
             }
         },
+        "schema.PagesCompact": {
+            "type": "object",
+            "properties": {
+                "width": {
+                    "description": "Width is the width of the tile in CSS pixels, 72 to 220.",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.PagesConsent": {
             "type": "object",
             "properties": {
                 "allowed_at": {
                     "description": "The version you allowed: when, and the size of its index.html and\npage.json and the lines of its index.html, to say what changed.",
                     "type": "string"
+                },
+                "embed": {
+                    "description": "Embed is true when you also allowed this version to run on Home and in\nthe slots of the app (ui.json slots), where it starts without a click.",
+                    "type": "boolean"
                 },
                 "lines": {
                     "type": "integer"
@@ -32945,6 +33321,10 @@
         "schema.PagesConsentRequest": {
             "type": "object",
             "properties": {
+                "embed": {
+                    "description": "Embed also allows the version on Home and in the slots of the app. It\nis a lasting consent: it cannot go with once.",
+                    "type": "boolean"
+                },
                 "hash": {
                     "type": "string"
                 },
@@ -32956,6 +33336,9 @@
         "schema.PagesConsentResponse": {
             "type": "object",
             "properties": {
+                "embed": {
+                    "type": "boolean"
+                },
                 "expires": {
                     "type": "string"
                 },
@@ -33072,6 +33455,10 @@
         "schema.PagesList": {
             "type": "object",
             "properties": {
+                "page_area_enabled": {
+                    "description": "PageAreaEnabled is false when an administrator turned the page area of\nHome off: a pageArea of home.json is then ignored.",
+                    "type": "boolean"
+                },
                 "pages": {
                     "type": "array",
                     "items": {
@@ -33234,6 +33621,14 @@
         "schema.PagesWidget": {
             "type": "object",
             "properties": {
+                "compact": {
+                    "description": "Compact is set when the page has a layout for a slot, a strip about\n40 px high (ui.json slots). Without it a slot shows a button that opens\nthe page.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.PagesCompact"
+                        }
+                    ]
+                },
                 "size": {
                     "description": "Size is the height of the tile: small, medium or large.",
                     "type": "string"

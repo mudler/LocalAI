@@ -9,7 +9,8 @@ import './sandboxprofile.css'
 // the environment the chat's isolated commands run in (which programs they
 // have). It lists the profiles with what each has, says what an image that is
 // being prepared is doing, and says in words, before the choice is made, what a
-// switch costs. A chat that is not yet started shows the default only.
+// switch costs. A chat that is not yet started lets the person pick the profile
+// it will start in: nothing runs yet, so the pick needs no confirmation.
 export default function SandboxProfileRow({ view }) {
   const { t } = useTranslation('chats')
   const labelId = useId()
@@ -20,9 +21,10 @@ export default function SandboxProfileRow({ view }) {
   const shown = profileById(view, pending) || active
   const busy = pulling(view)
   const fb = fellBack(view) ? profileById(view, view.selected || view.default) || active : null
-  const pickable = (p) => !draft && !disabledReason(p)
+  const pickable = (p) => !disabledReason(p)
   const choose = (p) => {
     if (p.id === active?.id) { setPending(''); return }
+    if (draft) { view.setProfile(p.id); return }
     setPending(p.id)
   }
   const confirm = async () => {

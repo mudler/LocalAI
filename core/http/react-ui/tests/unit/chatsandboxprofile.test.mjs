@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   POLL_MS, activeProfile, disabledReason, draftView, errorKey, everyone, needsPolling, normalizePolicy, parseQuota, parseUsers, percentOf,
-  policyToSend, profileMode, pulling, samePolicy, setPinned, sourceOf, toggleRole, withAccess,
+  draftProfileToSave, policyToSend, profileMode, pulling, samePolicy, setPinned, sourceOf, toggleRole, withAccess, withDraftChoice,
 } from '../../src/utils/chatSandboxProfile.js'
 import { createHostSettingsClient } from '../../src/utils/hostSettingsClient.js'
 import { createAddonsApi } from '../../src/utils/addonsApi.js'
@@ -115,4 +115,24 @@ test('saved agents: the sandbox profile is sent once chosen, empty for the defau
   assert.equal('sandbox_profile' in agentPayload({ ...emptyAgent(), name: 'a' }), false)
   assert.equal(agentPayload({ ...emptyAgent(), name: 'a', sandbox_profile: '' }).sandbox_profile, '')
   assert.equal(agentPayload({ ...emptyAgent(), name: 'a', sandbox_profile: ' media ' }).sandbox_profile, 'media')
+})
+
+test('sandbox profile: a new chat starts with the profile the person picked', () => {
+  const v = view({ draft: true, selected: '', source: 'default' })
+  const picked = withDraftChoice(v, 'media')
+  assert.equal(activeProfile(picked).id, 'media')
+  assert.equal(picked.selected, 'media')
+  assert.equal(picked.source, 'chat')
+  // A profile the administrator does not allow, one with no image, or an unknown one is ignored.
+  assert.equal(withDraftChoice(v, 'video'), v)
+  assert.equal(withDraftChoice(v, 'gone'), v)
+  assert.equal(withDraftChoice(v, ''), v)
+})
+
+test('sandbox profile: the draft saves a profile only when it differs from the default', () => {
+  const v = view({ draft: true })
+  assert.equal(draftProfileToSave(v, 'media'), 'media')
+  assert.equal(draftProfileToSave(v, 'base'), '')
+  assert.equal(draftProfileToSave(v, ''), '')
+  assert.equal(draftProfileToSave(v, 'video'), '')
 })

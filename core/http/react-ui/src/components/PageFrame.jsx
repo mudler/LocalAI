@@ -4,6 +4,7 @@ import Icon from './Icon'
 import { pagesApi } from '../utils/api'
 import { buildPageSrcdoc, createPageHost, noticeColours } from '../utils/pagesBridge'
 import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAssets'
+import { BEAT_MS, createFrameWatch } from '../utils/frameWatch'
 
 // One page of the workspace in its sandbox: an iframe with scripts and nothing
 // else (an opaque origin: no cookies, storage or DOM of LocalAI, no navigation
@@ -26,8 +27,22 @@ import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAsset
 //                  pageLinkTarget; resolves to {opened} after the person chose
 //   codeFiles      a shared page: the files of code its consent covers; no
 //                  other text file goes into the page
-//   mode, size     'page' (the default) or 'widget', and the size of a tile:
-//                  the page reads them as localai.page.mode and .size
+//   mode, size     'page' (the default), 'widget' or 'area' (the page area of
+//                  Home, with no size), and the size of a tile (compact,
+//                  small, medium, large): the page reads them as
+//                  localai.page.mode and .size. A change after the load goes
+//                  to the page as a 'mode' event: the frame is not reloaded
+//   budget         a tile, the page area or the dock: the frame is watched (utils/frameWatch.js) and
+//                  taken down when it spins or stops answering; onStopped
+//                  (reason) is called, and the caller offers Reload
+//   onReady()      the first beat of the page came: its script runs and keeps
+//                  the thread free. Needs budget; the shell's signal that the
+//                  page started, never the page's own claim
+//   onResize(h)    the page asked for a height (localai.page.resize): returns
+//                  the height the caller applies, in px. Without it the page
+//                  hears {height: null}. The frame is never reloaded for it
+//   onScriptError  the page's script threw (the error is the bridge's own
+//                  report): the page area takes it as a failed page
 //   visible        false while the frame is out of sight (a tile scrolled
 //                  away): with a hidden tab, the page gets a visibility event
 //                  ({visible}) so it can pause its timers
@@ -39,11 +54,18 @@ import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAsset
 //                  takes the frame down
 const plain = (html) => ({ html, head: '', modules: false, notes: [], tooLarge: false })
 
-const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, codeFiles = null, mode = 'page', size = '', className = '', visible = true }, ref) {
+const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, onResize, codeFiles = null, mode = 'page', size = '', budget = false, className = '', visible = true }, ref) {
   const frameRef = useRef(null)
-  const live = useRef({ host: null, channel: null, loads: 0, doc: '' })
-  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink })
-  handlers.current = { onSend, onWrite, onNavigated, files, onRefused, onLink }
+  const live = useRef({ host: null, channel: null, loads: 0, doc: '', watch: null, timer: 0 })
+  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, onResize })
+  handlers.current = { onSend, onWrite, onNavigated, files, onRefused, onLink, onStopped, onReady, onScriptError, onResize }
+  // The mode the frame shows now. The document is built with the mode of the
+  // moment; a later change is sent to the page, so a tile that grows into a
+  // card keeps its state.
+  const modeNow = useRef({ mode, size })
+  modeNow.current = { mode, size }
+  const sentMode = useRef(null)
+  const builtMode = useRef(null)
 
   const { t } = useTranslation('pages')
   const [build, setBuild] = useState(0)
@@ -85,18 +107,24 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     return () => { gone = true }
   }, [base, build, needsFiles, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const ready = !needsFiles ? plain(html) : assets?.base === base ? assets.result : null
+  // The same object while the page is the same, so the document below is
+  // built again only when the page, its files or the theme change, never for
+  // a new mode or size: those go to the page as an event.
+  const plainDoc = useMemo(() => plain(html), [html])
+  const ready = !needsFiles ? plainDoc : assets?.base === base ? assets.result : null
   const srcDoc = useMemo(() => {
     if (!ready) return null
     const failed = [...new Set(ready.notes.filter((n) => n.level === 'error').map((n) => n.path))]
     const banner = ready.tooLarge
       ? t('frame.tooLarge', { limit: `${MAX_INLINE_TOTAL >> 20} MiB` })
       : failed.length ? t('frame.filesFailed', { files: failed.slice(0, 5).join(', '), count: failed.length }) : ''
+    const m = { ...modeNow.current }
+    builtMode.current = m
     return buildPageSrcdoc(ready.html, {
       name: page.name, title: page.title, theme, head: ready.head, modules: ready.modules,
-      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode, size, colors: noticeColours(),
+      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode: m.mode, size: m.size, colors: noticeColours(), beat: budget,
     })
-  }, [ready, page.name, page.title, theme, t, mode, size])
+  }, [ready, page.name, page.title, theme, t, budget])
 
   useImperativeHandle(ref, () => ({
     emit: (event, data) => {
@@ -112,9 +140,20 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   const shut = () => {
     live.current.host?.close()
     live.current.channel?.port1.close()
+    clearInterval(live.current.timer)
     live.current.host = null
     live.current.channel = null
+    live.current.watch = null
+    live.current.timer = 0
   }
+
+  // A change of mode or size after the load goes to the page as an event.
+  useEffect(() => {
+    const sent = sentMode.current
+    if (!live.current.host || !sent || (sent.mode === mode && sent.size === size)) return
+    sentMode.current = { mode, size }
+    live.current.host.emit('mode', { mode, size })
+  }, [mode, size])
 
   useEffect(() => shut, [])
 
@@ -127,6 +166,8 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     const now = visibleRef.current && !document.hidden
     if (now === seen.current) return
     seen.current = now
+    // Back in sight: the silence of a slowed frame does not count.
+    if (now) live.current.watch?.resume()
     live.current.host?.emit('visibility', { visible: now })
   }
   useEffect(() => {
@@ -156,7 +197,16 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       list: async (dir) => (await pagesApi.files(name, dir)).entries || [],
     }
     const guard = guarded
+    const watch = budget ? createFrameWatch() : null
+    let beaten = false
     const host = createPageHost({
+      onBeat: watch ? (busy) => {
+        watch.beat(busy)
+        if (!beaten) {
+          beaten = true
+          handlers.current.onReady?.()
+        }
+      } : undefined,
       post: (m) => channel.port1.postMessage(m),
       files: {
         read: (path) => guard(() => (handlers.current.files || own).read(path)),
@@ -168,14 +218,31 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
         list: (dir) => guard(() => (handlers.current.files || own).list(dir)),
       },
       chat: { send: (text) => handlers.current.onSend(text) },
+      resize: (h) => (handlers.current.onResize ? handlers.current.onResize(h) : null),
       links: { open: (target) => (handlers.current.onLink ? handlers.current.onLink(target) : { opened: false }) },
       // Only the owner's own run records: a viewer of a shared page is not
       // its owner, and the errors are kept in the owner's workspace.
-      errors: handlers.current.files || codeFiles !== null ? undefined : { report: (e) => pagesApi.reportError(name, e) },
+      errors: handlers.current.files || codeFiles !== null
+        ? (handlers.current.onScriptError ? { report: (e) => { handlers.current.onScriptError(e); return Promise.resolve() } } : undefined)
+        : { report: (e) => { handlers.current.onScriptError?.(e); return pagesApi.reportError(name, e) } },
     })
     channel.port1.onmessage = (e) => { host.receive(e.data) }
     live.current.host = host
     live.current.channel = channel
+    live.current.watch = watch
+    if (watch) {
+      live.current.timer = setInterval(() => {
+        const why = watch.check(visibleRef.current && !document.hidden)
+        if (!why) return
+        shut()
+        handlers.current.onStopped?.(why)
+      }, BEAT_MS)
+    }
+    // The document was built with the mode of that moment; a change since
+    // (while the files of the page were read) goes to the page now.
+    const built = builtMode.current || modeNow.current
+    sentMode.current = { ...modeNow.current }
+    if (built.mode !== modeNow.current.mode || built.size !== modeNow.current.size) host.emit('mode', modeNow.current)
     // The frame's origin is opaque, so "*" is the only target that reaches it;
     // the port is what carries the trust, and only this frame gets it.
     frame?.contentWindow?.postMessage({ type: 'localai:init' }, '*', [channel.port2])
@@ -184,7 +251,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   }
 
   if (srcDoc === null) {
-    if (mode === 'widget') return <div className="skeleton skeleton--block wk-ptile__fill" role="status" aria-label={t('view.loading')} data-testid="page-frame-loading" />
+    if (mode !== 'page') return <div className="skeleton skeleton--block wk-ptile__fill" role="status" aria-label={t('view.loading')} data-testid="page-frame-loading" />
     return <div className="pg-stage__state" role="status" data-testid="page-frame-loading"><Icon name="spinner" spin /> {t('view.loading')}</div>
   }
 

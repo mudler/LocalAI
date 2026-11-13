@@ -14,6 +14,34 @@ When running LocalAI behind a TLS termination reverse proxy, the Web UI may fail
 
 LocalAI uses the `X-Forwarded-Proto` HTTP header to determine the protocol used by clients. When this header is set to `https`, LocalAI will generate HTTPS URLs for static assets in the Web UI. LocalAI believes this header, and the other forwarding headers, only when the request comes from a proxy listed in `--trusted-proxies` (see below).
 
+## Serving TLS from LocalAI itself
+
+A reverse proxy is the usual way to get HTTPS. LocalAI can also serve TLS on its
+own port, for a deployment without a proxy, for example a box on a local network
+whose paired clients pin the certificate. Start it with `--tls-cert` and
+`--tls-key`, or with `--tls-self-signed` to let LocalAI make a certificate and keep
+it in the data path. TLS 1.3 is the minimum. The flags are in the [CLI
+reference]({{% relref "reference/cli-reference" %}}), and the pinning of a
+self-signed certificate is in [Paired clients]({{% relref "features/addon-clients" %}}#tls-and-the-pinned-certificate).
+Do not use these flags and a proxy that ends TLS for the same port.
+
+The port speaks TLS only: a plain HTTP request to it gets a `400`. What this
+changes:
+
+- The health check of the container image (`scripts/build/healthcheck.sh`) probes
+  `https` without checking the certificate when `LOCALAI_TLS_CERT`,
+  `LOCALAI_TLS_SELF_SIGNED` or one of the two flags is set. A probe of your own
+  (a load balancer, an orchestrator) must use `https` too, and it must accept a
+  self-signed certificate or pin its fingerprint.
+- The collections service, when it calls the API over the network with its own
+  key, uses `https` and trusts only the certificate that the server presents.
+- Federated peers reach the API through a tunnel that carries the TCP stream, so
+  they must speak TLS to it as well.
+- An operator certificate is read at the start. A renewed certificate needs a
+  restart, and its fingerprint changes, so a client that pinned the old one pairs
+  again. In a cluster each frontend has its own self-signed certificate unless
+  they share the data path, so a pin holds for one frontend only.
+
 ## Running behind a reverse proxy (HTTPS / subpath)
 
 LocalAI does not terminate TLS itself, so HTTPS is provided by a reverse

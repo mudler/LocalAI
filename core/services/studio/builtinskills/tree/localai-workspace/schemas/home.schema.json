@@ -2,9 +2,34 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/home.json",
   "title": "LocalAI/home.json",
-  "description": "The widgets of the Home page, in order.",
+  "description": "The headline, the page area and the widgets of the Home page, in order.",
   "type": "object",
   "properties": {
+    "headline": {
+      "type": "string",
+      "title": "Home headline",
+      "description": "The big line at the top of Home. Placeholders: {user.name}, {time_of_day}, {date}. Empty keeps the greeting of the time of day.",
+      "maxLength": 120,
+      "x-placeholders": ["{user.name}", "{time_of_day}", "{date}"],
+      "x-ui": { "widget": "template" }
+    },
+    "pageArea": {
+      "title": "Page area",
+      "description": "A page that fills a full-width area on Home, below the greeting, the composer and the shortcut chips. A string is a page of your home (pages/<name>/); {page, folder} is a page of a shared folder (folder is its folder_id). null or no key shows nothing. The page gets mode area. An administrator can turn the area off for everyone.",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+        {
+          "type": "object",
+          "properties": {
+            "page": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+            "folder": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["page"],
+          "additionalProperties": false
+        }
+      ]
+    },
     "widgets": {
       "type": "array",
       "maxItems": 12,
@@ -37,6 +62,11 @@
             "description": "For a page widget: the name of a page, the folder pages/<name>/ of your home. Its page.json must have a widget block.",
             "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
           },
+          "size": {
+            "enum": ["s", "m", "l"],
+            "title": "Size",
+            "description": "How much of the Home grid the widget takes: s one column and at most one row, m two columns and at most two rows, l a full row and at most three; a list, metric or chats widget is only as high as its content. Left out, a page widget takes the size of its page.json widget block and the other types take m (a list, the chats) or s (a metric)."
+          },
           "folder": {
             "type": "integer",
             "title": "Shared folder",
@@ -58,6 +88,5 @@
         ]
       }
     }
-  },
-  "required": ["widgets"]
+  }
 }

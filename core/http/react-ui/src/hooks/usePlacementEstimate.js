@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { modelsApi } from '../utils/api'
 import { splitByContext } from '../utils/placement'
+import { DEFAULT_ESTIMATE_CONTEXT_SIZE } from '../utils/contextDefaults'
 
 // What the server estimates when the file sets no context size.
-export const DEFAULT_CONTEXT = 8192
+export const DEFAULT_CONTEXT = DEFAULT_ESTIMATE_CONTEXT_SIZE
 
 const DEBOUNCE_MS = 350
 

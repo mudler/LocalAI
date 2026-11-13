@@ -60,6 +60,10 @@
 .home-chip__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The model chip names a model id: the one chip in mono. */
 .home-pick .home-chip__text { font-family: var(--font-mono); font-size: var(--fs-meta); }
+/* The note of a new chat with no model yet (ask, or a default that is gone):
+   words, not a model id, and a warning when the default is gone. */
+.home-pick .home-chip__note { font-family: inherit; }
+.home-chip[data-note="missing"] { border-color: var(--dk-warn); color: var(--dk-warn-text); }
 /* The MCP trigger is the app's shared dropdown; this restyles it as a chip. */
 .home-cmd__top .chat-mcp-dropdown > .btn { color: var(--color-text-secondary); }
 .home-cmd__top .chat-mcp-dropdown > .btn .chat-mcp-badge {
