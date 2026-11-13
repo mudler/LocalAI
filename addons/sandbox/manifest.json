@@ -52,7 +52,7 @@
     "toolDefinitions": [
       {
         "name": "bash",
-        "description": "Run a bash script in /workspace/home, the user's files; only what is saved there stays. Output is cut at 64 KiB; timeoutSeconds is 120 by default, at most 1680. Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages. Put helper scripts and temp files in the chat's work folder if the prompt or the note names one.",
+        "description": "Run bash. Starts in $WORK, the chat's work folder. Use $WORK or relative paths, not typed absolute ones. Double-quote every path. Never type a name with spaces or non-ASCII characters; take it from ls or a glob. Only /workspace/home is saved. Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,

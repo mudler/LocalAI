@@ -12,7 +12,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"regexp"
 	"time"
@@ -42,10 +41,11 @@ const ShadowedTool = "bash"
 // only through the proxy, and only the hosts the chat allows.
 const NetworkNote = " Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages."
 
-// Runs returns the tools a sandbox runs.
+// Runs returns the tools a sandbox runs. The manifest caps a description at
+// 400 characters, so the text is short: where the shell starts, how to name
+// paths, what is saved and the network.
 func Runs(acquire runner.Acquire) []runner.Tool {
-	desc := fmt.Sprintf("Run a bash script in %s, the user's files; only what is saved there stays. Output is cut at 64 KiB; timeoutSeconds is 120 by default, at most %d.",
-		runner.GuestHome, int(MaxTimeout/time.Second)) + NetworkNote + " " + workfiles.ToolHint
+	desc := "Run bash. " + workfiles.ShellHintShort + " Only " + runner.GuestHome + " is saved." + NetworkNote
 	return []runner.Tool{runner.Bash(acquire, runner.BashOptions{MaxTimeout: MaxTimeout, Description: desc})}
 }
 

@@ -191,7 +191,8 @@ func profileExecution(e *contract.ExecutionDescriptor, id string) *contract.Exec
 
 // withSandboxProfile gives the commands tool of a chat the note and the
 // description of the profile it runs, and makes every call carry the options
-// the host decided: the profile, the pin to the previous image and the caps.
+// the host decided: the profile, the pin to the previous image, the caps and
+// the chat's work folder.
 // The profile is chosen again at each call, so a switch applies to the next one.
 func (s *Service) withSandboxProfile(ctx context.Context, a workspace.Actor, rec session.ChatRecord, d AddonTool, t session.Tool) session.Tool {
 	id := contract.FallbackProfile
@@ -210,6 +211,21 @@ func (s *Service) withSandboxProfile(ctx context.Context, a workspace.Actor, rec
 		if prev, ok := contract.ExecutionCallFrom(ctx); ok && prev.ReadOnly {
 			opts.ReadOnly = true // the check of a wait must not change files
 		}
+		// A check starts where the model's own commands start, but never
+		// makes the folder.
+		opts.WorkDir = s.CommandWorkDir(ctx, a, !opts.ReadOnly)
+		return inner(contract.WithExecutionCall(ctx, opts), args)
+	}
+	return t
+}
+
+// withWorkDir makes every call of a commands tool without profiles carry the
+// chat's work folder, so the shell starts there (see CommandWorkDir).
+func (s *Service) withWorkDir(a workspace.Actor, t session.Tool) session.Tool {
+	inner := t.Run
+	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+		opts, _ := contract.ExecutionCallFrom(ctx)
+		opts.WorkDir = s.CommandWorkDir(ctx, a, !opts.ReadOnly)
 		return inner(contract.WithExecutionCall(ctx, opts), args)
 	}
 	return t

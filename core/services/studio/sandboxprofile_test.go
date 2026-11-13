@@ -123,6 +123,15 @@ func (r *profileRig) run(user, id string) {
 	idle(r.svc, user, id)
 }
 
+// withoutWorkDir checks that the call carries the chat's work folder (its name
+// has the date of the day) and returns the options without it.
+func withoutWorkDir(c contract.ExecutionCall) contract.ExecutionCall {
+	GinkgoHelper()
+	Expect(c.WorkDir).To(MatchRegexp(`^/workspace/home/Chats/\d{4}-\d{2}-\d{2}-[a-z0-9-]+/work$`))
+	c.WorkDir = ""
+	return c
+}
+
 var _ = Describe("sandbox profiles", func() {
 	It("tells the model the profile of the chat, its programs and the others, and puts the profile in the tool description", func() {
 		r := newProfileRig(nil)
@@ -131,7 +140,7 @@ var _ = Describe("sandbox profiles", func() {
 		Expect(prompt).To(ContainSubstring("The sandbox profile is media. It has: python3 (pandas), jq, ffmpeg."))
 		Expect(prompt).To(ContainSubstring("heavy (adds gcc)"))
 		Expect(r.h.LastToolDescription("bash")).To(ContainSubstring("Sandbox profile media: python3 (pandas), jq, ffmpeg."))
-		Expect(r.fa.lastOpts()).To(Equal(contract.ExecutionCall{Profile: "media"}))
+		Expect(withoutWorkDir(r.fa.lastOpts())).To(Equal(contract.ExecutionCall{Profile: "media"}))
 	})
 
 	It("lets the person switch the profile, and the next call and the prompt follow", func() {
@@ -165,7 +174,7 @@ var _ = Describe("sandbox profiles", func() {
 		r.setPolicy(sandboxpolicy.Policy{Default: "media", Access: map[string]sandboxpolicy.Access{"heavy": {Roles: []string{"admin"}}}, MemoryMiB: 1024, DiskMiB: 5000, PinPrevious: []string{"media"}})
 		// The profile alice picked is closed now: the default applies.
 		Expect(turnPrompt(r.svc, r.h, id)).To(ContainSubstring("The sandbox profile is media."))
-		Expect(r.fa.lastOpts()).To(Equal(contract.ExecutionCall{Profile: "media", Pin: true, MemoryMiB: 1024, DiskMiB: 5000}))
+		Expect(withoutWorkDir(r.fa.lastOpts())).To(Equal(contract.ExecutionCall{Profile: "media", Pin: true, MemoryMiB: 1024, DiskMiB: 5000}))
 		Expect(r.svc.SetSandboxProfile(context.Background(), alice, id, "heavy")).To(MatchError(studio.ErrSandboxProfileNotAllowed))
 		root := create(r.svc, "root")
 		Expect(r.svc.SetSandboxProfile(context.Background(), "root", root, "heavy")).To(Succeed(), "an administrator is named by the role")

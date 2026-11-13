@@ -27,6 +27,11 @@ type ExecutionCall struct {
 	// is refused when the call ends and no change set is made. The host sets
 	// it for the checks of a wait.
 	ReadOnly bool `json:"readOnly,omitempty"`
+	// WorkDir is the guest path of the chat's work folder, for example
+	// /workspace/home/Chats/<chat>/work. The shell of the call starts there
+	// and gets it as $WORK. Empty: the chat has no work folder yet, and the
+	// shell starts in the home folder.
+	WorkDir string `json:"workDir,omitempty"`
 }
 
 type executionCallKey struct{}
