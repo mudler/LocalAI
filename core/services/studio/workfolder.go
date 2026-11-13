@@ -81,7 +81,7 @@ func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord, x se
 	if p := x.Place(); p.Scoped() {
 		return workfiles.ScopedPrompt(p.PrimaryWritable()), ""
 	}
-	return workfiles.Prompt, workfiles.Note(workfiles.GuestFolder(parent.Folder))
+	return workfiles.Prompt, workfiles.NoteFolder(workfiles.GuestFolder(parent.Folder))
 }
 
 // ensureWorkFolder makes the chat's work folder before a command runs, so a

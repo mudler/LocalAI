@@ -304,7 +304,7 @@ const (
 // The folder of a chat made before the slug names comes from its title and may
 // hold a quote, so the match ends at the work folder's own name. The rest of
 // the sentence is workfiles.ShellHint.
-var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\. ` + regexp.QuoteMeta(workfiles.ShellHint) + ` ?`)
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\.(?: ` + regexp.QuoteMeta(workfiles.ShellHint) + `)? ?`)
 
 // withoutHostNotes removes the sentences of the note that the host adds on
 // its own (withoutDeniedNote, withoutWorkFolderNote).

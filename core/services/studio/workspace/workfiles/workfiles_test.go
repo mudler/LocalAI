@@ -128,6 +128,9 @@ var _ = Describe("working files", func() {
 		guest := workfiles.GuestFolder("2026-10-31 Report")
 		Expect(workfiles.Note(guest)).To(ContainSubstring(`"/workspace/home/Chats/2026-10-31 Report/work/"`))
 		Expect(workfiles.Note(guest)).To(ContainSubstring("work folder"))
+		Expect(workfiles.Note(guest)).To(HavePrefix(workfiles.NoteFolder(guest)))
+		Expect(workfiles.Note(guest)).To(ContainSubstring(workfiles.ShellHint))
+		Expect(workfiles.NoteFolder(guest)).NotTo(ContainSubstring("$WORK"), "the short note leaves room for the notes after it")
 		// The literal path stays for the file tools; the shell is told to use $WORK.
 		for _, want := range []string{"The shell starts in $WORK", "Use $WORK or relative paths", "Quote every path with double quotes",
 			"Never type out a name with spaces or non-ASCII characters", "ls or a glob", "file tools take that path"} {

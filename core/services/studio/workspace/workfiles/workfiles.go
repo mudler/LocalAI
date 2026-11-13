@@ -186,7 +186,14 @@ const Prompt = "Working files: put scripts, helper code, intermediate data, logs
 // stays literal because the file tools take guest paths; the shell gets it as
 // $WORK, and the line tells the model to use that there.
 func Note(guestFolder string) string {
-	return "This chat's work folder is \"" + guestFolder + "\"; file tools take that path. " + ShellHint
+	return NoteFolder(guestFolder) + " " + ShellHint
+}
+
+// NoteFolder is Note without ShellHint, for a turn whose note has little room:
+// the session cuts a sub-agent's note at 400 characters, and the prompt block
+// and the tool descriptions of a sub-agent already say how to name paths.
+func NoteFolder(guestFolder string) string {
+	return "This chat's work folder is \"" + guestFolder + "\"; file tools take that path."
 }
 
 // ScopedPrompt is Prompt for a chat whose agent has a folder: the work
