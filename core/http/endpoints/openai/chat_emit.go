@@ -30,6 +30,9 @@ func streamUsageFromTokenUsage(usage backend.TokenUsage, extraUsage bool) schema
 		CompletionTokens: usage.Completion,
 		TotalTokens:      usage.Prompt + usage.Completion,
 	}
+	if usage.CachedTokens > 0 {
+		out.PromptTokensDetails = &schema.PromptTokensDetails{CachedTokens: usage.CachedTokens}
+	}
 	if extraUsage {
 		out.TimingTokenGeneration = usage.TimingTokenGeneration
 		out.TimingPromptProcessing = usage.TimingPromptProcessing

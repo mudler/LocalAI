@@ -76,6 +76,7 @@
 #include "moe_cache_option.h"
 #include "option_parse.h"
 #include "passthrough_options.h"
+#include "cached_tokens.h"
 #include "stream_peer.h"
 #include "realtime_session.h"
 #include "tts_request_options.h"
@@ -3276,6 +3277,7 @@ public:
                 reply.set_tokens(res_json.value("tokens_predicted", 0));
                 reply.set_prompt_tokens(res_json.value("tokens_evaluated", 0));
             }
+            reply.set_cached_tokens(llama_grpc::cached_tokens_from_result_json(res_json));
 
             // Timings: present as top-level "timings" in both formats
             if (res_json.contains("timings")) {
@@ -3883,6 +3885,7 @@ public:
                 reply->set_message(completion_text);
                 reply->set_tokens(tokens_predicted);
                 reply->set_prompt_tokens(tokens_evaluated);
+                reply->set_cached_tokens(llama_grpc::cached_tokens_from_result_json(result_json));
 
                 // Timings: present in both formats as a top-level "timings" object
                 if (result_json.contains("timings")) {

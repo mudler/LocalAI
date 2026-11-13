@@ -1255,15 +1255,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				evidence.apply(result)
 
 				// No MCP tools to execute (or no MCP tools configured), return response
-				usage := schema.OpenAIUsage{
-					PromptTokens:     tokenUsage.Prompt,
-					CompletionTokens: tokenUsage.Completion,
-					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-				}
-				if extraUsage {
-					usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
-					usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
-				}
+				usage := streamUsageFromTokenUsage(tokenUsage, extraUsage)
 				usage.CompressionMeta = middleware.CompressionMetadata(c)
 
 				resp := &schema.OpenAIResponse{

@@ -36,9 +36,29 @@ type LLMResponse struct {
 type TokenUsage struct {
 	Prompt                 int
 	Completion             int
+	CachedTokens           int // prompt tokens served from the backend KV/prompt cache
 	TimingPromptProcessing float64
 	TimingTokenGeneration  float64
 	ChatDeltas             []*proto.ChatDelta // per-chunk deltas from C++ autoparser (only set during streaming)
+}
+
+// ApplyReply copies token counts, timings and cached prompt tokens from a
+// backend Reply. Streaming always overwrites prompt/completion; callers that
+// already counted tokens (the non-streaming Predict path) pass
+// overwriteCounts=false so a prior tokenize result is kept.
+func (u *TokenUsage) ApplyReply(reply *proto.Reply, overwriteCounts bool) {
+	if reply == nil {
+		return
+	}
+	if overwriteCounts || u.Prompt == 0 {
+		u.Prompt = int(reply.GetPromptTokens())
+	}
+	if overwriteCounts || u.Completion == 0 {
+		u.Completion = int(reply.GetTokens())
+	}
+	u.TimingTokenGeneration = reply.GetTimingTokenGeneration()
+	u.TimingPromptProcessing = reply.GetTimingPromptProcessing()
+	u.CachedTokens = int(reply.GetCachedTokens())
 }
 
 func needsThinkingProbe(c *config.ModelConfig) bool {
@@ -266,10 +286,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				msg := reply.Message
 				partialRune = append(partialRune, msg...)
 
-				tokenUsage.Prompt = int(reply.PromptTokens)
-				tokenUsage.Completion = int(reply.Tokens)
-				tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
-				tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
+				tokenUsage.ApplyReply(reply, true)
 
 				// Collect chat deltas from C++ autoparser
 				if len(reply.ChatDeltas) > 0 {
@@ -327,15 +344,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			if err != nil {
 				return LLMResponse{}, err
 			}
-			if tokenUsage.Prompt == 0 {
-				tokenUsage.Prompt = int(reply.PromptTokens)
-			}
-			if tokenUsage.Completion == 0 {
-				tokenUsage.Completion = int(reply.Tokens)
-			}
-
-			tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
-			tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
+			tokenUsage.ApplyReply(reply, false)
 
 			response := string(reply.Message)
 			if c.TemplateConfig.ReplyPrefix != "" {
