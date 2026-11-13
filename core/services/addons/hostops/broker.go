@@ -295,6 +295,7 @@ func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, g
 		// operation that is added under client. later is closed to a client
 		// call until it is named there.
 		if strings.HasPrefix(actor.CredentialID, contract.ClientCredentialPrefix) && !ClientCallOps[req.Op] {
+			xlog.Info("add-on host operation refused", "addon", addonID, "op", req.Op, "reason", "not an operation of a client call")
 			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
 			return
 		}

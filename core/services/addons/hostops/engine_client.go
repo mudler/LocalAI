@@ -73,6 +73,10 @@ var ClientCallOps = map[string]bool{
 	"client.jobs.start":  true,
 	"client.jobs.get":    true,
 	"client.jobs.cancel": true,
+	// The folder operations. Each checks the folder grant of the client key.
+	"client.workspace.list":  true,
+	"client.workspace.read":  true,
+	"client.workspace.write": true,
 }
 
 func clientFrom(c Call) (ClientCall, error) {

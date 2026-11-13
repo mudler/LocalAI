@@ -176,6 +176,12 @@ func (r *Runtime) ClientCall(ctx context.Context, q contract.ClientRequest) (con
 			return hostError(q.RouteID, err)
 		}
 		return reply(http.StatusOK, j)
+	case "files":
+		return r.listFiles(ctx, q)
+	case "file":
+		return r.readFile(ctx, q)
+	case "save":
+		return r.saveFile(ctx, q)
 	case "cancel":
 		var j Job
 		if err := r.host.Do(ctx, q.OperationID, "client.jobs.cancel", map[string]string{"id": q.Params["id"]}, &j); err != nil {
@@ -184,6 +190,68 @@ func (r *Runtime) ClientCall(ctx context.Context, q contract.ClientRequest) (con
 		return reply(http.StatusOK, j)
 	}
 	return reply(http.StatusNotFound, map[string]string{"error": "not found"})
+}
+
+// The file routes. The route has a wildcard tail, so the host has already
+// refused a dot segment, an escape and an empty part. The add-on still checks
+// the joined value before it hands it on: the host operation checks it once
+// more against the folders the owner granted to the client.
+var filePath = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._~-]{0,127}(/[A-Za-z0-9_][A-Za-z0-9._~-]{0,127}){0,7}$`)
+
+func (r *Runtime) filesPath(q contract.ClientRequest) (string, bool) {
+	p := q.Params["path"]
+	if !filePath.MatchString(p) || strings.Contains(p, "..") {
+		return "", false
+	}
+	return p, true
+}
+
+// listFiles answers GET /files: the folders the client may reach.
+func (r *Runtime) listFiles(ctx context.Context, q contract.ClientRequest) (contract.ClientResponse, error) {
+	var out json.RawMessage
+	if err := r.host.Do(ctx, q.OperationID, "client.workspace.list", map[string]string{"path": ""}, &out); err != nil {
+		return hostError(q.RouteID, err)
+	}
+	return contract.ClientResponse{Status: http.StatusOK, ContentType: "application/json", Body: out}, nil
+}
+
+// readFile answers GET /files/{path...}. A path that ends in a slash-less name
+// is a file; the client asks the list of a folder with the folder route.
+func (r *Runtime) readFile(ctx context.Context, q contract.ClientRequest) (contract.ClientResponse, error) {
+	p, ok := r.filesPath(q)
+	if !ok {
+		return reply(http.StatusBadRequest, map[string]string{"error": "invalid path"})
+	}
+	op := "client.workspace.read"
+	if q.Query["list"] == "1" {
+		op = "client.workspace.list"
+	}
+	var out json.RawMessage
+	if err := r.host.Do(ctx, q.OperationID, op, map[string]string{"path": p}, &out); err != nil {
+		return hostError(q.RouteID, err)
+	}
+	return contract.ClientResponse{Status: http.StatusOK, ContentType: "application/json", Body: out}, nil
+}
+
+// saveFile answers PUT /files/{path...}: the body is {"content": "..."}.
+func (r *Runtime) saveFile(ctx context.Context, q contract.ClientRequest) (contract.ClientResponse, error) {
+	p, ok := r.filesPath(q)
+	if !ok {
+		return reply(http.StatusBadRequest, map[string]string{"error": "invalid path"})
+	}
+	var in struct {
+		Content string `json:"content"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(q.Body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&in); err != nil {
+		return reply(http.StatusBadRequest, map[string]string{"error": "content is required"})
+	}
+	var out json.RawMessage
+	if err := r.host.Do(ctx, q.OperationID, "client.workspace.write", map[string]string{"path": p, "content": in.Content}, &out); err != nil {
+		return hostError(q.RouteID, err)
+	}
+	return contract.ClientResponse{Status: http.StatusOK, ContentType: "application/json", Body: out}, nil
 }
 
 func (r *Runtime) start(ctx context.Context, q contract.ClientRequest) (contract.ClientResponse, error) {

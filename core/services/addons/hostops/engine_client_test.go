@@ -99,14 +99,17 @@ var _ = Describe("Client job operations", func() {
 		Expect(code).To(Equal(http.StatusForbidden))
 	})
 
-	It("opens a call that a client made to the three job operations by exact name, not by prefix", func() {
+	It("opens a call that a client made to the job and folder operations by exact name, not by prefix", func() {
 		// A later operation under the client. family stays closed to a client
 		// call until ClientCallOps names it.
 		Expect(f.b.Register(Spec{Op: "client.other", Scope: "read", Feature: "mcp_jobs", Handler: func(context.Context, Call) (json.RawMessage, error) { return json.RawMessage(`{}`), nil }})).To(Succeed())
 		live("op1", client)
 		code, _ := f.call("secret", "op1", "client.other", `{}`)
 		Expect(code).To(Equal(http.StatusForbidden))
-		Expect(ClientCallOps).To(Equal(map[string]bool{"client.jobs.start": true, "client.jobs.get": true, "client.jobs.cancel": true}))
+		Expect(ClientCallOps).To(Equal(map[string]bool{
+			"client.jobs.start": true, "client.jobs.get": true, "client.jobs.cancel": true,
+			"client.workspace.list": true, "client.workspace.read": true, "client.workspace.write": true,
+		}))
 		// The same operation runs for a call that is not a client's.
 		live("op2", contract.Actor{UserID: "u1", CredentialID: "c1", Mode: "named-user"})
 		code, _ = f.call("secret", "op2", "client.other", `{}`)

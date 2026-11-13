@@ -115,3 +115,54 @@ var _ = Describe("client route calls and the short call pool", func() {
 		Expect(err).To(MatchError(ErrNotSent))
 	})
 })
+
+var _ = Describe("the authority of a client call", func() {
+	// scopeOf makes one call on a route and returns the scope of the record
+	// the host holds while the add-on serves it.
+	scopeOf := func(method string) string {
+		var c *Client
+		scope := make(chan string, 1)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var req contract.ClientRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			env, ok := c.inflight.Lookup("clientdemo", req.OperationID)
+			if !ok {
+				scope <- "none"
+			} else {
+				scope <- env.Authority.Scope
+			}
+			_ = json.NewEncoder(w).Encode(contract.ClientResponse{Status: 204})
+		}))
+		DeferCleanup(srv.Close)
+		reg := Registration{AddonID: "clientdemo", Generation: 1, Incarnation: "inc", Protocol: 1, Endpoint: srv.URL,
+			Capabilities: contract.Capabilities{Client: &contract.ClientCapability{Routes: []contract.ClientRoute{{ID: "r", Method: method, Path: "/r"}}}}}
+		var err error
+		c, err = newClient(reg, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(err).NotTo(HaveOccurred())
+		c.accept = true
+		actor := contract.Actor{UserID: "u", CredentialID: contract.ClientCredentialPrefix + "c1"}
+		_, err = c.ClientCallAs(context.Background(), actor, contract.ClientRequest{RouteID: "r", Method: method, Path: "/r", Client: contract.ClientIdentity{ID: "c1"}})
+		Expect(err).NotTo(HaveOccurred())
+		return <-scope
+	}
+
+	It("is read for a GET route and apply for a route that changes things, and never act", func() {
+		Expect(scopeOf(http.MethodGet)).To(Equal("read"))
+		for _, m := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+			Expect(scopeOf(m)).To(Equal("apply"), m)
+		}
+	})
+
+	It("builds the envelope of a stream with the read scope and refuses a caller that is not a client", func() {
+		c := &Client{registration: Registration{AddonID: "clientdemo"}}
+		actor := contract.Actor{UserID: "u", CredentialID: contract.ClientCredentialPrefix + "c1"}
+		env, err := c.clientEnvelope(actor, "op", 0, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(env.Authority.Scope).To(Equal("read"))
+		env, err = c.clientEnvelope(actor, "op", 0, true)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(env.Authority.Scope).To(Equal("apply"))
+		_, err = c.clientEnvelope(contract.Actor{UserID: "u", CredentialID: "session"}, "op", 0, true)
+		Expect(err).To(MatchError(ErrNotSent))
+	})
+})

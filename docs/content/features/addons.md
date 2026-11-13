@@ -3056,7 +3056,7 @@ A host operation is how an add-on process asks the host to do something the
 add-on cannot do itself, such as starting a job of the engine. It is contract
 surface that third-party add-ons cannot use unless the host setting names them.
 An add-on that serves paired clients can also ask `client.list` for the clients
-that may reach it (see [Paired clients](/features/addon-clients/)).
+that may reach it (see [Paired clients](/features/addon-clients/)). When a client call serves a client with a folder grant, `client.workspace.list`, `.read` and `.write` give it text files of the owner (same page).
 
 The rules:
 
