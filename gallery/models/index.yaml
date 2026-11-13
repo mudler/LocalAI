@@ -79318,6 +79318,86 @@
       parameters:
         model: parakeet-cpp/redux-q8_0.gguf
 - kind: model
+  id: parakeet-cpp-fluid-speech-pro
+  name: parakeet-cpp-fluid-speech-pro
+  version: 0.0.0-gallery.af88fab9fcf9
+  description: |
+    Fluid Speech Pro, Q8_0: a 0.63B FastConformer-TDT speech recognition model by FluidVoice, built on NVIDIA Parakeet TDT 0.6B v3. It covers 25 European languages with automatic language detection, and writes punctuation and capital letters. Q8_0 quantized file, about 940 MB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The GGUF files leave out the
+    model's clean mode and its small extra block, so noisy audio may come out slightly worse than with the full model.
+    License CC-BY-4.0: credit "Fluid Speech Pro by FluidVoice".
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - fluid-speech
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+        sha256: 1b9c613fe3b058895885105e696c203a1a0b47c37eace80d18b51e20dcdc5ffd
+        uri: huggingface://FluidVoice-Labs/fluid-speech-pro-gguf/fluid-speech-pro-q8_0.gguf
+    overrides:
+      backend: parakeet-cpp
+      known_usecases:
+        - transcript
+      name: parakeet-cpp-fluid-speech-pro
+      parameters:
+        model: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+- kind: model
+  id: parakeet-cpp-fluid-speech-pro-f32
+  name: parakeet-cpp-fluid-speech-pro-f32
+  version: 0.0.0-gallery.3a4ed979e86a
+  description: |
+    Fluid Speech Pro, F32: the same model as the Q8_0 file, at full precision (about 2.5 GB). It covers 25 European languages with automatic language detection, and writes punctuation and capital letters.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The GGUF files leave out the
+    model's clean mode and its small extra block, so noisy audio may come out slightly worse than with the full model.
+    License CC-BY-4.0: credit "Fluid Speech Pro by FluidVoice".
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - fluid-speech
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: parakeet-cpp/fluid-speech-pro-f32.gguf
+        sha256: ae4602d018c358c67a8e00839c7928357e72a548ac85282d3ed23e2945fcc450
+        uri: huggingface://FluidVoice-Labs/fluid-speech-pro-gguf/fluid-speech-pro-f32.gguf
+    overrides:
+      backend: parakeet-cpp
+      known_usecases:
+        - transcript
+      name: parakeet-cpp-fluid-speech-pro-f32
+      parameters:
+        model: parakeet-cpp/fluid-speech-pro-f32.gguf
+- kind: model
   id: parakeet-cpp-silero-vad-f16
   name: parakeet-cpp-silero-vad-f16
   version: 0.0.0-gallery.194ad1659d6d

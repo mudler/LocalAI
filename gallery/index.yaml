@@ -65209,6 +65209,70 @@
     parameters:
       model: parakeet-cpp/redux-q8_0.gguf
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-fluid-speech-pro
+  description: |
+    Fluid Speech Pro, Q8_0: a 0.63B FastConformer-TDT speech recognition model by FluidVoice, built on NVIDIA Parakeet TDT 0.6B v3. It covers 25 European languages with automatic language detection, and writes punctuation and capital letters. Q8_0 quantized file, about 940 MB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The GGUF files leave out the
+    model's clean mode and its small extra block, so noisy audio may come out slightly worse than with the full model.
+    License CC-BY-4.0: credit "Fluid Speech Pro by FluidVoice".
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - fluid-speech
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+      sha256: 1b9c613fe3b058895885105e696c203a1a0b47c37eace80d18b51e20dcdc5ffd
+      uri: huggingface://FluidVoice-Labs/fluid-speech-pro-gguf/fluid-speech-pro-q8_0.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-fluid-speech-pro
+    parameters:
+      model: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: parakeet-cpp-fluid-speech-pro-f32
+  description: |
+    Fluid Speech Pro, F32: the same model as the Q8_0 file, at full precision (about 2.5 GB). It covers 25 European languages with automatic language detection, and writes punctuation and capital letters.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The GGUF files leave out the
+    model's clean mode and its small extra block, so noisy audio may come out slightly worse than with the full model.
+    License CC-BY-4.0: credit "Fluid Speech Pro by FluidVoice".
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - fluid-speech
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  files:
+    - filename: parakeet-cpp/fluid-speech-pro-f32.gguf
+      sha256: ae4602d018c358c67a8e00839c7928357e72a548ac85282d3ed23e2945fcc450
+      uri: huggingface://FluidVoice-Labs/fluid-speech-pro-gguf/fluid-speech-pro-f32.gguf
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-fluid-speech-pro-f32
+    parameters:
+      model: parakeet-cpp/fluid-speech-pro-f32.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-silero-vad-f16
   description: |
     Silero VAD v6.2.3 as a GGUF (F16, about 1.3 MB) for the parakeet-cpp backend. It only detects speech: use it for the VAD endpoint, or as the vad_model: option of a parakeet-cpp ASR model that has no VAD head.
