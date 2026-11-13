@@ -239,9 +239,6 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 
 			if err != nil {
 				xlog.Warn("Model Configuration File not found", "model", modelName, "error", err)
-			} else if cfg.Model == "" && modelName != "" {
-				xlog.Debug("config does not include model, using input", "input.ModelName", modelName)
-				cfg.Model = modelName
 			}
 
 			// If a model name was specified, verify it actually exists before proceeding.
@@ -302,6 +299,25 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 				cfg = resolved
 			} else {
 				stopFailoverRecording(c)
+			}
+
+			// A config without parameters.model is identified by the name of
+			// the config that serves the request. Take it after alias and
+			// failover resolution: the target and every alias or chain that
+			// points to it share one backend process (keyed by ModelID), and
+			// cfg.Model is the ModelIdentity that process checks on every
+			// call (pkg/grpc/server.go checkModelIdentity). The requested
+			// name would give each of them a different identity, and the
+			// first one loaded would reject the others.
+			if cfg != nil && cfg.Model == "" {
+				served := cfg.Name
+				if served == "" {
+					served = modelName
+				}
+				if served != "" {
+					xlog.Debug("config does not include model, using the served config name", "model", served)
+					cfg.Model = served
+				}
 			}
 
 			// Check if the model is disabled

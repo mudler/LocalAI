@@ -38,6 +38,13 @@ optional [profile](#profile-aliases) block.
   response `model` field, not the target name.
 - Usage accounting records both sides: requested `gpt-4`, served `my-llama-3`.
 - Aliases work for every modality (chat, embeddings, audio, images, and so on).
+- The target and all of its aliases share one backend process, and the backend
+  is always loaded under the target's model. When the target has no
+  `parameters.model` (common for `cloud-proxy` models), that is the target's
+  `name`, whichever name the first request used. The target and its aliases
+  can therefore be called in any order, and a `cloud-proxy` target in
+  `translate` mode without `proxy.upstream_model` always sends the target's
+  name upstream.
 
 To serve a name from several models with automatic fallback, use a [failover
 chain]({{%relref "features/model-failover" %}}).

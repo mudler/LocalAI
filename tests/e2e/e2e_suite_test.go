@@ -710,6 +710,26 @@ var _ = BeforeSuite(func() {
 				},
 			},
 		}
+		// Targets without parameters.model, each reached under its own name
+		// and under aliases. They share one backend process, so all those
+		// names must present the same model identity to it.
+		for _, target := range []string{"cp-noparam-target-first", "cp-noparam-alias-first"} {
+			cloudProxyConfigs = append(cloudProxyConfigs,
+				map[string]any{
+					"name":    target,
+					"backend": "cloud-proxy",
+					"proxy": map[string]any{
+						"mode":         "translate",
+						"provider":     "openai",
+						"upstream_url": cpOpenAIUpstream.URL() + "/v1/chat/completions",
+						"api_key_env":  "CLOUD_PROXY_E2E_OPENAI_KEY",
+					},
+				},
+				map[string]any{"name": target + "-a", "alias": target},
+				map[string]any{"name": target + "-b", "alias": target,
+					"profile": map[string]any{"system_prompt": "persona"}},
+			)
+		}
 		for _, cfg := range cloudProxyConfigs {
 			// A chat reports the window of its model, and the tool schemas
 			// of a chat do not fit in the 4096 default.
