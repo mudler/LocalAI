@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import StarterModels from '../StarterModels'
 // eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
-import Mascot from '../ui/Mascot'
 
 // First run: no model is installed yet. Three steps, with the recommended
 // model for the detected hardware inside the second one, so the way forward
@@ -11,7 +10,6 @@ import Mascot from '../ui/Mascot'
 export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, onImport }) {
   const { t } = useTranslation('home')
   return (
-    <div className="home-first__row">
     <ol className="home-guide" aria-label={t('wizard.guideLabel')} data-testid="home-first-run">
       <li className="home-step" data-state="now" aria-current="step">
         <span className="home-step__num" aria-hidden="true">1</span>
@@ -41,9 +39,6 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
           <span className="home-step__desc">{t('wizard.steps.step3Body')}</span>
         </div>
       </li>
-
     </ol>
-    <Mascot pose="welcome" size="lg" className="home-first__mascot" />
-    </div>
   )
 }

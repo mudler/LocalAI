@@ -4218,11 +4218,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 
 /* First run */
 .home-first { margin-top: 16px; }
-.home-first__row { display: flex; align-items: center; gap: var(--sp-6); }
-.home-first__row > .home-guide { flex: 1; min-width: 0; }
-@media (max-width: 720px) {
-  .home-first__mascot { display: none; }
-}
 .home-guide {
   display: flex;
   flex-direction: column;
