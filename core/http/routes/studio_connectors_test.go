@@ -262,11 +262,15 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("reply_mode", "stream"), HaveKeyWithValue("conversation", "window"),
 			HaveKeyWithValue("window_minutes", BeNumerically("==", 45)), HaveKeyWithValue("send_files", false)))
 		// An update without send_files keeps it.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Modes bot", "agent_id": ag, "reply_mode": "reasoning", "conversation": "thread"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("reply_mode", "reasoning"), "the reasoning mode is accepted")
 		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Modes bot", "agent_id": ag, "reply_mode": "off", "conversation": "thread"})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("reply_mode", "off"), HaveKeyWithValue("conversation", "thread"), HaveKeyWithValue("send_files", false), Not(HaveKey("window_minutes"))))
 		for _, bad := range []map[string]any{
 			{"reply_mode": "shout"},
+			{"reply_mode": "Reasoning"},
 			{"conversation": "forever"},
 			{"conversation": "window"},
 			{"conversation": "window", "window_minutes": 20000},

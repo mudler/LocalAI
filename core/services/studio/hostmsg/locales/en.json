@@ -34,6 +34,7 @@
   "pairing.direct": "Verification works in a direct message only.",
   "live.working": "Working…",
   "live.using": "Using {tool}…",
+  "live.thinking": "Thinking:",
   "file.too_big": "That file is too large{seen}: I can read files of up to {max} here ({why}).",
   "file.send_too_big": "{name} is too large to send here (the limit is {limit}). It is in the chat's files.",
   "file.limit": "{size} ({why})",

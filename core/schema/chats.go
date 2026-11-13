@@ -1813,8 +1813,10 @@ type ChatsConnector struct {
 	OAuth *ChatsConnectorOAuth `json:"oauth,omitempty"`
 	// ReplyMode is what a sender sees while a turn runs: off (typing, then
 	// the answer), progress (a working message that names the tools as they
-	// start) or stream (a working message that shows the answer as it is
-	// written). The answer replaces the working message.
+	// start), stream (a working message that shows the answer as it is
+	// written) or reasoning (like stream, and it shows the reasoning of the
+	// model while it thinks; every sender of the binding can read it). The
+	// answer replaces the working message.
 	ReplyMode string `json:"reply_mode"`
 	// Conversation says which chat a message belongs to: sender (one chat
 	// per sender and per platform thread), chat (one chat per group, channel
@@ -2304,7 +2306,7 @@ type ChatsConnectorWrite struct {
 	// entry with no level is "answer".
 	AllowTrust map[string]string `json:"allow_trust,omitempty"`
 	NotifyChat string            `json:"notify_chat,omitempty"`
-	// ReplyMode is off, progress or stream; empty means progress.
+	// ReplyMode is off, progress, stream or reasoning; empty means progress.
 	ReplyMode string `json:"reply_mode,omitempty"`
 	// Conversation is sender, chat, window or thread; empty means sender.
 	Conversation string `json:"conversation,omitempty"`

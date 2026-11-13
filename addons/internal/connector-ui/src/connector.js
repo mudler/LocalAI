@@ -2,7 +2,7 @@
 // so a node test drives them.
 
 // The modes a binding answers with. The server has the same defaults.
-export const REPLY_MODES = ['off', 'progress', 'stream']
+export const REPLY_MODES = ['off', 'progress', 'stream', 'reasoning']
 export const CONVERSATIONS = ['sender', 'chat', 'window', 'thread']
 // The language of the sentences the bot writes itself (auto follows the sender).
 export const REPLY_LANGUAGES = ['auto', 'en', 'it', 'de', 'es', 'fr', 'pt-BR']

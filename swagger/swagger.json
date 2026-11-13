@@ -6001,7 +6001,7 @@
                 }
             },
             "post": {
-                "description": "// @Description For a kind that lists wildcard_resources, resources may hold owner/* (every resource of one owner) and * (every resource the token reaches); the request that adds * must also carry confirm_any_resource set to \"allow any resource\". A kind that lists token_guards refuses a token with a guarded prefix (a classic GitHub token) unless options sets the guarded option to its allow value in a request that also carries confirm_wider_token set to \"accept wider token\". Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 50 bindings.",
+                "description": "// @Description For a kind that lists wildcard_resources, resources may hold owner/* (every resource of one owner) and * (every resource the token reaches); the request that adds * must also carry confirm_any_resource set to \"allow any resource\". A kind that lists token_guards refuses a token with a guarded prefix (a classic GitHub token) unless options sets the guarded option to its allow value in a request that also carries confirm_wider_token set to \"accept wider token\". Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream, reasoning; default progress; reasoning shows the model's thinking to every sender of the binding), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 50 bindings.",
                 "tags": [
                     "chats"
                 ],
@@ -23162,7 +23162,7 @@
                     "type": "string"
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
+                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart), stream (a working message that shows the answer as it is\nwritten) or reasoning (like stream, and it shows the reasoning of the\nmodel while it thinks; every sender of the binding can read it). The\nanswer replaces the working message.",
                     "type": "string"
                 },
                 "resources": {
@@ -24644,7 +24644,7 @@
                     "type": "string"
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
+                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart), stream (a working message that shows the answer as it is\nwritten) or reasoning (like stream, and it shows the reasoning of the\nmodel while it thinks; every sender of the binding can read it). The\nanswer replaces the working message.",
                     "type": "string"
                 },
                 "resources": {

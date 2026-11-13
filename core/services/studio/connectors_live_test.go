@@ -201,6 +201,45 @@ var _ = Describe("connectors live", func() {
 		}
 	})
 
+	It("reasoning in a private chat shows the thinking in the draft, then the answer, and the answer replaces the preview", func() {
+		sh, bot := newShared(), newScriptedBot()
+		thought, half := make(chan struct{}), make(chan struct{})
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Think: "checking "}, {Think: "the notes"}, {Block: thought},
+				{Say: "The first half"}, {Block: half}, {Say: " and the **second** half."}}
+		}
+		r := newConnRig(sh, connStore(), bot, script, nil)
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyReasoning})
+		bot.say(1, 11, "Ada", "ada", "write")
+		waitFor("the thinking in the draft", func() bool { return bot.lastDraft() == "Thinking:\nchecking the notes ▉" })
+		Expect(bot.answers()).To(BeEmpty(), "no working message")
+		close(thought)
+		waitFor("the answer in the draft", func() bool { return bot.lastDraft() == "The first half ▉" })
+		close(half)
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("The first half and the *second* half."))
+		Expect(bot.editCount()).To(BeZero(), "a draft is never edited")
+	})
+
+	It("reasoning in a group shows the thinking in a working message that the answer replaces", func() {
+		sh, bot := newShared(), newScriptedBot()
+		thought, half := make(chan struct{}), make(chan struct{})
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Think: "weighing it"}, {Block: thought}, {Say: "Done"}, {Block: half}, {Say: "."}}
+		}
+		r := newConnRig(sh, connStore(), bot, script, nil)
+		r.bind(studio.ConnectorInput{Allow: []string{"-600"}, Reply: connectors.ReplyReasoning})
+		bot.mention(1, -600, 21, "Ann", "think")
+		waitFor("the working message", func() bool { return len(bot.answers()) == 1 })
+		id := bot.firstID()
+		waitFor("the thinking", func() bool { return bot.lastEdit(id) == "Thinking:\nweighing it ▉" })
+		close(thought)
+		waitFor("the answer", func() bool { return bot.lastEdit(id) == "Done ▉" })
+		close(half)
+		waitFor("the final answer", func() bool { return bot.lastEdit(id) == "Done." })
+		Expect(bot.answers()).To(HaveLen(1), "one message holds the answer")
+	})
+
 	It("a draft the platform refuses gives way to a working message for the rest of the turn", func() {
 		sh, bot := newShared(), newScriptedBot()
 		bot.setFail("sendMessageDraft", func() (int, string) {

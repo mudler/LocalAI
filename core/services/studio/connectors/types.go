@@ -34,6 +34,10 @@ const (
 	// ReplyStream shows one working message with the answer as it is
 	// written; the answer replaces it.
 	ReplyStream = "stream"
+	// ReplyReasoning is the stream mode that also shows the reasoning of the
+	// model while it thinks, under a fixed label. It is opt-in: every
+	// sender of the binding can read the reasoning.
+	ReplyReasoning = "reasoning"
 )
 
 // Conversation modes: which chat a message belongs to.
@@ -172,7 +176,7 @@ type Binding struct {
 	AllowTrust map[string]string
 	// NotifyChat, when set, receives the owner's run notifications.
 	NotifyChat string
-	// Reply is a reply mode (ReplyOff, ReplyProgress, ReplyStream); empty
+	// Reply is a reply mode (ReplyOff, ReplyProgress, ReplyStream, ReplyReasoning); empty
 	// means ReplyProgress.
 	Reply string
 	// Conversation is a conversation mode; empty means ConversationSender.
@@ -516,9 +520,9 @@ func ValidateKind(b Binding, agentOptional bool) error {
 		}
 	}
 	switch b.Reply {
-	case "", ReplyOff, ReplyProgress, ReplyStream:
+	case "", ReplyOff, ReplyProgress, ReplyStream, ReplyReasoning:
 	default:
-		return bad("the reply mode must be %s, %s or %s", ReplyOff, ReplyProgress, ReplyStream)
+		return bad("the reply mode must be %s, %s, %s or %s", ReplyOff, ReplyProgress, ReplyStream, ReplyReasoning)
 	}
 	if !hostmsg.ValidSetting(b.ReplyLanguage) {
 		return bad("the reply language must be auto, %s", strings.Join(hostmsg.Languages, ", "))

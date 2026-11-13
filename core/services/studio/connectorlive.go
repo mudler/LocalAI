@@ -69,9 +69,14 @@ type liveReply struct {
 	shown string
 	tools []string
 	// answer is the text of the answer so far, and status the latest tool
-	// line, for the stream mode. Reasoning is never shown to the sender.
+	// line, for the stream and reasoning modes. Only the reasoning mode keeps
+	// the reasoning: in every other mode it is never shown to the sender.
 	answer strings.Builder
 	status string
+	// thought is the reasoning since the last answer text or tool call, and
+	// thinking tells that the model is reasoning now.
+	thought  strings.Builder
+	thinking bool
 }
 
 // livePace is how a binding shows previews: how often, and whether its
@@ -109,33 +114,62 @@ func (l *liveReply) observe(ev session.Event) {
 		}
 		// The text before a tool call is a preamble; the answer comes after.
 		l.answer.Reset()
+		l.thought.Reset()
+		l.thinking = false
 		l.status = l.v.T("live.using", "tool", ev.Tool.Name)
 	case session.KindText:
 		l.answer.WriteString(ev.Text)
+		l.thinking = false
+	case session.KindReasoning:
+		// The reasoning of the model is not the answer: only the reasoning
+		// mode keeps it, because a sender of any other mode must never read it.
+		if l.mode != connectors.ReplyReasoning {
+			return
+		}
+		if !l.thinking {
+			// A new thought: the one before it is over.
+			l.thought.Reset()
+			l.thinking = true
+		}
+		l.thought.WriteString(ev.Text)
 	}
-	// session.KindReasoning is not shown: the reasoning of the model is not
-	// the answer, and a sender must never read it.
 }
 
 // view is what the working message should show now.
 func (l *liveReply) view() string {
 	switch l.mode {
+	case connectors.ReplyReasoning:
+		// The answer once it starts; else the reasoning, labelled, while the
+		// model thinks; else the tool.
+		if strings.TrimSpace(l.answer.String()) == "" && l.thinking {
+			if th := strings.TrimSpace(l.thought.String()); th != "" {
+				label := l.v.T("live.thinking") + "\n"
+				room := maxPreviewRunes - utf8.RuneCountInString(cursorMark) - utf8.RuneCountInString(label)
+				return label + tailRunes(th, room) + cursorMark
+			}
+		}
+		return l.streamView()
 	case connectors.ReplyStream:
-		// The answer once it starts; before it, the tool.
-		t := strings.TrimSpace(l.answer.String())
-		if t == "" {
-			t = strings.TrimSpace(l.status)
-		}
-		if t == "" {
-			t = l.v.T("live.working")
-		}
-		return tailRunes(t, maxPreviewRunes-utf8.RuneCountInString(cursorMark)) + cursorMark
+		return l.streamView()
 	case connectors.ReplyProgress:
 		if len(l.tools) > 0 {
 			return l.v.T("live.working") + "\n• " + strings.Join(l.tools, "\n• ")
 		}
 	}
 	return l.v.T("live.working")
+}
+
+// streamView is the preview of the stream mode: the answer once it starts,
+// before it the tool, before that "Working…".
+func (l *liveReply) streamView() string {
+	t := strings.TrimSpace(l.answer.String())
+	if t == "" {
+		t = strings.TrimSpace(l.status)
+	}
+	if t == "" {
+		t = l.v.T("live.working")
+	}
+	return tailRunes(t, maxPreviewRunes-utf8.RuneCountInString(cursorMark)) + cursorMark
 }
 
 // tailRunes keeps the last n runes of s.
@@ -167,7 +201,7 @@ func (c *Connectors) livePaceOf(b connectors.Binding) livePace {
 }
 
 // startLive shows that the bot works: typing at once, and unless the
-// binding's mode is off the first preview. In the stream mode of a direct
+// binding's mode is off the first preview. In the stream and reasoning modes of a direct
 // conversation on a platform with drafts it is a draft, else a working
 // message.
 func (c *Connectors) startLive(b connectors.Binding, token string, m contract.ConnectorMessage, pace livePace) *liveReply {
@@ -182,7 +216,7 @@ func (c *Connectors) startLive(b connectors.Binding, token string, m contract.Co
 	// The first preview goes now, whatever the budget, and counts: the next
 	// one waits a whole interval.
 	c.holdEdits(b.ID, pace.every)
-	if l.mode == connectors.ReplyStream && m.Direct && pace.drafts {
+	if (l.mode == connectors.ReplyStream || l.mode == connectors.ReplyReasoning) && m.Direct && pace.drafts {
 		l.draft = nextDraftID()
 		if c.showDraft(b, token, m, l, v) {
 			return l

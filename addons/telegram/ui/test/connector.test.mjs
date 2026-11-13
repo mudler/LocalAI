@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DUPLICATE_CONFIRMATION, duplicateOther, duplicateRefusalName, isDuplicateRefusal, localizeAccess, localizeCapabilities, approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, previewLimit, senderLine, listeningChannels, offeredPlaces, placeFor, withPlace } from '../../../internal/connector-ui/src/connector.js'
+import { DUPLICATE_CONFIRMATION, duplicateOther, duplicateRefusalName, isDuplicateRefusal, localizeAccess, localizeCapabilities, approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, REPLY_MODES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, previewLimit, senderLine, listeningChannels, offeredPlaces, placeFor, withPlace } from '../../../internal/connector-ui/src/connector.js'
 import { changedParts, droppedActs, removedActs } from '../../../internal/connector-ui/src/access.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
@@ -41,6 +41,21 @@ test('chat connectors: a new binding shows progress, one chat per person and sen
   assert.equal(c.reply_mode, 'progress')
   assert.equal(c.conversation, 'sender')
   assert.equal(c.send_files, true)
+})
+
+test('chat connectors: the reasoning reply mode is offered, saved and explained, with a warning', () => {
+  assert.deepEqual(REPLY_MODES, ['off', 'progress', 'stream', 'reasoning'])
+  const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
+  assert.equal(base.reply_mode, 'progress', 'it is never the default')
+  assert.equal(connectorPayload({ ...base, reply_mode: 'reasoning' }, 'telegram').reply_mode, 'reasoning')
+  assert.equal(connectorForm({ id: 'b1', name: 'B', agent_id: 'a', reply_mode: 'reasoning' }).reply_mode, 'reasoning')
+  const en = JSON.parse(readFileSync(new URL('../../../internal/connector-ui/src/i18n/connector.en.json', import.meta.url), 'utf8'))
+  for (const k of ['answer.reply.reasoning', 'answer.short.reasoning', 'answer.replyReasoningHelp']) assert.ok(en[k], `no text for ${k}`)
+  assert.match(en['answer.replyReasoningHelp'], /every sender/)
+  for (const f of readdirSync(new URL('../../../internal/connector-ui/src/i18n/', import.meta.url)).filter((x) => x.endsWith('.json'))) {
+    const t = JSON.parse(readFileSync(new URL(`../../../internal/connector-ui/src/i18n/${f}`, import.meta.url), 'utf8'))
+    for (const k of ['answer.reply.reasoning', 'answer.short.reasoning', 'answer.replyReasoningHelp']) assert.ok(t[k], `${f} has no ${k}`)
+  }
 })
 
 test('chat connectors: the request carries the reply mode, the conversation mode and the file switch', () => {

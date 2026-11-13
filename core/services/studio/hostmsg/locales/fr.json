@@ -34,6 +34,7 @@
   "pairing.direct": "La vérification ne fonctionne que dans un message direct.",
   "live.working": "Je travaille…",
   "live.using": "J'utilise {tool}…",
+  "live.thinking": "Je réfléchis :",
   "file.too_big": "Ce fichier est trop volumineux{seen} : ici, je peux lire des fichiers jusqu'à {max} ({why}).",
   "file.send_too_big": "{name} est trop volumineux pour être envoyé ici (la limite est de {limit}). Il se trouve dans les fichiers de la conversation.",
   "file.limit": "{size} ({why})",
