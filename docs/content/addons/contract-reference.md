@@ -2066,7 +2066,7 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 8.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 9.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
@@ -2078,6 +2078,7 @@ level**: one integer that counts the additive manifest features it understands.
   `capabilities.executionProvider.jobs` is level 6.
   `capabilities.client` is level 7. A wildcard tail (`{name...}`) as the last segment of a client
   route is level 8; a host of level 7 refuses such a manifest with the reason below.
+  `capabilities.modelSearch` (a source of the model-search slot) is level 9.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
@@ -3901,6 +3902,99 @@ at the same time, and that a stopped or removed add-on turns the slot off instea
 falling back. `core/services/studio/providerslots_internal_test.go` is the reference, and
 `core/services/studio/providercalls_internal_test.go` covers the host's own calls.
 `pkg/addons/contract/providerslots_test.go` covers the manifest rules.
+
+## Model search sources
+
+The slot `model-search` lets an add-on add a **source** to the model search panel (the
+Explore tab of the Models page) and to the search tool of the assistant. The add-on gives
+data and typed filters only. It ships no UI, markup, script or style: the host draws the
+rows and the controls, so a source from an add-on looks like the built-in one. A result
+must install through a scheme that the host already handles. An add-on cannot add a
+download scheme.
+
+This slot has a **set** selection (`selection.mode: "set"` in `provider-slots.json`; the
+other slots are pick-one). A person enables any number of sources. The built-in source is
+Hugging Face (`huggingface`) and it is on by default. All enabled sources are searched at
+the same time and the answers are merged. An empty set means no source is searched: the
+slot has no Off value.
+
+### Declare a source
+
+An add-on declares the slot in `capabilities.provides` (role `search`, one tool of kind
+`read`) and describes its source in `capabilities.modelSearch`. A manifest that uses
+`modelSearch` must declare `featureLevel: 9`.
+
+```json
+{
+  "featureLevel": 9,
+  "capabilities": {
+    "tools": ["search"],
+    "toolDefinitions": [{"name": "search", "kind": "read", "description": "...", "inputSchema": {"type": "object"}}],
+    "provides": [{"slot": "model-search", "slotVersion": 1, "roles": {"search": "search"}}],
+    "modelSearch": {
+      "source": {"id": "example", "title": "Example", "icon": "cloud", "listsLatest": false},
+      "sorts": ["downloads", "likes"],
+      "filters": [
+        {"id": "kind", "type": "enum", "label": "Kind", "values": ["gguf", "any"], "default": "gguf"}
+      ]
+    }
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `source.id` | The provider ID. Results, the stored choice and the `providers` parameter use it. It never changes once published. `builtin` and `off` are not allowed. Two add-ons that declare the same ID: the second is refused when it registers, and the host writes an audit line. |
+| `source.title` | The name shown on the chip and on each row. |
+| `source.icon` | An icon name of the host. An unknown name draws none. |
+| `source.listsLatest` | The source answers with no search text when the sort is `latest`. |
+| `sorts` | At most 5 of `downloads`, `likes`, `updated`, `trending`, `latest`. |
+| `filters` | At most 8. Each has `id`, `type`, `label`, optional `help`. Types: `enum` (`values`, at most 32, and a `default` that is one of them), `bool`, `range` (`min`, `max`, `step`, `unit`) and `text` (`maxLength`, at most 200). The IDs `q`, `limit` and `sort` are reserved. |
+| `i18n.<language>.modelSearch` | Translates the source `title` and, by filter ID, the `label`, `help` and the labels of enum `values`. English stays the fallback. |
+
+### The call
+
+The host calls the `search` tool with:
+
+```json
+{"q": "qwen", "limit": 20, "sort": "downloads", "format": "gguf", "filters": {"kind": "gguf"}}
+```
+
+`filters` holds only the filters of this source, typed: a string for an enum or a text,
+a boolean, a number for a range. The tool answers with `{"results": [...]}`. A row has the
+fields `id`, `title`, `uri`, `magnet`, `url`, `size_bytes`, `downloads`, `likes`,
+`seeders`, `tags`, `pipeline_tag`, `license`, `gated` and `last_modified`. The host checks
+every row (`search-result-validation`):
+
+- `uri` must start with a scheme that the importer accepts: `huggingface://`,
+  `pirateface://`, `magnet:` or `https://`. A row that fails is dropped.
+- `id` is at most 200 bytes, `title` 300, `url` and `magnet` 2048, and a row has at most
+  32 tags of at most 64 bytes. A row over a cap is dropped.
+- At most `MaxLimit` (50) rows are read.
+- The host sets `provider` to the source ID, whatever the row says. It computes
+  `installed`, `installed_name`, `backend` and `has_variants` itself and discards the
+  values of the add-on.
+
+Dropped rows are counted in the `dropped` field of the status of the source. An error, a
+timeout (15 seconds) or an answer that is not valid JSON gives a failed status for that
+source only. Text from a source is untrusted when it reaches the assistant.
+
+### Routes
+
+| Route | Does |
+|---|---|
+| `GET /api/models/search` | Searches the enabled set of the caller. `providers=a,b` limits the sources. `filters.<source>.<id>=value` sets a filter of one source; an unknown filter or a value that does not fit its type gives a 400 that names the filter. The answer has `results`, `providers` (each with `title`, `ok`, `count`, `dropped`) and `sources` (title, icon, sorts and the filter schema of each source). |
+| `GET /api/models/search/sources` | The sources that are installed, the enabled set of the caller, and the enabled IDs that have no installed add-on (`missing`). |
+| `PUT /api/models/search/sources` | `{"enabled": ["huggingface", "<source id>"]}`. A stored ID with no installed add-on is kept and ignored, so installing the add-on again restores the choice. |
+
+The enabled set is kept per person with the other per-person add-on choices, so every
+frontend of a cluster reads the same answer. Changing it needs no restart.
+
+### Test a source
+
+`pkg/modelsearch` has a fake broker that stands in for the add-ons. Use it to test the
+fan-out, the row checks and the filter checks. `pkg/addons/contract/modelsearch_test.go`
+covers the manifest rules.
 
 ## Owner forwarding and HTTP relays
 

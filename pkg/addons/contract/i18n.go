@@ -33,6 +33,9 @@ type Translation struct {
 	Kinds map[string]KindText `json:"kinds,omitempty"`
 	// Resources translates the noun of the resources (feature level 2).
 	Resources *ResourceText `json:"resources,omitempty"`
+	// ModelSearch translates the title and the filters of a model-search
+	// source (feature level 9).
+	ModelSearch *ModelSearchText `json:"modelSearch,omitempty"`
 }
 
 // ResourceText is the translated noun of the resources of an add-on, singular
@@ -81,7 +84,7 @@ func validateI18n(m Manifest) error {
 			return fmt.Errorf("i18n language %q: English is the manifest itself", tag)
 		}
 		seen[key] = true
-		if len(t.Kinds) == 0 && t.Resources == nil {
+		if len(t.Kinds) == 0 && t.Resources == nil && t.ModelSearch == nil {
 			return fmt.Errorf("i18n language %q translates nothing", tag)
 		}
 		if rt := t.Resources; rt != nil {
@@ -94,6 +97,15 @@ func validateI18n(m Manifest) error {
 					return fmt.Errorf("i18n %q: invalid resource noun", tag)
 				}
 				total += utf8.RuneCountInString(w)
+			}
+		}
+		if ms := t.ModelSearch; ms != nil {
+			total += utf8.RuneCountInString(ms.Title)
+			for _, f := range ms.Filters {
+				total += utf8.RuneCountInString(f.Label) + utf8.RuneCountInString(f.Help)
+				for _, v := range f.Values {
+					total += utf8.RuneCountInString(v)
+				}
 			}
 		}
 		for id, text := range t.Kinds {
