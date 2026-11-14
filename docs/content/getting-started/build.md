@@ -89,6 +89,39 @@ docker build -t localai .
 docker run localai
 ```
 
+##### Choosing the ROCm release for `hipblas` builds
+
+For `BUILD_TYPE=hipblas` the ROCm release comes from the base image, and the
+build installs the ROCm BLAS development packages from the base image's apt
+repository. Both are build arguments of the main `Dockerfile`,
+`backend/Dockerfile.python`, `backend/Dockerfile.golang` and the builders that
+run `.docker/install-base-deps.sh` (`backend/Dockerfile.base-grpc-builder`,
+`backend/Dockerfile.llama-cpp` and its siblings):
+
+| Build argument | Default | Meaning |
+|---|---|---|
+| `BASE_IMAGE` | `rocm/dev-ubuntu-24.04:7.2.1` in CI | Image that provides ROCm and its apt repository |
+| `ROCM_PACKAGES` | `hipblas-dev hipblaslt-dev rocblas-dev` | Packages installed when `BUILD_TYPE=hipblas` and `SKIP_DRIVERS=false` |
+
+The default package names belong to the ROCm 7.x repository. ROCm 10.x ships
+from AMD's new repository (`stable.repo.amd.com/rocm/core`) with different
+names; hipBLAS, rocBLAS and hipBLASLt headers are in `amdrocm-blas-dev<version>`.
+To build against another release, set both arguments together, for example:
+
+```
+docker build \
+  --build-arg BUILD_TYPE=hipblas \
+  --build-arg BASE_IMAGE=rocm/dev-ubuntu-24.04:10.1.0-full \
+  --build-arg ROCM_PACKAGES=amdrocm-blas-dev10.1 \
+  -t localai:hipblas-rocm10 .
+```
+
+An empty `ROCM_PACKAGES` installs nothing, for a base image that already ships
+the ROCm development packages. Unlike `SKIP_DRIVERS=true`, the image is still
+marked as an AMD image, so meta backends resolve to their ROCm variants.
+
+Only the default ROCm 7.x combination is built and tested in CI.
+
 ### Example: Build on mac
 
 Building on Mac (M1, M2 or M3) works, but you may need to install some prerequisites using `brew`. 
