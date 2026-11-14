@@ -73,7 +73,9 @@ type Deck struct {
 }
 
 // Open reads a .pptx file. The bytes are kept until the Deck is dropped.
-func Open(data []byte) (*Deck, error) {
+func Open(data []byte) (*Deck, error) { return open(data, false) }
+
+func open(data []byte, allowEmpty bool) (*Deck, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, fmt.Errorf("pptxedit: not a zip file: %w", err)
@@ -111,7 +113,7 @@ func Open(data []byte) (*Deck, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(refs) == 0 {
+	if len(refs) == 0 && !allowEmpty {
 		return nil, errors.New("pptxedit: the deck has no slides")
 	}
 	return d, nil
