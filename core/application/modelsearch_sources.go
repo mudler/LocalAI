@@ -20,7 +20,7 @@ const modelSearchKey = "provider-" + contract.SlotModelSearch
 // assistant tool use this one value, so they share one cache and one choice.
 func (a *Application) ModelSearch() *modelsearch.Host {
 	a.modelSearchOnce.Do(func() {
-		a.modelSearchHost = modelsearch.NewHost(modelsearch.Shared(), modelSearchBackend{a: a}, modelSearchKV{a: a})
+		a.modelSearchHost = modelsearch.NewHost(modelsearch.Shared(), modelSearchBackend{broker: a.StudioAddonTools}, modelSearchKV{a: a})
 	})
 	return a.modelSearchHost
 }
@@ -28,10 +28,13 @@ func (a *Application) ModelSearch() *modelsearch.Host {
 // modelSearchBackend gives the search the add-ons through the chats broker, the
 // one place that decides which add-ons a person can see and which host
 // features they need.
-type modelSearchBackend struct{ a *Application }
+type modelSearchBackend struct {
+	// broker returns the chats broker at each call: it is built after the host.
+	broker func() studio.AddonTools
+}
 
 func (b modelSearchBackend) Sources(ctx context.Context, user string) ([]modelsearch.AddonSource, error) {
-	lister, ok := b.a.StudioAddonTools().(studio.AddonProviderLister)
+	lister, ok := b.broker().(studio.AddonProviderLister)
 	if !ok {
 		return nil, nil
 	}
@@ -55,7 +58,7 @@ func (b modelSearchBackend) Sources(ctx context.Context, user string) ([]modelse
 }
 
 func (b modelSearchBackend) Call(ctx context.Context, user, addonID, tool string, args json.RawMessage) (json.RawMessage, error) {
-	caller, ok := b.a.StudioAddonTools().(studio.AddonProviderCaller)
+	caller, ok := b.broker().(studio.AddonProviderCaller)
 	if !ok {
 		return nil, errors.New("the add-on broker is not available")
 	}
