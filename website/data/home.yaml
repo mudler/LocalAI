@@ -1,0 +1,134 @@
+# The feature sections of the home page, in order, and the cards of the "Everything new"
+# grid. Text here must match what the code does and what the docs page says.
+#
+# `illus` names a coded illustration in layouts/partials/illus/.
+# `demo`, when set, replaces the illustration with a muted looping video. It names a file set
+# in static/media/: <demo>.mp4, <demo>.webm and the poster <demo>.jpg.
+sections:
+  - id: chat
+    kicker: Chat
+    h: 'Talk. Then it <span class="hl">works</span>.'
+    lede: Chat with an open model that runs on your own hardware. Ask it to read a file, make a table or write a report.
+    points:
+      - Save agents. Each one has its own model, skills and memory.
+      - Ask for an image, a sound or a spoken line. The result is saved in Files.
+      - The assistant can propose a memory. You confirm it before it is kept.
+    links:
+      - {t: "See Chat", href: "features/chat/"}
+      - {t: "Chat docs", href: "/docs/features/chats/"}
+    dev: true
+    illus: chat
+    demo: ""
+  - id: files
+    kicker: Files and Sandbox
+    h: 'Files in. Python in a <span class="hl">box</span>.'
+    lede: Put a spreadsheet in Files and ask for a chart. The Sandbox runs Python on it and saves the result in Files.
+    points:
+      - Your files stay on your server, and an agent can read and search them.
+      - The sandbox has no internet unless an admin allows it.
+      - Every change is listed in History, with an Undo button.
+    need: Sandbox is an add-on. An admin installs it once.
+    links:
+      - {t: "See Sandbox", href: "features/sandbox/"}
+      - {t: "See Files", href: "features/files/"}
+    dev: true
+    illus: sandbox
+    demo: ""
+  - id: office
+    kicker: Office
+    h: 'A sentence becomes a <span class="hl">document</span>.'
+    lede: Ask in a chat. LocalAI makes real Word, Excel, PowerPoint and PDF files and saves them in Files.
+    points:
+      - Reads a spreadsheet and writes the report around it.
+      - Shows a preview in the chat. The file opens in Office.
+      - Makes and reads PDF files. It does not edit them.
+    need: Office is an add-on. An admin installs it once.
+    links:
+      - {t: "See Office", href: "features/office/"}
+      - {t: "Office docs", href: "/docs/features/office/"}
+    dev: true
+    illus: office
+    demo: ""
+  - id: team
+    kicker: Team
+    h: 'One server. Your whole <span class="hl">team</span>.'
+    lede: Each person has a login and their own chats. An admin chooses what each person can use.
+    points:
+      - An admin turns features on or off for each person.
+      - Shared folders give the team files in common.
+      - Admins can read all chats.
+    links:
+      - {t: "See Team", href: "features/team/"}
+      - {t: "Users and sharing", href: "/docs/concepts/users-and-sharing/"}
+    dev: true
+    illus: team
+    demo: ""
+  - id: collections
+    kicker: Collections
+    h: 'Ask your <span class="hl">documents</span>.'
+    lede: Collections index PDF, text, Markdown and web pages. An agent finds the passages by meaning.
+    points:
+      - An agent searches a collection only when you name it.
+      - Add files or a web address as a source.
+    need: With user accounts, an admin turns Collections on for each person.
+    links:
+      - {t: "See Collections", href: "features/collections/"}
+      - {t: "Knowledge docs", href: "/docs/features/collections/"}
+    dev: true
+    illus: collections
+    demo: ""
+  - id: home
+    kicker: Home, pages and triggers
+    h: 'A Home that <span class="hl">keeps</span> itself current.'
+    lede: Ask for a small page and pin it to Home. Widgets show your data. A trigger can start a run on a schedule, or when a file arrives.
+    points:
+      - The assistant proposes a page. You confirm it, then it is saved to your files.
+      - Home takes up to three page tiles and twelve widgets.
+      - A schedule trigger runs at most once every five minutes.
+    need: Pages and Triggers are off for new users until an admin turns them on.
+    links:
+      - {t: "See Pages", href: "features/pages/"}
+      - {t: "Home docs", href: "/docs/features/home-widgets/"}
+    dev: true
+    illus: home
+    demo: ""
+  - id: addons
+    kicker: Add-ons and chat apps
+    h: 'Add what you need. Text it from your <span class="hl">phone</span>.'
+    lede: Add-ons bring Office, Sandbox, Tables and more. Others connect an agent to Slack, Telegram and Discord.
+    points:
+      - You see what an add-on may do before it installs, and you choose.
+      - A chat app connection is bound to one agent.
+      - The agent answers from your Files.
+    need: An admin installs add-ons and turns on connectors.
+    links:
+      - {t: "See Add-ons", href: "features/addons/"}
+      - {t: "See Connectors", href: "features/connectors/"}
+    dev: true
+    illus: addons
+    demo: ""
+  - id: models
+    kicker: Models
+    h: 'Open models, your <span class="hl">hardware</span>.'
+    lede: Pick a model from the gallery. LocalAI installs it and picks an engine that fits your machine.
+    points:
+      - It runs on a CPU. A GPU makes it faster.
+      - Engines download the first time a model needs one.
+      - The team wrote {{engines}} of the engines itself.
+    links:
+      - {t: "See Models", href: "features/models/"}
+      - {t: "See the engines", href: "engines/"}
+    illus: models
+    demo: ""
+
+cards:
+  - {dev: true, t: Office, p: "Word, Excel, PowerPoint and PDF from a sentence.", icon: office, href: "/docs/features/office/"}
+  - {dev: true, t: Files, p: "Upload, share folders, use them in a chat.", icon: files, href: "/docs/features/files/"}
+  - {dev: true, t: Sandbox, p: "Python and shell in an isolated box.", icon: sandbox, href: "/docs/addons/catalogue/work/sandbox/"}
+  - {dev: true, t: Team, p: "A login per person. Admins choose features.", icon: team, href: "/docs/concepts/users-and-sharing/"}
+  - {dev: true, t: Collections, p: "Search your documents by meaning.", icon: collections, href: "/docs/features/collections/"}
+  - {dev: true, t: "Home and pages", p: "Widgets, small pages and triggers.", icon: home, href: "/docs/features/pages/"}
+  - {dev: true, t: "Chat apps", p: "Slack, Telegram and Discord.", icon: apps, href: "/docs/features/chats-connectors/"}
+  - {dev: true, t: Add-ons, p: "Install tools, apps and services.", icon: addons, href: "/docs/addons/user-guide/"}
+  - {t: Models, p: "A gallery. An engine that fits your machine.", icon: models, href: "/docs/models/"}
+  - {t: "MCP and API", p: "OpenAI and Anthropic APIs. MCP tools.", icon: mcp, href: "/docs/features/mcp/"}

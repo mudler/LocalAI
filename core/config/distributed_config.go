@@ -57,7 +57,7 @@ type DistributedConfig struct {
 	// A start beyond it is refused and its run fails. Zero: no cap.
 	ChatWorkerMaxTurns int // --chat-worker-max-turns / LOCALAI_CHAT_WORKER_MAX_TURNS
 
-	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
+	// NATS JWT auth (optional; see pkg/natsauth and docs/content/administration/distributed-mode.md)
 	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
 	NatsServiceJWT   string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
 	NatsServiceSeed  string        // LOCALAI_NATS_SERVICE_SEED — signing seed paired with service JWT

@@ -97,13 +97,13 @@ detect_platform() {
 		aarch64 | arm64) ARCH="arm64" ;;
 		*)
 			die "unsupported CPU architecture: ${uname_m}" \
-				"LocalAI publishes amd64 and arm64 binaries. Build from source instead: https://localai.io/docs/getting-started/build/"
+				"LocalAI publishes amd64 and arm64 binaries. Build from source instead: https://localai.io/docs/contributing/build-from-source/"
 			;;
 	esac
 
 	if [ "$OS" = "darwin" ] && [ "$ARCH" = "amd64" ]; then
 		die "there is no Intel macOS binary in the LocalAI releases" \
-			"On an Intel Mac, use the container image (docker run -p 8080:8080 localai/localai:latest) or build from source: https://localai.io/docs/getting-started/build/"
+			"On an Intel Mac, use the container image (docker run -p 8080:8080 localai/localai:latest) or build from source: https://localai.io/docs/contributing/build-from-source/"
 	fi
 }
 

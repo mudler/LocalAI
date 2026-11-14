@@ -5,7 +5,7 @@ GOCMD=go
 # not compiled here. Upstream publishes ready-made engine packages for every
 # target it supports, and this Makefile fetches the one that matches the build
 # (BUILD_TYPE, CUDA_MAJOR_VERSION and the CPU architecture), checks it against a
-# pinned SHA-256 and unpacks it. See docs/content/features/strata.md.
+# pinned SHA-256 and unpacks it. See docs/content/models/engines/strata.md.
 #
 # Targets:
 #   strata   the Go binary only (what `make -C backend/go/strata` builds)

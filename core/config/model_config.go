@@ -185,7 +185,7 @@ type ModelConfig struct {
 
 	// ConcurrencyGroups declares per-node mutual-exclusion groups: the model
 	// cannot be loaded alongside another model that shares any group name.
-	// See docs/content/advanced/vram-management.md for usage.
+	// See docs/content/models/vram-management.md for usage.
 	ConcurrencyGroups []string `yaml:"concurrency_groups,omitempty" json:"concurrency_groups,omitempty"`
 
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`

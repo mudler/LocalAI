@@ -1,23 +1,17 @@
 {{ define "main" }}
-<main id="top">
-  <section class="navy">
-    <div class="shell">
-      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-      <p class="kicker">Tagged</p>
-      <h2 class="mt1">{{ .Title }}</h2>
-      <p class="lede mt2">{{ len .Pages }} post{{ if ne (len .Pages) 1 }}s{{ end }} tagged {{ .Title }}.</p>
-      <div class="cards">
-        {{ range .Pages.ByDate.Reverse }}
-        <a class="cd" href="{{ .RelPermalink }}">
-          <p class="cd__k">{{ with .Params.category }}{{ . }}{{ else }}Post{{ end }}</p>
-          <h3>{{ .Title }}</h3>
-          <p>{{ .Params.summary | default .Summary }}</p>
-          <span class="cd__go">Read the post &#8594;</span>
-        </a>
-        {{ end }}
-      </div>
-      <p class="mt3"><a class="btn btn--o" href="{{ "blog/" | relURL }}">All posts &#8594;</a></p>
-    </div>
-  </section>
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="crumb"><a href="{{ "blog/" | relURL }}">Blog</a> / <a href="{{ "tags/" | relURL }}">Tags</a></p>
+  <h1>{{ .Title }}</h1>
+  <p class="lede">{{ len .Pages }} post{{ if ne (len .Pages) 1 }}s{{ end }} tagged {{ .Title }}.</p>
+</div></header>
+<section><div class="shell">
+  <div class="grid">
+    {{ range .Pages.ByDate.Reverse }}
+    <a class="fcard rv" href="{{ .RelPermalink }}"><p class="kicker">{{ with .Params.category }}{{ . }}{{ else }}Post{{ end }}</p><h2>{{ .Title }}</h2><p>{{ .Params.summary | default (.Summary | plainify) }}</p><span class="go">Read the post &rarr;</span></a>
+    {{ end }}
+  </div>
+  <p class="mt-s"><a class="btn btn--o" href="{{ "blog/" | relURL }}">All posts</a></p>
+</div></section>
 </main>
 {{ end }}

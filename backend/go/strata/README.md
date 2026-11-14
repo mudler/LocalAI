@@ -4,7 +4,7 @@ A LocalAI backend for the [Strata](https://github.com/Niko1221/Strata) inference
 It starts the engine in `--serve` mode as a child process and speaks its stdin/stdout line
 protocol. The backend is pure Go (`CGO_ENABLED=0`). The backend image also carries the engine for
 the target accelerator, the Strata Python files the backend uses, and a Python runtime (see
-[Strata backend](../../../docs/content/features/strata.md) for the build targets and pins).
+[Strata backend](../../../docs/content/models/engines/strata.md) for the build targets and pins).
 
 Status: experimental. The unit tests run against a stub engine that speaks the same line protocol,
 including `LP` lines and `GENI`. The backend has not yet been run against a real engine and model;

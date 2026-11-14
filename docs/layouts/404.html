@@ -1,10 +1,38 @@
-{{ define "main"}}
-    <main id="main">
-      <div>
-       <h1 id="title">Not found</h1>
-       <p>Oops! This page doesn't exist. Try going back to our <a href="{{ "/" | relURL }}">home page</a>.</p>
+<!DOCTYPE html>
+{{- .Store.Set "relearnOutputFormat" "html" }}
+<html id="R-html" lang="{{ .Page.Language.Locale }}" dir="{{ .Page.Language.Direction | default (T "Reading-direction") | default "ltr" }}" itemscope itemtype="http://schema.org/Article" data-r-output-format="{{ with .Store.Get "relearnOutputFormat" }}{{ . }}{{ else }}html{{ end }}">
+  <head>
+    {{- partial "meta.html" . }}
+    {{- $title := partial "title.gotmpl" (dict "page" . "fullyQualified" true "reverse" true) }}
+    <title>{{ $title }}</title>
 
-       <p>You can learn how to make a 404 page like this in <a href="https://gohugo.io/templates/404/">Custom 404 Pages</a>.</p>      
-      </div>
-    </main>
-{{ end }}
+    {{- /* because this file can be called from literally any URL inside your project, we need to base all relative URLs to make them work */}}
+    <base href="{{ site.BaseURL }}">
+
+    {{- partialCached "favicon.html" site.Home }}
+    {{- partial "dependencies.html" (dict "page" . "location" "header") }}
+    {{- partial "custom-header.html" . }}
+  </head>
+  <body class="mobile-support {{ with .Store.Get "relearnOutputFormat" }}{{ . }}{{ else }}html{{ end }}{{- if site.Params.link.underline }} link-underline{{ end }}" data-origin="{{ partial "permalink.gotmpl" (dict "to" .) }}">
+    <div id="R-body" class="default-animation">
+      <main id="R-body-inner" class="highlightable chapter" tabindex="-1">
+        <div class="flex-block-wrapper">
+          <article class="notfound lai-404">
+            <p class="lai-404-code" aria-hidden="true">404</p>
+            <h1 id="404"><span class="a11y-only">404 </span>This page does not exist</h1>
+            <p>The page may have moved, or the address has a typo. Go to the docs home and use the search, or start from one of these pages.</p>
+            <ul>
+              <li><a href="{{ partial "permalink.gotmpl" (dict "to" site.Home) }}">Docs home</a></li>
+              <li><a href="{{ "start/install/" | absURL }}">Install</a></li>
+              <li><a href="{{ "start/quickstart/" | absURL }}">Quickstart</a></li>
+              <li><a href="{{ "features/" | absURL }}">Features</a></li>
+              <li><a href="https://localai.io/">localai.io</a></li>
+            </ul>
+          </article>
+        </div>
+      </main>
+    </div>
+{{- partial "dependencies.html" (dict "page" . "location" "footer") }}
+{{- partial "custom-footer.html" . }}
+  </body>
+</html>

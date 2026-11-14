@@ -14,7 +14,7 @@ The typed declarations remain additive strict v1 fields, not a new protocol vers
 Administrator policy and request admission remain authoritative, including for optional operations.
 Status is advisory; an isolation report does not prove network enforcement or authorize execution.
 
-See [the addon guide](../../../docs/content/features/addons.md#optional-typed-manifest-extensions)
+See [the addon guide](../../../docs/content/addons/contract-reference.md#optional-typed-manifest-extensions)
 for JSON examples, bounds, collision rules, lifecycle behavior, and policy migration.
 
 Typed owner observations currently support local-owner JSON selections only.
@@ -33,7 +33,7 @@ The set of fields is closed: only the title and the description of a declared ki
 Tool descriptions, schemas and skills are for the model and stay English. English is the manifest itself, so `en` is refused.
 Tags follow the same rule as the language maps, at most 16, and all translated text has at most `MaxI18nChars` characters.
 `NegotiateLanguage` picks the language of a request: the explicit one, else the `Accept-Language` header, else English.
-See [the addon guide](../../../docs/content/features/addons.md#translated-text).
+See [the addon guide](../../../docs/content/addons/contract-reference.md#translated-text).
 
 ## Optional model actions
 
