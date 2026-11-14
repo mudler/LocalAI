@@ -1317,6 +1317,7 @@ docker:
 		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg APT_MIRROR=$(APT_MIRROR) \
 		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
+		$(if $(ROCM_PACKAGES),--build-arg ROCM_PACKAGES="$(ROCM_PACKAGES)") \
 		-t $(DOCKER_IMAGE) .
 
 docker-cuda12:
@@ -1535,6 +1536,7 @@ define docker-build-backend
 		--build-arg APT_PORTS_MIRROR=$(APT_PORTS_MIRROR) \
 		$(if $(FROM_SOURCE),--build-arg FROM_SOURCE=$(FROM_SOURCE)) \
 		$(if $(AMDGPU_TARGETS),--build-arg AMDGPU_TARGETS=$(AMDGPU_TARGETS)) \
+		$(if $(ROCM_PACKAGES),--build-arg ROCM_PACKAGES="$(ROCM_PACKAGES)") \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef

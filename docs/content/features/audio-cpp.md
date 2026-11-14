@@ -292,11 +292,11 @@ voice conversion from the same weights.
 | CPU | linux/amd64, linux/arm64 |
 | CUDA 12 | linux/amd64 |
 | CUDA 13 | linux/amd64 |
-| ROCm 7.2 | linux/amd64 |
+| ROCm 10.1 | linux/amd64 |
 | Metal | darwin/arm64 |
 
 The ROCm image includes kernels for these GPU targets:
 `gfx908`, `gfx90a`, `gfx942`, `gfx950`, `gfx1030`, `gfx1100`, `gfx1101`, `gfx1102`,
-`gfx1151`, `gfx1200` and `gfx1201`. Set the model option to `backend:hip` or
+`gfx1103`, `gfx1150`, `gfx1151`, `gfx1152`, `gfx1153`, `gfx1200` and `gfx1201`. Set the model option to `backend:hip` or
 `backend:rocm`. There is no Vulkan image because the container would have no Vulkan ICD.
 `BUILD_TYPE=vulkan` still works when you build the backend yourself.

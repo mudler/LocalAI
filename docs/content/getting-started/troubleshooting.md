@@ -184,7 +184,7 @@ rocminfo
 docker run --device=/dev/kfd --device=/dev/dri --group-add=video ...
 ```
 
-If your GPU is not in the default target list, open up an Issue. Supported targets include: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1200, gfx1201.
+If your GPU is not in the default target list, open up an Issue. Supported targets include: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1103, gfx1150, gfx1151, gfx1152, gfx1153, gfx1200, gfx1201.
 
 **Intel (SYCL):**
 

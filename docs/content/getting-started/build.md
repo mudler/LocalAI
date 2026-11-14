@@ -89,6 +89,66 @@ docker build -t localai .
 docker run localai
 ```
 
+##### Choosing the ROCm release for `hipblas` builds
+
+For `BUILD_TYPE=hipblas` the ROCm release comes from the base image, and the
+build installs the ROCm BLAS development packages from the base image's apt
+repository. Both are build arguments of the main `Dockerfile`,
+`backend/Dockerfile.python`, `backend/Dockerfile.golang` and the builders that
+run `.docker/install-base-deps.sh` (`backend/Dockerfile.base-grpc-builder`,
+`backend/Dockerfile.llama-cpp` and its siblings):
+
+| Build argument | Default | Meaning |
+|---|---|---|
+| `BASE_IMAGE` | `rocm/dev-ubuntu-24.04:10.1.0-full` in CI | Image that provides ROCm and its apt repository |
+| `ROCM_PACKAGES` | `amdrocm-blas-dev10.1` | Packages installed when `BUILD_TYPE=hipblas` and `SKIP_DRIVERS=false` |
+
+The defaults are for ROCm 10.1, which ships from AMD's repository
+`stable.repo.amd.com/rocm/core`. There, the hipBLAS, rocBLAS and hipBLASLt
+headers are in one package, `amdrocm-blas-dev<version>`. The `10.1.0-full`
+image already contains them, so the install step changes nothing there; it
+matters for a slimmer base that only has AMD's apt source configured.
+
+Two Dockerfiles use a different default:
+
+- `backend/Dockerfile.audio-cpp` also needs the hipCUB headers and installs
+  `amdrocm-blas-dev10.1 amdrocm-ccl-dev10.1`.
+- `backend/Dockerfile.python` stays on ROCm 7.2.1 (`rocm/dev-ubuntu-24.04:7.2.1`
+  with `hipblas-dev hipblaslt-dev rocblas-dev`). The Python backends get their
+  GPU code from the ROCm PyTorch wheels in `requirements-hipblas.txt`, and
+  PyTorch does not publish ROCm 10.1 wheels yet.
+
+To build against ROCm 7.x, set both arguments together. ROCm 7.x uses the
+older package names:
+
+```
+docker build \
+  --build-arg BUILD_TYPE=hipblas \
+  --build-arg BASE_IMAGE=rocm/dev-ubuntu-24.04:7.2.1 \
+  --build-arg ROCM_PACKAGES="hipblas-dev hipblaslt-dev rocblas-dev" \
+  -t localai:hipblas-rocm7 .
+```
+
+The `make docker` and `make docker-build-<backend>` targets forward
+`BASE_IMAGE` and, when set, `ROCM_PACKAGES`:
+
+```
+make BUILD_TYPE=hipblas BASE_IMAGE=rocm/dev-ubuntu-24.04:7.2.1 \
+  ROCM_PACKAGES="hipblas-dev hipblaslt-dev rocblas-dev" docker-build-whisper
+```
+
+ROCm 7.x and 10.x lay out `/opt/rocm` differently: 10.x installs into
+`/opt/rocm/core-<version>/` and has no `/opt/rocm/llvm`. The builds run
+`.docker/rocm-compat-links.sh`, which adds `/opt/rocm/llvm` (the backend
+Makefiles compile with `/opt/rocm/llvm/bin/clang++`) and links
+`/usr/lib/libomp.so` on both layouts.
+
+An empty `ROCM_PACKAGES` installs nothing, for a base image that already ships
+the ROCm development packages. Unlike `SKIP_DRIVERS=true`, the image is still
+marked as an AMD image, so meta backends resolve to their ROCm variants.
+
+CI builds the ROCm 10.1 defaults, and ROCm 7.2.1 for the Python backends.
+
 ### Example: Build on mac
 
 Building on Mac (M1, M2 or M3) works, but you may need to install some prerequisites using `brew`. 

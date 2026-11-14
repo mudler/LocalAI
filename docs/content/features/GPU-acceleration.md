@@ -151,15 +151,14 @@ llama_init_from_file: kv self size  =  512.00 MB
 
 ## ROCM(AMD) acceleration
 
-There are a limited number of tested configurations for ROCm systems however most newer dedicated GPU consumer grade devices seem to be supported under the current ROCm 7 implementation.
+There are a limited number of tested configurations for ROCm systems. The `hipblas` images are built on ROCm 10.1, which AMD's [compatibility matrix](https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html) lists for the Instinct accelerators (gfx908, gfx90a, gfx942, gfx950), the Radeon RDNA2/3/4 cards (gfx1030, gfx1100, gfx1101, gfx1102, gfx1200, gfx1201) and the Ryzen APUs (gfx1103, gfx1150, gfx1151, gfx1152, gfx1153). The Python backends are the exception: they bring their own ROCm 7.x runtime with the PyTorch ROCm wheel (see [Limitations](#limitations)).
 
 Due to the nature of ROCm it is best to run all implementations in containers as this limits the number of packages required for installation on host system, compatibility and package versions for dependencies across all variations of OS must be tested independently if desired, please refer to the [build]({{%relref "getting-started/build#Acceleration" %}}) documentation.
 
 ### Requirements
 
-- `ROCm 7.x.x` compatible GPU/accelerator
-- OS: `Ubuntu` (24.04, 22.04), `RHEL` (9.x), `SLES` (15.x)
-- Installed to host: `amdgpu-dkms` and `rocm` >=7.0.0 as per ROCm documentation.
+- A GPU/accelerator that the [ROCm 10.1 compatibility matrix](https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html) lists
+- A host OS and `amdgpu` kernel driver that the same matrix lists as compatible with ROCm 10.1. The ROCm user space comes with the image; the host only needs the kernel driver (`amdgpu-dkms` or the in-tree `amdgpu` of a supported kernel).
 
 ### Recommendations
 
@@ -169,7 +168,8 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 ### AMD Strix Halo / gfx1151 (RDNA 3.5)
 
 AMD Ryzen AI MAX+ (Strix Halo) APUs with an integrated Radeon 8060S (gfx1151 / RDNA 3.5) are
-supported with ROCm 7.11.0+. These systems provide up to 96 GB of unified VRAM accessible by the GPU.
+supported with ROCm 7.11.0+, and gfx1151 is an officially supported target of ROCm 10.1, which the
+`hipblas` images use. These systems provide up to 96 GB of unified VRAM accessible by the GPU.
 
 Tested on: Geekom A9 Mega (AMD Ryzen AI MAX+ 395, ROCm 7.11.0, Ubuntu 24.04, kernel 6.14).
 
@@ -182,7 +182,7 @@ iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
-| `HSA_OVERRIDE_GFX_VERSION` | `11.5.1` | Tells the HSA runtime to use gfx1151 code objects |
+| `HSA_OVERRIDE_GFX_VERSION` | `11.5.1` | Tells the HSA runtime to use gfx1151 code objects. Only for images built on a ROCm release that does not know gfx1151 natively; the ROCm 10.1 images do not need it |
 | `ROCBLAS_USE_HIPBLASLT` | `1` | Prefer hipBLASLt over rocBLAS for GEMM (required for gfx1151) |
 | `HSA_XNACK` | `1` | Enable XNACK (memory-fault retry) for APU unified memory |
 | `HSA_ENABLE_SDMA` | `0` | Disable SDMA engine — causes hangs on APU/iGPU configs |
@@ -191,11 +191,10 @@ iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 > `getenv(...) != nullptr`, so even `=0` activates `hipMallocManaged` (allocates from
 > system RAM instead of the 96 GB VRAM pool).
 
-**Running LocalAI on gfx1151** (use the standard ROCm/hipblas image — there is only one ROCm image, and it ships with ROCm 7.x by default):
+**Running LocalAI on gfx1151** (use the standard ROCm/hipblas image — there is only one ROCm image, and it ships with ROCm 10.1 by default):
 ```yaml
     image: quay.io/go-skynet/local-ai:master-gpu-hipblas
     environment:
-      - HSA_OVERRIDE_GFX_VERSION=11.5.1
       - ROCBLAS_USE_HIPBLASLT=1
       - HSA_XNACK=1
       - HSA_ENABLE_SDMA=0
@@ -217,7 +216,9 @@ For llama.cpp models, enable flash attention (`--flash-attention`) and disable m
 Ongoing verification testing of ROCm compatibility with integrated backends.
 Please note the following list of verified backends and devices.
 
-LocalAI hipblas images are built against the following targets: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1151, gfx1200, gfx1201
+LocalAI hipblas images are built against the following targets: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1103, gfx1150, gfx1151, gfx1152, gfx1153, gfx1200, gfx1201
+
+The Python backends (diffusers, transformers, vllm, coqui, ...) are built on ROCm 7.2.1 and use the PyTorch ROCm wheels from `download.pytorch.org/whl/rocm7.0`. Their GPU support is that of the wheel, not the list above; PyTorch does not publish ROCm 10.1 wheels yet. To build a backend for another ROCm release, see [Choosing the ROCm release for `hipblas` builds]({{%relref "getting-started/build#choosing-the-rocm-release-for-hipblas-builds" %}}).
 
 **Note:** Starting with ROCm 6.4, AMD removed rocBLAS kernel support for older architectures (gfx803, gfx900, gfx906). Since llama.cpp and other backends depend on rocBLAS for matrix operations, these GPUs (e.g. Radeon VII) are no longer supported in pre-built images.
 
@@ -321,7 +322,7 @@ This configuration has been tested on a 'custom' cluster managed by SUSE Rancher
 
 ### Notes
 
-- When installing the ROCM kernel driver on your system ensure that you are installing an equal or newer version that that which is currently implemented in LocalAI (6.0.0 at time of writing).
+- When installing the ROCm kernel driver on your system ensure that AMD lists it as compatible with the ROCm release of the image (10.1 at time of writing, 7.2.1 for the Python backends).
 - AMD documentation indicates that this will ensure functionality however your mileage may vary depending on the GPU and distro you are using.
 - If you encounter an `Error 413` on attempting to upload an audio file or image for whisper or llava/bakllava on a k8s deployment, note that the ingress for your deployment may require the annotation `nginx.ingress.kubernetes.io/proxy-body-size: "25m"` to allow larger uploads. This may be included in future versions of the helm chart.
 
