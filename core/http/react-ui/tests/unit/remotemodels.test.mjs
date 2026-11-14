@@ -112,11 +112,18 @@ test('remote models: the import carries the quantization of the chosen variant',
   assert.deepEqual(importBody(row, files, 'unknown.gguf'), { uri: 'huggingface://acme/Tiny-GGUF' })
 })
 
-test('remote models: a gated Pirate Face model cannot be installed, a gated Hugging Face one can be tried', () => {
-  assert.equal(installBlock({ provider: 'pirateface' }, { gated: true }), 'gatedP2p')
-  assert.equal(installBlock({ provider: 'pirateface', gated: true }, undefined), 'gatedP2p')
-  assert.equal(installBlock({ provider: 'huggingface', gated: true }, { gated: true }), '')
+test('remote models: only a gated Hugging Face model is blocked, a gated Pirate Face one installs', () => {
+  assert.equal(installBlock({ provider: 'pirateface' }, { gated: true }), '')
+  assert.equal(installBlock({ provider: 'pirateface', gated: true }, undefined), '')
+  assert.equal(installBlock({ provider: 'huggingface', gated: true }, { gated: true }), 'gatedHfInstall')
+  assert.equal(installBlock({ provider: 'huggingface', gated: true }, undefined), 'gatedHfInstall')
+  assert.equal(installBlock({ provider: 'huggingface' }, { gated: true }), 'gatedHfInstall')
+  assert.equal(installBlock({ provider: 'huggingface' }, { gated: false }), '')
   assert.equal(installBlock({ provider: 'pirateface' }, { gated: false }), '')
+  const row = (provider, gated) => remoteRow({ provider, id: 'a/b', gated }, { sourceLabel: '', labels })
+  assert.equal(row('huggingface', true).installBlocked, true)
+  assert.equal(row('huggingface', false).installBlocked, false)
+  assert.equal(row('pirateface', true).installBlocked, false)
 })
 
 test('remote models: the fits filter hides only a row known not to fit', () => {

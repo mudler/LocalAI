@@ -249,17 +249,43 @@ test.describe('Explore: online sources', () => {
     expect(seen.imports[0].preferences).toEqual({ quantizations: 'q4_k_m' })
   })
 
-  test('a gated Hugging Face repository warns in the inspector, a gated Pirate Face one cannot be installed', async ({ page }) => {
-    await openSource(page, 'huggingface', 'tiny')
-    await row(page, 'huggingface:acme/Locked-GGUF').click()
-    await expect(page.getByTestId('remote-gated')).toContainText('Access is gated')
-    await expect(pane(page).getByTestId('discover-install')).toBeEnabled()
+  test('a gated Hugging Face repository cannot be installed, from the row or from the inspector', async ({ page }) => {
+    const seen = await openSource(page, 'huggingface', 'tiny')
+    const locked = row(page, 'huggingface:acme/Locked-GGUF')
+    await expect(locked.getByTestId('row-gated')).toBeVisible()
+    await expect(locked.getByTestId('discover-row-install')).toBeDisabled()
+    // an ungated row next to it still installs
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF').getByTestId('discover-row-install')).toBeEnabled()
 
-    await chip(page, 'pirateface').click()
-    await expect(row(page, 'pirateface:acme/Locked-P2P')).toBeVisible({ timeout: 10_000 })
-    await row(page, 'pirateface:acme/Locked-P2P').click()
-    await expect(page.getByTestId('remote-gated')).toContainText('magnet')
+    await locked.click()
+    await expect(page.getByTestId('remote-gated')).toContainText('needs approval on Hugging Face')
     await expect(pane(page).getByTestId('discover-install')).toBeDisabled()
+    // Enter on the row does not start an install either
+    await locked.focus()
+    await page.keyboard.press('Enter')
+    expect(seen.imports).toHaveLength(0)
+  })
+
+  test('a gated Pirate Face repository installs from the row and the inspector, and says the licence still applies', async ({ page }) => {
+    const seen = await openSource(page, 'pirateface', 'peer')
+    const locked = row(page, 'pirateface:acme/Locked-P2P')
+    await expect(locked.getByTestId('row-gated')).toBeVisible()
+    await expect(locked.getByTestId('discover-row-install')).toBeEnabled()
+
+    await locked.click()
+    await expect(page.getByTestId('remote-gated')).toContainText('licence terms')
+    await expect(page.getByTestId('remote-gated')).toContainText('no token')
+    await expect(pane(page).getByTestId('discover-install')).toBeEnabled()
+    await pane(page).getByTestId('discover-install').click()
+    await expect.poll(() => seen.imports.length).toBe(1)
+    expect(seen.imports[0].uri).toBe('pirateface://acme/Locked-P2P')
+  })
+
+  test('the install button of a gated Pirate Face row starts the install', async ({ page }) => {
+    const seen = await openSource(page, 'pirateface', 'peer')
+    await row(page, 'pirateface:acme/Locked-P2P').getByTestId('discover-row-install').click()
+    await expect.poll(() => seen.imports.length).toBe(1)
+    expect(seen.imports[0].uri).toBe('pirateface://acme/Locked-P2P')
   })
 
   test('a Pirate Face row with one seeder says "1 seed", not "1 seeds"', async ({ page }) => {

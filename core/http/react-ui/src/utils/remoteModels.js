@@ -82,6 +82,10 @@ export function remoteRow(result, { installedName, sourceLabel, labels }) {
     license: result.license || '',
     has_variants: !!result.has_variants,
     gated: !!result.gated,
+    // A gated Hugging Face repository cannot be downloaded without access, so
+    // its install stays off. A Pirate Face one comes by torrent, which needs
+    // no token, so it stays on.
+    installBlocked: !!result.gated && result.provider === 'huggingface',
     sub: remoteSubline(result, labels),
     tags: (result.tags || []).filter(t => !t.startsWith('license:') && !t.includes(':')).slice(0, 12),
     urls: result.url ? [result.url] : [],
@@ -154,9 +158,12 @@ export function importBody(row, files, file) {
   return body
 }
 
-// Why a variant cannot be installed from here, or ''.
+// Why a repository cannot be installed from here, as the suffix of a `remote.`
+// translation key, or ''. Only a gated Hugging Face repository is blocked: a
+// Pirate Face one comes by torrent and needs no token, though the licence of
+// the model still applies (the inspector says so).
 export function installBlock(row, files) {
-  if (row.provider === 'pirateface' && (files?.gated || row.gated)) return 'gatedP2p'
+  if (row.provider === 'huggingface' && (files?.gated || row.gated)) return 'gatedHfInstall'
   return ''
 }
 

@@ -136,7 +136,7 @@ export default function ExploreTable({
           names,
           current: name,
           move,
-          enter: n => { if (!model.installed && !isInstalling(n)) onInstall(n) },
+          enter: n => { if (!model.installed && !isInstalling(n) && !model.installBlocked) onInstall(n) },
           close: () => onSelect(null),
         })}
       >
@@ -185,6 +185,8 @@ export default function ExploreTable({
                 className="dk-btn dk-btn--primary dk-btn--sm"
                 data-testid="discover-row-install"
                 aria-label={t('ledger.installNamed', { model: title })}
+                disabled={!!model.installBlocked}
+                title={model.installBlocked ? t('remote.gatedHfInstall') : undefined}
                 onClick={e => { e.stopPropagation(); onInstall(name) }}
               >
                 <Icon name="download" /> {t('actions.install')}

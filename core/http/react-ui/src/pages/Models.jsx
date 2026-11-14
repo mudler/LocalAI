@@ -728,8 +728,9 @@ export default function Models() {
       addToast(t('remote.files.failed.title'), 'error')
       return
     }
-    if (installBlock(row, listing)) {
-      addToast(t('remote.gatedP2p'), 'error')
+    const block = installBlock(row, listing)
+    if (block) {
+      addToast(t(`remote.${block}`), 'error')
       return
     }
     await installs.start(row, listing, chosenFiles[key] || defaultVariantFile(listing))
@@ -1425,7 +1426,7 @@ export default function Models() {
               variantData={remote ? remoteDetail.variantData : (selectedModel.has_variants ? variantData[selectedName] : null)}
               variantChoice={remote ? remoteDetail.variantChoice : undefined}
               notice={remote ? <RemoteNotice row={selectedModel} files={details.files[selectedName]} estimate={details.estimates[selectedName]} onRetry={() => details.requestFiles(selectedName, selectedModel.uri)} t={t} /> : undefined}
-              installBlocked={remote ? (installBlock(selectedModel, details.files[selectedName]?.data) ? t('remote.gatedP2p') : '') : undefined}
+              installBlocked={remote ? (installBlock(selectedModel, details.files[selectedName]?.data) ? t('remote.gatedHfInstall') : '') : undefined}
               estimateNote={remote && remoteDetail.estimate?.source === 'unknown' ? t('remote.noEstimate') : undefined}
               variantDetails={variantDetails}
               onLoadVariantDetail={loadVariantDetail}
