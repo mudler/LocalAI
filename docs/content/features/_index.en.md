@@ -41,7 +41,7 @@ Looking for something else? [What models can do]({{% relref "/models/capabilitie
 | [Model Context Protocol (MCP)]({{% relref "/features/chats-and-agents/mcp" %}}) | Give models and agents tools from MCP servers. | <span class="lai-tag lai-tag-built">Built in</span> |
 | [Search the web in chats]({{% relref "/features/chats-and-agents/web" %}}) | Two read-only web tools in every chat. | <span class="lai-tag lai-tag-built">Built in</span> |
 | [Make LocalAI yours]({{% relref "/features/chats-and-agents/make-localai-yours" %}}) | Change the look and the behavior by asking in a chat. | <span class="lai-tag lai-tag-built">Built in</span> |
-| [Move from the old chat, agents and skills]({{% relref "/features/chats-and-agents/chats-migration" %}}) | What changed in 5.0 and how to move. | <span class="lai-tag lai-tag-built">Built in</span> |
+| [Move from the old chat, agents and skills]({{% relref "/features/chats-migration" %}}) | What changed in the chats and how to move. | <span class="lai-tag lai-tag-built">Built in</span> |
 | **Files and documents** | | |
 | [Files and shared folders]({{% relref "/features/files-and-documents/files" %}}) | Your files, Trash, History and shared folders. | <span class="lai-tag lai-tag-built">Built in</span> |
 | [Office documents]({{% relref "/features/files-and-documents/office" %}}) | Word, Excel, PowerPoint and PDF files from a chat. | <span class="lai-tag lai-tag-addon">Add-on</span> |

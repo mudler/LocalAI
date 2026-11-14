@@ -2779,7 +2779,7 @@ The reason is stored with the chat, so a reload shows the same banner as the liv
 
 ## Moving from the old chat
 
-The old chat page, the agents, the agent jobs and the old skills were replaced by the chats. At the first start the server converts what they left; see [Moving from the old chat and agents]({{% relref "/features/chats-and-agents/chats-migration" %}}).
+The old chat page, the agents, the agent jobs and the old skills were replaced by the chats. At the first start the server converts what they left; see [Moving from the old chat and agents]({{% relref "/features/chats-migration" %}}).
 
 ## API reference
 

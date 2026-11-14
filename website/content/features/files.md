@@ -5,6 +5,7 @@ card: "Upload files and let an agent read, search and share them."
 headline: 'Files in. Results <span class="hl">out</span>.'
 lede: "Keep your files on the server. An agent reads them, searches them and writes results back."
 docs: "/docs/features/files/"
+dev: true
 icon: "files"
 illus: "files"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.

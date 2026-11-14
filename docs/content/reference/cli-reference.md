@@ -175,7 +175,7 @@ settings bypasses this automatic default.
 
 The collections service is the knowledge base that the chats search. The old
 `LOCALAI_AGENT_POOL_*` names still work and warn once; see
-[Moving from the old chat and agents]({{% relref "/features/chats-and-agents/chats-migration" %}}).
+[Moving from the old chat and agents]({{% relref "/features/chats-migration" %}}).
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|

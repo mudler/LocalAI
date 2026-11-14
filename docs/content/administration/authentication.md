@@ -144,7 +144,7 @@ What happens to each part when you switch authentication on:
   [Collections]({{% relref "/features/files-and-documents/collections" %}})).
 - **Old agents, tasks, skills, Telegram connectors and saved chats** of the
   previous agent pool are converted at start and given to the account that owned
-  them (see [Chats migration]({{% relref "/features/chats-and-agents/chats-migration" %}})). With
+  them (see [Chats migration]({{% relref "/features/chats-migration" %}})). With
   authentication on, an old item that belongs to no user is not converted: the
   report at `/app/chats/conversion` lists it as skipped, and you make it again
   under the intended account.

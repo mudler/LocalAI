@@ -5,6 +5,7 @@ card: "Ask for a small page and pin it to Home."
 headline: 'Ask for a page. Pin it to <span class="hl">Home</span>.'
 lede: "The assistant proposes a small page. You confirm it. Home shows it as a tile, next to widgets that show your data."
 docs: "/docs/features/pages/"
+dev: true
 icon: "home"
 illus: "home"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.

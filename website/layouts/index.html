@@ -6,13 +6,13 @@
 <section class="hero">
   <div class="shell duo">
     <div>
-      <a class="news" href="{{ .Site.Params.docsURL }}start/whats-new/"><b>5.0</b><span>Office, Sandbox, Team and add-ons. What is new</span><span aria-hidden="true">&rarr;</span></a>
+      <a class="news" href="#whats-new"><b>New</b><span>Office, Sandbox, Team and add-ons (development builds)</span><span aria-hidden="true">&rarr;</span></a>
       <h1>Your own AI, on your own hardware.</h1>
       <p class="hero__line">Ready to <span class="hl">work</span> for you.</p>
       <p class="lede">LocalAI runs open models on your own machine. Chat, work with your files, make Office documents and connect your chat apps. Free and open source.</p>
       <div class="acts">
         <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
-        <a class="btn btn--o" href="#whats-new">See what is new in 5.0</a>
+        <a class="btn btn--o" href="#whats-new">See what is new</a>
       </div>
       <div class="cmd"><span class="p" aria-hidden="true">$</span><code>curl -sSL https://localai.io/install.sh | sh</code><button class="cpy" type="button" data-copy="curl -sSL https://localai.io/install.sh | sh" aria-label="Copy the install command">copy</button></div>
       <p class="alts">Or a <a href="{{ .Site.Params.docsURL }}start/install/containers/">container</a>, the <a href="{{ .Site.Params.docsURL }}start/install/macos/">macOS app</a> or <a href="{{ .Site.Params.docsURL }}start/install/kubernetes/">Kubernetes</a>. Then open <code>http://localhost:8080</code>.</p>
@@ -39,6 +39,7 @@
       <p class="lede">{{ $f.lede }}</p>
       <ul class="ticks">{{ range $f.points }}<li>{{ replace . "{{engines}}" (string $eng) }}</li>{{ end }}</ul>
       {{ with $f.need }}<p class="need">{{ . }}</p>{{ end }}
+      {{ if $f.dev }}<p class="need need--dev">In development builds, coming in the next release.</p>{{ end }}
       <p class="links">{{ range $f.links }}<a href="{{ if hasPrefix .href "/" }}{{ .href }}{{ else }}{{ .href | relURL }}{{ end }}">{{ .t }} &rarr;</a>{{ end }}</p>
     </div>
     <div class="rv">{{ partial "demo-slot.html" (dict "kind" $f.illus "demo" $f.demo "alt" (printf "%s: a short demo" $f.kicker)) }}</div>
@@ -48,11 +49,11 @@
 
 <section class="grid5" id="whats-new">
   <div class="shell">
-    <h2>Everything in <span class="hl">5.0</span>.</h2>
+    <h2>Everything <span class="hl">new</span>.</h2>
     <p class="lede">Each card opens the page that says how to use it.</p>
     <div class="cards">
       {{ range hugo.Data.home.cards }}
-      <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p><span class="go">Docs &rarr;</span></a>
+      <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p>{{ if .dev }}<span class="devtag">In development builds</span>{{ end }}<span class="go">Docs &rarr;</span></a>
       {{ end }}
     </div>
   </div>

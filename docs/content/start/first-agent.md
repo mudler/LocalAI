@@ -45,4 +45,4 @@ Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the ag
 
 - [Saved agents, triggers and inbox]({{% relref "/features/chats-and-agents/chats-agents" %}})
 - [Telegram connector]({{% relref "/features/chat-apps" %}})
-- [Moving from the old chat and agents]({{% relref "/features/chats-and-agents/chats-migration" %}})
+- [Moving from the old chat and agents]({{% relref "/features/chats-migration" %}})

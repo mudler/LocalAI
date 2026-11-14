@@ -6,6 +6,7 @@ headline: 'New powers for your <span class="hl">assistant</span>.'
 lede: "An add-on is software you install. It adds chat apps, tools and pages."
 description: "Add-ons add chat apps, tools and pages to LocalAI. See what each one does and what an admin has to turn on."
 docs: "/docs/addons/user-guide/"
+dev: true
 icon: "addons"
 illus: "addons"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.

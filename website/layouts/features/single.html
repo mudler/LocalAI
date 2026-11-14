@@ -5,6 +5,7 @@
     <p class="crumb"><a href="{{ "features/" | relURL }}">Features</a> / {{ .Title }}</p>
     <h1>{{ .Params.headline | safeHTML }}</h1>
     <p class="lede">{{ .Params.lede }}</p>
+    {{ if .Params.dev }}<p class="need need--dev">In development builds, coming in the next release.</p>{{ end }}
     <div class="acts">
       {{ with .Params.docs }}<a class="btn" href="{{ . }}">Read the {{ $.Title }} docs</a>{{ end }}
       <a class="btn btn--o" href="{{ "get-started/" | relURL }}">Get started</a>

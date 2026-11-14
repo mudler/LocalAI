@@ -5,6 +5,7 @@ card: "Make Word, Excel, PDF and PowerPoint files from one sentence."
 headline: 'A sentence becomes your <span class="hl">documents</span>.'
 lede: "Type what you need. LocalAI makes real Word, Excel, PDF and PowerPoint files and saves them in Files."
 docs: "/docs/features/office/"
+dev: true
 icon: "office"
 illus: "office"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
