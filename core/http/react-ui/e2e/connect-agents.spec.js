@@ -29,6 +29,21 @@ test.describe('Connect a coding agent', () => {
     await expect(page.getByTestId('agent-connect-docs')).toHaveAttribute('href', /\/features\/coding-agents\/$/)
   })
 
+  test('the pressed tab is always the agent whose snippet is shown', async ({ page }) => {
+    await mockAccess(page)
+    await chatModels(page, ['qwen3-8b-instruct'])
+    await page.goto('/app/account?tab=keys')
+    const ids = ['codex', 'claude-code', 'opencode', 'hermes', 'nib', 'pi', 'codex']
+    const file = { codex: '.codex/config.toml', 'claude-code': '.claude/settings.json', opencode: 'opencode.json', hermes: '.hermes/config.yaml', nib: 'nib/config.yaml', pi: 'models.json' }
+    for (const id of ids) {
+      await page.getByTestId(`agent-connect-${id}`).click()
+      const pressed = page.getByTestId('agent-connect-pick').locator('[aria-pressed="true"]')
+      await expect(pressed).toHaveCount(1)
+      await expect(pressed).toHaveAttribute('data-filter', id)
+      await expect(page.getByTestId('agent-connect-file')).toContainText(file[id])
+    }
+  })
+
   test('Claude Code gets the base URL without /v1 and follows the chosen model', async ({ page }) => {
     await mockAccess(page)
     await chatModels(page, ['qwen3-8b-instruct', 'gemma-3-12b-it'])
