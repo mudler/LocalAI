@@ -86,7 +86,7 @@
       "step4Title": "에이전트 연결하기",
       "step4Body": "API 키를 만든 뒤 코딩 에이전트를 연결하세요: {{agents}}. 가이드가 주소와 키를 채워 줍니다.",
       "step5Title": "애드온으로 LocalAI 확장",
-      "step5Body": "애드온은 {{examples}} 같은 새 기능을 추가합니다. 라이브러리에서 설치하세요."
+      "step5Body": "애드온은 새 기능을 추가합니다. 라이브러리에서 설치하세요."
     },
     "browseGallery": "모델 갤러리 둘러보기",
     "importModel": "모델 가져오기",

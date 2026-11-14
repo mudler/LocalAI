@@ -86,7 +86,7 @@
       "step4Title": "Siapkan agen Anda",
       "step4Body": "Buat kunci API, lalu hubungkan agen pemrograman: {{agents}}. Panduan mengisi alamat dan kunci untuk Anda.",
       "step5Title": "Perluas LocalAI dengan add-on",
-      "step5Body": "Add-on menambah kemampuan baru, seperti {{examples}}. Pasang dari pustaka."
+      "step5Body": "Add-on menambah kemampuan baru. Pasang dari pustaka."
     },
     "browseGallery": "Jelajahi Galeri Model",
     "importModel": "Impor Model",

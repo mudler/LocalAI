@@ -95,7 +95,7 @@
       "step4Title": "Onboard your agents",
       "step4Body": "Create an API key, then connect a coding agent: {{agents}}. The guide fills in the address and the key for you.",
       "step5Title": "Extend LocalAI with an add-on",
-      "step5Body": "Add-ons bring new abilities, such as {{examples}}. Install them from the library."
+      "step5Body": "Add-ons bring new abilities to LocalAI. Install them from the library."
     },
     "browseGallery": "Browse Model Gallery",
     "importModel": "Import Model",

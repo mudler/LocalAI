@@ -86,7 +86,7 @@
       "step4Title": "Agents einrichten",
       "step4Body": "Erstelle einen API-Schlüssel und verbinde dann einen Coding-Agent: {{agents}}. Die Anleitung trägt Adresse und Schlüssel für dich ein.",
       "step5Title": "LocalAI mit einem Add-on erweitern",
-      "step5Body": "Add-ons bringen neue Fähigkeiten, zum Beispiel {{examples}}. Installiere sie aus der Bibliothek."
+      "step5Body": "Add-ons bringen neue Fähigkeiten. Installiere sie aus der Bibliothek."
     },
     "browseGallery": "Modellgalerie durchsuchen",
     "importModel": "Modell importieren",

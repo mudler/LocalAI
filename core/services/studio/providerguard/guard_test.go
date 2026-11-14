@@ -145,7 +145,6 @@ var allowed = []entry{
 	{ui + "utils/chatApps.js", "'web'", "the platform of a chat made in the web UI"},
 	{ui + "utils/settingsSchema.js", "Web ", "the labels of the built-in web tool settings"},
 	{"docs/content/administration/reverse-proxy-tls.md", "Web UI", "the web UI of LocalAI"},
-	{"docs/content/start/quickstart.md", "Web Interface", "the web UI of LocalAI"},
 	{"docs/content/administration/troubleshooting.md", "Web UI", "the web UI of LocalAI"},
 	{"docs/content/administration/troubleshooting.md", "Web ", "the web UI of LocalAI"},
 }

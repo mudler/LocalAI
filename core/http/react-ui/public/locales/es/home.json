@@ -86,7 +86,7 @@
       "step4Title": "Conecta tus agentes",
       "step4Body": "Crea una clave de API y conecta un agente de programación: {{agents}}. La guía rellena la dirección y la clave por ti.",
       "step5Title": "Amplía LocalAI con un add-on",
-      "step5Body": "Los add-ons aportan nuevas capacidades, como {{examples}}. Instálalos desde la biblioteca."
+      "step5Body": "Los add-ons aportan nuevas capacidades. Instálalos desde la biblioteca."
     },
     "browseGallery": "Explorar galería de modelos",
     "importModel": "Importar modelo",
