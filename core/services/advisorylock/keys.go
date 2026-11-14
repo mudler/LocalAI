@@ -46,4 +46,8 @@ const (
 	// Responses runs whose owner stopped renewing their lease and deletes the
 	// expired ones.
 	KeyOpenResponsesSweep int64 = 117
+	// KeyConnectionsRefresh elects the one frontend that refreshes the remote
+	// connections at startup. It is held for one pass, not for the life of the
+	// frontend.
+	KeyConnectionsRefresh int64 = 118
 )
