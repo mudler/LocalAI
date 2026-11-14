@@ -31,6 +31,7 @@ import (
 // linux/arm64:
 //
 //	SANDBOX_TEST_IMAGE   the guest image, name@sha256:... or oci-layout:<dir>@sha256:...
+//	SANDBOX_TEST_PROFILE the profile of SANDBOX_TEST_IMAGE when it is not base (media runs the media tool specs)
 //	SANDBOX_TEST_CACHE   converted images; default <tmp>/sandbox-vz-test-cache
 //	SANDBOX_TEST_KERNEL  a kernel file that replaces the kernel of the image
 //	SANDBOX_TEST_ROOT    a root.ext4 file that replaces the root image (with SANDBOX_TEST_KERNEL,
@@ -49,6 +50,9 @@ func testCache() string {
 	cacheOnce.Do(func() { _ = os.MkdirAll(dir, 0o700) })
 	return dir
 }
+
+// testProfile is the profile that SANDBOX_TEST_IMAGE holds, "" for base.
+func testProfile() string { return os.Getenv("SANDBOX_TEST_PROFILE") }
 
 func testRealBackend() *Backend {
 	GinkgoHelper()
