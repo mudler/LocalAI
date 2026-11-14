@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,10 +14,13 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -276,5 +280,52 @@ var _ = Describe("OCI image", func() {
 		Expect(strings.Join(names, ",")).To(Equal("a"))
 		Expect(env).To(HaveLen(2))
 		Expect(filepath.Base(out)).To(Equal(Key(d.String())))
+	})
+})
+
+var _ = Describe("the platform of a registry image", func() {
+	It("is linux for every host system and follows the processor architecture", func() {
+		Expect(Platform("arm64")).To(Equal(v1.Platform{OS: "linux", Architecture: "arm64"}))
+		Expect(Platform("amd64")).To(Equal(v1.Platform{OS: "linux", Architecture: "amd64"}))
+	})
+
+	// The release names one digest, the one of an index with an image for each
+	// architecture. A Mac with Apple silicon must get the arm64 image from it
+	// with no setting, and an Intel Linux host the amd64 one.
+	It("picks the image of the architecture from an index", func() {
+		srv := httptest.NewServer(registry.New())
+		DeferCleanup(srv.Close)
+		host := strings.TrimPrefix(srv.URL, "http://")
+		image := func(arch string) v1.Image {
+			img, err := mutate.AppendLayers(empty.Image, testLayer(map[string]string{"arch": arch}))
+			Expect(err).NotTo(HaveOccurred())
+			img, err = mutate.ConfigFile(img, &v1.ConfigFile{Architecture: arch, OS: "linux", RootFS: v1.RootFS{Type: "layers"}})
+			Expect(err).NotTo(HaveOccurred())
+			return img
+		}
+		idx := mutate.AppendManifests(empty.Index,
+			mutate.IndexAddendum{Add: image("amd64"), Descriptor: v1.Descriptor{Platform: &v1.Platform{OS: "linux", Architecture: "amd64"}}},
+			mutate.IndexAddendum{Add: image("arm64"), Descriptor: v1.Descriptor{Platform: &v1.Platform{OS: "linux", Architecture: "arm64"}}})
+		tag, err := name.NewTag(host + "/guest:test")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(remote.WriteIndex(tag, idx)).To(Succeed())
+		d, err := idx.Digest()
+		Expect(err).NotTo(HaveOccurred())
+		ref := host + "/guest@" + d.String()
+		for _, arch := range []string{"arm64", "amd64"} {
+			digest, load, err := resolve(context.Background(), ref, arch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(digest).To(Equal(d.String()))
+			img, err := load()
+			Expect(err).NotTo(HaveOccurred())
+			cfg, err := img.ConfigFile()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cfg.Architecture).To(Equal(arch))
+			Expect(cfg.OS).To(Equal("linux"))
+		}
+		_, load, err := resolve(context.Background(), ref, "riscv64")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = load()
+		Expect(err).To(HaveOccurred(), "an index without the architecture has no image for it")
 	})
 })
