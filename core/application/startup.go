@@ -606,6 +606,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// Remote connections: the model configs are loaded and the distributed
+	// services exist, so the service can write entries and resolve keys. The
+	// refresh runs in the background and never delays startup.
+	application.startConnections(options.Context)
+
 	// Start the failover scheduler: it syncs chains from config, runs
 	// liveness/recovery probes and dwell-based fail-back. Run is the only
 	// caller of Sync in production so onWarm callbacks stay ordered.
