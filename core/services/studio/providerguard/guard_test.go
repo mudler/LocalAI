@@ -108,6 +108,14 @@ var allowed = []entry{
 	{"docs/content/reference/ai-coding-assistants.md", "Discord channel", "the project community server, not the add-on"},
 	{"docs/content/getting-started/troubleshooting.md", "LocalAI Discord", "the project community server, not the add-on"},
 
+	// The conversion of data that older versions wrote. The old agent data
+	// has a connector of the type "telegram" and the conversion makes the
+	// connector binding of that kind from it, so the name is the key of the
+	// old data and the kind of the new binding, and the report to the person
+	// who migrates names the connector they had.
+	{"core/services/studio/convert/run.go", `telegram`, "the type of the old agent connector that the conversion rebuilds, and the kind of the binding it makes"},
+	{"core/services/studio/convert/run.go", "Telegram connector", "the report of the conversion names the connector of the old agent data"},
+
 	// The profiles of the environment that runs commands. Any add-on that
 	// runs commands can declare them; "sandbox" here is the kind of
 	// environment, not the add-on.
