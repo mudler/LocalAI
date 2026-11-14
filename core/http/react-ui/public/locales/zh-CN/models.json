@@ -325,6 +325,7 @@
     },
     "p2p": "p2p",
     "heading": "来自 {{source}}",
+    "latestHeading": "{{source}} 上的最新模型",
     "placeholder": "在 {{source}} 中搜索",
     "resultCount_one": "{{count}} 个结果",
     "resultCount_other": "{{count}} 个结果",
@@ -349,6 +350,7 @@
       "fits": "所有结果对这台机器来说都太大。关闭“能放下”筛选即可查看。"
     },
     "loadMore": "加载更多",
+    "noLatest": "{{source}} 不提供最新模型列表。请按名称搜索以查看其模型。",
     "chooseBuild": "选择版本 {{variant}}",
     "recommended": "推荐",
     "fits": "能放下",

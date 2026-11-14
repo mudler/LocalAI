@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 )
 
 func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
@@ -21,10 +22,10 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolSearchModels,
-		Description: "Search remote providers (Hugging Face, Pirate Face) for models that are not in a configured gallery. Returns results with provider, id, uri, size, downloads or seeders, licence and gated flag, plus one status per provider (a provider that is down is reported, not fatal). Pass a result's uri to import_model_uri. Run gallery_search first.",
+		Description: "Search remote providers (Hugging Face, Pirate Face) for models that are not in a configured gallery. Returns results with provider, id, uri, size, downloads or seeders, licence and gated flag, plus one status per provider (a provider that is down is reported, not fatal). Pass a result's uri to import_model_uri. Run gallery_search first. With sort latest and no query it lists the newest Hugging Face models.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args ModelSearchRequest) (*mcp.CallToolResult, any, error) {
-		if strings.TrimSpace(args.Query) == "" {
-			return errorResultf("query is required"), nil, nil
+		if strings.TrimSpace(args.Query) == "" && strings.ToLower(strings.TrimSpace(args.Sort)) != modelsearch.SortLatest {
+			return errorResultf("query is required unless sort is latest"), nil, nil
 		}
 		resp, err := client.SearchModels(ctx, args)
 		if err != nil {

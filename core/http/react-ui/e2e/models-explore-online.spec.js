@@ -110,6 +110,10 @@ async function openSource(page, source, term, options) {
   const seen = await mockOnline(page, options)
   await page.goto('/app/models')
   await expect(page.locator('[data-testid="discover-rail-item"]').first()).toBeVisible({ timeout: 15_000 })
+  // Under All the page already asked Hugging Face for its newest models; the
+  // specs below count the requests the chip makes.
+  await expect.poll(() => seen.search.length).toBeGreaterThan(0)
+  seen.search.length = 0
   await chip(page, source).click()
   if (term) {
     await page.getByTestId('models-search').fill(term)
@@ -130,19 +134,22 @@ test.describe('Explore: online sources', () => {
     await expect(page.getByRole('button', { name: 'All libraries' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  test('selecting a source asks for a term, then searches that one provider after the debounce', async ({ page }) => {
+  test('selecting a source shows its newest models, then a term searches that one provider after the debounce', async ({ page }) => {
     const seen = await openSource(page, 'huggingface')
     await expect(page).toHaveURL(/source=huggingface/)
-    await expect(page.getByTestId('remote-hint')).toContainText('Search Hugging Face')
-    expect(seen.search).toHaveLength(0)
+    await expect(page.getByTestId('discover-rail-heading')).toContainText('Latest on Hugging Face', { timeout: 10_000 })
+    await expect(rows(page)).toHaveCount(3)
+    expect(seen.search).toHaveLength(1)
 
     const input = page.getByTestId('models-search')
     await expect(input).toHaveAttribute('placeholder', 'Search Hugging Face')
     await input.pressSequentially('tiny', { delay: 30 })
-    await expect(rows(page)).toHaveCount(3, { timeout: 10_000 })
+    await expect(page.getByTestId('discover-rail-heading')).toContainText('From Hugging Face')
     // one request for the whole word, not one per key
-    expect(seen.search).toHaveLength(1)
-    const q = seen.search[0]
+    await expect.poll(() => seen.search.length).toBe(2)
+    await page.waitForTimeout(600)
+    expect(seen.search).toHaveLength(2)
+    const q = seen.search[1]
     expect(q.get('q')).toBe('tiny')
     expect(q.get('providers')).toBe('huggingface')
     expect(q.get('limit')).toBe('20')
@@ -562,14 +569,98 @@ test.describe('Explore: All covers the online sources', () => {
     await page.getByRole('button', { name: 'All libraries' }).click()
     await expect(section(page, 'huggingface')).toBeVisible()
   })
+})
 
-  test('without a term, All is the library listing and asks no online source', async ({ page }) => {
-    await mockLedger(page)
-    const seen = await mockOnline(page)
-    await page.goto('/app/models')
-    await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
-    await expect(section(page, 'huggingface')).toHaveCount(0)
+// With no term an online source shows its newest models: Hugging Face from
+// the models API sorted by creation date, Pirate Face a note, because its
+// public pages have no list of new models outside /api.
+test.describe('Explore: the latest models with no search', () => {
+  const FRESH = [HF('acme/Fresh-GGUF', { downloads: 0 }), HF('acme/Newer-GGUF', { downloads: 0 })]
+
+  test('a source chip with no term lists the newest Hugging Face models, with the same filters as a search', async ({ page }) => {
+    const seen = await openSource(page, 'huggingface', '', { results: FRESH })
+    await expect(rows(page)).toHaveCount(2, { timeout: 10_000 })
+    await expect(page.getByTestId('discover-rail-heading')).toContainText('Latest on Hugging Face')
+    const q = seen.search[0]
+    expect(q.has('q')).toBe(false)
+    expect(q.get('sort')).toBe('latest')
+    expect(q.get('providers')).toBe('huggingface')
+    expect(q.get('limit')).toBe('20')
+    expect(q.get('format')).toBe('gguf')
+
+    // GGUF only off widens the list, still newest first.
+    await page.getByTestId('remote-gguf-only').click()
+    await expect.poll(() => seen.search.at(-1).get('format')).toBe('any')
+    expect(seen.search.at(-1).get('sort')).toBe('latest')
+
+    // A term turns the list into a search, and clearing it brings the newest back.
+    await page.getByTestId('models-search').fill('tiny')
+    await expect(page.getByTestId('discover-rail-heading')).toContainText('From Hugging Face')
+    expect(seen.search.at(-1).get('q')).toBe('tiny')
+    expect(seen.search.at(-1).has('sort')).toBe(false)
+    await page.getByTestId('models-search').fill('')
+    await expect(page.getByTestId('discover-rail-heading')).toContainText('Latest on Hugging Face')
+    expect(seen.search.at(-1).get('sort')).toBe('latest')
+  })
+
+  test('Pirate Face has no list of new models: it asks nothing and says so', async ({ page }) => {
+    const seen = await openSource(page, 'pirateface')
+    await expect(page.getByTestId('remote-hint')).toContainText('Search Pirate Face')
+    await expect(page.getByTestId('remote-hint')).toContainText('does not list its newest models')
+    await expect(rows(page)).toHaveCount(0)
+    await page.waitForTimeout(600)
     expect(seen.search).toHaveLength(0)
+    // A term searches it as before.
+    await page.getByTestId('models-search').fill('peer')
+    await expect(row(page, 'pirateface:acme/Peer')).toBeVisible({ timeout: 10_000 })
+    expect(seen.search.at(-1).get('q')).toBe('peer')
+  })
+
+  test('"Load more" on the newest list asks for a longer list, still newest first', async ({ page }) => {
+    const many = Array.from({ length: 50 }, (_, i) => HF(`acme/New-${i}`))
+    const seen = await openSource(page, 'huggingface', '', { results: many })
+    await expect(rows(page)).toHaveCount(20, { timeout: 10_000 })
+    await page.getByTestId('remote-load-more').click()
+    await expect(rows(page)).toHaveCount(40)
+    expect(seen.search.at(-1).get('limit')).toBe('40')
+    expect(seen.search.at(-1).get('sort')).toBe('latest')
+  })
+
+  test('under All with no term: the library listing stays, the newest Hugging Face models follow, Pirate Face says it has no list', async ({ page }) => {
+    await mockLedger(page)
+    const seen = await mockOnline(page, { results: Array.from({ length: 30 }, (_, i) => HF(`acme/Fresh-${i}`)) })
+    await page.goto('/app/models')
+    await expect(row(page, 'qwen3-4b-instruct')).toBeVisible({ timeout: 15_000 })
+    await expect(section(page, 'huggingface')).toContainText('Latest on Hugging Face')
+    await expect(page.locator('[data-entity^="huggingface:"]')).toHaveCount(10, { timeout: 10_000 })
+    await expect(section(page, 'pirateface')).toContainText('Latest on Pirate Face')
+    await expect(sectionBox(page, 'pirateface', 'discover-section-empty')).toContainText('does not list its newest models')
+    // The library keeps its grouped listing, and nothing was asked of Pirate Face.
+    await expect(page.getByTestId('discover-rail-group-text')).toBeVisible()
+    expect(seen.search).toHaveLength(1)
+    const q = seen.search[0]
+    expect(q.get('providers')).toBe('huggingface')
+    expect(q.get('sort')).toBe('latest')
+    expect(q.get('limit')).toBe('10')
+    expect(q.has('q')).toBe(false)
+    // The newest rows install like any online row.
+    await row(page, 'huggingface:acme/Fresh-0').getByTestId('discover-row-install').click()
+    await expect.poll(() => seen.imports.length).toBe(1)
+    // Its own button asks for ten more, and only for Hugging Face.
+    await page.locator('tr[data-section="huggingface"]').getByTestId('discover-section-more').click()
+    await expect(page.locator('[data-entity^="huggingface:"]')).toHaveCount(20)
+    expect(seen.search.at(-1).get('limit')).toBe('20')
+    expect(seen.search.at(-1).get('sort')).toBe('latest')
+    expect(seen.search.every(x => x.get('providers') === 'huggingface')).toBe(true)
+  })
+
+  test('under All with no term, a failing newest list says so in its own section', async ({ page }) => {
+    await mockLedger(page)
+    await mockOnline(page, { searchStatus: { huggingface: 'rate limited by Hugging Face (status 429)' } })
+    await page.goto('/app/models')
+    await expect(row(page, 'qwen3-4b-instruct')).toBeVisible({ timeout: 15_000 })
+    await expect(sectionBox(page, 'huggingface', 'discover-section-error')).toContainText('Hugging Face did not answer', { timeout: 10_000 })
+    await expect(rows(page).first()).toBeVisible()
   })
 })
 

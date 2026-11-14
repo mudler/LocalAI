@@ -682,14 +682,17 @@ export default function Models() {
   // shown as sections under the library rows. A library chip, a use case chip
   // or a backend narrows the gallery on purpose, so the online sections stay out.
   const allOnline = activeView === 'explore' && !remote && !librarySource && filters.length === 0 && !backendFilter
-  const sectionIds = remote ? [remote.id] : allOnline && remoteTerm ? REMOTE_SOURCES.map(src => src.id) : []
+  const sectionIds = remote ? [remote.id] : allOnline ? REMOTE_SOURCES.map(src => src.id) : []
   const askFor = (id) => (sectionIds.includes(id) ? id : '')
   const limitOf = (id) => (remote ? remoteLimit : sectionLimits[id])
   const searchOf = {
     huggingface: useRemoteSearch({ provider: askFor('huggingface'), term: remoteTerm, limit: limitOf('huggingface'), ggufOnly, reloadKey: `${remoteReload}:${sectionReloads.huggingface || 0}` }),
     pirateface: useRemoteSearch({ provider: askFor('pirateface'), term: remoteTerm, limit: limitOf('pirateface'), ggufOnly, reloadKey: `${remoteReload}:${sectionReloads.pirateface || 0}` }),
   }
-  const remoteSearch = remote ? searchOf[remote.id] : { phase: 'idle', results: [], providers: [], error: '' }
+  const remoteSearch = remote ? searchOf[remote.id] : { phase: 'idle', results: [], providers: [], error: '', unsupported: false }
+  // With no term an online source shows its newest models. One that has no such
+  // list (Pirate Face) shows a note instead.
+  const noLatest = (id) => !remoteTerm && (!remoteSource(id)?.latest || searchOf[id].unsupported)
   const details = useRemoteDetails()
   const installs = useRemoteInstalls({
     onDone: (key, name) => {
@@ -1037,12 +1040,12 @@ export default function Models() {
   const remoteFailed = remote && remoteSearch.phase === 'failed'
   let remoteEmpty = null
   if (remote && visibleModels.length === 0 && !remoteBusy) {
-    if (!remoteTerm) {
+    if (noLatest(remote.id)) {
       remoteEmpty = (
         <div className="dk-empty ledger-empty" data-testid="remote-hint">
           <div className="dk-empty-icon"><Icon name="search" /></div>
           <h2 className="dk-empty-title">{t('remote.hint.title', { source: sourceLabel })}</h2>
-          <p className="dk-empty-text">{t('remote.hint.text')}</p>
+          <p className="dk-empty-text">{t('remote.noLatest', { source: sourceLabel })}</p>
         </div>
       )
     } else if (remoteFailed) {
@@ -1117,12 +1120,12 @@ export default function Models() {
     const loading = st.phase === 'loading'
     return {
       id,
-      heading: { label: t('remote.heading', { source: label }), icon: 'cloud', tag: src.p2p ? t('remote.p2p') : '' },
+      heading: { label: t(remoteTerm ? 'remote.heading' : 'remote.latestHeading', { source: label }), icon: 'cloud', tag: src.p2p ? t('remote.p2p') : '' },
       models: rows,
       loading,
-      error: st.phase === 'failed' ? { text: `${t('remote.failed.title', { source: label })}. ${st.error || t('remote.failed.text')}` } : null,
+      error: st.phase === 'failed' ? { text: `${t('remote.failed.title', { source: label })}: ${st.error || t('remote.failed.text')}` } : null,
       onRetry: () => setSectionReloads(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 })),
-      empty: st.phase === 'done' ? t('remote.none.title', { source: label }) : '',
+      empty: noLatest(id) ? t('remote.noLatest', { source: label }) : st.phase === 'done' ? t('remote.none.title', { source: label }) : '',
       more: canLoadMore(st.results, sectionLimits[id])
         ? { busy: loading, onMore: () => setSectionLimits(prev => ({ ...prev, [id]: nextLimit(prev[id], REMOTE_SECTION_STEP) })) }
         : null,
@@ -1390,7 +1393,7 @@ export default function Models() {
               // typed the buckets stand between the reader and the answer. An
               // online source is always a flat list under its own heading.
               grouped={!remote && !search.trim()}
-              heading={remote ? { label: t('remote.heading', { source: sourceLabel }), icon: 'cloud', tag: remote.p2p ? t('remote.p2p') : '' } : undefined}
+              heading={remote ? { label: t(remoteTerm ? 'remote.heading' : 'remote.latestHeading', { source: sourceLabel }), icon: 'cloud', tag: remote.p2p ? t('remote.p2p') : '' } : undefined}
               onRowVisible={sectionIds.length > 0 ? onRowVisible : undefined}
               sections={remote ? undefined : onlineSections}
               remoteOps={remote ? undefined : remoteOps}

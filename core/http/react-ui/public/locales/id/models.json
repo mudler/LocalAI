@@ -338,6 +338,7 @@
     },
     "p2p": "p2p",
     "heading": "Dari {{source}}",
+    "latestHeading": "Terbaru di {{source}}",
     "placeholder": "Cari di {{source}}",
     "resultCount_one": "{{count}} hasil",
     "resultCount_other": "{{count}} hasil",
@@ -362,6 +363,7 @@
       "fits": "Semua hasil terlalu besar untuk mesin ini. Matikan filter muat untuk melihatnya."
     },
     "loadMore": "Muat lebih banyak",
+    "noLatest": "{{source}} tidak menyediakan daftar model terbarunya. Cari berdasarkan nama untuk melihat modelnya.",
     "chooseBuild": "Pilih varian {{variant}}",
     "recommended": "Disarankan",
     "fits": "Muat",

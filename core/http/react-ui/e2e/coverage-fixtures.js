@@ -36,6 +36,16 @@ const withCoverage = base.extend({
   ],
 
   page: async ({ page, _v8acc }, use) => {
+    // The Explore tab of the Models page asks the online sources (Hugging Face,
+    // Pirate Face) for their newest models on load, and for a term under All.
+    // No spec may reach the network, so the default answer is an empty one per
+    // provider. A spec of the online sources puts its own route on top: the
+    // route added last answers first.
+    await page.route(/\/api\/models\/search\?/, route => {
+      const providers = (new URL(route.request().url()).searchParams.get('providers') || '').split(',').filter(Boolean)
+      return route.fulfill({ json: { results: [], providers: providers.map(name => ({ name, ok: true, count: 0 })) } })
+    })
+
     // V8 coverage path: collect native Chromium coverage (cheap), hand it to the
     // worker accumulator on teardown. Avoids running an instrumented bundle.
     if (V8_COVERAGE) {

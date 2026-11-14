@@ -874,6 +874,7 @@
     },
     "p2p": "p2p",
     "heading": "From {{source}}",
+    "latestHeading": "Latest on {{source}}",
     "placeholder": "Search {{source}}",
     "resultCount_one": "{{count}} result",
     "resultCount_other": "{{count}} results",
@@ -898,6 +899,7 @@
       "fits": "Every result is too big for this machine. Turn off the fits filter to see them."
     },
     "loadMore": "Load more",
+    "noLatest": "{{source}} does not list its newest models. Search by name to see its models.",
     "chooseBuild": "Choose build {{variant}}",
     "recommended": "Recommended",
     "fits": "Fits",

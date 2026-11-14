@@ -42,6 +42,11 @@ func NewPirateFace(o PirateFaceOptions) Provider {
 
 func (p *pirateFace) Name() string { return PirateFaceName }
 
+// Pirate Face does not implement LatestLister. Its public text listing has
+// no sort option and no documented order, and the pages that show recent
+// models (the home page, the model index) are HTML meant for a browser. The
+// only machine readable lists are under /api, which robots.txt disallows.
+
 // A result line: <owner/repo> <size> <unit> <n> seeds <magnet link>
 var pfLine = regexp.MustCompile(`^([\w.-]+/[\w.-]+)\s+([0-9]+(?:\.[0-9]+)?)\s*([KMGT]i?B)\s+([0-9]+)\s+seeds?\s+(magnet:\?xt=urn:btih:\S+)$`)
 

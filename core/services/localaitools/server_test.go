@@ -148,6 +148,7 @@ var _ = Describe("Tool dispatch", func() {
 	cases := []dispatchCase{
 		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
 		{ToolSearchModels, ModelSearchRequest{Query: "qwen"}, "SearchModels"},
+		{ToolSearchModels, ModelSearchRequest{Sort: "latest"}, "SearchModels"},
 		{ToolInspectRemoteModel, RemoteModelRequest{URI: "huggingface://a/b"}, "InspectRemoteModel"},
 		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
 		{ToolListModels, ListModelsRequest{Capability: "image"}, "ListModels"},
@@ -306,6 +307,7 @@ var _ = Describe("Argument validation", func() {
 		{"create_shared_folder requires a name", ToolCreateSharedFolder, CreateSharedFolderRequest{Name: " "}, "name is required"},
 		{"set_shared_folder_member rejects an unknown mode", ToolSetSharedFolderMember, SetSharedFolderMemberRequest{ID: 3, Member: "marta", Mode: "owner"}, "mode must be read or write"},
 		{"remove_shared_folder_member requires a member", ToolRemoveSharedFolderMember, RemoveSharedFolderMemberRequest{ID: 3}, "id and member are required"},
+		{"search_models needs a query unless sort is latest", ToolSearchModels, ModelSearchRequest{Sort: "likes"}, "query is required unless sort is latest"},
 		{"restore_shared_folder requires the rev", ToolRestoreSharedFolder, RestoreSharedFolderRequest{}, "rev is required"},
 	}
 

@@ -860,8 +860,8 @@ tr[data-selected="true"] .ledger-mark {
   .ledger-table tbody tr.dk-table-loading > td.ledger-name-cell { grid-column: 2; grid-row: 1; }
   .ledger-table tbody tr.ledger-group { display: block; }
   .ledger-table tbody tr.ledger-group > td { display: block; }
-  .ledger-table tbody tr.ledger-note { display: block; }
-  .ledger-table tbody tr.ledger-note > td { display: block; }
+  .ledger-table tbody tr.ledger-section-note { display: block; }
+  .ledger-table tbody tr.ledger-section-note > td { display: block; }
   .ledger-table tbody tr.dk-table-loading { display: grid; grid-template-columns: 20px 1fr auto; }
   .ledger-table tbody tr.dk-table-loading > td { display: block; padding: 6px; border: 0; }
   .ledger-fit__bar { max-width: 96px; }
@@ -932,10 +932,10 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-builds--gated { color: var(--dk-warn-text, var(--dk-muted)); font-weight: var(--dk-weight-semibold); }
 /* A line under an online section of the table: a failure with its retry, a
    note, or the button that asks for more rows. */
-.ledger-note > td { padding: var(--dk-space-3) var(--dk-space-4); border-bottom-color: var(--dk-edge); }
-.ledger-note__row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-3); }
-.ledger-note__row--center { justify-content: center; }
-.ledger-note__text { font-size: var(--dk-text-12); color: var(--dk-muted); }
+.ledger-section-note > td { height: auto; padding: var(--dk-space-3) var(--dk-space-4); border-bottom-color: var(--dk-edge); }
+.ledger-section-note__row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-3); }
+.ledger-section-note__row--center { justify-content: center; }
+.ledger-section-note__text { font-size: var(--dk-text-12); color: var(--dk-muted); }
 .ledger-more { display: flex; justify-content: center; padding: var(--dk-space-3) 0; }
 .remote-notices { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-bottom: var(--dk-space-3); }
 .ledger-estimate-note { margin: 0 0 var(--dk-space-3); font-size: var(--dk-text-12); color: var(--dk-muted); }

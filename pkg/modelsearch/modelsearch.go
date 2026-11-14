@@ -32,6 +32,10 @@ const (
 	SortLikes     = "likes"
 	SortUpdated   = "updated"
 	SortTrending  = "trending"
+	// SortLatest lists the newest models first. It is the one sort that works
+	// without a search text, for the providers that can list their newest
+	// models (see LatestLister).
+	SortLatest = "latest"
 )
 
 // Query is what a provider is asked to search for. Searcher.Search
@@ -45,7 +49,7 @@ type Query struct {
 	// ignore it.
 	Format string `json:"format,omitempty"`
 	// Sort is one of the Sort* constants. Providers that cannot sort
-	// keep their own order.
+	// keep their own order. With SortLatest the text may be empty.
 	Sort string `json:"sort,omitempty"`
 }
 
@@ -98,6 +102,10 @@ type ProviderStatus struct {
 	Count int    `json:"count"`
 	// Cached is true when the results came from the cache.
 	Cached bool `json:"cached,omitempty"`
+	// Unsupported is true when the provider was not asked because it cannot
+	// answer this kind of request: a list of the newest models with no search
+	// text. The provider is ok and has no results; nothing went upstream.
+	Unsupported bool `json:"unsupported,omitempty"`
 }
 
 // Response is the outcome of a search.
@@ -111,6 +119,13 @@ type Provider interface {
 	// Name is the stable lower-case id used in requests ("huggingface").
 	Name() string
 	Search(ctx context.Context, q Query) ([]Result, error)
+}
+
+// LatestLister is implemented by a provider that can list its newest models
+// when the query has no text. A provider that does not implement it is never
+// called for such a query: its status says unsupported.
+type LatestLister interface {
+	ListsLatest() bool
 }
 
 // Options configures a Searcher.
@@ -203,7 +218,7 @@ func (q Query) Normalize() Query {
 	}
 	q.Sort = strings.ToLower(strings.TrimSpace(q.Sort))
 	switch q.Sort {
-	case SortLikes, SortUpdated, SortTrending:
+	case SortLikes, SortUpdated, SortTrending, SortLatest:
 	default:
 		q.Sort = SortDownloads
 	}
@@ -232,6 +247,12 @@ func (s *Searcher) Search(ctx context.Context, q Query, names []string) Response
 			statuses[i] = ProviderStatus{Name: name, Error: "unknown provider"}
 			continue
 		}
+		if q.Text == "" && !listsLatest(p, q) {
+			// Nothing to search for and no way to list the newest: do not
+			// send the provider a request its site has no page for.
+			statuses[i] = ProviderStatus{Name: name, OK: true, Unsupported: true}
+			continue
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -250,6 +271,13 @@ func (s *Searcher) Search(ctx context.Context, q Query, names []string) Response
 		out.Results = append(out.Results, r...)
 	}
 	return out
+}
+
+// listsLatest reports whether p can answer a query with no text, which only
+// the newest-first list can be.
+func listsLatest(p Provider, q Query) bool {
+	l, ok := p.(LatestLister)
+	return ok && q.Sort == SortLatest && l.ListsLatest()
 }
 
 func (s *Searcher) searchOne(ctx context.Context, p Provider, q Query) ([]Result, bool, error) {

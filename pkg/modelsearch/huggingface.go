@@ -44,6 +44,10 @@ func NewHuggingFace(o HuggingFaceOptions) Provider {
 
 func (h *huggingFace) Name() string { return HuggingFaceName }
 
+// ListsLatest says the models API lists repositories by creation date with no
+// search text.
+func (h *huggingFace) ListsLatest() bool { return true }
+
 type hfModel struct {
 	ID           string   `json:"id"`
 	ModelID      string   `json:"modelId"`
@@ -63,6 +67,9 @@ var hfSort = map[string]string{
 	SortLikes:     "likes",
 	SortUpdated:   "lastModified",
 	SortTrending:  "trendingScore",
+	// createdAt is when the repository was added, which is what "latest"
+	// means; lastModified would also float up an old model that got a commit.
+	SortLatest: "createdAt",
 }
 
 func (h *huggingFace) Search(ctx context.Context, q Query) ([]Result, error) {
@@ -71,7 +78,9 @@ func (h *huggingFace) Search(ctx context.Context, q Query) ([]Result, error) {
 		return nil, err
 	}
 	v := u.Query()
-	v.Set("search", q.Text)
+	if q.Text != "" {
+		v.Set("search", q.Text)
+	}
 	v.Set("sort", hfSort[q.Sort])
 	v.Set("direction", "-1")
 	v.Set("limit", strconv.Itoa(q.Limit))

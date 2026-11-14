@@ -250,10 +250,10 @@ export default function ExploreTable({
       : []),
     ...(sec.error
       ? [(
-        <tr key={`o-${sec.id}-err`} className="ledger-note" data-testid="discover-section-error" data-section={sec.id}>
+        <tr key={`o-${sec.id}-err`} className="ledger-section-note" data-testid="discover-section-error" data-section={sec.id}>
           <td colSpan={5}>
-            <div className="ledger-note__row" role="alert">
-              <span className="ledger-note__text">{sec.error.text}</span>
+            <div className="ledger-section-note__row" role="alert">
+              <span className="ledger-section-note__text">{sec.error.text}</span>
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={sec.onRetry}>
                 <Icon name="refresh" /> {t('ledger.retry')}
               </button>
@@ -264,16 +264,16 @@ export default function ExploreTable({
       : []),
     ...(sec.empty && !sec.loading && !sec.error && sec.models.length === 0
       ? [(
-        <tr key={`o-${sec.id}-empty`} className="ledger-note" data-testid="discover-section-empty" data-section={sec.id}>
-          <td colSpan={5}><div className="ledger-note__row"><span className="ledger-note__text">{sec.empty}</span></div></td>
+        <tr key={`o-${sec.id}-empty`} className="ledger-section-note" data-testid="discover-section-empty" data-section={sec.id}>
+          <td colSpan={5}><div className="ledger-section-note__row"><span className="ledger-section-note__text">{sec.empty}</span></div></td>
         </tr>
       )]
       : []),
     ...(sec.more
       ? [(
-        <tr key={`o-${sec.id}-more`} className="ledger-note" data-section={sec.id}>
+        <tr key={`o-${sec.id}-more`} className="ledger-section-note" data-section={sec.id}>
           <td colSpan={5}>
-            <div className="ledger-note__row ledger-note__row--center">
+            <div className="ledger-section-note__row ledger-section-note__row--center">
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="discover-section-more" disabled={sec.more.busy} onClick={sec.more.onMore}>
                 {sec.more.busy ? <Icon name="spinner" spin /> : <Icon name="plus" />} {t('remote.loadMore')}
               </button>
@@ -302,8 +302,11 @@ export default function ExploreTable({
             <SortHead col="status" label={t('table.status')} sort={sort} order={order} onSort={onSort} className="dk-num ledger-status-head" />
           </tr>
         </thead>
-        {loading && models.length === 0 && onlineSections.length === 0 ? (
-          <SkeletonRows />
+        {loading && models.length === 0 ? (
+          <>
+            <SkeletonRows />
+            {onlineSections.length > 0 && <tbody ref={bodyRef}>{onlineSections.map(renderOnline)}</tbody>}
+          </>
         ) : (
           <tbody ref={bodyRef}>
             {heading && (

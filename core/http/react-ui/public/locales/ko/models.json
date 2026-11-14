@@ -309,6 +309,7 @@
     },
     "p2p": "p2p",
     "heading": "{{source}}의 결과",
+    "latestHeading": "{{source}}의 최신 모델",
     "placeholder": "{{source}}에서 검색",
     "resultCount_one": "결과 {{count}}개",
     "resultCount_other": "결과 {{count}}개",
@@ -333,6 +334,7 @@
       "fits": "모든 결과가 이 컴퓨터에는 너무 큽니다. 결과를 보려면 적합 필터를 끄세요."
     },
     "loadMore": "더 보기",
+    "noLatest": "{{source}}은(는) 최신 모델 목록을 제공하지 않습니다. 이름으로 검색하면 모델을 볼 수 있습니다.",
     "chooseBuild": "{{variant}} 빌드 선택",
     "recommended": "권장",
     "fits": "적합",

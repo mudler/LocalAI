@@ -413,6 +413,7 @@
     },
     "p2p": "p2p",
     "heading": "Depuis {{source}}",
+    "latestHeading": "Dernières nouveautés sur {{source}}",
     "placeholder": "Rechercher sur {{source}}",
     "resultCount_one": "{{count}} résultat",
     "resultCount_other": "{{count}} résultats",
@@ -437,6 +438,7 @@
       "fits": "Tous les résultats sont trop gros pour cette machine. Désactivez le filtre d’adéquation pour les voir."
     },
     "loadMore": "Charger plus",
+    "noLatest": "{{source}} ne propose pas de liste de ses derniers modèles. Cherchez par nom pour voir ses modèles.",
     "chooseBuild": "Choisir la variante {{variant}}",
     "recommended": "Recommandée",
     "fits": "Tient en mémoire",

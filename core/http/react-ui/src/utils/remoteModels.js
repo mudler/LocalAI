@@ -6,10 +6,12 @@ import { compactCount } from './modelSearch.js'
 import { fitFor } from './modelLedger.js'
 
 // The online sources, in the order their chips appear. `p2p` puts the small
-// tag on the chip.
+// tag on the chip. `latest` says the source can list its newest models with no
+// search text; Pirate Face has no such list outside its /api paths, which its
+// robots.txt disallows, so with no term it shows a note and asks nothing.
 export const REMOTE_SOURCES = [
-  { id: 'huggingface', p2p: false },
-  { id: 'pirateface', p2p: true },
+  { id: 'huggingface', p2p: false, latest: true },
+  { id: 'pirateface', p2p: true, latest: false },
 ]
 
 // "Load more" asks the provider for this many more results each time. The
@@ -37,9 +39,20 @@ export function parseRemoteKey(key) {
   return m && remoteSource(m[1]) ? { provider: m[1], id: m[2] } : null
 }
 
-// The query of GET /api/models/search for one source.
+// Whether a source is asked at all: with a term it always is, with none only
+// when it can list its newest models.
+export function remoteAsks(provider, term) {
+  const src = remoteSource(provider)
+  return !!src && (!!String(term || '').trim() || src.latest)
+}
+
+// The query of GET /api/models/search for one source. No term asks for the
+// newest models, with the same limit and format filter as a search.
 export function remoteSearchParams({ provider, term, limit, ggufOnly }) {
-  const out = { q: String(term || '').trim(), providers: provider, limit: limit || REMOTE_PAGE_STEP }
+  const q = String(term || '').trim()
+  const out = { providers: provider, limit: limit || REMOTE_PAGE_STEP }
+  if (q) out.q = q
+  else out.sort = 'latest'
   out.format = ggufOnly === false ? 'any' : 'gguf'
   return out
 }

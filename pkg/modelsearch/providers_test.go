@@ -67,6 +67,28 @@ var _ = Describe("Hugging Face provider", func() {
 		Expect(got.Header.Get("Authorization")).To(BeEmpty())
 	})
 
+	It("lists the newest repositories by creation date when there is no text", func() {
+		var got *http.Request
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			got = r
+			_, _ = w.Write([]byte(hfFixture))
+		}))
+		defer srv.Close()
+		p := modelsearch.NewHuggingFace(modelsearch.HuggingFaceOptions{BaseURL: srv.URL})
+		l, ok := p.(modelsearch.LatestLister)
+		Expect(ok).To(BeTrue())
+		Expect(l.ListsLatest()).To(BeTrue())
+		res, err := p.Search(context(), modelsearch.Query{Sort: modelsearch.SortLatest, Limit: 10}.Normalize())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(HaveLen(2))
+		qs := got.URL.Query()
+		Expect(qs.Has("search")).To(BeFalse())
+		Expect(qs.Get("sort")).To(Equal("createdAt"))
+		Expect(qs.Get("direction")).To(Equal("-1"))
+		Expect(qs.Get("filter")).To(Equal("gguf"))
+		Expect(qs.Get("limit")).To(Equal("10"))
+	})
+
 	It("reports rate limiting and bad bodies", func() {
 		status, body := http.StatusTooManyRequests, ""
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

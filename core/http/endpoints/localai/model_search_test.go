@@ -14,6 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// latestStubProvider lists its newest models with no text, like Hugging Face.
+type latestStubProvider struct{ stubSearchProvider }
+
+func (*latestStubProvider) ListsLatest() bool { return true }
+
 type stubSearchProvider struct {
 	name string
 	res  []modelsearch.Result
@@ -79,6 +84,27 @@ var _ = Describe("ModelSearchEndpoint", func() {
 		Expect(rec.Body.String()).To(ContainSubstring(`"results":[]`))
 	})
 
+	It("takes an empty q with sort=latest, asks only a provider that lists its newest, and says the other cannot", func() {
+		l := &latestStubProvider{stubSearchProvider{name: "huggingface", res: []modelsearch.Result{{ID: "o/new", URI: "huggingface://o/new"}}}}
+		s := modelsearch.NewSearcher(modelsearch.Options{CacheTTL: -1})
+		s.Register(l)
+		s.Register(pf)
+		e = echo.New()
+		e.GET("/api/models/search", ModelSearchEndpoint(s, nil))
+
+		rec := get("/api/models/search?sort=latest&limit=10")
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		var out modelsearch.Response
+		Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+		Expect(out.Results).To(HaveLen(1))
+		Expect(out.Providers).To(Equal([]modelsearch.ProviderStatus{
+			{Name: "huggingface", OK: true, Count: 1},
+			{Name: "pirateface", OK: true, Unsupported: true},
+		}))
+		Expect(l.last).To(Equal(modelsearch.Query{Limit: 10, Format: "gguf", Sort: "latest"}))
+		Expect(pf.last).To(Equal(modelsearch.Query{}))
+	})
+
 	DescribeTable("rejects a bad request",
 		func(target, want string) {
 			rec := get(target)
@@ -87,6 +113,7 @@ var _ = Describe("ModelSearchEndpoint", func() {
 		},
 		Entry("no q", "/api/models/search", "q is required"),
 		Entry("blank q", "/api/models/search?q=%20", "q is required"),
+		Entry("no q with another sort", "/api/models/search?sort=likes", "unless sort is latest"),
 		Entry("bad limit", "/api/models/search?q=x&limit=abc", "limit"),
 		Entry("unknown provider", "/api/models/search?q=x&providers=nope", "unknown provider"),
 	)

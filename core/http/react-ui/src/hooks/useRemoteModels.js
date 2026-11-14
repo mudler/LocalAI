@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { modelsApi } from '../utils/api'
 import { classifyImportJob } from '../utils/importJob'
-import { remoteSearchParams, remoteErrorKind, importBody, defaultVariantFile } from '../utils/remoteModels'
+import { remoteSearchParams, remoteAsks, remoteErrorKind, importBody, defaultVariantFile } from '../utils/remoteModels'
 
 // How many remote estimates run at once. The server bounds its own upstream
 // calls too; this keeps a page of rows from taking every browser connection.
@@ -11,16 +11,17 @@ const RATE_LIMIT_PAUSE_MS = 60_000
 const JOB_POLL_MS = 1000
 
 // The search of one online source. `term` is already debounced by the caller.
-// Without a term nothing is asked: the providers need one.
+// Without a term the source is asked for its newest models, and a source that
+// cannot list them (see REMOTE_SOURCES) is not asked at all.
 //
 // Results of the previous query stay on screen while the next one loads, so the
 // table does not flash empty on every keystroke.
 export function useRemoteSearch({ provider, term, limit, ggufOnly, reloadKey }) {
-  const [state, setState] = useState({ phase: 'idle', results: [], providers: [], error: '' })
+  const [state, setState] = useState({ phase: 'idle', results: [], providers: [], error: '', unsupported: false })
 
   useEffect(() => {
-    if (!provider || !term) {
-      setState({ phase: 'idle', results: [], providers: [], error: '' })
+    if (!provider || !remoteAsks(provider, term)) {
+      setState({ phase: 'idle', results: [], providers: [], error: '', unsupported: false })
       return undefined
     }
     const ctl = new AbortController()
@@ -34,6 +35,8 @@ export function useRemoteSearch({ provider, term, limit, ggufOnly, reloadKey }) 
           results: data?.results || [],
           providers: data?.providers || [],
           error: status?.ok === false ? (status.error || '') : '',
+          // The server did not ask the source: it cannot list its newest models.
+          unsupported: !!status?.unsupported,
         })
       })
       .catch(err => {

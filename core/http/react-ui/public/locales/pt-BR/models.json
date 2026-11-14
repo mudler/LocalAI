@@ -341,6 +341,7 @@
     },
     "p2p": "p2p",
     "heading": "De {{source}}",
+    "latestHeading": "Mais recentes em {{source}}",
     "placeholder": "Pesquisar em {{source}}",
     "resultCount_one": "{{count}} resultado",
     "resultCount_other": "{{count}} resultados",
@@ -365,6 +366,7 @@
       "fits": "Todos os resultados são grandes demais para esta máquina. Desative o filtro de compatibilidade para vê-los."
     },
     "loadMore": "Carregar mais",
+    "noLatest": "{{source}} não lista os modelos mais recentes. Pesquise por nome para ver os modelos.",
     "chooseBuild": "Escolher a variante {{variant}}",
     "recommended": "Recomendada",
     "fits": "Cabe",

@@ -185,6 +185,22 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("SearchModels with no query", func() {
+		It("sends sort=latest and an empty q", func() {
+			var got url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.URL.Query()
+				_, _ = w.Write([]byte(`{"results":[],"providers":[{"name":"pirateface","ok":true,"count":0,"unsupported":true}]}`))
+			}))
+			defer srv.Close()
+			out, err := New(srv.URL, "").SearchModels(ctx, localaitools.ModelSearchRequest{Sort: "latest"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.Get("sort")).To(Equal("latest"))
+			Expect(got.Get("q")).To(BeEmpty())
+			Expect(out.Providers[0].Unsupported).To(BeTrue())
+		})
+	})
+
 	Describe("InspectRemoteModel", func() {
 		It("reads the files and, when asked, the estimate", func() {
 			var paths []string

@@ -13613,7 +13613,7 @@ const docTemplate = `{
         },
         "/api/models/search": {
             "get": {
-                "description": "Fans the query out to the chosen providers and returns the merged results plus one status per provider, so a provider that is down does not fail the search. Each result's ` + "`" + `uri` + "`" + ` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (` + "`" + `installed` + "`" + `, ` + "`" + `installed_name` + "`" + `), the backend an import would likely pick (` + "`" + `backend` + "`" + `, a hint derived from the tags) and whether the repository likely has several quantizations (` + "`" + `has_variants` + "`" + `). Use /api/models/remote/files for the exact files, sizes and backend of one result.",
+                "description": "Fans the query out to the chosen providers and returns the merged results plus one status per provider, so a provider that is down does not fail the search. Each result's ` + "`" + `uri` + "`" + ` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (` + "`" + `installed` + "`" + `, ` + "`" + `installed_name` + "`" + `), the backend an import would likely pick (` + "`" + `backend` + "`" + `, a hint derived from the tags) and whether the repository likely has several quantizations (` + "`" + `has_variants` + "`" + `). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each provider that can list them (Hugging Face, by creation date). A provider that cannot, such as Pirate Face, is not called and its status says ` + "`" + `unsupported` + "`" + `.",
                 "tags": [
                     "models"
                 ],
@@ -13621,10 +13621,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Search text",
+                        "description": "Search text. Required unless sort is latest",
                         "name": "q",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -13646,7 +13645,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "downloads (default), likes, updated or trending",
+                        "description": "downloads (default), likes, updated, trending or latest (newest first; the only sort that works with no q)",
                         "name": "sort",
                         "in": "query"
                     }
@@ -22344,6 +22343,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ok": {
+                    "type": "boolean"
+                },
+                "unsupported": {
+                    "description": "Unsupported is true when the provider was not asked because it cannot\nanswer this kind of request: a list of the newest models with no search\ntext. The provider is ok and has no results; nothing went upstream.",
                     "type": "boolean"
                 }
             }

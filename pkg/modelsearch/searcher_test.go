@@ -33,6 +33,11 @@ func (f *fakeProvider) Search(ctx stdctx.Context, q modelsearch.Query) ([]models
 	return f.res, f.err
 }
 
+// latestProvider can list its newest models with no text, like Hugging Face.
+type latestProvider struct{ fakeProvider }
+
+func (l *latestProvider) ListsLatest() bool { return true }
+
 var _ = Describe("Searcher", func() {
 	var a, b *fakeProvider
 	var s *modelsearch.Searcher
@@ -118,5 +123,50 @@ var _ = Describe("Searcher", func() {
 			small.Search(context(), modelsearch.Query{Text: q}, nil)
 		}
 		Expect(a.calls.Load()).To(BeNumerically(">=", 3))
+	})
+
+	Describe("the newest models with no search text", func() {
+		It("asks only a provider that lists its newest, and says the other one cannot", func() {
+			l := &latestProvider{fakeProvider{name: "l", res: []modelsearch.Result{{ID: "o/new1"}}}}
+			s.Register(l)
+			r := s.Search(context(), modelsearch.Query{Sort: modelsearch.SortLatest}, nil)
+			Expect(l.calls.Load()).To(Equal(int32(1)))
+			Expect(l.last.Text).To(BeEmpty())
+			Expect(l.last.Sort).To(Equal(modelsearch.SortLatest))
+			// a and b do not implement LatestLister: not called, not failed.
+			Expect(a.calls.Load()).To(BeZero())
+			Expect(b.calls.Load()).To(BeZero())
+			Expect(r.Results).To(HaveLen(1))
+			Expect(r.Providers).To(Equal([]modelsearch.ProviderStatus{
+				{Name: "a", OK: true, Unsupported: true},
+				{Name: "b", OK: true, Unsupported: true},
+				{Name: "l", OK: true, Count: 1},
+			}))
+		})
+
+		It("does not call anyone for an empty text with another sort", func() {
+			l := &latestProvider{fakeProvider{name: "l"}}
+			s.Register(l)
+			r := s.Search(context(), modelsearch.Query{Sort: modelsearch.SortLikes}, []string{"l"})
+			Expect(l.calls.Load()).To(BeZero())
+			Expect(r.Providers[0].Unsupported).To(BeTrue())
+		})
+
+		It("caches the list like a search", func() {
+			l := &latestProvider{fakeProvider{name: "l", res: []modelsearch.Result{{ID: "o/new1"}}}}
+			s.Register(l)
+			q := modelsearch.Query{Sort: modelsearch.SortLatest, Limit: 10}
+			s.Search(context(), q, []string{"l"})
+			r := s.Search(context(), q, []string{"l"})
+			Expect(l.calls.Load()).To(Equal(int32(1)))
+			Expect(r.Providers[0].Cached).To(BeTrue())
+			// Another page size is another answer.
+			s.Search(context(), modelsearch.Query{Sort: modelsearch.SortLatest, Limit: 20}, []string{"l"})
+			Expect(l.calls.Load()).To(Equal(int32(2)))
+		})
+
+		It("keeps latest as a sort", func() {
+			Expect(modelsearch.Query{Sort: " Latest "}.Normalize().Sort).To(Equal(modelsearch.SortLatest))
+		})
 	})
 })
