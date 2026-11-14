@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -95,7 +96,7 @@ func buildImage(s imageSpec) string {
 	Expect(f.Truncate(s.size)).To(Succeed())
 	Expect(f.Close()).To(Succeed())
 	args := []string{"-q", "-F"}
-	args = append(args, s.args...)
+	args = append(args, revisionArgs(s.args, img)...)
 	if s.tree != nil {
 		src := filepath.Join(dir, "src")
 		Expect(os.MkdirAll(src, 0o755)).To(Succeed())
@@ -116,6 +117,23 @@ func buildImage(s imageSpec) string {
 	}
 	imageCache[s.name] = img
 	return img
+}
+
+// revisionArgs rewrites the legacy "-r 0" pair into "-E revision=0" when the
+// installed mke2fs has dropped the -r option (e2fsprogs 1.47.3 and later). It
+// asks mke2fs itself with a dry run, so no version number is parsed.
+func revisionArgs(args []string, img string) []string {
+	GinkgoHelper()
+	i := slices.Index(args, "-r")
+	if i < 0 || i+1 >= len(args) {
+		return args
+	}
+	if _, err := runErr("mke2fs", "-n", "-q", "-F", "-r", args[i+1], img); err == nil {
+		return args
+	}
+	out := slices.Clone(args[:i])
+	out = append(out, "-E", "revision="+args[i+1])
+	return append(out, args[i+2:]...)
 }
 
 // releaseImage deletes an image that no other spec needs. The disk of a
