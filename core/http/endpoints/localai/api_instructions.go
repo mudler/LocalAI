@@ -155,6 +155,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "A failover chain is a model config with a failover block. Requests for the chain name are served by its highest-priority healthy target; the X-LocalAI-Served-Model response header names it. Subscribe to GET /api/failover/events (SSE) to follow switches.",
 	},
 	{
+		Name:        "connections",
+		Description: "Remote connections: use the models of another LocalAI or of an OpenAI-compatible or Anthropic endpoint",
+		Tags:        []string{"connections"},
+		Intro:       "A connection saves the address and key of a remote (kind localai, openai or anthropic). POST /api/connections/test lists the models of a remote without saving anything; a failed test is a 200 answer with ok=false and the failed step. POST /api/connections saves it and turns each chosen model into a model config (an entry) that carries only the connection id. The API key is write-only: it is stored sealed and no route returns it, only key_set. POST /api/connections/{id}/refresh records the models the remote lists now (new) and the adopted ones it dropped (unavailable); POST /api/connections/{id}/adopt adds entries for chosen models. PATCH changes the name, url or key (an empty api_key removes the key). DELETE takes entries=keep (default, the entries stay as plain models) or entries=remove. All routes are admin only.",
+	},
+	{
 		Name:        "intelligent-routing",
 		Description: "Per-model `router:` configuration that classifies requests and rewrites the served model",
 		Tags:        []string{"router"},

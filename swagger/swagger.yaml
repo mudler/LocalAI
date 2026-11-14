@@ -1041,6 +1041,89 @@ definitions:
       name:
         type: string
     type: object
+  connections.Connection:
+    properties:
+      entries:
+        description: model config names this connection owns
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      key_set:
+        type: boolean
+      kind:
+        $ref: '#/definitions/connections.Kind'
+      last_error:
+        type: string
+      last_refresh:
+        type: string
+      name:
+        type: string
+      new:
+        description: discovered at last refresh, not adopted
+        items:
+          $ref: '#/definitions/connections.UpstreamModel'
+        type: array
+      status:
+        $ref: '#/definitions/connections.Status'
+      unavailable:
+        description: subset of Entries the upstream no longer lists
+        items:
+          type: string
+        type: array
+      url:
+        description: address as entered; empty for anthropic
+        type: string
+    type: object
+  connections.Kind:
+    enum:
+    - localai
+    - openai
+    - anthropic
+    type: string
+    x-enum-varnames:
+    - KindLocalAI
+    - KindOpenAI
+    - KindAnthropic
+  connections.Status:
+    enum:
+    - never
+    - ok
+    - auth_failed
+    - unreachable
+    type: string
+    x-enum-varnames:
+    - StatusNever
+    - StatusOK
+    - StatusAuthFailed
+    - StatusUnreachable
+  connections.TestResult:
+    properties:
+      message:
+        type: string
+      models:
+        items:
+          $ref: '#/definitions/connections.UpstreamModel'
+        type: array
+      ok:
+        type: boolean
+      step:
+        description: invalid_url, unreachable, auth, no_models
+        type: string
+    type: object
+  connections.UpstreamModel:
+    properties:
+      id:
+        type: string
+      usecases:
+        description: |-
+          Usecases are valid known_usecases values. For the cloud kinds it is
+          empty, which means chat.
+        items:
+          type: string
+        type: array
+    type: object
   connsets.Sets:
     additionalProperties:
       items:
@@ -3211,6 +3294,85 @@ definitions:
       logo_horizontal_url:
         type: string
       logo_url:
+        type: string
+    type: object
+  localai.ConnectionAdoptRequest:
+    properties:
+      models:
+        items:
+          $ref: '#/definitions/localai.ConnectionModel'
+        type: array
+    type: object
+  localai.ConnectionCreateRequest:
+    properties:
+      api_key:
+        description: write-only
+        type: string
+      kind:
+        $ref: '#/definitions/connections.Kind'
+      models:
+        items:
+          $ref: '#/definitions/localai.ConnectionModel'
+        type: array
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  localai.ConnectionListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/connections.Connection'
+        type: array
+    type: object
+  localai.ConnectionModel:
+    properties:
+      id:
+        type: string
+      usecases:
+        items:
+          type: string
+        type: array
+    type: object
+  localai.ConnectionResultResponse:
+    properties:
+      connection:
+        $ref: '#/definitions/connections.Connection'
+      created:
+        items:
+          type: string
+        type: array
+      skipped:
+        items:
+          $ref: '#/definitions/localai.ConnectionSkipped'
+        type: array
+    type: object
+  localai.ConnectionSkipped:
+    properties:
+      id:
+        type: string
+      reason:
+        type: string
+    type: object
+  localai.ConnectionTestRequest:
+    properties:
+      api_key:
+        description: write-only
+        type: string
+      kind:
+        $ref: '#/definitions/connections.Kind'
+      url:
+        type: string
+    type: object
+  localai.ConnectionUpdateRequest:
+    properties:
+      api_key:
+        description: write-only
+        type: string
+      name:
+        type: string
+      url:
         type: string
     type: object
   localai.FailoverChainsResponse:
@@ -24090,6 +24252,296 @@ paths:
       summary: Add a file to a collection.
       tags:
       - collections
+  /api/connections:
+    get:
+      description: Lists the saved connections. The key is never part of the answer;
+        "key_set" says whether one is stored. Admin only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ConnectionListResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List remote connections
+      tags:
+      - connections
+    post:
+      consumes:
+      - application/json
+      description: Saves a connection and turns each chosen model into a model config
+        (an entry) that carries only the connection id. The key is stored sealed and
+        is never returned. Models that cannot be adopted are listed in "skipped" with
+        a reason. Admin only.
+      parameters:
+      - description: Connection to create; api_key is write-only, for example \
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.ConnectionCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/localai.ConnectionResultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a remote connection
+      tags:
+      - connections
+  /api/connections/{id}:
+    delete:
+      description: With entries=keep (the default) the entries stay as plain models
+        without the connection and its key; with entries=remove they are deleted.
+        When some entries could not be handled, the connection stays and the answer
+        is a 500 error; a retry finishes the job. Admin only.
+      parameters:
+      - description: Connection id
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: keep
+        description: What to do with the entries
+        enum:
+        - keep
+        - remove
+        in: query
+        name: entries
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a remote connection
+      tags:
+      - connections
+    get:
+      parameters:
+      - description: Connection id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/connections.Connection'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get a remote connection
+      tags:
+      - connections
+    patch:
+      consumes:
+      - application/json
+      description: 'An absent field is left as it is; an empty api_key removes the
+        key (not allowed for the anthropic kind). A new key restarts the loaded entries
+        and a new url patches the entries the connection owns. When the change is
+        saved but patching some entries failed, the answer is a 500 error that says
+        so, not the saved connection: read it again with GET. Admin only.'
+      parameters:
+      - description: Connection id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to change; api_key is write-only, for example \
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.ConnectionUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/connections.Connection'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Update a remote connection
+      tags:
+      - connections
+  /api/connections/{id}/adopt:
+    post:
+      consumes:
+      - application/json
+      description: Turns each chosen model into a model config (an entry) that carries
+        only the connection id. Models that cannot be adopted are listed in "skipped"
+        with a reason. Admin only.
+      parameters:
+      - description: Connection id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Models to adopt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.ConnectionAdoptRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ConnectionResultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Adopt models of a remote connection
+      tags:
+      - connections
+  /api/connections/{id}/refresh:
+    post:
+      description: 'Asks the remote for its models and records the answer: status,
+        "new" (found, not adopted) and "unavailable" (adopted, no longer listed).
+        It never writes an entry. Admin only.'
+      parameters:
+      - description: Connection id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/connections.Connection'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Refresh a remote connection
+      tags:
+      - connections
+  /api/connections/test:
+    post:
+      consumes:
+      - application/json
+      description: Lists the models of a remote without saving anything. A failed
+        test is a 200 answer with ok=false and the failed step. Admin only.
+      parameters:
+      - description: Remote to test; api_key is write-only, for example \
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.ConnectionTestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/connections.TestResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Test a remote connection
+      tags:
+      - connections
   /api/failover:
     get:
       produces:

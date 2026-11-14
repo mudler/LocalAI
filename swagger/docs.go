@@ -12941,6 +12941,420 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/connections": {
+            "get": {
+                "description": "Lists the saved connections. The key is never part of the answer; \"key_set\" says whether one is stored. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "List remote connections",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ConnectionListResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Saves a connection and turns each chosen model into a model config (an entry) that carries only the connection id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Create a remote connection",
+                "parameters": [
+                    {
+                        "description": "Connection to create; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.ConnectionCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ConnectionResultResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/connections/test": {
+            "post": {
+                "description": "Lists the models of a remote without saving anything. A failed test is a 200 answer with ok=false and the failed step. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Test a remote connection",
+                "parameters": [
+                    {
+                        "description": "Remote to test; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.ConnectionTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/connections.TestResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/connections/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Get a remote connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/connections.Connection"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "With entries=keep (the default) the entries stay as plain models without the connection and its key; with entries=remove they are deleted. When some entries could not be handled, the connection stays and the answer is a 500 error; a retry finishes the job. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Delete a remote connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "keep",
+                            "remove"
+                        ],
+                        "type": "string",
+                        "default": "keep",
+                        "description": "What to do with the entries",
+                        "name": "entries",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "An absent field is left as it is; an empty api_key removes the key (not allowed for the anthropic kind). A new key restarts the loaded entries and a new url patches the entries the connection owns. When the change is saved but patching some entries failed, the answer is a 500 error that says so, not the saved connection: read it again with GET. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Update a remote connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.ConnectionUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/connections.Connection"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/connections/{id}/adopt": {
+            "post": {
+                "description": "Turns each chosen model into a model config (an entry) that carries only the connection id. Models that cannot be adopted are listed in \"skipped\" with a reason. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Adopt models of a remote connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Models to adopt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.ConnectionAdoptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ConnectionResultResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/connections/{id}/refresh": {
+            "post": {
+                "description": "Asks the remote for its models and records the answer: status, \"new\" (found, not adopted) and \"unavailable\" (adopted, no longer listed). It never writes an entry. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Refresh a remote connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/connections.Connection"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/failover": {
             "get": {
                 "produces": [
@@ -19118,6 +19532,121 @@ const docTemplate = `{
                 }
             }
         },
+        "connections.Connection": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "description": "model config names this connection owns",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "key_set": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "$ref": "#/definitions/connections.Kind"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_refresh": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "new": {
+                    "description": "discovered at last refresh, not adopted",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/connections.UpstreamModel"
+                    }
+                },
+                "status": {
+                    "$ref": "#/definitions/connections.Status"
+                },
+                "unavailable": {
+                    "description": "subset of Entries the upstream no longer lists",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "description": "address as entered; empty for anthropic",
+                    "type": "string"
+                }
+            }
+        },
+        "connections.Kind": {
+            "type": "string",
+            "enum": [
+                "localai",
+                "openai",
+                "anthropic"
+            ],
+            "x-enum-varnames": [
+                "KindLocalAI",
+                "KindOpenAI",
+                "KindAnthropic"
+            ]
+        },
+        "connections.Status": {
+            "type": "string",
+            "enum": [
+                "never",
+                "ok",
+                "auth_failed",
+                "unreachable"
+            ],
+            "x-enum-varnames": [
+                "StatusNever",
+                "StatusOK",
+                "StatusAuthFailed",
+                "StatusUnreachable"
+            ]
+        },
+        "connections.TestResult": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/connections.UpstreamModel"
+                    }
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "step": {
+                    "description": "invalid_url, unreachable, auth, no_models",
+                    "type": "string"
+                }
+            }
+        },
+        "connections.UpstreamModel": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "usecases": {
+                    "description": "Usecases are valid known_usecases values. For the cloud kinds it is\nempty, which means chat.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "connsets.Sets": {
             "type": "object",
             "additionalProperties": {
@@ -21917,6 +22446,127 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "logo_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.ConnectionAdoptRequest": {
+            "type": "object",
+            "properties": {
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.ConnectionModel"
+                    }
+                }
+            }
+        },
+        "localai.ConnectionCreateRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/connections.Kind"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.ConnectionModel"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.ConnectionListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/connections.Connection"
+                    }
+                }
+            }
+        },
+        "localai.ConnectionModel": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "usecases": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "localai.ConnectionResultResponse": {
+            "type": "object",
+            "properties": {
+                "connection": {
+                    "$ref": "#/definitions/connections.Connection"
+                },
+                "created": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.ConnectionSkipped"
+                    }
+                }
+            }
+        },
+        "localai.ConnectionSkipped": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.ConnectionTestRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/connections.Kind"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.ConnectionUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 }
             }
