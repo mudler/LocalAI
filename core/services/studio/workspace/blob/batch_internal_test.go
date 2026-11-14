@@ -83,8 +83,63 @@ var _ = Describe("a batch of staged blobs", func() {
 		Expect(sg.Publish(ctx)).To(Succeed())
 		Expect(files.Load()).To(BeEquivalentTo(n))
 		// The folders of the batch: the leaf folders, their parents, the root,
-		// and tmp (made by the first stage). Not two or more for each blob.
-		Expect(dirs.Load()).To(BeNumerically("<=", len(leaves)+len(mids)+2))
+		// tmp (made by the first stage), and the root again for the final
+		// full sync. Not two or more for each blob.
+		Expect(dirs.Load()).To(BeNumerically("<=", len(leaves)+len(mids)+3))
+	})
+
+	It("orders each blob and folder with a barrier and ends with one full sync", func() {
+		s, root := newBatch()
+		var barriers, fulls, fullsBeforeEnd atomic.Int64
+		publishing := false
+		var mu sync.Mutex
+		s.syncHook = func(kind string) {
+			mu.Lock()
+			defer mu.Unlock()
+			switch kind {
+			case "barrier":
+				barriers.Add(1)
+			case "full":
+				fulls.Add(1)
+				if !publishing {
+					fullsBeforeEnd.Add(1)
+				}
+			}
+		}
+		sg := NewStaging(s)
+		defer sg.Close()
+		const n = 100
+		leaves, mids := map[string]bool{}, map[string]bool{}
+		for i := range n {
+			sha, _, err := sg.Put(ctx, strings.NewReader(body(i)), 0)
+			Expect(err).NotTo(HaveOccurred())
+			leaf := filepath.Dir(shaPath(root, sha))
+			leaves[leaf], mids[filepath.Dir(leaf)] = true, true
+		}
+		mu.Lock()
+		publishing = true
+		mu.Unlock()
+		Expect(sg.Publish(ctx)).To(Succeed())
+		// One barrier for each file, one for each folder that gained a name
+		// or a folder; the only full sync is the last one.
+		Expect(barriers.Load()).To(BeNumerically(">=", n))
+		Expect(barriers.Load()).To(BeNumerically("<=", n+len(leaves)+len(mids)+1))
+		Expect(fulls.Load()).To(BeEquivalentTo(1 + 1)) // the tmp folder made by the first stage, and the commit
+		Expect(fullsBeforeEnd.Load()).To(BeEquivalentTo(1))
+	})
+
+	It("a second Publish with nothing new does no full sync", func() {
+		s, _ := newBatch()
+		var fulls atomic.Int64
+		s.syncHook = func(kind string) {
+			if kind == "full" {
+				fulls.Add(1)
+			}
+		}
+		sg := NewStaging(s)
+		defer sg.Close()
+		Expect(sg.Publish(ctx)).To(Succeed())
+		Expect(fulls.Load()).To(BeZero())
 	})
 
 	It("a failed file sync fails the batch and leaves nothing", func() {

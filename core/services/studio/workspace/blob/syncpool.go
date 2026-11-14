@@ -124,11 +124,17 @@ func (s *fsStore) publishBatch(ctx context.Context, staged []Staged) error {
 	p := newSyncPool()
 	var errs []error
 	for _, d := range names {
-		if err := p.submit(func() error { return s.syncDir(d) }); err != nil {
+		if err := p.submit(func() error { return s.syncDirWith(d, s.barrierSync) }); err != nil {
 			errs = append(errs, err)
 		}
 	}
-	return errors.Join(append(errs, p.wait())...)
+	if err := errors.Join(append(errs, p.wait())...); err != nil {
+		return err
+	}
+	if len(names) == 0 {
+		return nil // nothing was written
+	}
+	return s.commitSync()
 }
 
 // mkdirCollect is mkdir that does not sync the parent of a folder it makes.
