@@ -23,8 +23,8 @@
     <div class="node rowline"><b>Worker 2</b><span>whisper.cpp</span></div>
     <div class="node rowline"><b>Worker 3</b><span>images</span></div>
     <div class="lab" style="margin:8px 0 0;text-transform:none;letter-spacing:0;font-size:22px">One gRPC process per loaded model, installed on demand.</div></div></div>
-  <div class="panel" style="grid-row:2;grid-column:3"><h3>Shared plane</h3><div class="f3"><div class="node"><b>NATS</b><span>events</span></div><div class="node"><b>PostgreSQL</b><span>state, nodes</span></div><div class="node dash"><b>S3</b><span>optional</span></div></div></div>
+  <div class="panel" style="grid-row:2;grid-column:3"><h3>Shared plane</h3><div class="f3"><div class="node"><b>Carrier</b><span>switchable</span></div><div class="node"><b>PostgreSQL</b><span>state, nodes</span></div><div class="node dash"><b>S3</b><span>optional</span></div></div></div>
   <div class="ar" data-l="backend.install" style="grid-row:2;grid-column:4 / span 1;width:110px;justify-self:center"></div>
 </div></div>
-<div class="foot">Add a frontend or a worker and <b>nothing else changes</b>.</div>
+<div class="foot">Add a frontend or a worker and <b>nothing else changes</b>. The carrier is NATS or the database tunnel.</div>
 </body></html>
