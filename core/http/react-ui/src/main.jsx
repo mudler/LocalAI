@@ -21,6 +21,7 @@ import './theme.css'
 // class on the same element still wins over a kit component's base rule.
 import '../packages/ui-kit/css/kit.css'
 import './App.css'
+import './components/connections/connections.css'
 import { ShellFallback } from './components/RouteFallback'
 
 // The first paint is the app shell with placeholders, not a blank window

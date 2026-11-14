@@ -117,6 +117,13 @@ export const API_CONFIG = {
     modelsCapabilities: '/api/models/capabilities',
     modelsAliases: '/api/aliases',
 
+    // Remote connections (admin)
+    connections: '/api/connections',
+    connectionsTest: '/api/connections/test',
+    connection: (id) => `/api/connections/${encodeURIComponent(id)}`,
+    connectionRefresh: (id) => `/api/connections/${encodeURIComponent(id)}/refresh`,
+    connectionAdopt: (id) => `/api/connections/${encodeURIComponent(id)}/adopt`,
+
     // Realtime / WebRTC
     realtimeCalls: '/v1/realtime/calls',
     pipelineModels: '/api/pipeline-models',

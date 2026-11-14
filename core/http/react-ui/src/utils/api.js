@@ -149,6 +149,23 @@ export const modelsApi = {
   backendUsecases: () => fetchJSON('/api/backends/usecases'),
 }
 
+// Remote connections API (admin). A connection is another LocalAI, an
+// OpenAI-compatible service or Anthropic; each model it lists becomes an
+// ordinary model entry here. The key is write-only: no call returns it.
+export const connectionsApi = {
+  // Checks the address and the key and lists the models. A failed check is an
+  // answer, not an error: { ok: false, step } with a 200.
+  test: (body) => postJSON(API_CONFIG.endpoints.connectionsTest, body),
+  create: (body) => postJSON(API_CONFIG.endpoints.connections, body),
+  list: () => fetchJSON(API_CONFIG.endpoints.connections),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.connection(id)),
+  update: (id, body) => fetchJSON(API_CONFIG.endpoints.connection(id), { method: 'PATCH', body: JSON.stringify(body) }),
+  // entries: 'remove' deletes the models of the connection, 'keep' detaches them.
+  remove: (id, entries) => fetchJSON(buildUrl(API_CONFIG.endpoints.connection(id), { entries }), { method: 'DELETE' }),
+  refresh: (id) => postJSON(API_CONFIG.endpoints.connectionRefresh(id), {}),
+  adopt: (id, models) => postJSON(API_CONFIG.endpoints.connectionAdopt(id), { models }),
+}
+
 // Backends API
 export const backendsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.backends, params)),
