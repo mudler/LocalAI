@@ -810,6 +810,13 @@ func (b *Broker) credentialOf(ctx context.Context, addonID string, generation ui
 		return credentialTool{}, false, ErrForbidden
 	}
 	if len(caps.Credentials) == 0 {
+		// No credential: the definition still comes back, so the caller can
+		// read the approval of the tool. The answer stays "not credentialed".
+		for _, d := range caps.ToolDefinitions {
+			if d.Name == tool {
+				return credentialTool{def: d}, false, nil
+			}
+		}
 		return credentialTool{}, false, nil
 	}
 	for _, d := range caps.ToolDefinitions {
@@ -1030,6 +1037,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			} else if rec.Await {
 				rec.Hold = "approval_always"
 			}
+		} else if ct.def.Approval == contract.ApprovalAlways {
+			// A tool that always asks waits for a person with or without a
+			// credential. Only a credential can relax it.
+			rec.Await = true
+			rec.Hold = "approval_always"
 		}
 		rec.Digest = digestOf(rec)
 		if rctx.Err() != nil {
@@ -1557,6 +1569,11 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	if r.Await && !b.confirmPerson(p, actor) && !chatMayConfirm(ctx, r) {
 		// Only a person at a host surface applies it: a chat turn or an agent
 		// that proposed it cannot.
+		return contract.Receipt{}, ErrForbidden
+	}
+	if r.Await && !r.Credentialed && gateway.IsChatTurn(ctx) {
+		// Without a credential the mark of the call is the only sign that a
+		// chat turn, not the browser, asks for the apply.
 		return contract.Receipt{}, ErrForbidden
 	}
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}

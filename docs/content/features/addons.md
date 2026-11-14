@@ -4011,7 +4011,12 @@ per-agent resources:
 
 ### A confirmation the owner can relax
 
-A `write` tool with `"approval": "always"` always waits for a person. A tool can also
+A `write` tool with `"approval": "always"` always waits for a person. This holds with or
+without a credential: an add-on that declares none gets a stored proposal with the hold
+`approval_always`, and the host applies it only when the owner confirms it in the browser.
+A model, an API key, a trigger, a job or a sub-agent only proposes; it never runs the
+write. The proposal expires after 24 hours like any other, and the approval card shows it.
+Only an add-on with a credential can relax the confirmation (see below). A tool can also
 declare `"approvalOverridable": true`, so that the owner can choose not to be asked for
 that one tool. It is the only way to relax `approval`, and it needs three things:
 
