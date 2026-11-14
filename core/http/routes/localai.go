@@ -154,6 +154,22 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// List model aliases endpoint
 		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
 
+		// Remote connections: a saved address and key of another LocalAI or an
+		// OpenAI-compatible or Anthropic endpoint, whose models become entries
+		// here. Admin only, and gated with the other model management routes
+		// because adopting a model writes a model config. The provider is read
+		// for every request: the service is built after the routes exist and
+		// is nil when its store could not be opened.
+		connectionsFn := localai.ConnectionsProvider(app.Connections)
+		router.POST("/api/connections/test", localai.CheckConnectionEndpoint(connectionsFn), adminMiddleware)
+		router.POST("/api/connections", localai.CreateConnectionEndpoint(connectionsFn), adminMiddleware)
+		router.GET("/api/connections", localai.ListConnectionsEndpoint(connectionsFn), adminMiddleware)
+		router.GET("/api/connections/:id", localai.GetConnectionEndpoint(connectionsFn), adminMiddleware)
+		router.PATCH("/api/connections/:id", localai.UpdateConnectionEndpoint(connectionsFn), adminMiddleware)
+		router.DELETE("/api/connections/:id", localai.DeleteConnectionEndpoint(connectionsFn), adminMiddleware)
+		router.POST("/api/connections/:id/refresh", localai.RefreshConnectionEndpoint(connectionsFn), adminMiddleware)
+		router.POST("/api/connections/:id/adopt", localai.AdoptConnectionModelsEndpoint(connectionsFn), adminMiddleware)
+
 		// Toggle model enable/disable endpoint
 		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)
 
