@@ -56,13 +56,14 @@ async function mockOnline(page, options = {}) {
   const {
     results = RESULTS, pf = [PF('acme/Peer'), PF('acme/Locked-P2P', { gated: true })],
     estimate = () => estimateFor({ Q4_K_M: 4 * GB, Q5_K_M: 5 * GB, Q8_0: 8 * GB }, 'Q4_K_M'),
-    estimateDelay = 0, filesFor = (id) => FILES(id), searchStatus = {}, jobProgress = [40, 100],
+    estimateDelay = 0, searchDelay = {}, filesFor = (id) => FILES(id), searchStatus = {}, jobProgress = [40, 100],
   } = options
   const seen = { search: [], files: [], estimate: [], imports: [], jobs: 0 }
   await page.route(/\/api\/models\/search\?/, async route => {
     const q = new URL(route.request().url()).searchParams
     seen.search.push(q)
     const provider = q.get('providers')
+    if (searchDelay[provider]) await new Promise(r => setTimeout(r, searchDelay[provider]))
     if (searchStatus[provider]) {
       return route.fulfill({ json: { results: [], providers: [{ name: provider, ok: false, count: 0, error: searchStatus[provider] }] } })
     }
@@ -409,6 +410,166 @@ test.describe('Explore: online sources', () => {
     fail = false
     await page.getByTestId('remote-files-error').getByRole('button', { name: 'Retry' }).click()
     await expect(pane(page).getByTestId('remote-variant')).toHaveCount(3)
+  })
+})
+
+// Under All a term searches the libraries and both online sources, each one
+// a section of the same table that answers on its own.
+const section = (page, id) => page.locator(`[data-testid="discover-section-heading"][data-section="${id}"]`)
+const sectionBox = (page, id, testId) => page.locator(`[data-testid="${testId}"][data-section="${id}"]`)
+
+async function searchAll(page, term, options) {
+  await mockLedger(page, options?.ledger)
+  const seen = await mockOnline(page, options)
+  await page.goto('/app/models')
+  await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('models-search').fill(term)
+  return seen
+}
+
+test.describe('Explore: All covers the online sources', () => {
+  test('a term under All shows the libraries, then Hugging Face, then Pirate Face, in one table', async ({ page }) => {
+    const seen = await searchAll(page, 'qwen')
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 10_000 })
+    await expect(row(page, 'pirateface:acme/Peer')).toBeVisible()
+    await expect(row(page, 'qwen3-8b-instruct')).toBeVisible()
+
+    await expect(page.getByRole('button', { name: 'All libraries' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page).not.toHaveURL(/source=/)
+    // One table, in this order: library rows, the two headings with their rows.
+    const order = await page.locator('[data-testid="discover-rail"] tbody tr').evaluateAll(trs => trs.map(tr => (
+      tr.getAttribute('data-section') && tr.getAttribute('data-testid') === 'discover-section-heading' ? `#${tr.getAttribute('data-section')}` : (tr.getAttribute('data-entity') || '')
+    )).filter(Boolean))
+    const hf = order.indexOf('#huggingface')
+    const pf = order.indexOf('#pirateface')
+    expect(order.indexOf('qwen3-8b-instruct')).toBeLessThan(hf)
+    expect(hf).toBeLessThan(order.indexOf('huggingface:acme/Tiny-GGUF'))
+    expect(order.indexOf('huggingface:acme/Locked-GGUF')).toBeLessThan(pf)
+    expect(pf).toBeLessThan(order.indexOf('pirateface:acme/Peer'))
+    await expect(section(page, 'huggingface')).toContainText('From Hugging Face')
+    await expect(section(page, 'pirateface')).toContainText('From Pirate Face')
+
+    // One request per source, a short page each.
+    const asked = Object.fromEntries(seen.search.map(q => [q.get('providers'), q]))
+    expect(Object.keys(asked).sort()).toEqual(['huggingface', 'pirateface'])
+    expect(asked.huggingface.get('q')).toBe('qwen')
+    expect(asked.huggingface.get('limit')).toBe('10')
+    expect(asked.huggingface.get('format')).toBe('gguf')
+  })
+
+  test('each row type keeps its own actions: library install, online install, gated, inspector', async ({ page }) => {
+    const seen = await searchAll(page, 'qwen')
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 10_000 })
+    // A gated Hugging Face row cannot be installed; a gated Pirate Face one can.
+    await expect(row(page, 'huggingface:acme/Locked-GGUF').getByTestId('discover-row-install')).toBeDisabled()
+    await expect(row(page, 'pirateface:acme/Locked-P2P').getByTestId('discover-row-install')).toBeEnabled()
+    // No "open page" arrow on an online row; a library row still has one.
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF').getByTestId('row-open')).toHaveCount(0)
+    await expect(row(page, 'qwen3-8b-instruct').getByTestId('row-open')).toHaveCount(1)
+
+    // The inspector of an online row reads the online listing.
+    await row(page, 'huggingface:acme/Tiny-GGUF').click()
+    await expect(pane(page).getByTestId('remote-variant')).toHaveCount(3, { timeout: 10_000 })
+
+    // Install goes through the import route, with a job that finishes.
+    await row(page, 'huggingface:acme/Tiny-GGUF').getByTestId('discover-row-install').click()
+    await expect.poll(() => seen.imports.length).toBe(1)
+    expect(seen.imports[0].uri).toBe('huggingface://acme/Tiny-GGUF')
+  })
+
+  test('a library row installs through the gallery under All, next to online rows', async ({ page }) => {
+    const state = await mockLedger(page)
+    await mockOnline(page)
+    await page.goto('/app/models')
+    await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('models-search').fill('qwen3-4b')
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 10_000 })
+    await row(page, 'qwen3-4b-instruct').getByTestId('discover-row-install').click()
+    await expect.poll(() => state.installs.length).toBeGreaterThan(0)
+    expect(state.installs.at(-1).name).toBe('qwen3-4b-instruct')
+  })
+
+  test('sections answer on their own: a slow source does not hold the others, a failing one says so', async ({ page }) => {
+    const seen = await searchAll(page, 'qwen', {
+      searchDelay: { huggingface: 2500 },
+      searchStatus: { pirateface: 'upstream timeout' },
+    })
+    // The library rows and the failing section show while Hugging Face is still loading.
+    await expect(row(page, 'qwen3-8b-instruct')).toBeVisible({ timeout: 10_000 })
+    await expect(sectionBox(page, 'huggingface', 'discover-section-loading').first()).toBeAttached()
+    await expect(sectionBox(page, 'pirateface', 'discover-section-error')).toContainText('Pirate Face did not answer')
+    await expect(sectionBox(page, 'pirateface', 'discover-section-error')).toContainText('upstream timeout')
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 10_000 })
+    await expect(sectionBox(page, 'huggingface', 'discover-section-loading')).toHaveCount(0)
+    // The failure is the section's alone.
+    await expect(sectionBox(page, 'huggingface', 'discover-section-error')).toHaveCount(0)
+
+    // Retry asks Pirate Face again, and only it.
+    const before = seen.search.filter(q => q.get('providers') === 'huggingface').length
+    await sectionBox(page, 'pirateface', 'discover-section-error').getByRole('button', { name: 'Retry' }).click()
+    await expect.poll(() => seen.search.filter(q => q.get('providers') === 'pirateface').length).toBe(2)
+    expect(seen.search.filter(q => q.get('providers') === 'huggingface')).toHaveLength(before)
+  })
+
+  test('a source with nothing for the term says so under its heading, the others keep their rows', async ({ page }) => {
+    await searchAll(page, 'qwen', { pf: [] })
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 10_000 })
+    await expect(sectionBox(page, 'pirateface', 'discover-section-empty')).toContainText('Nothing found on Pirate Face')
+  })
+
+  test('a section grows by ten rows with its own Load more, and the other one is not asked again', async ({ page }) => {
+    const many = Array.from({ length: 30 }, (_, i) => HF(`acme/Model-${i}`))
+    const seen = await searchAll(page, 'qwen', { results: many })
+    await expect(row(page, 'huggingface:acme/Model-0')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('[data-entity^="huggingface:"]')).toHaveCount(10)
+    const pfAsked = seen.search.filter(q => q.get('providers') === 'pirateface').length
+    await page.locator('tr[data-section="huggingface"]').getByTestId('discover-section-more').click()
+    await expect(page.locator('[data-entity^="huggingface:"]')).toHaveCount(20)
+    expect(seen.search.at(-1).get('limit')).toBe('20')
+    expect(seen.search.filter(q => q.get('providers') === 'pirateface')).toHaveLength(pfAsked)
+    // Pirate Face filled no page, so it has no button.
+    await expect(page.locator('tr[data-section="pirateface"]').getByTestId('discover-section-more')).toHaveCount(0)
+  })
+
+  test('a source chip narrows to that source, and All brings the sections back', async ({ page }) => {
+    const seen = await searchAll(page, 'qwen')
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 10_000 })
+    await chip(page, 'huggingface').click()
+    await expect(page).toHaveURL(/source=huggingface/)
+    await expect(row(page, 'qwen3-8b-instruct')).toHaveCount(0)
+    await expect(row(page, 'pirateface:acme/Peer')).toHaveCount(0)
+    await expect(page.getByTestId('discover-rail-heading')).toContainText('From Hugging Face')
+    expect(seen.search.at(-1).get('limit')).toBe('20')
+
+    await page.getByRole('button', { name: 'All libraries' }).click()
+    await expect(page).not.toHaveURL(/source=/)
+    await expect(row(page, 'qwen3-8b-instruct')).toBeVisible()
+    await expect(row(page, 'pirateface:acme/Peer')).toBeVisible()
+    await expect(section(page, 'huggingface')).toBeVisible()
+  })
+
+  test('a library chip keeps the online sections out, and the address keeps the term under All', async ({ page }) => {
+    await mockLedger(page)
+    await mockOnline(page)
+    await page.route('**/api/library/sources', route => (route.request().method() === 'GET'
+      ? route.fulfill({ json: { officialLibraries: true, sources: LIBRARY_SOURCES } })
+      : route.fallback()))
+    await page.goto('/app/models?q=qwen')
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Official model library' }).click()
+    await expect(section(page, 'huggingface')).toHaveCount(0)
+    await expect(section(page, 'pirateface')).toHaveCount(0)
+    await page.getByRole('button', { name: 'All libraries' }).click()
+    await expect(section(page, 'huggingface')).toBeVisible()
+  })
+
+  test('without a term, All is the library listing and asks no online source', async ({ page }) => {
+    await mockLedger(page)
+    const seen = await mockOnline(page)
+    await page.goto('/app/models')
+    await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
+    await expect(section(page, 'huggingface')).toHaveCount(0)
+    expect(seen.search).toHaveLength(0)
   })
 })
 

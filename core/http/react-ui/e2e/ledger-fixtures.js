@@ -344,6 +344,13 @@ export async function mockLedger(page, options = {}) {
       }),
     })
   })
+  // Under All a term also asks the online sources. No spec of this page may
+  // reach the network, so the default answer is an empty one per provider; a
+  // spec of the online sources puts its own route on top.
+  await page.route(/\/api\/models\/search\?/, route => {
+    const providers = (new URL(route.request().url()).searchParams.get('providers') || '').split(',').filter(Boolean)
+    return route.fulfill({ json: { results: [], providers: providers.map(name => ({ name, ok: true, count: 0 })) } })
+  })
   await page.route('**/api/models/storage', route => {
     state.storageRequests += 1
     if (state.storageStatus !== 200) {

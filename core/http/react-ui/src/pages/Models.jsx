@@ -43,8 +43,8 @@ import KindLibraries from '../components/catalog/KindLibraries'
 import RemoteNotice from '../components/models/RemoteNotice'
 import { useRemoteSearch, useRemoteDetails, useRemoteInstalls } from '../hooks/useRemoteModels'
 import {
-  REMOTE_SOURCES, REMOTE_PAGE_STEP, remoteSource, remoteRow, remoteVariantData, defaultVariantFile, estimateOfVariant,
-  installBlock, remoteFitsVisible, canLoadMore, nextLimit,
+  REMOTE_SOURCES, REMOTE_PAGE_STEP, REMOTE_SECTION_STEP, remoteSource, remoteRow, remoteVariantData, defaultVariantFile, estimateOfVariant,
+  installBlock, remoteFitsVisible, canLoadMore, nextLimit, parseRemoteKey,
 } from '../utils/remoteModels'
 import { filterRowsBySource } from '../components/catalog/catalogState'
 import './models-ledger.css'
@@ -250,8 +250,14 @@ export default function Models() {
     setRemoteId(urlSource)
   }, [urlSource])
   const remote = remoteSource(remoteId)
-  const [remoteTerm, setRemoteTerm] = useState(() => (remoteSource(searchParams.get('source')) ? (searchParams.get('q') || '').trim() : ''))
+  // The debounced term of the online sources, whichever way they are shown:
+  // alone under a source chip, or as sections under All.
+  const [remoteTerm, setRemoteTerm] = useState(() => (searchParams.get('q') || '').trim())
   const [remoteLimit, setRemoteLimit] = useState(REMOTE_PAGE_STEP)
+  // Under All each online source is a section with its own row count and its
+  // own retry.
+  const [sectionLimits, setSectionLimits] = useState(() => Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, REMOTE_SECTION_STEP])))
+  const [sectionReloads, setSectionReloads] = useState({})
   const [ggufOnly, setGgufOnly] = useState(true)
   const [remoteReload, setRemoteReload] = useState(0)
   // The build picked in the inspector, by row key; absent means the recommended one.
@@ -392,7 +398,10 @@ export default function Models() {
   const debouncedFetch = useDebouncedCallback((value) => {
     setPage(1)
     // The same debounce drives the online sources: one search per pause.
-    if (remote) { setRemoteTerm(value.trim()); setRemoteLimit(REMOTE_PAGE_STEP); return }
+    setRemoteTerm(value.trim())
+    setRemoteLimit(REMOTE_PAGE_STEP)
+    setSectionLimits(Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, REMOTE_SECTION_STEP])))
+    if (remote) return
     fetchModels({ search: value, page: 1 })
   })
 
@@ -669,7 +678,18 @@ export default function Models() {
   // installed through the import route; the job id, not a name, tells which
   // row an install belongs to.
   const sourceLabel = remote ? t(`remote.sources.${remote.id}`) : ''
-  const remoteSearch = useRemoteSearch({ provider: remote?.id, term: remoteTerm, limit: remoteLimit, ggufOnly, reloadKey: remoteReload })
+  // Under All, with a term typed, the online sources are asked as well and
+  // shown as sections under the library rows. A library chip, a use case chip
+  // or a backend narrows the gallery on purpose, so the online sections stay out.
+  const allOnline = activeView === 'explore' && !remote && !librarySource && filters.length === 0 && !backendFilter
+  const sectionIds = remote ? [remote.id] : allOnline && remoteTerm ? REMOTE_SOURCES.map(src => src.id) : []
+  const askFor = (id) => (sectionIds.includes(id) ? id : '')
+  const limitOf = (id) => (remote ? remoteLimit : sectionLimits[id])
+  const searchOf = {
+    huggingface: useRemoteSearch({ provider: askFor('huggingface'), term: remoteTerm, limit: limitOf('huggingface'), ggufOnly, reloadKey: `${remoteReload}:${sectionReloads.huggingface || 0}` }),
+    pirateface: useRemoteSearch({ provider: askFor('pirateface'), term: remoteTerm, limit: limitOf('pirateface'), ggufOnly, reloadKey: `${remoteReload}:${sectionReloads.pirateface || 0}` }),
+  }
+  const remoteSearch = remote ? searchOf[remote.id] : { phase: 'idle', results: [], providers: [], error: '' }
   const details = useRemoteDetails()
   const installs = useRemoteInstalls({
     onDone: (key, name) => {
@@ -678,13 +698,13 @@ export default function Models() {
       addToast(t('remote.installed', { model: key.slice(key.indexOf(':') + 1) }), 'success')
     },
   })
-  const remoteRows = remote
-    ? remoteSearch.results.map(r => remoteRow(r, {
-      installedName: remoteInstalled[`${r.provider}:${r.id}`] || '',
-      sourceLabel,
-      labels: { downloads: t('remote.downloads'), seeds: count => t('remote.seeds', { count }) },
-    }))
-    : []
+  const rowsOf = (id) => (sectionIds.includes(id) ? searchOf[id].results : []).map(r => remoteRow(r, {
+    installedName: remoteInstalled[`${r.provider}:${r.id}`] || '',
+    sourceLabel: t(`remote.sources.${id}`),
+    labels: { downloads: t('remote.downloads'), seeds: count => t('remote.seeds', { count }) },
+  }))
+  const sectionRows = Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, rowsOf(src.id)]))
+  const remoteRows = REMOTE_SOURCES.flatMap(src => sectionRows[src.id])
 
   const pickSource = useCallback((id) => {
     setRemoteId(id || '')
@@ -697,13 +717,13 @@ export default function Models() {
       next.delete('model')
       return next
     }, { replace: !id })
-    setRemoteTerm(id ? search.trim() : '')
+    setRemoteTerm(search.trim())
     setRemoteLimit(REMOTE_PAGE_STEP)
     if (id) setLibrarySource(null)
   }, [search, setSearchParams])
 
   // The inspector of an online row needs its listing; the table needs a size.
-  const selectedRemote = remote && selectedName ? remoteRows.find(r => r.name === selectedName) : null
+  const selectedRemote = selectedName ? remoteRows.find(r => r.name === selectedName) : null
   useEffect(() => {
     if (!selectedRemote) return
     details.requestFiles(selectedRemote.name, selectedRemote.uri)
@@ -745,8 +765,9 @@ export default function Models() {
   }
 
   // The gallery field of a row is the library it comes from.
+  const fitsOnline = row => !fitsFilter || remoteFitsVisible(details.estimates[row.name], contextSize, budget, ramAvailable)
   const visibleModels = remote
-    ? remoteRows.filter(row => !fitsFilter || remoteFitsVisible(details.estimates[row.name], contextSize, budget, ramAvailable))
+    ? remoteRows.filter(fitsOnline)
     : filterRowsBySource(models, librarySource).filter((model) => {
       if (!fitsFilter) return true
       const name = model.name || model.id
@@ -756,9 +777,12 @@ export default function Models() {
       return fit !== false
     })
 
+  // The online rows under All, in the order of their sections.
+  const onlineModels = remote ? [] : remoteRows.filter(fitsOnline)
   const selectedModel = selectedName
-    ? visibleModels.find(m => (m.name || m.id) === selectedName) || null
+    ? visibleModels.find(m => (m.name || m.id) === selectedName) || onlineModels.find(m => m.name === selectedName) || null
     : null
+  const selRemote = !!selectedModel?.remote
 
   const toggleGroup = useCallback((id) => {
     setCollapsedGroups(prev => {
@@ -863,7 +887,7 @@ export default function Models() {
 
   const openPage = useCallback((name) => {
     // An online result has no page of its own.
-    if (!name || remote) return
+    if (!name || remote || parseRemoteKey(name)) return
     rememberScroll()
     lastOpened.current = name
     navigate(modelPath(name), { state: { from: location.pathname + location.search } })
@@ -873,7 +897,7 @@ export default function Models() {
   // straight to the page. Arrow keys still move the selection.
   const rowSelect = useCallback((name, options) => {
     const phone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
-    if (name && phone && !remote && !options?.replace) openPage(name)
+    if (name && phone && !remote && !parseRemoteKey(name) && !options?.replace) openPage(name)
     else selectModel(name, options)
   }, [openPage, selectModel, remote])
 
@@ -1049,7 +1073,7 @@ export default function Models() {
   // The inspector's view of the selected online row, from what its listing and
   // its estimate have said so far.
   let remoteDetail = {}
-  if (remote && selectedModel) {
+  if (selRemote) {
     const key = selectedModel.name
     const listing = details.files[key]
     const fd = listing?.data
@@ -1075,6 +1099,35 @@ export default function Models() {
         : undefined,
     }
   }
+  // Under All: one section per online source, each with its own state.
+  const remoteOps = {
+    estimates: details.estimates,
+    pending: details.pending,
+    isInstalling: name => ['starting', 'running'].includes(remoteJob(name)?.state),
+    progressOf: name => remoteJob(name)?.progress ?? 0,
+    failedOp: remoteFailedOp,
+    onInstall: installRemote,
+    onRetry: name => { installs.clear(name); installRemote(name) },
+  }
+  const onlineSections = remote ? [] : sectionIds.map(id => {
+    const src = remoteSource(id)
+    const st = searchOf[id]
+    const label = t(`remote.sources.${id}`)
+    const rows = sectionRows[id].filter(fitsOnline)
+    const loading = st.phase === 'loading'
+    return {
+      id,
+      heading: { label: t('remote.heading', { source: label }), icon: 'cloud', tag: src.p2p ? t('remote.p2p') : '' },
+      models: rows,
+      loading,
+      error: st.phase === 'failed' ? { text: `${t('remote.failed.title', { source: label })}. ${st.error || t('remote.failed.text')}` } : null,
+      onRetry: () => setSectionReloads(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 })),
+      empty: st.phase === 'done' ? t('remote.none.title', { source: label }) : '',
+      more: canLoadMore(st.results, sectionLimits[id])
+        ? { busy: loading, onMore: () => setSectionLimits(prev => ({ ...prev, [id]: nextLimit(prev[id], REMOTE_SECTION_STEP) })) }
+        : null,
+    }
+  })
   const filtersActive = !!(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants)
   const firstLoad = loading && !loadedOnce.current
   const galleryEmpty = statsLoaded && stats.total === 0 && !filtersActive && !loadError
@@ -1174,18 +1227,19 @@ export default function Models() {
                 off is the only way to page through every build the gallery
                 holds; searching reaches a specific one but cannot enumerate
                 them. */}
-            {remote ? (
-              <label className="filter-bar-group__toggle" data-testid="remote-gguf-only">
-                <Toggle checked={ggufOnly} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP) }} />
-                <span>{t('remote.ggufOnly')}</span>
-              </label>
-            ) : (
+            {!remote && (
               <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
                 <Toggle
                   checked={collapseVariants}
                   onChange={(v) => { setCollapseVariants(v); setPage(1) }}
                 />
                 <span>{t('filters.collapseVariants')}</span>
+              </label>
+            )}
+            {sectionIds.length > 0 && (
+              <label className="filter-bar-group__toggle" data-testid="remote-gguf-only">
+                <Toggle checked={ggufOnly} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits(Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, REMOTE_SECTION_STEP]))) }} />
+                <span>{t('remote.ggufOnly')}</span>
               </label>
             )}
             {totalGpuMemory > 0 && (
@@ -1288,7 +1342,9 @@ export default function Models() {
               </div>
             </div>
           </div>
-          {remote && remoteEmpty ? remoteEmpty : !remote && !firstLoad && visibleModels.length === 0 ? (
+          {remote && remoteEmpty ? remoteEmpty : (
+          <>
+          {!remote && !firstLoad && visibleModels.length === 0 && (
             loadError ? (
               // The list could not be fetched, which is not the same as an empty
               // gallery. The banner above holds the reason and the way out.
@@ -1325,7 +1381,8 @@ export default function Models() {
               )}
             </div>
             )
-          ) : (
+          )}
+          {(remote || firstLoad || visibleModels.length > 0 || sectionIds.length > 0) && (
             <ExploreTable
               models={visibleModels}
               loading={remote ? remoteBusy : firstLoad}
@@ -1334,7 +1391,9 @@ export default function Models() {
               // online source is always a flat list under its own heading.
               grouped={!remote && !search.trim()}
               heading={remote ? { label: t('remote.heading', { source: sourceLabel }), icon: 'cloud', tag: remote.p2p ? t('remote.p2p') : '' } : undefined}
-              onRowVisible={remote ? onRowVisible : undefined}
+              onRowVisible={sectionIds.length > 0 ? onRowVisible : undefined}
+              sections={remote ? undefined : onlineSections}
+              remoteOps={remote ? undefined : remoteOps}
               collapsedGroups={collapsedGroups}
               onToggleGroup={toggleGroup}
               selectedName={selectedName}
@@ -1357,6 +1416,8 @@ export default function Models() {
               density={density}
               t={t}
             />
+          )}
+          </>
           )}
 
           {remote && !remoteEmpty && canLoadMore(remoteSearch.results, remoteLimit) && (
@@ -1396,8 +1457,8 @@ export default function Models() {
         <aside className="ledger__pane" data-testid="discover-pane" aria-label={t('ledger.inspector')}>
           {selectedModel ? (
             <DiscoverDetail
-              model={remote ? remoteDetail.model : selectedModel}
-              estimate={remote ? remoteDetail.estimate : estimates[selectedName]}
+              model={selRemote ? remoteDetail.model : selectedModel}
+              estimate={selRemote ? remoteDetail.estimate : estimates[selectedName]}
               contextSize={contextSize}
               onPickContext={setContextSize}
               budget={budget}
@@ -1406,14 +1467,14 @@ export default function Models() {
               totalGpuMemory={totalGpuMemory}
               fitsGpu={fitsGpu}
               budgetNode={budget.scope === 'cluster' ? budget.nodeName : ''}
-              installing={remote ? ['starting', 'running'].includes(remoteJob(selectedName)?.state) : isInstalling(selectedName)}
-              progress={remote ? (remoteJob(selectedName)?.progress ?? 0) : getOperationProgress(selectedName)}
-              failed={remote ? remoteFailedOp(selectedName) : failedOp(selectedName)}
-              onInstall={remote ? installRemote : handleInstall}
-              onRetry={remote ? (name => { installs.clear(name); installRemote(name) }) : handleRetry}
+              installing={selRemote ? ['starting', 'running'].includes(remoteJob(selectedName)?.state) : isInstalling(selectedName)}
+              progress={selRemote ? (remoteJob(selectedName)?.progress ?? 0) : getOperationProgress(selectedName)}
+              failed={selRemote ? remoteFailedOp(selectedName) : failedOp(selectedName)}
+              onInstall={selRemote ? installRemote : handleInstall}
+              onRetry={selRemote ? (name => { installs.clear(name); installRemote(name) }) : handleRetry}
               installedProfile={installedProfiles[selectedName]}
               onOpen={route => navigate(route)}
-              onOpenPage={remote ? undefined : openPage}
+              onOpenPage={selRemote ? undefined : openPage}
               onManage={name => setSearchParams(previous => {
                 const next = new URLSearchParams(previous)
                 next.set('view', 'installed')
@@ -1423,11 +1484,11 @@ export default function Models() {
               onBack={() => selectModel(null)}
               expandedFiles={expandedFiles}
               setExpandedFiles={setExpandedFiles}
-              variantData={remote ? remoteDetail.variantData : (selectedModel.has_variants ? variantData[selectedName] : null)}
-              variantChoice={remote ? remoteDetail.variantChoice : undefined}
-              notice={remote ? <RemoteNotice row={selectedModel} files={details.files[selectedName]} estimate={details.estimates[selectedName]} onRetry={() => details.requestFiles(selectedName, selectedModel.uri)} t={t} /> : undefined}
-              installBlocked={remote ? (installBlock(selectedModel, details.files[selectedName]?.data) ? t('remote.gatedHfInstall') : '') : undefined}
-              estimateNote={remote && remoteDetail.estimate?.source === 'unknown' ? t('remote.noEstimate') : undefined}
+              variantData={selRemote ? remoteDetail.variantData : (selectedModel.has_variants ? variantData[selectedName] : null)}
+              variantChoice={selRemote ? remoteDetail.variantChoice : undefined}
+              notice={selRemote ? <RemoteNotice row={selectedModel} files={details.files[selectedName]} estimate={details.estimates[selectedName]} onRetry={() => details.requestFiles(selectedName, selectedModel.uri)} t={t} /> : undefined}
+              installBlocked={selRemote ? (installBlock(selectedModel, details.files[selectedName]?.data) ? t('remote.gatedHfInstall') : '') : undefined}
+              estimateNote={selRemote && remoteDetail.estimate?.source === 'unknown' ? t('remote.noEstimate') : undefined}
               variantDetails={variantDetails}
               onLoadVariantDetail={loadVariantDetail}
               t={t}

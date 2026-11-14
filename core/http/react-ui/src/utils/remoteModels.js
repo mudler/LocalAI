@@ -16,6 +16,10 @@ export const REMOTE_SOURCES = [
 // server caps one provider at REMOTE_MAX_RESULTS.
 export const REMOTE_PAGE_STEP = 20
 export const REMOTE_MAX_RESULTS = 50
+// Under All the online sources are sections of a longer table, so each one asks
+// for fewer rows at first and grows by this many. A source chip shows the full
+// page.
+export const REMOTE_SECTION_STEP = 10
 
 export function remoteSource(id) {
   return REMOTE_SOURCES.find(s => s.id === id) || null
@@ -46,8 +50,8 @@ export function canLoadMore(results, limit) {
   return results.length >= limit && limit < REMOTE_MAX_RESULTS
 }
 
-export function nextLimit(limit) {
-  return Math.min(REMOTE_MAX_RESULTS, limit + REMOTE_PAGE_STEP)
+export function nextLimit(limit, step = REMOTE_PAGE_STEP) {
+  return Math.min(REMOTE_MAX_RESULTS, limit + step)
 }
 
 // The line under a row's name: author, licence and how popular it is. Only the

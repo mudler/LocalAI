@@ -49,12 +49,22 @@ function SkeletonRows({ count = 8 }) {
 // `gated` and `remote`; `heading` puts a section header over a flat list, and
 // `onRowVisible` is told, once per row, when it scrolls into view so its size
 // can be fetched lazily. A table with no `onSort` has plain column headings.
+//
+// `sections` adds online sections under the rows of `models`, each with its own
+// heading and its own state: `{ id, heading, models, loading, error, onRetry,
+// empty, more }`. A section that is loading shows placeholder rows, one that
+// failed shows a line with a retry button (and keeps any rows it had), one that
+// found nothing says so, and `more` (`{ busy, onMore }`) adds a button under
+// its rows. The rows of a section are online rows, so they read `remoteOps`
+// (the same functions the page passes for an online table: `estimates`,
+// `pending`, `isInstalling`, `progressOf`, `failedOp`, `onInstall`, `onRetry`),
+// while `models` keep using the props above.
 export default function ExploreTable({
   models, loading, grouped, collapsedGroups, onToggleGroup,
   selectedName, onSelect, onOpen, onInstall, onRetry,
   estimates, pendingEstimates, contextSize, contextLabel, budget, ramAvailable,
   isInstalling, progressOf, failedOp,
-  sort, order, onSort, density, heading, onRowVisible, t,
+  sort, order, onSort, density, heading, onRowVisible, sections: onlineSections = [], remoteOps, t,
 }) {
   const bodyRef = useRef(null)
   useRestoreRowFocus(selectedName, bodyRef)
@@ -71,7 +81,9 @@ export default function ExploreTable({
       .filter(s => s.items.length > 0)
     : [{ id: null, items: entries }]
   const remoteRows = models.length > 0 && models.every(m => m.remote)
-  const names = sections.flatMap(s => (s.id && collapsedGroups.has(s.id) ? [] : s.items.map(e => e.name)))
+  const libraryNames = sections.flatMap(s => (s.id && collapsedGroups.has(s.id) ? [] : s.items.map(e => e.name)))
+  const onlineNames = onlineSections.flatMap(s => s.models.map(m => m.name))
+  const names = [...libraryNames, ...onlineNames]
 
   const move = useCallback((name) => {
     onSelect(name, { replace: true })
@@ -82,7 +94,7 @@ export default function ExploreTable({
   // What "previous" and "next" on a model's page walk: the rows on screen, in
   // the order they are shown, without the ones a collapsed group hides.
   // An online result has no page of its own to walk to.
-  const walkOrder = remoteRows ? '' : names.join('\n')
+  const walkOrder = remoteRows ? '' : libraryNames.join('\n')
   useEffect(() => { publishWalk('explore', walkOrder ? walkOrder.split('\n') : []) }, [walkOrder])
 
   // Tell the page which rows have been seen, so an online row's size is
@@ -109,13 +121,15 @@ export default function ExploreTable({
   const tabbable = names.includes(selectedName) ? selectedName : names[0]
 
   const renderRow = ({ model, name }) => {
-    const est = estimates[name]
+    // An online row in a table of library rows reads the online functions.
+    const ops = model.remote && remoteOps ? remoteOps : { estimates, pending: pendingEstimates, isInstalling, progressOf, failedOp, onInstall, onRetry }
+    const est = ops.estimates[name]
     const vram = est?.estimates?.[String(contextSize)]?.vramBytes
     const fit = fitFor(vram, budget, ramAvailable)
     const selected = name === selectedName
-    const installing = isInstalling(name)
-    const progress = progressOf(name)
-    const failed = !installing && !model.installed ? failedOp(name) : null
+    const installing = ops.isInstalling(name)
+    const progress = ops.progressOf(name)
+    const failed = !installing && !model.installed ? ops.failedOp(name) : null
     const sub = model.sub ?? [model.backend, model.license].filter(Boolean).join(' · ')
     const title = model.title || name
 
@@ -136,7 +150,7 @@ export default function ExploreTable({
           names,
           current: name,
           move,
-          enter: n => { if (!model.installed && !isInstalling(n) && !model.installBlocked) onInstall(n) },
+          enter: n => { if (!model.installed && !ops.isInstalling(n) && !model.installBlocked) ops.onInstall(n) },
           close: () => onSelect(null),
         })}
       >
@@ -152,10 +166,10 @@ export default function ExploreTable({
           </span>
         </td>
         <td className="dk-num dk-hide-phone ledger-size">
-          {est?.sizeBytes ? gbLabel(est.sizeBytes) : (pendingEstimates?.has(name) ? <span className="dk-skeleton dk-skeleton--line" /> : '—')}
+          {est?.sizeBytes ? gbLabel(est.sizeBytes) : (ops.pending?.has(name) ? <span className="dk-skeleton dk-skeleton--line" /> : '—')}
         </td>
         <td className="ledger-fit-cell">
-          <FitCell fit={fit} pending={pendingEstimates?.has(name)} t={t} contextLabel={contextLabel} />
+          <FitCell fit={fit} pending={ops.pending?.has(name)} t={t} contextLabel={contextLabel} />
         </td>
         <td className="dk-table-actions ledger-status">
           <span className="ledger-rowactions">
@@ -175,7 +189,7 @@ export default function ExploreTable({
                 className="dk-btn dk-btn--secondary dk-btn--sm"
                 data-testid="discover-row-retry"
                 aria-label={t('ledger.retryNamed', { model: title })}
-                onClick={e => { e.stopPropagation(); onRetry(name, failed) }}
+                onClick={e => { e.stopPropagation(); ops.onRetry(name, failed) }}
               >
                 <Icon name="refresh" /> {t('ledger.retry')}
               </button>
@@ -187,12 +201,12 @@ export default function ExploreTable({
                 aria-label={t('ledger.installNamed', { model: title })}
                 disabled={!!model.installBlocked}
                 title={model.installBlocked ? t('remote.gatedHfInstall') : undefined}
-                onClick={e => { e.stopPropagation(); onInstall(name) }}
+                onClick={e => { e.stopPropagation(); ops.onInstall(name) }}
               >
                 <Icon name="download" /> {t('actions.install')}
               </button>
             )}
-            {onOpen && (
+            {onOpen && !model.remote && (
               <button
                 type="button"
                 className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm ledger-open"
@@ -210,6 +224,65 @@ export default function ExploreTable({
       </tr>
     )
   }
+
+  const renderOnline = (sec) => [
+    <tr key={`o-${sec.id}`} className="ledger-group ledger-group--static" data-testid="discover-section-heading" data-section={sec.id}>
+      <td colSpan={5}>
+        <div className="ledger-group__toggle ledger-group__toggle--static">
+          {sec.heading.icon && <Icon name={sec.heading.icon} className="ledger-group__icon" />}
+          <span className="ledger-group__label">{sec.heading.label}</span>
+          {sec.heading.tag && <span className="ledger-group__tag">{sec.heading.tag}</span>}
+          <span className="ledger-group__count">{sec.models.length}</span>
+        </div>
+      </td>
+    </tr>,
+    ...sec.models.map(m => renderRow({ model: m, name: m.name })),
+    ...(sec.loading && sec.models.length === 0
+      ? Array.from({ length: 3 }, (_, i) => (
+        <tr key={`o-${sec.id}-sk-${i}`} className="dk-table-loading" data-testid="discover-section-loading" data-section={sec.id} aria-hidden="true">
+          <td className="ledger-mark-cell" />
+          <td><span className="dk-skeleton dk-skeleton--line ledger-skeleton__name" /><span className="dk-skeleton dk-skeleton--line ledger-skeleton__sub" /></td>
+          <td className="dk-hide-phone"><span className="dk-skeleton dk-skeleton--line" /></td>
+          <td className="ledger-fit-cell"><span className="dk-skeleton dk-skeleton--line" /></td>
+          <td className="ledger-status"><span className="dk-skeleton dk-skeleton--line ledger-skeleton__action" /></td>
+        </tr>
+      ))
+      : []),
+    ...(sec.error
+      ? [(
+        <tr key={`o-${sec.id}-err`} className="ledger-note" data-testid="discover-section-error" data-section={sec.id}>
+          <td colSpan={5}>
+            <div className="ledger-note__row" role="alert">
+              <span className="ledger-note__text">{sec.error.text}</span>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={sec.onRetry}>
+                <Icon name="refresh" /> {t('ledger.retry')}
+              </button>
+            </div>
+          </td>
+        </tr>
+      )]
+      : []),
+    ...(sec.empty && !sec.loading && !sec.error && sec.models.length === 0
+      ? [(
+        <tr key={`o-${sec.id}-empty`} className="ledger-note" data-testid="discover-section-empty" data-section={sec.id}>
+          <td colSpan={5}><div className="ledger-note__row"><span className="ledger-note__text">{sec.empty}</span></div></td>
+        </tr>
+      )]
+      : []),
+    ...(sec.more
+      ? [(
+        <tr key={`o-${sec.id}-more`} className="ledger-note" data-section={sec.id}>
+          <td colSpan={5}>
+            <div className="ledger-note__row ledger-note__row--center">
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="discover-section-more" disabled={sec.more.busy} onClick={sec.more.onMore}>
+                {sec.more.busy ? <Icon name="spinner" spin /> : <Icon name="plus" />} {t('remote.loadMore')}
+              </button>
+            </div>
+          </td>
+        </tr>
+      )]
+      : []),
+  ]
 
   return (
     <div
@@ -229,7 +302,7 @@ export default function ExploreTable({
             <SortHead col="status" label={t('table.status')} sort={sort} order={order} onSort={onSort} className="dk-num ledger-status-head" />
           </tr>
         </thead>
-        {loading && models.length === 0 ? (
+        {loading && models.length === 0 && onlineSections.length === 0 ? (
           <SkeletonRows />
         ) : (
           <tbody ref={bodyRef}>
@@ -266,6 +339,7 @@ export default function ExploreTable({
                 ...(collapsedGroups.has(section.id) ? [] : section.items.map(renderRow)),
               ] : section.items.map(renderRow)
             ))}
+            {onlineSections.map(renderOnline)}
           </tbody>
         )}
       </table>

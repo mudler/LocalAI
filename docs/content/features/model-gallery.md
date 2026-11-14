@@ -342,6 +342,8 @@ This removal does not delete previously installed models. Remove that configurat
 
 Models that are not in a gallery can be found from the **Models** page or with the API. On the **Explore** tab, two chips next to the library chips, **Hugging Face** and **Pirate Face** (tagged p2p), search that source with the search box. The results use the same table as the gallery, under a header such as "From Hugging Face". Memory fit is measured against your machine at the chosen context, and sizes load as rows scroll into view. Open a row to see one line per quantization with its size and fit, pick one, and press **Install**. The install runs through `POST /models/import-uri` with that quantization. Use **Load more** for more results (up to 50 per source). A gated Pirate Face model cannot be installed from here.
 
+With **All libraries** picked, a search term also asks both online sources. The table shows your libraries first, then a section "From Hugging Face" and a section "From Pirate Face". Each section answers on its own: a source that is slow or down shows its own error line with a retry button and does not hold back the others. A section starts with 10 rows and has its own **Load more**; pick the source chip to see a full page of one source. A library chip, a capability chip or a backend filter narrows the table to your libraries and leaves the online sections out.
+
 The search asks several providers at the same time and merges the answers. If one provider is down or slow, you still get the others, and the answer says which one failed.
 
 | Provider | Name | What it returns |
