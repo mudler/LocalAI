@@ -1,5 +1,11 @@
 package connections
 
+import (
+	"context"
+	"errors"
+	"time"
+)
+
 // Names that the external tests need from the package.
 type (
 	Record     = record
@@ -13,3 +19,37 @@ const (
 )
 
 var NewSealKey = newSealKey
+
+// ListUpstream runs the lister of a kind with the given limits and returns
+// the models, or the step and message of the failure.
+func ListUpstream(ctx context.Context, kind Kind, rawURL, key string, timeout time.Duration, maxBody int64) (models []UpstreamModel, step, message string, err error) {
+	t, err := parseTarget(kind, rawURL, key)
+	if err != nil {
+		var ue *upstreamError
+		if errors.As(err, &ue) {
+			return nil, ue.Step, ue.Message, err
+		}
+		return nil, "", err.Error(), err
+	}
+	f := fetcher{timeout: timeout, maxBody: maxBody}
+	models, err = f.list(ctx, t)
+	var ue *upstreamError
+	if errors.As(err, &ue) {
+		return nil, ue.Step, ue.Message, err
+	}
+	return models, "", "", err
+}
+
+var (
+	LooksLikeChatModel = looksLikeChatModel
+	ValidUsecases      = validUsecases
+)
+
+// EntryUpstreamURL returns the proxy.upstream_url of an entry.
+func EntryUpstreamURL(kind Kind, rawURL string) (string, error) {
+	t, err := parseTarget(kind, rawURL, "")
+	if err != nil {
+		return "", err
+	}
+	return t.entryUpstreamURL(), nil
+}
