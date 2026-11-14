@@ -296,6 +296,57 @@ test.describe('UI primitives', () => {
     await expect(shell).toHaveCount(0, { timeout: 15_000 })
   })
 
+  test('Segmented radio mode: one tab stop, arrows and Home/End move the choice, disabled is skipped', async ({ page }) => {
+    await openCatalog(page)
+    const group = page.getByTestId('cat-segmented-radio')
+    const item = (id) => page.getByTestId(`cat-segmented-radio-${id}`)
+    await group.scrollIntoViewIfNeeded()
+    await expect(group).toHaveAttribute('role', 'radiogroup')
+    await expect(group).toHaveAttribute('aria-label', 'Where it runs')
+    await expect(group.getByRole('radio')).toHaveCount(4)
+    await expect(item('auto')).not.toHaveAttribute('aria-pressed', /.*/)
+    const state = async () => page.evaluate(() => [...document.querySelectorAll('[data-testid="cat-segmented-radio"] [role=radio]')]
+      .map(b => `${b.dataset.filter}:${b.getAttribute('aria-checked')}:${b.tabIndex}`))
+    expect(await state()).toEqual(['auto:true:0', 'here:false:-1', 'away:false:-1', 'both:false:-1'])
+
+    // Tab enters the group on the checked item and leaves it in one stop.
+    await page.getByTestId('cat-segmented').getByRole('button').last().focus()
+    await page.keyboard.press('Tab')
+    await expect(item('auto')).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.getByTestId('cat-segmented-after')).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(item('auto')).toBeFocused()
+
+    // Selection follows focus; the disabled option is skipped; both ends wrap.
+    await page.keyboard.press('ArrowRight')
+    await expect(item('here')).toBeFocused()
+    await expect(item('here')).toHaveAttribute('aria-checked', 'true')
+    await page.keyboard.press('ArrowDown')
+    await expect(item('both')).toBeFocused()
+    expect(await state()).toEqual(['auto:false:-1', 'here:false:-1', 'away:false:-1', 'both:true:0'])
+    await page.keyboard.press('ArrowRight')
+    await expect(item('auto')).toBeFocused()
+    await page.keyboard.press('ArrowLeft')
+    await expect(item('both')).toBeFocused()
+    await page.keyboard.press('ArrowUp')
+    await expect(item('here')).toBeFocused()
+    await page.keyboard.press('End')
+    await expect(item('both')).toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(item('auto')).toBeFocused()
+    await expect(item('auto')).toHaveAttribute('aria-checked', 'true')
+    await expect(item('away')).toBeDisabled()
+
+    // Space selects the focused item; a click selects too.
+    await item('here').click()
+    await expect(item('here')).toHaveAttribute('aria-checked', 'true')
+    await page.keyboard.press('Home')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('Space')
+    await expect(item('here')).toHaveAttribute('aria-checked', 'true')
+  })
+
   test('reduced motion: skeletons stand still, toasts and panes switch at once', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await openCatalog(page)
