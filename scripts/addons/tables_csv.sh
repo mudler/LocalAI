@@ -33,6 +33,7 @@ done
 [ "$root/tests/e2e-ui/ui-test-server" -nt "$root/core/services/addons/resources/service.go" ] || { echo 'ui-test-server is older than the resource service; run scripts/addons/prepare.sh --integration' >&2; exit 1; }
 [ "$root/tests/e2e/mock-backend/mock-backend" -nt "$root/tests/e2e/mock-backend/main.go" ] || { echo 'mock-backend is older than its source; run scripts/addons/prepare.sh --integration' >&2; exit 1; }
 [ "$root/tests/e2e-ui/ui-test-server" -nt "$root/tests/e2e-ui/addons_fixture.go" ] || { echo 'ui-test-server is older than its fixture; run scripts/addons/prepare.sh --integration' >&2; exit 1; }
+[ "$root/tests/e2e-ui/ui-test-server" -nt "$root/tests/e2e-ui/addons_artifacts_fixture.go" ] || { echo 'ui-test-server is older than its artifact fixture; run scripts/addons/prepare.sh --integration' >&2; exit 1; }
 
 # 1. Pure rules: the file card and the export call.
 (cd "$ui" && node tests/unit/run.mjs tablesartifacts.test.mjs)
@@ -58,6 +59,7 @@ run_go() {
     go test -count=1 -p 2 -tags auth "$@" -ginkgo.json-report="$report" >"$cache/logs/tables-csv-$name.log" 2>&1 || { tail -40 "$cache/logs/tables-csv-$name.log" >&2; exit 1; }
     go_cases "$report"
 }
+run_go fixture ./tests/e2e-ui -ginkgo.focus='artifact fixture settlement'
 run_go store ./addons/tables/internal/store -ginkgo.focus='CSV export'
 run_go server ./addons/tables/internal/server
 run_go owner ./tests/addons/tablesadmin -ginkgo.focus='CSV export'
