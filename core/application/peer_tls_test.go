@@ -38,6 +38,13 @@ var _ = Describe("The TLS settings of the peer link", func() {
 		Expect(opts).To(HaveLen(1))
 	})
 
+	It("dials over wss when this replica serves the API over TLS, without --peer-tls", func() {
+		cfg := &config.ApplicationConfig{TLSFingerprint: "ab:cd"}
+		opts, err := peerPoolOptions(cfg, "10.1.2.3:8080")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(opts).To(HaveLen(1))
+	})
+
 	It("refuses a CA file that holds no certificate, and one that is missing", func() {
 		cfg := &config.ApplicationConfig{}
 		cfg.Distributed.PeerTLSCA = filepath.Join(GinkgoT().TempDir(), "missing.pem")

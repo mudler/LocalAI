@@ -937,14 +937,25 @@ func isPostgresURL(url string) bool {
 // peerPoolOptions reads the TLS settings of the peer link. It also warns when the
 // link would cross a network in clear text: the credential of this replica and
 // every relayed request, prompts included, go over it.
+//
+// A replica that serves the API over TLS itself (--tls-cert or
+// --tls-self-signed) dials its peers over wss even without --peer-tls. The
+// peer address is the API listener, and the replicas of one cluster run with
+// the same settings, so a plain ws dial would only reach a TLS listener and
+// fail.
 func peerPoolOptions(cfg *config.ApplicationConfig, advertised string) ([]tunnel.PeerPoolOption, error) {
 	d := cfg.Distributed
-	if !d.PeerTLS && d.PeerTLSCA == "" {
+	servesTLS := cfg.TLSFingerprint != ""
+	if !d.PeerTLS && d.PeerTLSCA == "" && !servesTLS {
 		if addr := advertised; clearTextOnNetwork(addr) {
 			xlog.Warn("The peer link is clear text and this replica publishes an address that is not on this host, so the credential of this replica and the requests that other replicas relay cross the network unencrypted. "+
-				"Put the replicas behind TLS and set LOCALAI_PEER_TLS (and LOCALAI_PEER_TLS_CA for a private CA)", "address", addr)
+				"Serve the API over TLS (LOCALAI_TLS_CERT) or put the replicas behind TLS and set LOCALAI_PEER_TLS (and LOCALAI_PEER_TLS_CA for a private CA)", "address", addr)
 		}
 		return nil, nil
+	}
+	if servesTLS && !d.PeerTLS && d.PeerTLSCA == "" {
+		xlog.Info("This replica serves the API over TLS, so the peer link dials the other replicas over wss with the system roots. " +
+			"Set LOCALAI_PEER_TLS_CA when their certificates come from a private CA or are self-signed")
 	}
 	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	if d.PeerTLSCA != "" {
