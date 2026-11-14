@@ -1,0 +1,24 @@
+# Platform matrix of the example add-on. The paths are relative to the root of
+# the add-on (the folder that holds package/), not to a LocalAI checkout.
+schema: 1
+addon: hello
+executable: hello
+manifest: manifest.json
+skills: skills
+platforms:
+  - platform: linux/amd64
+    enabled: true
+    runner: ubuntu-24.04
+    native_check: executable-start
+  - platform: linux/arm64
+    enabled: true
+    runner: ubuntu-24.04-arm
+    native_check: executable-start
+  - platform: darwin/arm64
+    enabled: true
+    runner: macos-15
+    native_check: executable-start
+  - platform: darwin/amd64
+    enabled: true
+    runner: macos-15-intel
+    native_check: executable-start
