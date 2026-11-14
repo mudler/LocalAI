@@ -50,48 +50,63 @@ for example `https://api.example.com/v1`. LocalAI removes a trailing
 
 **`anthropic`.** LocalAI asks `GET <address>/v1/models`, up to 20 pages of 100
 models. The address is optional. If you leave it empty, LocalAI uses
-`https://api.anthropic.com`. Use the address field for a gateway.
+`https://api.anthropic.com`. The form in the web interface has no address
+field for this kind, so it always uses Anthropic. To use a gateway for
+Anthropic, send its address in the `url` field of the
+[API](#api-reference).
 
 The entries of the cloud kinds use `mode: passthrough` and declare the
 `chat` usecase only. They do not accept images, whatever the remote model can
 do. To change this for one entry, edit the entry in the model editor.
 
-The interface offers presets for common OpenAI-compatible services. A preset
-fills in the name and the address. You still enter the key.
+For the OpenAI-compatible kind, the web interface offers the providers
+**OpenAI**, **OpenRouter**, **Groq** and **Custom**. A provider fills in the
+name and the address. You still enter the key. The web interface asks for a
+key for this kind. The API accepts a connection without one.
 
 ## Create a connection
+
+Only administrators see the controls below.
 
 ### From the first run
 
 1. On the first-run screen, at **Where do your models run?**, choose
    **On another server or service**.
-2. Continue with the steps below.
+2. Continue with the steps below. The first run shows them as two steps:
+   **Connect a remote** and **Choose models**.
 
 ### From the Models page
 
 1. Open **Models**.
-2. Select **Connect a remote**.
+2. In the page header, select **Connect a remote**.
 3. Continue with the steps below.
 
 ### Steps
 
-1. Choose the kind of connection.
-2. Enter the address. For `anthropic`, leave it empty to use Anthropic.
-3. Enter the key, if the remote needs one.
+1. At **Type of remote**, choose **LocalAI**, **OpenAI-compatible** or
+   **Anthropic**.
+2. For **OpenAI-compatible**, choose a **Provider**. For **LocalAI** and a
+   **Custom** provider, enter the **Address**. **Anthropic** has no address
+   field.
+3. Enter the **API key**. The key is optional for **LocalAI** only.
 4. Select **Test connection**. LocalAI contacts the remote and lists its
    models. If the test fails, the message names the step that failed (see
    [Troubleshooting](#troubleshooting)).
 5. Choose the models to add. For a remote LocalAI, all models start ticked.
-   For the cloud kinds, no model is ticked.
-6. Select **Connect and add models**.
+   For the cloud kinds, no model is ticked. You must tick at least one model.
+6. Change the **Name** of the connection if you want to.
+7. Select **Connect and add models**.
 
 LocalAI saves the connection and creates one entry for each chosen model.
 Then it refreshes the connection once. If the remote fails at that moment,
 LocalAI still keeps the connection and records the error in its status.
 
 To see your connections, open **Models** and select the **Connections** tab.
-In **Installed**, use the **Remote** filter to list the entries that come from
-connections.
+Each connection has a card with its status, the number of its models,
+**Refresh** and **Edit**. **View in Installed** opens the **Installed** tab
+with the **Remote** filter, which lists the entries that come from
+connections. An entry row has the **Remote model** mark, and the size column
+shows **Remote**. The row has no **Load** or **Stop** button.
 
 ### Entry names
 
@@ -127,6 +142,12 @@ the name of the entry does not change what the remote receives.
 - When you change the key of a connection, LocalAI stops the loaded entries
   of that connection. The next request loads the entry again with the new key.
 
+To change the key in the web interface, select **Edit** on the card of the
+connection and enter the key in **New API key**. If you leave the field empty,
+the key that is set stays. The web interface cannot remove a key. To remove
+it, send an empty `api_key` to the [API](#change). The **Edit** sheet has no
+address field for an Anthropic connection.
+
 LocalAI stores the sealing key next to the records. The seal protects a copy of
 one record. It does not protect against a person who can read the whole store.
 Keep the data directory and the database private.
@@ -140,10 +161,14 @@ LocalAI compares the remote list with your entries when you select
 **Refresh** on a connection, and once at startup. LocalAI does not poll.
 
 - A model that the remote lists and that has no entry goes to the **New** list
-  of the connection. LocalAI does not add it. You add it when you choose.
+  of the connection. LocalAI does not add it. You add it when you choose: the
+  card of the connection shows the new models, and you tick them and select
+  **Add selected**. **Not now** hides the list until a new model arrives or
+  you open the page again.
 - A model that an entry uses, and that the remote no longer lists, stays as an
-  entry. The connection shows it as **Unavailable upstream**. LocalAI deletes
-  nothing.
+  entry. The card of the connection counts it as no longer listed, and in
+  **Installed** the state of the entry is **Unavailable upstream**. LocalAI
+  deletes nothing.
 - A refresh never changes an entry file. You can edit an entry in the model
   editor, and a refresh keeps your edit.
 - A refresh records the status of the connection: `ok`, `auth_failed` or
@@ -163,16 +188,19 @@ LocalAI does change an entry in two cases, both after you edit the connection:
 
 ## Remove a connection
 
-When you remove a connection, you choose what happens to its entries:
+To remove a connection, open the **Connections** tab, select **Edit** on its
+card, and then select **Remove connection**. A dialog asks what happens to the
+entries:
 
-- **Remove the entries.** LocalAI deletes the entry configs and stops the
+- **Remove models too.** LocalAI deletes the entry configs and stops the
   models.
-- **Keep the entries.** The entries stay as plain models. LocalAI removes
+- **Keep the models.** The entries stay as plain models. LocalAI removes
   `proxy.connection` from each one and stops it. LocalAI does not copy the key
   into the entry. If the remote needs a key, set one in the model editor
   (`api_key`, `api_key_env` or `api_key_file`) before you use the entry.
 
-Keep is the default. An entry that you detached by hand earlier is not touched.
+**Keep the models** is the default, in the dialog and in the API. An entry
+that you detached by hand earlier is not touched.
 If LocalAI cannot handle some entries, the connection stays so that you can
 try again.
 
@@ -253,9 +281,19 @@ write-only: you can send it, and no route returns it.
 | `POST /api/connections/:id/refresh` | Ask the remote for its models and record the answer. | `200` |
 | `POST /api/connections/:id/adopt` | Create entries for more models. | `200` |
 
-Errors: `400` for an invalid request, `404` for an unknown connection, `409`
-when the name is taken (names are compared without case), `503` when the store
-cannot open.
+Errors:
+
+| Status | When |
+|---|---|
+| `400` | The request is not valid. This includes a body that is not one JSON object, a field that the route does not know, and an `entries` value other than `keep` or `remove`. |
+| `404` | The connection does not exist. |
+| `409` | The name is taken. Names are compared without case. |
+| `413` | The body is larger than 1 MiB. |
+| `500` | An internal error. If a change or a removal was only partly done, the message says so. Read the connection again and check the server log. |
+| `503` | The store of the connections did not open at startup. |
+
+An error body has the shape
+`{"error": {"message": "...", "code": 404, "type": "connection_error"}}`.
 
 ### Test
 
@@ -368,6 +406,18 @@ one model.
 curl -s -X DELETE "https://localai.example.com/api/connections/<id>?entries=remove" \
   -H "Authorization: Bearer <admin-key>"
 ```
+
+The answer is `204` with no body.
+
+### Remote models in the model list
+
+`GET /api/models/capabilities` gives three more fields for each model:
+
+| Field | Value |
+|---|---|
+| `remote` | `true` when a remote backend (`cloud-proxy` or `localai-proxy`) serves the model. It is `false` for a local model. |
+| `connection` | The id of the connection that owns the entry. It is not there for a model without a connection. |
+| `upstream_state` | `ok`, or `unavailable` when the remote no longer lists the model. It is not there for a local model. |
 
 ## Troubleshooting
 
