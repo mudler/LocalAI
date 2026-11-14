@@ -82,11 +82,22 @@ var _ = Describe("changing and deleting triggers from a connector chat", func() 
 		Expect(r.conns.Ingest(ctx, "chat-addon", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 			Chat: chatID, Thread: thread, Mention: true, MessageID: "m" + string(rune('a'+seq)), SenderID: sender, SenderName: "Cy", Text: text}})).To(Succeed())
 	}
-	// turn sends a message and waits for the answer of the turn.
+	// turn sends a message and waits for the answer of the turn. A tool of the
+	// turn may already post a notice to the chat (a change that applied at
+	// once does), and that text arrives before the tool result is recorded, so
+	// the wait is for the closing text that the script says after its tools.
 	turn := func(text string) {
 		before := len(fake.texts(chatID, thread))
 		say("11", text)
-		waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) > before })
+		waitFor("the answer", func() bool {
+			for _, t := range fake.texts(chatID, thread)[before:] {
+				switch strings.TrimSpace(t) {
+				case "ok", "asked", "proposed", "listed":
+					return true
+				}
+			}
+			return false
+		})
 	}
 	waiting := func() []triggers.Trigger {
 		all, err := r.sh.trg.ListTriggers(ctx, alice)
