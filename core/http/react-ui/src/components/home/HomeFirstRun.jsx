@@ -6,9 +6,6 @@ import StarterModels from '../StarterModels'
 // eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
 
-// Add-ons that ship in the add-on library, named as in the docs catalogue.
-// Only names, so nothing here goes stale with a version.
-export const ADDON_EXAMPLES = ['Sandbox', 'Telegram']
 // The guide that prints a coding agent's config, under API keys in Account.
 export const AGENTS_GUIDE_PATH = '/app/account?tab=keys'
 export const ADDONS_PATH = '/app/addons'
@@ -74,7 +71,7 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
           <span className="home-step__num" aria-hidden="true">{showAgents ? 5 : 4}</span>
           <div className="home-step__main">
             <b>{t('wizard.steps.step5Title')}</b>
-            <span className="home-step__desc">{t('wizard.steps.step5Body', { examples: ADDON_EXAMPLES.join(', ') })}</span>
+            <span className="home-step__desc">{t('wizard.steps.step5Body')}</span>
             <div className="home-step__extra">
               <Button size="sm" icon="puzzle" to={ADDONS_PATH} data-testid="home-step-addons-link">{t('wizard.browseAddons')}</Button>
             </div>

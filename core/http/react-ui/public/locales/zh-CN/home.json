@@ -86,7 +86,7 @@
       "step4Title": "接入你的智能体",
       "step4Body": "创建 API 密钥，然后连接编码智能体：{{agents}}。指南会为你填好地址和密钥。",
       "step5Title": "用附加组件扩展 LocalAI",
-      "step5Body": "附加组件带来新能力，例如 {{examples}}。从库中安装即可。"
+      "step5Body": "附加组件带来新能力。从库中安装即可。"
     },
     "browseGallery": "浏览模型库",
     "importModel": "导入模型",

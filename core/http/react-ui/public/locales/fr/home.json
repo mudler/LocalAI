@@ -80,7 +80,7 @@
       "step4Title": "Intégrez vos agents",
       "step4Body": "Créez une clé d'API, puis connectez un agent de code : {{agents}}. Le guide remplit l'adresse et la clé pour vous.",
       "step5Title": "Étendre LocalAI avec un add-on",
-      "step5Body": "Les add-ons apportent de nouvelles capacités, comme {{examples}}. Installez-les depuis la bibliothèque."
+      "step5Body": "Les add-ons apportent de nouvelles capacités. Installez-les depuis la bibliothèque."
     },
     "browseGallery": "Parcourir la galerie",
     "importModel": "Importer un modèle",
