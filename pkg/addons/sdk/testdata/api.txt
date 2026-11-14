@@ -1,0 +1,64 @@
+protocol: field ApplyRequest.Envelope contract.Envelope
+protocol: field ApplyRequest.Revision contract.Revision
+protocol: field OutputRequest.Envelope contract.Envelope
+protocol: field OutputRequest.Handle string
+protocol: field ReceiptRequest.OperationID string
+protocol: field Registration.AddonID string
+protocol: field Registration.Capabilities contract.Capabilities
+protocol: field Registration.Endpoint string
+protocol: field Registration.Generation uint64
+protocol: field Registration.Incarnation string
+protocol: field Registration.Protocol int
+protocol: field Startup.Credential string
+protocol: field Startup.DataDir string
+protocol: field Startup.HostCredential string
+protocol: field Startup.HostEndpoint string
+protocol: field Startup.Limits contract.Limits
+protocol: field Startup.Registration Registration
+protocol: func DecodeArgs(json.RawMessage, any) error
+protocol: func FromHostError(error) error
+protocol: func Handler(Startup, contract.Runtime) http.Handler
+protocol: func Payload(any) json.RawMessage
+protocol: func ReadStartup(io.Reader) (Startup, io.Reader, error)
+protocol: func Run([]string, func(Startup) contract.Runtime) int
+protocol: func Serve(context.Context, net.Listener, Startup, contract.Runtime) error
+protocol: func StopWithParent(context.Context, io.Reader) (context.Context, context.CancelFunc)
+protocol: func ToolOf(contract.Envelope) (string, error)
+protocol: func Upstream(int, string, error) error
+protocol: imethod Closer.Close(context.Context) error
+protocol: type ApplyRequest struct
+protocol: type Closer interface
+protocol: type OutputRequest struct
+protocol: type ReceiptRequest struct
+protocol: type Registration struct
+protocol: type Startup struct
+protocol: var ErrBadRequest
+protocol: var ErrConflict
+protocol: var ErrForbidden
+protocol: var ErrNotFound
+hostclient: func New(protocol.Startup) *Client
+hostclient: method (*Client) Do(context.Context, string, string, any, any) error
+hostclient: type Client struct
+hostclient: var ErrBadAnswer
+hostclient: var ErrNoHostOps
+idle: func Run([]string) int
+idle: method (Runtime) Apply(context.Context, contract.Envelope, contract.Revision) (contract.Receipt, error)
+idle: method (Runtime) OpenOutput(context.Context, contract.Envelope, string) (io.ReadCloser, error)
+idle: method (Runtime) Preview(context.Context, contract.Envelope) (contract.Preview, error)
+idle: method (Runtime) Read(context.Context, contract.Envelope) (contract.Result, error)
+idle: method (Runtime) Receipt(context.Context, string) (contract.Receipt, error)
+idle: type Runtime struct
+idle: var ErrNoTools
+atomicfile: func Write(string, []byte, os.FileMode) error
+atomicfile: func WriteFrom(string, io.Reader, os.FileMode) error
+argutil: func Bad(string, ...any) error
+argutil: func CheckCursor(string) error
+argutil: func CheckLine(string, string, int, bool) error
+argutil: func Cut(string, int) (string, int)
+argutil: func DecodeArgs(map[string]json.RawMessage, any) error
+argutil: func IDPath(string) string
+argutil: func Plain(string) bool
+argutil: func PlainJSON(any) json.RawMessage
+argutil: func Runes(string, int) (string, bool)
+argutil: func SplitArgs(json.RawMessage) (string, map[string]json.RawMessage, error)
+argutil: func Sum64(...string) uint64
