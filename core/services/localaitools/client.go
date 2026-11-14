@@ -27,7 +27,7 @@ import (
 type LocalAIClient interface {
 	// ---- Models / gallery (read) ----
 	GallerySearch(ctx context.Context, q GallerySearchQuery) ([]gallery.Metadata, error)
-	// SearchModels asks remote providers (Hugging Face, Pirate Face) for
+	// SearchModels asks the model sources of the person (Hugging Face and the sources of add-ons) for
 	// models that are not in a configured gallery. A result's URI goes to
 	// ImportModelURI.
 	SearchModels(ctx context.Context, req ModelSearchRequest) (*ModelSearchResponse, error)

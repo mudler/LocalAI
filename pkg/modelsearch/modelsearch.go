@@ -1,5 +1,5 @@
 // Package modelsearch searches for installable models across several remote
-// providers (Hugging Face, Pirate Face, ...) behind one provider-neutral
+// sources (Hugging Face, and the sources that add-ons provide) behind one provider-neutral
 // interface. A Searcher fans a query out to the requested providers
 // concurrently and returns partial results with a per-provider status, so one
 // provider being down never fails the whole search.
@@ -97,7 +97,7 @@ type Result struct {
 	// tags; a hint. RepoFiles.Backend is exact.
 	Backend string `json:"backend,omitempty"`
 	// HasVariants is true when opening the model is likely to list several
-	// quantizations: a GGUF repository, or any Pirate Face one.
+	// quantizations: a GGUF repository, or any Pirate Face one (the source of an add-on).
 	HasVariants bool `json:"has_variants,omitempty"`
 }
 
@@ -463,12 +463,17 @@ func ParseNames(csv string) []string {
 	return dedupe(strings.Split(csv, ","))
 }
 
-// Default returns a Searcher with the built-in providers. hfToken is
-// optional and only raises the Hugging Face rate limit.
+// PirateFaceName is the ID of the Pirate Face source. The search of that source
+// is an add-on (addons/pirateface-search); the host keeps the ID because the
+// importer, the file listing and the stored choice of a person name it.
+const PirateFaceName = "pirateface"
+
+// Default returns a Searcher with the built-in provider (Hugging Face). The
+// other sources come from add-ons (see AddonSync). hfToken is optional and only
+// raises the Hugging Face rate limit.
 func Default(hfToken string) *Searcher {
 	s := NewSearcher(Options{})
 	s.Register(NewHuggingFace(HuggingFaceOptions{Token: hfToken}))
-	s.Register(NewPirateFace(PirateFaceOptions{}))
 	return s
 }
 
