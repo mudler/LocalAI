@@ -371,4 +371,35 @@ test.describe('Explore: online sources on a phone', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(1)
   })
+
+  test('the "Spills to CPU" badge of a build is not clipped at the right edge', async ({ page }) => {
+    // 23 GB of weights do not fit the 24 GB card with a context, so the build
+    // carries the spill badge; the others fit.
+    const sizes = { Q4_K_M: 23 * GB, Q5_K_M: 5 * GB, Q8_0: 8 * GB }
+    await openSource(page, 'huggingface', 'tiny', {
+      estimate: () => estimateFor(sizes, 'Q4_K_M'),
+      filesFor: (id) => FILES(id),
+    })
+    await row(page, 'huggingface:acme/Tiny-GGUF').click()
+    const badge = pane(page).getByTestId('remote-variant').getByText('Spills to CPU').first()
+    await expect(badge).toBeVisible({ timeout: 10_000 })
+    const box = await badge.boundingBox()
+    const viewport = page.viewportSize().width
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport)
+    const paneBox = await pane(page).boundingBox()
+    expect(box.x + box.width).toBeLessThanOrEqual(paneBox.x + paneBox.width)
+    // and not cut by an ancestor that hides its overflow
+    const clipped = await badge.evaluate(el => {
+      const b = el.getBoundingClientRect()
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        const s = getComputedStyle(a)
+        if (s.overflowX === 'visible') continue
+        const r = a.getBoundingClientRect()
+        if (b.right > r.right + 0.5 || b.left < r.left - 0.5) return a.className || a.tagName
+      }
+      return ''
+    })
+    expect(clipped).toBe('')
+  })
 })

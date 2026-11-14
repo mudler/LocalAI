@@ -933,8 +933,28 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-estimate-note { margin: 0 0 var(--dk-space-3); font-size: var(--dk-text-12); color: var(--dk-muted); }
 
 /* A choice among builds of one repository: no info control and no backend
-   column, and the name keeps room so it is never squeezed out by the badges. */
+   column, and the name keeps room so it is never squeezed out by the badges.
+   The status track may shrink below its content, so its badges wrap: on a
+   phone a long badge such as "Spills to CPU" drops to a second line instead
+   of leaving the pane. */
 .variant-list--choice {
-  grid-template-columns: 0 minmax(9ch, auto) 0 max-content max-content max-content max-content 1fr;
+  grid-template-columns: 0 minmax(9ch, auto) 0 max-content max-content minmax(0, max-content) max-content 1fr;
   column-gap: var(--spacing-sm);
+  /* The list sits in a table cell, and a table sizes a cell to the
+     min-content of what is in it. Without this the cell grows to the sum of
+     the tracks and the table leaves the pane. The list then takes the width
+     the cell has. */
+  contain: inline-size;
+}
+/* On a phone the label column of the detail table takes a third of the pane,
+   which leaves the builds too little room for their badges. The row with the
+   builds puts its label above them instead. */
+@media (max-width: 639px) {
+  .ledger-detail__table:has(.variant-list--choice),
+  .ledger-detail__table:has(.variant-list--choice) > tbody,
+  .ledger-detail__table:has(.variant-list--choice) > tbody > tr:has(.variant-list--choice),
+  .ledger-detail__table:has(.variant-list--choice) > tbody > tr:has(.variant-list--choice) > * {
+    display: block;
+  }
+  .variant-list--choice { grid-template-columns: 0 minmax(9ch, auto) 0 max-content max-content minmax(14ch, max-content) max-content 1fr; }
 }
