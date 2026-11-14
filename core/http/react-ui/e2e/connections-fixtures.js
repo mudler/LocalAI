@@ -41,7 +41,7 @@ export const UNREACHABLE = connection({
   id: 'conn-3', name: 'Lab box', url: 'http://lab.example.com:8080', status: 'unreachable',
   last_error: 'dial tcp: connection refused', entries: ['chat-large'], unavailable: ['chat-large'],
 })
-export const NEVER = connection({ id: 'conn-4', name: 'New remote', kind: 'anthropic', url: 'https://api.anthropic.com', status: 'never', last_refresh: undefined, entries: [] })
+export const NEVER = connection({ id: 'conn-4', name: 'New remote', kind: 'anthropic', url: '', status: 'never', last_refresh: undefined, entries: [] })
 
 // The answer of the test route for each outcome.
 export const TEST_OK = (models) => ({ ok: true, models })

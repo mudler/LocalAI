@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  ANTHROPIC_URL, PRESETS, ageParts, canTest, chosenModels, connectionIndex, createErrorKind, defaultName,
+  PRESETS, ageParts, canTest, chosenModels, connectionIndex, createErrorKind, defaultName,
   failStep, filterModels, hostOf, initialTicked, needsAttention, presetFor, remoteSubline, statusOf, testBody,
 } from '../../src/utils/connections.js'
 import { isRemoteModel } from '../../src/utils/sound.js'
@@ -35,9 +35,9 @@ test('connections: what the test needs depends on the kind', () => {
   assert.equal(canTest({ kind: 'anthropic', url: '', key: '  ' }), false)
 })
 
-test('connections: the test body trims, and Anthropic has a fixed address', () => {
+test('connections: the test body trims, and Anthropic sends no address', () => {
   assert.deepEqual(testBody({ kind: 'openai', url: ' https://a.example.com/v1 ', key: ' k ' }), { kind: 'openai', url: 'https://a.example.com/v1', api_key: 'k' })
-  assert.deepEqual(testBody({ kind: 'anthropic', url: 'ignored', key: 'k' }), { kind: 'anthropic', url: ANTHROPIC_URL, api_key: 'k' })
+  assert.deepEqual(testBody({ kind: 'anthropic', url: 'ignored', key: 'k' }), { kind: 'anthropic', api_key: 'k' })
 })
 
 test('connections: a host never shows credentials, a path or a query', () => {

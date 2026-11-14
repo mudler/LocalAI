@@ -4,9 +4,6 @@
 
 export const KINDS = ['localai', 'openai', 'anthropic']
 
-// Anthropic needs only a key. The address is fixed, so the form hides it.
-export const ANTHROPIC_URL = 'https://api.anthropic.com'
-
 export const PRESETS = [
   { id: 'openai', url: 'https://api.openai.com/v1' },
   { id: 'openrouter', url: 'https://openrouter.ai/api/v1' },
@@ -49,8 +46,11 @@ export function canTest({ kind, url, key }) {
   return url.trim() !== ''
 }
 
+// Anthropic needs only a key, so the form hides the address and sends none:
+// the server uses the Anthropic address when it is empty.
 export function testBody({ kind, url, key }) {
-  return { kind, url: kind === 'anthropic' ? ANTHROPIC_URL : url.trim(), api_key: key.trim() }
+  if (kind === 'anthropic') return { kind, api_key: key.trim() }
+  return { kind, url: url.trim(), api_key: key.trim() }
 }
 
 // A LocalAI remote starts with every model ticked. The cloud kinds list many

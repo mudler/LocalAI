@@ -146,7 +146,10 @@ test.describe('First run: where models run', () => {
     await page.getByTestId('remote-key').fill('key-abc')
     await page.getByTestId('remote-test').click()
     await expect(page.getByTestId('remote-ok')).toBeVisible()
-    expect(state.calls.find(c => c.path === '/test').body.kind).toBe('anthropic')
+    const sent = state.calls.find(c => c.path === '/test').body
+    expect(sent.kind).toBe('anthropic')
+    // The server fills in the Anthropic address when none is sent.
+    expect(sent).not.toHaveProperty('url')
   })
 
   for (const [step, words] of [
