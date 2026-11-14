@@ -1965,7 +1965,9 @@
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
           "answers an unknown lifecycle operation with its own type, not as a denial",
-          "carries the jobs tool of an app, which the public apps API leaves out"
+          "carries the jobs tool of an app, which the public apps API leaves out",
+          "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
+          "carries the credential-slot words and the translated resource nouns of an app"
         ]
       },
       {
@@ -3501,7 +3503,9 @@
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
           "answers an unknown lifecycle operation with its own type, not as a denial",
-          "carries the jobs tool of an app, which the public apps API leaves out"
+          "carries the jobs tool of an app, which the public apps API leaves out",
+          "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
+          "carries the credential-slot words and the translated resource nouns of an app"
         ]
       },
       {
