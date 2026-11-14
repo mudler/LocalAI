@@ -140,7 +140,15 @@ func main() {
 }
 ```
 
-## 4. Write the manifest
+## 4. Fetch the dependencies
+
+`go get` only records the LocalAI requirement. Now that the code imports the SDK packages, let Go work out the rest and write `go.sum`. Without this step the build stops with "missing go.sum entry".
+
+```bash
+go mod tidy
+```
+
+## 5. Write the manifest
 
 The manifest says who the add-on is, which host versions it needs and which tools it offers. Save it as `manifest.json` in the root of your repository.
 
@@ -182,7 +190,7 @@ The `api` range must match the API version of the LocalAI version you build agai
 
 Add a skill in `skills/hello/SKILL.md` that tells the model when to call the tool. A manifest with `skillDefinitions` needs a skill folder with the same name.
 
-## 5. Write the platform file
+## 6. Write the platform file
 
 `package/platforms.yaml` lists the platforms of the add-on. The paths in this file are relative to the root of your repository.
 
@@ -201,7 +209,7 @@ platforms:
 
 A platform is built only when `enabled` is `true`. For a test build of a platform that is not enabled, use `--local-check`.
 
-## 6. Build the zip
+## 7. Build the zip
 
 Build the executable for your platform, then run the three steps of `addonpkg`: `build` makes a package layout, `verify` checks it, and `zip` writes the file.
 
@@ -233,9 +241,9 @@ make addons-zip ADDON_ROOT=/path/to/addon-hello
 sh scripts/addons/zip.sh --root /path/to/addon-hello
 ```
 
-With a root, the files go to `<root>/dist/addons`. Use `ADDON_EXECUTABLE` (`--executable`) to pack a binary that you built yourself.
+With a root, the files go to `<root>/dist/addons`. Use `ADDON_EXECUTABLE` (`--executable`) to pack a binary that you built yourself. It fits one platform, so give one `PLATFORMS` value with it. Relative paths in `--root`, `--out`, `--executable`, `--executables` and `--layout` are relative to the directory where you start the command, not to the LocalAI checkout. The script builds `addonpkg` from the checkout. To use an installed one instead, pass `--addonpkg <file>`.
 
-## 7. Install it
+## 8. Install it
 
 Check the file first:
 

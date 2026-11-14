@@ -1722,7 +1722,7 @@ dist/addons/web-0.1.0-linux-amd64.zip.sha256
 | `ADDON_VERSION` | The version. The default is the version in the manifest of the add-on. |
 | `ADDON_LOCAL_CHECK` | Set it to build a platform that the platform matrix has not enabled yet. |
 | `ADDON_ROOT` | The folder of an add-on that lives in another repository. See [Build an add-on in your own repository](/features/addon-sdk/). |
-| `ADDON_EXECUTABLE` | A built executable to pack, instead of building one. Use it with one platform. |
+| `ADDON_EXECUTABLE` | A built executable to pack, instead of building one. Use it with one platform. A relative path is relative to the directory where you start `make`. |
 | `ADDONS_ZIP_DIR` | The output folder. |
 
 The build needs Go and Node.js, as `package.sh` does; the Tables add-on also
