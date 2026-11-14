@@ -53,10 +53,10 @@ func (f *FS) ReadDirContext(ctx context.Context, ino uint64, limit int, dirBytes
 	if in.Flags&flagInlineData != 0 {
 		return f.readInlineDir(in, limit)
 	}
-	size := uint64(in.Size)
-	if in.Size > maxDirBytes {
+	if in.Size < 0 || in.Size > maxDirBytes {
 		return nil, fmt.Errorf("%w: directory %d has %d bytes", ErrLimit, ino, in.Size)
 	}
+	size := uint64(in.Size)
 	if size == 0 || size%f.bs != 0 {
 		return nil, fmt.Errorf("%w: directory %d has size %d", ErrCorrupt, ino, size)
 	}

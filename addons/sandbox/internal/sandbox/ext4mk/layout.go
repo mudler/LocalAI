@@ -68,9 +68,9 @@ func (f *formatter) superblock(o Options, uuid [16]byte, freeBlocks uint64) []by
 	sb := make([]byte, 1024)
 	t := uint32(f.now.Unix()) // #nosec G115 -- the field is 32 bits wide
 	le32(sb[0:], g.groups*g.ipg)
-	le32(sb[4:], uint32(g.blocks))
+	le32(sb[4:], uint32(g.blocks)) // #nosec G115 -- blocks is at most maxBlocks
 	// s_r_blocks_count stays 0: nothing is reserved for root.
-	le32(sb[12:], uint32(freeBlocks))
+	le32(sb[12:], uint32(freeBlocks)) // #nosec G115 -- free blocks never exceed blocks
 	le32(sb[16:], g.groups*g.ipg-firstIno)
 	// s_first_data_block is 0 and s_log_block_size is 2 (4096 bytes).
 	le32(sb[24:], 2)
@@ -131,8 +131,8 @@ func (f *formatter) putDirInode(b []byte, mode uint16, uid, gid uint32, links ui
 	le16(b[44:], 4)      // eh_max: four extents fit in i_block
 	// eh_depth 0, eh_generation 0, ee_block 0.
 	le16(b[56:], 1)                 // ee_len
-	le16(b[58:], uint16(block>>32)) // ee_start_hi
-	le32(b[60:], uint32(block))     // ee_start_lo
+	le16(b[58:], uint16(block>>32)) // #nosec G115 -- ee_start_hi: block is below maxBlocks, so the high half is 0
+	le32(b[60:], uint32(block))     // #nosec G115 -- ee_start_lo: block is below maxBlocks
 	le16(b[120:], uint16(uid>>16))  // uid_high
 	le16(b[122:], uint16(gid>>16))  // gid_high
 	le16(b[128:], extraIsize)       // i_extra_isize
@@ -148,7 +148,7 @@ func (f *formatter) putDirInode(b []byte, mode uint16, uid, gid uint32, links ui
 func putDirEntry(b []byte, off int, ino uint32, recLen int, name string, ftype byte) {
 	le32(b[off:], ino)
 	le16(b[off+4:], uint16(recLen)) // #nosec G115 -- at most 4096
-	b[off+6] = byte(len(name))
+	b[off+6] = byte(len(name))      // #nosec G115 -- a name has at most 255 bytes
 	b[off+7] = ftype
 	copy(b[off+8:], name)
 }

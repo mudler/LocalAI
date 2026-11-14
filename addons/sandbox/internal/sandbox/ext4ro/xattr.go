@@ -128,7 +128,7 @@ func parseXattrs(region []byte, start int) ([]Xattr, error) {
 			if voff+vsize > uint64(len(region)) {
 				return nil, fmt.Errorf("%w: value of %q is outside the attribute area", ErrCorrupt, name)
 			}
-			if total += int(vsize); total > maxXattrBytes {
+			if total += int(vsize); total > maxXattrBytes { // #nosec G115 -- vsize is inside the attribute area, which is a slice
 				return nil, fmt.Errorf("%w: attribute values hold more than %d bytes", ErrLimit, maxXattrBytes)
 			}
 			x.Value = append(make([]byte, 0, vsize), region[voff:voff+vsize]...)

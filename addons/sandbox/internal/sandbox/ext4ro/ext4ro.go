@@ -244,7 +244,7 @@ func (f *FS) checkFeatures() error {
 }
 
 // BlockSize returns the block size in bytes.
-func (f *FS) BlockSize() int { return int(f.bs) }
+func (f *FS) BlockSize() int { return int(f.bs) } // #nosec G115 -- the block size is at most 64 KiB
 
 // InodeCount returns s_inodes_count.
 func (f *FS) InodeCount() uint64 { return f.inodes }
@@ -262,14 +262,14 @@ func (f *FS) InodeInRange(ino uint64) bool {
 
 // readAt fills p from the image at off. The read must be inside the image.
 func (f *FS) readAt(p []byte, off uint64) error {
-	size := uint64(f.size)
+	size := uint64(f.size) // #nosec G115 -- size was checked to be positive in Open
 	if off > size || uint64(len(p)) > size-off {
 		return fmt.Errorf("%w: read of %d bytes at %d is outside the image of %d bytes", ErrCorrupt, len(p), off, size)
 	}
 	if len(p) == 0 {
 		return nil
 	}
-	n, err := f.r.ReadAt(p, int64(off))
+	n, err := f.r.ReadAt(p, int64(off)) // #nosec G115 -- off is not above size, which is an int64
 	if n == len(p) {
 		return nil
 	}
@@ -435,7 +435,7 @@ func (f *FS) load(ino uint64) (*inode, error) {
 // epochTime combines a signed 32-bit time with the two epoch bits of the
 // extra field, as the kernel does.
 func epochTime(base, extra uint32) int64 {
-	return int64(int32(base)) + int64(extra&3)<<32
+	return int64(int32(base)) + int64(extra&3)<<32 // #nosec G115 -- the field is a signed 32-bit time
 }
 
 // decodeDev decodes a device number. The old encoding (8-bit major and

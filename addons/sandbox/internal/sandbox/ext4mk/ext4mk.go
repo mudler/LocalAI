@@ -72,7 +72,7 @@ type geometry struct {
 func newGeometry(blocks uint64) (geometry, error) {
 	for {
 		g := geometry{blocks: blocks}
-		g.groups = uint32((blocks + blocksPerGroup - 1) / blocksPerGroup)
+		g.groups = uint32((blocks + blocksPerGroup - 1) / blocksPerGroup) // #nosec G115 -- blocks is at most maxBlocks, so there are fewer than 2^17 groups
 		inodes := blocks * blockSize / bytesPerInode
 		ipg := (inodes + uint64(g.groups) - 1) / uint64(g.groups)
 		ipg = (ipg + inodesPerBlock - 1) / inodesPerBlock * inodesPerBlock
@@ -211,11 +211,11 @@ func Format(w io.WriterAt, o Options) error {
 		}
 
 		d := gdt[n*descSize:]
-		le32(d[0:], uint32(first))
-		le32(d[4:], uint32(first+1))
-		le32(d[8:], uint32(first+2))
-		le16(d[12:], uint16(free))
-		le16(d[14:], uint16(freeInodes))
+		le32(d[0:], uint32(first))       // #nosec G115 -- first is a block below maxBlocks, which fits 32 bits
+		le32(d[4:], uint32(first+1))     // #nosec G115 -- first is a block below maxBlocks, which fits 32 bits
+		le32(d[8:], uint32(first+2))     // #nosec G115 -- first is a block below maxBlocks, which fits 32 bits
+		le16(d[12:], uint16(free))       // #nosec G115 -- at most blocksPerGroup
+		le16(d[14:], uint16(freeInodes)) // #nosec G115 -- at most blocksPerGroup
 		le16(d[16:], dirs)
 		freeBlocks += uint64(free)
 	}
