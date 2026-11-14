@@ -23,7 +23,9 @@
 # Go module. The layout is <dir>/package/platforms.yaml (the default --config),
 # the manifest, ui and skills paths of that file are relative to <dir>, and the
 # executable is built from <dir>/cmd/<executable name> with the go.mod of
-# <dir>, unless --executable is given. A relative <dir> is relative to the
+# <dir>, unless --executable is given. Every path flag (--layout, --executable,
+# --runtime-dir, --config, --root) is relative to the directory the script was
+# started in. A relative <dir> is relative to the
 # directory the script was started in. An add-on outside this repository
 # cannot have a UI yet: the UI build reads the UI tree of this repository.
 #
@@ -62,6 +64,9 @@ done
     echo 'usage: package.sh --layout <dir> --version <version> --platform <os/arch>' >&2
     exit 2
 }
+# A relative path flag is relative to the caller's directory, not the checkout.
+absp() { case "$1" in '') ;; /*) printf '%s\n' "$1" ;; *) printf '%s/%s\n' "$start" "$1" ;; esac; }
+layout=$(absp "$layout"); executable=$(absp "$executable"); runtime_dir=$(absp "$runtime_dir"); config=$(absp "$config")
 if [ -n "$addon_root" ]; then
     case "$addon_root" in /*) ;; *) addon_root=$start/$addon_root ;; esac
     addon_root=$(CDPATH= cd -- "$addon_root" 2>/dev/null && pwd) || { echo "package.sh: --root is not a directory" >&2; exit 2; }
@@ -77,6 +82,7 @@ if [ -z "$tool" ]; then
 fi
 # The add-on, its executable and its UI directory come from the platform file.
 [ -f "$config" ] || { echo "package.sh: platform file $config not found" >&2; exit 2; }
+grep -q '^manifest: ' "$config" || { echo "package.sh: platform file $config has no manifest key" >&2; exit 2; }
 addon=$(sed -n 's/^addon: //p' "$config")
 exe_name=$(sed -n 's/^executable: //p' "$config")
 ui_dir=$(sed -n 's/^ui: //p' "$config")

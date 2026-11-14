@@ -1829,7 +1829,8 @@ ADDON_VERSION?=
 ADDON_EXECUTABLES?=
 ADDON_LOCAL_CHECK?=
 ## ADDON_ROOT builds the zip of an add-on in another repository: the directory
-## that holds package/platforms.yaml and cmd/<executable>. ADDON_EXECUTABLE is a
+## that holds package/platforms.yaml and cmd/<executable>. Relative paths are
+## relative to the directory where make starts. ADDON_EXECUTABLE is a
 ## built binary to pack instead of building one (one platform only).
 ADDON_ROOT?=
 ADDON_EXECUTABLE?=
