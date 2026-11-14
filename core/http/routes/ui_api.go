@@ -865,6 +865,37 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// as broken rather than hiding it.
 			AliasOf    string `json:"alias_of,omitempty"`
 			AliasError string `json:"alias_error,omitempty"`
+			// Remote is true when a remote backend serves the model: a
+			// proxy to another LocalAI or to a cloud endpoint. Connection
+			// is the id of the remote connection that owns the entry, when
+			// there is one. UpstreamState is "unavailable" when the remote
+			// no longer lists the model, "ok" for any other remote entry,
+			// and absent for a local model.
+			Remote        bool   `json:"remote"`
+			Connection    string `json:"connection,omitempty"`
+			UpstreamState string `json:"upstream_state,omitempty"`
+		}
+
+		// One lookup per request, and none when no model is remote. Without the service (its store could not
+		// be opened) there is no connection state to report.
+		unavailable := map[string]bool{}
+		anyRemote := false
+		for i := range modelConfigs {
+			if config.IsRemoteBackend(modelConfigs[i].Backend) {
+				anyRemote = true
+				break
+			}
+		}
+		if svc := applicationInstance.Connections(); anyRemote && svc != nil {
+			if conns, err := svc.List(c.Request().Context()); err == nil {
+				for _, conn := range conns {
+					for _, name := range conn.Unavailable {
+						unavailable[name] = true
+					}
+				}
+			} else {
+				xlog.Warn("Remote connections could not be listed for the capabilities payload", "error", err)
+			}
 		}
 
 		// Join with the node registry when we have one (distributed mode). A
@@ -915,6 +946,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			entry.UpscaleScale = config.UpscaleScaleFromOptions(*effective)
 			entry.ThreeDOperations = effective.ThreeDOperations()
 			entry.Backend = effective.Backend
+			if entry.Remote = config.IsRemoteBackend(effective.Backend); entry.Remote {
+				entry.Connection = effective.Proxy.Connection
+				entry.UpstreamState = "ok"
+				if unavailable[effective.Name] {
+					entry.UpstreamState = "unavailable"
+				}
+			}
 			sized := *effective
 			if sized.ContextSize == nil && appConfig.ContextSize > 0 {
 				sized.ContextSize = &appConfig.ContextSize

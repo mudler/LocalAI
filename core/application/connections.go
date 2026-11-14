@@ -17,6 +17,10 @@ import (
 // the shared store.
 func (a *Application) Connections() connections.Service { return a.connections }
 
+// SetConnections replaces the connections service. Startup sets it; this is
+// for tests of the code that reads it.
+func (a *Application) SetConnections(s connections.Service) { a.connections = s }
+
 // connectionsModelRevisionLifecycle returns the lifecycle that the model
 // routes use: local shutdown in standalone mode, the registry in a cluster.
 func (a *Application) connectionsModelRevisionLifecycle() modeladmin.ModelRevisionLifecycle {
