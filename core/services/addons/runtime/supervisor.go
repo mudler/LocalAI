@@ -373,7 +373,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
-	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: 1, Endpoint: "http://" + listener.Addr().String(), Capabilities: pkg.Manifest.Capabilities}
+	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: int(contract.HostProtocolVersion), Endpoint: "http://" + listener.Addr().String(), Capabilities: pkg.Manifest.Capabilities}
 	dataDir := ""
 	if s.config.DataRoot != "" {
 		if !filepath.IsAbs(s.config.DataRoot) || !relativeSafe(pkg.Manifest.ID) {
