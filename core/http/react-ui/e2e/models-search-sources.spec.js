@@ -50,6 +50,7 @@ async function mockSources(page, { sources, enabled, missing = [], peerError = '
 }
 
 const shot = async (page, name) => {
+  if (process.env.SHOTS_DIR) await page.waitForTimeout(500)
   if (process.env.SHOTS_DIR) await page.screenshot({ path: `${process.env.SHOTS_DIR}/${name}.png`, fullPage: false })
 }
 const chip = (page, id) => page.getByTestId(`source-chip-${id}`)
@@ -91,6 +92,8 @@ test.describe('model search sources', () => {
   })
 
   test('a source that fails shows its own error and the other source still answers', async ({ page }) => {
+    // Tall enough to see the Hugging Face rows above the failed section.
+    await page.setViewportSize({ width: 1280, height: 1500 })
     await mockLedger(page)
     await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'], peerError: 'upstream timeout' })
     await page.goto('/app/models')
@@ -99,7 +102,7 @@ test.describe('model search sources', () => {
     const section = page.getByTestId('discover-section-error')
     await expect(section).toContainText('Peer Index did not answer')
     await expect(section).toContainText('upstream timeout')
-    await section.scrollIntoViewIfNeeded()
+    await expect(section).toBeInViewport()
     await shot(page, 'failed-source')
   })
 
@@ -110,10 +113,25 @@ test.describe('model search sources', () => {
     await expect(page.getByTestId('source-hint')).toContainText('ghost')
     await page.getByTestId('model-sources-open').click()
     await expect(page.getByTestId('source-missing-ghost')).toBeVisible()
-    await page.getByTestId('source-switch-peer').click()
+    const peerSwitch = page.getByTestId('source-switch-peer')
+    await peerSwitch.click()
     await expect.poll(() => seen.put.length).toBe(1)
     expect(seen.put[0]).toEqual(['huggingface', 'ghost', 'peer'])
+    // The page follows the answer: the switch is on, the chip and the filters of the source are there.
+    await expect(peerSwitch).toHaveAttribute('aria-checked', 'true')
+    await expect(chip(page, 'peer')).toBeVisible()
+    await expect(page.getByTestId('source-filter-peer-kind')).toBeVisible()
     await shot(page, 'sources-panel')
+
+    // Off again: the chip and the filters of a source that is not on are gone, and the stored ghost stays.
+    await peerSwitch.click()
+    await expect.poll(() => seen.put.length).toBe(2)
+    expect(seen.put[1]).toEqual(['huggingface', 'ghost'])
+    await expect(peerSwitch).toHaveAttribute('aria-checked', 'false')
+    await expect(chip(page, 'peer')).toHaveCount(0)
+    await expect(page.getByTestId('source-filter-peer-kind')).toHaveCount(0)
+    await expect(page.getByTestId('source-missing-ghost')).toBeVisible()
+    await shot(page, 'sources-panel-off')
   })
 
   test('an empty set says nothing is searched', async ({ page }) => {
