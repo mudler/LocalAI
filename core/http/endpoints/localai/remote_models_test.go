@@ -90,7 +90,7 @@ var _ = Describe("remote model routes", func() {
 			{ID: "acme/Tiny-GGUF", URI: "huggingface://acme/Tiny-GGUF", Tags: []string{"gguf"}, PipelineTag: "text-generation"},
 			{ID: "acme/Other", URI: "huggingface://acme/Other", Tags: []string{"safetensors"}},
 		}})
-		s.Register(&stubSearchProvider{name: "pirateface", res: []modelsearch.Result{{ID: "acme/Peer", URI: "pirateface://acme/Peer"}}})
+		s.Register(&stubSearchProvider{name: "pirateface", res: []modelsearch.Result{{ID: "acme/Peer", URI: "pirateface://acme/Peer", HasVariants: true}}})
 		e.GET("/api/models/search", ModelSearchEndpoint(modelsearch.NewHost(s, nil, nil), cl))
 	})
 	AfterEach(func() { hf.Close() })
