@@ -46,8 +46,12 @@
 .conn-remove { display: flex; flex-direction: column; gap: var(--sp-3); }
 
 /* Inside the first-run guide the two steps hold forms, not button rows. */
-.home-step--where { grid-template-columns: minmax(0, 1fr); }
-.home-step--where .home-step__extra + .home-step__desc { margin-top: var(--sp-3); }
+.home-where { padding: var(--sp-4) var(--sp-5); color: var(--dk-text); }
+.home-where + .home-step { border-top: 1px solid var(--dk-edge); }
+.home-where > .home-step__main > b { display: block; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.home-where .home-step__extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+.home-where .home-step__desc { display: block; margin-top: var(--sp-1); color: var(--dk-muted); font-size: var(--fs-small); line-height: 1.45; }
+.home-where .home-step__extra + .home-step__desc { margin-top: var(--sp-3); }
 .home-step__extra--block { display: block; }
 .home-step__extra--block .conn-form,
 .home-step__extra--block .conn-choose { max-width: 560px; }

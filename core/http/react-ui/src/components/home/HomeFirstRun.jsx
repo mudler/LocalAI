@@ -46,7 +46,7 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
   return (
     <ol className="home-guide" aria-label={t('wizard.guideLabel')} data-testid="home-first-run">
       {isAdmin && (
-        <li className="home-step home-step--where" role="presentation" data-testid="home-where">
+        <li className="home-where" role="presentation" data-testid="home-where">
           <div className="home-step__main">
             <b id={whereId}>{t('remoteSetup.where.title')}</b>
             <div className="home-step__extra">
