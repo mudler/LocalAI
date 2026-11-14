@@ -5,11 +5,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/mudler/LocalAI/addons/office/internal/deck"
 	"github.com/mudler/LocalAI/addons/office/internal/deck/pptx"
 	"github.com/mudler/LocalAI/addons/office/internal/docx"
 	"github.com/mudler/LocalAI/addons/office/internal/pdf"
+	"github.com/mudler/LocalAI/addons/office/internal/pptxedit"
 	"github.com/mudler/LocalAI/addons/office/internal/textinput"
 	"github.com/mudler/LocalAI/addons/office/internal/xlsx"
 )
@@ -111,11 +114,9 @@ func (w *work) createXlsx(raw json.RawMessage) (any, error) {
 func (w *work) createPptx(raw json.RawMessage) (any, error) {
 	var a struct {
 		pathArgs
-		Title  string `json:"title"`
-		Slides []struct {
-			Title   string   `json:"title"`
-			Bullets []string `json:"bullets"`
-		} `json:"slides"`
+		Title    string       `json:"title"`
+		Template string       `json:"template"`
+		Slides   []slideInput `json:"slides"`
 	}
 	if err := decode(raw, &a); err != nil {
 		return nil, err
@@ -125,6 +126,9 @@ func (w *work) createPptx(raw json.RawMessage) (any, error) {
 	}
 	if len(a.Slides) == 0 || len(a.Slides) > 200 {
 		return nil, refuse("slides must hold 1 to 200 entries")
+	}
+	if a.Template != "" {
+		return w.createPptxFromTemplate(a.Path, a.Template, a.Title, a.Slides)
 	}
 	var slides []deck.StudioSlide
 	for i, s := range a.Slides {
@@ -145,6 +149,60 @@ func (w *work) createPptx(raw json.RawMessage) (any, error) {
 		return nil, refuse("the deck cannot be written: %v", err)
 	}
 	return w.store(a.Path, ".pptx", buf.Bytes(), 0)
+}
+
+type slideInput struct {
+	Title   string   `json:"title"`
+	Bullets []string `json:"bullets"`
+}
+
+// createPptxFromTemplate builds the deck on a template the user has: the new
+// deck keeps its slide masters, layouts, theme colors and fonts. The slides of
+// the template are dropped, so the deck holds only the slides asked for. The
+// template is read like any other file of the user, so the same path rules
+// apply, and it is never changed. The deck title replaces the template's.
+func (w *work) createPptxFromTemplate(path, template, title string, slides []slideInput) (any, error) {
+	ext := strings.ToLower(filepath.Ext(template))
+	if ext != ".pptx" && ext != ".potx" {
+		return nil, refuse("the template must end in .pptx or .potx")
+	}
+	data, _, err := w.fetch(template, ext)
+	if err != nil {
+		return nil, err
+	}
+	d, err := pptxedit.OpenTemplate(data)
+	if err != nil {
+		return nil, refuse("the template %q is not a valid PowerPoint deck or template", template)
+	}
+	content, ok := d.LayoutOfType("obj", "tx")
+	if !ok {
+		return nil, refuse("the template %q has no Title and Content layout", template)
+	}
+	cover, ok := d.LayoutOfType("title")
+	if !ok {
+		cover = content
+	}
+	old := d.SlideCount()
+	for i, s := range slides {
+		layout := content
+		if len(s.Bullets) == 0 {
+			layout = cover
+		}
+		if err := d.AddSlide(layout, s.Title, s.Bullets); err != nil {
+			return nil, refuse("slide %d: %v", i+1, err)
+		}
+	}
+	for range old {
+		if err := d.DeleteSlide(1); err != nil {
+			return nil, refuse("the slides of the template cannot be removed: %v", err)
+		}
+	}
+	d.SetDocTitle(title)
+	out, err := d.Bytes()
+	if err != nil {
+		return nil, refuse("the deck cannot be written: %v", err)
+	}
+	return w.store(path, ".pptx", out, 0)
 }
 
 func (w *work) createPdf(raw json.RawMessage) (any, error) {

@@ -36,8 +36,18 @@ Use `create-pptx` with `path` and `slides`, each with a `title` and its
 one slide per point. If the path is taken, the old file stays and the new one
 is saved next to it.
 
+### In the design of a template
+
+When the user has a template, a `.pptx` or `.potx` file in their files, give
+its path as `template`. The new deck uses the template's slide masters,
+layouts, theme colors and fonts. Slides with bullets use the template's
+Title and Content layout, slides without bullets its Title Slide layout. The
+slides already in the template are not copied, and the template itself is
+not changed.
+
 ## When the tools cannot do it
 
-The tools change text only. They do not move shapes, change the design,
-add images, charts, animations or speaker notes. Say so before you promise
-it, and offer what the tools can do.
+The tools change text only. Apart from using a template when a deck is
+created, they do not move shapes, change the design, add images, charts,
+animations or speaker notes. Say so before you promise it, and offer what the
+tools can do.
