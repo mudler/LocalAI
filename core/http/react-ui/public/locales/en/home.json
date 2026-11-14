@@ -91,14 +91,20 @@
       "step2Title": "Install a Model",
       "step2Body": "Click install to download and configure it automatically.",
       "step3Title": "Start Chatting",
-      "step3Body": "Chat with your model right from the browser or use the API."
+      "step3Body": "Chat with your model right from the browser or use the API.",
+      "step4Title": "Onboard your agents",
+      "step4Body": "Create an API key, then connect a coding agent: {{agents}}. The guide fills in the address and the key for you.",
+      "step5Title": "Extend LocalAI with an add-on",
+      "step5Body": "Add-ons bring new abilities, such as {{examples}}. Install them from the library."
     },
     "browseGallery": "Browse Model Gallery",
     "importModel": "Import Model",
     "docs": "Docs",
     "noModelsTitle": "No Models Available",
     "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting.",
-    "guideLabel": "Getting started"
+    "guideLabel": "Getting started",
+    "connectAgents": "Connect a coding agent",
+    "browseAddons": "Browse add-ons"
   },
   "starters": {
     "title": "Recommended for your machine",
@@ -149,7 +155,8 @@
     "browse": "Browse the API",
     "hide": "Hide endpoints",
     "dismiss": "Dismiss",
-    "hideSection": "Hide this section"
+    "hideSection": "Hide this section",
+    "agentsLink": "Connect a coding agent: create an API key and copy its config"
   },
   "jump": {
     "heading": "Jump back in",

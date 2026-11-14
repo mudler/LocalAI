@@ -82,13 +82,19 @@
       "step2Title": "Instala un modelo",
       "step2Body": "Haz clic en instalar para descargarlo y configurarlo automáticamente.",
       "step3Title": "Empieza a chatear",
-      "step3Body": "Chatea con tu modelo desde el navegador o usa la API."
+      "step3Body": "Chatea con tu modelo desde el navegador o usa la API.",
+      "step4Title": "Conecta tus agentes",
+      "step4Body": "Crea una clave de API y conecta un agente de programación: {{agents}}. La guía rellena la dirección y la clave por ti.",
+      "step5Title": "Amplía LocalAI con un add-on",
+      "step5Body": "Los add-ons aportan nuevas capacidades, como {{examples}}. Instálalos desde la biblioteca."
     },
     "browseGallery": "Explorar galería de modelos",
     "importModel": "Importar modelo",
     "docs": "Documentación",
     "noModelsTitle": "No hay modelos disponibles",
-    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear."
+    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear.",
+    "connectAgents": "Conectar un agente de programación",
+    "browseAddons": "Explorar add-ons"
   },
   "connect": {
     "title": "Un endpoint, todas las APIs",
@@ -100,7 +106,8 @@
     "copied": "Copiado",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "Conectar un agente de programación: crea una clave de API y copia su configuración"
   },
   "jump": {
     "heading": "Jump back in",

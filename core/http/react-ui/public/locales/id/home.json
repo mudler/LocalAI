@@ -82,13 +82,19 @@
       "step2Title": "Instal Model",
       "step2Body": "Klik instal untuk mengunduh dan mengonfigurasinya secara otomatis.",
       "step3Title": "Mulai Mengobrol",
-      "step3Body": "Mengobrol dengan model Anda langsung dari peramban atau gunakan API."
+      "step3Body": "Mengobrol dengan model Anda langsung dari peramban atau gunakan API.",
+      "step4Title": "Siapkan agen Anda",
+      "step4Body": "Buat kunci API, lalu hubungkan agen pemrograman: {{agents}}. Panduan mengisi alamat dan kunci untuk Anda.",
+      "step5Title": "Perluas LocalAI dengan add-on",
+      "step5Body": "Add-on menambah kemampuan baru, seperti {{examples}}. Pasang dari pustaka."
     },
     "browseGallery": "Jelajahi Galeri Model",
     "importModel": "Impor Model",
     "docs": "Dokumentasi",
     "noModelsTitle": "Tidak Ada Model yang Tersedia",
-    "noModelsBody": "Belum ada model yang terinstal. Hubungi administrator Anda untuk menyiapkan model agar Anda dapat mulai mengobrol."
+    "noModelsBody": "Belum ada model yang terinstal. Hubungi administrator Anda untuk menyiapkan model agar Anda dapat mulai mengobrol.",
+    "connectAgents": "Hubungkan agen pemrograman",
+    "browseAddons": "Jelajahi add-on"
   },
   "connect": {
     "title": "Satu endpoint, semua API",
@@ -100,7 +106,8 @@
     "copied": "Disalin",
     "browse": "Jelajahi API",
     "hide": "Sembunyikan endpoint",
-    "dismiss": "Abaikan"
+    "dismiss": "Abaikan",
+    "agentsLink": "Hubungkan agen pemrograman: buat kunci API dan salin konfigurasinya"
   },
   "jump": {
     "heading": "Jump back in",

@@ -76,13 +76,19 @@
       "step2Title": "Installer un modèle",
       "step2Body": "Cliquez sur installer pour le télécharger et le configurer automatiquement.",
       "step3Title": "Commencer à discuter",
-      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API."
+      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API.",
+      "step4Title": "Intégrez vos agents",
+      "step4Body": "Créez une clé d'API, puis connectez un agent de code : {{agents}}. Le guide remplit l'adresse et la clé pour vous.",
+      "step5Title": "Étendre LocalAI avec un add-on",
+      "step5Body": "Les add-ons apportent de nouvelles capacités, comme {{examples}}. Installez-les depuis la bibliothèque."
     },
     "browseGallery": "Parcourir la galerie",
     "importModel": "Importer un modèle",
     "docs": "Docs",
     "noModelsTitle": "Aucun modèle disponible",
-    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter."
+    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter.",
+    "connectAgents": "Connecter un agent de code",
+    "browseAddons": "Parcourir les add-ons"
   },
   "starters": {
     "title": "Recommandé pour votre machine",
@@ -132,7 +138,8 @@
     "copied": "Copié",
     "browse": "Parcourir l'API",
     "hide": "Masquer les points d'accès",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "agentsLink": "Connecter un agent de code : créer une clé d'API et copier sa configuration"
   },
   "jump": {
     "heading": "Reprendre où vous en étiez",

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { apiUrl } from '../utils/basePath'
+import { useAuth } from '../context/AuthContext'
 import Icon from './Icon'
 
 // LocalAI's own API goes well beyond chat — a sample of capability endpoints
@@ -27,6 +29,8 @@ const COMPAT = [
 
 export default function HomeConnect() {
   const { t } = useTranslation('home')
+  // The agent guide is in Account > API keys, which exists with accounts.
+  const { authEnabled } = useAuth()
   const [copied, setCopied] = useState(false)
   // Collapsed by default: the page is about the next message, and the endpoint
   // is one click away. The base URL stays in the row so it can be read without
@@ -112,6 +116,12 @@ export default function HomeConnect() {
               ))}
             </ul>
           </div>
+
+          {authEnabled && (
+            <p className="home-connect__sub">
+              <Link to="/app/account?tab=keys" data-testid="home-connect-agents">{t('connect.agentsLink')}</Link>
+            </p>
+          )}
 
           <div className="home-connect__foot">
             <button type="button" className="home-ghost" onClick={dismiss}>{t('connect.hideSection')}</button>

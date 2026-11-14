@@ -82,13 +82,19 @@
       "step2Title": "모델 설치",
       "step2Body": "설치를 클릭하면 자동으로 다운로드되고 구성됩니다.",
       "step3Title": "채팅 시작",
-      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요."
+      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요.",
+      "step4Title": "에이전트 연결하기",
+      "step4Body": "API 키를 만든 뒤 코딩 에이전트를 연결하세요: {{agents}}. 가이드가 주소와 키를 채워 줍니다.",
+      "step5Title": "애드온으로 LocalAI 확장",
+      "step5Body": "애드온은 {{examples}} 같은 새 기능을 추가합니다. 라이브러리에서 설치하세요."
     },
     "browseGallery": "모델 갤러리 둘러보기",
     "importModel": "모델 가져오기",
     "docs": "문서",
     "noModelsTitle": "사용 가능한 모델 없음",
-    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요."
+    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요.",
+    "connectAgents": "코딩 에이전트 연결",
+    "browseAddons": "애드온 둘러보기"
   },
   "connect": {
     "title": "하나의 엔드포인트, 모든 API",
@@ -100,7 +106,8 @@
     "copied": "복사됨",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "코딩 에이전트 연결: API 키를 만들고 설정 복사"
   },
   "jump": {
     "heading": "Jump back in",

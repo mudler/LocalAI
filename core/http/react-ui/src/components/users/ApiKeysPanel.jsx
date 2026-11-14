@@ -8,6 +8,7 @@ import { useDelayedAction, UNDO_WINDOW_MS } from '../../hooks/useDelayedAction'
 import LoadingSpinner from '../LoadingSpinner'
 import Icon from '../Icon'
 import { Button } from '../ui'
+import AgentConnect from '../connect/AgentConnect'
 
 function formatDate(d) {
   if (!d) return ''
@@ -28,9 +29,10 @@ function Seconds({ until }) {
 // keys only to that person, so this panel is the same for an admin and a user.
 //
 // A key is shown once, in full, when it is created; the list holds only its
-// prefix. Revoking is a call made after the undo window ends, so Undo sends
+// prefix. With `connect` the panel ends with the guide that prints agent
+// configs, which uses the key just created. Revoking is a call made after the undo window ends, so Undo sends
 // nothing.
-export default function ApiKeysPanel({ addToast, intro }) {
+export default function ApiKeysPanel({ addToast, intro, connect = false }) {
   const { t } = useTranslation('auth')
   const [keys, setKeys] = useState([])
   const [loading, setLoading] = useState(true)
@@ -251,6 +253,8 @@ export default function ApiKeysPanel({ addToast, intro }) {
           })}
         </ul>
       )}
+
+      {connect && <AgentConnect apiKey={reveal?.key} addToast={addToast} />}
     </div>
   )
 }
