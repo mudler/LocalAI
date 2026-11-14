@@ -1545,7 +1545,7 @@ still wait). Nothing runs before the owner confirms.
     or of the delivery of a trigger still waits for the owner.
 
   Every result carries the stored state (see
-  [What the model is told]({{%relref "features/chats-agents#what-the-model-is-told-and-what-is-recorded" %}})),
+  [What the model is told]({{%relref "/features/chats-and-agents/chats-agents#what-the-model-is-told-and-what-is-recorded" %}})),
   and the log says which mode was used.
 
 - **The proposal is shown in the chat.** LocalAI writes the name, the schedule, what the

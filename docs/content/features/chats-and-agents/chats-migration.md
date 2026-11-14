@@ -37,7 +37,7 @@ The next sections describe what the server did with your old data at the first s
 | A scheduled task with a cron text | A trigger, **switched off**; `{{.name}}` parts of the prompt are filled from the task's parameters |
 | An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector]({{% relref "/features/chat-apps" %}}#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
 | A local MCP command of an agent (`mcp_stdio_servers`) | The same, only when the owner is an administrator; otherwise it is dropped, with the reason |
-| A Telegram connector of an agent | A [connector binding](/features/chats-connectors/) for the converted agent, **switched off**, with the bot token sealed on the server; the old `admins` become the allowlist |
+| A Telegram connector of an agent | A [connector binding]({{% relref "/features/chat-apps" %}}) for the converted agent, **switched off**, with the bot token sealed on the server; the old `admins` become the allowlist |
 | A skill folder (shared or personal) | A shared or personal skill |
 | A conversation saved in the database | A chat with its transcript (the newest 5000 messages) |
 
@@ -95,7 +95,7 @@ collection grant, planning and memory switches, the webhooks of old tasks, skill
 from a git repository, skill resource files, and connectors other than
 Telegram. A name that is taken becomes `Name (2)` (`Name (3)` and so on): this holds for agents, triggers
 and MCP connectors, and the report says `renamed to Name (2)`. A task is converted into a
-trigger; to run it through the [agent jobs API](/features/agent-jobs/) with
+trigger; to run it through the [agent jobs API]({{% relref "/features/chats-and-agents/agent-jobs" %}}) with
 parameters and a webhook, make it again as a task.
 
 The Telegram connector of the chats reads text, photos and voice messages in a

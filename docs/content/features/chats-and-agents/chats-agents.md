@@ -960,7 +960,7 @@ the grant "Also propose from messaging apps". It gets `update_trigger` and
 sensitive: only a paired sender can use it) and the sender of the message holds it;
 the approval mode of the connection then decides whether the owner confirms each
 change in the chat or it applies at once (see
-[Triggers from a connector chat]({{%relref "features/chats-connectors#triggers-from-a-connector-chat" %}})).
+[Triggers from a connector chat]({{%relref "/features/chat-apps#triggers-from-a-connector-chat" %}})).
 
 ### Clusters
 

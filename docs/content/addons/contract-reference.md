@@ -1,5 +1,8 @@
 ---
-title: Addon contracts
+title: Add-on contract reference
+weight: 40
+aliases:
+  - "/features/addons/"
 ---
 
 ## Status and trust
@@ -9,7 +12,7 @@ The owner installs, verifies, starts and supervises them, and a deployment with
 several frontends forwards every addon request to that owner over a pinned mutual
 TLS carrier. The routes are described in [Public API](#public-api), the Apps and
 Add-ons pages in [Apps](#apps), and Tables, the first first-party addon, in
-[Tables](../tables/). The first-party package is described in
+[Tables]({{% relref "/addons/catalogue/work/tables" %}}). The first-party package is described in
 [First-party package and release channels](#first-party-package-and-release-channels);
 it is not published to a registry by any test or by acceptance.
 
@@ -38,7 +41,7 @@ Trust has three parts, and they are different:
 Every addon requires an executable; a UI bundle alone is not an addon.
 
 The owner's resource policy also serves the resource kinds that are not add-ons.
-[Sharing resources]({{%relref "features/sharing" %}}) describes their roles, the
+[Share with your team]({{%relref "/features/sharing" %}}) describes their roles, the
 grant to `@everyone` and the `/api/shares` routes.
 
 ## Internal host policy store
@@ -609,7 +612,7 @@ a call may reach. The model never sees or sets either.
   it. An add-on whose service needs more than a token (servers, a login and a
   password) can seal a small versioned JSON record as the secret and keep only
   the resource name in the list, as the Mail add-on does (see
-  [Mail](/features/chats-connectors/#mail-imap-and-smtp)). The host cannot show a
+  [Mail]({{% relref "/features/chat-apps" %}}#mail-imap-and-smtp)). The host cannot show a
   sealed record back, so the add-on's page asks for all of it again when a person
   changes any part. A service that is not HTTP and is not reached through the
   sandbox network check must apply the address guard of `pkg/web/safehttp` itself.
@@ -865,7 +868,7 @@ URI: the base URL of the server followed by
 `https://localai.example.test/api/chats/connectors/oauth/callback`. The client
 read returns it as `callback_url`. The host builds it, in this order, from
 `LOCALAI_BASE_URL`, from the forwarding headers of a trusted proxy (see
-[reverse proxy]({{% relref "advanced/reverse-proxy-tls" %}})), or from the
+[reverse proxy]({{% relref "/administration/reverse-proxy-tls" %}})), or from the
 request when the host is `localhost` or a loopback address. When none of them
 applies, the start is a `409` with the type `base_url_required`, because the
 service would otherwise send the code to an address that anyone can choose.
@@ -999,7 +1002,7 @@ The `--addons-role` flag chooses how a process takes part. `combined` is the
 default and is both the owner and the only frontend. `owner` and `frontend` split
 them, as described in [Running the owner as its own workload](#running-the-owner-as-its-own-workload).
 
-**Distributed state.** In [distributed mode]({{% relref "features/distributed-mode" %}}),
+**Distributed state.** In [distributed mode]({{% relref "/administration/distributed-mode" %}}),
 the owner is a single runner by design: the operator runs one owner replica, and the
 lock file in its root is the guard against a mistake, not a way to scale. The
 frontends are stateless for add-ons. The one exception is the add-on pins of a
@@ -1108,11 +1111,11 @@ state in files under one root, as before. Frontends keep none and scale freely.
   path and mount point as the node did. Otherwise the installed add-ons point at
   missing directories. For an empty volume, the owner starts fresh.
 
-{{% notice warning %}}
+{{% callout style="warning" %}}
 The owner is a node-bound singleton. If the owner is down, add-ons are down: the
 frontends stay up and answer `503` for every add-on request. Failover is manual.
 There is no election and no standby owner.
-{{% /notice %}}
+{{% /callout %}}
 
 ### What runs where
 
@@ -1134,7 +1137,7 @@ run several frontend replicas.
 
 ### The owner in distributed mode
 
-When the frontends run in [distributed mode]({{% relref "features/distributed-mode" %}}),
+When the frontends run in [distributed mode]({{% relref "/administration/distributed-mode" %}}),
 the owner must join distributed mode too. Give it the same settings as the
 frontends:
 
@@ -1184,18 +1187,18 @@ still carries the user, and the owner checks that user against the account
 database, so the key set does not give a user any authority on its own. The command
 does not keep the CA key, so nobody can make a third certificate from the set.
 
-{{% notice note %}}
+{{% callout style="note" %}}
 Rotation is a coordinated restart. The frontends pin the exact certificate of the
 owner and the owner pins the one of the frontends. To change the key set, make a
 new one, update the secret, and restart the owner and every frontend. There is no
 overlap window and no automatic renewal.
-{{% /notice %}}
+{{% /callout %}}
 
 ### Example
 
 This Docker Compose file shows the add-on flags of one owner and two frontends.
 Add the other flags of your deployment (the database, NATS and the rest of
-[distributed mode]({{% relref "features/distributed-mode" %}})) to each service as
+[distributed mode]({{% relref "/administration/distributed-mode" %}})) to each service as
 usual.
 
 ```yaml
@@ -1544,7 +1547,7 @@ To restore access:
    [Private catalog service](#private-catalog-service) and
    [Library sources](#library-sources)).
 2. Grant the `addons` feature to each user who should keep them, in
-   **Settings → Users and keys** (see [Chats permissions](/features/chats/#permissions)
+   **Settings → Users and keys** (see [Chats permissions]({{% relref "/features/chats-and-agents/chats" %}}#permissions)
    for the same screen). The calls the pages make still need the user's own
    features: `images` for an image, `audio_speech` for speech, and so on.
 
@@ -1744,14 +1747,14 @@ A library source is a place LocalAI reads entries from. There are three kinds:
 | `model` | Models, as a library index or a model gallery index | The model gallery |
 
 All sources of all kinds are in one store, `addons/sources.json` under the data path.
-`local-ai library` (see the [CLI reference](/reference/cli-reference/#library-sources)), the
+`local-ai library` (see the [CLI reference]({{% relref "/reference/cli-reference" %}}#library-sources)), the
 HTTP routes below and the Sources tab work on the same store with the same code, so
 a change made in one place shows in the others.
 
 A source can be a default: one that LocalAI ships (the official add-on library, the
 model library and gallery index, and the backend library and gallery index). Of the two
 model sources and the two backend sources only one is on by default, the one the build
-reads (see [Which source a build reads]({{% relref "features/backends#which-source-a-build-reads" %}})). A default is marked `default`. If
+reads (see [Which source a build reads]({{% relref "/models/backends#which-source-a-build-reads" %}})). A default is marked `default`. If
 you remove a default, LocalAI keeps a record of the removal (a tombstone, `removed:
 true`), so the default does not come back at the next start. Turn the source on again
 to bring it back. A source you added is deleted when you remove it.
@@ -2013,7 +2016,7 @@ https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/backends/index.y
 ```
 
 The library is the source of truth. To add or change a backend, change the library; see
-[Backends]({{% relref "features/backends#the-backend-library-and-the-generated-gallery" %}}).
+[Backends]({{% relref "/models/backends#the-backend-library-and-the-generated-gallery" %}}).
 The digests are never edited by hand. Pin them again after the backend images are rebuilt;
 this is the only command that reads the registry:
 
@@ -2212,7 +2215,7 @@ and `zh-CN`, and every connector kind to have the same fields as its English kin
 ### Skills
 
 An add-on can ship skills, the procedures a chat model reads before a task
-(see [Skills]({{%relref "features/chats#skills" %}})). The model loads one by
+(see [Skills]({{%relref "/features/chats-and-agents/chats#skills" %}})). The model loads one by
 its name with the chat's `load_skill` tool, which also names the files of the
 skill's folder, such as `references/`, for `read_file`. The manifest declares
 them in `capabilities.skillDefinitions` and the package holds the files:
@@ -2322,7 +2325,7 @@ The workspace store shares skill files across frontends; only the owner writes v
 Each turn reads provider availability from the broker. When the owner is down, add-on document skills do not fall back to core.
 Saved skill names and explicit pins remain intact.
 Legacy built-in document OFF preferences migrate to add-on OFF preferences through the persisted settings path.
-See [Document skills]({{%relref "features/chats#document-skills" %}}) for setup and preference behavior.
+See [Document skills]({{%relref "/features/chats-and-agents/chats#document-skills" %}}) for setup and preference behavior.
 
 ### SDK versions
 
@@ -2380,7 +2383,7 @@ draw the same thing.
 - `sdk.ui` also has the Share dialog, `ShareDialog`, and the role and sharing line
   of a list row, `RoleBadge` and `SharedByBadge`. `sdk.resources.shareClient(resourceId)`
   is the dialog's client for one resource of the add-on. See
-  [The Share dialog]({{%relref "features/sharing#the-share-dialog" %}}).
+  [The Share dialog]({{%relref "/features/sharing#the-share-dialog" %}}).
 - `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
   add-on's own scoped style sheet: `text`, `muted`, `surface`, `inset`, `edge`, `hover`,
   `accent`, `accentText`, `accentWash`, `onAccent`, `okText`, `okWash`, `warnText`,
@@ -2918,7 +2921,7 @@ configured attempt budget; sustained authenticated health resets that budget.
 The protocol uses POST with JSON on `/read`, `/preview`, `/apply`, `/receipt`, and
 `/output`, and on `/act`, `/connector`, `/client` and `/client/stream` for the add-ons that
 declare actions, a connector or client routes (see
-[Paired clients: inference and add-ons](/features/addon-clients/)). Read and preview accept the existing contract envelope. Apply wraps it
+[Paired clients: inference and add-ons]({{% relref "/addons/addon-clients" %}})). Read and preview accept the existing contract envelope. Apply wraps it
 with a revision; output wraps it with a handle; receipt accepts an operation ID.
 These transport wrappers are defined in the runtime package because the original
 contract specifies Go methods but not their HTTP request DTOs. No contract method
@@ -2983,7 +2986,7 @@ person to confirm.
   names no resource: if its schema has a `resourceId`, the host ignores the
   value the model gives and sets it to the ID of the conversation.
 - **Who may call it.** Only the chats consumer (`studio-chats-addons` in the
-  consumer table of [Tables](../tables/)). Every other consumer neither lists the
+  consumer table of [Tables]({{% relref "/addons/catalogue/work/tables" %}})). Every other consumer neither lists the
   tool nor runs it: the old chat route, the direct API, agents and scripts.
 - **The call.** `POST /act` with an envelope whose action and scope are `act`.
   The actor is the user of the chat. The answer is a `Result`. The call may run
@@ -3000,7 +3003,7 @@ person to confirm.
   the run holds `act.addons` (or `act.addons:<add-on id>`). A tool that the host
   gates with a permission, because the add-on holds a credential, also needs
   `act.spend`. Declare `read` only for a tool that changes nothing. See
-  [Action policy of unattended runs](../chats-agents/#action-policy-of-unattended-runs).
+  [Action policy of unattended runs]({{% relref "/features/chats-and-agents/chats-agents" %}}#action-policy-of-unattended-runs).
 
 ## Host operations
 
@@ -3056,7 +3059,7 @@ A host operation is how an add-on process asks the host to do something the
 add-on cannot do itself, such as starting a job of the engine. It is contract
 surface that third-party add-ons cannot use unless the host setting names them.
 An add-on that serves paired clients can also ask `client.list` for the clients
-that may reach it (see [Paired clients](/features/addon-clients/)). When a client call serves a client with a folder grant, `client.workspace.list`, `.read` and `.write` give it text files of the owner (same page).
+that may reach it (see [Paired clients]({{% relref "/addons/addon-clients" %}})). When a client call serves a client with a folder grant, `client.workspace.list`, `.read` and `.write` give it text files of the owner (same page).
 
 The rules:
 
@@ -3139,7 +3142,7 @@ The owner process holds everything about host grants. A frontend stores nothing 
 ## Connector add-ons
 
 A connector add-on carries the messages of a messaging platform between the platform
-and the [chats](/features/chats-connectors/). The Telegram, Slack and Discord add-ons are
+and the [chats]({{% relref "/features/chat-apps" %}}). The Telegram, Slack and Discord add-ons are
 first-party connector add-ons. The host keeps what is the same for every platform (the
 bindings, the sealed bot token, the allowlist, the sender log, one chat for each sender
 or thread, the turn and its notifications), so an add-on holds only the transport and
@@ -3344,7 +3347,7 @@ is never sent a handle.
 The SDK of the first-party add-ons (`addons/internal/connector`) has `Put` and `Get`;
 a platform implements `StreamReader` and `StreamSender` and keeps only its own HTTP
 calls. The limits come from the platforms' own documents: see the table in
-[File limits](/features/chats-connectors/#file-limits).
+[File limits]({{% relref "/features/chat-apps" %}}#file-limits).
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
@@ -3367,7 +3370,7 @@ A message is answered when it is `direct` (a private chat) or a `mention` (it
 addresses the bot in a group, such as a Slack mention or a reply in a thread the bot
 follows); any other message is logged and ignored. Which chat a message belongs to
 depends on the conversation mode of the binding (see
-[How the bot answers](/features/chats-connectors/#how-the-bot-answers)); by default a
+[How the bot answers]({{% relref "/features/chat-apps" %}}#how-the-bot-answers)); by default a
 message with a `thread` belongs to a chat of that thread, shared by the people who
 write in it, and any other message belongs to a chat of its sender. When a message has `media` (at most 8
 references), the host reads each file with the op `media` before it makes the chat,
@@ -3938,7 +3941,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
-| `capabilities.client` | Optional, feature level 7. 1 to 32 `routes` that a paired client may call, each with an `id`, a `method`, a `path` and optional `stream`, `maxBodyBytes` and `timeoutSeconds`. The last segment of a path may be `{name...}` (feature level 8): it matches one or more segments and the add-on must validate the joined value itself. Needs `capabilities.service`. See [Paired clients: inference and add-ons](/features/addon-clients/). |
+| `capabilities.client` | Optional, feature level 7. 1 to 32 `routes` that a paired client may call, each with an `id`, a `method`, a `path` and optional `stream`, `maxBodyBytes` and `timeoutSeconds`. The last segment of a path may be `{name...}` (feature level 8): it matches one or more segments and the add-on must validate the joined value itself. Needs `capabilities.service`. See [Paired clients: inference and add-ons]({{% relref "/addons/addon-clients" %}}). |
 | `featureLevel` | Optional positive integer, default 1. The feature level the add-on needs from the host. See [Feature level](#feature-level). |
 | `setup` | Optional, feature level 4. What the person needs before the add-on works, as a short phrase such as `an access token`. A string or a map of language tag to string, like `ui.title`. For an add-on that has no connector kind; a kind has its own `kinds[].setup`. See [Setup text](#setup-text). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
@@ -3964,7 +3967,7 @@ caller is an administrator before it acts.
 ### Add-ons that keep the owner's own data
 
 An add-on that keeps the data of one person and needs no credential and no resource list (the
-[Calendar](/features/calendar/) and [Contacts](/features/contacts/) add-ons) sets `capabilities.ownerData` to `true` and
+[Calendar]({{% relref "/addons/catalogue/work/calendar" %}}) and [Contacts]({{% relref "/addons/catalogue/work/contacts" %}}) add-ons) sets `capabilities.ownerData` to `true` and
 `featureLevel` to 3. Its tools name no resource: the add-on keys the data on the user in the
 authority of the call, never on an argument. Reads run at once for every sender a messaging
 bot lets in. A tool of another kind than `read` is held to `tools.write` in a messaging chat,
@@ -4006,7 +4009,7 @@ per-agent resources:
 - The add-on is not told about the agent. The host checks the list of the agent
   before it forwards a call that names a resource, and filters the listing and the
   selection of a chat. See
-  [Resources of an agent](/features/chats-agents/#resources-of-an-agent).
+  [Resources of an agent]({{% relref "/features/chats-and-agents/chats-agents" %}}#resources-of-an-agent).
 - A tool that writes in such an add-on needs `tools.write` in a messaging chat.
 
 ### A confirmation the owner can relax
@@ -4073,7 +4076,7 @@ their own session; a model cannot change it, and a new connection made on the pa
 on **propose**. The SSH add-on works this way: its `run` tool declares no `approval` and
 no `approvalOverridable`, so the connection is the one place where the person chooses
 between confirming each command and running it at once. The card of a held command shows the
-host and the exact command (see [SSH](/features/ssh/)).
+host and the exact command (see [SSH]({{% relref "/addons/catalogue/services/ssh" %}})).
 
 The host limits a write call to the apply timeout (60 seconds), so a write tool that runs a
 command must stay below it.
@@ -4517,7 +4520,7 @@ Quantization keep a change set for the changes they can roll back, and the resul
 carries `undoable`, the `changeId` and a one-line `undo`. See
 [Undoing a change a chat made](#undoing-a-change-a-chat-made). `GET /api/addons/proposals?state=pending`
 lists the caller's own pending proposals (newest first, at most 32). See
-[Tables](../tables/#model-tools-and-approval-cards) for the tool names, the
+[Tables]({{% relref "/addons/catalogue/work/tables" %}}#model-tools-and-approval-cards) for the tool names, the
 approval card and the inventory of tool consumers.
 
 `POST /api/addons/proposals` takes a typed `write` or `schema` request. When the
@@ -5392,8 +5395,8 @@ Canonical links open the add-on shell, which reports unavailable installations. 
 "Core routes from add-ons"); the core keeps these routes and checks every call again.
 Both add-ons offer chat tools that start a job. In the chats a tool call starts it at once; on other surfaces it is a proposal that waits for a person to confirm. They
 reach the engine through [Host operations](#host-operations), and a tool can control only
-a job that a tool started. See [Fine-tuning](../fine-tuning/#fine-tuning-is-an-add-on) and
-[Quantization](../quantization/#quantization-is-an-add-on).
+a job that a tool started. See [Fine-tuning]({{% relref "/models/training/fine-tuning" %}}#fine-tuning-is-an-add-on) and
+[Quantization]({{% relref "/models/training/quantization" %}}#quantization-is-an-add-on).
 
 ### My add-ons
 
@@ -5794,7 +5797,7 @@ upgrades by itself. Each scheduled pass reads the current owner-host policy, so
 changes take effect without a restart. If the owner policy is unavailable, the
 pass skips upgrades and logs an error; it does not use frontend-local settings.
 
-At the end of a pass the owner writes one item to the inbox of the administrators when it did something: "Add-ons: 1 updated automatically, 1 waiting for approval". It names the add-ons that were upgraded, the ones that failed, and the ones that wait for an administrator because the new version needs host access that nobody approved (an automatic upgrade never approves). A failure or a wait links to the updates that need you. A pass that did nothing writes nothing, and the same add-on failing or waiting for the same candidate again is not written again, also after a restart. The owner is the only writer, so the item exists once in a cluster. With the setting off nothing is written, and add-on updates are not in the backend digest of the inbox; see [Updates in the inbox]({{% relref "features/backends#updates-in-the-inbox" %}}).
+At the end of a pass the owner writes one item to the inbox of the administrators when it did something: "Add-ons: 1 updated automatically, 1 waiting for approval". It names the add-ons that were upgraded, the ones that failed, and the ones that wait for an administrator because the new version needs host access that nobody approved (an automatic upgrade never approves). A failure or a wait links to the updates that need you. A pass that did nothing writes nothing, and the same add-on failing or waiting for the same candidate again is not written again, also after a restart. The owner is the only writer, so the item exists once in a cluster. With the setting off nothing is written, and add-on updates are not in the backend digest of the inbox; see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}}).
 
 ### On the Updates page
 
@@ -5802,7 +5805,7 @@ At the end of a pass the owner writes one item to the inbox of the administrator
 the same states: ready, updating, failed, held for approval, and cannot update. It shows
 the time of the last add-on check and **Check now** reads the library of every installed
 add-on again. A held upgrade opens the same approval dialog as in Apps. An upgrade or a
-check needs the administrator's own browser session, as everywhere else. See [Backends]({{% relref "features/backends#the-updates-page" %}}).
+check needs the administrator's own browser session, as everywhere else. See [Backends]({{% relref "/models/backends#the-updates-page" %}}).
 
 ### In the page
 
@@ -6027,7 +6030,7 @@ an `invalid_path` error before any request is made:
   `/api/chats/connectors/{id}/share`. Only the person shares, in the host's Share
   dialog: an add-on page renders `sdk.ui.ShareDialog` with
   `sdk.resources.shareClient` for its own resources, or `sdk.ui.ConnectionShareDialog`
-  for a connector binding (see [Sharing resources]({{%relref "features/sharing#in-an-add-on" %}}));
+  for a connector binding (see [Share with your team]({{%relref "/features/sharing#in-an-add-on" %}}));
 - an encoded `/` or `\` in the first two segments, because it can hide a segment
   boundary. In a later segment it is a normal identifier (`/api/voice-profiles/a%2Fb`).
 
@@ -6493,7 +6496,7 @@ What a call can reach depends on who made the request:
 
 - **A call from a chat.** The host binds every add-on call that a chat makes to that chat, for every tool kind: a read tool that names no resource (such as the Office add-on's `read-docx`) as well as an action or a change. The calls act with the chat's own access, the same access as the chat's file tools:
   - In a chat whose agent has no folder, `/` is the user's home, as before.
-  - In a chat whose agent has a folder (see [Folders of an agent]({{%relref "features/chats-agents#folders-of-an-agent" %}})), `/` is the agent's folder. A path names a file inside it: `/Other/x` is `Other/x` inside the folder, not a folder of the home. The add-on can also name the chat's own folder as `/workspace/chat/x`, and the shared folders as `/workspace/shared-<name>/x` (read only). A path with a parent reference, NUL or a control character is refused. An encoded or look-alike separator (`..%2f`, `%2e%2e`, a backslash, U+2024, U+FF0F) is part of a name. A path outside these folders is not found. The agent's mode applies: a read-only folder takes no file.
+  - In a chat whose agent has a folder (see [Folders of an agent]({{%relref "/features/chats-and-agents/chats-agents#folders-of-an-agent" %}})), `/` is the agent's folder. A path names a file inside it: `/Other/x` is `Other/x` inside the folder, not a folder of the home. The add-on can also name the chat's own folder as `/workspace/chat/x`, and the shared folders as `/workspace/shared-<name>/x` (read only). A path with a parent reference, NUL or a control character is refused. An encoded or look-alike separator (`..%2f`, `%2e%2e`, a backslash, U+2024, U+FF0F) is part of a name. A path outside these folders is not found. The agent's mode applies: a read-only folder takes no file.
   - When an add-on mounts its `/` at `home`, the host also mounts the chat's folder at `chat` in a chat whose agent has a folder, so the Sandbox sees `/workspace/home` and `/workspace/chat` as the chat's file tools do. No add-on needs a change for this.
   - `workspace.changes` lists only the change sets inside the chat's folders, and a `workspace.commit` entry outside every mount comes back as an `outside-view` conflict.
   - A call whose chat the host cannot resolve (the chat is gone, its agent's folder is missing, or the binding names another user than the actor) is refused with `bad_request`. It never falls back to the home. An action always works for one chat, so an action request that carries no binding and whose resource names no chat of the user is refused too.
@@ -6516,7 +6519,7 @@ Simple Office is a lightweight option for basic office-file work, without requir
 |---|---|---|
 | `read-docx`, `read-xlsx`, `read-pptx`, `read-pdf` | read | Return the text of a file: paragraphs with their index, cells row by row (a formula that has no stored result shows as the formula, such as `=SUM(A1:A2)`), slides with their shapes, pages. The answer is cut to about 48 KiB and says so. |
 | `edit-docx`, `edit-xlsx`, `edit-pptx` | action | Apply a list of changes (at most 200) to a file. All of them are saved, or none. |
-| `create-docx`, `create-xlsx`, `create-pptx`, `create-pdf` | action | Make a new file. `create-docx` and `create-pdf` take a `markdown` string; `create-xlsx` takes a single-sheet `csv` string. All three take `path` and optional `title` strings; XLSX also accepts `sheet`. The former `blocks` and `sheets` arguments are no longer supported. PDF writes Latin-1 text with the built-in font. See [Simple Office](../simple-office) for the contract and limits. |
+| `create-docx`, `create-xlsx`, `create-pptx`, `create-pdf` | action | Make a new file. `create-docx` and `create-pdf` take a `markdown` string; `create-xlsx` takes a single-sheet `csv` string. All three take `path` and optional `title` strings; XLSX also accepts `sheet`. The former `blocks` and `sheets` arguments are no longer supported. PDF writes Latin-1 text with the built-in font. See [Simple Office]({{% relref "/features/files-and-documents/office#simple-office" %}}) for the contract and limits. |
 
 The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. Every tool, a read tool too, works with the chat's own access: in a chat whose agent works in one folder, `/` is that folder (see [Workspace operations](#workspace-operations)). Without accounts, the files are the same ones the chat and the Files page use. With accounts and `local-owner` mode, the `workspace.*` operations are refused, because the local owner is no account and has no files; use `named-user` mode for the Office and Sandbox add-ons. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
 
@@ -6535,7 +6538,7 @@ one `web_fetch`, served by the add-on. It adds two things the built-in tools do 
 search providers that need a key (Brave Search, Tavily, Google Programmable Search), tried in
 an order the administrator chooses, and the text of PDF files. Both tools run the code of the
 built-in tools for the rest: the same SSRF guard, limits and untrusted-content label. See
-[Web search and web pages]({{%relref "features/web#the-web-add-on" %}}) for what it does in a
+[Web search and web pages]({{%relref "/features/chats-and-agents/web#the-web-add-on" %}}) for what it does in a
 chat and how to set it up.
 
 | Tool | Kind | What it does |
@@ -6560,7 +6563,7 @@ cluster.
 
 ## Sandbox
 
-The Sandbox add-on lets a chat run commands and code in isolation. It has one tool for the model, the action tool `bash`, which replaces the chat's built-in `bash` (`"shadows": "bash"`), so a chat with the Sandbox sees one `bash` and it runs isolated. The model reads and changes files with the chat's own file tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files` and the others; see [Chats]({{%relref "features/chats#running-commands" %}})): they work on the same files, so a script written with `write_file` runs with `bash` at once, and what `bash` writes is in the user's files after the call. `bash` runs inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`. Each call, and each background job, starts in the chat's work folder (`/workspace/home/Chats/<chat>/work`, made before the call) and gets its path as `$WORK`; a chat with no work folder yet starts in `/workspace/home`. The description of `bash` tells the model to use `$WORK` or relative paths, to quote every path with double quotes, and never to type out a name with spaces or non-ASCII characters. The skill folders are not mounted in the sandbox. User-written scripts must be saved in the home with the file tools before execution. The status tool keeps its add-on name (`addon__sandbox__status`). Without the Sandbox, or with it off or unable to run, a chat may still run commands on the server itself, without isolation, when an administrator allows it; see [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
+The Sandbox add-on lets a chat run commands and code in isolation. It has one tool for the model, the action tool `bash`, which replaces the chat's built-in `bash` (`"shadows": "bash"`), so a chat with the Sandbox sees one `bash` and it runs isolated. The model reads and changes files with the chat's own file tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files` and the others; see [Chats]({{%relref "/features/chats-and-agents/chats#running-commands" %}})): they work on the same files, so a script written with `write_file` runs with `bash` at once, and what `bash` writes is in the user's files after the call. `bash` runs inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`. Each call, and each background job, starts in the chat's work folder (`/workspace/home/Chats/<chat>/work`, made before the call) and gets its path as `$WORK`; a chat with no work folder yet starts in `/workspace/home`. The description of `bash` tells the model to use `$WORK` or relative paths, to quote every path with double quotes, and never to type out a name with spaces or non-ASCII characters. The skill folders are not mounted in the sandbox. User-written scripts must be saved in the home with the file tools before execution. The status tool keeps its add-on name (`addon__sandbox__status`). Without the Sandbox, or with it off or unable to run, a chat may still run commands on the server itself, without isolation, when an administrator allows it; see [Commands on this machine]({{%relref "/features/chats-and-agents/chats#commands-on-this-machine" %}}).
 
 Sandbox also owns the `docx`, `pptx`, `pdf`, and `xlsx` Python/Paper procedures, references, and applicable license notices.
 They require the selected Sandbox provider to offer usable isolated commands, with explicit chat or agent grants.
@@ -6574,12 +6577,12 @@ Simple Office keeps its own tool-based procedures and needs no exec grant.
 An older package of the add-on also served `read`, `write`, `edit`, `glob` and `grep`. They are gone: reinstall the package to drop them. A chat's switch for the add-on is kept by add-on ID, so nothing a chat stored changes.
 
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
-- **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, their version stays and the sandbox's version is saved as a copy; the answer names the file and the copy. A file written outside `/workspace/home` (where `bash` starts) is not saved, and the answer names it too. In a chat whose agent works in [one folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}), `/workspace/home` is that folder (read only when the agent can only read it), and the chat's own folder is at `/workspace/chat`, where files are saved as well; nothing else of the user's files is in the sandbox. The change set belongs to the chat that ran the command, so the chat lists the files it saved (see [Files that a command saved]({{%relref "features/chats#files-that-a-command-saved" %}})). A file change by someone else makes the sandbox rebuild its view of the files before the next call.
+- **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, their version stays and the sandbox's version is saved as a copy; the answer names the file and the copy. A file written outside `/workspace/home` (where `bash` starts) is not saved, and the answer names it too. In a chat whose agent works in [one folder]({{%relref "/features/chats-and-agents/chats-agents#folders-of-an-agent" %}}), `/workspace/home` is that folder (read only when the agent can only read it), and the chat's own folder is at `/workspace/chat`, where files are saved as well; nothing else of the user's files is in the sandbox. The change set belongs to the chat that ran the command, so the chat lists the files it saved (see [Files that a command saved]({{%relref "/features/chats-and-agents/chats#files-that-a-command-saved" %}})). A file change by someone else makes the sandbox rebuild its view of the files before the next call.
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When the add-on stops (it is disabled, or the server shuts down) it first stops all its sandboxes, for at most 8 seconds. The supervisor waits for that before it kills the add-on process; a server that is killed with SIGKILL cannot do this, and the next start removes what was left. When a suspended sandbox is removed, the host backend also stops the processes it left running.
 - **Background jobs.** The add-on runs the jobs of the chat's `job` tool (see [Execution provider and status payload](#execution-provider-and-status-payload)) in the chat's sandbox, in the add-on process. A job's output (stdout and stderr together, the last 256 KiB, with absolute byte offsets) and its exit status come from the process, not from any connection of the host, so they stay when the call that started the job returns. While a job runs, its sandbox is not given way to another chat, not suspended, not refreshed and not removed at its age. Input goes to the job's standard input; a call waits at most 5 seconds for the job to read it. A kill sends SIGTERM (or SIGINT) to the job's process group and SIGKILL 10 seconds later; a job ends after 2 hours the same way. When a job ends, what it wrote is committed as one change set (`Job job-3: build`) before the sandbox is let go; a file it writes is also in the next `bash` call's change set. At most 32 jobs run in the add-on process; the host keeps the limits per chat and per user. A finished job stays readable for 30 minutes, at most 16 per chat. An add-on restart ends every job: the host reads the jobs as gone. A call that must make the sandbox again (a new profile, agent folder or mode) ends the chat's jobs first and says so at the top of its output.
 - **The network of a job.** While no call of the chat runs, the proxy lets a connection through under the operation of the oldest live job of the sandbox (the proxy cannot tell which process opened it; during a call, every connection counts against the call). Each job has its own 64 MiB up and 4 GiB down. A host that the chat's preset or an always-allowed rule allows passes. A host that needs the person's yes is blocked, since nobody is there to answer a card: the job's output gets *Blocked by LocalAI: host:port needs the user's approval, and nobody can be asked while no turn of this chat runs (a background job)*, and the audit line has the reason `unattended`. With neither a call nor a job, every connection is refused as before.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
-- **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. Without the add-on, or with it switched off for a chat, the chat's model is told that it cannot run commands, and the chat's Tools menu says so to the user; see [Running commands]({{%relref "features/chats#running-commands" %}}). A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
+- **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. Without the add-on, or with it switched off for a chat, the chat's model is told that it cannot run commands, and the chat's Tools menu says so to the user; see [Running commands]({{%relref "/features/chats-and-agents/chats#running-commands" %}}). A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
 - **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.
 - **Undo.** Each `bash` call that changes files is one change set in the history of the user's files (Files, History), and it is undone there, one call at a time. A whole turn is not one change set: the sandbox runs in the add-on process and the Files service commits each write of a tool on its own. The file tools of the chat itself work the same way, with an Undo note under the call.
 - **Shared code.** The Host backend, the manager that keeps one sandbox per user and chat, and `bash` live in `core/services/studio/sandbox` (`host`, `runner`). The add-on runs them over its host operations; the chats' built-in `bash` runs the same code over the workspace store directly.
@@ -6658,7 +6661,7 @@ matplotlib draws charts without a display: it writes PNG and SVG files, and the 
 2. The profile of the saved agent of the chat (`sandbox_profile`). Unattended runs of an agent (triggers, jobs, connectors) use it too.
 3. The default profile of the administrator (`default` of the policy below), then `media`, then `base`. With media as the default, each sandbox reserves the limits of `media` (2 CPUs, 4 GiB of memory, 20 GiB of disk); an administrator who wants the smaller `base` sets it as the default.
 
-Switching the profile restarts the sandbox at the next command. The user's files stay. Running processes and installed packages are lost, and the picker says so before you switch. The model can switch too with one tool, `sandbox_profile`: the action `list` shows the profiles with their programs, and the action `use` switches. It is in the *Run commands* group of the chat and follows the rules of the picker: the user's own chat and the policy of the administrator. A skill can name the profile it wants with the frontmatter field `sandbox: media` (see [Chats](/features/chats/)). It is a hint: the model is told, may offer the switch and never switches without the person's yes.
+Switching the profile restarts the sandbox at the next command. The user's files stay. Running processes and installed packages are lost, and the picker says so before you switch. The model can switch too with one tool, `sandbox_profile`: the action `list` shows the profiles with their programs, and the action `use` switches. It is in the *Run commands* group of the chat and follows the rules of the picker: the user's own chat and the policy of the administrator. A skill can name the profile it wants with the frontmatter field `sandbox: media` (see [Chats]({{% relref "/features/chats-and-agents/chats" %}})). It is a hint: the model is told, may offer the switch and never switches without the person's yes.
 
 **Policy.** The administrator sets the policy on the Settings tab of the add-on (the owner host setting `sandbox_profiles`, with the same owner rules as the network settings). Everything is open by default: with no policy every user may use every profile.
 
@@ -6691,7 +6694,7 @@ Commands that run on this machine (the host backend, or the chats' built-in `bas
 | Package registries only | The HTTPS hosts of the package registries below, on port 443. |
 | Allow all | Every public host on an allowed port. |
 
-The preset of a chat is the lower of its own choice and the ceiling (`chats_egress_ceiling`, default `off`). A new chat starts with `chats_egress_default`, capped by the ceiling. The preset lives in the chat's record on the server, never in a file of the workspace: the sandbox can write the home, so a file there could be changed by the code it is meant to confine. A preset never reaches a private, loopback or link-local address, nor the server's own addresses, nor a cloud metadata address. The server's own addresses are the same list for `web_fetch` and the Sandbox: the interfaces of the server, loopback, and the addresses that the host of the external base URL resolves to (read again every 60 seconds); the add-on also refuses the interfaces of its own machine. With `chats_egress_allow_private` on, a host that an administrator allowed by a rule or a card answer may reach private addresses; the metadata addresses stay refused. See [Runtime settings]({{%relref "features/runtime-settings#tools" %}}) for the six `chats_egress_*` settings.
+The preset of a chat is the lower of its own choice and the ceiling (`chats_egress_ceiling`, default `off`). A new chat starts with `chats_egress_default`, capped by the ceiling. The preset lives in the chat's record on the server, never in a file of the workspace: the sandbox can write the home, so a file there could be changed by the code it is meant to confine. A preset never reaches a private, loopback or link-local address, nor the server's own addresses, nor a cloud metadata address. The server's own addresses are the same list for `web_fetch` and the Sandbox: the interfaces of the server, loopback, and the addresses that the host of the external base URL resolves to (read again every 60 seconds); the add-on also refuses the interfaces of its own machine. With `chats_egress_allow_private` on, a host that an administrator allowed by a rule or a card answer may reach private addresses; the metadata addresses stay refused. See [Runtime settings]({{%relref "/administration/runtime-settings#tools" %}}) for the six `chats_egress_*` settings.
 
 **Package registries.** The list ships with LocalAI (`core/services/studio/egress/registries.json`) and changes only by a reviewed pull request that also changes this table and is named in the release notes. Every entry is an exact host name, HTTPS on port 443, with no pattern. Upload hosts (such as `upload.pypi.org`) are not on it, and neither is `raw.githubusercontent.com`, which serves any user's content. An administrator adds exact hosts with `chats_egress_extra_registries`, for example an internal mirror (which is private and so also needs the private switch and an administrator's rule). Extra registries are registries: they follow the Package registries rules (HTTPS only, and only with that preset or a card). To allow one more host for any request, use the list below.
 
@@ -6712,7 +6715,7 @@ Wildcard grants remain inside the administrator's ceiling: a **Package registrie
 | Java (Maven Central) | `repo.maven.apache.org`, `repo1.maven.org` |
 | GitHub releases and archives | `github.com`, `codeload.github.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com` |
 
-**What the proxy checks.** The host of a request goes through the same guard as `web_fetch` ([Addresses inside your network]({{%relref "features/web#addresses-inside-your-network" %}})): a canonical name or literal, no address zone, no numeric tricks, no `localhost`. A host the guard refuses is never resolved, so it does not leak through DNS. A name is resolved once; when any answer is not allowed the connection is refused, and the proxy dials the address it checked. The addresses of the node's own interfaces, the whole loopback range and the server's own addresses that LocalAI sends with each allow (see `egress.check`) are refused even when public. Only ports 80 and 443 by default (`chats_egress_ports`; 22 and 25 are always refused). HTTPS goes as `CONNECT host:443`: after the tunnel opens, the first TLS record must be a ClientHello whose server name is the CONNECT host, or the tunnel is closed (this stops a tunnel to one tenant of a CDN that talks to another). A `CONNECT` to another allowed port (an always-allowed `host:8443`, or a port added to `chats_egress_ports`) may carry any protocol, and the server may speak first, so the proxy waits for nothing; but when the first bytes the command sends are a TLS record, they must be a ClientHello whose server name is the CONNECT host too, or the tunnel is closed with the audit reason `sni`. Plain HTTP goes as an absolute `http://` URL: each request of a kept-alive connection is decided on its own, the `Proxy-*` and hop-by-hop headers are dropped, a `Host` header that names another host is refused, and every request gets a new upstream connection. `CONNECT` to port 80, the origin form, `https://` in absolute form and `Upgrade` are refused with 400. The proxy follows no redirect: the guest's client follows it with a new request, which is checked again.
+**What the proxy checks.** The host of a request goes through the same guard as `web_fetch` ([Addresses inside your network]({{%relref "/features/chats-and-agents/web#addresses-inside-your-network" %}})): a canonical name or literal, no address zone, no numeric tricks, no `localhost`. A host the guard refuses is never resolved, so it does not leak through DNS. A name is resolved once; when any answer is not allowed the connection is refused, and the proxy dials the address it checked. The addresses of the node's own interfaces, the whole loopback range and the server's own addresses that LocalAI sends with each allow (see `egress.check`) are refused even when public. Only ports 80 and 443 by default (`chats_egress_ports`; 22 and 25 are always refused). HTTPS goes as `CONNECT host:443`: after the tunnel opens, the first TLS record must be a ClientHello whose server name is the CONNECT host, or the tunnel is closed (this stops a tunnel to one tenant of a CDN that talks to another). A `CONNECT` to another allowed port (an always-allowed `host:8443`, or a port added to `chats_egress_ports`) may carry any protocol, and the server may speak first, so the proxy waits for nothing; but when the first bytes the command sends are a TLS record, they must be a ClientHello whose server name is the CONNECT host too, or the tunnel is closed with the audit reason `sni`. Plain HTTP goes as an absolute `http://` URL: each request of a kept-alive connection is decided on its own, the `Proxy-*` and hop-by-hop headers are dropped, a `Host` header that names another host is refused, and every request gets a new upstream connection. `CONNECT` to port 80, the origin form, `https://` in absolute form and `Upgrade` are refused with 400. The proxy follows no redirect: the guest's client follows it with a new request, which is checked again.
 
 **Cards.** When a command asks for a host that the chat's preset does not admit but the ceiling would, and a person watches the chat, LocalAI stores a card in the chat and the person sees it in the chat: *A command in this chat wants to reach* `host:port` (an international host name is checked and shown in its ASCII form, so a look-alike name such as `pаypal.com` with a Cyrillic `а` reads `xn--pypal-4ve.com`; a name with no valid ASCII form is refused), with **Allow once** (the rest of that command), **Allow for this chat** (a rule) and **Deny** (a deny rule, so the host does not ask again; it can be removed in the network panel). The connection waits for the answer for up to 60 seconds, and never past the call's own timeout, so `pip` goes on by itself after the click; without an answer it gets the 403 line with *the user did not answer*. A late answer still counts: *Allow for this chat* stores the rule, and *Allow once* lets the next call of the chat reach the host within ten minutes. A card nobody answered expires when the chat's turn ends; it stays visible as *Not answered* and can still be answered, with the same buttons, under the call that asked and in the network panel of the **Tools** menu. Ceiling `off` never shows a card; ceiling `registries` shows one only for a registry host (so a chat on Off can approve `pypi.org`); ceiling `all` for any public host. A host inside your network shows a card only with `chats_egress_allow_private` on, and only an administrator can allow it. A chat shows at most three cards at a time and one per host and port; a second connection to the same host waits on the same card. A card names the turn that asked it, and waits only while that turn holds the chat and its 60 seconds have not run out. When the frontend that ran a turn dies, its cards do not stay pending: they read as *Not answered* at once, do not count toward the three, and expire in the chat record when the reaper ends that turn, when the next turn starts, or when the next card is asked, whichever comes first. They can still be answered late, like any expired card. Unattended runs (triggers, connectors) and sub-agents get no card: the block is in their output. The card is written to the chat record before the answer is sent on the chat bus, and the waiting check reads it again every two seconds, so an answer given through any frontend reaches it within two seconds even when the bus message is lost. When the ceiling goes down while a card waits, the card is refused, and every answer to it gets `400 egress_above_ceiling` (the same answer twice to an answered card is `204`; another answer is `409 already_answered`). A card the ceiling cannot admit shows no buttons: it says that network access is off (or limited) on this server, names who can change it, and gives an administrator a link to the **Settings** tab of the add-on that runs the commands (the `network-policy` [host control](#host-controls)). The Network row of the chat's Tools menu says the same (*Off: the administrator has not allowed network access.*) when the ceiling is `off` or below `all`.
 
