@@ -74,6 +74,10 @@ const (
 // It also loads the model
 func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string, string) (*Model, error) {
 	return func(modelID, modelName, modelFile string) (*Model, error) {
+		o, err := o.finalized()
+		if err != nil {
+			return nil, err
+		}
 
 		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend)
 

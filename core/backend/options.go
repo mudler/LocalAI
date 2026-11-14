@@ -226,6 +226,14 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 
 	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
+	if c.IsRemoteProxy() && c.Proxy.Connection != "" {
+		// The key is fetched on a real load only, not on every request, and
+		// never sits in the options that other code may log.
+		connection := c.Proxy.Connection
+		defOpts = append(defOpts, model.WithLoadGRPCOptionsFinalizer(func(ctx context.Context, o *pb.ModelOptions) error {
+			return applyProxyConnectionKey(ctx, connection, o)
+		}))
+	}
 
 	defOpts = append(defOpts, model.EnableParallelRequests)
 
@@ -585,6 +593,23 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	}
 
 	return opts
+}
+
+// applyProxyConnectionKey sets the upstream key of a remote connection in the
+// load options. In distributed mode the backend runs on a worker that cannot
+// read the connection store, so the frontend passes the key itself.
+func applyProxyConnectionKey(ctx context.Context, connection string, o *pb.ModelOptions) error {
+	if o.Proxy == nil {
+		return nil
+	}
+	key, err := config.ResolveProxyConnectionKey(ctx, connection)
+	if err != nil {
+		return err
+	}
+	o.Proxy.ApiKey = key
+	o.Proxy.ApiKeyEnv = ""
+	o.Proxy.ApiKeyFile = ""
+	return nil
 }
 
 func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions {

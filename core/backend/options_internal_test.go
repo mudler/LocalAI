@@ -1,10 +1,15 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/mudler/LocalAI/core/config"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/reasoning"
+	"github.com/mudler/LocalAI/pkg/system"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -477,5 +482,62 @@ var _ = Describe("Proxy credential options", func() {
 		opts := grpcModelOpts(cfg, "")
 		Expect(opts.Proxy.GetApiKey()).To(Equal("direct-canary"))
 		Expect(int(opts.Proxy.ProtoReflect().Descriptor().Fields().ByName("api_key").Number())).To(Equal(9))
+	})
+})
+
+type fakeKeyResolver map[string]string
+
+func (f fakeKeyResolver) ResolveKey(_ context.Context, id string) (string, error) {
+	k, ok := f[id]
+	if !ok {
+		return "", errors.New("not found")
+	}
+	return k, nil
+}
+
+var _ = Describe("proxy connection key", func() {
+	AfterEach(func() { config.SetProxyKeyResolver(nil) })
+
+	connectionConfig := func(connection string) config.ModelConfig {
+		threads := 1
+		return config.ModelConfig{
+			Name: "remote-model", Backend: model.LocalAIProxyBackend, Threads: &threads,
+			Proxy: config.ProxyConfig{UpstreamURL: "https://remote.example.com", Connection: connection},
+		}
+	}
+	finalize := func(cfg config.ModelConfig) (*pb.ModelOptions, error) {
+		opts := grpcModelOpts(cfg, "/models")
+		return opts, applyProxyConnectionKey(context.Background(), cfg.Proxy.Connection, opts)
+	}
+
+	It("sets the key from the resolver and leaves key file and env empty", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "fake-key"})
+		opts, err := finalize(connectionConfig("c1"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
+		Expect(opts.Proxy.ApiKeyFile).To(BeEmpty())
+		Expect(opts.Proxy.ApiKeyEnv).To(BeEmpty())
+	})
+	It("does not put the key in the options built before the load", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "fake-key"})
+		Expect(grpcModelOpts(connectionConfig("c1"), "/models").Proxy.ApiKey).To(BeEmpty())
+	})
+	It("fails with a clear error when no resolver is set", func() {
+		_, err := finalize(connectionConfig("c1"))
+		Expect(err).To(MatchError(ContainSubstring(`proxy connection "c1": key unavailable`)))
+	})
+	It("fails when the connection is missing", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{})
+		_, err := finalize(connectionConfig("gone"))
+		Expect(err).To(MatchError(ContainSubstring(`proxy connection "gone": key unavailable`)))
+	})
+	It("keeps a plain key and ignores the resolver for models without a connection", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "other"})
+		cfg := connectionConfig("")
+		cfg.Proxy.APIKey = "plain"
+		opts := grpcModelOpts(cfg, "/models")
+		Expect(opts.Proxy.ApiKey).To(Equal("plain"))
+		so := &config.ApplicationConfig{SystemState: &system.SystemState{}}
+		Expect(ModelOptions(cfg, so)).NotTo(BeEmpty())
 	})
 })
