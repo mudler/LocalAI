@@ -38,6 +38,11 @@ import { addFlag, removeFlag, FALLBACK_MS } from '../utils/installFlags'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, PageHeader } from '../components/ui'
+import SideSheet from '../components/SideSheet'
+import ConnectRemote, { doneMessageParts } from '../components/connections/ConnectRemote'
+import ConnectionsView from '../components/connections/ConnectionsView'
+import { useConnections } from '../hooks/useConnections'
+import { useAuth } from '../context/AuthContext'
 import KindLibraries from '../components/catalog/KindLibraries'
 // eslint-disable-next-line no-unused-vars
 import RemoteNotice from '../components/models/RemoteNotice'
@@ -144,10 +149,10 @@ function rangeStyle(index) {
   return { '--dk-fill': `${(index / (CONTEXT_SIZES.length - 1)) * 100}%` }
 }
 
-function ModelsTabs({ activeView, searchParams, installedCount, t }) {
+function ModelsTabs({ activeView, searchParams, installedCount, connectionsCount, showConnections, t }) {
   const hrefFor = view => {
     const next = new URLSearchParams(searchParams)
-    if (view === 'installed') next.set('view', 'installed')
+    if (view === 'installed' || view === 'connections') next.set('view', view)
     else next.delete('view')
     const query = next.toString()
     return `/app/models${query ? `?${query}` : ''}`
@@ -170,6 +175,17 @@ function ModelsTabs({ activeView, searchParams, installedCount, t }) {
         <span>{t('lifecycle.views.installed')}</span>
         {installedCount > 0 && <span className="dk-hubtab-count">{installedCount}</span>}
       </Link>
+      {showConnections && (
+        <Link
+          className="dk-hubtab"
+          to={hrefFor('connections')}
+          aria-current={activeView === 'connections' ? 'page' : undefined}
+          data-testid="models-tab-connections"
+        >
+          <span>{t('connections.tab')}</span>
+          {connectionsCount > 0 && <span className="dk-hubtab-count">{connectionsCount}</span>}
+        </Link>
+      )}
     </nav>
   )
 }
@@ -192,8 +208,12 @@ export default function Models() {
   const frozenParams = useRef(liveParams)
   if (!detailOpen) frozenParams.current = liveParams
   const searchParams = frozenParams.current
-  const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'explore'
-  const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed'].includes(searchParams.get('state'))
+  const { isAdmin } = useAuth()
+  // The list of connections is for administrators; nobody else sees the tab.
+  const activeView = searchParams.get('view') === 'installed'
+    ? 'installed'
+    : searchParams.get('view') === 'connections' && isAdmin ? 'connections' : 'explore'
+  const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed', 'remote'].includes(searchParams.get('state'))
     ? searchParams.get('state')
     : 'all'
   const [models, setModels] = useState([])
@@ -963,6 +983,43 @@ export default function Models() {
     </>
   )
 
+  const connectionsState = useConnections({ enabled: isAdmin })
+  const [connectOpen, setConnectOpen] = useState(false)
+  const goToView = useCallback((view, extra = {}) => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      next.set('view', view)
+      next.delete('model')
+      next.delete('q')
+      if (extra.state) next.set('state', extra.state)
+      else next.delete('state')
+      return next
+    })
+  }, [setSearchParams])
+  const afterConnect = (result) => {
+    const { name, created, skipped } = doneMessageParts(result)
+    addToast(t('connections.toastDone', { name, count: created }), 'success')
+    if (skipped > 0) addToast(t('connections.toastSkipped', { count: skipped }), 'warning')
+    setConnectOpen(false)
+    setRefreshToken(n => n + 1)
+    connectionsState.refetch()
+    goToView('connections')
+  }
+  const connectSheet = connectOpen && (
+    <SideSheet
+      title={t('connections.sheetTitle')}
+      description={t('connections.sheetDescription')}
+      labelId="connect-remote-title"
+      testId="connect-remote-sheet"
+      wide
+      onClose={() => setConnectOpen(false)}
+    >
+      <Suspense fallback={null}>
+        <ConnectRemote onDone={afterConnect} />
+      </Suspense>
+    </SideSheet>
+  )
+
   const headerActions = (
     <div className="models-bar__actions">
       <DiskStrip disk={disk} open={sheetOpen} onOpen={() => setSheetOpen(true)} />
@@ -972,6 +1029,11 @@ export default function Models() {
       <Button icon="upload" onClick={() => navigate('/app/import-model')}>
         {t('actions.importModel')}
       </Button>
+      {isAdmin && (
+        <Button icon="plug" onClick={() => setConnectOpen(true)} data-testid="models-connect-remote">
+          {t('connections.connectButton')}
+        </Button>
+      )}
     </div>
   )
 
@@ -981,9 +1043,17 @@ export default function Models() {
     <>
       <PageHeader className="models-head" title={t('lifecycle.title')} supporting={t('lifecycle.supporting')} actions={headerActions} />
       <div className="models-tabsrow">
-        <ModelsTabs activeView={activeView} searchParams={searchParams} installedCount={statsLoaded ? stats.installed : 0} t={t} />
+        <ModelsTabs
+          activeView={activeView}
+          searchParams={searchParams}
+          installedCount={statsLoaded ? stats.installed : 0}
+          connectionsCount={connectionsState.connections.length}
+          showConnections={isAdmin}
+          t={t}
+        />
         {count}
       </div>
+      {connectSheet}
     </>
   )
 
@@ -1019,6 +1089,24 @@ export default function Models() {
     </>
   )
 
+  if (activeView === 'connections') {
+    return withDetail(
+      <div className="page page--full page--app models-page">
+        {pageHead(null)}
+        <Suspense fallback={null}>
+          <ConnectionsView
+            state={connectionsState}
+            addToast={addToast}
+            onConnect={() => setConnectOpen(true)}
+            onChanged={() => setRefreshToken(n => n + 1)}
+            onViewInstalled={() => goToView('installed', { state: 'remote' })}
+          />
+        </Suspense>
+        {overlays}
+      </div>,
+    )
+  }
+
   if (activeView === 'installed') {
     return withDetail(
       <div className="page page--full page--app models-page">
@@ -1040,6 +1128,7 @@ export default function Models() {
           searchRef={searchRef}
           onOpenCleanup={() => setSheetOpen(true)}
           disk={disk}
+          connections={connectionsState.connections}
         />
         {overlays}
       </div>,
