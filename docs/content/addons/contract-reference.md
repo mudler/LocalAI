@@ -719,7 +719,7 @@ When the service refuses the access token, the add-on answers HTTP 401 with the
 reason `credential_rejected`. It does so only when the service refused the token
 and nothing changed. The host then decides whether to refresh the token or to
 ask the person to reconnect; a 401 with another reason is an outage. An add-on
-built on the Go protocol package of this repository returns
+built on the public Go package `github.com/mudler/LocalAI/pkg/addons/sdk/protocol` returns
 `contract.ErrCredentialRejected` (wrapped or not) from a handler, and the
 package sends this answer. When the
 connection has expired or was revoked, the model gets the code
@@ -1721,6 +1721,8 @@ dist/addons/web-0.1.0-linux-amd64.zip.sha256
 | `ADDON_EXECUTABLES` | For a platform other than this machine: a folder with `<os>-<arch>/<executable name>`, built natively. |
 | `ADDON_VERSION` | The version. The default is the version in the manifest of the add-on. |
 | `ADDON_LOCAL_CHECK` | Set it to build a platform that the platform matrix has not enabled yet. |
+| `ADDON_ROOT` | The folder of an add-on that lives in another repository. See [Build an add-on in your own repository](/features/addon-sdk/). |
+| `ADDON_EXECUTABLE` | A built executable to pack, instead of building one. Use it with one platform. |
 | `ADDONS_ZIP_DIR` | The output folder. |
 
 The build needs Go and Node.js, as `package.sh` does; the Tables add-on also

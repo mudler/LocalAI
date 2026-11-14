@@ -8,7 +8,7 @@ weight = 20
 This tutorial builds an add-on called `hello`. It has one tool, `greet`, and one skill. You test it, pack it as a zip file and install it from the file. It does not need a UI, a database or a network.
 
 {{% callout style="note" %}}
-The Go helper package that the first-party add-ons use is `internal` to the LocalAI repository. This tutorial puts the add-on inside a checkout of the repository, like the first-party add-ons. An add-on made outside the repository must speak the same wire protocol itself. The [contract reference]({{% relref "/addons/contract-reference#managed-runtime" %}}) describes it.
+This tutorial puts the add-on inside a checkout of the LocalAI repository, like the first-party add-ons. To build an add-on in your own repository, with its own Go module, read [Build an add-on in your own repository]({{% relref "/features/addon-sdk" %}}). It uses the same Go helper package, `pkg/addons/sdk/protocol`.
 {{% /callout %}}
 
 ## What you need
@@ -81,8 +81,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // ToolGreet is the one tool. It is an entry of capabilities.tools in the manifest.
@@ -152,8 +152,8 @@ import (
 	"os"
 
 	"github.com/mudler/LocalAI/addons/hello/internal/tools"
-	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 func main() {

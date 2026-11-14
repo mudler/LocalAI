@@ -246,7 +246,7 @@ The `oauth` suite (`tests/addons/oauth`) proves that the OAuth logins of
 add-ons need no code for one service. It runs the real application: accounts
 on a SQLite database, the add-on owner, the library, the supervisor, the
 connectors and the HTTP routes. One test-only executable
-(`addons/internal/oauthfixture`, built on the Go protocol package) is packaged
+(`addons/internal/oauthfixture`, built on `pkg/addons/sdk/protocol`) is packaged
 three times through the library, as `provider-a`, `provider-b` and
 `provider-c`. The manifests differ in the ID, the title, the connector kind,
 the authorize, token and revocation addresses, the host patterns, the scopes,

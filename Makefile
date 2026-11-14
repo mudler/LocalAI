@@ -1821,16 +1821,23 @@ test-addons-suites:
 ## A platform other than this host needs the native executables at
 ## <dir>/<os>-<arch>/<executable name>. ADDON_VERSION overrides the manifest
 ## version, ADDON_LOCAL_CHECK=1 builds a platform the matrix has not enabled.
-## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons).
+## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons, or
+## <ADDON_ROOT>/dist/addons with ADDON_ROOT).
 ADDON?=
 PLATFORMS?=
 ADDON_VERSION?=
 ADDON_EXECUTABLES?=
 ADDON_LOCAL_CHECK?=
-ADDONS_ZIP_DIR?=dist/addons
+## ADDON_ROOT builds the zip of an add-on in another repository: the directory
+## that holds package/platforms.yaml and cmd/<executable>. ADDON_EXECUTABLE is a
+## built binary to pack instead of building one (one platform only).
+ADDON_ROOT?=
+ADDON_EXECUTABLE?=
+ADDONS_ZIP_DIR?=
 .PHONY: addons-zip
 addons-zip:
-	sh scripts/addons/zip.sh --out "$(ADDONS_ZIP_DIR)" \
+	sh scripts/addons/zip.sh $(if $(ADDONS_ZIP_DIR),--out "$(ADDONS_ZIP_DIR)") \
+		$(if $(ADDON_ROOT),--root "$(ADDON_ROOT)") $(if $(ADDON_EXECUTABLE),--executable "$(ADDON_EXECUTABLE)") \
 		$(if $(ADDON),--addon "$(ADDON)") $(if $(PLATFORMS),--platforms "$(PLATFORMS)") \
 		$(if $(ADDON_VERSION),--version "$(ADDON_VERSION)") $(if $(ADDON_EXECUTABLES),--executables "$(ADDON_EXECUTABLES)") \
 		$(if $(ADDON_LOCAL_CHECK),--local-check)
