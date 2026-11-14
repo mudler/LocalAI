@@ -43,6 +43,10 @@ availability may lag upstream releases.
 - [LocalAGI](https://github.com/mudler/LocalAGI) - Local smart assistant with autonomous agents
 - [Nika](https://github.com/supernovae-st/nika) - Intent-as-code AI workflow engine in a single Rust binary, with LocalAI as a built-in local provider
 
+### Coding Agents
+
+Point Codex CLI, Claude Code, opencode, Hermes Agent, nib, pi, Aider, Continue, Cline or Goose at your own LocalAI server. See [Connect coding agents]({{% relref "features/coding-agents" %}}) for the exact settings of each one.
+
 ### MCP Servers
 
 - [MCPs](https://github.com/mudler/MCPs) - Model Context Protocol servers
