@@ -3447,7 +3447,7 @@ Limits and safety:
 
 | Rule | Value |
 |---|---|
-| A proposal waits | 24 hours, then it expires |
+| A proposal waits | 5 minutes, then it expires |
 | Pending proposals of one person | 10 |
 | Proposals of one agent (or of plain chats) in an hour | 5 |
 | Target changed after the proposal | the confirmation is refused (409) |
@@ -4015,7 +4015,7 @@ A `write` tool with `"approval": "always"` always waits for a person. This holds
 without a credential: an add-on that declares none gets a stored proposal with the hold
 `approval_always`, and the host applies it only when the owner confirms it in the browser.
 A model, an API key, a trigger, a job or a sub-agent only proposes; it never runs the
-write. The proposal expires after 24 hours like any other, and the approval card shows it.
+write. The proposal expires like any other proposal, and the approval card shows it.
 Only an add-on with a credential can relax the confirmation (see below). A tool can also
 declare `"approvalOverridable": true`, so that the owner can choose not to be asked for
 that one tool. It is the only way to relax `approval`, and it needs three things:
@@ -4138,7 +4138,7 @@ sender is paired with it.
   when it is safe to show (an https address without credentials), or the plain reason it
   failed, such as a refusal of the service behind the add-on.
 - **Limits.** At most 5 writes wait in the chats of one bot, at most 10 are asked in an
-  hour, and a proposal expires after 24 hours. The records survive a restart. Above a
+  hour, and a proposal expires after 5 minutes. The records survive a restart. Above a
   limit the write waits for the owner in the web UI and the model is told so.
 - **Not in the chat.** A tool that declares `approval: "always"` still waits for a person
   at the web UI, whatever a chat says.
