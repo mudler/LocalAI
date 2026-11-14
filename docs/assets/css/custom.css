@@ -98,7 +98,7 @@ div.highlight pre code[data-lang="plaintext"]::before { content: "text"; }
 }
 .lai-steps {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
 }
 .lai-step {
@@ -113,7 +113,15 @@ div.highlight pre code[data-lang="plaintext"]::before { content: "text"; }
 .lai-step p { margin: 0 0 .75rem; font-size: .95rem; line-height: 1.5; }
 .lai-step div.highlight { margin: .25rem 0 .75rem; }
 .lai-step pre, .lai-step pre code { white-space: pre !important; overflow-x: auto; font-size: .78rem; }
-#R-body-inner.home h1 { font-size: clamp(2rem, 4.6vw, 3.2rem); line-height: 1.15; margin-top: 1.5rem; }
+/* The theme sets overflow-x: hidden on h1, which makes overflow-y compute to
+   auto. A tight line height then adds a vertical scrollbar. The heading wraps
+   by itself (overflow-wrap), so let it overflow visibly. */
+#R-body-inner.home h1 {
+  font-size: clamp(2rem, 4.6vw, 3.2rem);
+  line-height: 1.15;
+  margin-top: 1.5rem;
+  overflow: visible;
+}
 .lai-n {
   display: inline-grid;
   place-items: center;
