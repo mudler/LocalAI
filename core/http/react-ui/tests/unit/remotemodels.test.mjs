@@ -8,7 +8,7 @@ import {
 
 const GB = 1024 ** 3
 const budget = { totalMemory: 8 * GB, hasGpu: true, scope: 'node' }
-const labels = { downloads: 'downloads', seeds: 'seeds', fits: 'Fits', spill: 'Spills', over: 'Too big' }
+const labels = { downloads: 'downloads', seeds: n => `${n} ${n === 1 ? 'seed' : 'seeds'}`, fits: 'Fits', spill: 'Spills', over: 'Too big' }
 
 test('remote models: a row is keyed by provider and repository', () => {
   assert.equal(remoteKey({ provider: 'huggingface', id: 'acme/Tiny-GGUF' }), 'huggingface:acme/Tiny-GGUF')
@@ -36,6 +36,7 @@ test('remote models: load more stops when the provider ran dry or the cap is rea
 test('remote models: the sub-line is author, licence and popularity, only what is known', () => {
   assert.equal(remoteSubline({ id: 'acme/Tiny', license: 'apache-2.0', downloads: 3400, provider: 'huggingface' }, labels), 'acme · apache-2.0 · 3.4k downloads')
   assert.equal(remoteSubline({ id: 'acme/Tiny', provider: 'pirateface', seeders: 6 }, labels), 'acme · 6 seeds')
+  assert.equal(remoteSubline({ id: 'acme/Tiny', provider: 'pirateface', seeders: 1 }, labels), 'acme · 1 seed')
   assert.equal(remoteSubline({ id: 'acme/Tiny', provider: 'huggingface' }, labels), 'acme')
 })
 

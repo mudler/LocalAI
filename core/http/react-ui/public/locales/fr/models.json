@@ -417,7 +417,8 @@
     "resultCount_one": "{{count}} résultat",
     "resultCount_other": "{{count}} résultats",
     "downloads": "téléchargements",
-    "seeds": "sources",
+    "seeds_one": "{{count}} source",
+    "seeds_other": "{{count}} sources",
     "gated": "Accès restreint",
     "ggufOnly": "GGUF uniquement",
     "hint": {

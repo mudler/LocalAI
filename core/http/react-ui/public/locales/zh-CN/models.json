@@ -329,7 +329,8 @@
     "resultCount_one": "{{count}} 个结果",
     "resultCount_other": "{{count}} 个结果",
     "downloads": "次下载",
-    "seeds": "个做种",
+    "seeds_one": "{{count}} 个做种",
+    "seeds_other": "{{count}} 个做种",
     "gated": "需授权",
     "ggufOnly": "仅 GGUF",
     "hint": {

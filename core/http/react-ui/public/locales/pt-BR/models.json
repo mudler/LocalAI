@@ -345,7 +345,8 @@
     "resultCount_one": "{{count}} resultado",
     "resultCount_other": "{{count}} resultados",
     "downloads": "downloads",
-    "seeds": "seeds",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seeds",
     "gated": "Acesso restrito",
     "ggufOnly": "Somente GGUF",
     "hint": {

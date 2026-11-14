@@ -51,7 +51,8 @@ export function nextLimit(limit) {
 }
 
 // The line under a row's name: author, licence and how popular it is. Only the
-// facts the provider gave. `labels` has the words: downloads, seeds, gated.
+// facts the provider gave. `labels` has the words: `downloads`, and `seeds`, a
+// function that turns a count into the text ("1 seed", "6 seeds").
 export function remoteSubline(result, labels) {
   const parts = []
   const owner = String(result.id || '').split('/')[0]
@@ -59,7 +60,7 @@ export function remoteSubline(result, labels) {
   if (result.license) parts.push(result.license)
   const downloads = compactCount(result.downloads)
   if (downloads) parts.push(`${downloads} ${labels.downloads}`)
-  if (result.provider === 'pirateface' && result.seeders > 0) parts.push(`${result.seeders} ${labels.seeds}`)
+  if (result.provider === 'pirateface' && result.seeders > 0) parts.push(labels.seeds(result.seeders))
   return parts.join(' · ')
 }
 

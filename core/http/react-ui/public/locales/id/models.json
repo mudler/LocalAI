@@ -342,7 +342,8 @@
     "resultCount_one": "{{count}} hasil",
     "resultCount_other": "{{count}} hasil",
     "downloads": "unduhan",
-    "seeds": "seed",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seed",
     "gated": "Dibatasi",
     "ggufOnly": "Hanya GGUF",
     "hint": {

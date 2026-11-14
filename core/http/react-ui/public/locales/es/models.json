@@ -329,7 +329,8 @@
     "resultCount_one": "{{count}} resultado",
     "resultCount_other": "{{count}} resultados",
     "downloads": "descargas",
-    "seeds": "semillas",
+    "seeds_one": "{{count}} semilla",
+    "seeds_other": "{{count}} semillas",
     "gated": "Restringido",
     "ggufOnly": "Solo GGUF",
     "hint": {

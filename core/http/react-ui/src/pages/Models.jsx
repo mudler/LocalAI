@@ -682,7 +682,7 @@ export default function Models() {
     ? remoteSearch.results.map(r => remoteRow(r, {
       installedName: remoteInstalled[`${r.provider}:${r.id}`] || '',
       sourceLabel,
-      labels: { downloads: t('remote.downloads'), seeds: t('remote.seeds') },
+      labels: { downloads: t('remote.downloads'), seeds: count => t('remote.seeds', { count }) },
     }))
     : []
 

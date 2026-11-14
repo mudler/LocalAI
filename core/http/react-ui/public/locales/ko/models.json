@@ -313,7 +313,8 @@
     "resultCount_one": "결과 {{count}}개",
     "resultCount_other": "결과 {{count}}개",
     "downloads": "다운로드",
-    "seeds": "시드",
+    "seeds_one": "시드 {{count}}개",
+    "seeds_other": "시드 {{count}}개",
     "gated": "접근 제한",
     "ggufOnly": "GGUF만",
     "hint": {

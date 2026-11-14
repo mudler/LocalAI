@@ -262,6 +262,13 @@ test.describe('Explore: online sources', () => {
     await expect(pane(page).getByTestId('discover-install')).toBeDisabled()
   })
 
+  test('a Pirate Face row with one seeder says "1 seed", not "1 seeds"', async ({ page }) => {
+    await openSource(page, 'pirateface', 'peer', { pf: [PF('acme/Peer', { seeders: 1 }), PF('acme/Crowd', { seeders: 6 })] })
+    await expect(row(page, 'pirateface:acme/Peer').locator('.dk-table-sub')).toContainText(/1 seed(?!s)/)
+    await expect(row(page, 'pirateface:acme/Peer').locator('.dk-table-sub')).not.toContainText('1 seeds')
+    await expect(row(page, 'pirateface:acme/Crowd').locator('.dk-table-sub')).toContainText('6 seeds')
+  })
+
   test('Pirate Face rows are searched through the same table and install by their own uri', async ({ page }) => {
     const seen = await openSource(page, 'pirateface', 'peer')
     await expect(page.getByTestId('discover-rail-heading')).toContainText('From Pirate Face')
