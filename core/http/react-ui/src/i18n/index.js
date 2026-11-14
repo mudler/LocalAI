@@ -29,6 +29,7 @@ export const NAMESPACES = [
   'workspace',
   'pages',
   'models',
+  'connections',
   'collections',
   'library',
   'media',
