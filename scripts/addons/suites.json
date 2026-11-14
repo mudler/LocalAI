@@ -5602,6 +5602,8 @@
       "package.sh refuses a guest image that is not by digest",
       "package.sh refuses a sandbox release build without SANDBOX_GUEST_IMAGE",
       "package.sh stamps the sandbox executable with a guest image in a local check",
+      "package.sh signs the macOS sandbox executable with the virtualization entitlement",
+      "package.sh signs no other add-on",
       "go: packages all four document slots with the actual validator and no core fallback",
       "go: proves every source block and local reference without Git or network",
       "go: writes the zip of a verified layout with a digest manifest and a sha256 file",

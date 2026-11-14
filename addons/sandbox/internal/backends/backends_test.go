@@ -36,8 +36,16 @@ func (s *stub) Close() error { s.closed.Store(true); return nil }
 
 var _ = workspace.ErrInvalid
 
-// kinds says which backends can start on the fake host.
-type kinds struct{ kvm, gvisor, host error }
+// kinds says which backends can start on the fake host. The vz backend is
+// missing unless vzOn is set, as on a Linux host; then vz is its error, which
+// may be nil.
+type kinds struct {
+	kvm, gvisor, host error
+	vz                error
+	vzOn              bool
+}
+
+var errNotMac = fmt.Errorf("%w: the Virtualization.framework backend needs macOS on Apple silicon", sandbox.ErrUnsupported)
 
 func TestBackends(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -53,9 +61,13 @@ func open(k kinds, dir string) *backends.Selector {
 			return &stub{name: name}, nil
 		}
 	}
+	vzErr := errNotMac
+	if k.vzOn {
+		vzErr = k.vz
+	}
 	s, err := backends.Open(backends.Options{
 		DataDir: dir,
-		KVM:     mk("kvm", k.kvm), GVisor: mk("gvisor", k.gvisor), Host: mk("host", k.host),
+		KVM:     mk("kvm", k.kvm), GVisor: mk("gvisor", k.gvisor), VZ: mk("vz", vzErr), Host: mk("host", k.host),
 	})
 	Expect(err).NotTo(HaveOccurred())
 	return s
@@ -75,7 +87,7 @@ func name(s *backends.Selector) string {
 var unsupported = fmt.Errorf("%w: /dev/kvm: permission denied", sandbox.ErrUnsupported)
 
 var _ = Describe("Backend selector", func() {
-	It("picks KVM, then gVisor, then nothing, and never the host", func() {
+	It("picks KVM, then gVisor, then VZ, then nothing, and never the host", func() {
 		cases := []struct {
 			k    kinds
 			want string
@@ -83,6 +95,9 @@ var _ = Describe("Backend selector", func() {
 			{kinds{}, "kvm"},
 			{kinds{kvm: unsupported}, "gvisor"},
 			{kinds{kvm: unsupported, gvisor: unsupported}, ""},
+			{kinds{kvm: unsupported, gvisor: unsupported, vzOn: true}, "vz"},
+			{kinds{gvisor: unsupported, vzOn: true}, "kvm"},
+			{kinds{kvm: unsupported, vzOn: true}, "gvisor"},
 		}
 		for _, c := range cases {
 			s := open(c.k, GinkgoT().TempDir())
@@ -107,6 +122,25 @@ var _ = Describe("Backend selector", func() {
 		Expect(name(s)).To(Equal("gvisor"), "gvisor was chosen")
 		Expect(s.Set(backends.Off)).To(Succeed())
 		Expect(name(s)).To(BeEmpty(), "off, but a backend ran")
+	})
+
+	It("keeps an explicit choice of vz, and does not replace it when it fails", func() {
+		s := open(kinds{vzOn: true}, GinkgoT().TempDir())
+		Expect(s.Set(backends.VZ)).To(Succeed())
+		Expect(name(s)).To(Equal("vz"), "vz was chosen, but another backend ran")
+		Expect(s.Status().Active).To(Equal("vz"))
+		// On a host that cannot run it, the choice stays and nothing runs.
+		s = open(kinds{}, GinkgoT().TempDir())
+		Expect(s.Set(backends.VZ)).To(Succeed())
+		Expect(name(s)).To(BeEmpty(), "vz was chosen, but a fallback ran")
+		st := s.Status()
+		Expect(st.Setting).To(Equal(backends.VZ))
+		Expect(st.Active).To(BeEmpty())
+		reasons := map[string]string{}
+		for _, b := range st.Backends {
+			reasons[b.Name] = b.Reason
+		}
+		Expect(reasons["vz"]).To(ContainSubstring("macOS"), "the status must say why vz does not run")
 	})
 
 	It("needs the typed phrase before the host can be chosen", func() {
@@ -221,7 +255,7 @@ var _ = Describe("Backend selector", func() {
 		mk := func(name string) func() (sandbox.Backend, error) {
 			return func() (sandbox.Backend, error) { started.Add(1); return &stub{name: name}, nil }
 		}
-		s, err := backends.Open(backends.Options{DataDir: GinkgoT().TempDir(), KVM: mk("kvm"), GVisor: mk("gvisor"), Host: mk("host")})
+		s, err := backends.Open(backends.Options{DataDir: GinkgoT().TempDir(), KVM: mk("kvm"), GVisor: mk("gvisor"), VZ: mk("vz"), Host: mk("host")})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(started.Load()).To(BeZero(), "Open started a backend")
 		s.Warm()

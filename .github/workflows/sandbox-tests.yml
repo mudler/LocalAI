@@ -2,9 +2,11 @@
 name: 'sandbox tests'
 
 # Runs what the other workflows leave out for the Sandbox add-on:
-#   unit      the Go tests of addons/sandbox, the real-add-on end to end suite
-#             (tests/addons/actione2e), the UI unit tests of the add-on and the
-#             check of the privilege drop in entrypoint.sh
+#   unit      the Go tests of addons/sandbox, a vet of the add-on for
+#             darwin/arm64 (the macOS VM backend compiles there with cgo off),
+#             the real-add-on end to end suite (tests/addons/actione2e), the UI
+#             unit tests of the add-on and the check of the privilege drop in
+#             entrypoint.sh
 #   gvisor    the gVisor integration suite, on amd64 and arm64, with the pinned
 #             runsc, its AppArmor profile loaded and the guest image built on
 #             the runner; then the release smoke test with the host required to
@@ -68,6 +70,8 @@ jobs:
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Go tests of the add-on
         run: go test -tags "auth nosqlite purego_utp" -count=1 ./addons/sandbox/...
+      - name: Vet the add-on for macOS on Apple silicon
+        run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go vet -tags "auth nosqlite purego_utp" ./addons/sandbox/... ./core/services/studio/workspace/...
       - name: End to end with the real add-on process and the real supervisor
         run: go test -tags "auth nosqlite purego_utp" -count=1 ./tests/addons/actione2e/...
       - name: UI unit tests

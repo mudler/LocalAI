@@ -76,6 +76,10 @@ func (s *Workspace) CommitUpper(ctx context.Context, v View, a Actor, base int64
 	if err != nil {
 		return ChangeSet{}, nil, err
 	}
+	// The staged files are synced now, outside the lock, a few at a time.
+	if err := st.Flush(); err != nil {
+		return ChangeSet{}, nil, err
+	}
 	w, err := s.beginWrite(ctx, a, o.Title, ChangeAgent)
 	if err != nil {
 		return ChangeSet{}, nil, err

@@ -129,6 +129,28 @@ jobs:
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
           tags: ${{ env.REPOSITORY }}:media-sha-${{ github.sha }}
           push: ${{ env.PUSH == 'true' }}
+      # The release names one digest for each profile. Each must be an index
+      # with an image for every architecture a host runs: linux/amd64 for
+      # Linux on Intel and AMD, and linux/arm64 for Linux on Arm and for a Mac
+      # with Apple silicon, which runs a linux/arm64 guest. A push that lacks
+      # one would break that host on its first sandbox.
+      - name: Check the architectures of the images
+        if: env.PUSH == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST_MEDIA: ${{ steps.build_media.outputs.digest }}
+        run: |
+          set -eu
+          for d in "$DIGEST" "$DIGEST_MEDIA"; do
+            platforms=$(docker buildx imagetools inspect "${REPOSITORY}@${d}" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+            echo "${REPOSITORY}@${d}: ${platforms}"
+            for want in linux/amd64 linux/arm64; do
+              case " ${platforms}" in
+              *" ${want} "*) ;;
+              *) echo "the image ${REPOSITORY}@${d} has no ${want} manifest" >&2; exit 1 ;;
+              esac
+            done
+          done
       - name: Name the images by digest
         id: ref
         if: env.PUSH == 'true'

@@ -29,9 +29,17 @@ type Stager interface {
 // staged blob visible and Close drops the ones that were not published. A
 // store that is not a Stager is used as it is: its Put publishes at once and
 // Publish has nothing to do.
+//
+// A store that can batch (the filesystem store) syncs the staged files in
+// chunks, a few at a time, and syncs each folder once at Publish. A
+// workspace commit of many files then takes a few disk round trips, not one
+// or more for each file, with the same guarantee: when Publish returns, every
+// blob is durable.
 type Staging struct {
 	Store
 	stager Stager
+	batch  batchStager
+	pool   *syncPool
 	staged []Staged
 }
 
@@ -39,6 +47,9 @@ type Staging struct {
 func NewStaging(st Store) *Staging {
 	s := &Staging{Store: st}
 	s.stager, _ = st.(Stager)
+	if b, ok := st.(batchStager); ok {
+		s.batch, s.pool = b, newSyncPool()
+	}
 	return s
 }
 
@@ -47,7 +58,13 @@ func (s *Staging) Put(ctx context.Context, r io.Reader, max int64) (string, int6
 	if s.stager == nil {
 		return s.Store.Put(ctx, r, max)
 	}
-	st, err := s.stager.Stage(ctx, r, max)
+	var st Staged
+	var err error
+	if s.batch != nil {
+		st, err = s.batch.stageBatched(ctx, r, max, s.pool)
+	} else {
+		st, err = s.stager.Stage(ctx, r, max)
+	}
 	if err != nil {
 		return "", 0, err
 	}
@@ -55,8 +72,24 @@ func (s *Staging) Put(ctx context.Context, r io.Reader, max int64) (string, int6
 	return st.SHA(), st.Size(), nil
 }
 
+// Flush waits until the bytes of every staged blob are durable. Call it
+// before the revision lock is taken, so the lock does not wait for the disk.
+// Publish calls it as well, so a caller that does not is still correct.
+func (s *Staging) Flush() error {
+	if s.pool == nil {
+		return nil
+	}
+	return s.pool.wait()
+}
+
 // Publish makes the staged blobs visible.
 func (s *Staging) Publish(ctx context.Context) error {
+	if err := s.Flush(); err != nil {
+		return err
+	}
+	if s.batch != nil {
+		return s.batch.publishBatch(ctx, s.staged)
+	}
 	for _, st := range s.staged {
 		if err := st.Publish(ctx); err != nil {
 			return err
@@ -67,6 +100,9 @@ func (s *Staging) Publish(ctx context.Context) error {
 
 // Close discards what Publish did not publish. Call it with defer.
 func (s *Staging) Close() {
+	if s.pool != nil {
+		_ = s.pool.wait() // the syncs end before their files go
+	}
 	for _, st := range s.staged {
 		st.Discard()
 	}

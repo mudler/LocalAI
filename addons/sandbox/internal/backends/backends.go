@@ -3,8 +3,9 @@
 // Package backends chooses the backend that runs the code of the chats, and
 // keeps the administrator's choice. The rules:
 //
-//   - "auto" picks KVM, then gVisor, then nothing. It never picks the host
-//     backend, not even as the last resort.
+//   - "auto" picks KVM, then gVisor, then VZ (Virtualization.framework, on a
+//     Mac), then nothing. It never picks the host backend, not even as the
+//     last resort.
 //   - An explicit choice is never replaced by another when it does not work:
 //     the tools then say they cannot run, and the status says why.
 //   - The host backend runs code on the host with no isolation. It can be
@@ -36,6 +37,7 @@ const (
 	Auto   Setting = "auto"
 	GVisor Setting = "gvisor"
 	KVM    Setting = "kvm"
+	VZ     Setting = "vz"
 	Off    Setting = "off"
 	Host   Setting = "host"
 )
@@ -59,6 +61,7 @@ type Options struct {
 	DataDir string
 	KVM     func() (sandbox.Backend, error)
 	GVisor  func() (sandbox.Backend, error)
+	VZ      func() (sandbox.Backend, error)
 	Host    func() (sandbox.Backend, error)
 	Now     func() time.Time
 }
@@ -87,8 +90,8 @@ type probeFailure struct {
 // Open reads the saved choice. A missing file means "auto"; a broken file is
 // ignored and said in the status.
 func Open(o Options) (*Selector, error) {
-	if o.DataDir == "" || o.KVM == nil || o.GVisor == nil || o.Host == nil {
-		return nil, errors.New("backends: DataDir and the three constructors are required")
+	if o.DataDir == "" || o.KVM == nil || o.GVisor == nil || o.VZ == nil || o.Host == nil {
+		return nil, errors.New("backends: DataDir and the four constructors are required")
 	}
 	if o.Now == nil {
 		o.Now = time.Now
@@ -115,7 +118,7 @@ func Open(o Options) (*Selector, error) {
 
 func valid(b Setting) bool {
 	switch b {
-	case Auto, GVisor, KVM, Off, Host:
+	case Auto, GVisor, KVM, VZ, Off, Host:
 		return true
 	}
 	return false
@@ -135,6 +138,8 @@ func (s *Selector) ctor(b Setting) func() (sandbox.Backend, error) {
 		return s.o.KVM
 	case GVisor:
 		return s.o.GVisor
+	case VZ:
+		return s.o.VZ
 	case Host:
 		return s.o.Host
 	}
@@ -177,8 +182,8 @@ func (s *Selector) closeExcept(keep Setting) {
 func (s *Selector) plan() []Setting {
 	switch s.set.Backend {
 	case Auto:
-		return []Setting{KVM, GVisor}
-	case KVM, GVisor:
+		return []Setting{KVM, GVisor, VZ}
+	case KVM, GVisor, VZ:
 		return []Setting{s.set.Backend}
 	case Host:
 		if s.set.HostConfirmed {
@@ -334,7 +339,7 @@ func (s *Selector) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := Status{Setting: s.set.Backend, HostConfirmed: s.set.HostConfirmed, Note: s.loadNote}
-	for _, k := range []Setting{KVM, GVisor, Host} {
+	for _, k := range []Setting{KVM, GVisor, VZ, Host} {
 		_, held := s.held[k]
 		b, err := s.get(k)
 		if err == nil && !held {

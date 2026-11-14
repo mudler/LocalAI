@@ -31,6 +31,7 @@ func testLifecycle(newBackend NewBackend) {
 	})
 	It("suspend and resume keep a running process and its open files", func() {
 		f := setup(newBackend, nil)
+		need(f.b, "suspend-processes")
 		_, err := f.sb.Exec(ctx(), sandbox.Cmd{Args: []string{"sh", "-c",
 			`exec 3<proj/notes.txt 4>>proj/tick.txt; while :; do cat /dev/fd/3 >/dev/null && echo tick >&4; sleep 0.1; done`}})
 		Expect(err).NotTo(HaveOccurred())

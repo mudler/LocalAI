@@ -58,3 +58,11 @@ test('page: the reasons of an administrator are drawn as text', async () => {
   assert.ok(!html.includes('<b>x</b>'))
   assert.match(html, /data-testid="sandbox-page-reason"/)
 })
+
+test('page: a vz that does not run is not listed as a reason on a host that did not choose it', async () => {
+  const f = (await import('../src/lib/model.js')).pageStatus
+  const backends = [{ name: 'kvm', usable: false, reason: 'no /dev/kvm' }, { name: 'vz', usable: false, reason: 'needs macOS' }]
+  assert.deepEqual(f(status({ canRun: false, active: '', admin: true, backends })).reasons, [{ name: 'kvm', reason: 'no /dev/kvm' }])
+  assert.equal(f(status({ canRun: false, active: '', admin: true, setting: 'vz', backends })).reasons.length, 2)
+  assert.equal(f(status({ active: 'vz' })).state, 'isolated')
+})

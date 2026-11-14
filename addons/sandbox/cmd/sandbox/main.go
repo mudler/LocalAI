@@ -79,10 +79,10 @@ func main() {
 			Declared: profiles.Declared(),
 			Images:   imgs,
 			Cache:    sel.ImageCache,
-			// Both backends keep their own copy of an image; a backend that
+			// Each backend keeps its own copy of an image; a backend that
 			// was used before may still hold one.
 			ForgetOld: func(ctx context.Context, ref string) {
-				for _, dir := range []string{"kvm", "gvisor"} {
+				for _, dir := range []string{"kvm", "gvisor", "vz"} {
 					if err := ociimage.Forget(ctx, filepath.Join(s.DataDir, "images", dir), ref); err != nil {
 						xlog.Warn("sandbox: cannot delete an old image", "image", ref, "backend", dir, "error", err)
 					}

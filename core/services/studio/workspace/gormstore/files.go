@@ -56,6 +56,9 @@ func (s *Workspace) Put(ctx context.Context, a Actor, p string, r io.Reader, o P
 	if err != nil {
 		return Node{}, err
 	}
+	if err := st.Flush(); err != nil {
+		return Node{}, err
+	}
 	w, err := s.beginWrite(ctx, a, title, ChangeUpload)
 	if err != nil {
 		return Node{}, err

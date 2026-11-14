@@ -1,6 +1,7 @@
 package wstest
 
 import (
+	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -161,6 +162,25 @@ func describeUpper(newStore NewStore) {
 			Expect(conflicts).To(BeEmpty())
 			Expect(MustRead(s, AdminActor, "/w/i")).To(Equal("now a file"), "folder not replaced")
 			Expect(Tree(s)).ToNot(HaveKey("/w/i/z.txt"), "the folder content is still there")
+		})
+		It("many new files in one commit, with equal files among them", func() {
+			s := newStore()
+			v, base := upperSetup(s)
+			src := workspace.FixtureSource{D("w"), D("w/many")}
+			want := map[string]string{}
+			for i := range 150 { // more files than one batch of syncs holds
+				name, body := fmt.Sprintf("w/many/f%03d.txt", i), fmt.Sprintf("body %d", i%100) // 50 bodies repeat
+				src = append(src, F(name, body))
+				want["/"+name] = body
+			}
+			cs, conflicts, err := s.CommitUpper(Ctx(), v, AliceAdmin(), base, src, workspace.UpperOptions{Title: "many"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(conflicts).To(BeEmpty())
+			Expect(cs.Rev).NotTo(BeZero())
+			tree := Tree(s)
+			for p, body := range want {
+				Expect(tree).To(HaveKeyWithValue(p, body))
+			}
 		})
 		It("a second commit writes nothing", func() {
 			s := newStore()

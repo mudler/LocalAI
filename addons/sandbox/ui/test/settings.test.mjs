@@ -116,3 +116,20 @@ test('settings: the view is drawn with the host kit: rows with a chip, the reaso
   const plain = renderToString(React.createElement(View, { model: settingsModel(status()), draft: 'auto', phrase: '', busy: false, error: '', onDraft() {}, onPhrase() {}, onSave() {} }))
   assert.ok(!plain.includes('sandbox-gvisor-hint'), 'no hint for another reason')
 })
+
+test('settings: the macOS virtual machine is listed only where it works or when it is the saved choice', async () => {
+  const settingsModel = await model()
+  const vz = { name: 'vz', usable: false, reason: 'the Virtualization.framework backend needs macOS on Apple silicon' }
+  // A Linux host does not show it.
+  const linux = settingsModel(status({ backends: [...status().backends, vz] }))
+  assert.equal(linux.backends.some(b => b.name === 'vz'), false)
+  assert.deepEqual(linux.options.map(o => o.value), ['auto', 'gvisor', 'kvm', 'off', 'host'])
+  // A Mac that can run it shows it, between KVM and Off.
+  const mac = settingsModel(status({ active: 'vz', backends: [{ name: 'vz', usable: true }] }))
+  assert.deepEqual(mac.options.map(o => o.value), ['auto', 'gvisor', 'kvm', 'vz', 'off', 'host'])
+  assert.equal(mac.backends.find(b => b.name === 'vz').usable, true)
+  // A saved choice that fails stays visible with its reason.
+  const saved = settingsModel(status({ setting: 'vz', active: '', canRun: false, backends: [vz] }))
+  assert.equal(saved.backends.find(b => b.name === 'vz').reason, vz.reason)
+  assert.ok(saved.options.some(o => o.value === 'vz'))
+})

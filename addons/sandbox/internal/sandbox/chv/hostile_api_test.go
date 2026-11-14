@@ -3,6 +3,12 @@ package chv
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -38,6 +44,52 @@ var _ = Describe("upper reader limits and parsers", func() {
 		Expect(err).To(MatchError(ContainSubstring("deeper than 1")), "a depth cap of 1 with data/w/d")
 	})
 
+	It("caps the bytes of one path and of all paths", func() {
+		needTools("mke2fs", "debugfs")
+		_, r := testUpper()
+		r.lim = readLimits{pathLen: 6}
+		_, _, err := r.read(readCtx(), nil)
+		Expect(err).To(MatchError(ContainSubstring("longer than the cap of 6 bytes")))
+		r.lim = readLimits{pathBytes: 20}
+		_, _, err = r.read(readCtx(), nil)
+		Expect(err).To(MatchError(ContainSubstring("more than the cap of 20 bytes")))
+	})
+
+	It("fails on a deep chain of long names before the paths use the memory of the host", func() {
+		needTools("mke2fs", "debugfs")
+		dir := GinkgoT().TempDir()
+		img := filepath.Join(dir, "upper.ext4")
+		Expect(os.WriteFile(img, nil, 0o600)).To(Succeed())
+		Expect(os.Truncate(img, 256<<20)).To(Succeed())
+		out, err := exec.Command("mke2fs", "-q", "-F", "-t", "ext4", "-O", "^has_journal,^metadata_csum", "-E", "root_owner=1000:1000", img).CombinedOutput()
+		Expect(err).To(Succeed(), "mke2fs: %s", out)
+		// 500 levels of 255-byte names and many files in the deepest folder:
+		// every file path is about 127 KB.
+		name := strings.Repeat("d", 255)
+		cmds := []string{"mkdir data", "cd data"}
+		for range 500 {
+			cmds = append(cmds, "mkdir "+name, "cd "+name)
+		}
+		for i := range 3000 {
+			cmds = append(cmds, fmt.Sprintf("mknod f%d p", i))
+		}
+		debugfsWrite(img, cmds...)
+		stage := filepath.Join(dir, "stage")
+		Expect(os.Mkdir(stage, 0o700)).To(Succeed())
+		r := upperReader{argv: []string{"debugfs", "-c", "-f", "-", img}, stage: stage, host: stage}
+		var before, after runtime.MemStats
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+		start := time.Now()
+		_, _, err = r.read(readCtx(), nil)
+		runtime.ReadMemStats(&after)
+		Expect(err).To(MatchError(ContainSubstring("longer than the cap of 4096 bytes")))
+		Expect(time.Since(start)).To(BeNumerically("<", 30*time.Second))
+		Expect(after.TotalAlloc-before.TotalAlloc).To(BeNumerically("<", 256<<20), "the read allocated too much before it failed")
+		ents, _ := os.ReadDir(stage)
+		Expect(ents).To(BeEmpty(), "a failed read staged files")
+	})
+
 	It("caps the output", func() {
 		needTools("mke2fs", "debugfs")
 		_, r := testUpper()
@@ -51,6 +103,8 @@ var _ = Describe("upper reader limits and parsers", func() {
 		Expect(l.depth).To(Equal(512), "defaults: %+v", l)
 		Expect(l.entries).To(Equal(1000000), "defaults: %+v", l)
 		Expect(l.output).To(BeEquivalentTo(512<<20), "defaults: %+v", l)
+		Expect(l.pathLen).To(Equal(4096), "defaults: %+v", l)
+		Expect(l.pathBytes).To(BeEquivalentTo(128<<20), "defaults: %+v", l)
 		got := (readLimits{depth: 3}).withDefaults()
 		Expect(got.depth).To(Equal(3), "a set field must stay: %+v", got)
 		Expect(got.entries).To(Equal(1000000), "a set field must stay: %+v", got)
