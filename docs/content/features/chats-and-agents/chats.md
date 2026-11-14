@@ -1,5 +1,6 @@
 +++
 url = "/features/chats/"
+aliases = ["/features/agents/"]
 disableToc = false
 title = "Chats"
 weight = 10
