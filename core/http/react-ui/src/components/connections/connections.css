@@ -47,6 +47,7 @@
 
 /* Inside the first-run guide the two steps hold forms, not button rows. */
 .home-step--where { grid-template-columns: minmax(0, 1fr); }
+.home-step--where .home-step__extra + .home-step__desc { margin-top: var(--sp-3); }
 .home-step__extra--block { display: block; }
 .home-step__extra--block .conn-form,
 .home-step__extra--block .conn-choose { max-width: 560px; }
