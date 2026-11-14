@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 )
@@ -16,7 +17,89 @@ import (
 // until the goroutine stack is exhausted and crash the whole process. Rejecting
 // the request once this depth is exceeded turns that potential crash into an
 // ordinary per-request error. The limit is far above any realistic schema.
-const maxSchemaDepth = 256
+const (
+	maxSchemaDepth       = 256
+	maxGrammarRepetition = 2000
+)
+
+func schemaBound(schema map[string]any, key string) (int, bool, error) {
+	raw, ok := schema[key]
+	if !ok {
+		return 0, false, nil
+	}
+
+	var value int64
+	switch n := raw.(type) {
+	case int:
+		value = int64(n)
+	case int32:
+		value = int64(n)
+	case int64:
+		value = n
+	case float64:
+		if math.Trunc(n) != n || n < 0 || n > maxGrammarRepetition {
+			return 0, false, fmt.Errorf("%s must be an integer between 0 and %d", key, maxGrammarRepetition)
+		}
+		value = int64(n)
+	default:
+		return 0, false, fmt.Errorf("%s must be an integer between 0 and %d", key, maxGrammarRepetition)
+	}
+
+	if value < 0 || value > maxGrammarRepetition {
+		return 0, false, fmt.Errorf("%s must be an integer between 0 and %d", key, maxGrammarRepetition)
+	}
+	return int(value), true, nil
+}
+
+func schemaBounds(schema map[string]any, minKey, maxKey string) (int, int, bool, error) {
+	minValue, hasMin, err := schemaBound(schema, minKey)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	maxValue, hasMax, err := schemaBound(schema, maxKey)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	if hasMin && hasMax && minValue > maxValue {
+		return 0, 0, false, fmt.Errorf("%s cannot exceed %s", minKey, maxKey)
+	}
+	if !hasMax {
+		maxValue = -1
+	}
+	return minValue, maxValue, hasMin || hasMax, nil
+}
+
+func buildRepetition(item string, minItems, maxItems int, separator string) string {
+	if maxItems == 0 {
+		return ""
+	}
+	if minItems == 0 && maxItems == 1 {
+		return item + "?"
+	}
+	if separator == "" {
+		switch {
+		case minItems == 0 && maxItems < 0:
+			return item + "*"
+		case minItems == 1 && maxItems < 0:
+			return item + "+"
+		case maxItems < 0:
+			return fmt.Sprintf("%s{%d,}", item, minItems)
+		default:
+			return fmt.Sprintf("%s{%d,%d}", item, minItems, maxItems)
+		}
+	}
+
+	maxTail := maxItems
+	if maxTail > 0 {
+		maxTail--
+	}
+	minTail := max(0, minItems-1)
+	result := item + " " + buildRepetition("("+separator+" "+item+")", minTail, maxTail, "")
+	if minItems == 0 {
+		return "(" + result + ")?"
+	}
+	return result
+}
 
 type JSONSchemaConverter struct {
 	propOrder map[string]int
@@ -233,13 +316,33 @@ func (sc *JSONSchemaConverter) visit(schema map[string]any, name string, rootSch
 		if err != nil {
 			return "", err
 		}
-		rule := fmt.Sprintf(`"[" space (%s ("," space %s)*)? "]" space`, itemRuleName, itemRuleName)
+		minItems, maxItems, _, err := schemaBounds(schema, "minItems", "maxItems")
+		if err != nil {
+			return "", err
+		}
+		itemsRule := buildRepetition(itemRuleName, minItems, maxItems, `"," space`)
+		rule := `"[" space`
+		if itemsRule != "" {
+			rule += " " + itemsRule
+		}
+		rule += ` "]" space`
 		return sc.addRule(ruleName, rule), nil
 	} else if properties, _ := schema["properties"].(map[string]any); (schemaType == "object" || schemaType == "") && len(properties) == 0 {
 		// Handle empty object schema (no properties)
 		rule := `"{" space "}" space`
 		return sc.addRule(ruleName, rule), nil
 	} else {
+		if schemaType == "string" {
+			minLength, maxLength, bounded, err := schemaBounds(schema, "minLength", "maxLength")
+			if err != nil {
+				return "", err
+			}
+			if bounded {
+				charRule := sc.addRule("char", PRIMITIVE_RULES["char"])
+				rule := `"\"" ` + buildRepetition(charRule, minLength, maxLength, "") + ` "\"" space`
+				return sc.addRule(ruleName, rule), nil
+			}
+		}
 		// Handle primitive types, including multi-type arrays like ["string", "null"]
 		if len(schemaTypes) > 1 {
 			// Generate a union of multiple primitive types
