@@ -208,39 +208,5 @@
     "useTitle": "Use {{name}} for this import",
     "useInstallTitle": "Use {{name}}. LocalAI will install it first.",
     "dismiss": "Dismiss"
-  },
-  "search": {
-    "title": "Search online",
-    "hint": "Find a model on Hugging Face or Pirate Face, then import it.",
-    "label": "Search for a model",
-    "placeholder": "Model name, for example qwen3",
-    "go": "Search",
-    "providers": {
-      "huggingface": "Hugging Face",
-      "pirateface": "Pirate Face"
-    },
-    "ggufOnly": "GGUF only",
-    "sortLabel": "Sort by",
-    "sort": {
-      "downloads": "Downloads",
-      "likes": "Likes",
-      "updated": "Recent"
-    },
-    "noProvider": "Turn on at least one provider.",
-    "failed": "The search failed.",
-    "providerDown": "{{name}} did not answer: {{error}}",
-    "none": "No models found",
-    "noneBody": "Try another name, or turn off GGUF only.",
-    "gated": "Gated",
-    "gatedHint": "The provider asks for approval before you can download this model.",
-    "pickLabel": "Import {{name}}",
-    "facts": {
-      "size": "Size",
-      "seeders": "Seeders",
-      "downloads": "Downloads",
-      "likes": "Likes",
-      "license": "License",
-      "task": "Task"
-    }
   }
 }

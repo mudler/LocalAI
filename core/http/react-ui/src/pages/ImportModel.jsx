@@ -13,7 +13,6 @@ import PageHeader from '../components/PageHeader'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
-import ModelSearchPanel from '../components/ModelSearchPanel'
 import ModalityChips from '../components/ModalityChips'
 import { classifyImportJob } from '../utils/importJob'
 import Icon from '../components/Icon'
@@ -799,17 +798,6 @@ export default function ImportModel() {
                 </>
               )}
             </section>
-
-            <ModelSearchPanel
-              disabled={isSubmitting}
-              onPick={(uri) => {
-                setImportUri(uri)
-                setAmbiguity(null)
-                setEstimate(null)
-                document.getElementById('import-source-input')?.scrollIntoView({ block: 'center' })
-                document.getElementById('import-source-input')?.focus({ preventScroll: true })
-              }}
-            />
 
             {ambiguity && (
               <AmbiguityAlert

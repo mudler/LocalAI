@@ -122,5 +122,15 @@
     "ollama": {
       "title": "Ollama"
     }
+  },
+  "found": {
+    "kind": {
+      "magnet": "Lien magnet",
+      "pirateface": "Modèle Pirate Face"
+    },
+    "ref": {
+      "magnet": "Hash d’information",
+      "pirateface": "Modèle"
+    }
   }
 }

@@ -120,5 +120,15 @@
     "ollama": {
       "title": "Ollama"
     }
+  },
+  "found": {
+    "kind": {
+      "magnet": "磁力链接",
+      "pirateface": "Pirate Face 模型"
+    },
+    "ref": {
+      "magnet": "信息哈希",
+      "pirateface": "模型"
+    }
   }
 }
