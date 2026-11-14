@@ -931,3 +931,10 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-more { display: flex; justify-content: center; padding: var(--dk-space-3) 0; }
 .remote-notices { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-bottom: var(--dk-space-3); }
 .ledger-estimate-note { margin: 0 0 var(--dk-space-3); font-size: var(--dk-text-12); color: var(--dk-muted); }
+
+/* A choice among builds of one repository: no info control and no backend
+   column, and the name keeps room so it is never squeezed out by the badges. */
+.variant-list--choice {
+  grid-template-columns: 0 minmax(9ch, auto) 0 max-content max-content max-content max-content 1fr;
+  column-gap: var(--spacing-sm);
+}

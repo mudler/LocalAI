@@ -77,8 +77,8 @@ test('remote models: variants carry size and a fit verdict at the chosen context
   assert.equal(data.variants[0].recommended, true)
   assert.equal(data.variants.length, 2)
   assert.deepEqual(
-    data.variants.map(v => [v.model, v.quantization, v.memory_bytes, v.fits, v.fitNote]),
-    [['a-q4.gguf', 'Q4_K_M', 4 * GB, true, 'Fits'], ['a-q8.gguf', 'Q8_0', 8 * GB, false, 'Too big']],
+    data.variants.map(v => [v.model, v.label, v.quantization, v.memory_bytes, v.fits, v.fitNote]),
+    [['a-q4.gguf', 'Q4_K_M', 'GGUF', 4 * GB, true, ''], ['a-q8.gguf', 'Q8_0', 'GGUF', 8 * GB, false, 'Too big']],
   )
   assert.equal(data.variants[0].backend, 'llama-cpp')
 })

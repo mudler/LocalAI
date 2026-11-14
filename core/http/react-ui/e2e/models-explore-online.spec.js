@@ -212,7 +212,7 @@ test.describe('Explore: online sources', () => {
     await expect(variants.nth(0)).toContainText('Recommended')
     await expect(variants.nth(2)).toContainText('Q8_0')
     // fit of each build, from the one estimate
-    await expect(variants.nth(0)).toContainText('Fits')
+    await expect(variants.nth(0)).not.toContainText('Too big')
     await expect(variants.nth(0)).toHaveAttribute('aria-pressed', 'true')
     expect(seen.files).toContain('huggingface://acme/Tiny-GGUF')
     // there is no model page to open

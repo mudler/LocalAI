@@ -108,11 +108,16 @@ export function remoteVariantData(files, estimate, { contextSize, budget, ramAva
     const fit = fitFor(need, budget, ramAvailable)
     return {
       model: v.file,
+      // The build is named by its quantization; the file name is long and
+      // the pane is narrow. The format column says GGUF and the shard count.
+      label: v.quantization,
       backend: backend || files.backend || '',
-      quantization: v.quantization,
+      quantization: v.shards > 1 ? `GGUF ×${v.shards}` : 'GGUF',
       memory_bytes: v.size_bytes || 0,
       fits: fit ? fit.state !== 'over' : true,
-      fitNote: fit ? labels[fit.state] : '',
+      // Only a verdict that is not "fits" is worth a badge in a narrow list;
+      // a fitting build shows no warning.
+      fitNote: fit && fit.state !== 'fits' ? labels[fit.state] : '',
       fitTone: fit ? (fit.state === 'fits' ? 'success' : fit.state === 'spill' ? 'warning' : 'error') : '',
       is_base: false,
       recommended: !!v.recommended,

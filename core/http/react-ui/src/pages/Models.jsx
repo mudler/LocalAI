@@ -1627,7 +1627,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           )}
           {variantData?.variants?.length > 0 && (
             <DetailRow label={t('variants.title')}>
-              <div className="variant-list">
+              <div className={`variant-list${variantChoice ? ' variant-list--choice' : ''}`}>
                 {variantData.variants.map(v => {
                   const isAuto = v.model === variantData.auto_selected
                   const detail = variantDetails?.[v.model]
@@ -1684,8 +1684,9 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       data-testid={variantChoice ? 'remote-variant' : undefined}
                       onClick={(e) => { e.stopPropagation(); if (variantChoice) variantChoice.onChoose(v.model); else onInstall(name, v.model) }}
                     >
-                      <span className="variant-row__name">{v.model}</span>
-                      <span className="variant-row__backend">{v.backend || t('variants.unknownBackend')}</span>
+                      <span className="variant-row__name">{v.label || v.model}</span>
+                      {/* A choice among builds of one repository shares one backend, which the pane already names above. */}
+                      <span className="variant-row__backend">{variantChoice ? '' : (v.backend || t('variants.unknownBackend'))}</span>
                       {/* Its own column rather than appended to the backend
                           cell, so precision lines up down the list and two
                           builds can be compared by scanning rather than by
