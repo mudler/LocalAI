@@ -1344,6 +1344,20 @@ Multiple detectors union their detections; overlapping spans resolve to the stro
 
 > The earlier regex pattern tier (`pii.patterns`, the global pattern catalogue, `--pii-config`, and the `/api/pii/patterns` admin endpoints) has been removed, along with response/streaming-side redaction. Those keys now no-op with a startup warning; migrate to `pii.detectors` + a detector's `pii_detection` block.
 
+## Remote proxy models
+
+A model with `backend: cloud-proxy` or `backend: localai-proxy` is served by a
+remote upstream. The `proxy:` block holds its settings (`upstream_url`,
+`upstream_model`, `mode`, `provider`, `api_key`, `api_key_env`,
+`api_key_file`, `request_timeout_seconds`). See
+[Cloud passthrough proxy]({{% relref "/administration/cloud-proxy" %}}).
+
+`proxy.connection` is the id of a
+[remote connection]({{% relref "/administration/remote-connections" %}}). The
+connection feature sets it. Do not write it by hand. LocalAI reads the key from
+the connection when the model loads. The field is exclusive with `api_key`,
+`api_key_env` and `api_key_file`.
+
 ## Environment Variables Configuration
 
 Model configurations can specify environment variables passed to the backend process:
