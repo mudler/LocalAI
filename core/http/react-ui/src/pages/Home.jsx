@@ -978,6 +978,13 @@ export default function Home() {
               onInstallStarted={fetchSystemInfo}
               onGallery={() => navigate('/app/models')}
               onImport={() => navigate('/app/import-model')}
+              onRemoteDone={(result) => {
+                // The models exist now, so reading them again ends first run:
+                // the guide gives way to the page with its model picker.
+                const created = result?.created?.length || 0
+                addToast?.(t('remoteSetup.done', { name: result?.connection?.name || '', count: created }), 'success')
+                fetchSystemInfo()
+              }}
             />
           </div>
         )}
