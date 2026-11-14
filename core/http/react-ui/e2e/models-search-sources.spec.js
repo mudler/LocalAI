@@ -106,32 +106,56 @@ test.describe('model search sources', () => {
     await shot(page, 'failed-source')
   })
 
-  test('the sources panel turns a source on and off, and a kept ID of a missing add-on shows a hint', async ({ page }) => {
+  test('an installed add-on source is on with no action, and the panel shows it on', async ({ page }) => {
+    await mockLedger(page)
+    const seen = await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'] })
+    await page.goto('/app/models')
+    await expect(chip(page, 'huggingface')).toBeVisible()
+    await expect(chip(page, 'peer')).toBeVisible()
+    await expect(page.getByTestId('source-hint')).toHaveCount(0)
+    await page.getByTestId('model-sources-open').click()
+    await expect(page.getByTestId('source-switch-huggingface')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('source-switch-peer')).toHaveAttribute('aria-checked', 'true')
+    expect(seen.put).toEqual([])
+    await shot(page, 'sources-default-on')
+  })
+
+  test('the sources panel turns a source off and on again', async ({ page }) => {
+    await mockLedger(page)
+    const seen = await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'] })
+    await page.goto('/app/models')
+    await page.getByTestId('model-sources-open').click()
+    const peerSwitch = page.getByTestId('source-switch-peer')
+    // Off: the chip and the filters of a source that is not on are gone.
+    await peerSwitch.click()
+    await expect.poll(() => seen.put.length).toBe(1)
+    expect(seen.put[0]).toEqual(['huggingface'])
+    await expect(peerSwitch).toHaveAttribute('aria-checked', 'false')
+    await expect(chip(page, 'peer')).toHaveCount(0)
+    await expect(page.getByTestId('source-filter-peer-kind')).toHaveCount(0)
+    await shot(page, 'sources-panel-off')
+
+    // On again: the chip and the filters of the source are back.
+    await peerSwitch.click()
+    await expect.poll(() => seen.put.length).toBe(2)
+    expect(seen.put[1]).toEqual(['huggingface', 'peer'])
+    await expect(peerSwitch).toHaveAttribute('aria-checked', 'true')
+    await expect(chip(page, 'peer')).toBeVisible()
+    await expect(page.getByTestId('source-filter-peer-kind')).toBeVisible()
+    await shot(page, 'sources-panel')
+  })
+
+  test('a server that still sends missing IDs gets the hint and keeps the ID in the list it sends back', async ({ page }) => {
     await mockLedger(page)
     const seen = await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'ghost'], missing: ['ghost'] })
     await page.goto('/app/models')
     await expect(page.getByTestId('source-hint')).toContainText('ghost')
     await page.getByTestId('model-sources-open').click()
     await expect(page.getByTestId('source-missing-ghost')).toBeVisible()
-    const peerSwitch = page.getByTestId('source-switch-peer')
-    await peerSwitch.click()
+    await page.getByTestId('source-switch-peer').click()
     await expect.poll(() => seen.put.length).toBe(1)
     expect(seen.put[0]).toEqual(['huggingface', 'ghost', 'peer'])
-    // The page follows the answer: the switch is on, the chip and the filters of the source are there.
-    await expect(peerSwitch).toHaveAttribute('aria-checked', 'true')
-    await expect(chip(page, 'peer')).toBeVisible()
-    await expect(page.getByTestId('source-filter-peer-kind')).toBeVisible()
-    await shot(page, 'sources-panel')
-
-    // Off again: the chip and the filters of a source that is not on are gone, and the stored ghost stays.
-    await peerSwitch.click()
-    await expect.poll(() => seen.put.length).toBe(2)
-    expect(seen.put[1]).toEqual(['huggingface', 'ghost'])
-    await expect(peerSwitch).toHaveAttribute('aria-checked', 'false')
-    await expect(chip(page, 'peer')).toHaveCount(0)
-    await expect(page.getByTestId('source-filter-peer-kind')).toHaveCount(0)
     await expect(page.getByTestId('source-missing-ghost')).toBeVisible()
-    await shot(page, 'sources-panel-off')
   })
 
   test('an empty set says nothing is searched', async ({ page }) => {

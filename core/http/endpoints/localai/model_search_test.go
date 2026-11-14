@@ -195,10 +195,14 @@ var _ = Describe("ModelSearchEndpoint with add-on sources", func() {
 		return out
 	}
 
-	It("searches only Hugging Face by default", func() {
+	It("searches Hugging Face and every installed add-on source by default", func() {
 		out := decode(do(http.MethodGet, "/api/models/search?q=x", ""))
-		Expect(out.Providers).To(HaveLen(1))
-		Expect(out.Sources).To(HaveLen(1))
+		Expect(out.Providers).To(HaveLen(2))
+		Expect(out.Sources).To(HaveLen(2))
+		var ov modelsearch.Overview
+		Expect(json.Unmarshal(do(http.MethodGet, "/api/models/search/sources", "").Body.Bytes(), &ov)).To(Succeed())
+		Expect(ov.Enabled).To(Equal([]string{"huggingface", "peer"}))
+		Expect(ov.Missing).To(BeEmpty())
 	})
 
 	It("searches the enabled set, passes filters to their source and counts dropped rows", func() {
@@ -244,27 +248,27 @@ var _ = Describe("ModelSearchEndpoint with add-on sources", func() {
 	})
 
 	It("keeps the choice of one person apart from another", func() {
-		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["peer"]}`).Code).To(Equal(http.StatusOK))
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface"]}`).Code).To(Equal(http.StatusOK))
+		Expect(decode(do(http.MethodGet, "/api/models/search?q=x", "")).Providers).To(HaveLen(1))
 		user = "bob"
 		out := decode(do(http.MethodGet, "/api/models/search?q=x", ""))
-		Expect(out.Providers).To(HaveLen(1))
-		Expect(out.Providers[0].Name).To(Equal("huggingface"))
+		Expect(out.Providers).To(HaveLen(2))
 	})
 
-	It("refuses a source that is not installed, and restores a kept one on reinstall", func() {
+	It("refuses a source that is not installed, and keeps a source turned off across a reinstall", func() {
 		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["ghost"]}`).Code).To(Equal(http.StatusBadRequest))
-		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface","peer"]}`).Code).To(Equal(http.StatusOK))
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface"]}`).Code).To(Equal(http.StatusOK))
 		broker.installed = false
 		var ov modelsearch.Overview
 		Expect(json.Unmarshal(do(http.MethodGet, "/api/models/search/sources", "").Body.Bytes(), &ov)).To(Succeed())
-		Expect(ov.Missing).To(Equal([]string{"peer"}))
+		Expect(ov.Missing).To(BeEmpty())
 		Expect(ov.Sources).To(HaveLen(1))
 		Expect(do(http.MethodGet, "/api/models/search?q=x&providers=peer", "").Code).To(Equal(http.StatusBadRequest))
 		broker.installed = true
 		Expect(json.Unmarshal(do(http.MethodGet, "/api/models/search/sources", "").Body.Bytes(), &ov)).To(Succeed())
-		Expect(ov.Missing).To(BeEmpty())
 		Expect(ov.Sources).To(HaveLen(2))
-		Expect(decode(do(http.MethodGet, "/api/models/search?q=x", "")).Providers).To(HaveLen(2))
+		Expect(ov.Enabled).To(Equal([]string{"huggingface"}))
+		Expect(decode(do(http.MethodGet, "/api/models/search?q=x", "")).Providers).To(HaveLen(1))
 	})
 
 	It("answers 400 for a list longer than the sources that can be in it", func() {

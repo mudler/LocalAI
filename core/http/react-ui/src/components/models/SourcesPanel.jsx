@@ -5,14 +5,13 @@ import { Callout, Switch } from '../ui'
 import { sourceText } from '../../utils/modelSearch'
 
 // The panel that turns online search sources on and off. One row for each
-// installed source, built in or from an add-on. The choice is the person's and
-// takes effect at once. An enabled source that no installed add-on provides is
-// listed apart, with a link to the add-ons: it stays enabled, so installing the
-// add-on again restores it.
+// installed source, built in or from an add-on. Every source is on until the
+// person turns it off. The choice is theirs and takes effect at once.
 //
 //   sources   every installed source: { id, title, kind, p2p, i18n }
 //   enabled   the IDs that are on
-//   missing   the enabled IDs with no installed add-on
+//   missing   IDs with no installed add-on, listed apart with a link to the
+//             add-ons. The server sends none today; an older one may.
 export default function SourcesPanel({ sources, enabled, missing, busy, error, onToggle, onClose, lang, t }) {
   return (
     <SideSheet title={t('remote.sourcesTitle')} onClose={onClose} closeLabel={t('remote.sourcesClose')} labelId="model-sources-title" testId="model-sources-panel">

@@ -11,9 +11,11 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 )
 
-// modelSearchKey is the key of the enabled set among the host settings of a
-// person: the same store and the same key shape as the other provider slots.
-const modelSearchKey = "provider-" + contract.SlotModelSearch
+// modelSearchKey is the key of the list of sources a person turned off, among
+// the host settings of a person: the same store as the other provider slots.
+// Every source is on until it is in this list. The first version of the feature
+// stored the enabled set under "provider-model-search"; that key is not read.
+const modelSearchKey = "provider-" + contract.SlotModelSearch + "-off"
 
 // ModelSearch returns the search host of the process: the shared Searcher, the
 // add-on sources and the enabled set of each person. The REST route and the
@@ -85,7 +87,7 @@ func (b modelSearchBackend) Call(ctx context.Context, user, addonID, tool string
 	return env.Result, nil
 }
 
-// modelSearchKV keeps the enabled set in the store of the per-person add-on
+// modelSearchKV keeps the off list in the store of the per-person add-on
 // settings, under the owner of the host's own settings.
 type modelSearchKV struct{ a *Application }
 

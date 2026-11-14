@@ -15,7 +15,7 @@ type Host struct {
 	// Sync registers the add-on sources. Nil: only the providers already in
 	// the Searcher exist.
 	Sync *AddonSync
-	// Selection holds the enabled set. Nil: the default set.
+	// Selection holds the sources a person turned off. Nil: every source is on.
 	Selection *Selection
 }
 
@@ -34,10 +34,12 @@ func NewHost(s *Searcher, backend AddonBackend, kv SelectionKV) *Host {
 // Overview is the list of sources of one person.
 type Overview struct {
 	Sources []Source `json:"sources"`
-	// Enabled is the enabled set as stored, in order, including IDs that are
-	// not installed.
+	// Enabled is the enabled set: every source the person can see that they
+	// did not turn off, in the order of Sources.
 	Enabled []string `json:"enabled"`
-	// Missing lists the enabled IDs that no installed add-on provides.
+	// Missing is kept for older clients and is always empty: the store holds
+	// what the person turned off, so no stored ID asks for an add-on to be
+	// installed.
 	Missing []string `json:"missing"`
 }
 
@@ -64,49 +66,41 @@ func (h *Host) Visible(ctx context.Context, user string) []string {
 	return out
 }
 
-// Enabled returns the enabled set of the person. A store that cannot answer
-// gives the default set: the built-in source is on by default, and a failure
-// does not stop the search.
+// Enabled returns the enabled set of the person: every source they can see
+// that they did not turn off. A store that cannot answer gives every visible
+// source, and a failure does not stop the search.
 func (h *Host) Enabled(ctx context.Context, user string) []string {
-	ids, err := h.Selection.Enabled(ctx, user)
+	return h.enabledOf(ctx, user, h.Visible(ctx, user))
+}
+
+func (h *Host) enabledOf(ctx context.Context, user string, visible []string) []string {
+	ids, err := h.Selection.Enabled(ctx, user, visible)
 	if err != nil {
-		xlog.Warn("model search: the choice of sources could not be read, the default set is used", "error", err)
-		return []string{HuggingFaceName}
+		xlog.Warn("model search: the choice of sources could not be read, every source is on", "error", err)
+		return slices.Clone(visible)
 	}
 	return ids
 }
 
-// Active returns the sources to search for the person: the enabled set that is
-// installed. The order is the order of the enabled set.
+// Active returns the sources to search for the person: the enabled set. The
+// order is the order of the visible sources.
 func (h *Host) Active(ctx context.Context, user string) []string {
-	visible := h.Visible(ctx, user)
-	var out []string
-	for _, id := range h.Enabled(ctx, user) {
-		if slices.Contains(visible, id) {
-			out = append(out, id)
-		}
-	}
-	return out
+	return h.Enabled(ctx, user)
 }
 
-// Overview lists the installed sources and the choice of the person.
+// Overview lists the sources the person can see and their choice.
 func (h *Host) Overview(ctx context.Context, user string) Overview {
 	visible := h.Visible(ctx, user)
-	out := Overview{Sources: []Source{}, Enabled: h.Enabled(ctx, user), Missing: []string{}}
+	out := Overview{Sources: []Source{}, Enabled: h.enabledOf(ctx, user, visible), Missing: []string{}}
 	for _, id := range visible {
 		if src, ok := h.Searcher.Source(id); ok {
 			out.Sources = append(out.Sources, src)
 		}
 	}
-	for _, id := range out.Enabled {
-		if !slices.Contains(visible, id) {
-			out.Missing = append(out.Missing, id)
-		}
-	}
 	return out
 }
 
-// SetEnabled stores the enabled set.
+// SetEnabled stores the enabled set, as the list of what is off.
 func (h *Host) SetEnabled(ctx context.Context, user string, ids []string) error {
 	return h.Selection.Set(ctx, user, ids, h.Visible(ctx, user))
 }

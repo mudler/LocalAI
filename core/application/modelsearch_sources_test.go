@@ -97,8 +97,7 @@ var _ = Describe("the model search backend over the chats broker", func() {
 		host = modelsearch.NewHost(s, modelSearchBackend{broker: broker}, &stringKV{})
 	})
 
-	It("returns the rows of the add-on when its source is enabled", func() {
-		Expect(host.SetEnabled(ctx, "ann", []string{"huggingface", "pirateface"})).To(Succeed())
+	It("returns the rows of the add-on with no action of the person: its source is on by default", func() {
 		r := host.Search(ctx, "ann", modelsearch.Query{Text: "qwen", Filters: map[string]map[string]string{"pirateface": {"min-seeders": "2"}}}, nil)
 		Expect(r.Providers).To(HaveLen(2))
 		Expect(r.Providers[1].OK).To(BeTrue(), r.Providers[1].Error)
@@ -114,17 +113,19 @@ var _ = Describe("the model search backend over the chats broker", func() {
 		Expect(sent["filters"]).To(Equal(map[string]any{"min-seeders": float64(2)}))
 	})
 
-	It("returns nothing from the add-on, and does not call it, when its source is not enabled", func() {
+	It("returns nothing from the add-on, and does not call it, when the person turned its source off", func() {
+		Expect(host.SetEnabled(ctx, "ann", []string{"huggingface"})).To(Succeed())
 		r := host.Search(ctx, "ann", modelsearch.Query{Text: "qwen"}, nil)
 		Expect(r.Providers).To(HaveLen(1))
 		Expect(r.Providers[0].Name).To(Equal("huggingface"))
 		Expect(owner.dispatched).To(BeEmpty())
-		Expect(host.Overview(ctx, "ann").Sources).To(HaveLen(2), "it is installed, so the person can turn it on")
+		Expect(host.Overview(ctx, "ann").Sources).To(HaveLen(2), "it is installed, so the person can turn it back on")
 	})
 
 	It("does not wait for a provider pick: no choice is stored for the slot, and the set still works", func() {
-		_, stored, _ := host.Selection.Stored(ctx, "ann")
-		Expect(stored).To(BeFalse())
+		off, err := host.Selection.Off(ctx, "ann")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(off).To(BeEmpty())
 		Expect(host.SetEnabled(ctx, "ann", []string{"pirateface"})).To(Succeed())
 		r := host.Search(ctx, "ann", modelsearch.Query{Text: "qwen"}, nil)
 		Expect(r.Providers).To(HaveLen(1))
@@ -132,7 +133,6 @@ var _ = Describe("the model search backend over the chats broker", func() {
 	})
 
 	It("reports a failed source when the add-on is stopped, and keeps the other source", func() {
-		Expect(host.SetEnabled(ctx, "ann", []string{"huggingface", "pirateface"})).To(Succeed())
 		owner.mu.Lock()
 		owner.app.State = "stopped"
 		owner.mu.Unlock()

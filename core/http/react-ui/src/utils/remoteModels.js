@@ -32,16 +32,17 @@ function uiSource(s) {
   }
 }
 
-// The sources to show as chips: installed and in the person's enabled set.
+// The sources to show as chips: installed and in the person's enabled set. The
+// server computes that set: every source the person can see, minus the ones they
+// turned off.
 export function remoteSourcesFrom(overview) {
   if (!overview || !Array.isArray(overview.sources)) return BUILTIN_SOURCES
   const on = new Set(overview.enabled || [])
   return overview.sources.filter(s => on.has(s.id)).map(uiSource)
 }
 
-// The enabled set after one switch. An ID the person did not touch stays, also
-// one whose add-on is not installed: the set is theirs, and installing the
-// add-on again restores the choice.
+// The enabled set after one switch. An ID the person did not touch stays. The
+// server stores what is off, so a source that was not in the list sent is off.
 export function nextEnabled(enabled, id, on) {
   const rest = (enabled || []).filter(x => x !== id)
   return on ? [...rest, id] : rest

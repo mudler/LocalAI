@@ -11,34 +11,36 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// ErrUnknownSource means a source ID that is neither built in, nor installed,
-// nor already in the stored choice.
+// ErrUnknownSource means a source ID that is neither built in, nor visible to
+// the person, nor already in the stored list of sources they turned off.
 var ErrUnknownSource = errors.New("unknown search source")
 
 // ErrTooManySources means the list is longer than the sources that can be in
-// it: the installed ones, the ones already stored, and the built-in one, with a
+// it: the visible ones, the ones already stored, and the built-in one, with a
 // hard cap of MaxEnabledSources.
 var ErrTooManySources = errors.New("too many search sources in the list")
 
-// MaxEnabledSources is the hard cap of the enabled list.
+// MaxEnabledSources is the hard cap of the list a person sends and of the
+// stored list of sources they turned off.
 const MaxEnabledSources = 64
 
 // SelectionKV is the store of the per-person add-on settings, seen through the
-// one key that holds the enabled set. A store that cannot answer returns an
-// error.
+// one key that holds the list of sources the person turned off. A store that
+// cannot answer returns an error.
 type SelectionKV interface {
 	Get(ctx context.Context, user string) (string, bool, error)
 	Set(ctx context.Context, user, value string) error
 }
 
-// Selection is the enabled set of search sources of a person. It is stored as
-// a JSON list of source IDs with the person's other add-on settings, so every
-// frontend of a cluster reads the same answer.
+// Selection is the choice of search sources of a person. Every source the
+// person can see is on, built-in or add-on, until the person turns it off. The
+// store holds only what they turned off, as a JSON list of source IDs next to
+// their other add-on settings, so every frontend of a cluster reads the same
+// answer and a source installed later is on with no action.
 //
-// A person who never chose has the default set: the built-in source. An empty
-// set is a choice: nothing is searched. An ID that names a source that is not
-// installed is ignored when searching and kept, so installing the add-on again
-// restores the choice.
+// An empty enabled set is a choice: nothing is searched. An ID in the off
+// list that names a source that is not installed is ignored and kept, so
+// installing the add-on again restores the choice.
 type Selection struct{ kv SelectionKV }
 
 // NewSelection returns a Selection over the store.
@@ -54,21 +56,22 @@ func canonicalSource(id string) string {
 	return id
 }
 
-// Stored returns the stored list, and false when the person never chose.
-func (s *Selection) Stored(ctx context.Context, user string) ([]string, bool, error) {
+// Off returns the stored list of sources the person turned off. A person who
+// never chose has an empty list.
+func (s *Selection) Off(ctx context.Context, user string) ([]string, error) {
 	if s == nil || s.kv == nil {
-		return nil, false, nil
+		return nil, nil
 	}
 	v, ok, err := s.kv.Get(ctx, user)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	if !ok {
-		return nil, false, nil
+		return nil, nil
 	}
 	var ids []string
 	if err := json.Unmarshal([]byte(v), &ids); err != nil {
-		return nil, false, fmt.Errorf("the stored choice of sources is not a list: %w", err)
+		return nil, fmt.Errorf("the stored list of sources that are off is not a list: %w", err)
 	}
 	out := make([]string, 0, len(ids))
 	for _, id := range ids {
@@ -76,50 +79,75 @@ func (s *Selection) Stored(ctx context.Context, user string) ([]string, bool, er
 			out = append(out, id)
 		}
 	}
-	return out, true, nil
+	return out, nil
 }
 
-// Enabled returns the enabled set: the stored one, or the default.
-func (s *Selection) Enabled(ctx context.Context, user string) ([]string, error) {
-	ids, stored, err := s.Stored(ctx, user)
+// Enabled returns the enabled set: every visible source that is not in the
+// stored off list, in the order of visible.
+func (s *Selection) Enabled(ctx context.Context, user string, visible []string) ([]string, error) {
+	off, err := s.Off(ctx, user)
 	if err != nil {
 		return nil, err
 	}
-	if !stored {
-		return []string{HuggingFaceName}, nil
+	out := make([]string, 0, len(visible))
+	for _, id := range visible {
+		if !slices.Contains(off, id) {
+			out = append(out, id)
+		}
 	}
-	return ids, nil
+	return out, nil
 }
 
-// Set stores the enabled set. installed lists the IDs of the sources that are
-// installed now. An ID must be built in, installed or already stored; the last
-// rule lets a person save the set while an add-on they chose is missing.
-func (s *Selection) Set(ctx context.Context, user string, ids, installed []string) error {
+// Set stores the enabled set as the list of what is off: every visible source
+// that is not enabled. visible lists the IDs of the sources the person can use
+// now. An ID must be built in, visible or already in the stored off list; the
+// last rule lets a person save the set while an add-on they turned off is
+// missing. Stored IDs that are not visible stay in the list, unless the person
+// enables them, so an add-on that comes back keeps the choice made for it.
+func (s *Selection) Set(ctx context.Context, user string, enabled, visible []string) error {
 	if s == nil || s.kv == nil {
 		return errors.New("the choice of sources cannot be stored on this server")
 	}
-	old, _, err := s.Stored(ctx, user)
+	old, err := s.Off(ctx, user)
 	if err != nil {
 		// A stored value that cannot be read must not block a new choice.
 		old = nil
 	}
-	if limit := min(MaxEnabledSources, len(installed)+len(old)+1); len(ids) > limit {
-		return fmt.Errorf("%w: %d given, at most %d", ErrTooManySources, len(ids), limit)
+	if limit := min(MaxEnabledSources, len(visible)+len(old)+1); len(enabled) > limit {
+		return fmt.Errorf("%w: %d given, at most %d", ErrTooManySources, len(enabled), limit)
 	}
-	out := make([]string, 0, len(ids))
-	for _, raw := range ids {
+	// The built-in source is always there to turn off.
+	if !slices.Contains(visible, HuggingFaceName) {
+		visible = append(slices.Clone(visible), HuggingFaceName)
+	}
+	on := make([]string, 0, len(enabled))
+	for _, raw := range enabled {
 		id := canonicalSource(raw)
 		if !contract.ValidName(id) {
 			return fmt.Errorf("%w: %q", ErrUnknownSource, raw)
 		}
-		if id != HuggingFaceName && !slices.Contains(installed, id) && !slices.Contains(old, id) {
+		if id != HuggingFaceName && !slices.Contains(visible, id) && !slices.Contains(old, id) {
 			return fmt.Errorf("%w: %q", ErrUnknownSource, raw)
 		}
-		if !slices.Contains(out, id) {
-			out = append(out, id)
+		if !slices.Contains(on, id) {
+			on = append(on, id)
 		}
 	}
-	b, err := json.Marshal(out)
+	off := make([]string, 0, len(visible))
+	for _, id := range visible {
+		if !slices.Contains(on, id) {
+			off = append(off, id)
+		}
+	}
+	for _, id := range old {
+		if !slices.Contains(visible, id) && !slices.Contains(on, id) && !slices.Contains(off, id) {
+			off = append(off, id)
+		}
+	}
+	if len(off) > MaxEnabledSources {
+		off = off[:MaxEnabledSources]
+	}
+	b, err := json.Marshal(off)
 	if err != nil {
 		return err
 	}

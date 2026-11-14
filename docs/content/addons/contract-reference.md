@@ -3927,10 +3927,12 @@ must install through a scheme that the host already handles. An add-on cannot ad
 download scheme.
 
 This slot has a **set** selection (`selection.mode: "set"` in `provider-slots.json`; the
-other slots are pick-one). A person enables any number of sources. The built-in source is
-Hugging Face (`huggingface`) and it is on by default. All enabled sources are searched at
-the same time and the answers are merged. An empty set means no source is searched: the
-slot has no Off value.
+other slots are pick-one). A person can have any number of sources on. The built-in source is
+Hugging Face (`huggingface`). Every source the person can see is on by default, built in or
+from an add-on, running or not: the host stores only the sources the person turned off, so a
+source from a newly installed add-on is searched with no action. All enabled sources are
+searched at the same time and the answers are merged. An empty set means no source is
+searched: the slot has no Off value.
 
 ### Declare a source
 
@@ -4000,11 +4002,11 @@ source only. Text from a source is untrusted when it reaches the assistant: the 
 | Route | Does |
 |---|---|
 | `GET /api/models/search` | Searches the enabled set of the caller. `providers=a,b` limits the sources. `filters.<source>.<id>=value` sets a filter of one source; an unknown filter or a value that does not fit its type gives a 400 that names the filter. The answer has `results`, `providers` (each with `title`, `ok`, `count`, `dropped`) and `sources` (title, icon, sorts and the filter schema of each source). |
-| `GET /api/models/search/sources` | The sources that are installed, the enabled set of the caller, and the enabled IDs that have no installed add-on (`missing`). |
-| `PUT /api/models/search/sources` | `{"enabled": ["huggingface", "<source id>"]}`. A stored ID with no installed add-on is kept and ignored, so installing the add-on again restores the choice. |
+| `GET /api/models/search/sources` | The sources that are installed, and the enabled set of the caller: every visible source minus the ones the caller turned off. `missing` is always empty and stays for older clients. |
+| `PUT /api/models/search/sources` | `{"enabled": ["huggingface", "<source id>"]}`. The host stores the visible sources that are not in the list as the ones turned off. An ID that is off and has no installed add-on stays off, so installing the add-on again keeps the choice. |
 
-The `enabled` list has at most as many IDs as the installed sources plus the stored IDs plus the built-in source, and never more than 64; a longer list gives a 400. The enabled set is kept per person with the other per-person add-on choices, so every
-frontend of a cluster reads the same answer. Changing it needs no restart.
+The `enabled` list has at most as many IDs as the visible sources plus the stored off IDs plus the built-in source, and never more than 64; a longer list gives a 400. The list of sources turned off is kept per person with the other per-person add-on choices (key `provider-model-search-off`), so every
+frontend of a cluster reads the same answer. Changing it needs no restart. The first version of the feature stored the enabled set under `provider-model-search`; that key is no longer read.
 
 ### Test a source
 

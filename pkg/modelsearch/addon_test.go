@@ -387,34 +387,49 @@ func (m *memKV) Set(_ stdctx.Context, u, v string) error {
 var _ = Describe("The enabled set of sources", func() {
 	var kv *memKV
 	var sel *modelsearch.Selection
+	both := []string{"huggingface", "pirateface"}
 	BeforeEach(func() { kv = &memKV{}; sel = modelsearch.NewSelection(kv) })
 
-	It("defaults to the built-in source", func() {
-		got, err := sel.Enabled(context(), "alice")
+	It("has every visible source on until the person turns one off", func() {
+		got, err := sel.Enabled(context(), "alice", both)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(both))
+	})
+
+	It("stores what is off, and a source installed later is on", func() {
+		Expect(sel.Set(context(), "alice", []string{"builtin"}, both)).To(Succeed())
+		got, _ := sel.Enabled(context(), "alice", both)
+		Expect(got).To(Equal([]string{"huggingface"}))
+		off, _ := sel.Off(context(), "alice")
+		Expect(off).To(Equal([]string{"pirateface"}))
+		got, _ = sel.Enabled(context(), "alice", append(both, "later"))
+		Expect(got).To(Equal([]string{"huggingface", "later"}))
+	})
+
+	It("survives a restart of the store: a new Selection over the same key reads the same answer", func() {
+		Expect(sel.Set(context(), "alice", []string{"huggingface"}, both)).To(Succeed())
+		again := modelsearch.NewSelection(kv)
+		got, _ := again.Enabled(context(), "alice", both)
 		Expect(got).To(Equal([]string{"huggingface"}))
 	})
 
-	It("round trips a set, and an empty set is a choice", func() {
-		Expect(sel.Set(context(), "alice", []string{"builtin", "pirateface"}, []string{"pirateface"})).To(Succeed())
-		got, _ := sel.Enabled(context(), "alice")
-		Expect(got).To(Equal([]string{"huggingface", "pirateface"}))
-		Expect(sel.Set(context(), "alice", nil, nil)).To(Succeed())
-		got, _ = sel.Enabled(context(), "alice")
+	It("round trips an empty set as a choice", func() {
+		Expect(sel.Set(context(), "alice", nil, both)).To(Succeed())
+		got, _ := sel.Enabled(context(), "alice", both)
 		Expect(got).To(BeEmpty())
 	})
 
-	It("refuses an ID that is not installed and not stored", func() {
+	It("refuses an ID that is not visible and not stored", func() {
 		Expect(sel.Set(context(), "alice", []string{"ghost"}, nil)).To(MatchError(modelsearch.ErrUnknownSource))
 		Expect(sel.Set(context(), "alice", []string{"Bad Name"}, nil)).To(MatchError(modelsearch.ErrUnknownSource))
 	})
 
-	It("keeps a stored ID whose add-on is gone, so a reinstall restores it", func() {
-		Expect(sel.Set(context(), "alice", []string{"huggingface", "pirateface"}, []string{"pirateface"})).To(Succeed())
-		// The add-on is removed. The person saves a change: the ID stays.
-		Expect(sel.Set(context(), "alice", []string{"huggingface", "pirateface"}, nil)).To(Succeed())
-		got, _ := sel.Enabled(context(), "alice")
-		Expect(got).To(ContainElement("pirateface"))
+	It("keeps an off ID whose add-on is gone, so a reinstall keeps the choice", func() {
+		Expect(sel.Set(context(), "alice", []string{"huggingface"}, both)).To(Succeed())
+		// The add-on is removed. The person saves a change: the ID stays off.
+		Expect(sel.Set(context(), "alice", []string{"huggingface"}, []string{"huggingface"})).To(Succeed())
+		got, _ := sel.Enabled(context(), "alice", both)
+		Expect(got).To(Equal([]string{"huggingface"}))
 	})
 
 	It("refuses a list longer than the sources that can be in it", func() {
@@ -424,18 +439,28 @@ var _ = Describe("The enabled set of sources", func() {
 		}
 		Expect(sel.Set(context(), "alice", many, nil)).To(MatchError(modelsearch.ErrTooManySources))
 		Expect(sel.Set(context(), "alice", []string{"huggingface", "huggingface"}, nil)).To(MatchError(modelsearch.ErrTooManySources), "the built-in source is the only one that fits")
-		Expect(sel.Set(context(), "alice", []string{"huggingface", "pirateface"}, []string{"pirateface"})).To(Succeed())
+		Expect(sel.Set(context(), "alice", both, []string{"pirateface"})).To(Succeed())
+	})
+
+	It("caps the stored off list", func() {
+		var visible []string
+		for i := range modelsearch.MaxEnabledSources + 10 {
+			visible = append(visible, fmt.Sprintf("source-%d", i))
+		}
+		Expect(sel.Set(context(), "alice", nil, visible)).To(Succeed())
+		off, _ := sel.Off(context(), "alice")
+		Expect(off).To(HaveLen(modelsearch.MaxEnabledSources))
 	})
 
 	It("keeps the choice of one person apart from another", func() {
-		Expect(sel.Set(context(), "alice", nil, nil)).To(Succeed())
-		got, _ := sel.Enabled(context(), "bob")
-		Expect(got).To(Equal([]string{"huggingface"}))
+		Expect(sel.Set(context(), "alice", nil, both)).To(Succeed())
+		got, _ := sel.Enabled(context(), "bob", both)
+		Expect(got).To(Equal(both))
 	})
 
 	It("reports a store that cannot answer", func() {
 		kv.err = errors.New("down")
-		_, err := sel.Enabled(context(), "alice")
+		_, err := sel.Enabled(context(), "alice", both)
 		Expect(err).To(HaveOccurred())
 	})
 })

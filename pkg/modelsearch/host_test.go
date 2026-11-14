@@ -28,16 +28,35 @@ var _ = Describe("The search host", func() {
 	})
 	ctx := stdctx.Background()
 
-	It("searches only the built-in source until a person enables another", func() {
+	It("searches the built-in and the add-on source with no action, and each person turns one off for themselves", func() {
 		r := h.Search(ctx, "alice", modelsearch.Query{Text: "x"}, nil)
-		Expect(r.Providers).To(HaveLen(1))
-		Expect(r.Providers[0].Name).To(Equal("huggingface"))
-		Expect(h.SetEnabled(ctx, "alice", []string{"huggingface", "pirateface"})).To(Succeed())
-		r = h.Search(ctx, "alice", modelsearch.Query{Text: "x"}, nil)
 		Expect(r.Providers).To(HaveLen(2))
 		Expect(r.Results).To(HaveLen(2))
-		// Another person keeps the default.
-		Expect(h.Search(ctx, "bob", modelsearch.Query{Text: "x"}, nil).Providers).To(HaveLen(1))
+		Expect(h.SetEnabled(ctx, "alice", []string{"huggingface"})).To(Succeed())
+		r = h.Search(ctx, "alice", modelsearch.Query{Text: "x"}, nil)
+		Expect(r.Providers).To(HaveLen(1))
+		Expect(r.Providers[0].Name).To(Equal("huggingface"))
+		// Another person keeps every source.
+		Expect(h.Search(ctx, "bob", modelsearch.Query{Text: "x"}, nil).Providers).To(HaveLen(2))
+	})
+
+	It("turns on a source installed after the person saved a choice", func() {
+		b.sources = nil
+		Expect(h.SetEnabled(ctx, "alice", []string{"huggingface"})).To(Succeed())
+		b.sources = []modelsearch.AddonSource{addonSource("pf", "pirateface")}
+		Expect(h.Enabled(ctx, "alice")).To(Equal([]string{"huggingface", "pirateface"}))
+	})
+
+	It("keeps a source off after the person turned it off, also when the add-on goes and comes back", func() {
+		Expect(h.SetEnabled(ctx, "alice", []string{"huggingface"})).To(Succeed())
+		saved := b.sources
+		b.sources = nil
+		o := h.Overview(ctx, "alice")
+		Expect(o.Missing).To(BeEmpty())
+		Expect(o.Sources).To(HaveLen(1))
+		Expect(h.SetEnabled(ctx, "alice", o.Enabled)).To(Succeed())
+		b.sources = saved
+		Expect(h.Overview(ctx, "alice").Enabled).To(Equal([]string{"huggingface"}))
 	})
 
 	It("answers an empty set with nothing", func() {
@@ -45,26 +64,12 @@ var _ = Describe("The search host", func() {
 		r := h.Search(ctx, "alice", modelsearch.Query{Text: "x"}, nil)
 		Expect(r.Results).To(BeEmpty())
 		Expect(r.Providers).To(BeEmpty())
+		Expect(h.Overview(ctx, "alice").Enabled).To(BeEmpty())
 	})
 
-	It("ignores and keeps an enabled source whose add-on is gone, and restores it on reinstall", func() {
-		Expect(h.SetEnabled(ctx, "alice", []string{"huggingface", "pirateface"})).To(Succeed())
-		saved := b.sources
-		b.sources = nil
-		o := h.Overview(ctx, "alice")
-		Expect(o.Missing).To(Equal([]string{"pirateface"}))
-		Expect(o.Sources).To(HaveLen(1))
-		Expect(h.Search(ctx, "alice", modelsearch.Query{Text: "x"}, nil).Providers).To(HaveLen(1))
-		Expect(h.SetEnabled(ctx, "alice", o.Enabled)).To(Succeed())
-		b.sources = saved
-		o = h.Overview(ctx, "alice")
-		Expect(o.Missing).To(BeEmpty())
-		Expect(h.Search(ctx, "alice", modelsearch.Query{Text: "x"}, nil).Providers).To(HaveLen(2))
-	})
-
-	It("falls back to the default set when the store cannot be read", func() {
+	It("turns every visible source on when the store cannot be read", func() {
 		kv.err = stdctx.DeadlineExceeded
-		Expect(h.Enabled(ctx, "alice")).To(Equal([]string{"huggingface"}))
+		Expect(h.Enabled(ctx, "alice")).To(Equal([]string{"huggingface", "pirateface"}))
 	})
 
 	It("lists the sources with their title and filters", func() {
@@ -76,7 +81,7 @@ var _ = Describe("The search host", func() {
 
 	It("keeps a source that one person can see when another person, who cannot, searches at the same time", func() {
 		b.perUser = map[string][]modelsearch.AddonSource{"alice": {addonSource("pf", "pirateface")}, "bob": nil}
-		Expect(h.SetEnabled(ctx, "alice", []string{"huggingface", "pirateface"})).To(Succeed())
+		Expect(h.Visible(ctx, "alice")).To(ContainElement("pirateface"))
 		var wg gosync.WaitGroup
 		failures := make(chan string, 200)
 		for range 4 {

@@ -81,6 +81,13 @@ test('remote sources: only an installed source that is on is a chip', () => {
   assert.deepEqual(allSourcesFrom(overview).map(s => s.id), ['huggingface', 'peer'])
 })
 
+test('remote sources: a source that is on by default is a chip, and one switch off sends the rest', () => {
+  const overview = { sources: [hf, peer], enabled: ['huggingface', 'peer'], missing: [] }
+  assert.deepEqual(remoteSourcesFrom(overview).map(s => s.id), ['huggingface', 'peer'])
+  assert.deepEqual(nextEnabled(overview.enabled, 'peer', false), ['huggingface'])
+  assert.deepEqual(nextEnabled(['huggingface'], 'peer', true), ['huggingface', 'peer'])
+})
+
 test('remote sources: with no list from the server the panel is Hugging Face alone, as before', () => {
   assert.equal(remoteSourcesFrom(null), BUILTIN_SOURCES)
   assert.equal(remoteSourcesFrom({}), BUILTIN_SOURCES)

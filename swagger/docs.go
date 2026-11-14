@@ -13613,7 +13613,7 @@ const docTemplate = `{
         },
         "/api/models/search": {
             "get": {
-                "description": "Fans the query out to the sources and returns the merged results plus one status per source, so a source that is down does not fail the search. Without ` + "`" + `providers` + "`" + ` the sources are the caller's enabled set (Hugging Face by default; see /api/models/search/sources). A source can come from an add-on that provides the model-search slot. ` + "`" + `filters.\u003csource\u003e.\u003cid\u003e=value` + "`" + ` sets a filter that the source declares in ` + "`" + `sources` + "`" + ` of the answer; an unknown filter or a value that does not fit its type gives a 400 that names the filter. Each result's ` + "`" + `uri` + "`" + ` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (` + "`" + `installed` + "`" + `, ` + "`" + `installed_name` + "`" + `), the backend an import would likely pick (` + "`" + `backend` + "`" + `, a hint derived from the tags) and whether the repository likely has several quantizations (` + "`" + `has_variants` + "`" + `). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each source that can list them. A source that cannot is not called and its status says ` + "`" + `unsupported` + "`" + `. A status has ` + "`" + `dropped` + "`" + `, the number of rows the host refused because of a scheme or a size it does not accept.",
+                "description": "Fans the query out to the sources and returns the merged results plus one status per source, so a source that is down does not fail the search. Without ` + "`" + `providers` + "`" + ` the sources are the caller's enabled set (every source the caller can see that they did not turn off; see /api/models/search/sources). A source can come from an add-on that provides the model-search slot. ` + "`" + `filters.\u003csource\u003e.\u003cid\u003e=value` + "`" + ` sets a filter that the source declares in ` + "`" + `sources` + "`" + ` of the answer; an unknown filter or a value that does not fit its type gives a 400 that names the filter. Each result's ` + "`" + `uri` + "`" + ` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (` + "`" + `installed` + "`" + `, ` + "`" + `installed_name` + "`" + `), the backend an import would likely pick (` + "`" + `backend` + "`" + `, a hint derived from the tags) and whether the repository likely has several quantizations (` + "`" + `has_variants` + "`" + `). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each source that can list them. A source that cannot is not called and its status says ` + "`" + `unsupported` + "`" + `. A status has ` + "`" + `dropped` + "`" + `, the number of rows the host refused because of a scheme or a size it does not accept.",
                 "tags": [
                     "models"
                 ],
@@ -13674,7 +13674,7 @@ const docTemplate = `{
         },
         "/api/models/search/sources": {
             "get": {
-                "description": "Lists the sources that are installed (Hugging Face, and every add-on that provides the model-search slot and that the caller can see) with their titles, sorts and filters, the enabled set of the caller, and the enabled IDs that no installed add-on provides (` + "`" + `missing` + "`" + `). A missing ID is kept, so installing the add-on again restores the choice.",
+                "description": "Lists the sources that are installed (Hugging Face, and every add-on that provides the model-search slot and that the caller can see) with their titles, sorts and filters, and the enabled set of the caller: every source they can see that they did not turn off, so a source from a newly installed add-on is on with no action. ` + "`" + `missing` + "`" + ` is kept for older clients and is always empty.",
                 "tags": [
                     "models"
                 ],
@@ -13689,7 +13689,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores the set of sources the caller searches. The list has at most as many IDs as the installed sources, the stored IDs and the built-in source, and never more than 64; a longer list gives a 400. It takes effect at once, with no restart. An ID must be a built-in source, an installed source, or already in the stored set. An empty list means nothing is searched.",
+                "description": "Stores the set of sources the caller searches. The host stores what the caller turned off: every source they can see that is not in the list. An ID that is off and whose add-on is gone stays off, so installing the add-on again keeps the choice. The list has at most as many IDs as the visible sources, the stored off IDs and the built-in source, and never more than 64; a longer list gives a 400. It takes effect at once, with no restart. An ID must be a built-in source, a visible source, or already off. An empty list means nothing is searched.",
                 "consumes": [
                     "application/json"
                 ],
@@ -22246,7 +22246,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "enabled": {
-                    "description": "Enabled is the new enabled set of source IDs. An empty list searches\nnothing.",
+                    "description": "Enabled is the new enabled set of source IDs. The host stores the\nvisible sources that are not in it as the ones turned off. An empty list\nsearches nothing.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -22481,14 +22481,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "enabled": {
-                    "description": "Enabled is the enabled set as stored, in order, including IDs that are\nnot installed.",
+                    "description": "Enabled is the enabled set: every source the person can see that they\ndid not turn off, in the order of Sources.",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "missing": {
-                    "description": "Missing lists the enabled IDs that no installed add-on provides.",
+                    "description": "Missing is kept for older clients and is always empty: the store holds\nwhat the person turned off, so no stored ID asks for an add-on to be\ninstalled.",
                     "type": "array",
                     "items": {
                         "type": "string"
