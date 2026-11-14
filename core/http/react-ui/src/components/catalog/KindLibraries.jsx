@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom'
 import Icon from '../Icon'
 import SideSheet from '../SideSheet'
 import SourcesView from './SourcesView'
-import { filterSources } from './catalogState'
+import { filterSources, sourceState } from './catalogState'
 import { addonsCatalog } from '../../utils/addonsClient'
 import { describeError } from '../addons/errors'
 import './catalog.css'
@@ -60,8 +60,22 @@ export default function KindLibraries({ kind, adapter = addonsCatalog, onSelect,
     setReload(n => n + 1)
     if (onChanged) onChanged()
   }, [onChanged])
-  const chips = sources.filter(s => !s.removed)
+  // A chip filters the table to the models one library lists. A library that
+  // is off (the user turned it off, or the official libraries are off) lists
+  // none, so it gets no chip: the build ships two records for the official
+  // models, the library and the older gallery index, and only one is on.
+  // Manage libraries still lists every record.
+  const chips = sources.filter(s => sourceState(s) === 'enabled')
   const current = !extraPicked && chips.some(s => s.id === picked) ? picked : ''
+  // The picked library went off or was removed in the panel: its chip is gone,
+  // so the page goes back to All instead of filtering by a library with no chip.
+  const pickedGone = !!picked && !chips.some(s => s.id === picked)
+  useEffect(() => {
+    if (!pickedGone) return
+    setPicked('')
+    if (onSelect) onSelect(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- onSelect is a report, not an input
+  }, [pickedGone])
 
   const panel = open && (
     <SideSheet title={t(`libraries.manageTitle.${kind}`)} onClose={() => setOpen(false)} closeLabel={t('catalog.close')} labelId="kind-libraries-title" testId="kind-libraries-panel" wide>

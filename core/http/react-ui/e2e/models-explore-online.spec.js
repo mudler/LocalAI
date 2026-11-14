@@ -412,6 +412,54 @@ test.describe('Explore: online sources', () => {
   })
 })
 
+// The two shipped records of the official models: the model library and the
+// older gallery index. Only one is on in a build; the other one stays listed in
+// Manage libraries, but it lists no models, so it gets no chip.
+const LIBRARY_SOURCES = [
+  { kind: 'model', id: 'official-models', name: 'Official model library', url: 'https://example.org/models/index.yaml', enabled: true, default: true, removed: false, suspended: false },
+  { kind: 'model', id: 'localai', name: 'Official models', url: 'https://example.org/gallery/index.yaml', enabled: false, default: true, removed: false, suspended: false, format: 'gallery' },
+  { kind: 'model', id: 'team', name: 'Team models', url: 'https://example.org/team.yaml', enabled: true, default: false, removed: false, suspended: false },
+  { kind: 'model', id: 'old', name: 'Switched off', url: 'https://example.org/old.yaml', enabled: false, default: false, removed: false, suspended: false },
+  { kind: 'model', id: 'gone', name: 'Removed default', url: 'https://example.org/gone.yaml', enabled: false, default: true, removed: true, suspended: false },
+  { kind: 'backend', id: 'localai-backends', name: 'Official backends', url: 'https://example.org/backends.yaml', enabled: true, default: true, removed: false, suspended: false },
+]
+
+test.describe('Explore: library chips', () => {
+  test('one chip per library that is on, then the two online sources', async ({ page }) => {
+    await mockLedger(page)
+    await mockOnline(page)
+    await page.route('**/api/library/sources', route => (route.request().method() === 'GET'
+      ? route.fulfill({ json: { officialLibraries: true, sources: LIBRARY_SOURCES } })
+      : route.fallback()))
+    await page.goto('/app/models')
+    const group = page.getByRole('group', { name: 'Libraries' })
+    await expect(group.getByRole('button')).toHaveText(['All libraries', 'Official model library', 'Team models', 'Hugging Face', /^Pirate Face/])
+    await expect(page.getByRole('button', { name: 'Official models', exact: true })).toHaveCount(0)
+
+    // Manage libraries keeps every record, the switched-off one included.
+    await page.locator('[data-action="manage-libraries"]').click()
+    const panel = page.getByTestId('kind-libraries-panel')
+    await expect(panel.getByRole('heading', { name: /^Official models localai/ })).toBeVisible()
+    await expect(panel.getByRole('heading', { name: /^Official model library official-models/ })).toBeVisible()
+    await expect(panel.getByRole('heading', { name: /^Switched off old/ })).toBeVisible()
+  })
+
+  test('a library chip filters the table to that library, and All brings everything back', async ({ page }) => {
+    await mockLedger(page)
+    await mockOnline(page)
+    await page.route('**/api/library/sources', route => (route.request().method() === 'GET'
+      ? route.fulfill({ json: { officialLibraries: true, sources: LIBRARY_SOURCES } })
+      : route.fallback()))
+    await page.goto('/app/models')
+    await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
+    const all = await rows(page).count()
+    await page.getByRole('button', { name: 'Team models' }).click()
+    await expect(page.getByRole('button', { name: 'Team models' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'All libraries' }).click()
+    await expect(rows(page)).toHaveCount(all)
+  })
+})
+
 test.describe('Explore: online sources on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
