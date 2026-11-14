@@ -65,7 +65,7 @@ async function mockOnline(page, options = {}) {
     json: {
       sources: [
         { id: 'huggingface', title: 'Hugging Face', kind: 'builtin', lists_latest: true, running: true },
-        { id: 'pirateface', title: 'Pirate Face', kind: 'addon', running: true },
+        { id: 'pirateface', title: 'Pirate Face', kind: 'addon', running: true, p2p: true },
       ],
       enabled: ['huggingface', 'pirateface'],
       missing: [],

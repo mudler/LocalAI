@@ -15,7 +15,7 @@ import {
   filterControl, filterParams, filterText, filterValue, sliderRange, sourceText,
 } from '../../src/utils/modelSearch.js'
 import {
-  BUILTIN_SOURCES, allSourcesFrom, remoteAsks, remoteSearchParams, remoteSourcesFrom,
+  BUILTIN_SOURCES, allSourcesFrom, nextEnabled, remoteAsks, remoteRow, remoteSearchParams, remoteSourcesFrom,
 } from '../../src/utils/remoteModels.js'
 
 const peer = {
@@ -93,4 +93,23 @@ test('remote sources: a source that cannot list its newest models is not asked w
   assert.equal(remoteAsks('peer', '', sources), false)
   assert.equal(remoteAsks('peer', 'qwen', sources), true)
   assert.equal(remoteAsks('ghost', 'qwen', sources), false)
+})
+
+test('remote sources: the p2p tag comes from a property of the source, not from its ID', () => {
+  const sources = remoteSourcesFrom({
+    sources: [hf, { ...peer, id: 'other', p2p: true }, { id: 'pirateface', title: 'Pirate Face', kind: 'addon' }],
+    enabled: ['huggingface', 'other', 'pirateface'],
+  })
+  assert.deepEqual(sources.map(s => s.p2p), [false, true, false])
+  const labels = { downloads: 'd', seeds: n => `${n}` }
+  assert.equal(remoteRow({ provider: 'other', id: 'a/b' }, { sourceLabel: 'x', labels, p2p: true }).p2p, true)
+  assert.equal(remoteRow({ provider: 'pirateface', id: 'a/b' }, { sourceLabel: 'x', labels }).p2p, false)
+})
+
+test('remote sources: a stored ID whose add-on is not installed survives a switch of another source', () => {
+  const overview = { sources: [hf, peer], enabled: ['huggingface', 'ghost'], missing: ['ghost'] }
+  assert.deepEqual(remoteSourcesFrom(overview).map(s => s.id), ['huggingface'], 'it is not a chip')
+  assert.deepEqual(nextEnabled(overview.enabled, 'peer', true), ['huggingface', 'ghost', 'peer'])
+  assert.deepEqual(nextEnabled(overview.enabled, 'huggingface', false), ['ghost'])
+  assert.deepEqual(nextEnabled(['huggingface', 'peer'], 'peer', true), ['huggingface', 'peer'], 'no duplicate')
 })

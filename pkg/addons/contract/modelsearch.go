@@ -62,6 +62,12 @@ type ModelSearchSource struct {
 	// ListsLatest says that the source answers with no search text when the
 	// sort is latest.
 	ListsLatest bool `json:"listsLatest,omitempty"`
+	// HasVariants says that opening a result of this source is likely to list
+	// several quantizations, so the host shows the variants hint.
+	HasVariants bool `json:"hasVariants,omitempty"`
+	// P2P says that the models of this source come by torrent, so the host
+	// puts the small p2p tag on its chip.
+	P2P bool `json:"p2p,omitempty"`
 }
 
 // SearchFilter is one typed control that the host draws for the source.

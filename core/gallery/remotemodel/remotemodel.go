@@ -89,7 +89,9 @@ func EnrichSearch(resp *modelsearch.Response, idx *InstalledIndex) {
 			r.Installed, r.InstalledName = true, name
 		}
 		r.Backend = DeriveBackend(r)
-		r.HasVariants = r.Provider == modelsearch.PirateFaceName || hasTag(r.Tags, "gguf")
+		// A source says in its description whether its results have variants (the
+		// host set it on the row); a GGUF repository always has.
+		r.HasVariants = r.HasVariants || hasTag(r.Tags, "gguf")
 	}
 }
 

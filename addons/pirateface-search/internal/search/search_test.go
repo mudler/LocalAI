@@ -160,6 +160,9 @@ var _ = Describe("the manifest", func() {
 		Expect(m.Capabilities.UI).To(BeNil(), "the host draws the rows and the filter")
 		Expect(m.Capabilities.ModelSearch.Source.ID).To(Equal("pirateface"), "the stored choice and the saved queries name this ID")
 		Expect(m.Capabilities.ModelSearch.Filters[0].ID).To(Equal(search.FilterMinSeeders))
+		Expect(m.Capabilities.ModelSearch.Source.HasVariants).To(BeTrue())
+		Expect(m.Capabilities.ModelSearch.Source.P2P).To(BeTrue())
+		Expect(m.Capabilities.Network).To(BeNil(), "like the Web add-on, it calls its own site and declares no network capability")
 	})
 
 	It("takes the arguments that the host sends", func() {

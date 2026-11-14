@@ -4,6 +4,7 @@ package contract
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -95,6 +96,14 @@ var _ = Describe("The model-search provider slot", func() {
 		Entry("search tool not declared", func(m *Manifest) {
 			m.Capabilities.Provides[0].Roles = map[string]ProviderTools{RoleSearch: {"nope"}}
 		}, "not a declared tool"),
+		Entry("search tool defined but absent from capabilities.tools", func(m *Manifest) {
+			m.Capabilities.Tools = slices.DeleteFunc(m.Capabilities.Tools, func(t string) bool { return t == "search" })
+		}, "undeclared or repeated tool"),
+		Entry("repeated sort", func(m *Manifest) { m.Capabilities.ModelSearch.Sorts = []string{"likes", "likes"} }, "repeated sort"),
+		Entry("a filter value label with markup", func(m *Manifest) {
+			m.Capabilities.ModelSearch.Filters[0].Values = []string{"<a>", "b"}
+			m.Capabilities.ModelSearch.Filters[0].Default = "b"
+		}, "invalid or repeated value"),
 		Entry("search role missing", func(m *Manifest) { m.Capabilities.Provides[0].Roles = nil }, "role search is required"),
 		Entry("modelSearch without the slot", func(m *Manifest) { m.Capabilities.Provides = nil }, "needs a provides entry"),
 		Entry("slot without modelSearch", func(m *Manifest) { m.Capabilities.ModelSearch = nil; m.FeatureLevel = 1 }, "needs capabilities.modelSearch"),
@@ -102,6 +111,16 @@ var _ = Describe("The model-search provider slot", func() {
 			m.I18n = map[string]Translation{"it": {ModelSearch: &ModelSearchText{Filters: map[string]SearchFilterText{"zzz": {Label: "X"}}}}}
 		}, "does not declare"),
 	)
+
+	It("takes the source properties hasVariants and p2p, which the host sends to the panel", func() {
+		m := source()
+		m.Capabilities.ModelSearch.Source.HasVariants = true
+		m.Capabilities.ModelSearch.Source.P2P = true
+		Expect(ValidateManifest(m, host())).To(Succeed())
+		raw, err := json.Marshal(m.Capabilities.ModelSearch.Source)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(And(ContainSubstring(`"hasVariants":true`), ContainSubstring(`"p2p":true`)))
+	})
 
 	It("takes translations of the title and the filters", func() {
 		m := source()

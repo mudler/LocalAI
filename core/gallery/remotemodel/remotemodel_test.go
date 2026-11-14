@@ -70,4 +70,14 @@ var _ = Describe("EnrichSearch", func() {
 		Expect(r.HasVariants).To(BeTrue())
 		Expect(r.Downloads).To(Equal(int64(5)))
 	})
+
+	It("takes the variants hint from the row the host set from its source, not from the source ID", func() {
+		resp := modelsearch.Response{Results: []modelsearch.Result{
+			{Provider: "pirateface", ID: "a/named-like-a-source"},
+			{Provider: "other", ID: "a/declared", HasVariants: true},
+			{Provider: "other", ID: "a/gguf", Tags: []string{"GGUF"}},
+		}}
+		remotemodel.EnrichSearch(&resp, remotemodel.NewInstalledIndex(nil))
+		Expect([]bool{resp.Results[0].HasVariants, resp.Results[1].HasVariants, resp.Results[2].HasVariants}).To(Equal([]bool{false, true, true}))
+	})
 })

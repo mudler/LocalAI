@@ -81,7 +81,9 @@
         "id": "pirateface",
         "title": "Pirate Face",
         "icon": "cloud",
-        "listsLatest": false
+        "listsLatest": false,
+        "hasVariants": true,
+        "p2p": true
       },
       "sorts": [],
       "filters": [

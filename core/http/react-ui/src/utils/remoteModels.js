@@ -9,9 +9,8 @@ import { fitFor } from './modelLedger.js'
 // Hugging Face, which is built in, and the sources that add-ons provide. A
 // source the person has turned on is a chip. `latest` says the source can list
 // its newest models with no search text; one that cannot shows a note and asks
-// nothing. `p2p` puts the small tag on the chip of a source whose models come
-// by torrent.
-const P2P_SOURCES = new Set(['pirateface'])
+// nothing. `p2p` (a property the source declares) puts the small tag on the
+// chip of a source whose models come by torrent.
 
 // What the panel uses while the list is not known, or when the server is older
 // and has no list: Hugging Face alone, as it always was.
@@ -23,7 +22,7 @@ function uiSource(s) {
   return {
     id: s.id,
     title: s.title || s.id,
-    p2p: P2P_SOURCES.has(s.id),
+    p2p: !!s.p2p,
     latest: !!s.lists_latest,
     filters: Array.isArray(s.filters) ? s.filters : [],
     sorts: s.sorts || [],
@@ -38,6 +37,14 @@ export function remoteSourcesFrom(overview) {
   if (!overview || !Array.isArray(overview.sources)) return BUILTIN_SOURCES
   const on = new Set(overview.enabled || [])
   return overview.sources.filter(s => on.has(s.id)).map(uiSource)
+}
+
+// The enabled set after one switch. An ID the person did not touch stays, also
+// one whose add-on is not installed: the set is theirs, and installing the
+// add-on again restores the choice.
+export function nextEnabled(enabled, id, on) {
+  const rest = (enabled || []).filter(x => x !== id)
+  return on ? [...rest, id] : rest
 }
 
 // Every installed source, enabled or not, for the panel that turns them on.
@@ -116,7 +123,7 @@ export function remoteSubline(result, labels) {
 // A search result as a row of the Explore table. `name` is the key: that is
 // what the table selects, focuses, estimates and installs by. `title` is the
 // repository, which is what a person reads.
-export function remoteRow(result, { installedName, sourceLabel, labels }) {
+export function remoteRow(result, { installedName, sourceLabel, labels, p2p = false }) {
   const key = remoteKey(result)
   return {
     name: key,
@@ -131,6 +138,7 @@ export function remoteRow(result, { installedName, sourceLabel, labels }) {
     license: result.license || '',
     has_variants: !!result.has_variants,
     gated: !!result.gated,
+    p2p,
     // A gated Hugging Face repository cannot be downloaded without access, so
     // its install stays off. A Pirate Face one comes by torrent, which needs
     // no token, so it stays on.

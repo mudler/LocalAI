@@ -340,6 +340,8 @@ contract: field ModelSearchSource.ID string "json:\"id\""
 contract: field ModelSearchSource.Title string "json:\"title\""
 contract: field ModelSearchSource.Icon string "json:\"icon,omitempty\""
 contract: field ModelSearchSource.ListsLatest bool "json:\"listsLatest,omitempty\""
+contract: field ModelSearchSource.HasVariants bool "json:\"hasVariants,omitempty\""
+contract: field ModelSearchSource.P2P bool "json:\"p2p,omitempty\""
 contract: type NetworkPreset struct
 contract: field NetworkPreset.ID string "json:\"id\""
 contract: field NetworkPreset.Title string "json:\"title\""

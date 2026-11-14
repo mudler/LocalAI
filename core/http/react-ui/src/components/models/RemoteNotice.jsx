@@ -26,7 +26,7 @@ export default function RemoteNotice({ row, files, estimate, onRetry, t }) {
   if (data?.gated || row.gated) {
     notes.push(
       <Callout key="gated" tone="warn" testId="remote-gated" title={t('remote.gatedTitle')}>
-        {t(row.provider === 'pirateface' ? 'remote.gatedP2p' : 'remote.gatedBody')}
+        {t(row.p2p ? 'remote.gatedP2p' : 'remote.gatedBody')}
       </Callout>,
     )
   }

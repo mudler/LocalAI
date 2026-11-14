@@ -3877,6 +3877,12 @@ does: the context within its byte budget and with an empty message, the export w
 paths, the read and forget tools, and a tool that does not exist. A provider that passes
 it works with the time limit, the size cap and the wrapping of the host.
 
+### Who can see a source
+
+The sources are registered once for the whole server, and each person sees the ones their add-on visibility allows. One person who cannot see an add-on never removes its source for another person: a source is unregistered only when nobody sees it any more. The panel and the search use the list of the person who asks.
+
+The network access of a source is the add-on's own. An add-on that makes HTTP calls from its own process, as the Web add-on does, declares no network capability: the `network` capability and the `egress.check` operation are for add-ons that run commands behind the host's proxy, such as Sandbox.
+
 ### Routes
 
 | Route | Does |
@@ -3948,6 +3954,8 @@ An add-on declares the slot in `capabilities.provides` (role `search`, one tool 
 | `source.title` | The name shown on the chip and on each row. |
 | `source.icon` | An icon name of the host. An unknown name draws none. |
 | `source.listsLatest` | The source answers with no search text when the sort is `latest`. |
+| `source.hasVariants` | Opening a result of this source is likely to list several quantizations. The host sets `has_variants` on each row from this property, never from the row. |
+| `source.p2p` | The models come by torrent. The panel puts the small p2p tag on the chip. |
 | `sorts` | At most 5 of `downloads`, `likes`, `updated`, `trending`, `latest`. |
 | `filters` | At most 8. Each has `id`, `type`, `label`, optional `help`. Types: `enum` (`values`, at most 32, and a `default` that is one of them), `bool`, `range` (`min`, `max`, `step`, `unit`) and `text` (`maxLength`, at most 200). The IDs `q`, `limit` and `sort` are reserved. |
 | `i18n.<language>.modelSearch` | Translates the source `title` and, by filter ID, the `label`, `help` and the labels of enum `values`. English stays the fallback. |
@@ -3960,7 +3968,7 @@ The host calls the `search` tool with:
 {"q": "qwen", "limit": 20, "sort": "downloads", "format": "gguf", "filters": {"kind": "gguf"}}
 ```
 
-`filters` holds only the filters of this source, typed: a string for an enum or a text,
+`filters` holds only the filters of this source, typed. A filter that declares a `default` and that the request leaves out is sent with that default, so the value the panel shows and the value the add-on gets are the same. The values are: a string for an enum or a text,
 a boolean, a number for a range. The tool answers with `{"results": [...]}`. A row has the
 fields `id`, `title`, `uri`, `magnet`, `url`, `size_bytes`, `downloads`, `likes`,
 `seeders`, `tags`, `pipeline_tag`, `license`, `gated` and `last_modified`. The host checks
@@ -3977,7 +3985,7 @@ every row (`search-result-validation`):
 
 Dropped rows are counted in the `dropped` field of the status of the source. An error, a
 timeout (15 seconds) or an answer that is not valid JSON gives a failed status for that
-source only. Text from a source is untrusted when it reaches the assistant.
+source only. Text from a source is untrusted when it reaches the assistant: the `search_models` tool puts the rows and the failure texts of add-on sources in one field, `untrusted_sources`, fenced as untrusted text, and keeps them out of the plain fields.
 
 ### Routes
 
@@ -3987,7 +3995,7 @@ source only. Text from a source is untrusted when it reaches the assistant.
 | `GET /api/models/search/sources` | The sources that are installed, the enabled set of the caller, and the enabled IDs that have no installed add-on (`missing`). |
 | `PUT /api/models/search/sources` | `{"enabled": ["huggingface", "<source id>"]}`. A stored ID with no installed add-on is kept and ignored, so installing the add-on again restores the choice. |
 
-The enabled set is kept per person with the other per-person add-on choices, so every
+The `enabled` list has at most as many IDs as the installed sources plus the stored IDs plus the built-in source, and never more than 64; a longer list gives a 400. The enabled set is kept per person with the other per-person add-on choices, so every
 frontend of a cluster reads the same answer. Changing it needs no restart.
 
 ### Test a source

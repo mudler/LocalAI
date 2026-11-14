@@ -46,7 +46,7 @@ import SourceFilters from '../components/models/SourceFilters'
 import SourcesPanel from '../components/models/SourcesPanel'
 import { useSearchSources, useRemoteSearches, useRemoteDetails, useRemoteInstalls } from '../hooks/useRemoteModels'
 import {
-  BUILTIN_SOURCES, remoteSourcesFrom, allSourcesFrom, REMOTE_PAGE_STEP, REMOTE_SECTION_STEP, remoteSource, remoteRow, remoteVariantData, defaultVariantFile, estimateOfVariant,
+  BUILTIN_SOURCES, nextEnabled, remoteSourcesFrom, allSourcesFrom, REMOTE_PAGE_STEP, REMOTE_SECTION_STEP, remoteSource, remoteRow, remoteVariantData, defaultVariantFile, estimateOfVariant,
   installBlock, remoteFitsVisible, canLoadMore, nextLimit, parseRemoteKey,
 } from '../utils/remoteModels'
 import { filterRowsBySource } from '../components/catalog/catalogState'
@@ -726,6 +726,7 @@ export default function Models() {
   const rowsOf = (id) => (sectionIds.includes(id) ? searchOf(id).results : []).map(r => remoteRow(r, {
     installedName: remoteInstalled[`${r.provider}:${r.id}`] || '',
     sourceLabel: sourceName(remoteSource(id, sources) || { id }),
+    p2p: !!remoteSource(id, sources)?.p2p,
     labels: { downloads: t('remote.downloads'), seeds: count => t('remote.seeds', { count }) },
   }))
   const sectionRows = Object.fromEntries(sources.map(src => [src.id, rowsOf(src.id)]))
@@ -1206,7 +1207,7 @@ export default function Models() {
           onClose={() => setSourcesOpen(false)}
           onToggle={async (id, on) => {
             const now = searchSources.overview?.enabled || ['huggingface']
-            const next = on ? [...now.filter(x => x !== id), id] : now.filter(x => x !== id)
+            const next = nextEnabled(now, id, on)
             const err = await searchSources.setEnabled(next)
             setSourcesError(!!err)
             if (!err && !on && remoteId === id) pickSource(null)
