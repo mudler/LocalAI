@@ -35,7 +35,7 @@ If you start LocalAI without an API key, the API is open and any key value works
 If you set `LOCALAI_API_KEY`, every request needs a valid key. LocalAI reads the key
 from the `Authorization: Bearer <key>` header, the `x-api-key` header or the
 `xi-api-key` header. Claude Code sends its token in one of the first two,
-so both work. See [Authentication]({{% relref "features/authentication" %}}).
+so both work. See [Authentication]({{% relref "/administration/authentication" %}}).
 
 ### Model names
 
@@ -44,7 +44,7 @@ models and returns `404` with `model "<name>" not found` when it does not exist.
 If a request has no model name at all, LocalAI uses the first available chat model.
 
 Some agents hard-code a model name, or send a second "small" model name for background
-tasks. Use a [model alias]({{% relref "features/model-aliases" %}}) to map such a name
+tasks. Use a [model alias]({{% relref "/models/model-aliases" %}}) to map such a name
 to one of your models.
 
 ## What the model needs
@@ -56,7 +56,7 @@ Not every model can do this.
 parse its output. For GGUF models on the llama.cpp backend, use the model's own chat
 template (`template.use_tokenizer_template: true`). LocalAI then detects the tool call
 format. Models installed from the gallery are usually set up this way. See
-[OpenAI Functions and Tools]({{% relref "features/openai-functions" %}}) for the vLLM and
+[OpenAI Functions and Tools]({{% relref "/api/openai-functions" %}}) for the vLLM and
 MLX backends.
 
 LocalAI does not reject a request that has tools when the model has no tool support.
@@ -328,7 +328,7 @@ and `x-api-key` headers. A proxy in front of LocalAI may drop those headers.
 
 **404 model not found.** The model name in the agent does not match a name from
 `GET /v1/models`. Fix the name in the agent, or add a
-[model alias]({{% relref "features/model-aliases" %}}). For Claude Code, also set
+[model alias]({{% relref "/models/model-aliases" %}}). For Claude Code, also set
 `ANTHROPIC_DEFAULT_HAIKU_MODEL`.
 
 **The agent chats but never calls tools.** The model has no tool support, or LocalAI

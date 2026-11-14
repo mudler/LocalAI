@@ -45,7 +45,7 @@ availability may lag upstream releases.
 
 ### Coding Agents
 
-Point Codex CLI, Claude Code, opencode, Hermes Agent, nib, pi, Aider, Continue, Cline or Goose at your own LocalAI server. See [Connect coding agents]({{% relref "features/coding-agents" %}}) for the exact settings of each one.
+Point Codex CLI, Claude Code, opencode, Hermes Agent, nib, pi, Aider, Continue, Cline or Goose at your own LocalAI server. See [Connect coding agents]({{% relref "/features/coding-agents" %}}) for the exact settings of each one.
 
 ### MCP Servers
 
