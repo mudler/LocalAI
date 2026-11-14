@@ -3,8 +3,8 @@ disableToc = false
 title = "Distributed Mode"
 weight = 130
 aliases = ["/features/distributed-mode/"]
-description = "Run several LocalAI frontends and worker nodes with PostgreSQL and NATS."
-keywords = ["distributed","cluster","nodes","scale","nats"]
+description = "Run several LocalAI frontends and worker nodes with PostgreSQL, and NATS or the database tunnel."
+keywords = ["distributed","cluster","nodes","scale","nats","tunnel","carrier"]
 devbuild = "install"
 +++
 
