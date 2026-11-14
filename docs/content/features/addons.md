@@ -5517,6 +5517,11 @@ of its own. Scratch directories named `exports` and `tmp` are not copied, and sy
 links are never followed. The owner's access state (resources and shares), the proposals
 of the add-on and the conversation selections are copied beside it.
 
+Ordinary files are copied sparsely so holes in files such as Sandbox VM disks do not
+become allocated zero-filled regions in the backup. Their logical size and digest stay
+the same. The free-space check still uses logical file sizes, so it can overestimate
+the space needed for sparse data.
+
 A backup is a directory `<root>/backups/<id>/<backupId>` of mode `0700` with files of mode
 `0600`. Its `manifest.json` records the creation time, the reason (`manual`, `upgrade` or
 `restore`), the ownership mode, the package digest, trusted source, channel,
