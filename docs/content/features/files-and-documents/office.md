@@ -95,7 +95,7 @@ Give the optional `template` to build the deck on the design of a `.pptx` or `.p
 
 The PDF tool supports Latin-1 characters only. It refuses other characters before it saves a file. A failed call saves no file.
 
-All paths are in your own workspace. Chat folder rules and read-only access still apply. `create-docx`, `create-pdf` and `create-xlsx` no longer accept the old `blocks` and `sheets` arguments. Use `markdown` or `csv`. For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference#simple-office" %}}).
+All paths are in your own workspace. Chat folder rules and read-only access still apply. A path with the wrong extension is refused with a message that quotes the path as received, so the model can see what it sent. A path wrapped in quotes, such as `"/plan.pptx"` with the quotes, also gets the hint to remove them. The quotes are not stripped, because a file name may contain quotes. `create-docx`, `create-pdf` and `create-xlsx` no longer accept the old `blocks` and `sheets` arguments. Use `markdown` or `csv`. For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference#simple-office" %}}).
 
 ## With the Sandbox
 

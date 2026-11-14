@@ -45,6 +45,8 @@ Title and Content layout, slides without bullets its Title Slide layout. The
 slides already in the template are not copied, and the template itself is
 not changed.
 
+Give every path as it is, without quotes around it.
+
 ## When the tools cannot do it
 
 The tools change text only. Apart from using a template when a deck is

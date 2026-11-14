@@ -325,6 +325,28 @@ var _ = Describe("office tools", func() {
 		Expect(string(h.files["/fake.docx"])).To(Equal("this is plain text"), "a refused edit changed the file")
 	})
 
+	It("names the path it refuses, and the quotes a model wrapped it in", func() {
+		h := newHost()
+		slides := []map[string]any{{"title": "Hello", "bullets": []string{"x"}}}
+		o, raw := call(h, tools.ToolCreatePptx, map[string]any{"path": `"/deck.pptx"`, "slides": slides})
+		Expect(o.OK).To(BeFalse(), "a quoted path was accepted: %s", raw)
+		Expect(o.Error).To(ContainSubstring(`got path "\"/deck.pptx\""`), "the refusal does not name the path: %s", raw)
+		Expect(o.Error).To(ContainSubstring("remove the quotes around the path"), "no hint about the quotes: %s", raw)
+		Expect(h.files).To(BeEmpty(), "a deck was saved")
+
+		o, raw = call(h, tools.ToolReadDocx, map[string]any{"path": "/memo.txt"})
+		Expect(o.Error).To(ContainSubstring(`got path "/memo.txt"`), "the refusal does not name the path: %s", raw)
+		Expect(o.Error).NotTo(ContainSubstring("quotes"), "a hint about quotes for a path without quotes: %s", raw)
+
+		o, raw = call(h, tools.ToolCreatePptx, map[string]any{"path": "/d.pptx", "template": `'/brand.potx'`, "slides": slides})
+		Expect(o.Error).To(ContainSubstring(`got path "'/brand.potx'"`), "the template refusal does not name the path: %s", raw)
+		Expect(o.Error).To(ContainSubstring("remove the quotes around the path"), "no hint about the quotes: %s", raw)
+
+		// The control: the same path without quotes is saved.
+		o, raw = call(h, tools.ToolCreatePptx, map[string]any{"path": "/deck.pptx", "slides": slides})
+		Expect(o.OK).To(BeTrue(), "the plain path was refused: %s", raw)
+	})
+
 	It("changes nothing when an edit fails part way", func() {
 		h := newHost()
 		h.put("/memo.docx", docxBytes("one", "two"))

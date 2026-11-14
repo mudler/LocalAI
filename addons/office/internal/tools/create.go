@@ -164,7 +164,7 @@ type slideInput struct {
 func (w *work) createPptxFromTemplate(path, template, title string, slides []slideInput) (any, error) {
 	ext := strings.ToLower(filepath.Ext(template))
 	if ext != ".pptx" && ext != ".potx" {
-		return nil, refuse("the template must end in .pptx or .potx")
+		return nil, refuse("the template must end in .pptx or .potx; got path %q%s", template, quoteHint(template))
 	}
 	data, _, err := w.fetch(template, ext)
 	if err != nil {
