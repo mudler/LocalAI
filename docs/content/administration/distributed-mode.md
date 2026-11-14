@@ -101,7 +101,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode. Needs PostgreSQL. NATS is optional. |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
 | `--peer-address` | `LOCALAI_PEER_ADDRESS` | *(found from the route to the database)* | `host:port` at which the other frontends dial this one. A frontend publishes it so that a replica that does not hold the connection of a worker can reach the replica that does. Set it when the address found from the route to the database is not the one the other frontends should use. The link carries the credential of the replica and every request that it relays, so by default it is clear text. Use `--peer-tls` when the replicas sit behind TLS. |
-| `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. LocalAI warns at start-up when it publishes an address that is not on the local host and this flag is off. |
+| `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. A frontend that serves the API over TLS itself (`--tls-cert`, `--tls-self-signed`) dials `wss` without this flag. LocalAI warns at start-up when it publishes an address that is not on the local host and the link is clear text. |
 | `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | *(system roots)* | PEM file with the certificate authority that signs the certificate of the other frontends. Use it with a private CA. See [Peer link](#peer-link). |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, a new cluster starts on the `nats` carrier. Without one, it starts on the `tunnel` carrier. The URL is copied into the `nats.url` cluster setting. See [Carriers](#carriers). |
 | `--carrier-prepare-timeout` | `LOCALAI_CARRIER_PREPARE_TIMEOUT` | `1m` | How long a change of carrier waits for every frontend to be ready before it is aborted. The stored cluster setting wins. |
@@ -1661,6 +1661,8 @@ Several frontends can share the tunnels of the workers. A worker is connected to
 | `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | PEM file with the CA that signs their certificate. By default the system roots are used. |
 
 The link carries the credential of the frontend and the requests that it relays. Without `--peer-tls` it is clear text, and LocalAI logs a warning at start-up when the published address is not on the local host. If a reverse proxy ends TLS in front of each frontend, use `--peer-tls`, and set `--peer-address` to the TLS address of that frontend.
+
+A frontend that serves the API over TLS itself (`--tls-cert` or `--tls-self-signed`) dials the other frontends over `wss` without `--peer-tls`, because the peer link uses the API listener. The other frontends must also serve TLS, and their certificates must be valid for the address that they publish. The system roots verify them unless you set `--peer-tls-ca`. A `--tls-self-signed` certificate is different on each frontend and no root verifies it, so for several frontends use `--tls-cert` with certificates from one CA, and pass that CA with `--peer-tls-ca`.
 
 ## Security of the carriers
 
