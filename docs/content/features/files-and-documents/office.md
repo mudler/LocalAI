@@ -64,6 +64,22 @@ Code is literal text. LocalAI does not run it. Links show their label and are no
 
 The tool refuses bad quoting, rows of different length, empty content and invalid sheet names.
 
+### Make a deck in the design of a template
+
+`create-pptx` takes a `path` and `slides`. Each slide has a `title` and optional `bullets`. A slide without bullets is a title slide. Without more, the deck uses the built-in design.
+
+Give the optional `template` to build the deck on the design of a `.pptx` or `.potx` file in your files:
+
+```json
+{"path":"/reports/plan.pptx","template":"/templates/brand.potx","title":"Plan","slides":[{"title":"Plan 2027"},{"title":"Goals","bullets":["Ship","Measure"]}]}
+```
+
+- The deck keeps the template's slide masters, layouts, theme colors, theme fonts and slide size.
+- Slides with bullets use the first layout of type `obj` (Title and Content), else `tx`. Slides without bullets use the layout of type `title` (Title Slide), or Title and Content when there is none. Layouts are found by type, not by name, so a template saved in any language works.
+- The slides in the template are not copied. The deck holds only the slides you give.
+- The template is never changed. Its `title` metadata is replaced by the deck's `title`.
+- A template without a Title and Content layout, or a file that is not a PowerPoint deck or template, is refused, and no file is saved. The template path follows the same rules as every other path.
+
 ### Limits
 
 | Item | Limit |
@@ -79,7 +95,7 @@ The tool refuses bad quoting, rows of different length, empty content and invali
 
 The PDF tool supports Latin-1 characters only. It refuses other characters before it saves a file. A failed call saves no file.
 
-All paths are in your own workspace. Chat folder rules and read-only access still apply. `create-docx`, `create-pdf` and `create-xlsx` no longer accept the old `blocks` and `sheets` arguments. Use `markdown` or `csv`. For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference#simple-office" %}}).
+All paths are in your own workspace. Chat folder rules and read-only access still apply. A path with the wrong extension is refused with a message that quotes the path as received, so the model can see what it sent. A path wrapped in quotes, such as `"/plan.pptx"` with the quotes, also gets the hint to remove them. The quotes are not stripped, because a file name may contain quotes. `create-docx`, `create-pdf` and `create-xlsx` no longer accept the old `blocks` and `sheets` arguments. Use `markdown` or `csv`. For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference#simple-office" %}}).
 
 ## With the Sandbox
 

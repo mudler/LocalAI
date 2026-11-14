@@ -247,9 +247,20 @@ func checkPath(p, ext string) error {
 	case len(p) > maxPathBytes || strings.ContainsRune(p, 0):
 		return refuse("the path is not valid")
 	case !strings.EqualFold(filepath.Ext(p), ext):
-		return refuse("the file must end in %s", ext)
+		return refuse("the file must end in %s; got path %q%s", ext, p, quoteHint(p))
 	}
 	return nil
+}
+
+// quoteHint tells a model that passed a path wrapped in quotes, such as
+// "\"/deck.pptx\"", what to change. The quotes are not removed for it: a
+// file name may hold quotes, and a guess could name another file.
+func quoteHint(p string) string {
+	t := strings.TrimSpace(p)
+	if len(t) >= 2 && (t[0] == '"' || t[0] == '\'') && t[len(t)-1] == t[0] {
+		return "; remove the quotes around the path"
+	}
+	return ""
 }
 
 // fetch copies a file of the user into the scratch folder and returns its
