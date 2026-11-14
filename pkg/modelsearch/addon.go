@@ -97,9 +97,15 @@ func (p *addonProvider) SearchCounted(ctx context.Context, q Query) ([]Result, i
 	}
 	var out struct {
 		Results []json.RawMessage `json:"results"`
+		// Error is the reason a source gives when its own upstream failed. It
+		// is text from outside: it is capped and cleaned before it is shown.
+		Error string `json:"error"`
 	}
-	if err := json.Unmarshal(payload, &out); err != nil || out.Results == nil {
+	if err := json.Unmarshal(payload, &out); err != nil || (out.Results == nil && out.Error == "") {
 		return nil, 0, errors.New("the add-on answered with something that is not a list of results")
+	}
+	if out.Error != "" {
+		return nil, 0, errors.New("the source failed: " + cleanReason(out.Error))
 	}
 	rows := out.Results
 	if len(rows) > MaxLimit {
@@ -160,4 +166,22 @@ func nonNeg(n int64) int64 {
 		return 0
 	}
 	return n
+}
+
+// cleanReason makes the failure text of a source safe to show: one line, no
+// control characters, at most 160 characters.
+func cleanReason(s string) string {
+	var b strings.Builder
+	n := 0
+	for _, r := range s {
+		if n >= 160 {
+			break
+		}
+		if r < 0x20 || r == 0x7f || r == '<' || r == '>' {
+			r = ' '
+		}
+		b.WriteRune(r)
+		n++
+	}
+	return strings.TrimSpace(b.String())
 }

@@ -175,7 +175,9 @@ func validateModelSearch(m Manifest) error {
 }
 
 func (f SearchFilter) validate() error {
-	if !ValidName(f.ID) || f.ID == "q" || f.ID == "limit" || f.ID == "sort" {
+	// The ID of a filter reaches the add-on as a key of the arguments, so the
+	// names that no tool argument may use are refused here as well.
+	if !ValidName(f.ID) || f.ID == "q" || f.ID == "limit" || f.ID == "sort" || ForbiddenToolProperty(f.ID) {
 		return fmt.Errorf("invalid id")
 	}
 	if !plainText(f.Label, MaxFilterLabelChars) {

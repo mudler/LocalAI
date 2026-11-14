@@ -53,5 +53,6 @@ An administrator installs an add-on. A person who has the `addons` feature uses 
 | [Face]({{% relref "/addons/catalogue/models-and-media/face" %}}) | Face recognition: who is this, and are two photos the same person. |
 | [Fine-tuning]({{% relref "/addons/catalogue/models-and-media/fine-tuning" %}}) | The Fine-Tune page and chat tools for fine-tuning jobs. |
 | [Quantization]({{% relref "/addons/catalogue/models-and-media/quantization" %}}) | The Quantize page and chat tools for quantization jobs. |
+| [Pirate Face search]({{% relref "/addons/catalogue/models-and-media/pirateface-search" %}}) | Pirate Face as a source of the model search. |
 
 To build an add-on, see [Build your own add-on]({{% relref "/addons/build-your-own" %}}).

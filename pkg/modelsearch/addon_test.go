@@ -135,6 +135,17 @@ var _ = Describe("Add-on sources", func() {
 		Expect(r.Providers[4].Error).To(ContainSubstring("not a list"))
 	})
 
+	It("shows the reason a source gives when its own upstream failed, cleaned", func() {
+		b.sources = []modelsearch.AddonSource{addonSource("a1", "one")}
+		b.answers["a1"] = json.RawMessage(`{"results":[],"error":"answered status 502\n<script>x</script>"}`)
+		Expect(sync.Sync(ctx(), "alice")).To(Succeed())
+		r := s.Search(ctx(), modelsearch.Query{Text: "x"}, []string{"one"})
+		Expect(r.Providers[0].OK).To(BeFalse())
+		Expect(r.Providers[0].Error).To(ContainSubstring("status 502"))
+		Expect(r.Providers[0].Error).NotTo(ContainSubstring("<"))
+		Expect(r.Providers[0].Error).NotTo(ContainSubstring("\n"))
+	})
+
 	It("reports a stopped add-on as a failed source", func() {
 		src := addonSource("a1", "one")
 		src.Running = false

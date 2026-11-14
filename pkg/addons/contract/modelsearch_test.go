@@ -32,7 +32,7 @@ var _ = Describe("The model-search provider slot", func() {
 				{ID: "kind", Type: FilterEnum, Label: "Kind", Values: []string{"a", "b"}, Default: "a"},
 				{ID: "fresh", Type: FilterBool, Label: "Fresh"},
 				{ID: "seeds", Type: FilterRange, Label: "Seeds", Min: 0, Max: 100, Step: 1, Unit: "seeds"},
-				{ID: "owner", Type: FilterText, Label: "Owner", MaxLength: 40},
+				{ID: "author", Type: FilterText, Label: "Author", MaxLength: 40},
 			},
 		}
 		return m
@@ -87,6 +87,7 @@ var _ = Describe("The model-search provider slot", func() {
 		Entry("duplicate filter id", func(m *Manifest) { m.Capabilities.ModelSearch.Filters[1].ID = "kind" }, "declared twice"),
 		Entry("enum default outside its values", func(m *Manifest) { m.Capabilities.ModelSearch.Filters[0].Default = "z" }, "default"),
 		Entry("range with no span", func(m *Manifest) { m.Capabilities.ModelSearch.Filters[2].Max = 0 }, "invalid range"),
+		Entry("filter id that no tool argument may use", func(m *Manifest) { m.Capabilities.ModelSearch.Filters[1].ID = "approved" }, "invalid id"),
 		Entry("filter id of a reserved argument", func(m *Manifest) { m.Capabilities.ModelSearch.Filters[1].ID = "q" }, "invalid id"),
 		Entry("markup in a label", func(m *Manifest) { m.Capabilities.ModelSearch.Filters[1].Label = "<b>x</b>" }, "invalid label"),
 		Entry("source id of the built-in provider", func(m *Manifest) { m.Capabilities.ModelSearch.Source.ID = "builtin" }, "source id"),

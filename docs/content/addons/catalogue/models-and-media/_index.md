@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Models and media"
-description = "Studio, Talk, Voice, Face, Fine-tuning and Quantization."
+description = "Studio, Talk, Voice, Face, Fine-tuning, Quantization and Pirate Face search."
 weight = 40
 +++
 
