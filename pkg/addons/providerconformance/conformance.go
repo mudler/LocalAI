@@ -174,7 +174,7 @@ func checkManifest(t *testing.T, s Subject) (contract.Manifest, contract.Provide
 		if m, err = contract.ParseManifest(s.Manifest); err != nil {
 			t.Fatalf("manifest: %v", err)
 		}
-		host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: m.OS, Arch: m.Arch}
+		host := contract.HostCompatibility{Host: contract.HostVersion, API: contract.HostAPIVersion, Protocol: contract.HostProtocolVersion, SDK: contract.HostSDKVersion, DataFormat: contract.HostDataFormatVersion, FeatureLevel: contract.HostFeatureLevel, OS: m.OS, Arch: m.Arch}
 		if err := contract.ValidateManifest(m, host); err != nil {
 			t.Fatalf("the host refuses the manifest: %v", err)
 		}

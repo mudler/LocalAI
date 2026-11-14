@@ -64,6 +64,16 @@ func (r VersionRange) accepts(v uint64) bool {
 // one: a manifest declares the range {"min": 2, "max": 2}.
 const HostAPIVersion uint64 = 2
 
+// HostVersion, HostProtocolVersion and HostDataFormatVersion are the other
+// version numbers a host reports in HostCompatibility. The host protocol
+// is the process protocol of pkg/addons/sdk/protocol. The data format is the
+// layout of the files an add-on keeps in its data directory.
+const (
+	HostVersion           uint64 = 1
+	HostProtocolVersion   uint64 = 1
+	HostDataFormatVersion uint64 = 1
+)
+
 // isHostAPI reports whether the range is exactly the manifest API of the host.
 func (r VersionRange) isHostAPI() bool {
 	return r.Min == HostAPIVersion && r.Max == HostAPIVersion

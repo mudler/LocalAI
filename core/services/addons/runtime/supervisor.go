@@ -304,7 +304,7 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (*process, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout)
 	defer cancel()
-	host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+	host := contract.HostCompatibility{Host: contract.HostVersion, API: contract.HostAPIVersion, Protocol: contract.HostProtocolVersion, SDK: contract.HostSDKVersion, DataFormat: contract.HostDataFormatVersion, FeatureLevel: contract.HostFeatureLevel, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
 	if contract.ValidateManifest(pkg.Manifest, host) != nil || !filepath.IsAbs(pkg.Directory) {
 		return nil, ErrRuntime
 	}
