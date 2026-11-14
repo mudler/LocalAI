@@ -898,7 +898,8 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	if c.PII.Enabled != nil {
 		return *c.PII.Enabled
 	}
-	return c.Backend == model.CloudProxyBackend
+	b, ok := RemoteBackendFor(c.Backend)
+	return ok && b.PIIDefault
 }
 
 // PIIDetectors returns the names of the token-classification models that
@@ -929,7 +930,7 @@ var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG
 // false naturally: HasUsecases short-circuits to false for any usecase a
 // declared score/token_classify model did not itself declare.
 func (c *ModelConfig) PIIFilterApplies() bool {
-	if c.Backend == model.CloudProxyBackend {
+	if b, ok := RemoteBackendFor(c.Backend); ok && b.PIIDefault {
 		return true
 	}
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)

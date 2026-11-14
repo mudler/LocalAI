@@ -3,8 +3,6 @@ package config
 import (
 	"fmt"
 	"time"
-
-	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // FailoverConfig turns a model config into a failover chain: requests for the
@@ -54,13 +52,7 @@ func (c ModelConfig) IsFailover() bool { return c.Failover != nil }
 // IsRemoteProxy reports whether the model is served by a remote upstream
 // through a proxy backend. Failover probes such a target over HTTP, and
 // `warm` has no effect on it.
-func (c ModelConfig) IsRemoteProxy() bool {
-	switch c.Backend {
-	case model.CloudProxyBackend, model.LocalAIProxyBackend:
-		return true
-	}
-	return false
-}
+func (c ModelConfig) IsRemoteProxy() bool { return IsRemoteBackend(c.Backend) }
 
 func (f FailoverConfig) ProbeInterval() time.Duration {
 	return durationOr(f.Probe.Interval, DefaultFailoverProbeInterval)
