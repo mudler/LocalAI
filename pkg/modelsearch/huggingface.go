@@ -44,6 +44,13 @@ func NewHuggingFace(o HuggingFaceOptions) Provider {
 
 func (h *huggingFace) Name() string { return HuggingFaceName }
 
+// Source describes Hugging Face. It is built in and has no filter of its own:
+// the file format and the sort are controls of the panel.
+func (h *huggingFace) Source() Source {
+	return Source{ID: HuggingFaceName, Title: "Hugging Face", Kind: "builtin", ListsLatest: true, Running: true,
+		Sorts: []string{SortDownloads, SortLikes, SortUpdated, SortTrending, SortLatest}}
+}
+
 // ListsLatest says the models API lists repositories by creation date with no
 // search text.
 func (h *huggingFace) ListsLatest() bool { return true }

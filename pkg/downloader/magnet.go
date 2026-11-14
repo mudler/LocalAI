@@ -321,3 +321,19 @@ func torrentFilename(u URI) string {
 	}
 	return ""
 }
+
+// SearchResultSchemes are the URI schemes that a model search result may carry.
+// They are the schemes the import route resolves to a download that a model
+// search offers: a source cannot add a scheme of its own.
+var SearchResultSchemes = []string{HuggingFacePrefix, PirateFacePrefix, MagnetPrefix, HTTPSPrefix}
+
+// AllowedSearchURI reports whether a search result may carry this URI.
+func AllowedSearchURI(raw string) bool {
+	lower := strings.ToLower(raw)
+	for _, p := range SearchResultSchemes {
+		if strings.HasPrefix(lower, p) && len(raw) > len(p) {
+			return true
+		}
+	}
+	return false
+}

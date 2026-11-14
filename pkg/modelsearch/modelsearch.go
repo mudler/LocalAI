@@ -7,6 +7,7 @@ package modelsearch
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,6 +52,12 @@ type Query struct {
 	// Sort is one of the Sort* constants. Providers that cannot sort
 	// keep their own order. With SortLatest the text may be empty.
 	Sort string `json:"sort,omitempty"`
+	// Filters are the filter values of a request, by source and filter ID.
+	// The Searcher hands each provider only its own, in Own.
+	Filters map[string]map[string]string `json:"-"`
+	// Own are the filter values for the provider that is called, already
+	// checked against the filters the source declares.
+	Own map[string]string `json:"-"`
 }
 
 // Result is one model found by a provider.
@@ -106,12 +113,20 @@ type ProviderStatus struct {
 	// answer this kind of request: a list of the newest models with no search
 	// text. The provider is ok and has no results; nothing went upstream.
 	Unsupported bool `json:"unsupported,omitempty"`
+	// Title is the name of the source, when it has one.
+	Title string `json:"title,omitempty"`
+	// Dropped counts the rows that the host refused: a scheme it does not
+	// handle, or a field over its cap.
+	Dropped int `json:"dropped,omitempty"`
 }
 
 // Response is the outcome of a search.
 type Response struct {
 	Results   []Result         `json:"results"`
 	Providers []ProviderStatus `json:"providers"`
+	// Sources describes the sources that were asked, with their filters, so a
+	// client needs no second call to draw the controls.
+	Sources []Source `json:"sources,omitempty"`
 }
 
 // Provider is one remote source of models.
@@ -119,6 +134,12 @@ type Provider interface {
 	// Name is the stable lower-case id used in requests ("huggingface").
 	Name() string
 	Search(ctx context.Context, q Query) ([]Result, error)
+}
+
+// countingProvider is implemented by a provider that refuses some rows and
+// says how many.
+type countingProvider interface {
+	SearchCounted(ctx context.Context, q Query) ([]Result, int, error)
 }
 
 // LatestLister is implemented by a provider that can list its newest models
@@ -158,6 +179,7 @@ type Searcher struct {
 
 type cacheEntry struct {
 	results []Result
+	dropped int
 	expires time.Time
 }
 
@@ -191,6 +213,52 @@ func (s *Searcher) Register(p Provider) {
 		s.order = append(s.order, name)
 	}
 	s.providers[name] = p
+}
+
+// Unregister removes a provider. It reports whether there was one.
+func (s *Searcher) Unregister(name string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.providers[name]; !ok {
+		return false
+	}
+	delete(s.providers, name)
+	s.order = slices.DeleteFunc(s.order, func(n string) bool { return n == name })
+	return true
+}
+
+// Has reports whether a provider is registered under the name.
+func (s *Searcher) Has(name string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.providers[name]
+	return ok
+}
+
+// Source describes the provider called name. A provider that does not
+// describe itself gets its name as title.
+func (s *Searcher) Source(name string) (Source, bool) {
+	s.mu.RLock()
+	p, ok := s.providers[name]
+	s.mu.RUnlock()
+	if !ok {
+		return Source{}, false
+	}
+	if d, ok := p.(Describer); ok {
+		return d.Source(), true
+	}
+	return Source{ID: name, Title: name, Kind: "builtin", Running: true}, true
+}
+
+// Sources describes the registered providers in registration order.
+func (s *Searcher) Sources() []Source {
+	var out []Source
+	for _, n := range s.Names() {
+		if src, ok := s.Source(n); ok {
+			out = append(out, src)
+		}
+	}
+	return out
 }
 
 // Names lists the registered providers in registration order.
@@ -238,6 +306,7 @@ func (s *Searcher) Search(ctx context.Context, q Query, names []string) Response
 
 	statuses := make([]ProviderStatus, len(names))
 	results := make([][]Result, len(names))
+	sources := make([]*Source, len(names))
 	var wg sync.WaitGroup
 	for i, name := range names {
 		s.mu.RLock()
@@ -247,17 +316,30 @@ func (s *Searcher) Search(ctx context.Context, q Query, names []string) Response
 			statuses[i] = ProviderStatus{Name: name, Error: "unknown provider"}
 			continue
 		}
+		pq := q
+		pq.Own = nil
+		if d, ok := p.(Describer); ok {
+			src := d.Source()
+			sources[i] = &src
+			statuses[i].Title = src.Title
+			own, err := ValidateFilters(src, q.Filters[name])
+			if err != nil {
+				statuses[i] = ProviderStatus{Name: name, Title: src.Title, Error: err.Error()}
+				continue
+			}
+			pq.Own = own
+		}
 		if q.Text == "" && !listsLatest(p, q) {
 			// Nothing to search for and no way to list the newest: do not
 			// send the provider a request its site has no page for.
-			statuses[i] = ProviderStatus{Name: name, OK: true, Unsupported: true}
+			statuses[i] = ProviderStatus{Name: name, Title: statuses[i].Title, OK: true, Unsupported: true}
 			continue
 		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			res, cached, err := s.searchOne(ctx, p, q)
-			st := ProviderStatus{Name: name, OK: err == nil, Count: len(res), Cached: cached}
+			res, dropped, cached, err := s.searchOne(ctx, p, pq)
+			st := ProviderStatus{Name: name, Title: statuses[i].Title, OK: err == nil, Count: len(res), Cached: cached, Dropped: dropped}
 			if err != nil {
 				st.Error = err.Error()
 			}
@@ -270,6 +352,11 @@ func (s *Searcher) Search(ctx context.Context, q Query, names []string) Response
 	for _, r := range results {
 		out.Results = append(out.Results, r...)
 	}
+	for _, src := range sources {
+		if src != nil {
+			out.Sources = append(out.Sources, *src)
+		}
+	}
 	return out
 }
 
@@ -280,16 +367,23 @@ func listsLatest(p Provider, q Query) bool {
 	return ok && q.Sort == SortLatest && l.ListsLatest()
 }
 
-func (s *Searcher) searchOne(ctx context.Context, p Provider, q Query) ([]Result, bool, error) {
+func (s *Searcher) searchOne(ctx context.Context, p Provider, q Query) ([]Result, int, bool, error) {
 	key := cacheKey(p.Name(), q)
-	if res, ok := s.cacheGet(key); ok {
-		return res, true, nil
+	if res, dropped, ok := s.cacheGet(key); ok {
+		return res, dropped, true, nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	res, err := p.Search(ctx, q)
+	var res []Result
+	var dropped int
+	var err error
+	if cp, ok := p.(countingProvider); ok {
+		res, dropped, err = cp.SearchCounted(ctx, q)
+	} else {
+		res, err = p.Search(ctx, q)
+	}
 	if err != nil {
-		return nil, false, err
+		return nil, 0, false, err
 	}
 	if len(res) > q.Limit {
 		res = res[:q.Limit]
@@ -297,29 +391,29 @@ func (s *Searcher) searchOne(ctx context.Context, p Provider, q Query) ([]Result
 	for i := range res {
 		res[i].Provider = p.Name()
 	}
-	s.cachePut(key, res)
-	return res, false, nil
+	s.cachePut(key, res, dropped)
+	return res, dropped, false, nil
 }
 
 func cacheKey(name string, q Query) string {
-	return strings.Join([]string{name, strings.ToLower(q.Text), q.Format, q.Sort, strconv.Itoa(q.Limit)}, "\x00")
+	return strings.Join([]string{name, strings.ToLower(q.Text), q.Format, q.Sort, strconv.Itoa(q.Limit), filtersKey(q.Own)}, "\x00")
 }
 
-func (s *Searcher) cacheGet(key string) ([]Result, bool) {
+func (s *Searcher) cacheGet(key string) ([]Result, int, bool) {
 	if s.ttl < 0 {
-		return nil, false
+		return nil, 0, false
 	}
 	s.cmu.Lock()
 	defer s.cmu.Unlock()
 	e, ok := s.cache[key]
 	if !ok || !s.now().Before(e.expires) {
 		delete(s.cache, key)
-		return nil, false
+		return nil, 0, false
 	}
-	return append([]Result(nil), e.results...), true
+	return append([]Result(nil), e.results...), e.dropped, true
 }
 
-func (s *Searcher) cachePut(key string, res []Result) {
+func (s *Searcher) cachePut(key string, res []Result, dropped int) {
 	if s.ttl < 0 {
 		return
 	}
@@ -342,7 +436,7 @@ func (s *Searcher) cachePut(key string, res []Result) {
 		sort.Slice(keys, func(i, j int) bool { return s.cache[keys[i]].expires.Before(s.cache[keys[j]].expires) })
 		delete(s.cache, keys[0])
 	}
-	s.cache[key] = cacheEntry{results: append([]Result(nil), res...), expires: now.Add(s.ttl)}
+	s.cache[key] = cacheEntry{results: append([]Result(nil), res...), dropped: dropped, expires: now.Add(s.ttl)}
 }
 
 func dedupe(in []string) []string {
