@@ -11,7 +11,9 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -49,6 +51,32 @@ type Startup struct {
 	HostEndpoint   string `json:"hostEndpoint,omitempty"`
 	HostCredential string `json:"hostCredential,omitempty"`
 }
+
+// redacted returns a copy of the startup object with both credentials masked.
+// The copy has no methods, so formatting it does not call String again.
+func (s Startup) redacted() any {
+	type plain Startup
+	mask := func(v string) string {
+		if v == "" {
+			return ""
+		}
+		return "[redacted]"
+	}
+	s.Credential = mask(s.Credential)
+	s.HostCredential = mask(s.HostCredential)
+	return plain(s)
+}
+
+// String masks Credential and HostCredential, so a log line or a %v of a
+// Startup does not leak them. It does not change the JSON encoding.
+func (s Startup) String() string { return fmt.Sprintf("%+v", s.redacted()) }
+
+// GoString does the same for %#v.
+func (s Startup) GoString() string { return fmt.Sprintf("%#v", s.redacted()) }
+
+// LogValue masks the credentials for log/slog and xlog.
+func (s Startup) LogValue() slog.Value { return slog.StringValue(s.String()) }
+
 type ApplyRequest struct {
 	Envelope contract.Envelope `json:"envelope"`
 	Revision contract.Revision `json:"revision"`
