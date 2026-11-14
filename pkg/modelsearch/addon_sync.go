@@ -23,23 +23,31 @@ type AddonSync struct {
 	mu sync.Mutex
 	// owned maps a source ID that this sync registered to its add-on.
 	owned map[string]string
+	// seen holds, for each person, the source IDs the broker showed them at
+	// their last sync. The Searcher is shared by every person, so a source stays
+	// registered while any person can see it; what one person may search is a
+	// filter of that person's request (their own list), never a change to the
+	// registry.
+	seen map[string]map[string]bool
 }
 
 // NewAddonSync returns a sync for the searcher and the broker.
 func NewAddonSync(s *Searcher, b AddonBackend) *AddonSync {
-	return &AddonSync{s: s, b: b, owned: map[string]string{}}
+	return &AddonSync{s: s, b: b, owned: map[string]string{}, seen: map[string]map[string]bool{}}
 }
 
-// Sync registers the sources that the person can see, and removes the ones
-// whose add-on is gone. A source ID that is already taken (by a built-in
-// source or by another add-on) is refused and audited; the first one wins.
+// Sync registers the sources that the person can see. See SyncVisible.
 func (a *AddonSync) Sync(ctx context.Context, user string) error {
 	_, err := a.SyncVisible(ctx, user)
 	return err
 }
 
-// SyncVisible is Sync that also returns the IDs of the add-on sources the
-// person can see, in broker order.
+// SyncVisible registers the add-on sources that the person can see and returns
+// their IDs, in broker order. A source that this person cannot see stays
+// registered when another person can: it is unregistered only when no person
+// who synced sees it any more. A source ID that is already taken (by a
+// built-in source or by another add-on) is refused and audited; the first one
+// wins.
 func (a *AddonSync) SyncVisible(ctx context.Context, user string) ([]string, error) {
 	list, err := a.b.Sources(ctx, user)
 	if err != nil {
@@ -47,7 +55,7 @@ func (a *AddonSync) SyncVisible(ctx context.Context, user string) ([]string, err
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	present := map[string]bool{}
+	mine := map[string]bool{}
 	var visible []string
 	for _, src := range list {
 		id := src.Search.Source.ID
@@ -59,18 +67,28 @@ func (a *AddonSync) SyncVisible(ctx context.Context, user string) ([]string, err
 			a.refuse(id, src.AddonID, "the host")
 			continue
 		}
-		present[id] = true
+		mine[id] = true
 		visible = append(visible, id)
 		a.owned[id] = src.AddonID
 		a.s.Register(newAddonProvider(a.b, src))
 	}
+	a.seen[user] = mine
 	for id := range a.owned {
-		if !present[id] {
+		if !a.anySees(id) {
 			a.s.Unregister(id)
 			delete(a.owned, id)
 		}
 	}
 	return visible, nil
+}
+
+func (a *AddonSync) anySees(id string) bool {
+	for _, set := range a.seen {
+		if set[id] {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *AddonSync) refuse(id, addon, holder string) {

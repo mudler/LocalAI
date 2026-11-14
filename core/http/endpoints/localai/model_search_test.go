@@ -212,6 +212,14 @@ var _ = Describe("ModelSearchEndpoint with add-on sources", func() {
 		Expect(string(broker.last)).To(ContainSubstring(`"filters":{"kind":"b","seeds":3}`))
 	})
 
+	It("sends the declared default of a filter the request leaves out", func() {
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["peer"]}`).Code).To(Equal(http.StatusOK))
+		Expect(do(http.MethodGet, "/api/models/search?q=x", "").Code).To(Equal(http.StatusOK))
+		Expect(string(broker.last)).To(ContainSubstring(`"filters":{"kind":"a"}`))
+		Expect(do(http.MethodGet, "/api/models/search?q=y&filters.peer.kind=b", "").Code).To(Equal(http.StatusOK))
+		Expect(string(broker.last)).To(ContainSubstring(`"filters":{"kind":"b"}`))
+	})
+
 	DescribeTable("rejects a filter that does not fit, naming it",
 		func(query, want string) {
 			Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface","peer"]}`).Code).To(Equal(http.StatusOK))
@@ -257,6 +265,15 @@ var _ = Describe("ModelSearchEndpoint with add-on sources", func() {
 		Expect(ov.Missing).To(BeEmpty())
 		Expect(ov.Sources).To(HaveLen(2))
 		Expect(decode(do(http.MethodGet, "/api/models/search?q=x", "")).Providers).To(HaveLen(2))
+	})
+
+	It("answers 400 for a list longer than the sources that can be in it", func() {
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface","huggingface","huggingface","huggingface"]}`).Code).To(Equal(http.StatusBadRequest))
+		var many []string
+		for range 70 {
+			many = append(many, `"huggingface"`)
+		}
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":[`+strings.Join(many, ",")+`]}`).Code).To(Equal(http.StatusBadRequest))
 	})
 
 	It("needs the body to carry the list", func() {

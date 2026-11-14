@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -42,6 +43,7 @@ const (
 	maxRowLink   = 2048
 	maxRowTags   = 32
 	maxRowTagLen = 64
+	maxRowText   = 200
 )
 
 // ErrAddonNotRunning is the reason of a source whose add-on is not running.
@@ -65,7 +67,7 @@ func (p *addonProvider) ListsLatest() bool { return p.src.Search.Source.ListsLat
 func (p *addonProvider) Source() Source {
 	ms := p.src.Search
 	out := Source{ID: ms.Source.ID, Title: ms.Source.Title, Icon: ms.Source.Icon, Kind: "addon",
-		ListsLatest: ms.Source.ListsLatest, Sorts: ms.Sorts, Filters: ms.Filters, Running: p.src.Running}
+		ListsLatest: ms.Source.ListsLatest, HasVariants: ms.Source.HasVariants, P2P: ms.Source.P2P, Sorts: ms.Sorts, Filters: ms.Filters, Running: p.src.Running}
 	return out
 }
 
@@ -119,7 +121,7 @@ func (p *addonProvider) SearchCounted(ctx context.Context, q Query) ([]Result, i
 			dropped++
 			continue
 		}
-		clean, ok := cleanRow(r, p.Name())
+		clean, ok := cleanRow(r, p.Name(), p.src.Search.Source.HasVariants)
 		if !ok {
 			dropped++
 			continue
@@ -132,10 +134,24 @@ func (p *addonProvider) SearchCounted(ctx context.Context, q Query) ([]Result, i
 // cleanRow applies search-result-validation to one row. It returns false for a
 // row to drop. The fields that the host owns are set here, whatever the add-on
 // said.
-func cleanRow(r Result, source string) (Result, bool) {
+func cleanRow(r Result, source string, hasVariants bool) (Result, bool) {
+	// Text that a person reads loses control and direction-override characters
+	// first, so a cap counts what is shown and a title cannot reorder the page.
+	if len(r.Tags) > maxRowTags {
+		return Result{}, false
+	}
+	r.ID, r.Title = stripHidden(r.ID), stripHidden(r.Title)
+	r.License, r.PipelineTag = stripHidden(r.License), stripHidden(r.PipelineTag)
+	tags := make([]string, 0, len(r.Tags))
+	for _, t := range r.Tags {
+		if t = stripHidden(t); t != "" {
+			tags = append(tags, t)
+		}
+	}
+	r.Tags = tags
 	if r.ID == "" || len(r.ID) > maxRowID || len(r.Title) > maxRowTitle ||
 		len(r.URL) > maxRowLink || len(r.Magnet) > maxRowLink || len(r.URI) > maxRowLink ||
-		len(r.Tags) > maxRowTags || !utf8.ValidString(r.ID+r.Title+r.URI+r.URL+r.Magnet) {
+		!utf8.ValidString(r.ID+r.Title+r.URI+r.URL+r.Magnet) {
 		return Result{}, false
 	}
 	if !downloader.AllowedSearchURI(r.URI) {
@@ -155,10 +171,39 @@ func cleanRow(r Result, source string) (Result, bool) {
 	if r.Title == "" {
 		r.Title = r.ID
 	}
+	// These three are shown as text and are not part of an address, so a long
+	// value is cut, not a reason to drop the row.
+	r.License = capBytes(r.License, maxRowText)
+	r.PipelineTag = capBytes(r.PipelineTag, maxRowText)
+	r.LastModified = capBytes(stripHidden(r.LastModified), maxRowText)
 	r.SizeBytes, r.Downloads, r.Likes, r.Seeders = nonNeg(r.SizeBytes), nonNeg(r.Downloads), nonNeg(r.Likes), nonNeg(r.Seeders)
 	r.Provider = source
-	r.Installed, r.InstalledName, r.Backend, r.HasVariants = false, "", "", false
+	// The host computes these from its own state; EnrichSearch fills them. The
+	// variants hint comes from the description of the source, not from the row.
+	r.Installed, r.InstalledName, r.Backend, r.HasVariants = false, "", "", hasVariants
 	return r, true
+}
+
+// stripHidden removes control characters and the format characters of Unicode
+// (the direction overrides among them) from text of a row.
+func stripHidden(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// capBytes cuts s to at most n bytes without cutting a character.
+func capBytes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }
 
 func nonNeg(n int64) int64 {

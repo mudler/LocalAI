@@ -3,6 +3,8 @@ package modelsearch_test
 import (
 	stdctx "context"
 	"encoding/json"
+	"slices"
+	gosync "sync"
 
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	. "github.com/onsi/ginkgo/v2"
@@ -70,5 +72,48 @@ var _ = Describe("The search host", func() {
 		Expect(o.Sources).To(HaveLen(2))
 		Expect(o.Sources[1].ID).To(Equal("pirateface"))
 		Expect(o.Sources[1].Kind).To(Equal("addon"))
+	})
+
+	It("keeps a source that one person can see when another person, who cannot, searches at the same time", func() {
+		b.perUser = map[string][]modelsearch.AddonSource{"alice": {addonSource("pf", "pirateface")}, "bob": nil}
+		Expect(h.SetEnabled(ctx, "alice", []string{"huggingface", "pirateface"})).To(Succeed())
+		var wg gosync.WaitGroup
+		failures := make(chan string, 200)
+		for range 4 {
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				for range 40 {
+					r := h.Search(ctx, "alice", modelsearch.Query{Text: "x"}, []string{"pirateface"})
+					if len(r.Providers) != 1 || !r.Providers[0].OK {
+						failures <- "alice: " + r.Providers[0].Error
+					}
+					if !slices.Contains(h.Visible(ctx, "alice"), "pirateface") {
+						failures <- "alice does not see her source"
+					}
+				}
+			}()
+			go func() {
+				defer wg.Done()
+				for range 40 {
+					if slices.Contains(h.Visible(ctx, "bob"), "pirateface") {
+						failures <- "bob sees a source he is denied"
+					}
+					o := h.Overview(ctx, "bob")
+					if len(o.Sources) != 1 {
+						failures <- "bob overview flaps"
+					}
+				}
+			}()
+		}
+		wg.Wait()
+		close(failures)
+		for f := range failures {
+			Fail(f)
+		}
+		// Once nobody can see it, the source is gone.
+		b.perUser = map[string][]modelsearch.AddonSource{"alice": nil, "bob": nil}
+		Expect(h.Visible(ctx, "alice")).NotTo(ContainElement("pirateface"))
+		Expect(h.Searcher.Has("pirateface")).To(BeFalse())
 	})
 })

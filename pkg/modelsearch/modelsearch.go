@@ -7,6 +7,7 @@ package modelsearch
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"sort"
 	"strconv"
@@ -329,7 +330,7 @@ func (s *Searcher) Search(ctx context.Context, q Query, names []string) Response
 				statuses[i] = ProviderStatus{Name: name, Title: src.Title, Error: err.Error()}
 				continue
 			}
-			pq.Own = own
+			pq.Own = withDefaults(src, own)
 		}
 		if q.Text == "" && !listsLatest(p, q) {
 			// Nothing to search for and no way to list the newest: do not
@@ -398,7 +399,8 @@ func (s *Searcher) searchOne(ctx context.Context, p Provider, q Query) ([]Result
 }
 
 func cacheKey(name string, q Query) string {
-	return strings.Join([]string{name, strings.ToLower(q.Text), q.Format, q.Sort, strconv.Itoa(q.Limit), filtersKey(q.Own)}, "\x00")
+	b, _ := json.Marshal([]string{name, strings.ToLower(q.Text), q.Format, q.Sort, strconv.Itoa(q.Limit), filtersKey(q.Own)})
+	return string(b)
 }
 
 func (s *Searcher) cacheGet(key string) ([]Result, int, bool) {

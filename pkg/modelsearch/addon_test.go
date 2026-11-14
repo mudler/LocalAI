@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
@@ -20,6 +21,8 @@ import (
 type fakeBroker struct {
 	mu      sync.Mutex
 	sources []modelsearch.AddonSource
+	// perUser, when set, is what each person sees instead of sources.
+	perUser map[string][]modelsearch.AddonSource
 	listErr error
 	answers map[string]json.RawMessage
 	errs    map[string]error
@@ -32,9 +35,12 @@ type fakeCall struct {
 	Req               contract.ModelSearchRequest
 }
 
-func (f *fakeBroker) Sources(_ stdctx.Context, _ string) ([]modelsearch.AddonSource, error) {
+func (f *fakeBroker) Sources(_ stdctx.Context, user string) ([]modelsearch.AddonSource, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.perUser != nil {
+		return append([]modelsearch.AddonSource(nil), f.perUser[user]...), f.listErr
+	}
 	return append([]modelsearch.AddonSource(nil), f.sources...), f.listErr
 }
 
@@ -196,6 +202,74 @@ var _ = Describe("Add-on sources", func() {
 		Expect(got.Downloads).To(BeZero())
 	})
 
+	It("cuts the text fields that are not addresses, without cutting a character", func() {
+		long := strings.Repeat("é", 150) // 300 bytes
+		b.sources = []modelsearch.AddonSource{addonSource("a1", "one")}
+		b.answers["a1"] = rowsJSON(map[string]any{"id": "o/r", "uri": "https://example.org/r",
+			"license": long, "pipeline_tag": long, "last_modified": long})
+		Expect(sync.Sync(ctx(), "alice")).To(Succeed())
+		r := s.Search(ctx(), modelsearch.Query{Text: "x"}, []string{"one"})
+		Expect(r.Results).To(HaveLen(1))
+		for _, v := range []string{r.Results[0].License, r.Results[0].PipelineTag, r.Results[0].LastModified} {
+			Expect(len(v)).To(BeNumerically("<=", 200))
+			Expect(utf8.ValidString(v)).To(BeTrue())
+			Expect(len(v)).To(Equal(200), "the cut is at 200 bytes on a character boundary")
+		}
+	})
+
+	It("drops control and direction-override characters from the text of a row", func() {
+		b.sources = []modelsearch.AddonSource{addonSource("a1", "one")}
+		b.answers["a1"] = rowsJSON(map[string]any{"id": "o/r\u202e", "uri": "https://example.org/r",
+			"title": "Ti\u0007tle\u202ex\u2066", "license": "mit\u202e\n", "pipeline_tag": "text\u0000-gen", "tags": []string{"a\u202eb", "\u0001"}})
+		Expect(sync.Sync(ctx(), "alice")).To(Succeed())
+		got := s.Search(ctx(), modelsearch.Query{Text: "x"}, []string{"one"}).Results[0]
+		Expect(got.ID).To(Equal("o/r"))
+		Expect(got.Title).To(Equal("Titlex"))
+		Expect(got.License).To(Equal("mit"))
+		Expect(got.PipelineTag).To(Equal("text-gen"))
+		Expect(got.Tags).To(Equal([]string{"ab"}))
+	})
+
+	It("takes the variants hint from the description of the source, not from the row", func() {
+		withHint := addonSource("a1", "one")
+		withHint.Search.Source.HasVariants = true
+		b.sources = []modelsearch.AddonSource{withHint, addonSource("a2", "two")}
+		row := map[string]any{"id": "o/r", "uri": "https://example.org/r", "has_variants": true}
+		b.answers["a1"], b.answers["a2"] = rowsJSON(row), rowsJSON(row)
+		Expect(sync.Sync(ctx(), "alice")).To(Succeed())
+		r := s.Search(ctx(), modelsearch.Query{Text: "x"}, []string{"one", "two"})
+		Expect(r.Results[0].HasVariants).To(BeTrue())
+		Expect(r.Results[1].HasVariants).To(BeFalse(), "a row cannot claim it")
+	})
+
+	It("does not let a text filter value run into another filter set in the cache", func() {
+		text := contract.SearchFilter{ID: "a", Type: contract.FilterText, Label: "A"}
+		other := contract.SearchFilter{ID: "b", Type: contract.FilterText, Label: "B"}
+		b.sources = []modelsearch.AddonSource{addonSource("a1", "one", text, other)}
+		b.answers["a1"] = rowsJSON()
+		Expect(sync.Sync(ctx(), "alice")).To(Succeed())
+		ask := func(f map[string]string) modelsearch.ProviderStatus {
+			return s.Search(ctx(), modelsearch.Query{Text: "x", Filters: map[string]map[string]string{"one": f}}, []string{"one"}).Providers[0]
+		}
+		Expect(ask(map[string]string{"a": "1\x01b=2"}).Cached).To(BeFalse())
+		Expect(ask(map[string]string{"a": "1", "b": "2"}).Cached).To(BeFalse(), "a different filter set is a different answer")
+		Expect(ask(map[string]string{"a": "1", "b": "2"}).Cached).To(BeTrue())
+	})
+
+	It("applies the default of a filter the request leaves out", func() {
+		b.sources = []modelsearch.AddonSource{addonSource("a1", "one", kindFilter,
+			contract.SearchFilter{ID: "fresh", Type: contract.FilterBool, Label: "Fresh", Default: true},
+			contract.SearchFilter{ID: "seeds", Type: contract.FilterRange, Label: "Seeds", Min: 0, Max: 10, Default: float64(2)},
+			contract.SearchFilter{ID: "plain", Type: contract.FilterBool, Label: "Plain"})}
+		b.answers["a1"] = rowsJSON()
+		Expect(sync.Sync(ctx(), "alice")).To(Succeed())
+		s.Search(ctx(), modelsearch.Query{Text: "x"}, []string{"one"})
+		Expect(b.calls[0].Req.Filters).To(Equal(map[string]any{"kind": "a", "fresh": true, "seeds": float64(2)}))
+		// A value the person chose wins over the default.
+		s.Search(ctx(), modelsearch.Query{Text: "y", Filters: map[string]map[string]string{"one": {"kind": "b"}}}, []string{"one"})
+		Expect(b.calls[1].Req.Filters).To(HaveKeyWithValue("kind", "b"))
+	})
+
 	It("reads at most MaxLimit rows", func() {
 		var rows []map[string]any
 		for i := range 80 {
@@ -322,7 +396,7 @@ var _ = Describe("The enabled set of sources", func() {
 	})
 
 	It("round trips a set, and an empty set is a choice", func() {
-		Expect(sel.Set(context(), "alice", []string{"builtin", "pirateface", "pirateface"}, []string{"pirateface"})).To(Succeed())
+		Expect(sel.Set(context(), "alice", []string{"builtin", "pirateface"}, []string{"pirateface"})).To(Succeed())
 		got, _ := sel.Enabled(context(), "alice")
 		Expect(got).To(Equal([]string{"huggingface", "pirateface"}))
 		Expect(sel.Set(context(), "alice", nil, nil)).To(Succeed())
@@ -341,6 +415,16 @@ var _ = Describe("The enabled set of sources", func() {
 		Expect(sel.Set(context(), "alice", []string{"huggingface", "pirateface"}, nil)).To(Succeed())
 		got, _ := sel.Enabled(context(), "alice")
 		Expect(got).To(ContainElement("pirateface"))
+	})
+
+	It("refuses a list longer than the sources that can be in it", func() {
+		var many []string
+		for range modelsearch.MaxEnabledSources + 1 {
+			many = append(many, "huggingface")
+		}
+		Expect(sel.Set(context(), "alice", many, nil)).To(MatchError(modelsearch.ErrTooManySources))
+		Expect(sel.Set(context(), "alice", []string{"huggingface", "huggingface"}, nil)).To(MatchError(modelsearch.ErrTooManySources), "the built-in source is the only one that fits")
+		Expect(sel.Set(context(), "alice", []string{"huggingface", "pirateface"}, []string{"pirateface"})).To(Succeed())
 	})
 
 	It("keeps the choice of one person apart from another", func() {

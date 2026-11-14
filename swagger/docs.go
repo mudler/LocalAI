@@ -13689,7 +13689,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores the set of sources the caller searches. It takes effect at once, with no restart. An ID must be a built-in source, an installed source, or already in the stored set. An empty list means nothing is searched.",
+                "description": "Stores the set of sources the caller searches. The list has at most as many IDs as the installed sources, the stored IDs and the built-in source, and never more than 64; a longer list gives a 400. It takes effect at once, with no restart. An ID must be a built-in source, an installed source, or already in the stored set. An empty list means nothing is searched.",
                 "consumes": [
                     "application/json"
                 ],
@@ -22678,7 +22678,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "has_variants": {
-                    "description": "HasVariants is true when opening the model is likely to list several\nquantizations: a GGUF repository, or any Pirate Face one.",
+                    "description": "HasVariants is true when opening the model is likely to list several\nquantizations: a GGUF repository, or any Pirate Face one (the source of an add-on).",
                     "type": "boolean"
                 },
                 "id": {
@@ -22745,6 +22745,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/contract.SearchFilter"
                     }
                 },
+                "has_variants": {
+                    "type": "boolean"
+                },
                 "i18n": {
                     "type": "object",
                     "additionalProperties": {
@@ -22762,6 +22765,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "lists_latest": {
+                    "type": "boolean"
+                },
+                "p2p": {
                     "type": "boolean"
                 },
                 "running": {

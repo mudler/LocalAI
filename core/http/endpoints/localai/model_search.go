@@ -138,7 +138,7 @@ func ModelSearchSourcesEndpoint(h *modelsearch.Host) echo.HandlerFunc {
 // ModelSearchSetSourcesEndpoint stores the enabled set.
 //
 //	@Summary	Set the enabled model search sources
-//	@Description	Stores the set of sources the caller searches. It takes effect at once, with no restart. An ID must be a built-in source, an installed source, or already in the stored set. An empty list means nothing is searched.
+//	@Description	Stores the set of sources the caller searches. The list has at most as many IDs as the installed sources, the stored IDs and the built-in source, and never more than 64; a longer list gives a 400. It takes effect at once, with no restart. An ID must be a built-in source, an installed source, or already in the stored set. An empty list means nothing is searched.
 //	@Tags		models
 //	@Accept		json
 //	@Param		request	body	localai.SearchSourcesRequest	true	"The enabled set"
@@ -157,7 +157,7 @@ func ModelSearchSetSourcesEndpoint(h *modelsearch.Host) echo.HandlerFunc {
 		}
 		user := searchUser(c)
 		if err := h.SetEnabled(c.Request().Context(), user, req.Enabled); err != nil {
-			if errors.Is(err, modelsearch.ErrUnknownSource) {
+			if errors.Is(err, modelsearch.ErrUnknownSource) || errors.Is(err, modelsearch.ErrTooManySources) {
 				return fail(http.StatusBadRequest, err.Error())
 			}
 			return fail(http.StatusServiceUnavailable, "the choice of sources cannot be stored on this server")

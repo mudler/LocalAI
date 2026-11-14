@@ -53,9 +53,11 @@ func (h *Host) Visible(ctx context.Context, user string) []string {
 	if err != nil {
 		xlog.Warn("model search: add-on sources unavailable, only the built-in ones are searched", "error", err)
 	}
+	// The built-in sources, then the add-on sources of this person. A source
+	// that another person can see is registered but not in this list.
 	var out []string
 	for _, n := range h.Searcher.Names() {
-		if slices.Contains(ids, n) || !h.Sync.owns(n) {
+		if !h.Sync.owns(n) || slices.Contains(ids, n) {
 			out = append(out, n)
 		}
 	}

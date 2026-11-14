@@ -1,6 +1,7 @@
 package modelsearch
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"slices"
@@ -22,6 +23,8 @@ type Source struct {
 	// Kind is "builtin" or "addon".
 	Kind        string                              `json:"kind"`
 	ListsLatest bool                                `json:"lists_latest,omitempty"`
+	HasVariants bool                                `json:"has_variants,omitempty"`
+	P2P         bool                                `json:"p2p,omitempty"`
 	Sorts       []string                            `json:"sorts,omitempty"`
 	Filters     []contract.SearchFilter             `json:"filters,omitempty"`
 	I18n        map[string]contract.ModelSearchText `json:"i18n,omitempty"`
@@ -109,6 +112,8 @@ func typedFilters(src Source, values map[string]string) map[string]any {
 }
 
 // filtersKey is the part of a cache key that the filters of one source make.
+// It is the JSON of the pairs in ID order, so no value can run into another
+// pair whatever characters it holds.
 func filtersKey(values map[string]string) string {
 	if len(values) == 0 {
 		return ""
@@ -118,9 +123,44 @@ func filtersKey(values map[string]string) string {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
-	var b strings.Builder
-	for _, id := range ids {
-		b.WriteString(id + "=" + values[id] + "\x01")
+	pairs := make([][2]string, len(ids))
+	for i, id := range ids {
+		pairs[i] = [2]string{id, values[id]}
 	}
-	return b.String()
+	b, _ := json.Marshal(pairs)
+	return string(b)
+}
+
+// withDefaults adds the default that a source declares for each filter the
+// request leaves out, so the value the panel shows and the value the add-on
+// receives are the same.
+func withDefaults(src Source, own map[string]string) map[string]string {
+	var out map[string]string
+	for _, f := range src.Filters {
+		if _, ok := own[f.ID]; ok || f.Default == nil {
+			continue
+		}
+		var v string
+		switch d := f.Default.(type) {
+		case string:
+			v = d
+		case bool:
+			v = strconv.FormatBool(d)
+		case float64:
+			v = strconv.FormatFloat(d, 'f', -1, 64)
+		default:
+			continue
+		}
+		if out == nil {
+			out = make(map[string]string, len(own)+1)
+			for k, x := range own {
+				out[k] = x
+			}
+		}
+		out[f.ID] = v
+	}
+	if out == nil {
+		return own
+	}
+	return out
 }

@@ -15,6 +15,14 @@ import (
 // nor already in the stored choice.
 var ErrUnknownSource = errors.New("unknown search source")
 
+// ErrTooManySources means the list is longer than the sources that can be in
+// it: the installed ones, the ones already stored, and the built-in one, with a
+// hard cap of MaxEnabledSources.
+var ErrTooManySources = errors.New("too many search sources in the list")
+
+// MaxEnabledSources is the hard cap of the enabled list.
+const MaxEnabledSources = 64
+
 // SelectionKV is the store of the per-person add-on settings, seen through the
 // one key that holds the enabled set. A store that cannot answer returns an
 // error.
@@ -94,6 +102,9 @@ func (s *Selection) Set(ctx context.Context, user string, ids, installed []strin
 	if err != nil {
 		// A stored value that cannot be read must not block a new choice.
 		old = nil
+	}
+	if limit := min(MaxEnabledSources, len(installed)+len(old)+1); len(ids) > limit {
+		return fmt.Errorf("%w: %d given, at most %d", ErrTooManySources, len(ids), limit)
 	}
 	out := make([]string, 0, len(ids))
 	for _, raw := range ids {
