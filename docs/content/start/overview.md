@@ -28,7 +28,7 @@ LocalAI is an AI server that runs on your own hardware. A small core speaks the 
 - **OpenAI-compatible API.** Routes in the OpenAI, Anthropic and Open Responses formats.
 - **Web interface.** Chats, saved agents, files, model management, image generation and system monitoring.
 - **Agents.** Saved agents that use tools over MCP (Model Context Protocol), add-ons and your files.
-- **Many modalities.** Text, images, video, speech, sound, vision and embeddings. Each one runs on its own backend.
+- **Many modalities.** Text, images, video, speech, sound, vision and embeddings. Each one runs on its own backend. See [what models can do]({{% relref "/models/capabilities" %}}).
 - **GPU support.** LocalAI detects NVIDIA, AMD, Intel and Vulkan GPUs.
 - **Distributed mode.** Worker nodes, P2P federation and model sharding.
 - **Add-ons.** Separate programs that add tools, such as the Sandbox and Office documents.
