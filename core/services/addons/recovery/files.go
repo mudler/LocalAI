@@ -168,10 +168,14 @@ func copyPlain(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	if _, err = io.Copy(out, in); err == nil {
+	if err = copySparse(in, out); err == nil {
 		err = out.Sync()
 	}
-	return errors.Join(err, out.Close())
+	err = errors.Join(err, out.Close())
+	if err != nil {
+		return errors.Join(err, os.Remove(dst))
+	}
+	return nil
 }
 
 // sizeOf adds up the regular files below root, for the storage estimate. A
