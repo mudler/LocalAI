@@ -23,10 +23,11 @@ import './catalog.css'
 //
 // A page can add chips of its own after the library ones with `extraChips`
 // (`{ id, label, tag? }`): the Models page puts its online sources there.
-// `extraPicked` is the one in force, `onExtraPick(id)` reports a pick, and
+// `extraActions` is a node for buttons after the manage button (the Models page
+// puts its sources button there). `extraPicked` is the one in force, `onExtraPick(id)` reports a pick, and
 // picking a library chip reports `onExtraPick(null)`, so the two kinds of chip
 // are one choice.
-export default function KindLibraries({ kind, adapter = addonsCatalog, onSelect, onChanged, bare = false, onSources, panelOpen, onPanelOpen, extraChips = [], extraPicked = '', onExtraPick }) {
+export default function KindLibraries({ kind, adapter = addonsCatalog, onSelect, onChanged, bare = false, onSources, panelOpen, onPanelOpen, extraChips = [], extraPicked = '', onExtraPick, extraActions = null }) {
   const { t } = useTranslation('addons')
   const [sources, setSources] = useState([])
   const [picked, setPicked] = useState('')
@@ -114,6 +115,7 @@ export default function KindLibraries({ kind, adapter = addonsCatalog, onSelect,
       <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-action="manage-libraries" onClick={() => setOpen(true)}>
         <Icon name="store" /> {t('libraries.manage')}
       </button>
+      {extraActions}
       {panel}
     </div>
   )

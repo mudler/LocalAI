@@ -12,9 +12,12 @@ const labels = { downloads: 'downloads', seeds: n => `${n} ${n === 1 ? 'seed' : 
 
 test('remote models: a row is keyed by provider and repository', () => {
   assert.equal(remoteKey({ provider: 'huggingface', id: 'acme/Tiny-GGUF' }), 'huggingface:acme/Tiny-GGUF')
-  assert.deepEqual(parseRemoteKey('pirateface:acme/Tiny'), { provider: 'pirateface', id: 'acme/Tiny' })
-  assert.equal(parseRemoteKey('acme/Tiny'), null)
-  assert.equal(parseRemoteKey('other:acme/Tiny'), null)
+  const sources = [{ id: 'huggingface' }, { id: 'pirateface' }, { id: 'peer-search' }]
+  assert.deepEqual(parseRemoteKey('pirateface:acme/Tiny', sources), { provider: 'pirateface', id: 'acme/Tiny' })
+  assert.deepEqual(parseRemoteKey('peer-search:acme/Tiny', sources), { provider: 'peer-search', id: 'acme/Tiny' })
+  assert.equal(parseRemoteKey('pirateface:acme/Tiny'), null, 'only the sources that are on are known')
+  assert.equal(parseRemoteKey('acme/Tiny', sources), null)
+  assert.equal(parseRemoteKey('other:acme/Tiny', sources), null)
   assert.equal(parseRemoteKey(''), null)
 })
 

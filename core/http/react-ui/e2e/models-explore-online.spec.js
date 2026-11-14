@@ -59,6 +59,18 @@ async function mockOnline(page, options = {}) {
     estimateDelay = 0, searchDelay = {}, filesFor = (id) => FILES(id), searchStatus = {}, jobProgress = [40, 100],
   } = options
   const seen = { search: [], files: [], estimate: [], imports: [], jobs: 0 }
+  // The installed sources and the enabled set: Hugging Face, and Pirate Face as
+  // the source an add-on provides.
+  await page.route(/\/api\/models\/search\/sources$/, route => route.fulfill({
+    json: {
+      sources: [
+        { id: 'huggingface', title: 'Hugging Face', kind: 'builtin', lists_latest: true, running: true },
+        { id: 'pirateface', title: 'Pirate Face', kind: 'addon', running: true },
+      ],
+      enabled: ['huggingface', 'pirateface'],
+      missing: [],
+    },
+  }))
   await page.route(/\/api\/models\/search\?/, async route => {
     const q = new URL(route.request().url()).searchParams
     seen.search.push(q)

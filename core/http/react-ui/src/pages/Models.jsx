@@ -1,6 +1,6 @@
 import ModelLaunch from '../addons/ModelLaunch'
 // eslint-disable-next-line no-unused-vars
-import { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, useMemo } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link, Outlet, useMatch, useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -41,9 +41,12 @@ import { Button, Callout, PageHeader } from '../components/ui'
 import KindLibraries from '../components/catalog/KindLibraries'
 // eslint-disable-next-line no-unused-vars
 import RemoteNotice from '../components/models/RemoteNotice'
-import { useRemoteSearch, useRemoteDetails, useRemoteInstalls } from '../hooks/useRemoteModels'
+import { sourceText } from '../utils/modelSearch'
+import SourceFilters from '../components/models/SourceFilters'
+import SourcesPanel from '../components/models/SourcesPanel'
+import { useSearchSources, useRemoteSearches, useRemoteDetails, useRemoteInstalls } from '../hooks/useRemoteModels'
 import {
-  REMOTE_SOURCES, REMOTE_PAGE_STEP, REMOTE_SECTION_STEP, remoteSource, remoteRow, remoteVariantData, defaultVariantFile, estimateOfVariant,
+  BUILTIN_SOURCES, remoteSourcesFrom, allSourcesFrom, REMOTE_PAGE_STEP, REMOTE_SECTION_STEP, remoteSource, remoteRow, remoteVariantData, defaultVariantFile, estimateOfVariant,
   installBlock, remoteFitsVisible, canLoadMore, nextLimit, parseRemoteKey,
 } from '../utils/remoteModels'
 import { filterRowsBySource } from '../components/catalog/catalogState'
@@ -178,7 +181,8 @@ export default function Models() {
   // A model's page is a child route: this component stays mounted, hidden, so
   // the list is exactly as it was when the page closes.
   const detailOpen = !!useMatch('/app/models/:id')
-  const { t } = useTranslation('models')
+  const { t, i18n } = useTranslation('models')
+  const lang = i18n.resolvedLanguage || i18n.language || 'en'
   const { operations, dismissFailedOp } = useOperations()
   const { resources } = useResources()
   const [liveParams, setSearchParams] = useSearchParams()
@@ -239,7 +243,16 @@ export default function Models() {
   // not committed the moment it is made, and a keystroke right after a click
   // builds its address from the one before it. The state is what the page reads;
   // the address follows it and is read back only when the user navigates.
-  const urlSource = remoteSource(searchParams.get('source'))?.id || ''
+  // The sources come from the server: Hugging Face, and the sources that
+  // add-ons provide, each on or off for this person.
+  const searchSources = useSearchSources()
+  const sources = useMemo(() => remoteSourcesFrom(searchSources.overview), [searchSources.overview])
+  const installedSources = useMemo(() => allSourcesFrom(searchSources.overview), [searchSources.overview])
+  const missingSources = searchSources.overview?.missing || []
+  const [sourcesOpen, setSourcesOpen] = useState(false)
+  const [sourcesError, setSourcesError] = useState(false)
+  const sourceName = (src) => t(`remote.sources.${src.id}`, { defaultValue: sourceText(src, lang) })
+  const urlSource = remoteSource(searchParams.get('source'), sources)?.id || ''
   const [remoteId, setRemoteId] = useState(urlSource)
   const sourceRef = useRef(remoteId)
   sourceRef.current = remoteId
@@ -249,14 +262,16 @@ export default function Models() {
     seenUrlSource.current = urlSource
     setRemoteId(urlSource)
   }, [urlSource])
-  const remote = remoteSource(remoteId)
+  const remote = remoteSource(remoteId, sources)
   // The debounced term of the online sources, whichever way they are shown:
   // alone under a source chip, or as sections under All.
   const [remoteTerm, setRemoteTerm] = useState(() => (searchParams.get('q') || '').trim())
   const [remoteLimit, setRemoteLimit] = useState(REMOTE_PAGE_STEP)
   // Under All each online source is a section with its own row count and its
   // own retry.
-  const [sectionLimits, setSectionLimits] = useState(() => Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, REMOTE_SECTION_STEP])))
+  const [sectionLimits, setSectionLimits] = useState({})
+  // What the person set in the filters that sources declare, by source.
+  const [filterValues, setFilterValues] = useState({})
   const [sectionReloads, setSectionReloads] = useState({})
   const [ggufOnly, setGgufOnly] = useState(true)
   const [remoteReload, setRemoteReload] = useState(0)
@@ -400,7 +415,7 @@ export default function Models() {
     // The same debounce drives the online sources: one search per pause.
     setRemoteTerm(value.trim())
     setRemoteLimit(REMOTE_PAGE_STEP)
-    setSectionLimits(Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, REMOTE_SECTION_STEP])))
+    setSectionLimits({})
     if (remote) return
     fetchModels({ search: value, page: 1 })
   })
@@ -677,22 +692,29 @@ export default function Models() {
   // table and inspector. They are keyed by provider:id, sized lazily, and
   // installed through the import route; the job id, not a name, tells which
   // row an install belongs to.
-  const sourceLabel = remote ? t(`remote.sources.${remote.id}`) : ''
+  const sourceLabel = remote ? sourceName(remote) : ''
   // Under All, with a term typed, the online sources are asked as well and
   // shown as sections under the library rows. A library chip, a use case chip
   // or a backend narrows the gallery on purpose, so the online sections stay out.
   const allOnline = activeView === 'explore' && !remote && !librarySource && filters.length === 0 && !backendFilter
-  const sectionIds = remote ? [remote.id] : allOnline ? REMOTE_SOURCES.map(src => src.id) : []
-  const askFor = (id) => (sectionIds.includes(id) ? id : '')
-  const limitOf = (id) => (remote ? remoteLimit : sectionLimits[id])
-  const searchOf = {
-    huggingface: useRemoteSearch({ provider: askFor('huggingface'), term: remoteTerm, limit: limitOf('huggingface'), ggufOnly, reloadKey: `${remoteReload}:${sectionReloads.huggingface || 0}` }),
-    pirateface: useRemoteSearch({ provider: askFor('pirateface'), term: remoteTerm, limit: limitOf('pirateface'), ggufOnly, reloadKey: `${remoteReload}:${sectionReloads.pirateface || 0}` }),
-  }
-  const remoteSearch = remote ? searchOf[remote.id] : { phase: 'idle', results: [], providers: [], error: '', unsupported: false }
+  const sectionIds = remote ? [remote.id] : allOnline ? sources.map(src => src.id) : []
+  const limitOf = (id) => (remote ? remoteLimit : (sectionLimits[id] ?? REMOTE_SECTION_STEP))
+  const searchOf = useRemoteSearches({
+    asks: sources.filter(src => sectionIds.includes(src.id)).map(src => ({
+      id: src.id,
+      limit: limitOf(src.id),
+      filters: src.filters,
+      filterValues: filterValues[src.id],
+      reloadKey: `${remoteReload}:${sectionReloads[src.id] || 0}`,
+    })),
+    term: remoteTerm,
+    ggufOnly,
+    sources,
+  })
+  const remoteSearch = remote ? searchOf(remote.id) : { phase: 'idle', results: [], providers: [], error: '', unsupported: false, dropped: 0 }
   // With no term an online source shows its newest models. One that has no such
   // list (Pirate Face) shows a note instead.
-  const noLatest = (id) => !remoteTerm && (!remoteSource(id)?.latest || searchOf[id].unsupported)
+  const noLatest = (id) => !remoteTerm && (!remoteSource(id, sources)?.latest || searchOf(id).unsupported)
   const details = useRemoteDetails()
   const installs = useRemoteInstalls({
     onDone: (key, name) => {
@@ -701,13 +723,13 @@ export default function Models() {
       addToast(t('remote.installed', { model: key.slice(key.indexOf(':') + 1) }), 'success')
     },
   })
-  const rowsOf = (id) => (sectionIds.includes(id) ? searchOf[id].results : []).map(r => remoteRow(r, {
+  const rowsOf = (id) => (sectionIds.includes(id) ? searchOf(id).results : []).map(r => remoteRow(r, {
     installedName: remoteInstalled[`${r.provider}:${r.id}`] || '',
-    sourceLabel: t(`remote.sources.${id}`),
+    sourceLabel: sourceName(remoteSource(id, sources) || { id }),
     labels: { downloads: t('remote.downloads'), seeds: count => t('remote.seeds', { count }) },
   }))
-  const sectionRows = Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, rowsOf(src.id)]))
-  const remoteRows = REMOTE_SOURCES.flatMap(src => sectionRows[src.id])
+  const sectionRows = Object.fromEntries(sources.map(src => [src.id, rowsOf(src.id)]))
+  const remoteRows = sources.flatMap(src => sectionRows[src.id])
 
   const pickSource = useCallback((id) => {
     setRemoteId(id || '')
@@ -890,7 +912,7 @@ export default function Models() {
 
   const openPage = useCallback((name) => {
     // An online result has no page of its own.
-    if (!name || remote || parseRemoteKey(name)) return
+    if (!name || remote || parseRemoteKey(name, sources)) return
     rememberScroll()
     lastOpened.current = name
     navigate(modelPath(name), { state: { from: location.pathname + location.search } })
@@ -900,7 +922,7 @@ export default function Models() {
   // straight to the page. Arrow keys still move the selection.
   const rowSelect = useCallback((name, options) => {
     const phone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
-    if (name && phone && !remote && !parseRemoteKey(name) && !options?.replace) openPage(name)
+    if (name && phone && !remote && !parseRemoteKey(name, sources) && !options?.replace) openPage(name)
     else selectModel(name, options)
   }, [openPage, selectModel, remote])
 
@@ -1113,9 +1135,9 @@ export default function Models() {
     onRetry: name => { installs.clear(name); installRemote(name) },
   }
   const onlineSections = remote ? [] : sectionIds.map(id => {
-    const src = remoteSource(id)
-    const st = searchOf[id]
-    const label = t(`remote.sources.${id}`)
+    const src = remoteSource(id, sources)
+    const st = searchOf(id)
+    const label = sourceName(src)
     const rows = sectionRows[id].filter(fitsOnline)
     const loading = st.phase === 'loading'
     return {
@@ -1126,8 +1148,8 @@ export default function Models() {
       error: st.phase === 'failed' ? { text: `${t('remote.failed.title', { source: label })}: ${st.error || t('remote.failed.text')}` } : null,
       onRetry: () => setSectionReloads(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 })),
       empty: noLatest(id) ? t('remote.noLatest', { source: label }) : st.phase === 'done' ? t('remote.none.title', { source: label }) : '',
-      more: canLoadMore(st.results, sectionLimits[id])
-        ? { busy: loading, onMore: () => setSectionLimits(prev => ({ ...prev, [id]: nextLimit(prev[id], REMOTE_SECTION_STEP) })) }
+      more: canLoadMore(st.results, limitOf(id))
+        ? { busy: loading, onMore: () => setSectionLimits(prev => ({ ...prev, [id]: nextLimit(prev[id] ?? REMOTE_SECTION_STEP, REMOTE_SECTION_STEP) })) }
         : null,
     }
   })
@@ -1146,7 +1168,7 @@ export default function Models() {
     <div className="page page--full page--app models-page">
       {pageHead((remote || statsLoaded) && (
         remote
-          ? <span className="models-tabsrow__count" data-testid="remote-count">{t('remote.resultCount', { count: visibleModels.length })}</span>
+          ? <span className="models-tabsrow__count" data-testid="remote-count">{t('remote.resultCount', { count: visibleModels.length })}{remoteSearch.dropped > 0 && <> · <span data-testid="remote-dropped">{t('remote.dropped', { count: remoteSearch.dropped })}</span></>}</span>
           : <span className="models-tabsrow__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
       ))}
 
@@ -1154,10 +1176,43 @@ export default function Models() {
         kind="model"
         onSelect={setLibrarySource}
         onChanged={() => setRefreshToken(n => n + 1)}
-        extraChips={REMOTE_SOURCES.map(src => ({ id: src.id, label: t(`remote.sources.${src.id}`), tag: src.p2p ? t('remote.p2p') : '' }))}
+        extraChips={sources.map(src => ({ id: src.id, label: sourceName(src), tag: src.p2p ? t('remote.p2p') : '' }))}
+        extraActions={(installedSources.length > 1 || missingSources.length > 0 || sources.length === 0) && (
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-testid="model-sources-open" onClick={() => setSourcesOpen(true)}>
+            <Icon name="cloud" /> {t('remote.sourcesButton')}
+          </button>
+        )}
         extraPicked={remote?.id || ''}
         onExtraPick={pickSource}
       />
+      {(missingSources.length > 0 || (searchSources.overview && sources.length === 0)) && (
+        <p className="source-hint" data-testid="source-hint">
+          {sources.length === 0 ? t('remote.noSources') : t('remote.missingHint', { sources: missingSources.map(id => t(`remote.sources.${id}`, { defaultValue: id })).join(', ') })}
+          {' '}
+          {sources.length === 0
+            ? <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setSourcesOpen(true)}>{t('remote.sourcesButton')}</button>
+            : <Link to="/addons">{t('remote.missingInstall')}</Link>}
+        </p>
+      )}
+      {sourcesOpen && (
+        <SourcesPanel
+          sources={installedSources}
+          enabled={searchSources.overview?.enabled || ['huggingface']}
+          missing={missingSources}
+          busy={searchSources.busy}
+          error={sourcesError}
+          lang={lang}
+          t={t}
+          onClose={() => setSourcesOpen(false)}
+          onToggle={async (id, on) => {
+            const now = searchSources.overview?.enabled || ['huggingface']
+            const next = on ? [...now.filter(x => x !== id), id] : now.filter(x => x !== id)
+            const err = await searchSources.setEnabled(next)
+            setSourcesError(!!err)
+            if (!err && !on && remoteId === id) pickSource(null)
+          }}
+        />
+      )}
 
       {/* Filters, in two bands.
           1. Query scope: free-text search, the backend select, and the
@@ -1241,9 +1296,22 @@ export default function Models() {
             )}
             {sectionIds.length > 0 && (
               <label className="filter-bar-group__toggle" data-testid="remote-gguf-only">
-                <Toggle checked={ggufOnly} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits(Object.fromEntries(REMOTE_SOURCES.map(src => [src.id, REMOTE_SECTION_STEP]))) }} />
+                <Toggle checked={ggufOnly} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits({}) }} />
                 <span>{t('remote.ggufOnly')}</span>
               </label>
+            )}
+            {sectionIds.length > 0 && (
+              <SourceFilters
+                sources={sources.filter(src => sectionIds.includes(src.id) && src.filters.length > 0)}
+                values={filterValues}
+                lang={lang}
+                showSource={!remote}
+                onChange={(sourceId, id, v) => {
+                  setFilterValues(prev => ({ ...prev, [sourceId]: { ...prev[sourceId], [id]: v } }))
+                  setRemoteLimit(REMOTE_PAGE_STEP)
+                  setSectionLimits({})
+                }}
+              />
             )}
             {totalGpuMemory > 0 && (
               <label className="filter-bar-group__toggle">
