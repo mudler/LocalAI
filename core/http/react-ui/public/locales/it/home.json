@@ -198,5 +198,20 @@
     "installing": "Installazione",
     "installStarted": "Installazione di {{model}}…",
     "installFailed": "Installazione non riuscita: {{message}}"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Dove girano i tuoi modelli?",
+      "local": "Su questa macchina",
+      "remote": "Su un altro server o servizio",
+      "remoteIntro": "Connetti un modello che gira già altrove. Potrai installare modelli locali più tardi.",
+      "remoteNote": "Per i modelli remoti i controlli sul modello consigliato e sulla dimensione del contesto vengono saltati."
+    },
+    "step1Title": "Connetti un remoto",
+    "step1Body": "Scegli il tipo, poi verifica che LocalAI riesca a raggiungerlo.",
+    "step2Title": "Scegli i modelli",
+    "step2Body": "Ogni modello scelto diventa un modello qui.",
+    "done": "{{name}} connesso. Aggiunto {{count}} modello.",
+    "done_other": "{{name}} connesso. Aggiunti {{count}} modelli."
   }
 }

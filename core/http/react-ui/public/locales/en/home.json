@@ -321,5 +321,20 @@
   },
   "library": {
     "label": "Library"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Where do your models run?",
+      "local": "On this machine",
+      "remote": "On another server or service",
+      "remoteIntro": "Connect a model that already runs somewhere else. You can install local models later.",
+      "remoteNote": "The recommended-model and context-size checks are skipped for remote models."
+    },
+    "step1Title": "Connect a remote",
+    "step1Body": "Pick the kind, then check that LocalAI can reach it.",
+    "step2Title": "Choose models",
+    "step2Body": "Each model you pick becomes a model here.",
+    "done": "Connected {{name}}. Added {{count}} model.",
+    "done_other": "Connected {{name}}. Added {{count}} models."
   }
 }

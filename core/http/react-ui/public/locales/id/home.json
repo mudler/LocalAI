@@ -198,5 +198,20 @@
     "installing": "Memasang",
     "installStarted": "Memasang {{model}}…",
     "installFailed": "Pemasangan gagal: {{message}}"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Di mana model Anda berjalan?",
+      "local": "Di mesin ini",
+      "remote": "Di server atau layanan lain",
+      "remoteIntro": "Hubungkan model yang sudah berjalan di tempat lain. Anda bisa memasang model lokal nanti.",
+      "remoteNote": "Untuk model remote, pemeriksaan model yang direkomendasikan dan ukuran konteks dilewati."
+    },
+    "step1Title": "Hubungkan remote",
+    "step1Body": "Pilih jenisnya, lalu periksa apakah LocalAI dapat menjangkaunya.",
+    "step2Title": "Pilih model",
+    "step2Body": "Setiap model yang Anda pilih menjadi model di sini.",
+    "done": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "done_other": "{{name}} terhubung. {{count}} model ditambahkan."
   }
 }

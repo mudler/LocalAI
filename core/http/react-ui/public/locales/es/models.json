@@ -394,5 +394,19 @@
         "body": "Es privado, se eliminó o no figura en esta fuente."
       }
     }
+  },
+  "connections": {
+    "tab": "Conexiones",
+    "filter": "Remotos",
+    "unavailable": "No disponible en origen",
+    "rowMark": "Modelo remoto",
+    "sizeRemote": "Remoto",
+    "connectButton": "Conectar un remoto",
+    "sheetTitle": "Conectar un remoto",
+    "sheetDescription": "Añade modelos que se ejecutan en otro servidor o servicio.",
+    "toastDone": "{{name}} conectado. Se añadió {{count}} modelo.",
+    "toastDone_other": "{{name}} conectado. Se añadieron {{count}} modelos.",
+    "toastSkipped": "{{count}} modelo no se añadió.",
+    "toastSkipped_other": "{{count}} modelos no se añadieron."
   }
 }

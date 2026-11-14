@@ -394,5 +394,19 @@
         "body": "Es ist privat, entfernt oder auf dieser Quelle nicht gelistet."
       }
     }
+  },
+  "connections": {
+    "tab": "Verbindungen",
+    "filter": "Remote",
+    "unavailable": "Beim Anbieter nicht verfügbar",
+    "rowMark": "Remote-Modell",
+    "sizeRemote": "Remote",
+    "connectButton": "Gegenstelle verbinden",
+    "sheetTitle": "Gegenstelle verbinden",
+    "sheetDescription": "Fügen Sie Modelle hinzu, die auf einem anderen Server oder Dienst laufen.",
+    "toastDone": "{{name}} verbunden. {{count}} Modell hinzugefügt.",
+    "toastDone_other": "{{name}} verbunden. {{count}} Modelle hinzugefügt.",
+    "toastSkipped": "{{count}} Modell wurde nicht hinzugefügt.",
+    "toastSkipped_other": "{{count}} Modelle wurden nicht hinzugefügt."
   }
 }

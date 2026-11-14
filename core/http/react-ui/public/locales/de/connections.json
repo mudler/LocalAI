@@ -1,0 +1,130 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "OpenAI-kompatibel",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "Eigener"
+  },
+  "connect": {
+    "kind": "Art der Gegenstelle",
+    "provider": "Anbieter",
+    "address": "Adresse",
+    "addressHintLocalai": "Die Adresse des anderen LocalAI-Servers.",
+    "addressHintOpenai": "Die Basisadresse des Dienstes. Sie endet meist auf /v1.",
+    "key": "API-Schlüssel",
+    "optional": "optional",
+    "keyHint": "Der Schlüssel bleibt auf diesem Server und wird nicht noch einmal angezeigt.",
+    "pii": "Anfragen an gehostete Dienste laufen über den PII-Filter von LocalAI, der standardmäßig aktiv ist.",
+    "test": "Verbindung testen",
+    "testing": "Wird getestet …",
+    "ok": "Verbunden. {{count}} Modell gefunden.",
+    "ok_other": "Verbunden. {{count}} Modelle gefunden.",
+    "failTitle": "Verbindung fehlgeschlagen.",
+    "fail": {
+      "invalid_url": "Diese Adresse ist ungültig. Prüfen Sie sie und versuchen Sie es erneut.",
+      "unreachable": "Der Server ist nicht erreichbar. Prüfen Sie die Adresse und ob der andere Server läuft und von diesem Server aus erreichbar ist.",
+      "auth": "Der Anbieter hat den Schlüssel abgelehnt. Prüfen Sie ihn und versuchen Sie es erneut.",
+      "no_models": "Die Verbindung funktioniert, aber es gibt keine Modelle zum Hinzufügen.",
+      "other": "Der Test ist fehlgeschlagen."
+    }
+  },
+  "choose": {
+    "waiting": "Testen Sie zuerst die Verbindung. Ihre Modelle erscheinen dann hier.",
+    "search": "Modelle suchen",
+    "count": "{{selected}} von {{total}} ausgewählt",
+    "selectAll": "Alle auswählen",
+    "selectNone": "Keine auswählen",
+    "listLabel": "Hinzuzufügende Modelle",
+    "noMatch": "Kein Modell passt zur Suche.",
+    "name": "Name",
+    "nameHint": "Wird in der Liste der Verbindungen angezeigt.",
+    "submit": "Verbinden und Modelle hinzufügen",
+    "pick": "Wählen Sie mindestens ein Modell aus.",
+    "error": {
+      "nameTaken": "Eine Verbindung mit diesem Namen gibt es schon. Wählen Sie einen anderen Namen.",
+      "invalid": "Der Server hat diese Angaben nicht akzeptiert: {{message}}",
+      "other": "Etwas ist schiefgegangen: {{message}}"
+    }
+  },
+  "usecase": {
+    "chat": "Chat",
+    "transcript": "Transkription",
+    "tts": "Sprache",
+    "embeddings": "Embeddings",
+    "image": "Bild",
+    "video": "Video",
+    "rerank": "Rerank"
+  },
+  "sheet": {
+    "open": "Gegenstelle verbinden"
+  },
+  "card": {
+    "justNow": "gerade eben",
+    "status": {
+      "ok": "Verbunden · aktualisiert {{when}}",
+      "never": "Noch nicht aktualisiert",
+      "auth_failed": "Schlüssel abgelehnt",
+      "unreachable": "Nicht erreichbar"
+    },
+    "refresh": "Aktualisieren",
+    "edit": "Bearbeiten",
+    "authTitle": "Die Gegenstelle hat den Schlüssel abgelehnt.",
+    "authText": "Aktualisieren Sie den Schlüssel, um sich erneut zu verbinden.",
+    "unreachableTitle": "Die Gegenstelle ist nicht erreichbar.",
+    "unreachableText": "Prüfen Sie die Adresse und ob der andere Server läuft.",
+    "updateKey": "Schlüssel aktualisieren",
+    "editConnection": "Verbindung bearbeiten",
+    "newTitle": "{{count}} neues Modell auf dieser Gegenstelle",
+    "newTitle_other": "{{count}} neue Modelle auf dieser Gegenstelle",
+    "addSelected": "Auswahl hinzufügen",
+    "notNow": "Nicht jetzt",
+    "adopted": "{{count}} Modell von {{name}} hinzugefügt.",
+    "adopted_other": "{{count}} Modelle von {{name}} hinzugefügt.",
+    "adoptFailed": "Die Modelle konnten nicht hinzugefügt werden: {{message}}",
+    "refreshFailed": "{{name}} konnte nicht aktualisiert werden: {{message}}",
+    "models": "{{count}} Modell von dieser Verbindung",
+    "models_other": "{{count}} Modelle von dieser Verbindung",
+    "gone": "{{count}} nicht mehr gelistet",
+    "gone_other": "{{count}} nicht mehr gelistet",
+    "view": "In „Installiert“ ansehen"
+  },
+  "empty": {
+    "title": "Keine Gegenstelle verbunden",
+    "body": "Verbinden Sie ein weiteres LocalAI, einen OpenAI-kompatiblen Dienst oder Anthropic. Jedes gewählte Modell wird hier zu einem Modell."
+  },
+  "load": {
+    "error": "Ihre Verbindungen konnten nicht geladen werden."
+  },
+  "edit": {
+    "title": "Verbindung bearbeiten",
+    "close": "Schließen",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "name": "Name",
+    "key": "Neuer API-Schlüssel",
+    "keySet": "Ein Schlüssel ist gesetzt. Lassen Sie das Feld leer, um ihn zu behalten.",
+    "keyNotSet": "Es ist kein Schlüssel gesetzt.",
+    "keyRestart": "Ein neuer Schlüssel startet die geladenen Modelle neu.",
+    "saved": "{{name}} gespeichert.",
+    "savedKey": "{{name}} gespeichert. Die geladenen Modelle starten mit dem neuen Schlüssel neu."
+  },
+  "remove": {
+    "button": "Verbindung entfernen",
+    "title": "{{name}} entfernen?",
+    "choiceLabel": "Was mit den Modellen geschieht",
+    "keep": "Modelle behalten",
+    "removeAll": "Modelle auch entfernen",
+    "keepExplain": "Nur die Verbindung wird entfernt. Ihr {{count}} Modell bleibt unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
+    "keepExplain_other": "Nur die Verbindung wird entfernt. Ihre {{count}} Modelle bleiben unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
+    "removeExplain": "Die Verbindung und ihr {{count}} Modell werden entfernt. Das lässt sich nicht rückgängig machen.",
+    "removeExplain_other": "Die Verbindung und ihre {{count}} Modelle werden entfernt. Das lässt sich nicht rückgängig machen.",
+    "confirm": "Verbindung entfernen",
+    "doneKeep": "{{name}} entfernt. Die Modelle bleiben.",
+    "doneAll": "{{name}} und seine Modelle entfernt."
+  }
+}

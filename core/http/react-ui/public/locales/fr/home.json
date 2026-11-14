@@ -186,5 +186,20 @@
     "add": "Ajouter un modèle",
     "remove": "Retirer {{name}}",
     "clear": "Effacer"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Où tournent vos modèles ?",
+      "local": "Sur cette machine",
+      "remote": "Sur un autre serveur ou service",
+      "remoteIntro": "Connectez un modèle qui tourne déjà ailleurs. Vous pourrez installer des modèles locaux plus tard.",
+      "remoteNote": "Pour les modèles distants, les vérifications du modèle recommandé et de la taille de contexte sont ignorées."
+    },
+    "step1Title": "Connecter un serveur distant",
+    "step1Body": "Choisissez le type, puis vérifiez que LocalAI peut y accéder.",
+    "step2Title": "Choisir les modèles",
+    "step2Body": "Chaque modèle choisi devient un modèle ici.",
+    "done": "{{name}} connecté. {{count}} modèle ajouté.",
+    "done_other": "{{name}} connecté. {{count}} modèles ajoutés."
   }
 }

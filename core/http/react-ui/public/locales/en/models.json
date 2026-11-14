@@ -943,5 +943,19 @@
         "body": "It is private, removed or not listed on this source."
       }
     }
+  },
+  "connections": {
+    "tab": "Connections",
+    "filter": "Remote",
+    "unavailable": "Unavailable upstream",
+    "rowMark": "Remote model",
+    "sizeRemote": "Remote",
+    "connectButton": "Connect a remote",
+    "sheetTitle": "Connect a remote",
+    "sheetDescription": "Add models that run on another server or service.",
+    "toastDone": "Connected {{name}}. Added {{count}} model.",
+    "toastDone_other": "Connected {{name}}. Added {{count}} models.",
+    "toastSkipped": "{{count}} model was not added.",
+    "toastSkipped_other": "{{count}} models were not added."
   }
 }

@@ -482,5 +482,19 @@
         "body": "Il est privé, supprimé ou absent de cette source."
       }
     }
+  },
+  "connections": {
+    "tab": "Connexions",
+    "filter": "Distants",
+    "unavailable": "Indisponible en amont",
+    "rowMark": "Modèle distant",
+    "sizeRemote": "Distant",
+    "connectButton": "Connecter un serveur distant",
+    "sheetTitle": "Connecter un serveur distant",
+    "sheetDescription": "Ajoutez des modèles qui tournent sur un autre serveur ou service.",
+    "toastDone": "{{name}} connecté. {{count}} modèle ajouté.",
+    "toastDone_other": "{{name}} connecté. {{count}} modèles ajoutés.",
+    "toastSkipped": "{{count}} modèle n'a pas été ajouté.",
+    "toastSkipped_other": "{{count}} modèles n'ont pas été ajoutés."
   }
 }

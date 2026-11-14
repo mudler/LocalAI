@@ -1,0 +1,130 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "Compatibile con OpenAI",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "Personalizzato"
+  },
+  "connect": {
+    "kind": "Tipo di remoto",
+    "provider": "Provider",
+    "address": "Indirizzo",
+    "addressHintLocalai": "L'indirizzo dell'altro server LocalAI.",
+    "addressHintOpenai": "L'indirizzo di base del servizio. Di solito termina con /v1.",
+    "key": "Chiave API",
+    "optional": "facoltativa",
+    "keyHint": "La chiave resta su questo server e non viene più mostrata.",
+    "pii": "Le richieste ai servizi ospitati passano dal filtro PII di LocalAI, attivo per impostazione predefinita.",
+    "test": "Prova la connessione",
+    "testing": "Prova in corso…",
+    "ok": "Connesso. Trovato {{count}} modello.",
+    "ok_other": "Connesso. Trovati {{count}} modelli.",
+    "failTitle": "Impossibile connettersi.",
+    "fail": {
+      "invalid_url": "Questo indirizzo non è valido. Controllalo e riprova.",
+      "unreachable": "Impossibile raggiungere il server. Controlla l'indirizzo e che l'altro server sia in esecuzione e raggiungibile da questo server.",
+      "auth": "Il provider ha rifiutato la chiave. Controllala e riprova.",
+      "no_models": "La connessione funziona, ma non elenca modelli da aggiungere.",
+      "other": "La prova non è riuscita."
+    }
+  },
+  "choose": {
+    "waiting": "Prova prima la connessione. I suoi modelli compariranno qui.",
+    "search": "Cerca modelli",
+    "count": "{{selected}} di {{total}} selezionati",
+    "selectAll": "Seleziona tutti",
+    "selectNone": "Deseleziona tutti",
+    "listLabel": "Modelli da aggiungere",
+    "noMatch": "Nessun modello corrisponde alla ricerca.",
+    "name": "Nome",
+    "nameHint": "Mostrato nell'elenco delle connessioni.",
+    "submit": "Connetti e aggiungi i modelli",
+    "pick": "Seleziona almeno un modello.",
+    "error": {
+      "nameTaken": "Esiste già una connessione con questo nome. Scegline un altro.",
+      "invalid": "Il server non ha accettato questi dati: {{message}}",
+      "other": "Qualcosa è andato storto: {{message}}"
+    }
+  },
+  "usecase": {
+    "chat": "Chat",
+    "transcript": "Trascrizione",
+    "tts": "Voce",
+    "embeddings": "Embedding",
+    "image": "Immagine",
+    "video": "Video",
+    "rerank": "Rerank"
+  },
+  "sheet": {
+    "open": "Connetti un remoto"
+  },
+  "card": {
+    "justNow": "proprio ora",
+    "status": {
+      "ok": "Connesso · aggiornato {{when}}",
+      "never": "Non ancora aggiornato",
+      "auth_failed": "Chiave rifiutata",
+      "unreachable": "Non raggiungibile"
+    },
+    "refresh": "Aggiorna",
+    "edit": "Modifica",
+    "authTitle": "Il remoto ha rifiutato la chiave.",
+    "authText": "Aggiorna la chiave per riconnetterti.",
+    "unreachableTitle": "Impossibile raggiungere il remoto.",
+    "unreachableText": "Controlla l'indirizzo e che l'altro server sia in esecuzione.",
+    "updateKey": "Aggiorna chiave",
+    "editConnection": "Modifica connessione",
+    "newTitle": "{{count}} nuovo modello su questo remoto",
+    "newTitle_other": "{{count}} nuovi modelli su questo remoto",
+    "addSelected": "Aggiungi selezionati",
+    "notNow": "Non ora",
+    "adopted": "Aggiunto {{count}} modello da {{name}}.",
+    "adopted_other": "Aggiunti {{count}} modelli da {{name}}.",
+    "adoptFailed": "Impossibile aggiungere i modelli: {{message}}",
+    "refreshFailed": "Impossibile aggiornare {{name}}: {{message}}",
+    "models": "{{count}} modello da questa connessione",
+    "models_other": "{{count}} modelli da questa connessione",
+    "gone": "{{count}} non più elencato",
+    "gone_other": "{{count}} non più elencati",
+    "view": "Vedi in Installati"
+  },
+  "empty": {
+    "title": "Nessun remoto connesso",
+    "body": "Connetti un altro LocalAI, un servizio compatibile con OpenAI o Anthropic. Ogni modello scelto diventa un modello qui."
+  },
+  "load": {
+    "error": "Impossibile caricare le connessioni."
+  },
+  "edit": {
+    "title": "Modifica connessione",
+    "close": "Chiudi",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "name": "Nome",
+    "key": "Nuova chiave API",
+    "keySet": "Una chiave è impostata. Lascia vuoto per mantenerla.",
+    "keyNotSet": "Nessuna chiave impostata.",
+    "keyRestart": "Una nuova chiave riavvia i modelli caricati.",
+    "saved": "{{name}} salvato.",
+    "savedKey": "{{name}} salvato. I suoi modelli caricati si riavviano con la nuova chiave."
+  },
+  "remove": {
+    "button": "Rimuovi connessione",
+    "title": "Rimuovere {{name}}?",
+    "choiceLabel": "Cosa succede ai modelli",
+    "keep": "Mantieni i modelli",
+    "removeAll": "Rimuovi anche i modelli",
+    "keepExplain": "Viene rimossa solo la connessione. Il suo {{count}} modello resta in Installati. Se il remoto richiede una chiave, impostala nell'editor del modello.",
+    "keepExplain_other": "Viene rimossa solo la connessione. I suoi {{count}} modelli restano in Installati. Se il remoto richiede una chiave, impostala nell'editor del modello.",
+    "removeExplain": "Vengono rimossi la connessione e il suo {{count}} modello. Non si può annullare.",
+    "removeExplain_other": "Vengono rimossi la connessione e i suoi {{count}} modelli. Non si può annullare.",
+    "confirm": "Rimuovi connessione",
+    "doneKeep": "{{name}} rimossa. I suoi modelli restano.",
+    "doneAll": "{{name}} e i suoi modelli rimossi."
+  }
+}
