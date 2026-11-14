@@ -164,7 +164,7 @@ func (f fetcher) get(ctx context.Context, address string, headers map[string]str
 	if err != nil {
 		return classifyTransportError(err, req.URL.Host)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return upstreamErr(StepAuth, "The server refused the key (status %d).", resp.StatusCode)

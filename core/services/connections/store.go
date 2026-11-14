@@ -76,10 +76,6 @@ func (r record) view() Connection {
 	return c
 }
 
-func (r record) owns(name string) bool {
-	return slices.ContainsFunc(r.Owned, func(o ownedEntry) bool { return o.Name == name })
-}
-
 func nameKey(name string) string { return strings.ToLower(strings.TrimSpace(name)) }
 
 // Store keeps the connection records. A store holds no cache: every call
