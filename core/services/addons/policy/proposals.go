@@ -1571,9 +1571,11 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 		// that proposed it cannot.
 		return contract.Receipt{}, ErrForbidden
 	}
-	if r.Await && !r.Credentialed && gateway.IsChatTurn(ctx) {
-		// Without a credential the mark of the call is the only sign that a
-		// chat turn, not the browser, asks for the apply.
+	if r.Await && !r.Credentialed && (gateway.IsChatTurn(ctx) || gateway.ChatConfirmed(ctx)) {
+		// Without a credential the marks of the call are the only sign that a
+		// chat, not the browser, asks for the apply. A paired messaging sender
+		// may confirm only a credentialed proposal that waits for the write
+		// mode, so no mark lifts this hold.
 		return contract.Receipt{}, ErrForbidden
 	}
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}

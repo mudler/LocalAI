@@ -104,6 +104,18 @@ var _ = Describe("a tool that always asks, in an add-on without a credential", L
 		Expect(f.rt.applyCalls()).To(BeEmpty())
 	})
 
+	It("does not let the messaging-chat mark confirm it, even for a credential that stands for a person", func() {
+		f := open(false)
+		key := f.create(owner)
+		p := propose(f, key, owner, hardArgs)
+		_, err := f.broker.ConfirmBound(gateway.WithChatConfirmed(ctx), session("owner"), "op-1", p.Digest)
+		Expect(err).To(MatchError(ErrForbidden))
+		Expect(f.rt.applyCalls()).To(BeEmpty())
+		_, err = f.broker.ConfirmBound(ctx, session("owner"), "op-1", p.Digest)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.rt.applyCalls()).To(HaveLen(1))
+	})
+
 	It("never runs a cancelled or an expired proposal", func() {
 		f := open(false)
 		key := f.create(owner)
