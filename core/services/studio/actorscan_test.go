@@ -47,6 +47,11 @@ var actorAllowlist = map[string]string{
 	"contextturn.go:homeReader.ReadFile":                                "the host reads the user's notes at paths the loader builds from the chat record, never from the model; the chat's fence is not widened",
 	"service.go:New":                                                    "the administrator of the change feed and the trigger watcher",
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
+	// The client.workspace operations of a paired client: no chat makes them,
+	// so there is no chat access to take. The folder grant of the client key
+	// decides what they reach, and the actor is fenced to the one granted folder.
+	"../addons/hostops/engine_client_folders.go:ClientFolderHost.fence":        "finds the granted folder of a client key and fences the owner's actor to it",
+	"../addons/hostops/engine_client_folders.go:ClientFolderHost.ensureFolder": "makes the write folder the owner named in the client key's grant, before it can be fenced",
 }
 
 // actorBuilds returns the places in src that build an actor, as
