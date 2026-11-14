@@ -45,7 +45,9 @@ func (a *AddonSync) Sync(ctx context.Context, user string) error {
 // SyncVisible registers the add-on sources that the person can see and returns
 // their IDs, in broker order. A source that this person cannot see stays
 // registered when another person can: it is unregistered only when no person
-// who synced sees it any more. A source ID that is already taken (by a
+// who synced sees it any more. A memory of another person is checked with the
+// broker again before it keeps a source alive, so an idle person's old answer
+// never holds a removed add-on in the registry. A source ID that is already taken (by a
 // built-in source or by another add-on) is refused and audited; the first one
 // wins.
 func (a *AddonSync) SyncVisible(ctx context.Context, user string) ([]string, error) {
@@ -73,6 +75,30 @@ func (a *AddonSync) SyncVisible(ctx context.Context, user string) ([]string, err
 		a.s.Register(newAddonProvider(a.b, src))
 	}
 	a.seen[user] = mine
+	// Another person's memory of a source may be old: they may be idle while
+	// the add-on is removed. Before a source this person cannot see is kept for
+	// someone else, ask the broker again for that person.
+	for id := range a.owned {
+		if mine[id] {
+			continue
+		}
+		for other, set := range a.seen {
+			if other == user || !set[id] {
+				continue
+			}
+			again, err := a.b.Sources(ctx, other)
+			if err != nil {
+				continue // cannot tell: keep what is known
+			}
+			fresh := map[string]bool{}
+			for _, src := range again {
+				if a.owned[src.Search.Source.ID] == src.AddonID {
+					fresh[src.Search.Source.ID] = true
+				}
+			}
+			a.seen[other] = fresh
+		}
+	}
 	for id := range a.owned {
 		if !a.anySees(id) {
 			a.s.Unregister(id)

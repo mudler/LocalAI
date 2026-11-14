@@ -116,4 +116,21 @@ var _ = Describe("The search host", func() {
 		Expect(h.Visible(ctx, "alice")).NotTo(ContainElement("pirateface"))
 		Expect(h.Searcher.Has("pirateface")).To(BeFalse())
 	})
+
+	It("unregisters a source whose add-on was removed even when another person, who is idle, saw it last", func() {
+		b.perUser = map[string][]modelsearch.AddonSource{"alice": {addonSource("pf", "pirateface")}, "bob": {addonSource("pf", "pirateface")}}
+		Expect(h.Visible(ctx, "alice")).To(ContainElement("pirateface"))
+		Expect(h.Visible(ctx, "bob")).To(ContainElement("pirateface"))
+		// The add-on is uninstalled. Bob never searches again; alice does.
+		b.perUser = map[string][]modelsearch.AddonSource{"alice": nil, "bob": nil}
+		Expect(h.Visible(ctx, "alice")).NotTo(ContainElement("pirateface"))
+		Expect(h.Searcher.Has("pirateface")).To(BeFalse())
+		// A different add-on can now declare the same source ID.
+		other := addonSource("other-addon", "pirateface")
+		b.perUser = map[string][]modelsearch.AddonSource{"alice": {other}}
+		Expect(h.Visible(ctx, "alice")).To(ContainElement("pirateface"))
+		src, ok := h.Searcher.Source("pirateface")
+		Expect(ok).To(BeTrue())
+		Expect(src.Kind).To(Equal("addon"))
+	})
 })
