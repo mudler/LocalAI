@@ -12,7 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/gmail/internal/gmailapi"
-	"github.com/mudler/LocalAI/addons/internal/argutil"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
 	"golang.org/x/sync/errgroup"
 )
 

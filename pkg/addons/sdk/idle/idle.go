@@ -11,8 +11,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // ErrNoTools is what every operation answers.

@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/gdrive/internal/driveapi"
-	"github.com/mudler/LocalAI/addons/internal/argutil"
 	"github.com/mudler/LocalAI/addons/internal/writeflow"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
 )
 
 // The write tools of the manifest. All of them are write tools: the host

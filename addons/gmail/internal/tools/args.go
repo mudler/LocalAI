@@ -4,7 +4,7 @@ package tools
 import (
 	"regexp"
 
-	"github.com/mudler/LocalAI/addons/internal/argutil"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
 )
 
 // bad is a refusal of the request with a short, fixed reason. The reason

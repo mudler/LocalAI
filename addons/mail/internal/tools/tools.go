@@ -19,15 +19,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/idle"
 	"github.com/mudler/LocalAI/addons/internal/journal"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/mail/internal/account"
 	"github.com/mudler/LocalAI/addons/mail/internal/compose"
 	"github.com/mudler/LocalAI/addons/mail/internal/dial"
 	"github.com/mudler/LocalAI/addons/mail/internal/imapc"
 	"github.com/mudler/LocalAI/addons/mail/internal/smtpc"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The tools of the manifest.

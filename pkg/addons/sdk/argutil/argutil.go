@@ -17,7 +17,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // Bad is a refusal of the request with a short, fixed reason. The reason

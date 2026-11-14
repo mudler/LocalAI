@@ -620,7 +620,7 @@ or a guarantee to detect revoke-and-restore changes between reads.
 Run from the repository root (these packages share the root Go module):
 
 ```sh
-go test -count=1 -v -tags auth,nosqlite,purego_utp ./pkg/addons/contract ./core/services/addons/apps ./core/services/addons/packages ./core/services/addons/runtime ./addons/internal/protocol ./core/config
+go test -count=1 -v -tags auth,nosqlite,purego_utp ./pkg/addons/contract ./core/services/addons/apps ./core/services/addons/packages ./core/services/addons/runtime ./pkg/addons/sdk/protocol ./core/config
 ```
 
 `modelactions_test.go` covers strict keys, capability exclusion, traversal and

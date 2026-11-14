@@ -12,8 +12,8 @@ import (
 
 	"github.com/mudler/LocalAI/addons/calendar/internal/store"
 	"github.com/mudler/LocalAI/addons/calendar/internal/tools"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The runtime behind the real protocol handler: the envelope checks, the

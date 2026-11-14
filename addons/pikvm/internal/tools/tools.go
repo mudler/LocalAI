@@ -20,12 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/idle"
 	"github.com/mudler/LocalAI/addons/internal/journal"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/kvmd"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/settings"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The tools of the manifest.

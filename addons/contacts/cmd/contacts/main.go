@@ -13,8 +13,8 @@ import (
 
 	"github.com/mudler/LocalAI/addons/contacts/internal/store"
 	"github.com/mudler/LocalAI/addons/contacts/internal/tools"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 func main() {

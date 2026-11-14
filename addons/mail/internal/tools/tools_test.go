@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/mail/internal/account"
 	"github.com/mudler/LocalAI/addons/mail/internal/dial"
 	"github.com/mudler/LocalAI/addons/mail/internal/tools"
 	"github.com/mudler/LocalAI/addons/mail/mailtest"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

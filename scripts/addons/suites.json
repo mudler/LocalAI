@@ -1475,7 +1475,7 @@
         "2",
         "-tags",
         "auth,nosqlite,purego_utp",
-        "./addons/internal/protocol",
+        "./pkg/addons/sdk/protocol",
         "-ginkgo.json-report=../../../.cache/addons/logs/runtime-protocol.json"
       ]
     ],

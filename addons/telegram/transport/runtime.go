@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
-	"github.com/mudler/LocalAI/addons/internal/idle"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
 )
 
 // MaxMessageRunes is the longest text Telegram takes in one message.

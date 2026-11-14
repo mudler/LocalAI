@@ -81,7 +81,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -152,7 +152,7 @@ import (
 	"os"
 
 	"github.com/mudler/LocalAI/addons/hello/internal/tools"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 

@@ -12,11 +12,11 @@ import (
 	"os"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/mail/internal/dial"
 	"github.com/mudler/LocalAI/addons/mail/internal/platform"
 	"github.com/mudler/LocalAI/addons/mail/internal/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 type runtime struct {

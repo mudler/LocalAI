@@ -17,8 +17,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // ErrNoHostOps says the host gave this add-on no host operation channel.

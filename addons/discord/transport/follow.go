@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // FollowOption is the ID of the option that says which threads the bot follows.

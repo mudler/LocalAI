@@ -16,8 +16,8 @@ import (
 	"github.com/mudler/LocalAI/addons/gmail/internal/platform"
 	"github.com/mudler/LocalAI/addons/gmail/internal/tools"
 	"github.com/mudler/LocalAI/addons/internal/connector"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 type runtime struct {

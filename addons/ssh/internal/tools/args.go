@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // bad is a refusal of the request with a short, fixed reason. The reason

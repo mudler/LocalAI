@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/mudler/LocalAI/addons/internal/argutil"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 )

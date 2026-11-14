@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // DefaultMaxReceipts bounds the receipts the journal keeps. The host asks for

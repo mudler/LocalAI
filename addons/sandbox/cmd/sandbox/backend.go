@@ -23,7 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/host"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // The release sets this with -ldflags "-X main.guestImage=...". A build that

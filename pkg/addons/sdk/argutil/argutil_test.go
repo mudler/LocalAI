@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mudler/LocalAI/addons/internal/argutil"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

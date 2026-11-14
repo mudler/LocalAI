@@ -11,11 +11,11 @@ import (
 
 	"github.com/mudler/xlog"
 
-	"github.com/mudler/LocalAI/addons/internal/hostclient"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/web/internal/settings"
 	"github.com/mudler/LocalAI/addons/web/internal/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // hostAdmin asks the host whether the user of a request is an administrator.

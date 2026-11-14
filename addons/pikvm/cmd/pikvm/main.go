@@ -12,13 +12,13 @@ import (
 	"os"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
-	"github.com/mudler/LocalAI/addons/internal/hostclient"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/kvmd"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/platform"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/settings"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 type runtime struct {

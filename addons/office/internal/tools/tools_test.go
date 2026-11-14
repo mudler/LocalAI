@@ -13,13 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/office/internal/docx"
 	"github.com/mudler/LocalAI/addons/office/internal/officecheck"
 	"github.com/mudler/LocalAI/addons/office/internal/pdf"
 	"github.com/mudler/LocalAI/addons/office/internal/tools"
 	"github.com/mudler/LocalAI/addons/office/internal/xlsx"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // fakeHost is the host side of the workspace operations: a map of files with a
