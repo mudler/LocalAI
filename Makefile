@@ -1842,6 +1842,12 @@ addons-zip:
 		$(if $(ADDON_VERSION),--version "$(ADDON_VERSION)") $(if $(ADDON_EXECUTABLES),--executables "$(ADDON_EXECUTABLES)") \
 		$(if $(ADDON_LOCAL_CHECK),--local-check)
 
+## Builds examples/addon-hello outside this checkout, packs it with --root and
+## checks the zip (see scripts/addons/outoftree_test.sh).
+.PHONY: addons-outoftree-check
+addons-outoftree-check:
+	sh scripts/addons/outoftree_test.sh
+
 test-ui-e2e-docker:
 	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .
 	docker run --rm localai-ui-e2e
