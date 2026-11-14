@@ -3,6 +3,7 @@ disableToc = false
 title = "Quantize a model"
 weight = 20
 aliases = ["/features/quantization/"]
+devbuild = "addon"
 +++
 
 {{< diagram "quantization-flow" "From an HF model to a quantized GGUF: convert to f16, then quantize, tracked as a job" >}}

@@ -5,6 +5,7 @@ title = "LocalAI Assistant"
 weight = 60
 description = "An admin-only chat that installs models, manages backends and checks the status of your LocalAI instance."
 keywords = ["assistant","admin","mcp"]
+devbuild = "install"
 +++
 
 {{< agentic-routing current="localai-assistant" >}}

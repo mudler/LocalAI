@@ -3,6 +3,7 @@ disableToc = false
 title = "Fine-tune a model"
 weight = 10
 aliases = ["/advanced/fine-tuning/", "/features/fine-tuning/"]
+devbuild = "addon"
 +++
 
 {{< diagram "finetune-job-lifecycle" "Fine-tune job lifecycle: create a job, follow its status and SSE progress until completed, then export as lora, merged_16bit, merged_4bit or gguf." >}}

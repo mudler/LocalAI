@@ -5,6 +5,7 @@ card: "Index documents and let an agent search them by meaning."
 headline: 'Ask your <span class="hl">documents</span>.'
 lede: "Collections index PDF, text, Markdown and web pages. An agent finds the passages that answer you."
 docs: "/docs/features/collections/"
+dev: true
 icon: "collections"
 illus: "collections"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.

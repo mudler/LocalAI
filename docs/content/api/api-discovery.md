@@ -6,6 +6,7 @@ tags = ["API", "Agents", "Instructions", "Configuration", "Advanced"]
 categories = ["Features"]
 weight = 40
 aliases = ["/features/api-discovery/"]
+devbuild = "install"
 +++
 
 LocalAI exposes a set of discovery endpoints that let external agents, coding assistants, and automation tools programmatically learn what the instance can do and how to control it - without reading documentation ahead of time.

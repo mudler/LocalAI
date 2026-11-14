@@ -6,6 +6,7 @@ weight = 1
 type = "chapter"
 aliases = ["/getting-started/"]
 description = "Install LocalAI, run a model and build a first agent."
+devbuild = "feature"
 +++
 
 This section takes you from a fresh install to a working chat, a working API call and your first agent. Follow the pages in order the first time.

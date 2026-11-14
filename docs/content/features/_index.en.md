@@ -6,6 +6,7 @@ icon = "lightbulb"
 type = "chapter"
 weight = 3
 keywords = ["features", "capabilities", "team", "office", "sandbox", "add-on"]
+devbuild = "install"
 +++
 
 <p class="lai-lede">What you can do with LocalAI, grouped by the task. Each group says how it is switched on.</p>

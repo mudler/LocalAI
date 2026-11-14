@@ -5,6 +5,7 @@ weight = 20
 aliases = ["/reference/architecture/"]
 description = "How LocalAI works: a small core, gRPC backends started on demand, and one API."
 keywords = ["architecture","backends","grpc"]
+devbuild = "install"
 +++
 
 LocalAI is an API written in Go. It follows the OpenAI API, so software that uses an OpenAI SDK can use LocalAI instead. It runs on consumer hardware. The inference runs in separate backends, many of them in C++. Backends are gRPC servers. You can build your own gRPC server, or point LocalAI at an external one that it then manages.

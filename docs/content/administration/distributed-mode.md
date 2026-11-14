@@ -5,6 +5,7 @@ weight = 130
 aliases = ["/features/distributed-mode/"]
 description = "Run several LocalAI frontends and worker nodes with PostgreSQL and NATS."
 keywords = ["distributed","cluster","nodes","scale","nats"]
+devbuild = "install"
 +++
 
 Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach]({{% relref "/administration/p2p-federated-inference" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.

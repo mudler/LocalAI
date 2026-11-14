@@ -5,6 +5,7 @@ card: "Chat with an open model, then ask it to do the work."
 headline: 'Talk. Then it <span class="hl">works</span>.'
 lede: "Chat with an open model that runs on your own hardware. Ask it to read a file, make a table or write a report."
 docs: "/docs/features/chats/"
+dev: true
 icon: "chat"
 illus: "chat"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.

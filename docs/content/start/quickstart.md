@@ -113,6 +113,8 @@ LocalAI also supports the **Anthropic Messages API**, the **Open Responses API**
 
 ## Build an agent
 
+{{< devbuild >}}
+
 An agent is a saved set of instructions and tool grants. It is part of LocalAI. You need no extra install.
 
 1. Install a model that supports tool calling, such as `qwen3-4b`.

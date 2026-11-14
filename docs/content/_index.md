@@ -70,6 +70,8 @@ http://localhost:8080
 <a class="lai-feat" href="{{% relref "/models" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l8-4 8 4-8 4zM4 12l8 4 8-4M4 17l8 4 8-4"/></svg></span><span class="lai-ft"><b>Models and backends</b><span>The model gallery picks the engine for your machine.</span></span><span class="lai-tag lai-tag-built">Built in</span></a>
 </div>
 
+{{< devbuild install >}}
+
 The add-ons are in the development channel of the add-on library in the current development builds.
 
 ## Go further
