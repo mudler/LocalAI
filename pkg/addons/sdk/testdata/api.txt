@@ -1,64 +1,420 @@
-protocol: field ApplyRequest.Envelope contract.Envelope
-protocol: field ApplyRequest.Revision contract.Revision
-protocol: field OutputRequest.Envelope contract.Envelope
-protocol: field OutputRequest.Handle string
-protocol: field ReceiptRequest.OperationID string
-protocol: field Registration.AddonID string
-protocol: field Registration.Capabilities contract.Capabilities
-protocol: field Registration.Endpoint string
-protocol: field Registration.Generation uint64
-protocol: field Registration.Incarnation string
-protocol: field Registration.Protocol int
-protocol: field Startup.Credential string
-protocol: field Startup.DataDir string
-protocol: field Startup.HostCredential string
-protocol: field Startup.HostEndpoint string
-protocol: field Startup.Limits contract.Limits
-protocol: field Startup.Registration Registration
-protocol: func DecodeArgs(json.RawMessage, any) error
-protocol: func FromHostError(error) error
-protocol: func Handler(Startup, contract.Runtime) http.Handler
-protocol: func Payload(any) json.RawMessage
-protocol: func ReadStartup(io.Reader) (Startup, io.Reader, error)
-protocol: func Run([]string, func(Startup) contract.Runtime) int
-protocol: func Serve(context.Context, net.Listener, Startup, contract.Runtime) error
-protocol: func StopWithParent(context.Context, io.Reader) (context.Context, context.CancelFunc)
-protocol: func ToolOf(contract.Envelope) (string, error)
-protocol: func Upstream(int, string, error) error
-protocol: imethod Closer.Close(context.Context) error
 protocol: type ApplyRequest struct
+protocol: field ApplyRequest.Envelope contract.Envelope "json:\"envelope\""
+protocol: field ApplyRequest.Revision contract.Revision "json:\"revision\""
 protocol: type Closer interface
+protocol: imethod Closer.Close(ctx context.Context) error
+protocol: func DecodeArgs(raw json.RawMessage, v any) error
+protocol: var ErrBadRequest error
+protocol: var ErrConflict error
+protocol: var ErrForbidden error
+protocol: var ErrNotFound error
+protocol: func FromHostError(err error) error
+protocol: func Handler(startup protocol.Startup, rt contract.Runtime) http.Handler
 protocol: type OutputRequest struct
+protocol: field OutputRequest.Envelope contract.Envelope "json:\"envelope\""
+protocol: field OutputRequest.Handle string "json:\"handle\""
+protocol: func Payload(v any) json.RawMessage
+protocol: func ReadStartup(parent io.Reader) (protocol.Startup, io.Reader, error)
 protocol: type ReceiptRequest struct
+protocol: field ReceiptRequest.OperationID string "json:\"operationId\""
 protocol: type Registration struct
+protocol: field Registration.AddonID string "json:\"addonId\""
+protocol: field Registration.Generation uint64 "json:\"generation\""
+protocol: field Registration.Incarnation string "json:\"incarnation\""
+protocol: field Registration.Protocol int "json:\"protocol\""
+protocol: field Registration.Endpoint string "json:\"endpoint\""
+protocol: field Registration.Capabilities contract.Capabilities "json:\"capabilities\""
+protocol: func Run(args []string, factory func(protocol.Startup) contract.Runtime) int
+protocol: func Serve(ctx context.Context, l net.Listener, startup protocol.Startup, rt contract.Runtime) error
 protocol: type Startup struct
-protocol: var ErrBadRequest
-protocol: var ErrConflict
-protocol: var ErrForbidden
-protocol: var ErrNotFound
-hostclient: func New(protocol.Startup) *Client
-hostclient: method (*Client) Do(context.Context, string, string, any, any) error
+protocol: field Startup.Registration protocol.Registration "json:\"registration\""
+protocol: field Startup.Credential string "json:\"credential\""
+protocol: field Startup.Limits contract.Limits "json:\"limits\""
+protocol: field Startup.DataDir string "json:\"dataDir,omitempty\""
+protocol: field Startup.HostEndpoint string "json:\"hostEndpoint,omitempty\""
+protocol: field Startup.HostCredential string "json:\"hostCredential,omitempty\""
+protocol: method (Startup) GoString() string
+protocol: method (Startup) LogValue() slog.Value
+protocol: method (Startup) String() string
+protocol: func StopWithParent(parent context.Context, rest io.Reader) (context.Context, context.CancelFunc)
+protocol: func ToolOf(env contract.Envelope) (string, error)
+protocol: func Upstream(status int, hint string, cause error) error
 hostclient: type Client struct
-hostclient: var ErrBadAnswer
-hostclient: var ErrNoHostOps
-idle: func Run([]string) int
+hostclient: method (*Client) Do(ctx context.Context, operationID string, op string, args any, out any) error
+hostclient: var ErrBadAnswer error
+hostclient: var ErrNoHostOps error
+hostclient: func New(startup protocol.Startup) *hostclient.Client
+idle: var ErrNoTools error
+idle: func Run(args []string) int
+idle: type Runtime struct
 idle: method (Runtime) Apply(context.Context, contract.Envelope, contract.Revision) (contract.Receipt, error)
 idle: method (Runtime) OpenOutput(context.Context, contract.Envelope, string) (io.ReadCloser, error)
 idle: method (Runtime) Preview(context.Context, contract.Envelope) (contract.Preview, error)
 idle: method (Runtime) Read(context.Context, contract.Envelope) (contract.Result, error)
 idle: method (Runtime) Receipt(context.Context, string) (contract.Receipt, error)
-idle: type Runtime struct
-idle: var ErrNoTools
-atomicfile: func Write(string, []byte, os.FileMode) error
-atomicfile: func WriteFrom(string, io.Reader, os.FileMode) error
-argutil: func Bad(string, ...any) error
-argutil: func CheckCursor(string) error
-argutil: func CheckLine(string, string, int, bool) error
-argutil: func Cut(string, int) (string, int)
-argutil: func DecodeArgs(map[string]json.RawMessage, any) error
-argutil: func IDPath(string) string
-argutil: func Plain(string) bool
-argutil: func PlainJSON(any) json.RawMessage
-argutil: func Runes(string, int) (string, bool)
-argutil: func SplitArgs(json.RawMessage) (string, map[string]json.RawMessage, error)
-argutil: func Sum64(...string) uint64
+atomicfile: func Write(path string, data []byte, perm os.FileMode) error
+atomicfile: func WriteFrom(path string, r io.Reader, perm os.FileMode) error
+argutil: func Bad(format string, a ...any) error
+argutil: func CheckCursor(c string) error
+argutil: func CheckLine(what string, s string, limit int, required bool) error
+argutil: func Cut(s string, limit int) (out string, omitted int)
+argutil: func DecodeArgs(raw map[string]json.RawMessage, v any) error
+argutil: func IDPath(id string) string
+argutil: func Plain(s string) bool
+argutil: func PlainJSON(v any) json.RawMessage
+argutil: func Runes(s string, n int) (string, bool)
+argutil: func SplitArgs(arguments json.RawMessage) (string, map[string]json.RawMessage, error)
+argutil: func Sum64(parts ...string) uint64
+contract: type Capabilities struct
+contract: field Capabilities.Service bool "json:\"service,omitempty\""
+contract: field Capabilities.Tools []string "json:\"tools,omitempty\""
+contract: field Capabilities.ToolDefinitions []contract.ToolDefinition "json:\"toolDefinitions,omitempty\""
+contract: field Capabilities.Actions bool "json:\"actions,omitempty\""
+contract: field Capabilities.OwnerData bool "json:\"ownerData,omitempty\""
+contract: field Capabilities.AdminTools []string "json:\"adminTools,omitempty\""
+contract: field Capabilities.Resources *contract.ResourceTools "json:\"resources,omitempty\""
+contract: field Capabilities.Undo bool "json:\"undo,omitempty\""
+contract: field Capabilities.Connector *contract.ConnectorCapability "json:\"connector,omitempty\""
+contract: field Capabilities.SkillDefinitions []contract.SkillDefinition "json:\"skillDefinitions,omitempty\""
+contract: field Capabilities.UI *contract.UI "json:\"ui,omitempty\""
+contract: field Capabilities.ExecutionProvider *contract.ExecutionProvider "json:\"executionProvider,omitempty\""
+contract: field Capabilities.HostOperations *contract.HostOperations "json:\"hostOperations,omitempty\""
+contract: field Capabilities.Network *contract.NetworkCapability "json:\"network,omitempty\""
+contract: field Capabilities.ContextFiles []contract.ContextFile "json:\"contextFiles,omitempty\""
+contract: field Capabilities.UserSettings []contract.UserSetting "json:\"userSettings,omitempty\""
+contract: field Capabilities.Provides []contract.ProviderDeclaration "json:\"provides,omitempty\""
+contract: field Capabilities.Credentials []contract.CredentialSlot "json:\"credentials,omitempty\""
+contract: field Capabilities.Client *contract.ClientCapability "json:\"client,omitempty\""
+contract: method (Capabilities) ProvidedSlots() []string
+contract: method (Capabilities) ProvidesSlot(slot string) bool
+contract: method (*Capabilities) UnmarshalJSON(b []byte) error
+contract: type Envelope struct
+contract: field Envelope.Request contract.Request "json:\"request\""
+contract: field Envelope.Authority contract.Authority "json:\"authority\""
+contract: method (*Envelope) UnmarshalJSON(b []byte) error
+contract: method (Envelope) Validate(now time.Time, l contract.Limits) error
+contract: type Limits struct
+contract: field Limits.ManifestBytes int64 "json:\"manifestBytes\""
+contract: field Limits.EnvelopeBytes int64 "json:\"envelopeBytes\""
+contract: field Limits.PayloadBytes int64 "json:\"payloadBytes\""
+contract: field Limits.ReadTimeout time.Duration "json:\"readTimeout\""
+contract: field Limits.PreviewTimeout time.Duration "json:\"previewTimeout\""
+contract: field Limits.ApplyTimeout time.Duration "json:\"applyTimeout\""
+contract: field Limits.ShutdownTimeout time.Duration "json:\"shutdownTimeout\""
+contract: field Limits.BackoffInitial time.Duration "json:\"backoffInitial\""
+contract: field Limits.BackoffMax time.Duration "json:\"backoffMax\""
+contract: field Limits.BackoffAttempts int64 "json:\"backoffAttempts\""
+contract: field Limits.BatchSize int64 "json:\"batchSize\""
+contract: field Limits.QueryDepth int64 "json:\"queryDepth\""
+contract: field Limits.QueryRows int64 "json:\"queryRows\""
+contract: field Limits.QueryBytes int64 "json:\"queryBytes\""
+contract: field Limits.ProposalExpiry time.Duration "json:\"proposalExpiry\""
+contract: field Limits.ArtifactExpiry time.Duration "json:\"artifactExpiry\""
+contract: field Limits.ArtifactBytes int64 "json:\"artifactBytes\""
+contract: field Limits.ArtifactQuotaBytes int64 "json:\"artifactQuotaBytes\""
+contract: field Limits.ArtifactCount int64 "json:\"artifactCount\""
+contract: field Limits.Concurrency int64 "json:\"concurrency\""
+contract: method (Limits) Validate() error
+contract: type Preview struct
+contract: field Preview.OperationID string "json:\"operationId\""
+contract: field Preview.Revision contract.Revision "json:\"revision\""
+contract: field Preview.ExpiresAt time.Time "json:\"expiresAt\""
+contract: field Preview.Summary json.RawMessage "json:\"summary\" swaggertype:\"object\""
+contract: method (*Preview) UnmarshalJSON(b []byte) error
+contract: method (Preview) Validate(now time.Time, l contract.Limits) error
+contract: type Receipt struct
+contract: field Receipt.OperationID string "json:\"operationId\""
+contract: field Receipt.State contract.ReceiptState "json:\"state\""
+contract: field Receipt.Revision contract.Revision "json:\"revision\""
+contract: field Receipt.Result contract.Result "json:\"result\""
+contract: method (*Receipt) UnmarshalJSON(b []byte) error
+contract: method (Receipt) Validate(l contract.Limits) error
+contract: type Result struct
+contract: field Result.Payload json.RawMessage "json:\"payload,omitempty\" swaggertype:\"object\""
+contract: field Result.Outputs []contract.OutputDescription "json:\"outputs,omitempty\""
+contract: method (*Result) UnmarshalJSON(b []byte) error
+contract: method (Result) Validate(l contract.Limits) error
+contract: type Revision struct
+contract: field Revision.Schema uint64 "json:\"schema\""
+contract: field Revision.Data uint64 "json:\"data\""
+contract: type Runtime interface
+contract: imethod Runtime.Apply(context.Context, contract.Envelope, contract.Revision) (contract.Receipt, error)
+contract: imethod Runtime.OpenOutput(context.Context, contract.Envelope, string) (io.ReadCloser, error)
+contract: imethod Runtime.Preview(context.Context, contract.Envelope) (contract.Preview, error)
+contract: imethod Runtime.Read(context.Context, contract.Envelope) (contract.Result, error)
+contract: imethod Runtime.Receipt(context.Context, string) (contract.Receipt, error)
+contract: type Authority struct
+contract: field Authority.Actor contract.Actor "json:\"actor\""
+contract: field Authority.Scope string "json:\"scope\""
+contract: field Authority.ExpiresAt time.Time "json:\"expiresAt\""
+contract: type ClientCapability struct
+contract: field ClientCapability.Routes []contract.ClientRoute "json:\"routes\""
+contract: type ConnectorCapability struct
+contract: field ConnectorCapability.Kinds []contract.ConnectorKind "json:\"kinds\""
+contract: type ContextFile struct
+contract: field ContextFile.Scope contract.ChangeScope "json:\"scope\""
+contract: field ContextFile.Path string "json:\"path\""
+contract: field ContextFile.Cap int "json:\"cap,omitempty\""
+contract: type CredentialSlot struct
+contract: field CredentialSlot.ID string "json:\"id\""
+contract: field CredentialSlot.Title string "json:\"title\""
+contract: field CredentialSlot.Kind string "json:\"kind\""
+contract: field CredentialSlot.OAuth *contract.OAuthDescriptor "json:\"oauth,omitempty\""
+contract: field CredentialSlot.ResourceArgument string "json:\"resourceArgument,omitempty\""
+contract: field CredentialSlot.ResourceLabel string "json:\"resourceLabel,omitempty\""
+contract: field CredentialSlot.ResourceOptional bool "json:\"resourceOptional,omitempty\""
+contract: method (CredentialSlot) CredentialResource(d contract.ToolDefinition, arguments json.RawMessage) (key string, found bool, err error)
+contract: type ExecutionProvider struct
+contract: field ExecutionProvider.Tools []string "json:\"tools\""
+contract: field ExecutionProvider.StatusTool string "json:\"statusTool\""
+contract: field ExecutionProvider.Jobs *contract.ExecutionJobs "json:\"jobs,omitempty\""
+contract: method (*ExecutionProvider) UnmarshalJSON(b []byte) error
+contract: type HostOperations struct
+contract: field HostOperations.Required []string "json:\"required,omitempty\""
+contract: field HostOperations.Optional []string "json:\"optional,omitempty\""
+contract: method (*HostOperations) UnmarshalJSON(b []byte) error
+contract: type NetworkCapability struct
+contract: field NetworkCapability.Kind string "json:\"kind\""
+contract: field NetworkCapability.Title string "json:\"title,omitempty\""
+contract: field NetworkCapability.Presets []contract.NetworkPreset "json:\"presets,omitempty\""
+contract: method (*NetworkCapability) PresetTitle(id string, fallback string) string
+contract: type OutputDescription struct
+contract: field OutputDescription.Handle string "json:\"handle\""
+contract: field OutputDescription.Name string "json:\"name\""
+contract: field OutputDescription.MediaType string "json:\"mediaType\""
+contract: field OutputDescription.Size int64 "json:\"size\""
+contract: type ProviderDeclaration struct
+contract: field ProviderDeclaration.Slot string "json:\"slot\""
+contract: field ProviderDeclaration.SlotVersion int "json:\"slotVersion\""
+contract: field ProviderDeclaration.Roles map[string]contract.ProviderTools "json:\"roles,omitempty\""
+contract: field ProviderDeclaration.Properties map[string]any "json:\"properties,omitempty\""
+contract: type ReceiptState string
+contract: type Request struct
+contract: field Request.AddonID string "json:\"addonId\""
+contract: field Request.ResourceID string "json:\"resourceId,omitempty\""
+contract: field Request.OperationID string "json:\"operationId\""
+contract: field Request.Generation uint64 "json:\"generation\""
+contract: field Request.Action string "json:\"action\""
+contract: field Request.Arguments json.RawMessage "json:\"arguments\" swaggertype:\"object\""
+contract: field Request.ResourceKey string "json:\"resourceKey,omitempty\""
+contract: field Request.Credential string "json:\"credential,omitempty\" swaggerignore:\"true\""
+contract: field Request.GrantedScopes []string "json:\"grantedScopes,omitempty\" swaggerignore:\"true\""
+contract: type ResourceTools struct
+contract: field ResourceTools.Noun string "json:\"noun,omitempty\""
+contract: field ResourceTools.NounPlural string "json:\"nounPlural,omitempty\""
+contract: field ResourceTools.AgentScoped bool "json:\"agentScoped,omitempty\""
+contract: field ResourceTools.Create string "json:\"create,omitempty\""
+contract: field ResourceTools.Rename string "json:\"rename,omitempty\""
+contract: field ResourceTools.Inspect string "json:\"inspect,omitempty\""
+contract: field ResourceTools.Delete string "json:\"delete,omitempty\""
+contract: field ResourceTools.List *contract.ResourceList "json:\"list,omitempty\""
+contract: type SkillDefinition struct
+contract: field SkillDefinition.Name string "json:\"name\""
+contract: field SkillDefinition.Shadows string "json:\"shadows,omitempty\""
+contract: field SkillDefinition.Slot *contract.SlotDefinition "json:\"slot,omitempty\""
+contract: type ToolDefinition struct
+contract: field ToolDefinition.Name string "json:\"name\""
+contract: field ToolDefinition.Description string "json:\"description\""
+contract: field ToolDefinition.Kind string "json:\"kind\""
+contract: field ToolDefinition.InputSchema json.RawMessage "json:\"inputSchema\" swaggertype:\"object\""
+contract: field ToolDefinition.Approval string "json:\"approval,omitempty\""
+contract: field ToolDefinition.ApprovalOverridable bool "json:\"approvalOverridable,omitempty\""
+contract: field ToolDefinition.UIOnly bool "json:\"uiOnly,omitempty\""
+contract: field ToolDefinition.Enumerates bool "json:\"enumerates,omitempty\""
+contract: field ToolDefinition.Shadows string "json:\"shadows,omitempty\""
+contract: field ToolDefinition.Execution *contract.ExecutionDescriptor "json:\"execution,omitempty\""
+contract: field ToolDefinition.Title string "json:\"title,omitempty\""
+contract: field ToolDefinition.SummaryFields []string "json:\"summaryFields,omitempty\""
+contract: method (ToolDefinition) HardApproval() bool
+contract: type UI struct
+contract: field UI.HomeCommands []contract.HomeCommand "json:\"homeCommands,omitempty\""
+contract: field UI.ModelActions []contract.ModelAction "json:\"modelActions,omitempty\""
+contract: field UI.Entry string "json:\"entry\""
+contract: field UI.CSS []string "json:\"css,omitempty\""
+contract: field UI.SDK contract.VersionRange "json:\"sdk\""
+contract: field UI.Pages []string "json:\"pages,omitempty\""
+contract: field UI.Navigation []string "json:\"navigation,omitempty\""
+contract: field UI.ChatActions []contract.ChatAction "json:\"chatActions,omitempty\""
+contract: field UI.Slots []contract.SlotContribution "json:\"slots,omitempty\""
+contract: field UI.Renderers []contract.Renderer "json:\"renderers,omitempty\""
+contract: field UI.Controls []string "json:\"controls,omitempty\""
+contract: field UI.MainPage string "json:\"mainPage,omitempty\""
+contract: field UI.Icon string "json:\"icon,omitempty\""
+contract: field UI.Title *contract.Localized "json:\"title,omitempty\""
+contract: field UI.Description *contract.Localized "json:\"description,omitempty\""
+contract: method (UI) ChatActionIDs() []string
+contract: method (*UI) UnmarshalJSON(b []byte) error
+contract: type UserSetting struct
+contract: field UserSetting.Key string "json:\"key\""
+contract: field UserSetting.Values []string "json:\"values\""
+contract: field UserSetting.Default string "json:\"default\""
+contract: field UserSetting.Role string "json:\"role,omitempty\""
+contract: method (UserSetting) Allows(v string) bool
+contract: type Actor struct
+contract: field Actor.UserID string "json:\"userId\""
+contract: field Actor.CredentialID string "json:\"credentialId\""
+contract: field Actor.Mode string "json:\"mode\""
+contract: type ChangeScope string
+contract: type ChatAction struct
+contract: field ChatAction.ID string
+contract: field ChatAction.Label *contract.Localized
+contract: field ChatAction.Icon string
+contract: field ChatAction.Placement string
+contract: field ChatAction.Target *contract.ChatTarget
+contract: method (ChatAction) Declared() bool
+contract: method (ChatAction) MarshalJSON() ([]byte, error)
+contract: method (*ChatAction) UnmarshalJSON(b []byte) error
+contract: type ClientRoute struct
+contract: field ClientRoute.ID string "json:\"id\""
+contract: field ClientRoute.Method string "json:\"method\""
+contract: field ClientRoute.Path string "json:\"path\""
+contract: field ClientRoute.Stream bool "json:\"stream,omitempty\""
+contract: field ClientRoute.MaxBodyBytes int64 "json:\"maxBodyBytes,omitempty\""
+contract: field ClientRoute.TimeoutSeconds int "json:\"timeoutSeconds,omitempty\""
+contract: method (ClientRoute) BodyLimit() int64
+contract: method (ClientRoute) Timeout() time.Duration
+contract: type ConnectorKind struct
+contract: field ConnectorKind.ID string "json:\"id\""
+contract: field ConnectorKind.Title string "json:\"title\""
+contract: field ConnectorKind.Description string "json:\"description,omitempty\""
+contract: field ConnectorKind.SenderHint string "json:\"senderHint,omitempty\""
+contract: field ConnectorKind.Setup string "json:\"setup,omitempty\""
+contract: field ConnectorKind.Delivery string "json:\"delivery\""
+contract: field ConnectorKind.Page string "json:\"page,omitempty\""
+contract: field ConnectorKind.AgentOptional bool "json:\"agentOptional,omitempty\""
+contract: field ConnectorKind.ToolOnly bool "json:\"toolOnly,omitempty\""
+contract: field ConnectorKind.Drafts bool "json:\"drafts,omitempty\""
+contract: field ConnectorKind.PreviewMs int "json:\"previewMs,omitempty\""
+contract: field ConnectorKind.History *contract.ConnectorHistory "json:\"history,omitempty\""
+contract: field ConnectorKind.Options []contract.ConnectorOption "json:\"options,omitempty\""
+contract: field ConnectorKind.WildcardResources bool "json:\"wildcardResources,omitempty\""
+contract: field ConnectorKind.TokenGuards []contract.TokenGuard "json:\"tokenGuards,omitempty\""
+contract: field ConnectorKind.Files *contract.ConnectorFiles "json:\"files,omitempty\""
+contract: field ConnectorKind.Roles []contract.ConnectorRole "json:\"roles,omitempty\""
+contract: field ConnectorKind.Permissions []string "json:\"permissions,omitempty\""
+contract: method (ConnectorKind) FilterRoles(ids []string) []string
+contract: method (ConnectorKind) Grantable(capability string) bool
+contract: method (ConnectorKind) HistoryLimit(want int) int
+contract: method (ConnectorKind) NoAgentAllowed() bool
+contract: method (ConnectorKind) Option(id string) (contract.ConnectorOption, bool)
+contract: method (ConnectorKind) ResolveOptions(chosen map[string]string) (map[string]string, error)
+contract: method (ConnectorKind) Role(id string) (contract.ConnectorRole, bool)
+contract: method (ConnectorKind) ServesThreadHistory() bool
+contract: type ExecutionDescriptor struct
+contract: field ExecutionDescriptor.Class string "json:\"class\""
+contract: field ExecutionDescriptor.Title string "json:\"title,omitempty\""
+contract: field ExecutionDescriptor.Note string "json:\"note,omitempty\""
+contract: field ExecutionDescriptor.Skills *contract.ExecutionSkills "json:\"skills,omitempty\""
+contract: field ExecutionDescriptor.Profiles []contract.ExecutionProfile "json:\"profiles,omitempty\""
+contract: method (*ExecutionDescriptor) ProfileByID(id string) (contract.ExecutionProfile, bool)
+contract: type ExecutionJobs struct
+contract: field ExecutionJobs.Tool string "json:\"tool\""
+contract: method (*ExecutionJobs) UnmarshalJSON(b []byte) error
+contract: type HomeCommand struct
+contract: field HomeCommand.ID string "json:\"id\""
+contract: field HomeCommand.Alias string "json:\"alias,omitempty\""
+contract: field HomeCommand.Page string "json:\"page,omitempty\""
+contract: field HomeCommand.Label *contract.Localized "json:\"label,omitempty\""
+contract: field HomeCommand.Icon string "json:\"icon,omitempty\""
+contract: method (*HomeCommand) UnmarshalJSON(b []byte) error
+contract: type Localized struct
+contract: field Localized.Text string
+contract: field Localized.ByLanguage map[string]string
+contract: method (Localized) Default() string
+contract: method (Localized) For(tag string) string
+contract: method (Localized) Languages() []string
+contract: method (Localized) MarshalJSON() ([]byte, error)
+contract: method (*Localized) UnmarshalJSON(b []byte) error
+contract: type ModelAction struct
+contract: field ModelAction.Capability string "json:\"capability\""
+contract: field ModelAction.Page string "json:\"page\""
+contract: field ModelAction.Path string "json:\"path,omitempty\""
+contract: method (*ModelAction) UnmarshalJSON(b []byte) error
+contract: type NetworkPreset struct
+contract: field NetworkPreset.ID string "json:\"id\""
+contract: field NetworkPreset.Title string "json:\"title\""
+contract: type OAuthDescriptor struct
+contract: field OAuthDescriptor.AuthorizeURL string "json:\"authorizeUrl\""
+contract: field OAuthDescriptor.TokenURL string "json:\"tokenUrl\""
+contract: field OAuthDescriptor.RevokeURL string "json:\"revokeUrl,omitempty\""
+contract: field OAuthDescriptor.Hosts []string "json:\"hosts\""
+contract: field OAuthDescriptor.Scopes contract.OAuthScopes "json:\"scopes\""
+contract: field OAuthDescriptor.PKCE string "json:\"pkce\""
+contract: field OAuthDescriptor.AuthorizeParams []contract.OAuthParam "json:\"authorizeParams,omitempty\""
+contract: field OAuthDescriptor.ClientAuth string "json:\"clientAuth\""
+contract: method (OAuthDescriptor) Digest() string
+contract: method (OAuthDescriptor) Validate() error
+contract: type ProviderTools []string
+contract: method (*ProviderTools) UnmarshalJSON(b []byte) error
+contract: type Renderer struct
+contract: field Renderer.Kind string "json:\"kind\""
+contract: field Renderer.Tool string "json:\"tool\""
+contract: field Renderer.Component string "json:\"component\""
+contract: type ResourceList struct
+contract: field ResourceList.Tool string "json:\"tool\""
+contract: field ResourceList.Items string "json:\"items,omitempty\""
+contract: method (ResourceList) ItemsKey() string
+contract: type SlotContribution struct
+contract: field SlotContribution.ID string "json:\"id\""
+contract: field SlotContribution.Slot string "json:\"slot\""
+contract: field SlotContribution.Component string "json:\"component\""
+contract: field SlotContribution.Extensions []string "json:\"extensions,omitempty\""
+contract: type SlotDefinition struct
+contract: field SlotDefinition.Kind string "json:\"kind\""
+contract: field SlotDefinition.Extensions []string "json:\"extensions,omitempty\""
+contract: field SlotDefinition.Words []string "json:\"words,omitempty\""
+contract: field SlotDefinition.Library string "json:\"library,omitempty\""
+contract: type VersionRange struct
+contract: field VersionRange.Min uint64 "json:\"min\""
+contract: field VersionRange.Max uint64 "json:\"max\""
+contract: type ChatTarget struct
+contract: field ChatTarget.Tool string "json:\"tool,omitempty\""
+contract: field ChatTarget.Component string "json:\"component,omitempty\""
+contract: type ConnectorFiles struct
+contract: field ConnectorFiles.Receive *contract.FileAbility "json:\"receive,omitempty\""
+contract: field ConnectorFiles.Send *contract.FileAbility "json:\"send,omitempty\""
+contract: type ConnectorHistory struct
+contract: field ConnectorHistory.Thread bool "json:\"thread\""
+contract: field ConnectorHistory.MaxMessages int "json:\"maxMessages,omitempty\""
+contract: type ConnectorOption struct
+contract: field ConnectorOption.ID string "json:\"id\""
+contract: field ConnectorOption.Title string "json:\"title\""
+contract: field ConnectorOption.Description string "json:\"description,omitempty\""
+contract: field ConnectorOption.Values []contract.ConnectorOptionValue "json:\"values\""
+contract: field ConnectorOption.Default string "json:\"default\""
+contract: type ConnectorRole struct
+contract: field ConnectorRole.ID string "json:\"id\""
+contract: field ConnectorRole.Title string "json:\"title\""
+contract: field ConnectorRole.Description string "json:\"description,omitempty\""
+contract: type ExecutionProfile struct
+contract: field ExecutionProfile.ID string "json:\"id\""
+contract: field ExecutionProfile.Title string "json:\"title\""
+contract: field ExecutionProfile.Description string "json:\"description\""
+contract: field ExecutionProfile.CPUs int "json:\"cpus,omitempty\""
+contract: field ExecutionProfile.MemoryMiB int "json:\"memoryMiB,omitempty\""
+contract: field ExecutionProfile.DiskMiB int "json:\"diskMiB,omitempty\""
+contract: field ExecutionProfile.Tools []contract.ProfileTool "json:\"tools\""
+contract: method (ExecutionProfile) ToolList() string
+contract: type ExecutionSkills struct
+contract: field ExecutionSkills.ProvidesRuntimeFor []string "json:\"providesRuntimeFor,omitempty\""
+contract: type OAuthParam struct
+contract: field OAuthParam.Name string "json:\"name\""
+contract: field OAuthParam.Value string "json:\"value\""
+contract: type OAuthScopes struct
+contract: field OAuthScopes.Required []string "json:\"required,omitempty\""
+contract: field OAuthScopes.Optional []string "json:\"optional,omitempty\""
+contract: type TokenGuard struct
+contract: field TokenGuard.Prefix string "json:\"prefix\""
+contract: field TokenGuard.Option string "json:\"option\""
+contract: field TokenGuard.Allow string "json:\"allow\""
+contract: type ConnectorOptionValue struct
+contract: field ConnectorOptionValue.ID string "json:\"id\""
+contract: field ConnectorOptionValue.Title string "json:\"title\""
+contract: type FileAbility struct
+contract: field FileAbility.MaxBytes int64 "json:\"maxBytes\""
+contract: field FileAbility.Types []string "json:\"types,omitempty\""
+contract: type ProfileTool struct
+contract: field ProfileTool.Name string "json:\"name\""
+contract: field ProfileTool.Detail string "json:\"detail,omitempty\""
+contract: field ProfileTool.Check []string "json:\"check,omitempty\""
+contract: method (ProfileTool) Text() string
