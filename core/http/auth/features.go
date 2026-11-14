@@ -458,6 +458,14 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/pii/analyze", FeaturePIIFilter},
 	{"POST", "/api/pii/redact", FeaturePIIFilter},
 
+	// Studio History (server-side persistence of the Studio's generations)
+	{"GET", "/api/studio/history", FeatureStudioHistory},
+	{"DELETE", "/api/studio/history", FeatureStudioHistory},
+	{"POST", "/api/studio/history/import", FeatureStudioHistory},
+	{"GET", "/api/studio/history/:id", FeatureStudioHistory},
+	{"PUT", "/api/studio/history/:id", FeatureStudioHistory},
+	{"DELETE", "/api/studio/history/:id", FeatureStudioHistory},
+
 	// Quantization
 	{"GET", "/api/quantization/status", FeatureQuantization},
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
@@ -528,5 +536,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
 		{FeatureDecisions, "Decisions", true},
 		{FeatureForecast, "Forecast", true},
+		{FeatureStudioHistory, "Studio History", true},
 	}
 }
