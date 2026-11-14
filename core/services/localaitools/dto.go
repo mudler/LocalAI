@@ -26,10 +26,10 @@ type GallerySearchQuery struct {
 // ModelSearchRequest is the input for search_models.
 type ModelSearchRequest struct {
 	Query     string `json:"query,omitempty"     jsonschema:"Search text, for example a model family or a repository name. May be empty only with sort latest."`
-	Providers string `json:"providers,omitempty" jsonschema:"Comma separated providers to ask: huggingface, pirateface. Empty asks all."`
+	Providers string `json:"providers,omitempty" jsonschema:"Comma separated source IDs to ask, for example huggingface. Empty asks the sources the person has enabled."`
 	Limit     int    `json:"limit,omitempty"     jsonschema:"Results per provider. Defaults to 20, at most 50."`
 	Format    string `json:"format,omitempty"    jsonschema:"File format filter. Defaults to gguf; any turns it off."`
-	Sort      string `json:"sort,omitempty"      jsonschema:"downloads (default), likes, updated, trending or latest. latest lists the newest models and is the only sort that works with an empty query; Pirate Face cannot list its newest and reports unsupported."`
+	Sort      string `json:"sort,omitempty"      jsonschema:"downloads (default), likes, updated, trending or latest. latest lists the newest models and is the only sort that works with an empty query; a source that cannot list its newest models reports unsupported."`
 }
 
 // ModelSearchResponse is what search_models returns: the merged results and

@@ -1,38 +1,75 @@
 package localai
 
 import (
+	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery/remotemodel"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 )
 
-// ModelSearchEndpoint searches remote model providers (Hugging Face,
-// Pirate Face) for models that can be installed.
+// searchUser is the person a search runs for: the signed-in user, or empty when
+// authentication is off.
+func searchUser(c echo.Context) string {
+	if u := auth.GetUser(c); u != nil {
+		return u.ID
+	}
+	return ""
+}
+
+// parseSourceFilters reads the filters.<source>.<id>=value parameters.
+func parseSourceFilters(c echo.Context) (map[string]map[string]string, error) {
+	var out map[string]map[string]string
+	for key, vals := range c.QueryParams() {
+		rest, ok := strings.CutPrefix(key, "filters.")
+		if !ok {
+			continue
+		}
+		source, id, ok := strings.Cut(rest, ".")
+		if !ok || source == "" || id == "" || len(vals) != 1 {
+			return nil, errors.New("a filter parameter is filters.<source>.<filter id>=<value>, given once")
+		}
+		if out == nil {
+			out = map[string]map[string]string{}
+		}
+		if out[source] == nil {
+			out[source] = map[string]string{}
+		}
+		out[source][id] = vals[0]
+	}
+	return out, nil
+}
+
+// ModelSearchEndpoint searches remote model sources (Hugging Face and the
+// sources that add-ons provide) for models that can be installed.
 //
-//	@Summary	Search remote providers for installable models
-//	@Description	Fans the query out to the chosen providers and returns the merged results plus one status per provider, so a provider that is down does not fail the search. Each result's `uri` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (`installed`, `installed_name`), the backend an import would likely pick (`backend`, a hint derived from the tags) and whether the repository likely has several quantizations (`has_variants`). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each provider that can list them (Hugging Face, by creation date). A provider that cannot, such as Pirate Face, is not called and its status says `unsupported`.
+//	@Summary	Search remote sources for installable models
+//	@Description	Fans the query out to the sources and returns the merged results plus one status per source, so a source that is down does not fail the search. Without `providers` the sources are the caller's enabled set (Hugging Face by default; see /api/models/search/sources). A source can come from an add-on that provides the model-search slot. `filters.<source>.<id>=value` sets a filter that the source declares in `sources` of the answer; an unknown filter or a value that does not fit its type gives a 400 that names the filter. Each result's `uri` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (`installed`, `installed_name`), the backend an import would likely pick (`backend`, a hint derived from the tags) and whether the repository likely has several quantizations (`has_variants`). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each source that can list them. A source that cannot is not called and its status says `unsupported`. A status has `dropped`, the number of rows the host refused because of a scheme or a size it does not accept.
 //	@Tags		models
 //	@Param		q			query	string	false	"Search text. Required unless sort is latest"
-//	@Param		providers	query	string	false	"Comma separated provider names (default: all)"
-//	@Param		limit		query	int		false	"Results per provider (default 20, max 50)"
+//	@Param		providers	query	string	false	"Comma separated source IDs (default: the enabled set of the caller)"
+//	@Param		limit		query	int		false	"Results per source (default 20, max 50)"
 //	@Param		format		query	string	false	"File format filter (default gguf, any disables it)"
 //	@Param		sort		query	string	false	"downloads (default), likes, updated, trending or latest (newest first; the only sort that works with no q)"
+//	@Param		filters.source.id	query	string	false	"A filter of one source, for example filters.pirateface.min_seeders=2. The sources and their filters are listed in `sources` of the answer."
 //	@Success	200	{object}	modelsearch.Response
 //	@Failure	400	{object}	schema.ErrorResponse
 //	@Router		/api/models/search [get]
-func ModelSearchEndpoint(s *modelsearch.Searcher, cl *config.ModelConfigLoader) echo.HandlerFunc {
+func ModelSearchEndpoint(h *modelsearch.Host, cl *config.ModelConfigLoader) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		bad := func(msg string) error {
 			return c.JSON(http.StatusBadRequest, schema.ErrorResponse{
 				Error: &schema.APIError{Message: msg, Code: http.StatusBadRequest, Type: "invalid_request_error"},
 			})
 		}
+		user := searchUser(c)
 		q := strings.TrimSpace(c.QueryParam("q"))
 		sort := strings.ToLower(strings.TrimSpace(c.QueryParam("sort")))
 		if q == "" && sort != modelsearch.SortLatest {
@@ -46,23 +83,85 @@ func ModelSearchEndpoint(s *modelsearch.Searcher, cl *config.ModelConfigLoader) 
 			}
 			limit = n
 		}
+		visible := h.Visible(c.Request().Context(), user)
 		names := modelsearch.ParseNames(c.QueryParam("providers"))
-		known := map[string]bool{}
-		for _, n := range s.Names() {
-			known[n] = true
-		}
 		for _, n := range names {
-			if !known[n] {
-				return bad("unknown provider " + strconv.Quote(n) + "; available: " + strings.Join(s.Names(), ", "))
+			if !slices.Contains(visible, n) {
+				return bad("unknown provider " + strconv.Quote(n) + "; available: " + strings.Join(visible, ", "))
 			}
 		}
-		resp := s.Search(c.Request().Context(), modelsearch.Query{
-			Text:   q,
-			Limit:  limit,
-			Format: c.QueryParam("format"),
-			Sort:   sort,
+		filters, err := parseSourceFilters(c)
+		if err != nil {
+			return bad(err.Error())
+		}
+		for source, values := range filters {
+			if !slices.Contains(visible, source) {
+				return bad("unknown provider " + strconv.Quote(source) + " in a filter; available: " + strings.Join(visible, ", "))
+			}
+			src, _ := h.Searcher.Source(source)
+			if _, err := modelsearch.ValidateFilters(src, values); err != nil {
+				return bad(err.Error())
+			}
+		}
+		resp := h.Search(c.Request().Context(), user, modelsearch.Query{
+			Text:    q,
+			Limit:   limit,
+			Format:  c.QueryParam("format"),
+			Sort:    sort,
+			Filters: filters,
 		}, names)
 		remotemodel.EnrichSearch(&resp, installedIndex(cl))
 		return c.JSON(http.StatusOK, resp)
+	}
+}
+
+// SearchSourcesRequest is the body of PUT /api/models/search/sources.
+type SearchSourcesRequest struct {
+	// Enabled is the new enabled set of source IDs. An empty list searches
+	// nothing.
+	Enabled []string `json:"enabled"`
+}
+
+// ModelSearchSourcesEndpoint lists the sources and the enabled set.
+//
+//	@Summary	List the model search sources and the enabled set
+//	@Description	Lists the sources that are installed (Hugging Face, and every add-on that provides the model-search slot and that the caller can see) with their titles, sorts and filters, the enabled set of the caller, and the enabled IDs that no installed add-on provides (`missing`). A missing ID is kept, so installing the add-on again restores the choice.
+//	@Tags		models
+//	@Success	200	{object}	modelsearch.Overview
+//	@Router		/api/models/search/sources [get]
+func ModelSearchSourcesEndpoint(h *modelsearch.Host) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.JSON(http.StatusOK, h.Overview(c.Request().Context(), searchUser(c)))
+	}
+}
+
+// ModelSearchSetSourcesEndpoint stores the enabled set.
+//
+//	@Summary	Set the enabled model search sources
+//	@Description	Stores the set of sources the caller searches. It takes effect at once, with no restart. An ID must be a built-in source, an installed source, or already in the stored set. An empty list means nothing is searched.
+//	@Tags		models
+//	@Accept		json
+//	@Param		request	body	localai.SearchSourcesRequest	true	"The enabled set"
+//	@Success	200	{object}	modelsearch.Overview
+//	@Failure	400	{object}	schema.ErrorResponse
+//	@Failure	503	{object}	schema.ErrorResponse
+//	@Router		/api/models/search/sources [put]
+func ModelSearchSetSourcesEndpoint(h *modelsearch.Host) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		fail := func(code int, msg string) error {
+			return c.JSON(code, schema.ErrorResponse{Error: &schema.APIError{Message: msg, Code: code, Type: "invalid_request_error"}})
+		}
+		var req SearchSourcesRequest
+		if err := c.Bind(&req); err != nil || req.Enabled == nil {
+			return fail(http.StatusBadRequest, "the body must be {\"enabled\": [source ids]}")
+		}
+		user := searchUser(c)
+		if err := h.SetEnabled(c.Request().Context(), user, req.Enabled); err != nil {
+			if errors.Is(err, modelsearch.ErrUnknownSource) {
+				return fail(http.StatusBadRequest, err.Error())
+			}
+			return fail(http.StatusServiceUnavailable, "the choice of sources cannot be stored on this server")
+		}
+		return c.JSON(http.StatusOK, h.Overview(c.Request().Context(), user))
 	}
 }

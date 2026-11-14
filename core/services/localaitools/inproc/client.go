@@ -139,6 +139,12 @@ type Client struct {
 	// results. Nil: the home folder of the acting user in the chats' workspace.
 	Files localaitools.FileStore
 
+	// ModelSearch is the search host: the shared Searcher with the add-on
+	// sources and the enabled set of each person. It is read at each call,
+	// because the add-on gateway starts after the assistant. Nil: the shared
+	// Searcher with the built-in source only.
+	ModelSearch func() *modelsearch.Host
+
 	modelAdmin *modeladmin.ConfigService
 }
 
@@ -167,19 +173,36 @@ var _ localaitools.LocalAIClient = (*Client)(nil)
 
 // ---- Models / gallery (read) ----
 
-// SearchModels uses the process-wide searcher, the one behind
-// GET /api/models/search, so both share one cache.
+// SearchModels uses the process-wide search host, the one behind
+// GET /api/models/search, so both share one cache and one set of sources. With
+// no providers named it searches the enabled set of the acting user, so a
+// source that an add-on provides reaches the assistant with no change here.
+// What a source returns is data from outside: the tool wraps it as untrusted.
 func (c *Client) SearchModels(ctx context.Context, req localaitools.ModelSearchRequest) (*localaitools.ModelSearchResponse, error) {
+	h := c.searchHost()
+	user := ""
+	if u := c.actingUser(ctx); u != nil {
+		user = u.ID
+	}
 	names := modelsearch.ParseNames(req.Providers)
-	s := modelsearch.Shared()
+	visible := h.Visible(ctx, user)
 	for _, n := range names {
-		if !slices.Contains(s.Names(), n) {
-			return nil, fmt.Errorf("unknown provider %q; available: %s", n, strings.Join(s.Names(), ", "))
+		if !slices.Contains(visible, n) {
+			return nil, fmt.Errorf("unknown provider %q; available: %s", n, strings.Join(visible, ", "))
 		}
 	}
-	resp := s.Search(ctx, modelsearch.Query{Text: req.Query, Limit: req.Limit, Format: req.Format, Sort: req.Sort}, names)
+	resp := h.Search(ctx, user, modelsearch.Query{Text: req.Query, Limit: req.Limit, Format: req.Format, Sort: req.Sort}, names)
 	remotemodel.EnrichSearch(&resp, c.installedIndex())
 	return &resp, nil
+}
+
+func (c *Client) searchHost() *modelsearch.Host {
+	if c.ModelSearch != nil {
+		if h := c.ModelSearch(); h != nil {
+			return h
+		}
+	}
+	return modelsearch.NewHost(modelsearch.Shared(), nil, nil)
 }
 
 func (c *Client) installedIndex() *remotemodel.InstalledIndex {

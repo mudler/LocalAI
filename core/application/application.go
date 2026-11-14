@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/mudler/LocalAI/core/services/collections"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -146,6 +147,8 @@ type Application struct {
 	// The per-person add-on settings are built once: the routes and the chats
 	// read the same store.
 	addonUserSettingsOnce sync.Once
+	modelSearchOnce       sync.Once
+	modelSearchHost       *modelsearch.Host
 	addonUserSettings     usersettings.Store
 	addonUserSettingsErr  error
 
@@ -889,6 +892,7 @@ func (a *Application) start() (startErr error) {
 	assistantClient.SingleUser = !a.AuthActive()
 	// The chats start after the assistant, so the shared folder tools
 	// look the service up at each call.
+	assistantClient.ModelSearch = a.ModelSearch
 	assistantClient.SharedFolders = func() *sharedfolders.Service {
 		if svc := a.StudioService(); svc != nil {
 			return svc.SharedFolders()

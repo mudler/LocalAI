@@ -83,6 +83,7 @@ contract: field Capabilities.Network *contract.NetworkCapability "json:\"network
 contract: field Capabilities.ContextFiles []contract.ContextFile "json:\"contextFiles,omitempty\""
 contract: field Capabilities.UserSettings []contract.UserSetting "json:\"userSettings,omitempty\""
 contract: field Capabilities.Provides []contract.ProviderDeclaration "json:\"provides,omitempty\""
+contract: field Capabilities.ModelSearch *contract.ModelSearch "json:\"modelSearch,omitempty\""
 contract: field Capabilities.Credentials []contract.CredentialSlot "json:\"credentials,omitempty\""
 contract: field Capabilities.Client *contract.ClientCapability "json:\"client,omitempty\""
 contract: method (Capabilities) ProvidedSlots() []string
@@ -173,6 +174,10 @@ contract: type HostOperations struct
 contract: field HostOperations.Required []string "json:\"required,omitempty\""
 contract: field HostOperations.Optional []string "json:\"optional,omitempty\""
 contract: method (*HostOperations) UnmarshalJSON(b []byte) error
+contract: type ModelSearch struct
+contract: field ModelSearch.Source contract.ModelSearchSource "json:\"source\""
+contract: field ModelSearch.Sorts []string "json:\"sorts,omitempty\""
+contract: field ModelSearch.Filters []contract.SearchFilter "json:\"filters,omitempty\""
 contract: type NetworkCapability struct
 contract: field NetworkCapability.Kind string "json:\"kind\""
 contract: field NetworkCapability.Title string "json:\"title,omitempty\""
@@ -330,6 +335,11 @@ contract: field ModelAction.Capability string "json:\"capability\""
 contract: field ModelAction.Page string "json:\"page\""
 contract: field ModelAction.Path string "json:\"path,omitempty\""
 contract: method (*ModelAction) UnmarshalJSON(b []byte) error
+contract: type ModelSearchSource struct
+contract: field ModelSearchSource.ID string "json:\"id\""
+contract: field ModelSearchSource.Title string "json:\"title\""
+contract: field ModelSearchSource.Icon string "json:\"icon,omitempty\""
+contract: field ModelSearchSource.ListsLatest bool "json:\"listsLatest,omitempty\""
 contract: type NetworkPreset struct
 contract: field NetworkPreset.ID string "json:\"id\""
 contract: field NetworkPreset.Title string "json:\"title\""
@@ -354,6 +364,19 @@ contract: type ResourceList struct
 contract: field ResourceList.Tool string "json:\"tool\""
 contract: field ResourceList.Items string "json:\"items,omitempty\""
 contract: method (ResourceList) ItemsKey() string
+contract: type SearchFilter struct
+contract: field SearchFilter.ID string "json:\"id\""
+contract: field SearchFilter.Type string "json:\"type\""
+contract: field SearchFilter.Label string "json:\"label\""
+contract: field SearchFilter.Help string "json:\"help,omitempty\""
+contract: field SearchFilter.Values []string "json:\"values,omitempty\""
+contract: field SearchFilter.Default any "json:\"default,omitempty\""
+contract: field SearchFilter.Min float64 "json:\"min,omitempty\""
+contract: field SearchFilter.Max float64 "json:\"max,omitempty\""
+contract: field SearchFilter.Step float64 "json:\"step,omitempty\""
+contract: field SearchFilter.Unit string "json:\"unit,omitempty\""
+contract: field SearchFilter.MaxLength int "json:\"maxLength,omitempty\""
+contract: method (SearchFilter) TextLimit() int
 contract: type SlotContribution struct
 contract: field SlotContribution.ID string "json:\"id\""
 contract: field SlotContribution.Slot string "json:\"slot\""

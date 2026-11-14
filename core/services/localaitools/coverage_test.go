@@ -136,6 +136,11 @@ var adminRoutesWithoutTool = map[string]string{
 	// add-on's settings form. See connector_oauth_unmapped_test.go.
 	"GET /api/chats/admin/oauth-clients/:addonId": "shows the client and the approval of an add-on's login: read on the add-on's settings form",
 	"PUT /api/chats/admin/oauth-clients/:addonId": "takes a client secret and approves an add-on's login: a secret must not pass through a chat",
+	// Which model sources a person searches is a personal choice made in the
+	// search panel. The search tool already uses that choice, so a model never
+	// needs to read or change it.
+	"GET /api/models/search/sources": "the sources and the enabled set of the person: read in the search panel; search_models uses the enabled set",
+	"PUT /api/models/search/sources": "the enabled set is a personal choice made in the search panel, not something a model changes",
 	// A diagnostic button of Settings > Tools, not a setting to manage.
 	"POST /api/chats/admin/web/test": "a diagnostic button: it runs one search and changes nothing",
 	// Settings of the chats that change what commands may do on this machine

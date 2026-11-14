@@ -69,8 +69,13 @@ async function postJSON(endpoint, body, options = {}) {
 // Models API
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
-  // Remote providers (Hugging Face, Pirate Face). params come from searchParams().
+  // Remote sources (Hugging Face and the sources that add-ons provide). params
+  // come from remoteSearchParams().
   search: (params, options) => fetchJSON(buildUrl(API_CONFIG.endpoints.modelsSearch, params), options),
+  // The installed sources with their filters, the person's enabled set, and
+  // the enabled IDs that no installed add-on provides.
+  searchSources: (options) => fetchJSON(API_CONFIG.endpoints.modelsSearchSources, options),
+  setSearchSources: (enabled) => fetchJSON(API_CONFIG.endpoints.modelsSearchSources, { method: 'PUT', body: JSON.stringify({ enabled }) }),
   // What one search result offers: files grouped by quantization, licence,
   // gated flag, description, the backend an import would pick.
   remoteFiles: (uri, options) => fetchJSON(buildUrl(API_CONFIG.endpoints.modelsRemoteFiles, { uri }), options),

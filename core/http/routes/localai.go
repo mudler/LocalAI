@@ -19,7 +19,6 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/tokens"
 	echoswagger "github.com/swaggo/echo-swagger"
 )
@@ -138,7 +137,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 		// Search of remote providers for models to import. Admin only, like
 		// the import it feeds: the server makes the outbound requests.
-		router.GET("/api/models/search", localai.ModelSearchEndpoint(modelsearch.Shared(), cl), adminMiddleware)
+		router.GET("/api/models/search", localai.ModelSearchEndpoint(app.ModelSearch(), cl), adminMiddleware)
+		// The sources that can be searched and which of them a person has on.
+		// An add-on can provide a source; the choice is per person.
+		router.GET("/api/models/search/sources", localai.ModelSearchSourcesEndpoint(app.ModelSearch()), adminMiddleware)
+		router.PUT("/api/models/search/sources", localai.ModelSearchSetSourcesEndpoint(app.ModelSearch()), adminMiddleware)
 		// What one search result offers, and what it would need in memory.
 		// The two make the upstream calls of a repository listing and a
 		// GGUF header read; both are cached and rate limited per process.

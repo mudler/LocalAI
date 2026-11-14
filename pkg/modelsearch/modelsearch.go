@@ -318,9 +318,11 @@ func (s *Searcher) Search(ctx context.Context, q Query, names []string) Response
 		}
 		pq := q
 		pq.Own = nil
+		if src, ok := s.Source(name); ok {
+			sources[i] = &src
+		}
 		if d, ok := p.(Describer); ok {
 			src := d.Source()
-			sources[i] = &src
 			statuses[i].Title = src.Title
 			own, err := ValidateFilters(src, q.Filters[name])
 			if err != nil {

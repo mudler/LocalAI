@@ -10,43 +10,102 @@ const ESTIMATE_CONCURRENCY = 3
 const RATE_LIMIT_PAUSE_MS = 60_000
 const JOB_POLL_MS = 1000
 
-// The search of one online source. `term` is already debounced by the caller.
-// Without a term the source is asked for its newest models, and a source that
-// cannot list them (see REMOTE_SOURCES) is not asked at all.
+// The sources of the online search: the installed ones with their filters, and
+// the person's enabled set. A server with no list (an older one) or a failed
+// call leaves Hugging Face alone, which is what the panel always showed.
+export function useSearchSources() {
+  const [overview, setOverview] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const alive = useRef(true)
+  useEffect(() => () => { alive.current = false }, [])
+  useEffect(() => {
+    const ctl = new AbortController()
+    modelsApi.searchSources({ signal: ctl.signal })
+      .then(data => { if (!ctl.signal.aborted) setOverview(data) })
+      .catch(() => {})
+    return () => ctl.abort()
+  }, [])
+  // Stores the enabled set and keeps the list the server answers with.
+  const setEnabled = useCallback(async (ids) => {
+    setBusy(true)
+    try {
+      const data = await modelsApi.setSearchSources(ids)
+      if (alive.current) setOverview(data)
+      return null
+    } catch (err) {
+      return err
+    } finally {
+      if (alive.current) setBusy(false)
+    }
+  }, [])
+  return { overview, busy, setEnabled }
+}
+
+const IDLE = { phase: 'idle', results: [], providers: [], error: '', unsupported: false, dropped: 0 }
+
+// The searches of the online sources, one request each, so a slow or failed
+// source never holds back another. `asks` lists the sources to ask now:
+// { id, limit, filters, filterValues, reloadKey }. A source that is not
+// listed, or that cannot answer a query with no term (see remoteAsks), is
+// idle. `term` is already debounced by the caller.
 //
 // Results of the previous query stay on screen while the next one loads, so the
-// table does not flash empty on every keystroke.
-export function useRemoteSearch({ provider, term, limit, ggufOnly, reloadKey }) {
-  const [state, setState] = useState({ phase: 'idle', results: [], providers: [], error: '', unsupported: false })
+// table does not flash empty on every keystroke. A request is made again only
+// when its own query changed.
+export function useRemoteSearches({ asks, term, ggufOnly, sources }) {
+  const [state, setState] = useState({})
+  const live = useRef(new Map())
 
+  const key = JSON.stringify([asks.map(a => [a.id, a.limit, a.filterValues, a.reloadKey]), term, ggufOnly])
   useEffect(() => {
-    if (!provider || !remoteAsks(provider, term)) {
-      setState({ phase: 'idle', results: [], providers: [], error: '', unsupported: false })
-      return undefined
+    const wanted = new Set(asks.map(a => a.id))
+    for (const [id, entry] of live.current) {
+      if (!wanted.has(id)) {
+        entry.ctl.abort()
+        live.current.delete(id)
+        setState(prev => ({ ...prev, [id]: IDLE }))
+      }
     }
-    const ctl = new AbortController()
-    setState(s => ({ ...s, phase: 'loading', error: '' }))
-    modelsApi.search(remoteSearchParams({ provider, term, limit, ggufOnly }), { signal: ctl.signal })
-      .then(data => {
-        if (ctl.signal.aborted) return
-        const status = (data?.providers || []).find(p => p.name === provider)
-        setState({
-          phase: status && status.ok === false ? 'failed' : 'done',
-          results: data?.results || [],
-          providers: data?.providers || [],
-          error: status?.ok === false ? (status.error || '') : '',
-          // The server did not ask the source: it cannot list its newest models.
-          unsupported: !!status?.unsupported,
+    for (const ask of asks) {
+      const askKey = JSON.stringify([ask.limit, ask.filterValues, ask.reloadKey, term, ggufOnly])
+      const prev = live.current.get(ask.id)
+      if (prev && prev.key === askKey) continue
+      prev?.ctl.abort()
+      if (!remoteAsks(ask.id, term, sources)) {
+        live.current.delete(ask.id)
+        setState(p => ({ ...p, [ask.id]: IDLE }))
+        continue
+      }
+      const ctl = new AbortController()
+      live.current.set(ask.id, { key: askKey, ctl })
+      setState(p => ({ ...p, [ask.id]: { ...(p[ask.id] || IDLE), phase: 'loading', error: '' } }))
+      modelsApi.search(remoteSearchParams({ provider: ask.id, term, limit: ask.limit, ggufOnly, filters: ask.filters, filterValues: ask.filterValues }), { signal: ctl.signal })
+        .then(data => {
+          if (ctl.signal.aborted) return
+          const status = (data?.providers || []).find(p => p.name === ask.id)
+          setState(p => ({
+            ...p,
+            [ask.id]: {
+              phase: status && status.ok === false ? 'failed' : 'done',
+              results: data?.results || [],
+              providers: data?.providers || [],
+              error: status?.ok === false ? (status.error || '') : '',
+              // The server did not ask the source: it cannot list its newest models.
+              unsupported: !!status?.unsupported,
+              dropped: status?.dropped || 0,
+            },
+          }))
         })
-      })
-      .catch(err => {
-        if (ctl.signal.aborted) return
-        setState(s => ({ ...s, phase: 'failed', error: err?.message || String(err) }))
-      })
-    return () => ctl.abort()
-  }, [provider, term, limit, ggufOnly, reloadKey])
+        .catch(err => {
+          if (ctl.signal.aborted) return
+          setState(p => ({ ...p, [ask.id]: { ...(p[ask.id] || IDLE), phase: 'failed', error: err?.message || String(err) } }))
+        })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` holds everything the effect reads from asks, term and ggufOnly
+  }, [key])
+  useEffect(() => () => { live.current.forEach(e => e.ctl.abort()); live.current.clear() }, [])
 
-  return state
+  return (id) => state[id] || IDLE
 }
 
 // What the inspector and the rows know about the repositories seen so far:

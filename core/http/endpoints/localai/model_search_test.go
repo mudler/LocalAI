@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -51,11 +55,11 @@ var _ = Describe("ModelSearchEndpoint", func() {
 		s.Register(hf)
 		s.Register(pf)
 		e = echo.New()
-		e.GET("/api/models/search", ModelSearchEndpoint(s, nil))
+		e.GET("/api/models/search", ModelSearchEndpoint(modelsearch.NewHost(s, nil, nil), nil))
 	})
 
 	It("returns results and a status per provider, even when one fails", func() {
-		rec := get("/api/models/search?q=qwen&limit=3&sort=likes&format=any")
+		rec := get("/api/models/search?q=qwen&limit=3&sort=likes&format=any&providers=huggingface,pirateface")
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		var out modelsearch.Response
 		Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
@@ -90,9 +94,9 @@ var _ = Describe("ModelSearchEndpoint", func() {
 		s.Register(l)
 		s.Register(pf)
 		e = echo.New()
-		e.GET("/api/models/search", ModelSearchEndpoint(s, nil))
+		e.GET("/api/models/search", ModelSearchEndpoint(modelsearch.NewHost(s, nil, nil), nil))
 
-		rec := get("/api/models/search?sort=latest&limit=10")
+		rec := get("/api/models/search?sort=latest&limit=10&providers=huggingface,pirateface")
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		var out modelsearch.Response
 		Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
@@ -117,4 +121,145 @@ var _ = Describe("ModelSearchEndpoint", func() {
 		Entry("bad limit", "/api/models/search?q=x&limit=abc", "limit"),
 		Entry("unknown provider", "/api/models/search?q=x&providers=nope", "unknown provider"),
 	)
+})
+
+// stubBroker is one add-on that provides a source with a filter.
+type stubBroker struct {
+	installed bool
+	last      json.RawMessage
+}
+
+func (b *stubBroker) Sources(context.Context, string) ([]modelsearch.AddonSource, error) {
+	if !b.installed {
+		return nil, nil
+	}
+	return []modelsearch.AddonSource{{AddonID: "peer-search", Tool: "search", Running: true, Search: contract.ModelSearch{
+		Source: contract.ModelSearchSource{ID: "peer", Title: "Peer"},
+		Filters: []contract.SearchFilter{
+			{ID: "kind", Type: contract.FilterEnum, Label: "Kind", Values: []string{"a", "b"}, Default: "a"},
+			{ID: "seeds", Type: contract.FilterRange, Label: "Seeds", Min: 0, Max: 10},
+		}}}}, nil
+}
+
+func (b *stubBroker) Call(_ context.Context, _, _, _ string, args json.RawMessage) (json.RawMessage, error) {
+	b.last = args
+	return json.RawMessage(`{"results":[{"id":"o/peer","uri":"pirateface://o/peer"},{"id":"o/bad","uri":"ftp://x"}]}`), nil
+}
+
+type mapKV struct{ m map[string]string }
+
+func (k *mapKV) Get(_ context.Context, u string) (string, bool, error) {
+	v, ok := k.m[u]
+	return v, ok, nil
+}
+func (k *mapKV) Set(_ context.Context, u, v string) error { k.m[u] = v; return nil }
+
+var _ = Describe("ModelSearchEndpoint with add-on sources", func() {
+	var (
+		e      *echo.Echo
+		broker *stubBroker
+		user   string
+	)
+	do := func(method, target, body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		var r io.Reader
+		if body != "" {
+			r = strings.NewReader(body)
+		}
+		req := httptest.NewRequest(method, target, r)
+		req.Header.Set("Content-Type", "application/json")
+		e.ServeHTTP(rec, req)
+		return rec
+	}
+	BeforeEach(func() {
+		broker = &stubBroker{installed: true}
+		s := modelsearch.NewSearcher(modelsearch.Options{CacheTTL: -1})
+		s.Register(&stubSearchProvider{name: "huggingface", res: []modelsearch.Result{{ID: "o/hf", URI: "huggingface://o/hf"}}})
+		h := modelsearch.NewHost(s, broker, &mapKV{m: map[string]string{}})
+		e = echo.New()
+		user = "alice"
+		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				c.Set("auth_user", &auth.User{ID: user})
+				return next(c)
+			}
+		})
+		e.GET("/api/models/search", ModelSearchEndpoint(h, nil))
+		e.GET("/api/models/search/sources", ModelSearchSourcesEndpoint(h))
+		e.PUT("/api/models/search/sources", ModelSearchSetSourcesEndpoint(h))
+	})
+
+	decode := func(rec *httptest.ResponseRecorder) modelsearch.Response {
+		var out modelsearch.Response
+		Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+		return out
+	}
+
+	It("searches only Hugging Face by default", func() {
+		out := decode(do(http.MethodGet, "/api/models/search?q=x", ""))
+		Expect(out.Providers).To(HaveLen(1))
+		Expect(out.Sources).To(HaveLen(1))
+	})
+
+	It("searches the enabled set, passes filters to their source and counts dropped rows", func() {
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface","peer"]}`).Code).To(Equal(http.StatusOK))
+		rec := do(http.MethodGet, "/api/models/search?q=x&filters.peer.kind=b&filters.peer.seeds=3", "")
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		out := decode(rec)
+		Expect(out.Providers).To(HaveLen(2))
+		Expect(out.Providers[1]).To(Equal(modelsearch.ProviderStatus{Name: "peer", Title: "Peer", OK: true, Count: 1, Dropped: 1}))
+		Expect(out.Sources[1].Filters).To(HaveLen(2))
+		Expect(string(broker.last)).To(ContainSubstring(`"filters":{"kind":"b","seeds":3}`))
+	})
+
+	DescribeTable("rejects a filter that does not fit, naming it",
+		func(query, want string) {
+			Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface","peer"]}`).Code).To(Equal(http.StatusOK))
+			rec := do(http.MethodGet, "/api/models/search?q=x&"+query, "")
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			Expect(rec.Body.String()).To(ContainSubstring(want))
+		},
+		Entry("unknown filter", "filters.peer.nope=1", `filter \"nope\"`),
+		Entry("bad enum value", "filters.peer.kind=z", `filter \"kind\"`),
+		Entry("range out of bounds", "filters.peer.seeds=99", `filter \"seeds\"`),
+		Entry("range that is not a number", "filters.peer.seeds=many", `filter \"seeds\"`),
+		Entry("unknown source", "filters.ghost.kind=a", "unknown provider"),
+		Entry("malformed key", "filters.peer=a", "filter parameter"),
+		Entry("filter on the built-in source", "filters.huggingface.kind=a", `filter \"kind\"`),
+	)
+
+	It("answers an empty set with an empty result and the hint data in the sources list", func() {
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":[]}`).Code).To(Equal(http.StatusOK))
+		out := decode(do(http.MethodGet, "/api/models/search?q=x", ""))
+		Expect(out.Results).To(BeEmpty())
+		Expect(out.Providers).To(BeEmpty())
+	})
+
+	It("keeps the choice of one person apart from another", func() {
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["peer"]}`).Code).To(Equal(http.StatusOK))
+		user = "bob"
+		out := decode(do(http.MethodGet, "/api/models/search?q=x", ""))
+		Expect(out.Providers).To(HaveLen(1))
+		Expect(out.Providers[0].Name).To(Equal("huggingface"))
+	})
+
+	It("refuses a source that is not installed, and restores a kept one on reinstall", func() {
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["ghost"]}`).Code).To(Equal(http.StatusBadRequest))
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{"enabled":["huggingface","peer"]}`).Code).To(Equal(http.StatusOK))
+		broker.installed = false
+		var ov modelsearch.Overview
+		Expect(json.Unmarshal(do(http.MethodGet, "/api/models/search/sources", "").Body.Bytes(), &ov)).To(Succeed())
+		Expect(ov.Missing).To(Equal([]string{"peer"}))
+		Expect(ov.Sources).To(HaveLen(1))
+		Expect(do(http.MethodGet, "/api/models/search?q=x&providers=peer", "").Code).To(Equal(http.StatusBadRequest))
+		broker.installed = true
+		Expect(json.Unmarshal(do(http.MethodGet, "/api/models/search/sources", "").Body.Bytes(), &ov)).To(Succeed())
+		Expect(ov.Missing).To(BeEmpty())
+		Expect(ov.Sources).To(HaveLen(2))
+		Expect(decode(do(http.MethodGet, "/api/models/search?q=x", "")).Providers).To(HaveLen(2))
+	})
+
+	It("needs the body to carry the list", func() {
+		Expect(do(http.MethodPut, "/api/models/search/sources", `{}`).Code).To(Equal(http.StatusBadRequest))
+	})
 })

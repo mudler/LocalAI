@@ -2,17 +2,49 @@
 // Face). The rows of an online search go through the same table as the
 // gallery, so these turn a search result into the fields that table reads.
 // Nothing here touches the DOM.
-import { compactCount } from './modelSearch.js'
+import { compactCount, filterParams } from './modelSearch.js'
 import { fitFor } from './modelLedger.js'
 
-// The online sources, in the order their chips appear. `p2p` puts the small
-// tag on the chip. `latest` says the source can list its newest models with no
-// search text; Pirate Face has no such list outside its /api paths, which its
-// robots.txt disallows, so with no term it shows a note and asks nothing.
-export const REMOTE_SOURCES = [
-  { id: 'huggingface', p2p: false, latest: true },
-  { id: 'pirateface', p2p: true, latest: false },
+// The online sources come from the server (GET /api/models/search/sources):
+// Hugging Face, which is built in, and the sources that add-ons provide. A
+// source the person has turned on is a chip. `latest` says the source can list
+// its newest models with no search text; one that cannot shows a note and asks
+// nothing. `p2p` puts the small tag on the chip of a source whose models come
+// by torrent.
+const P2P_SOURCES = new Set(['pirateface'])
+
+// What the panel uses while the list is not known, or when the server is older
+// and has no list: Hugging Face alone, as it always was.
+export const BUILTIN_SOURCES = [
+  { id: 'huggingface', title: 'Hugging Face', p2p: false, latest: true, filters: [], kind: 'builtin' },
 ]
+
+function uiSource(s) {
+  return {
+    id: s.id,
+    title: s.title || s.id,
+    p2p: P2P_SOURCES.has(s.id),
+    latest: !!s.lists_latest,
+    filters: Array.isArray(s.filters) ? s.filters : [],
+    sorts: s.sorts || [],
+    i18n: s.i18n || null,
+    kind: s.kind || 'addon',
+    running: s.running !== false,
+  }
+}
+
+// The sources to show as chips: installed and in the person's enabled set.
+export function remoteSourcesFrom(overview) {
+  if (!overview || !Array.isArray(overview.sources)) return BUILTIN_SOURCES
+  const on = new Set(overview.enabled || [])
+  return overview.sources.filter(s => on.has(s.id)).map(uiSource)
+}
+
+// Every installed source, enabled or not, for the panel that turns them on.
+export function allSourcesFrom(overview) {
+  if (!overview || !Array.isArray(overview.sources)) return BUILTIN_SOURCES
+  return overview.sources.map(uiSource)
+}
 
 // "Load more" asks the provider for this many more results each time. The
 // server caps one provider at REMOTE_MAX_RESULTS.
@@ -23,8 +55,8 @@ export const REMOTE_MAX_RESULTS = 50
 // page.
 export const REMOTE_SECTION_STEP = 10
 
-export function remoteSource(id) {
-  return REMOTE_SOURCES.find(s => s.id === id) || null
+export function remoteSource(id, sources = BUILTIN_SOURCES) {
+  return sources.find(s => s.id === id) || null
 }
 
 // Rows are keyed by provider and repository, never by name: two providers can
@@ -34,23 +66,23 @@ export function remoteKey(result) {
 }
 
 // The provider and repository of a key made by remoteKey, or null.
-export function parseRemoteKey(key) {
-  const m = /^([a-z]+):([^/\s]+\/[^/\s]+)$/.exec(String(key || ''))
-  return m && remoteSource(m[1]) ? { provider: m[1], id: m[2] } : null
+export function parseRemoteKey(key, sources = BUILTIN_SOURCES) {
+  const m = /^([a-z][a-z0-9-]*):([^/\s]+\/[^/\s]+)$/.exec(String(key || ''))
+  return m && remoteSource(m[1], sources) ? { provider: m[1], id: m[2] } : null
 }
 
 // Whether a source is asked at all: with a term it always is, with none only
 // when it can list its newest models.
-export function remoteAsks(provider, term) {
-  const src = remoteSource(provider)
+export function remoteAsks(provider, term, sources = BUILTIN_SOURCES) {
+  const src = remoteSource(provider, sources)
   return !!src && (!!String(term || '').trim() || src.latest)
 }
 
 // The query of GET /api/models/search for one source. No term asks for the
 // newest models, with the same limit and format filter as a search.
-export function remoteSearchParams({ provider, term, limit, ggufOnly }) {
+export function remoteSearchParams({ provider, term, limit, ggufOnly, filters, filterValues }) {
   const q = String(term || '').trim()
-  const out = { providers: provider, limit: limit || REMOTE_PAGE_STEP }
+  const out = { providers: provider, limit: limit || REMOTE_PAGE_STEP, ...filterParams(provider, filters, filterValues) }
   if (q) out.q = q
   else out.sort = 'latest'
   out.format = ggufOnly === false ? 'any' : 'gguf'
@@ -77,7 +109,7 @@ export function remoteSubline(result, labels) {
   if (result.license) parts.push(result.license)
   const downloads = compactCount(result.downloads)
   if (downloads) parts.push(`${downloads} ${labels.downloads}`)
-  if (result.provider === 'pirateface' && result.seeders > 0) parts.push(labels.seeds(result.seeders))
+  if (result.seeders > 0) parts.push(labels.seeds(result.seeders))
   return parts.join(' · ')
 }
 

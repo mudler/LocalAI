@@ -672,6 +672,8 @@ func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([
 type AddonProviders struct {
 	AddonID, Title, Description string
 	Provides                    []contract.ProviderDeclaration
+	// ModelSearch is the source the add-on declares for the model-search slot.
+	ModelSearch *contract.ModelSearch
 	// Running is true when the add-on may serve now: enabled and running.
 	Running bool
 }
@@ -693,7 +695,7 @@ func (t *ToolAdapter) Providers(ctx context.Context, actor contract.Actor) ([]Ad
 			continue
 		}
 		running := a.Enabled && a.State == "running" && a.Generation > 0
-		out = append(out, AddonProviders{AddonID: a.ID, Title: a.Title, Description: a.Description, Provides: slices.Clone(a.Provides), Running: running})
+		out = append(out, AddonProviders{AddonID: a.ID, Title: a.Title, Description: a.Description, Provides: slices.Clone(a.Provides), ModelSearch: a.ModelSearch, Running: running})
 	}
 	slices.SortFunc(out, func(x, y AddonProviders) int { return strings.Compare(x.AddonID, y.AddonID) })
 	return out, nil

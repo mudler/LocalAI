@@ -13610,11 +13610,11 @@
         },
         "/api/models/search": {
             "get": {
-                "description": "Fans the query out to the chosen providers and returns the merged results plus one status per provider, so a provider that is down does not fail the search. Each result's `uri` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (`installed`, `installed_name`), the backend an import would likely pick (`backend`, a hint derived from the tags) and whether the repository likely has several quantizations (`has_variants`). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each provider that can list them (Hugging Face, by creation date). A provider that cannot, such as Pirate Face, is not called and its status says `unsupported`.",
+                "description": "Fans the query out to the sources and returns the merged results plus one status per source, so a source that is down does not fail the search. Without `providers` the sources are the caller's enabled set (Hugging Face by default; see /api/models/search/sources). A source can come from an add-on that provides the model-search slot. `filters.\u003csource\u003e.\u003cid\u003e=value` sets a filter that the source declares in `sources` of the answer; an unknown filter or a value that does not fit its type gives a 400 that names the filter. Each result's `uri` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (`installed`, `installed_name`), the backend an import would likely pick (`backend`, a hint derived from the tags) and whether the repository likely has several quantizations (`has_variants`). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each source that can list them. A source that cannot is not called and its status says `unsupported`. A status has `dropped`, the number of rows the host refused because of a scheme or a size it does not accept.",
                 "tags": [
                     "models"
                 ],
-                "summary": "Search remote providers for installable models",
+                "summary": "Search remote sources for installable models",
                 "parameters": [
                     {
                         "type": "string",
@@ -13624,13 +13624,13 @@
                     },
                     {
                         "type": "string",
-                        "description": "Comma separated provider names (default: all)",
+                        "description": "Comma separated source IDs (default: the enabled set of the caller)",
                         "name": "providers",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Results per provider (default 20, max 50)",
+                        "description": "Results per source (default 20, max 50)",
                         "name": "limit",
                         "in": "query"
                     },
@@ -13645,6 +13645,12 @@
                         "description": "downloads (default), likes, updated, trending or latest (newest first; the only sort that works with no q)",
                         "name": "sort",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "A filter of one source, for example filters.pirateface.min_seeders=2. The sources and their filters are listed in `sources` of the answer.",
+                        "name": "filters.source.id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13656,6 +13662,64 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/search/sources": {
+            "get": {
+                "description": "Lists the sources that are installed (Hugging Face, and every add-on that provides the model-search slot and that the caller can see) with their titles, sorts and filters, the enabled set of the caller, and the enabled IDs that no installed add-on provides (`missing`). A missing ID is kept, so installing the add-on again restores the choice.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the model search sources and the enabled set",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Overview"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Stores the set of sources the caller searches. It takes effect at once, with no restart. An ID must be a built-in source, an installed source, or already in the stored set. An empty list means nothing is searched.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Set the enabled model search sources",
+                "parameters": [
+                    {
+                        "description": "The enabled set",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.SearchSourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Overview"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -19301,6 +19365,20 @@
                 }
             }
         },
+        "contract.ModelSearchText": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/contract.SearchFilterText"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "contract.NetworkPreset": {
             "type": "object",
             "properties": {
@@ -19463,6 +19541,67 @@
                 },
                 "schema": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.SearchFilter": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "description": "Default is a string (enum, text), a bool or a number (range)."
+                },
+                "help": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "maxLength": {
+                    "description": "MaxLength bounds a text filter; zero means MaxFilterTextLength.",
+                    "type": "integer"
+                },
+                "min": {
+                    "description": "Min, Max, Step and Unit describe a range filter.",
+                    "type": "number"
+                },
+                "step": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "values": {
+                    "description": "Values are the choices of an enum filter.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "contract.SearchFilterText": {
+            "type": "object",
+            "properties": {
+                "help": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -22100,6 +22239,18 @@
                 }
             }
         },
+        "localai.SearchSourcesRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled is the new enabled set of source IDs. An empty list searches\nnothing.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "localai.TTSModelVoices": {
             "type": "object",
             "properties": {
@@ -22323,6 +22474,31 @@
                 }
             }
         },
+        "modelsearch.Overview": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled is the enabled set as stored, in order, including IDs that are\nnot installed.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missing": {
+                    "description": "Missing lists the enabled IDs that no installed add-on provides.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Source"
+                    }
+                }
+            }
+        },
         "modelsearch.ProviderStatus": {
             "type": "object",
             "properties": {
@@ -22333,6 +22509,10 @@
                 "count": {
                     "type": "integer"
                 },
+                "dropped": {
+                    "description": "Dropped counts the rows that the host refused: a scheme it does not\nhandle, or a field over its cap.",
+                    "type": "integer"
+                },
                 "error": {
                     "type": "string"
                 },
@@ -22341,6 +22521,10 @@
                 },
                 "ok": {
                     "type": "boolean"
+                },
+                "title": {
+                    "description": "Title is the name of the source, when it has one.",
+                    "type": "string"
                 },
                 "unsupported": {
                     "description": "Unsupported is true when the provider was not asked because it cannot\nanswer this kind of request: a list of the newest models with no search\ntext. The provider is ok and has no results; nothing went upstream.",
@@ -22466,6 +22650,13 @@
                     "items": {
                         "$ref": "#/definitions/modelsearch.Result"
                     }
+                },
+                "sources": {
+                    "description": "Sources describes the sources that were asked, with their filters, so a\nclient needs no second call to draw the controls.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Source"
+                    }
                 }
             }
         },
@@ -22538,6 +22729,49 @@
                 },
                 "url": {
                     "description": "URL is a page a person can open.",
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.Source": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SearchFilter"
+                    }
+                },
+                "i18n": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/contract.ModelSearchText"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is \"builtin\" or \"addon\".",
+                    "type": "string"
+                },
+                "lists_latest": {
+                    "type": "boolean"
+                },
+                "running": {
+                    "description": "Running is false for an add-on that is installed and not running.",
+                    "type": "boolean"
+                },
+                "sorts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
                     "type": "string"
                 }
             }

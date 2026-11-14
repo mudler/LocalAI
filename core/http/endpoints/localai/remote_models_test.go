@@ -91,7 +91,7 @@ var _ = Describe("remote model routes", func() {
 			{ID: "acme/Other", URI: "huggingface://acme/Other", Tags: []string{"safetensors"}},
 		}})
 		s.Register(&stubSearchProvider{name: "pirateface", res: []modelsearch.Result{{ID: "acme/Peer", URI: "pirateface://acme/Peer"}}})
-		e.GET("/api/models/search", ModelSearchEndpoint(s, cl))
+		e.GET("/api/models/search", ModelSearchEndpoint(modelsearch.NewHost(s, nil, nil), cl))
 	})
 	AfterEach(func() { hf.Close() })
 
@@ -234,7 +234,7 @@ var _ = Describe("remote model routes", func() {
 				{Name: "tiny", DownloadFiles: []config.File{{URI: "huggingface://acme/Tiny-GGUF/tiny-q4_k_m.gguf"}}},
 				{Name: "peer", Description: "Imported from pirateface://acme/Peer"},
 			})
-			rec := get("/api/models/search?q=x")
+			rec := get("/api/models/search?q=x&providers=huggingface,pirateface")
 			Expect(rec.Code).To(Equal(http.StatusOK))
 			var out modelsearch.Response
 			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())

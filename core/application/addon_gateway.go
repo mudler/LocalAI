@@ -1075,7 +1075,7 @@ func (s *studioAddons) AddonProviders(ctx context.Context, user string) ([]studi
 		if denied[a.AddonID] {
 			continue
 		}
-		out = append(out, studio.AddonProviderSet{AddonID: a.AddonID, Title: a.Title, Description: a.Description, Provides: a.Provides, Running: a.Running})
+		out = append(out, studio.AddonProviderSet{AddonID: a.AddonID, Title: a.Title, Description: a.Description, Provides: a.Provides, ModelSearch: a.ModelSearch, Running: a.Running})
 	}
 	return out, nil
 }
