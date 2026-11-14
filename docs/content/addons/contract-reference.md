@@ -2900,16 +2900,24 @@ that descriptor after decoding and exit on EOF. EOF is cooperative liveness, not
 an ownership fence: a paused child may not observe it before its owner restarts.
 
 The supervisor requires a private durable `StateRoot` (application default:
-`<addon root>/runtime`). A separately locked, fsynced process ledger records Linux
-boot identity, PID, kernel start time, and incarnation before startup credentials
+`<addon root>/runtime`). The path must be absolute and must not contain a symbolic
+link. A separately locked, fsynced process ledger records the boot identity, PID,
+kernel start time, and incarnation of each child before startup credentials
 are sent. A pending record is persisted **before exec**. A restarted owner recovers
-all recorded children using pidfds, checks exact identity, sends termination via
-the retained handle, and waits for confirmed exit before any replacement launch.
-Reused PIDs are not signaled. Corrupt, incomplete, unreadable, or uncertain pending
+all recorded children, checks exact identity, sends termination, and waits for
+confirmed exit before any replacement launch. Reused PIDs are not signaled.
+Corrupt, incomplete, unreadable, or uncertain pending
 records fail closed; operators must establish that prior children are gone before
-repairing the ledger. Do not delete runtime metadata to bypass recovery. Linux
-with readable `/proc` and pidfd support is currently required; unsupported systems
-refuse runtime startup rather than weaken identity checks. This is not a sandbox
+repairing the ledger. Do not delete runtime metadata to bypass recovery.
+
+How identity is read and how a child is stopped depends on the platform:
+
+| Platform | Identity | Recovery |
+|---|---|---|
+| Linux | `/proc` boot ID and process start time | A pidfd is opened before the identity is read and the signal goes through that handle, so a recycled PID cannot be hit. Readable `/proc` and pidfd support are required. |
+| macOS | `kern.boottime` and the process start time from `kern.proc.pid` (microsecond resolution), read through `sysctl` | The identity is read, then the PID is signaled. macOS has no pidfd, so the check and the signal are two steps. PIDs on macOS rise in sequence and wrap at 99999, so a recycle inside that gap is not realistic, but the gap is not zero. |
+
+Other systems refuse runtime startup rather than weaken identity checks. This is not a sandbox
 or descendant containment: installed code is trusted, and must not detach workers
 outside the supervised process lifetime.
 
@@ -2970,7 +2978,7 @@ If lifecycle publication fails and the manager closes its runtime, that manager
 requires recovery. Status, lifecycle submission, and reconciliation cannot report
 success using retained instance handles. Repair the storage fault, successfully
 close the manager, and create a new owner manager and supervisor to reconcile the
-durable journal. The existing Linux proc/pidfd identity checks still apply;
+durable journal. The same process identity checks as above still apply;
 ambiguous pending launches require operator recovery rather than an unsafe kill.
 
 ## Action tools

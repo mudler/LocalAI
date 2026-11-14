@@ -15,7 +15,7 @@ This tutorial puts the add-on inside a checkout of the LocalAI repository, like 
 
 - A checkout of the LocalAI repository.
 - Go 1.26 or newer. The `go.mod` file of the repository names the exact version.
-- Linux on amd64. The manifest below names that platform.
+- Linux on amd64, or macOS on Apple silicon. The manifest below names Linux on amd64; on a Mac, write `darwin` and `arm64`.
 
 ## 1. Make the folders
 

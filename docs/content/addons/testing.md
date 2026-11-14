@@ -404,6 +404,12 @@ skip them:
 | UI unit tests of every add-on, the host UI unit tests, eslint and the locale ratchet | `tests-ui-unit.yml` (`make test-ui-unit`) |
 | Add-on pages in the browser against stubbed routes, and the shipped bundle | `tests-ui-e2e.yml` |
 
+The specs of `core/services/addons/runtime` (the process ledger, orphan recovery
+and the real supervisor with a fixture add-on) also build and run on macOS. No CI
+job runs them there yet: on a Mac, run
+`go test -count=1 ./core/services/addons/runtime/`. The first start of a new
+executable on macOS takes about half a second, so the specs wait longer there.
+
 The suites of `addons-tests.yml` need the integration build, so each group runs
 `prepare.sh --prepare` and `--integration` once, then `verify.sh` for each of
 its suites. Run the same way locally with
