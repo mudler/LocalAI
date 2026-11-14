@@ -144,6 +144,8 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Build the UI of this add-on
+        # A data-only add-on has no ui directory and nothing to build.
+        if: hashFiles(format('addons/{0}/ui/build.mjs', matrix.addon)) != ''
         env:
           ADDON: ${{ matrix.addon }}
         run: node "addons/$ADDON/ui/build.mjs"
@@ -288,6 +290,8 @@ jobs:
         with:
           node-version: '22'
       - name: Build the UI
+        # A data-only add-on has no ui directory and nothing to build.
+        if: hashFiles(format('addons/{0}/ui/build.mjs', matrix.addon)) != ''
         env:
           ADDON: ${{ matrix.addon }}
         run: |
