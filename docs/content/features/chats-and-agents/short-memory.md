@@ -2,6 +2,7 @@
 url: "/features/short-memory/"
 title: "Short memory"
 weight: 40
+devbuild: feature
 ---
 
 Memory is built into LocalAI. It gives your chats a few notes about you. The model reads

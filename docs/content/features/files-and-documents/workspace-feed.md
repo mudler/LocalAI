@@ -3,6 +3,7 @@ url = "/features/workspace-feed/"
 disableToc = false
 title = "See what changed in your files"
 weight = 40
+devbuild = "feature"
 +++
 
 The change feed shows which of your files changed, as it happens. A client reads it as an event stream. A

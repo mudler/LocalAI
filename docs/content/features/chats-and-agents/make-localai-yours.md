@@ -3,6 +3,7 @@ url = "/features/make-localai-yours/"
 disableToc = false
 title = "Make LocalAI yours"
 weight = 100
+devbuild = "feature"
 +++
 
 You can change how LocalAI looks and behaves for you by asking for it in a

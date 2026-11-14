@@ -3,6 +3,7 @@ url = "/features/chats-agents/"
 disableToc = false
 title = "Saved agents, triggers and inbox"
 weight = 20
+devbuild = "feature"
 +++
 
 A saved agent is a definition you can start a [chat]({{% relref "/features/chats-and-agents/chats" %}}) with.

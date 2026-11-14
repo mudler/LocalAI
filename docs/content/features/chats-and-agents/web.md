@@ -5,6 +5,7 @@ title = "Search the web in chats"
 weight = 90
 description = "A chat can search the web and read web pages with two built-in tools, with no add-on and no key."
 keywords = ["web search","browse","chat"]
+devbuild = "feature"
 +++
 
 A [chat]({{% relref "/features/chats-and-agents/chats" %}}) can search the web and read web pages. LocalAI

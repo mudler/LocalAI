@@ -3,6 +3,7 @@ disableToc = false
 title = "Users and sharing"
 description = "Accounts, roles, per-user features, and how people share things in LocalAI."
 weight = 30
+devbuild = "addon"
 +++
 
 LocalAI can run with no accounts or with accounts. This page explains what changes, and how sharing works.

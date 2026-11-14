@@ -6,6 +6,7 @@ weight: 40
 aliases:
   - "/installation/"
 keywords: ["install", "script", "docker", "macos", "linux", "kubernetes", "setup"]
+devbuild: install
 ---
 
 Start with the install script on Linux, or on a Mac with Apple Silicon. On Windows, on an Intel Mac, in a cluster, or when you want to keep LocalAI apart from the host, use a container. On a Mac you can also use the app.

@@ -3,6 +3,7 @@ url = "/features/chats/"
 disableToc = false
 title = "Chats"
 weight = 10
+devbuild = "feature"
 +++
 
 Chats are conversations that the server keeps. You can keep typing while the

@@ -5,6 +5,7 @@ title = "Knowledge (collections)"
 weight = 30
 description = "Knowledge collections: upload documents, search them by meaning, and let an agent use them."
 keywords = ["knowledge","collections","rag","search","embeddings"]
+devbuild = "feature"
 +++
 
 Knowledge is the part of LocalAI that holds collections of documents that agents

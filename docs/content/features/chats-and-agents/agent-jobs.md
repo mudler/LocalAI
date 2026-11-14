@@ -3,6 +3,7 @@ url = "/features/agent-jobs/"
 disableToc = false
 title = "Agent tasks and jobs"
 weight = 30
+devbuild = "feature"
 +++
 
 A **task** is a saved prompt template. A **job** is one run of a task: a

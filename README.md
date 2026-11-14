@@ -19,8 +19,8 @@
 
 **LocalAI** is your own AI, on your own hardware, ready to work for you. It is open source. Chat with open models, run agents that use your files, and work on documents with your team. It also does voice, images, video and more. No GPU required.
 
-- **Agents, documents and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, collections and skills. Users, roles, quotas and shared folders for a team.
-- **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps (Telegram, Slack, Discord), mail, calendar and more.
+- **Agents, documents and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, collections and skills. Users, roles, quotas and shared folders for a team (development builds).
+- **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps (Telegram, Slack, Discord), mail, calendar and more (development builds).
 - **Every kind of model, one API**: text, vision, voice, images, video and embeddings, in the OpenAI, Anthropic and ElevenLabs formats, with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
 - **Your hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, NVIDIA Jetson or CPU only. The server, the models and your files stay on your own machines.
 
@@ -44,6 +44,8 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ```
 
 **macOS app**: download [LocalAI.dmg](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg). The DMG is signed with an Apple Developer ID and notarized.
+
+The script, the app and the latest container image give version 4.12.1. The add-ons, Office, Sandbox and team features described below need a development build or a newer release.
 
 Then open `http://localhost:8080`. To restart an existing container, use `docker start -i local-ai`. More ways to install: [Install LocalAI](https://localai.io/docs/start/install/).
 
@@ -103,7 +105,7 @@ More in the [Quickstart](https://localai.io/docs/start/quickstart/).
 | Area | What it gives you |
 |---|---|
 | [Chats](https://localai.io/docs/features/chats/) | Conversations the server keeps, with saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/), skills and files, triggers, and chat apps |
-| [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, Telegram, Slack, Discord, mail, calendar and more install from a library and run beside the server |
+| [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, Telegram, Slack, Discord, mail, calendar and more install from a library and run beside the server (development builds) |
 | [Text generation](https://localai.io/docs/models/capabilities/text/text-generation/) | `llama.cpp`, `transformers`, `vllm` ... [and more](https://localai.io/docs/models/compatibility-table/), with an [OpenAI-compatible tools API](https://localai.io/docs/api/openai-functions/) and [constrained grammars](https://localai.io/docs/models/capabilities/text/constrained_grammars/) |
 | Speech | [Text to audio](https://localai.io/docs/models/capabilities/audio/text-to-audio/), [audio to text](https://localai.io/docs/models/capabilities/audio/audio-to-text/), voice activity detection (Silero-VAD) and the [Realtime API](https://localai.io/docs/api/openai-realtime/) for speech-to-speech |
 | Images and vision | [Image generation](https://localai.io/docs/models/capabilities/vision/image-generation/), the [Vision API](https://localai.io/docs/models/capabilities/vision/gpt-vision/) and [object detection](https://localai.io/docs/models/capabilities/vision/object-detection/) |
@@ -143,7 +145,10 @@ We also maintain [apex-quant](https://github.com/localai-org/apex-quant), a per-
 
 ## Latest news
 
-<!-- LocalAI 5.0: add its entry here, newest first, when the release post is published: month, one line, and a link to the post. Do not add a date or a link before the post exists. -->
+<!-- Next release: add its entry here, newest first, when the release post is published: month, one line, and a link to the post. Do not add a date or a link before the post exists. -->
+
+- **October 2026**: **LocalAI 4.12.1** — A security fix for the policy on URLs that users give. Redirect targets are now checked on every hop. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.1)
+- **October 2026**: **LocalAI 4.12.0** — A redesigned web UI, streaming voice answers, decision routing with the `/v1/decisions` API, image upscaling in Studio and Qdrant stores. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.0)
 
 - **October 2026**: **LocalAI 4.11.0** — Audio scenes with transcription, speaker labels, and sound detection. Also the Decisions API (`/v1/systemone`), model failover chains, signed OCI galleries, and Kimodo text-to-animation. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.11.0)
 - **September 2026**: **LocalAI 4.10.0** — A fleet operations dashboard, one credentials file for private model sources, and `local-ai benchmark` for measuring model latency and throughput. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.10.0)

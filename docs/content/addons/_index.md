@@ -4,6 +4,10 @@ description = "Install, use and build add-ons."
 weight = 4
 type = "chapter"
 icon = "extension"
+devbuild = "addon"
+
+[cascade]
+  devbuild = "addon"
 +++
 
 An add-on is a separate program that gives LocalAI new tools, such as reading a mailbox, making an office document or running code in an isolated runtime. The host installs it, starts it and limits what it may do.

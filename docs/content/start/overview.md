@@ -8,6 +8,7 @@ author = "Ettore Di Giacinto"
 icon = "info"
 weight = 20
 aliases = ["/overview/"]
+devbuild = "install"
 +++
 
 

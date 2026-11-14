@@ -6,6 +6,7 @@ description = "Make and read Word, Excel, PowerPoint and PDF files from a chat w
 weight = 20
 aliases = ["/features/simple-office/"]
 keywords = ["office", "word", "docx", "excel", "xlsx", "powerpoint", "pptx", "pdf", "documents", "simple office"]
+devbuild = "addon"
 +++
 
 A chat can make and edit Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`) and PDF files. There are two ways. Both are add-ons from the add-on library. Neither is built in. LocalAI has no built-in fallback when none is installed.

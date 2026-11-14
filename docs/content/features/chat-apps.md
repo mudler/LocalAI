@@ -6,6 +6,7 @@ description = "Connect Telegram, Slack and Discord bots to a saved agent, and ma
 weight = 5
 aliases = ["/features/connectors-and-agents/"]
 keywords = ["connectors", "telegram", "slack", "discord", "bot", "chat apps", "mcp servers"]
+devbuild = "addon"
 +++
 
 A connector binds a chat platform to a saved agent. People write to the bot, and the agent answers. Telegram, Slack and Discord are add-ons from the add-on library. In the current development builds they are in the development channel.

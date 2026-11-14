@@ -4,6 +4,7 @@ disableToc = false
 title = "Files and shared folders"
 description = "Keep your files in LocalAI, share folders with other people, and use the files in a chat."
 weight = 10
+devbuild = "feature"
 +++
 
 LocalAI keeps a workspace for each user. It holds your files and folders, the files that a chat reads or writes, and a Trash with a history. The **Files** page in the sidebar is the browser for it.

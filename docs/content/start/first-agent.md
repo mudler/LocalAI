@@ -6,6 +6,7 @@ weight = 130
 aliases = ["/getting-started/first-agent/"]
 description = "Make a saved agent with instructions and tool grants, chat with it, and let a schedule run it."
 keywords = ["agent","first agent","triggers","tutorial"]
+devbuild = "feature"
 +++
 
 A saved agent is a set of instructions and exact lists of what a chat may use. It ships inside LocalAI and is on by default. If LocalAI runs and a model is installed, you have everything you need.
