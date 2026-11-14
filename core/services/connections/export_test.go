@@ -53,3 +53,22 @@ func EntryUpstreamURL(kind Kind, rawURL string) (string, error) {
 	}
 	return t.entryUpstreamURL(), nil
 }
+
+type ModelDiff = modelDiff
+
+var (
+	SanitizeName    = sanitizeName
+	ConnectionSlug  = connectionSlug
+	ChooseEntryName = chooseEntryName
+	ModelDiffOf     = diffModels
+	HashBytes       = hashBytes
+)
+
+// BuildEntry returns the YAML of an entry for a remote.
+func BuildEntry(kind Kind, rawURL, name, connectionID string, m UpstreamModel) ([]byte, error) {
+	t, err := parseTarget(kind, rawURL, "")
+	if err != nil {
+		return nil, err
+	}
+	return buildEntry(t, name, connectionID, m)
+}

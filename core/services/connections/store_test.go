@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/mudler/LocalAI/core/services/connections"
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -121,7 +122,7 @@ func storeContract(newStore func() connections.Store) {
 
 func openSQLite() *gorm.DB {
 	path := filepath.Join(GinkgoT().TempDir(), "c.db")
-	db, err := sqlitedb.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{})
+	db, err := sqlitedb.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() {
 		if sqlDB, err := db.DB(); err == nil {
