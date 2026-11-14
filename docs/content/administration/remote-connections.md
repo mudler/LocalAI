@@ -164,7 +164,7 @@ LocalAI compares the remote list with your entries when you select
   of the connection. LocalAI does not add it. You add it when you choose: the
   card of the connection shows the new models, and you tick them and select
   **Add selected**. **Not now** hides the list until a new model arrives or
-  you open the page again.
+  you reload the page.
 - A model that an entry uses, and that the remote no longer lists, stays as an
   entry. The card of the connection counts it as no longer listed, and in
   **Installed** the state of the entry is **Unavailable upstream**. LocalAI
@@ -269,6 +269,9 @@ return `503`, and an entry that needs a connection fails to load with the error
 
 All routes need an administrator. Bodies and answers are JSON. The key is
 write-only: you can send it, and no route returns it.
+
+The routes are part of the model management routes. If you start LocalAI with
+`--disable-gallery-endpoint`, the routes do not exist and answer `404`.
 
 | Method and path | Purpose | Success |
 |---|---|---|
