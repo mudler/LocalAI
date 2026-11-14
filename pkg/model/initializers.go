@@ -488,9 +488,7 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		}
 		if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
 			client = newConnectionEvictingClient(client, o.modelID, func() {
-				if err := ml.ShutdownModel(o.modelID); err != nil {
-					xlog.Warn("Failed to shut down remote model after connection error", "model", o.modelID, "error", err)
-				}
+				ml.evictRemoteStub(o.modelID)
 			})
 		}
 		return client, nil

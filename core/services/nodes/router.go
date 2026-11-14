@@ -2054,7 +2054,14 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 		defer closeClient(client)
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		ok, _ := client.HealthCheck(checkCtx)
+		ok, err := client.HealthCheck(checkCtx)
+		// A probe that only timed out means the backend is busy serving
+		// inference, not dead; a dead one fails fast with a connection error.
+		// Same rule as ModelLoader.checkIsLoaded.
+		if !ok && ctx.Err() == nil && errors.Is(checkCtx.Err(), context.DeadlineExceeded) &&
+			status.Code(err) != codes.Unavailable {
+			return true
+		}
 		return ok
 	})
 }
