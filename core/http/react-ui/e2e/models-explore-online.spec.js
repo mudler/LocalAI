@@ -249,6 +249,25 @@ test.describe('Explore: online sources', () => {
     expect(seen.imports[0].preferences).toEqual({ quantizations: 'q4_k_m' })
   })
 
+  test('an install pressed while the file list is still loading waits for it instead of failing', async ({ page }) => {
+    await mockLedger(page)
+    const seen = await mockOnline(page)
+    // Registered after mockOnline, so it answers first, slowly.
+    await page.route(/\/api\/models\/remote\/files\?/, async route => {
+      const uri = new URL(route.request().url()).searchParams.get('uri')
+      await new Promise(r => setTimeout(r, 1500))
+      return route.fulfill({ json: { ...FILES('acme/Big-GGUF'), uri } })
+    })
+    await page.goto('/app/models')
+    await chip(page, 'huggingface').click()
+    await page.getByTestId('models-search').fill('big')
+    await expect(rows(page).first()).toBeVisible({ timeout: 10_000 })
+    await row(page, 'huggingface:acme/Big-GGUF').click()
+    await pane(page).getByTestId('discover-install').click()
+    await expect.poll(() => seen.imports.length, { timeout: 10_000 }).toBe(1)
+    await expect(page.getByText('Could not read the file list')).toHaveCount(0)
+  })
+
   test('a gated Hugging Face repository cannot be installed, from the row or from the inspector', async ({ page }) => {
     const seen = await openSource(page, 'huggingface', 'tiny')
     const locked = row(page, 'huggingface:acme/Locked-GGUF')

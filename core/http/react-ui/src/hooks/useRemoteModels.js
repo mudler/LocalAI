@@ -111,11 +111,17 @@ export function useRemoteDetails() {
     pump()
   }, [pump])
 
+  // The lookups in flight, by key. A second ask for a listing that is still
+  // loading (an install pressed right after the row was selected) waits for
+  // that lookup instead of getting an empty answer.
+  const inflight = useRef(new Map())
   const requestFiles = useCallback((key, uri) => {
     const cur = filesRef.current[key]
+    if (cur?.data) return Promise.resolve(cur.data)
+    if (inflight.current.has(key)) return inflight.current.get(key)
     if (cur && !cur.error) return Promise.resolve(cur.data)
     setFiles(prev => ({ ...prev, [key]: { loading: true } }))
-    return modelsApi.remoteFiles(uri)
+    const lookup = modelsApi.remoteFiles(uri)
       .then(data => {
         if (alive.current) setFiles(prev => ({ ...prev, [key]: { data } }))
         return data
@@ -124,6 +130,9 @@ export function useRemoteDetails() {
         if (alive.current) setFiles(prev => ({ ...prev, [key]: { error: remoteErrorKind(err), message: err?.message || '' } }))
         return null
       })
+      .finally(() => { inflight.current.delete(key) })
+    inflight.current.set(key, lookup)
+    return lookup
   }, [])
 
   return { files, estimates, pending, requestFiles, requestEstimate }
