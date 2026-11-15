@@ -42,7 +42,7 @@ Each model kind needs a backend that serves it. LocalAI downloads the backend th
 
 ## Projects
 
-A project groups chats around one folder in your own files. The folder holds the material of the project, and a `memory/` folder of notes that the chats of the project read. The model can propose a note, and you confirm it before it is saved. A project can set defaults for new chats (skills, add-ons, MCP servers, connectors and collections), you can make an agent from a project, and you can share the project folder with a teammate as read only or read and write. **Projects** is in the sidebar, and the **Project** chip on Home starts a chat in one. A project is a lens for chats, not a security boundary: a chat can still reach the same files through your home folder. Read the [Projects docs](/docs/features/chats-connectors/#projects).
+A project groups chats around one folder in your own files. The folder holds the material of the project, and a `memory/` folder of notes that the chats of the project read. The model can propose a note, and you confirm it before it is saved. A project can set defaults for new chats (skills, add-ons, MCP servers, connectors and collections), you can make an agent from a project, and you can share the project folder with a teammate as read only or read and write. **Projects** is in the sidebar, and the **Project** chip on Home starts a chat in one. A project is a lens for chats, not a security boundary: a chat can still reach the same files through your home folder. Read the [Projects docs](/docs/features/projects/).
 
 ## The desktop app
 
