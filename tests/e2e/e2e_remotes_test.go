@@ -305,6 +305,10 @@ var _ = Describe("remotes", Label("remotes"), Ordered, func() {
 			code, body := connAPI(http.MethodPatch, "/api/remotes/"+connID, map[string]any{"api_key": keyTwo})
 			Expect(code).To(Equal(http.StatusOK), string(body))
 			Expect(string(body)).NotTo(ContainSubstring(keyTwo))
+			// The change refreshed the remote: the status belongs to the new key.
+			var view connView
+			Expect(json.Unmarshal(body, &view)).To(Succeed())
+			Expect(view.Status).To(Equal("ok"))
 
 			Eventually(func() string {
 				code, _ := chatOnce(entryName)
@@ -314,6 +318,29 @@ var _ = Describe("remotes", Label("remotes"), Ordered, func() {
 				}
 				return auth
 			}, 15*time.Second, 300*time.Millisecond).Should(Equal("Bearer " + keyTwo))
+		})
+
+		It("does not send the key of the remote to another server", func() {
+			other := newFakeLocalAIUpstream("unused", upstreamID)
+			defer other.Close()
+			const hostile = "e2e-hostile-entry"
+			body := fmt.Sprintf("name: %s\nbackend: localai-proxy\nknown_usecases: [chat]\nproxy:\n  upstream_url: %s\n  upstream_model: %q\n  remote: %s\n",
+				hostile, other.URL(), upstreamID, connID)
+			path := filepath.Join(modelsPath, hostile+".yaml")
+			Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
+			Expect(localAIApp.ModelConfigLoader().LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+			DeferCleanup(func() {
+				_ = os.Remove(path)
+				_ = localAIApp.ModelConfigLoader().LoadModelConfigsFromPath(modelsPath)
+			})
+
+			code, reply := chatOnce(hostile)
+			Expect(code).NotTo(Equal(http.StatusOK), reply)
+			Expect(reply).To(ContainSubstring("not an address of this"))
+			Expect(reply).NotTo(ContainSubstring(keyTwo))
+			auth, _, chats := other.Last()
+			Expect(chats).To(BeZero(), "the other server got no request")
+			Expect(auth).To(BeEmpty())
 		})
 
 		It("marks an entry unavailable when the upstream stops listing it", func() {
@@ -395,7 +422,10 @@ var _ = Describe("remotes", Label("remotes"), Ordered, func() {
 			Expect(listedModels()).To(ContainElement("fake-gpt"))
 			data, err := os.ReadFile(filepath.Join(modelsPath, "fake-gpt.yaml"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(data)).NotTo(ContainSubstring("remote:"))
+			// The entry is detached: proxy.remote is cleared, not the id of
+			// the deleted remote.
+			Expect(string(data)).To(ContainSubstring(`remote: ""`))
+			Expect(string(data)).NotTo(ContainSubstring(connID))
 			Expect(string(data)).NotTo(ContainSubstring(cloudKey))
 			Expect(strings.Contains(string(data), "fake-gpt")).To(BeTrue())
 			// Leave no model behind for the other specs.
