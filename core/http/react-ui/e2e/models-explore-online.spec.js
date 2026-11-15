@@ -129,7 +129,14 @@ async function openSource(page, source, term, options) {
   await chip(page, source).click()
   if (term) {
     await page.getByTestId('models-search').fill(term)
-    if (options?.waitRows !== false) await expect(rows(page).first()).toBeVisible({ timeout: 10_000 })
+    if (options?.waitRows !== false) {
+      // The page applies the term after a pause, and a new term starts the
+      // list again at its first page. The rows of the search before it look the
+      // same, so wait for the request of the term: a "Load more" pressed
+      // before it would be undone when the term arrives.
+      await expect.poll(() => seen.search.some(q => q.get('q') === term)).toBe(true)
+      await expect(rows(page).first()).toBeVisible({ timeout: 10_000 })
+    }
   }
   return seen
 }
@@ -541,7 +548,12 @@ test.describe('Explore: All covers the online sources', () => {
     const seen = await searchAll(page, 'qwen', { results: many })
     await expect(row(page, 'huggingface:acme/Model-0')).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('[data-entity^="huggingface:"]')).toHaveCount(10)
+    // Both sources are asked together, but their requests reach the mock at
+    // their own time on a busy machine: wait until Pirate Face has been asked
+    // and has answered, so that a request counted later can only be a new one.
+    await expect(row(page, 'pirateface:acme/Peer')).toBeVisible()
     const pfAsked = seen.search.filter(q => q.get('providers') === 'pirateface').length
+    expect(pfAsked).toBe(1)
     await page.locator('tr[data-section="huggingface"]').getByTestId('discover-section-more').click()
     await expect(page.locator('[data-entity^="huggingface:"]')).toHaveCount(20)
     expect(seen.search.at(-1).get('limit')).toBe('20')
