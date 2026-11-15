@@ -83,6 +83,19 @@ trap 'kill $FEED_PID 2>/dev/null || true' EXIT
 export APP_EXE SIGNAL SMOKE_DIR FEEDLOG SMOKE_SELF_UPDATE SMOKE_TIMEOUT
 export HOME="$SMOKE_DIR/home" XDG_CONFIG_HOME="$SMOKE_DIR/home/.config" TMPDIR="$SMOKE_DIR/tmp"
 export LOCALAI_LAUNCHER_SIGNAL_FILE="$SIGNAL"
+# The launcher keeps its secrets in the login keychain. A scratch HOME has
+# none, and macOS then waits for a dialog that nobody can answer, so the app
+# never opens its window. Give it an unlocked keychain of its own. Only on a CI
+# runner (CI is set): the default keychain of a developer's Mac stays alone.
+if [ "$OS" = mac ] && [ -n "${CI:-}" ]; then
+  KEYCHAIN="$HOME/Library/Keychains/smoke.keychain-db"
+  mkdir -p "$HOME/Library/Keychains"
+  security create-keychain -p smoke "$KEYCHAIN"
+  security set-keychain-settings "$KEYCHAIN"
+  security unlock-keychain -p smoke "$KEYCHAIN"
+  security list-keychains -d user -s "$KEYCHAIN"
+  security default-keychain -d user -s "$KEYCHAIN"
+fi
 # A development build checks a feed only when one is set explicitly, so the
 # "off" run sets none: it proves that a development build as users get it
 # never asks a feed.
@@ -97,7 +110,7 @@ export LOCALAI_LAUNCHER_ENDPOINT="http://127.0.0.1:$((SMOKE_PORT + 1))"
 # The checks. On Linux, xvfb-run starts and stops the display around them.
 INNER='
   now_ms() { node -e "process.stdout.write(String(Date.now()))"; }
-  fail() { echo "FAIL: $*"; echo "--- startup signals"; cat "$SIGNAL" 2>/dev/null || echo "(none)"; echo "--- app log"; cat "$SMOKE_DIR/app.log" 2>/dev/null || true; kill -KILL $wrapper 2>/dev/null || true; exit 1; }
+  fail() { echo "FAIL: $*"; echo "--- startup signals"; cat "$SIGNAL" 2>/dev/null || echo "(none)"; if [ "$(uname -s)" = Darwin ] && kill -0 $wrapper 2>/dev/null; then echo "--- where the app waits"; sample $wrapper 3 2>&1 | head -60 || true; fi; echo "--- app log"; cat "$SMOKE_DIR/app.log" 2>/dev/null || true; kill -KILL $wrapper 2>/dev/null || true; exit 1; }
   t0=$(now_ms)
   "$APP_EXE" "$@" > "$SMOKE_DIR/app.log" 2>&1 &
   wrapper=$!
