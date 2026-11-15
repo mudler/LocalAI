@@ -29,7 +29,7 @@ remote writes that kind of config for you.
 
 | Kind | Server behind the remote | Backend of the entries | Models you can add | Key |
 |---|---|---|---|---|
-| `localai` | Another LocalAI | `localai-proxy` | Every model the server lists, for every modality it reports | Optional |
+| `localai` | Another LocalAI | `localai-proxy` | Every model the server lists, with the modalities it reports (see below) | Optional |
 | `openai` | An OpenAI-compatible service | `cloud-proxy` | Chat models | Optional |
 | `anthropic` | Anthropic, or a gateway for it | `cloud-proxy` | Chat models | Required |
 
@@ -37,7 +37,11 @@ remote writes that kind of config for you.
 ids. It then asks `GET /v1/models/capabilities` to learn what each model does,
 and writes that as `known_usecases` in the entry. If the server does not
 answer the second call, LocalAI sets `chat` for every model. LocalAI keeps only
-usecases that `known_usecases` accepts. If none is left, it sets `chat`.
+the usecases that it knows. It drops modifiers such as `tools` and
+`thinking`. It also drops `decisions`, `score` and `token_classify`, because
+these reserve a model for a local primitive. If no usecase is left, LocalAI
+sets `chat`. So a model that the server reports only as `score` becomes a chat
+entry here.
 
 **`openai`.** LocalAI asks `GET <address>/models`. The OpenAI listing does not
 say what a model does, so LocalAI judges by name. It leaves out ids that
@@ -129,18 +133,28 @@ the name of the entry does not change what that server receives.
 
 ## How LocalAI keeps the key
 
-- You enter the key once, on the remote.
-- LocalAI seals the key at rest with AES-256-GCM. The seal is tied to the
-  remote, so a sealed value copied to another record does not open.
+- You enter the key once, on the remote. The key must be printable ASCII,
+  with no spaces or line breaks.
+- LocalAI seals the key in the store of the remotes with AES-256-GCM. The
+  seal is tied to the remote, so a sealed value copied to another record does
+  not open.
 - The API never returns the key. A remote shows `key_set: true` or
   `false` only.
-- LocalAI does not write the key to a log, to an error message or to an
-  entry file.
+- LocalAI does not write the key to a log, to an error message, to an
+  entry file or to the node registry of a cluster.
 - An entry holds `proxy.remote: <id>` and no credential.
-- LocalAI reads the key when it loads the model, not on every request. The
-  key goes into the load options at that moment.
-- When you change the key of a remote, LocalAI stops the loaded entries
-  of that remote. The next request loads the entry again with the new key.
+- LocalAI reads the key when it sends a load of the model, not on every
+  request. The key goes into the load options at that moment and nowhere else.
+- The key is bound to the address of the remote. LocalAI gives the key to a
+  model only when the `proxy.upstream_url` of the model has the same scheme,
+  host and port as the remote, and its path is the path of the remote or a
+  path below it. The entries that LocalAI creates always match. If you point
+  an entry at another server, the entry fails to load with the error
+  "proxy.upstream_url is not an address of this remote". To use that entry
+  with another server, remove `proxy.remote` from it and give it its own key.
+- When you change the key of a remote, LocalAI stops every loaded model that
+  names the remote in `proxy.remote`. The next request loads the model again
+  with the new key.
 
 To change the key in the web interface, select **Edit** on the card of the
 remote and enter the key in **New API key**. If you leave the field empty,
@@ -151,6 +165,13 @@ address field for an Anthropic remote.
 LocalAI stores the sealing key next to the records. The seal protects a copy of
 one record. It does not protect against a person who can read the whole store.
 Keep the data directory and the database private.
+
+If the sealing key is lost while sealed keys exist, LocalAI does not make a new
+one, because the stored keys would never open again. The log shows an error and
+the remote routes that need the key fail. Restore the key file
+(`remotes.key`) or the database row. In standalone mode LocalAI sets the mode
+of the `remotes` folder to 0700 and of `remotes.json` to 0600 if they are
+looser. It refuses a `remotes.key` that others can read.
 
 `proxy.remote` cannot be combined with `api_key`, `api_key_env` or
 `api_key_file`. LocalAI refuses such a config.
@@ -183,8 +204,13 @@ LocalAI does change an entry in two cases, both after you edit the remote:
 
 - If you change the address, LocalAI updates `proxy.upstream_url` on the
   entries that still hold the old value. An entry that you set to another
-  value is not changed.
-- If you change the key, LocalAI stops the loaded entries, as described above.
+  value is not changed. That entry then fails to load, because the key is
+  bound to the new address.
+- If you change the key, LocalAI stops the loaded models, as described above.
+
+When you change the key or the address, LocalAI also refreshes the remote.
+The status, the last error and the **New** list then belong to the new key
+or address. A change of the name only does not contact the server.
 
 ## Remove a remote
 
@@ -194,15 +220,16 @@ entries:
 
 - **Remove models too.** LocalAI deletes the entry configs and stops the
   models.
-- **Keep the models.** The entries stay as plain models. LocalAI removes
-  `proxy.remote` from each one and stops it. LocalAI does not copy the key
-  into the entry. If the server needs a key, set one in the model editor
+- **Keep the models.** The entries stay as plain models. LocalAI clears
+  `proxy.remote` in each one (the file keeps `remote: ""`) and stops it.
+  LocalAI does not copy the key into the entry. If the server needs a key, set one in the model editor
   (`api_key`, `api_key_env` or `api_key_file`) before you use the entry.
 
 **Keep the models** is the default, in the dialog and in the API. An entry
 that you detached by hand earlier is not touched.
 If LocalAI cannot handle some entries, the remote stays so that you can
-try again.
+try again. If another frontend adds a model to the remote while you remove it,
+the remote also stays. Remove it again.
 
 ## Network and security
 
@@ -212,12 +239,23 @@ try again.
   sends the model requests.
 - Private network addresses are allowed on purpose. You can connect to a
   server on your own network.
-- Cloud metadata addresses are refused. These include `169.254.169.254`,
-  `169.254.170.2`, `fd00:ec2::254`, `168.63.129.16`, `192.0.0.192` and
+- When LocalAI tests or refreshes a remote, it refuses cloud metadata
+  addresses. These are `169.254.169.254`, `169.254.170.2`, `169.254.170.23`,
+  the rest of `169.254.169.0/24` and `169.254.170.0/24`, `fd00:ec2::254`,
+  `fd00:ec2::23`, `fd20:ce::254`, `168.63.129.16`, `192.0.0.192` and
   `100.100.100.200`. The test reports `invalid_url` for them.
-- LocalAI refuses redirects. Use the final address of the server.
-- Each call to the other server has a limit of 15 seconds and 4 MiB of response
-  data. The system proxy settings are not used.
+- LocalAI refuses redirects when it tests or refreshes a remote. Use the final
+  address of the server.
+- When LocalAI tests or refreshes a remote, each call to the other server has
+  a limit of 15 seconds and 4 MiB of response data. The limits apply to each
+  call. A `localai` listing makes two calls. An `anthropic` listing can make up
+  to 20 calls, so it can take up to 5 minutes and read up to 80 MiB. These
+  calls do not use the proxy settings of the environment (`HTTPS_PROXY`).
+- The rules above apply to the test and the refresh only. The model requests
+  go through the proxy backends, which do not refuse metadata addresses and
+  which use the proxy settings of the environment. So model requests, and the
+  key, can go through a proxy that `HTTPS_PROXY` names on the host that runs
+  the backend.
 - An address must start with `http://` or `https://` and must not hold a user
   name, a password, a query or a fragment. Use the key field for the key.
 - The entries of the `openai` and `anthropic` kinds use `cloud-proxy`. The PII
@@ -242,17 +280,30 @@ Remotes follow the rules of [distributed mode]({{% relref "/administration/distr
 - **Entries are normal model configs.** LocalAI writes them through the same
   path as the model editor and tells the other frontends that the model
   changed, as it does for any model edit.
-- **The key is resolved on the frontend.** When a model loads, the frontend
-  reads the key and sends it to the worker in the load options. You do not
-  need a key file or an environment variable on the workers.
+- **The key is resolved when a load is sent.** When a frontend sends a load of
+  an entry to a worker, it reads the key from the shared store and puts it in
+  the load options. A request for a model that is already loaded reads no key.
+  You do not need a key file or an environment variable on the workers.
+- **The node registry does not store the key.** The registry keeps the load
+  options of a model so that the reconciler can start more replicas. LocalAI
+  removes the key from these options before it stores them. When the reconciler
+  starts a replica, LocalAI reads the key again, with the address check. A
+  removed remote makes that load fail with `key unavailable`, and LocalAI sends
+  nothing to the worker.
+- **The key crosses the cluster network.** The frontend sends the load options
+  to the worker over the backend gRPC connection, which is not encrypted. This
+  is the same for every backend secret in the load options. If that is not
+  acceptable, write the entry by hand without `proxy.remote` and use
+  `api_key_file` or `api_key_env` with a file or a variable on the workers.
 - **The worker sends the requests.** The worker that runs the proxy backend
   contacts the other server. Every worker that can serve these models must be
   able to reach its address on the network. The test of the remote runs on the
   frontend only. A passed test does not prove that a worker can reach the
   server.
-- **A key change reaches the workers.** When you change the key, LocalAI
-  stops the loaded entries, including the replicas on workers. The next load
-  uses the new key.
+- **A key change reaches the workers on the next load.** When you change the
+  key, LocalAI stops every loaded model that names the remote, including the
+  replicas on workers. The next load, and the next replica that the reconciler
+  starts, reads the new key.
 
 In standalone mode there is no database. LocalAI keeps the records in the
 files `remotes.json` and `remotes.key` in the `remotes` folder of
@@ -292,7 +343,7 @@ Errors:
 | `404` | The remote does not exist. |
 | `409` | The name is taken. Names are compared without case. |
 | `413` | The body is larger than 1 MiB. |
-| `500` | An internal error. If a change or a removal was only partly done, the message says so. Read the remote again and check the server log. |
+| `500` | An internal error. If a change or a removal was only partly done, the message says so. Read the remote again and check the server log. A create or an adopt that was only partly done is not a `500`: see [Create](#create). |
 | `503` | The store of the remotes did not open at startup. |
 
 An error body has the shape
@@ -337,8 +388,10 @@ curl -s https://localai.example.com/api/remotes \
 
 `usecases` is only used for the `localai` kind. The cloud kinds are always
 chat. The name has at most 80 characters and no control characters. The
-`anthropic` kind needs a key. If you send no models, the remote starts with
-the models it finds in its **New** list.
+`anthropic` kind needs a key. You can send at most 500 models in one call.
+If you send no models, LocalAI creates no entry. The models that the server
+lists are only recorded in the **New** list of the remote, and you add them
+later with the adopt call.
 
 The answer is `201`:
 
@@ -361,8 +414,21 @@ The answer is `201`:
 }
 ```
 
-A skipped model has an `id` and a `reason`. The reasons are `listed twice`,
-`already adopted`, `no free model name` and `a model with that name exists`.
+A skipped model has an `id` and a `reason`. The reasons are:
+
+- `listed twice`
+- `already adopted`
+- `no free model name`
+- `a model with that name exists`
+- `the model name or settings are not valid`
+- `could not build the entry`
+- `could not write the entry`
+
+If LocalAI saved the remote but could not add some models, the answer is still
+`201`. It has a `warning` field with a message, and `created` and `skipped`
+say what was done. Read the remote, then add the missing models with the
+adopt call. Do not send the create again: the name is taken and the answer
+would be `409`. Without a problem, the answer has no `warning` field.
 
 ### List, get, refresh
 
@@ -389,7 +455,9 @@ curl -s -X PATCH https://localai.example.com/api/remotes/<id> \
 
 You can send `name`, `url` and `api_key`. A field that you leave out does not
 change. An empty `api_key` removes the key. The `anthropic` kind refuses an
-empty key.
+empty key. When `url` or `api_key` changes, LocalAI refreshes the remote before
+it answers, so `status`, `last_error`, `new` and `unavailable` in the answer
+are current. A change of `name` only does not refresh.
 
 ### Add models
 
@@ -401,7 +469,8 @@ curl -s https://localai.example.com/api/remotes/<id>/adopt \
 ```
 
 The answer has the same shape as the answer of create. You must send at least
-one model.
+one model and at most 500. If some models were added but the rest failed, the
+answer is still `200` with a `warning` field.
 
 ### Remove
 
@@ -419,7 +488,7 @@ The answer is `204` with no body.
 | Field | Value |
 |---|---|
 | `remote` | `true` when a remote backend (`cloud-proxy` or `localai-proxy`) serves the model. It is `false` for a local model. |
-| `remote_id` | The id of the remote that owns the entry. It is not there for a model without a remote. |
+| `remote_id` | The id of the remote that owns the entry. It is not there for a model without a remote, and an administrator only gets it. |
 | `upstream_state` | `ok`, or `unavailable` when the server no longer lists the model. It is not there for a local model. |
 
 ## Troubleshooting
@@ -446,11 +515,17 @@ step that fails:
 | A model is skipped, "no free model name" | Both the plain name and the prefixed name are in use. Rename the other model, or rename the remote and add the model again. |
 | A kept entry fails with an authentication error | When you keep entries, they lose the key. Set `api_key`, `api_key_env` or `api_key_file` in the model editor. |
 | An entry fails to load with "key unavailable" | The remote is gone or its store did not open. Check the startup log. Create the remote again, or detach the entry and give it its own key. |
+| An entry fails to load with "not an address of this remote" | The `proxy.upstream_url` of the entry is not below the address of the remote, so LocalAI does not send the key. Set the address back, or remove `proxy.remote` and give the entry its own key. |
+| The test says "Only the first 2000 are shown" | The server lists more than 2,000 usable models. LocalAI keeps the first 2,000 by id. Add other models with the adopt call if you know their ids. |
 | A model works in a test but fails in a cluster | A worker cannot reach the address of the server. Test from the worker host. |
 
 ## Limits
 
 - The cloud kinds (`openai` and `anthropic`) create chat entries only.
+- A listing keeps at most 2,000 models, the first by id. A test then says so
+  in its `message`, and a refresh writes a warning to the log. The status
+  stays `ok` and `last_error` stays empty.
+- One create or adopt call adds at most 500 models.
 - LocalAI does not poll the server. New models appear after a refresh or a
   restart. The list of **New** models can be out of date until then.
 - The modalities of a LocalAI server depend on the answer to

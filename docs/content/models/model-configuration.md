@@ -1355,7 +1355,8 @@ remote upstream. The `proxy:` block holds its settings (`upstream_url`,
 `proxy.remote` is the id of a
 [remote]({{% relref "/administration/remotes" %}}). LocalAI sets it when a
 remote creates the model. Do not write it by hand. LocalAI reads the key from
-the remote when the model loads. The field is exclusive with `api_key`,
+the remote when it sends a load of the model, and only when `upstream_url` is
+below the address of the remote. The field is exclusive with `api_key`,
 `api_key_env` and `api_key_file`.
 
 ## Environment Variables Configuration

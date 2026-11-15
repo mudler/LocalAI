@@ -346,7 +346,9 @@ The file is read at backend load time and trimmed of surrounding whitespace.
 [remote]({{% relref "/administration/remotes" %}}). The remotes
 feature sets it on the models that it creates. Do not write it by
 hand. When it is set, LocalAI reads the upstream key from the remote when
-the model loads. You cannot combine it with `api_key`, `api_key_env` or
+it sends a load of the model. The key is bound to the address of the remote:
+if `upstream_url` is not below that address, the model fails to load and gets
+no key. You cannot combine it with `api_key`, `api_key_env` or
 `api_key_file`: LocalAI refuses a config that sets both.
 
 ## Combining with the intelligent router
