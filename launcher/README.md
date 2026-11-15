@@ -201,7 +201,7 @@ gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
 
 | Workflow | Trigger | Permissions | What it does |
 |---|---|---|---|
-| `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; macOS app from the mounted DMG after `codesign`, `spctl` and `stapler` checks), then workflow artifacts. amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-14`. |
+| `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; on macOS the DMG is signed, notarized and stapled, then checked with `codesign`, `spctl` and `stapler`, and the app from the mounted DMG is checked the same way before the smoke), then workflow artifacts. amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-14`. |
 | `launcher-electron-release.yaml` | `workflow_call` from `release.yaml`, every `v*` tag, after GoReleaser | build: read; upload: `contents: write`; check: read | Version from the tag, build with required signing, feed files, upload to the existing release (no checkout, files first, feed files last, `--clobber`), then a check of the attached feed. |
 | `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | `contents: read` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64` (14 days; pull requests: amd64 only, no secrets, 7 days). Manual run: build and smoke only. |
 
@@ -209,7 +209,15 @@ Signing uses the repository secrets `MACOS_CERTIFICATE` and
 `MACOS_CERTIFICATE_PWD` (as `CSC_LINK` and `CSC_KEY_PASSWORD`) and
 `MACOS_NOTARY_KEY`, `MACOS_NOTARY_KEY_ID`, `MACOS_NOTARY_ISSUER_ID` (written to
 a key file for `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`).
-electron-builder makes its own temporary keychain. A release build
+electron-builder makes its own temporary keychain. It signs, notarizes and
+staples the app. It does not notarize the DMG file, so the workflow does that in
+`scripts/sign-dmg.sh` after the build: a Developer ID signature with a secure
+timestamp, `notarytool submit --wait` (the job fails unless the status is
+`Accepted`, and prints the notarization log), then `stapler staple`. The
+script uses its own temporary keychain and key file, and deletes both when it
+ends. The step also writes the new hash and size of the DMG into `latest-mac.yml`,
+and the checksum file is made after stapling, so it matches the file that
+users download. A release build
 (`require-signing: true`) fails when one of the five secrets is missing, so it
 never makes an unsigned release DMG. A development build without the secrets is
 unsigned and says so. A development build also has `dev` in its file names
@@ -274,9 +282,9 @@ State of the packaging work, compared with the earlier Go launcher's packages:
 
 | DMG | State |
 |---|---|
-| 1. Build tool | Done in the workflow, not run yet. electron-builder signs, notarizes and staples. |
+| 1. Build tool | Done in the workflow, not run yet. electron-builder signs, notarizes and staples the app. `scripts/sign-dmg.sh` signs, notarizes and staples the DMG file. |
 | 2. Entitlements | Done. JIT, unsigned executable memory, audio input, camera, and usage strings for the WebUI voice features. Not set any more: the network client and server keys (they apply only in the App Sandbox). Library validation stays on: the server is a separate process. Not tested on a Mac. |
-| 3. Order of staple | Partly. The app is stapled before the DMG is made, and CI checks `codesign`, `spctl` and `stapler validate` on the app from the DMG, but not with the network off. The DMG itself is not notarized. |
+| 3. Order of staple | Partly. The app is stapled before the DMG is made, and CI checks `codesign`, `spctl` and `stapler validate` on the app from the DMG, but not with the network off. The DMG itself is signed, notarized and stapled by `scripts/sign-dmg.sh`, and CI checks it with `codesign`, `spctl` and `stapler validate`. |
 | 4. Updater zip | Done (zip and `latest-mac.yml`). |
 | 5. Architecture | Done. Apple Silicon only. |
 | 6. Dev builds on master | Done. Signed and notarized when the secrets are present; `LAUNCHER_DEV_SIGN_MACOS=false` is the documented fallback. |

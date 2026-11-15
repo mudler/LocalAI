@@ -64,7 +64,7 @@ This setting weakens a protection for every program on the computer, not only fo
 2. Open the DMG and drag **LocalAI Launcher** to your Applications folder.
 3. Start it from your Applications folder.
 
-The app is signed with an Apple Developer ID and notarized. The first time a page uses the microphone or the camera, for example for voice input, macOS asks for your permission. If you never use these features, macOS never asks.
+The DMG and the app in it are signed with an Apple Developer ID and notarized. The first time a page uses the microphone or the camera, for example for voice input, macOS asks for your permission. If you never use these features, macOS never asks.
 
 To check the signature yourself, run these commands:
 

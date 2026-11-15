@@ -20,11 +20,13 @@ The app is the LocalAI desktop launcher. It installs and starts the LocalAI serv
 
 ## Verification
 
-The app inside `LocalAI.dmg` and the `local-ai` server binary are
+`LocalAI.dmg`, the app inside it and the `local-ai` server binary are
 signed with an Apple Developer ID and notarized by Apple, so they launch with no
-quarantine prompt or workaround. To inspect the signature of the app yourself:
+quarantine prompt or workaround. To inspect the signature of the DMG and the app yourself:
 
 ```bash
+spctl --assess --type open --context context:primary-signature --verbose LocalAI.dmg
+xcrun stapler validate LocalAI.dmg
 spctl --assess --type execute --verbose "/Applications/LocalAI Launcher.app"
 codesign --verify --deep --strict --verbose=2 "/Applications/LocalAI Launcher.app"
 ```
