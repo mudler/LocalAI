@@ -45,6 +45,11 @@ export function useServerChat({ seed = null } = {}) {
   const [persistent, setPersistent] = useState(true)
   const [imageModel, setImageModel] = useState('')
   const [files, setFiles] = useState({ on: true, reason: '' })
+  // The chat this page created and the last turn it saw start ({ chat, turn }):
+  // what the preview pane counts as new does not depend on when the page reads
+  // the chat (see useChatPreviewPane).
+  const [madeHere, setMadeHere] = useState(null)
+  const [startedTurn, setStartedTurn] = useState(null)
   const [activeId, setActiveId] = useState(() => seed?.id ?? null)
   const [detail, setDetail] = useState(() => seed?.detail ?? null)
   const [messages, setMessages] = useState([])
@@ -200,8 +205,9 @@ export function useServerChat({ seed = null } = {}) {
     // A turn that failed says so once: the error, not the end of the turn, sounds.
     let turnFailed = false
     const on = {
-      turn_start: () => {
+      turn_start: (e) => {
         epochRef.current++
+        if (e.turn) setStartedTurn({ chat: id, turn: e.turn })
         setError('')
         paceRef.current = { turnAt: Date.now(), firstAt: 0, reqAt: 0, lastAt: 0, reqChunks: 0 }
         setFirstTokenMs(null)
@@ -381,6 +387,7 @@ export function useServerChat({ seed = null } = {}) {
   const createChat = useCallback(async (model, agentId, switches) => {
     setError('')
     const created = await chatsApi.create(model, undefined, agentId, false, switches || undefined)
+    setMadeHere(created.id)
     await refreshList()
     return created.id
   }, [refreshList, setError])
@@ -571,7 +578,7 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, select])
 
   return {
-    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, reconnecting, pausedSteps,
+    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, madeHere, startedTurn, reconnecting, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     // The server resumes an interrupted turn by itself (see utils/turnResume.js).

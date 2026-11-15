@@ -353,7 +353,7 @@ function ChatPage() {
   const pane = useChatPreviewPane({
     chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
-    blocked: pageDock.dock.open,
+    blocked: pageDock.dock.open, madeHere: chat.madeHere || arrival.handoff?.chat?.id || null, startedTurn: chat.startedTurn,
   })
   // The dock and the files pane share the right side, one at a time: the one
   // the person opens last takes it, and the other hides without being closed
