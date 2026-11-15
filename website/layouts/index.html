@@ -3,14 +3,14 @@
 {{- $eng := len hugo.Data.engines.engines -}}
 <main id="main">
 
+<aside class="notice" aria-label="Release status"><div class="shell"><p><b>Coming in the next release.</b> Projects, the desktop app, Office, Sandbox, Team, Pages and add-ons are in the development builds today. The latest release is 4.12.1. <a href="#whats-new">See what is new</a></p></div></aside>
+
 <section class="hero">
   <div class="shell duo">
     <div>
-      <a class="news" href="#whats-new"><b>New</b><span>Projects, the desktop app, Office, Sandbox and Team (development builds)</span><span aria-hidden="true">&rarr;</span></a>
       <h1>Your own AI, on your own hardware.</h1>
       <p class="hero__line">Ready to <span class="hl">work</span> for you.</p>
       <p class="lede">LocalAI is an open-source AI engine and platform. It runs open models for text, images, video, music and speech behind an OpenAI-compatible API, on a laptop, a server or Kubernetes. No GPU required. Chat, agents, files and Office documents come on top.</p>
-      <p class="need need--dev">Projects, the desktop app, Files, Office and chat apps: in development builds, coming in the next release.</p>
       <div class="acts">
         <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
         <a class="btn btn--o" href="#whats-new">See what is new</a>
@@ -40,7 +40,6 @@
       <p class="lede">{{ $f.lede }}</p>
       <ul class="ticks">{{ range $f.points }}<li>{{ replace . "{{engines}}" (string $eng) }}</li>{{ end }}</ul>
       {{ with $f.need }}<p class="need">{{ . }}</p>{{ end }}
-      {{ if $f.dev }}<p class="need need--dev">In development builds, coming in the next release.</p>{{ end }}
       <p class="links">{{ range $f.links }}<a href="{{ if hasPrefix .href "/" }}{{ .href }}{{ else }}{{ .href | relURL }}{{ end }}">{{ .t }} &rarr;</a>{{ end }}</p>
     </div>
     <div class="rv">{{ partial "demo-slot.html" (dict "kind" $f.illus "demo" $f.demo "alt" (printf "%s: a short demo" $f.kicker)) }}</div>
@@ -54,7 +53,7 @@
     <p class="lede">Each card opens the page that says how to use it.</p>
     <div class="cards">
       {{ range hugo.Data.home.cards }}
-      <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p>{{ if .dev }}<span class="devtag">In development builds</span>{{ end }}<span class="go">Docs &rarr;</span></a>
+      <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p><span class="go">Docs &rarr;</span></a>
       {{ end }}
     </div>
   </div>

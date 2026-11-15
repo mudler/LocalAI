@@ -292,3 +292,9 @@ html.rv-on .rv { transition: opacity .3s ease, transform .3s ease; }
 .dl .need { margin: .8rem 0 0; }
 .dl code { overflow-wrap: anywhere; }
 @media (max-width: 480px) { .dl .acts .btn { width: 100%; } }
+
+/* release status strip at the top of the home page */
+.notice { background: var(--dk-accent-wash); border-bottom: 1px solid var(--dk-edge); }
+.notice p { margin: 0; padding: .7rem 0; font-size: .95rem; line-height: 1.45; color: var(--dk-text); }
+.notice b { color: var(--dk-accent-text); }
+.notice a { font-weight: 700; white-space: nowrap; }
