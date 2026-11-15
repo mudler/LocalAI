@@ -337,6 +337,9 @@ test.describe('Files: browsing, selection and actions', () => {
   test('asks before an upload replaces a file: Replace, Keep both or Skip', async ({ page }) => {
     const fs = await stubFs(page)
     await page.goto('/app/files')
+    // The names are checked against the folder the page has read: choose the
+    // files after the list is there, or there is nothing to clash with.
+    await expect(page.getByTestId('ws-row')).toHaveCount(7)
     const input = page.getByTestId('ws-file-input')
     const files = [{ name: 'a-notes.md', mimeType: 'text/plain', buffer: Buffer.from('new') }, { name: 'fresh.txt', mimeType: 'text/plain', buffer: Buffer.from('x') }]
 
@@ -359,6 +362,8 @@ test.describe('Files: browsing, selection and actions', () => {
   test('refuses a file over the server limit before sending it, and says the limit', async ({ page }) => {
     const fs = await stubFs(page, { maxFileSize: 1024 })
     await page.goto('/app/files')
+    // The limit comes with the list: choose the file after the list is there.
+    await expect(page.getByTestId('ws-row')).toHaveCount(7)
     await page.getByTestId('ws-file-input').setInputFiles({ name: 'huge.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(4096) })
     const up = page.getByTestId('ws-upload-row').filter({ hasText: 'huge.bin' })
     await expect(up).toContainText('Larger than the 1.0 KB limit of this server.')
