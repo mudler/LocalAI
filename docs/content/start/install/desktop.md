@@ -14,7 +14,7 @@ The LocalAI launcher is a desktop application. It installs, updates, starts and 
 If you want to run LocalAI on a server, in a container or in a cluster, use the server install methods in the [install guide]({{% relref "/start/install" %}}) instead.
 
 {{% callout style="note" %}}
-The launcher on this page is a preview. It runs beside the older launcher, and each release carries both. The new launcher has `Preview` in its file names. At the cutover it replaces the older launcher and the names change: `LocalAI-Launcher-Preview-x86_64.AppImage` becomes `LocalAI-Launcher-x86_64.AppImage`, and `LocalAI-Launcher-Preview.dmg` becomes `LocalAI.dmg`. The older launcher keeps its file names until then. See [Linux]({{% relref "/start/install/linux" %}}) and [macOS]({{% relref "/start/install/macos" %}}) for the older launcher.
+This app replaces the older LocalAI launcher. If you used the older launcher, download this app once, as described below. Your models, backends and settings stay in `~/.localai`. See [Move from the older launcher](#move-from-the-older-launcher).
 {{% /callout %}}
 
 ## Install on Linux
@@ -23,15 +23,15 @@ Download the AppImage for your CPU and its checksum file from the [releases page
 
 | CPU | File |
 |---|---|
-| x86-64 | `LocalAI-Launcher-Preview-x86_64.AppImage` |
-| ARM64 | `LocalAI-Launcher-Preview-arm64.AppImage` |
+| x86-64 | `LocalAI-Launcher-x86_64.AppImage` |
+| ARM64 | `LocalAI-Launcher-arm64.AppImage` |
 
 Each file has a checksum file with the same name and the suffix `.sha256`. In the folder with the files, check the download, make the AppImage executable and run it:
 
 ```bash
-sha256sum --check LocalAI-Launcher-Preview-x86_64.AppImage.sha256
-chmod +x LocalAI-Launcher-Preview-x86_64.AppImage
-./LocalAI-Launcher-Preview-x86_64.AppImage
+sha256sum --check LocalAI-Launcher-x86_64.AppImage.sha256
+chmod +x LocalAI-Launcher-x86_64.AppImage
+./LocalAI-Launcher-x86_64.AppImage
 ```
 
 You can also start the file from your file manager. The file is about 120 MB, because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
@@ -39,7 +39,7 @@ You can also start the file from your file manager. The file is about 120 MB, be
 An AppImage needs FUSE 2 to mount itself. Ubuntu 24.04 and later do not install it by default. Install it with `sudo apt install libfuse2t64` (Ubuntu 24.04 and later) or `sudo apt install libfuse2` (Ubuntu 22.04). If you cannot install FUSE 2, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
 
 ```bash
-./LocalAI-Launcher-Preview-x86_64.AppImage --appimage-extract-and-run
+./LocalAI-Launcher-x86_64.AppImage --appimage-extract-and-run
 ```
 
 ### Sandbox on Ubuntu 24.04 and later
@@ -60,13 +60,18 @@ This setting weakens a protection for every program on the computer, not only fo
 
 ## Install on macOS
 
-1. Download `LocalAI-Launcher-Preview.dmg` from the [releases page](https://github.com/mudler/LocalAI/releases). It is for Macs with Apple Silicon. There is no build for Intel Macs: use a [container]({{% relref "/start/install/containers" %}}) there. The release also has a `.sha256` file for the DMG. Check it with `shasum -a 256 --check`.
+1. Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) from the [releases page](https://github.com/mudler/LocalAI/releases). It is for Macs with Apple Silicon. There is no build for Intel Macs: use a [container]({{% relref "/start/install/containers" %}}) there. The release also has a `.sha256` file for the DMG. Check it with `shasum -a 256 --check`.
 2. Open the DMG and drag **LocalAI Launcher** to your Applications folder.
 3. Start it from your Applications folder.
 
 The app is signed with an Apple Developer ID and notarized. The first time a page uses the microphone or the camera, for example for voice input, macOS asks for your permission. If you never use these features, macOS never asks.
 
-Do not use `https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg` for the new launcher. That file is the older launcher's DMG. See [macOS]({{% relref "/start/install/macos" %}}).
+To check the signature yourself, run these commands:
+
+```bash
+spctl --assess --type execute --verbose "/Applications/LocalAI Launcher.app"
+codesign --verify --deep --strict --verbose=2 "/Applications/LocalAI Launcher.app"
+```
 
 ## First start
 
@@ -98,7 +103,7 @@ If the address is plain `http`, the launcher shows a warning and a **Remote, not
 
 ## Updates
 
-The launcher checks for a new LocalAI server version once a day. It never installs an update without asking you. Open **Settings > Updates** to check by hand, to see the installed version and to change the update channel. The launcher also updates itself from the same releases. On Linux, **Restart to update** replaces the AppImage file. On macOS it installs the update it downloaded. The older launcher cannot update itself to this one: download this launcher once. It uses the same `~/.localai` folder and the same settings.
+The launcher checks for a new LocalAI server version once a day. It never installs an update without asking you. Open **Settings > Updates** to check by hand, to see the installed version and to change the update channel. The launcher also updates itself from the same releases. On Linux, **Restart to update** replaces the AppImage file. On macOS it installs the update it downloaded.
 
 ### Update channels
 
@@ -114,7 +119,7 @@ When you leave the Development channel with **Back to Stable**, the launcher kee
 
 ## Development builds for testers
 
-Each change to the launcher on the `master` branch makes development builds. They are GitHub Actions artifacts, not release files, so you must sign in to GitHub to download them. Each one contains the AppImage or the DMG and its `.sha256` file. Master builds are kept for 14 days and pull request builds for 7 days. Pull requests have only the x86-64 AppImage. With the GitHub CLI (run `gh auth login` first):
+Each change to the launcher on the `master` branch makes development builds. They are GitHub Actions artifacts, not release files, so you must sign in to GitHub to download them. Each one contains the AppImage or the DMG and its `.sha256` file. The file names have `dev` in them, for example `LocalAI-Launcher-dev-x86_64.AppImage` and `LocalAI-Launcher-dev.dmg`, so you can tell them from release files. Master builds are kept for 14 days and pull request builds for 7 days. Pull requests have only the x86-64 AppImage. With the GitHub CLI (run `gh auth login` first):
 
 ```bash
 # The last runs on master
@@ -127,6 +132,17 @@ A development build has a version like `4.12.2-dev.42`. It never updates itself.
 
 This is different from the Development update channel above, which updates the LocalAI server.
 
+## Move from the older launcher
+
+The older launcher was a different program with the same purpose. It does not update itself to this app, so download the new file once:
+
+1. Quit the older launcher. If you turned on automatic start in it, turn that off first.
+2. Download the new AppImage or the DMG, as described in the install steps above. On Linux, the x86-64 file has the same name as the file of the older launcher, so it replaces that file if you save it in the same folder.
+3. On macOS, the new app is **LocalAI Launcher**. Move the older **LocalAI** app from Applications to the Trash.
+4. Start the new app.
+
+The new app reads the same `~/.localai` folder. Your models, backends and settings stay. From now on the app updates itself from the releases page.
+
 ## Where your data is
 
 The launcher keeps everything for the local server under `~/.localai`:
@@ -138,13 +154,13 @@ The launcher keeps everything for the local server under `~/.localai`:
 
 The launcher also keeps the API key of the local server and other secrets there, in a separate file. The system keyring encrypts them when one exists.
 
-To remove the launcher, delete the AppImage file on Linux, or drag LocalAI from Applications to the Trash on macOS. This does not delete `~/.localai`, so your models stay. To remove all data, delete the `~/.localai` folder after you quit the launcher. The launcher also adds an autostart entry only if you turn on **Launch at login** in Settings. Turn it off before you remove the launcher.
+To remove the launcher, delete the AppImage file on Linux, or drag LocalAI Launcher from Applications to the Trash on macOS. This does not delete `~/.localai`, so your models stay. To remove all data, delete the `~/.localai` folder after you quit the launcher. The launcher also adds an autostart entry only if you turn on **Launch at login** in Settings. Turn it off before you remove the launcher.
 
 ## Troubleshooting
 
 ### The AppImage does not start
 
-If you see an error about FUSE or `libfuse.so.2`, install `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later), or run the file with `--appimage-extract-and-run` as shown above. Check that the file is executable: `chmod +x LocalAI-Launcher-Preview-x86_64.AppImage`.
+If you see an error about FUSE or `libfuse.so.2`, install `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later), or run the file with `--appimage-extract-and-run` as shown above. Check that the file is executable: `chmod +x LocalAI-Launcher-x86_64.AppImage`.
 
 ### The status bar shows "Sandbox off"
 
