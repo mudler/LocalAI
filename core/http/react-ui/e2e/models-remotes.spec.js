@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockLedger, installedSeed } from './ledger-fixtures.js'
 import {
-  mockRemotes, remote, CONNECTED, REJECTED, UNREACHABLE, NEVER, TEST_OK, CLOUD_MODELS,
+  mockRemotes, remote, CONNECTED, REJECTED, UNREACHABLE, NEVER, TEST_OK, CLOUD_MODELS, CLOUD_BARE, LOCALAI_MODELS,
 } from './remotes-fixtures.js'
 
 // The remote side of the Models page: the "Connect a remote" sheet, the
@@ -64,6 +64,61 @@ test.describe('Models page: connect a remote', () => {
     await expect(cards(page)).toHaveCount(1)
     await expect(card(page, 'Anthropic')).toBeVisible()
     expect(state.calls.filter(c => c.method === 'GET').length).toBeGreaterThan(1)
+  })
+})
+
+test.describe('Models page: the sheet shows what a connect left out', () => {
+  const connect = async (page, options) => {
+    const state = await open(page, { remotes: [], url: '/app/models', test: TEST_OK(LOCALAI_MODELS), ...options })
+    await page.getByTestId('models-connect-remote').click()
+    const sheet = page.getByRole('dialog', { name: 'Connect a remote' })
+    await sheet.getByTestId('remote-url').fill('https://office.example.com')
+    await sheet.getByTestId('remote-test').click()
+    await sheet.getByTestId('remote-connect').click()
+    return { state, sheet }
+  }
+  const made = (body, over = {}) => remote({ id: 'remotes-new', name: body.name, entries: ['chat-large'], ...over })
+
+  test('skipped models are listed in the sheet, and the toast carries the count and the first ids', async ({ page }) => {
+    const { sheet } = await connect(page, {
+      create: ({ body }) => ({ json: { remote: made(body), created: ['chat-large', 'chat-small'], skipped: [{ id: 'embed-base', reason: 'no free model name' }, { id: 'speech-to-text', reason: 'could not build the entry' }] } }),
+    })
+    await expect(sheet.getByTestId('remote-outcome')).toBeVisible()
+    await sheet.getByTestId('remote-skipped').getByText('2 models not added').click()
+    await expect(sheet.getByTestId('remote-skipped-item')).toHaveCount(2)
+    await expect(sheet.getByTestId('remote-skipped')).toContainText('No free model name')
+    await expect(sheet.getByTestId('remote-skipped')).toContainText('Could not prepare the model')
+    await sheet.getByTestId('remote-continue').click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByText('Connected office.example.com. Added 2 models.')).toBeVisible()
+    await expect(page.getByText(/2 models were not added\. embed-base, speech-to-text/)).toBeVisible()
+    await expect(page).toHaveURL(/view=remotes/)
+  })
+
+  test('a warning shows in the sheet and Adopt models adds the rest without a second create', async ({ page }) => {
+    const { state, sheet } = await connect(page, {
+      create: ({ body }) => ({ json: { remote: made(body), created: ['chat-large'], skipped: [{ id: 'chat-small', reason: 'could not write the entry' }], warning: 'The remote was saved, but some models could not be added.' } }),
+      adopt: ({ body }) => ({ json: { remote: made({ name: 'office.example.com' }, { entries: ['chat-large', ...body.models.map(m => m.id)] }), created: body.models.map(m => m.id), skipped: [] } }),
+    })
+    await expect(sheet.getByTestId('remote-warning')).toContainText('The remote is saved, but some models were not added.')
+    await expect(sheet.getByTestId('remote-warning')).toContainText('Adopt the missing models')
+    await expect(sheet.getByTestId('remote-connect')).toHaveCount(0)
+    await sheet.getByTestId('remote-adopt').click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect(state.calls.filter(c => c.method === 'POST' && c.path === '/')).toHaveLength(1)
+    expect(state.calls.filter(c => c.path === '/remotes-new/adopt')).toHaveLength(1)
+    await expect(page.getByText('Connected office.example.com. Added 5 models.')).toBeVisible()
+  })
+
+  test('Continue leaves a partial result as saved', async ({ page }) => {
+    const { state, sheet } = await connect(page, {
+      create: ({ body }) => ({ json: { remote: made(body), created: ['chat-large'], skipped: [{ id: 'chat-small', reason: 'could not write the entry' }], warning: 'partial' } }),
+    })
+    await sheet.getByTestId('remote-continue').click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page).toHaveURL(/view=remotes/)
+    await expect(card(page, 'office.example.com')).toBeVisible()
+    expect(state.calls.some(c => c.path === '/remotes-new/adopt')).toBe(false)
   })
 })
 
@@ -224,6 +279,103 @@ test.describe('Remotes tab', () => {
     await open(page, { remotes: [CONNECTED], url: '/app/models?view=remotes', status: { 'GET /': { status: 500, message: 'boom' } } })
     await expect(page.getByTestId('load-error')).toContainText('Could not load your remotes.', { timeout: 15_000 })
     await expect(page.getByText('No remotes connected')).toHaveCount(0)
+  })
+})
+
+test.describe('Remotes tab: a remote that answers but gives nothing to use', () => {
+  const EMPTY = remote({ id: 'remotes-9', name: 'Empty box', entries: [], new: [] })
+  const ERRORED = remote({ id: 'remotes-8', name: 'Odd box', last_error: 'The server answered with a list this server cannot read.' })
+
+  test('the card shows a warning state, not the green one', async ({ page }) => {
+    await open(page, { remotes: [EMPTY, ERRORED], url: '/app/models?view=remotes' })
+    const c = card(page, 'Empty box')
+    await expect(c).toBeVisible({ timeout: 15_000 })
+    await expect(c).toHaveAttribute('data-warning', 'true')
+    await expect(c.getByTestId('remote-status')).toHaveText('Connected · no usable models')
+    await expect(c.locator('.dk-dot--warn')).toHaveCount(1)
+    await expect(c.locator('.dk-dot--ok')).toHaveCount(0)
+    await expect(c.getByTestId('remote-no-usable')).toContainText('No usable models.')
+    await expect(c.getByTestId('remote-no-usable')).toContainText('lists no models this server can use')
+    // An error text from the refresh is shown as it is.
+    await expect(card(page, 'Odd box').getByTestId('remote-no-usable')).toContainText('a list this server cannot read')
+    // A healthy remote has none of it.
+    await expect(page.getByTestId('remote-no-usable')).toHaveCount(2)
+  })
+
+  test('a refresh that works but leaves nothing to use toasts a warning and shows the state', async ({ page }) => {
+    await open(page, {
+      remotes: [CONNECTED], url: '/app/models?view=remotes',
+      refresh: () => ({ json: { entries: [], new: [], unavailable: [], last_error: '' } }),
+    })
+    await page.getByTestId('remote-refresh').click()
+    await expect(page.getByText('Refreshed Office server, but it has no usable models.')).toBeVisible()
+    await expect(page.getByTestId('remote-no-usable')).toBeVisible()
+    await expect(page.getByTestId('remote-status')).toHaveText('Connected · no usable models')
+  })
+
+  test('the edit sheet shows the same warning', async ({ page }) => {
+    await open(page, { remotes: [EMPTY], url: '/app/models?view=remotes' })
+    await page.getByTestId('remote-edit').click()
+    const sheet = page.getByRole('dialog', { name: 'Edit remote' })
+    await expect(sheet.getByTestId('remote-no-usable')).toContainText('No usable models.')
+  })
+
+  test('a new key that still leaves nothing to use says so after saving', async ({ page }) => {
+    await open(page, { remotes: [EMPTY], url: '/app/models?view=remotes' })
+    await page.getByTestId('remote-edit').click()
+    const sheet = page.getByRole('dialog', { name: 'Edit remote' })
+    await sheet.getByTestId('edit-key').fill('new-key')
+    await sheet.getByTestId('edit-save').click()
+    await expect(page.getByText('Saved Empty box, but it still has a problem.')).toBeVisible()
+  })
+
+  test('adding models from the banner shows the skipped ones and their reasons on the card', async ({ page }) => {
+    await open(page, {
+      remotes: [CONNECTED], url: '/app/models?view=remotes',
+      adopt: () => ({ json: { remote: CONNECTED, created: ['chat-small'], skipped: [{ id: 'text-to-speech', reason: 'a model with that name exists' }], warning: 'Some models could not be added.' } }),
+    })
+    await page.getByTestId('remote-new-add').click()
+    const note = page.getByTestId('remote-added-note')
+    await expect(note).toContainText('Some models were not added.')
+    await note.getByText('1 model not added').click()
+    await expect(note).toContainText('text-to-speech')
+    await expect(note).toContainText('A model with that name exists')
+    await expect(page.getByText(/1 model not added: text-to-speech/)).toBeVisible()
+  })
+
+  test('cloud models of the banner carry the Chat tag', async ({ page }) => {
+    const cloud = remote({ id: 'remotes-7', name: 'Hosted', kind: 'openai', url: 'https://api.example.com/v1', entries: [], new: CLOUD_BARE })
+    const state = await open(page, { remotes: [cloud], url: '/app/models?view=remotes' })
+    const banner = page.getByTestId('remote-new')
+    await expect(banner.locator('li').first()).toContainText('Chat', { timeout: 15_000 })
+    await banner.getByRole('checkbox').first().check()
+    await page.getByTestId('remote-new-add').click()
+    await expect.poll(() => state.calls.find(c => c.path === '/remotes-7/adopt')?.body).toEqual({ models: [{ id: 'cloud-model-a', usecases: ['chat'] }] })
+  })
+
+  test('a LocalAI remote whose key is rejected asks for a key that can list models', async ({ page }) => {
+    const rejected = remote({ id: 'remotes-6', name: 'Locked box', status: 'auth_failed', last_error: '' })
+    await open(page, { remotes: [rejected], url: '/app/models?view=remotes' })
+    await expect(page.getByTestId('remote-error')).toContainText('Use a key that can list the models of that server', { timeout: 15_000 })
+  })
+})
+
+test.describe('A server without the remote routes', () => {
+  const missing = { 'GET /': { status: 404, message: 'Not Found' } }
+
+  test('the tab and the button are not offered', async ({ page }) => {
+    await open(page, { remotes: [], url: '/app/models', status: missing })
+    await expect(page.locator('.models-bar__actions').getByRole('button', { name: 'Import model' })).toBeVisible()
+    await expect(page.getByTestId('models-connect-remote')).toHaveCount(0)
+    await expect(page.getByTestId('models-tab-remotes')).toHaveCount(0)
+  })
+
+  test('a link to the tab explains instead of showing an error', async ({ page }) => {
+    await open(page, { remotes: [], url: '/app/models?view=remotes', status: missing })
+    await expect(page.getByTestId('remotes-unsupported')).toContainText('Remotes are not available', { timeout: 15_000 })
+    await expect(page.getByTestId('remotes-unsupported')).toContainText('runs without the model gallery')
+    await expect(page.getByTestId('load-error')).toHaveCount(0)
+    await expect(page.getByText('Not Found')).toHaveCount(0)
   })
 })
 

@@ -16,6 +16,9 @@ export const CLOUD_MODELS = [
   { id: 'cloud-model-c', usecases: ['chat'] },
 ]
 
+// What a cloud service lists: ids only, with no uses.
+export const CLOUD_BARE = [{ id: 'cloud-model-a', usecases: [] }, { id: 'cloud-model-b', usecases: [] }]
+
 export const remote = (over = {}) => ({
   id: 'remotes-1',
   name: 'Office server',
@@ -49,9 +52,15 @@ export const TEST_FAIL = (step, message = '') => ({ ok: false, step, ...(message
 
 // Stub every route of the remotes API. `state.calls` holds each request as
 // { method, path, body }. `answers` can change while a spec runs.
-export async function mockRemotes(page, { remotes = [], test = TEST_OK(LOCALAI_MODELS), status = {} } = {}) {
+//
+// `create`, `adopt` and `refresh` replace the answer of that route: a function
+// of ({ body, current, state }) that returns { status, json }, or an object of
+// that shape. They are how a spec asks for a partial result with a warning,
+// skipped models, or a refresh that ends with an error text.
+export async function mockRemotes(page, { remotes = [], test = TEST_OK(LOCALAI_MODELS), status = {}, create = null, adopt = null, refresh = null } = {}) {
   // Copies: a spec edits its remotes, and the next one must start clean.
-  const state = { remotes: remotes.map(c => structuredClone(c)), test, calls: [], status }
+  const state = { remotes: remotes.map(c => structuredClone(c)), test, calls: [], status, create, adopt, refresh }
+  const custom = (fn, ctx) => (typeof fn === 'function' ? fn(ctx) : fn)
   await page.route(/\/api\/remotes(\/.*)?(\?.*)?$/, async (route) => {
     const req = route.request()
     const url = new URL(req.url())
@@ -64,6 +73,11 @@ export async function mockRemotes(page, { remotes = [], test = TEST_OK(LOCALAI_M
     if (forced) return route.fulfill({ status: forced.status, json: forced.json ?? { error: { message: forced.message || 'failed' } } })
     if (path === '/test' && method === 'POST') return route.fulfill({ json: state.test })
     if (path === '/' && method === 'GET') return route.fulfill({ json: { data: state.remotes } })
+    if (path === '/' && method === 'POST' && state.create) {
+      const answer = custom(state.create, { body, state })
+      if (answer.json?.remote) state.remotes.push(structuredClone(answer.json.remote))
+      return route.fulfill({ status: answer.status || 201, json: answer.json })
+    }
     if (path === '/' && method === 'POST') {
       const created = remote({
         id: 'remotes-new', name: body.name, kind: body.kind, url: body.url, key_set: !!body.api_key,
@@ -83,7 +97,18 @@ export async function mockRemotes(page, { remotes = [], test = TEST_OK(LOCALAI_M
       state.remotes = state.remotes.filter(c => c.id !== id)
       return route.fulfill({ status: 204, body: '' })
     }
-    if (action === 'refresh') return route.fulfill({ json: current })
+    if (action === 'refresh') {
+      if (state.refresh) {
+        const answer = custom(state.refresh, { body, current, state })
+        Object.assign(current, answer.json)
+        return route.fulfill({ status: answer.status || 200, json: current })
+      }
+      return route.fulfill({ json: current })
+    }
+    if (action === 'adopt' && state.adopt) {
+      const answer = custom(state.adopt, { body, current, state })
+      return route.fulfill({ status: answer.status || 200, json: answer.json })
+    }
     if (action === 'adopt') {
       current.entries = [...current.entries, ...body.models.map(m => m.id)]
       current.new = current.new.filter(m => !body.models.some(b => b.id === m.id))
