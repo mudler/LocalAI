@@ -17,10 +17,10 @@
 <a href="https://localai.io/blog/">Blog</a>
 </p>
 
-**LocalAI** is an open-source AI engine and platform: your own AI, on your own hardware. It runs open models for text, vision, images, video, music, speech, embeddings and reranking behind one OpenAI-compatible API, on a laptop, a server, in a container or on Kubernetes (with a distributed mode for clusters). No GPU required. On top of the engine, it has chats and agents that use your files, Projects, Office documents and team sharing.
+**LocalAI** is your own AI, on your own hardware. LocalAI is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team, on hardware you own. It serves text, vision, images, video, music, speech, embeddings and reranking, and it runs on a laptop, a server, in a container or on Kubernetes (with a distributed mode for clusters). The engine runs on a CPU, so it does not need a GPU. The workspace has chats and agents that use your files, Projects, Office documents and team sharing.
 
 - **Agents, projects, documents and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, collections and skills. [Projects](https://localai.io/docs/features/projects/) group chats, files, notes and agents around one piece of work. Users, roles, quotas and shared folders for a team (development builds).
-- **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps (Telegram, Slack, Discord), mail, calendar and more (development builds).
+- **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps, mail, calendar and more (development builds).
 - **Every kind of model, one API**: text, vision, speech to text, text to speech, images, video, music and sound, embeddings and reranking, in the OpenAI and Anthropic formats (with ElevenLabs-compatible text to speech and sound generation), with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
 - **Your hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, NVIDIA Jetson or CPU only. The server, the models and your files stay on your own machines.
 
@@ -46,7 +46,7 @@ The script installs the program and does not start it; `local-ai` starts the ser
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ```
 
-**Desktop app**: it installs, updates, starts and stops the server for you and shows the web interface in its own window. Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) (macOS, Apple Silicon) or the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) (Linux). The ARM64 AppImage is `LocalAI-Launcher-arm64.AppImage` on the [releases page](https://github.com/mudler/LocalAI/releases/latest). See the [desktop app guide](https://localai.io/docs/start/install/desktop/).
+**Desktop app**: it installs, updates, starts and stops the server for you and shows the web interface in its own window, on macOS and Linux. It comes with the next release. Test builds are on the [dev-master pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master). See the [desktop app guide](https://localai.io/docs/start/install/desktop/).
 
 The script, the app and the latest container image give version 4.12.1. Projects, the new desktop app, the add-ons, Office, Sandbox and team features described below need a development build or a newer release.
 
@@ -108,7 +108,7 @@ More in the [Quickstart](https://localai.io/docs/start/quickstart/).
 | Area | What it gives you |
 |---|---|
 | [Chats](https://localai.io/docs/features/chats/) | Conversations the server keeps, with saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/), skills and files, triggers, and chat apps |
-| [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, Telegram, Slack, Discord, mail, calendar and more install from a library and run beside the server (development builds) |
+| [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, chat apps, mail, calendar and more install from a library and run beside the server (development builds) |
 | [Text generation](https://localai.io/docs/models/capabilities/text/text-generation/) | `llama.cpp`, `transformers`, `vllm` ... [and more](https://localai.io/docs/models/compatibility-table/), with an [OpenAI-compatible tools API](https://localai.io/docs/api/openai-functions/) and [constrained grammars](https://localai.io/docs/models/capabilities/text/constrained_grammars/) |
 | Animated video | With the Sandbox add-on and its media profile (ffmpeg, sox, ImageMagick), the assistant builds video from pictures, text or a chart, and joins, trims and subtitles clips, with the built-in `assemble-media` skill (development builds) |
 | Music and sound | Make music and sound effects from a text prompt with `/v1/sound-generation`. See [text to audio](https://localai.io/docs/models/capabilities/audio/text-to-audio/) |
