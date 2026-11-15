@@ -116,9 +116,20 @@ test.describe('Add-ons: icons', () => {
   test('a drawn tile has the same size and rounded shape as an icon file', async ({ page }) => {
     await addonsScene(page)
     await page.goto('/app/addons')
-    const size = async (id) => tile(page, id).locator('.ad-icon').evaluate(el => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), getComputedStyle(el).borderTopLeftRadius] })
-    expect(await size('slack')).toEqual(await size('calendar'))
-    expect(await size('slack')).toEqual(await size('acme-crm'))
+    // The list starts again when the viewer's identity is read (the page asks
+    // for the apps of that viewer), so the tiles are drawn twice and a node
+    // read in between is gone or has no box. Read the three tiles in one step
+    // and wait for a read that shows drawn tiles.
+    const sizes = () => page.evaluate(() => ['slack', 'calendar', 'acme-crm'].map((id) => {
+      const el = document.querySelector(`[data-testid="addon-tile"][data-app="${id}"] .ad-icon`)
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return [Math.round(r.width), Math.round(r.height), getComputedStyle(el).borderTopLeftRadius]
+    }))
+    await expect.poll(async () => (await sizes()).every(x => x && x[0] > 0)).toBe(true)
+    const [slack, calendar, acme] = await sizes()
+    expect(slack).toEqual(calendar)
+    expect(slack).toEqual(acme)
   })
 })
 
