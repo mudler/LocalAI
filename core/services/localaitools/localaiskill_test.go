@@ -99,7 +99,8 @@ var _ = Describe("the localai skill", func() {
 	})
 
 	It("describes the actions of the action tools", func() {
-		for _, a := range []string{ActionVerify, ActionIdentify, ActionCreate, ActionList, ActionDelete} {
+		for _, a := range []string{ActionVerify, ActionIdentify, ActionCreate, ActionList, ActionDelete,
+			ActionGet, ActionUpdate, ActionArchive, ActionRestore, ActionSetChatProject, ActionPull, ActionUnpull, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared} {
 			Expect(text).To(ContainSubstring("`"+a+"`"), a)
 		}
 		Expect(slices.Collect(func(yield func(string) bool) {
@@ -108,7 +109,8 @@ var _ = Describe("the localai skill", func() {
 					return
 				}
 			}
-		})).To(ConsistOf(ActionVerify, ActionIdentify, ActionCreate, ActionList, ActionDelete))
+		})).To(ConsistOf(ActionVerify, ActionIdentify, ActionCreate, ActionList, ActionDelete,
+			ActionGet, ActionUpdate, ActionArchive, ActionRestore, ActionSetChatProject, ActionPull, ActionUnpull, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared))
 	})
 
 	It("stays compact and in plain English", func() {
@@ -121,7 +123,12 @@ var _ = Describe("the localai skill", func() {
 		// decide the model, what model_note means, and what to do when the
 		// user wants to be asked or the default is gone. The rule lives in
 		// the code, but only this text tells the model what to do next.
-		Expect(len(text)).To(BeNumerically("<=", 7100), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
+		// 7,100 to 7,600: the projects line (about 470 bytes), ten actions in one tool.
+		// 7,600 to 7,700: the agents action of the projects line (about 100 bytes).
+		// 7,700 to 7,800: connections, triggers and loops in the projects line (about 90 bytes).
+		// 7,800 to 8,000: the shared action of the projects line (about 135 bytes): it
+		// lists what others shared and says sharing is not a tool.
+		Expect(len(text)).To(BeNumerically("<=", 8000), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
 		Expect(strings.Count(text, "—")).To(BeZero(), "no em dashes")
 	})
 })

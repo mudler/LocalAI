@@ -44,6 +44,8 @@
     "agentHelp": "This chat runs with the agent {{name}}: its instructions and only the tools it grants.",
     "editAgent": "Edit agent",
     "deleteHelp": "Delete this chat and its messages for good.",
+    "collections": "Collections",
+    "collectionsHelp": "This chat can use only these collections.",
     "answers": "Answers",
     "answersHelp": "These apply from the next turn. Empty fields use the model's own values.",
     "systemPrompt": "System prompt",
@@ -239,7 +241,8 @@
       "from": "From",
       "to": "To",
       "reset": "Reset filters"
-    }
+    },
+    "clearShown": "Clear shown"
   },
   "message": {
     "you": "You",
@@ -863,7 +866,9 @@
     "missing": "The folder of this agent is gone. Choose another folder in the agent.",
     "startError": "This agent's folder is missing, so the chat cannot start. Choose another folder for the agent.",
     "editAgent": "Edit agent",
-    "toolsMany": "Files: only {{n}} folders: {{list}}. Shared folders and skills stay readable."
+    "toolsMany": "Files: only {{n}} folders: {{list}}. Shared folders and skills stay readable.",
+    "projectPaused": "This agent is paused because its project is archived or deleted. Open the project and restore it.",
+    "projectChanged": "This agent is paused because its project folders changed. Open the agent and reconnect it."
   },
   "origin": {
     "banner": "This conversation was started by {{title}}.",
@@ -1058,5 +1063,11 @@
       "code": "Code block omitted.",
       "table": "Table omitted."
     }
+  },
+  "deleteShownDialog": {
+    "title": "Delete shown chats",
+    "message_one": "Delete the {{count}} chat shown in {{project}}? This cannot be undone.",
+    "message_other": "Delete the {{count}} chats shown in {{project}}? This cannot be undone.",
+    "confirm": "Delete shown"
   }
 }

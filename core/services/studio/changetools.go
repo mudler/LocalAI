@@ -31,7 +31,7 @@ const proposeChangeDescription = "Ask to change something that lasts: a note in 
 	"Use it when the user asks you to remember, change or forget something, gives a rule you must keep, or asks for a skill, a page or a dashboard change. " +
 	"Unless the result says the note was saved, it changes nothing by itself: the person must confirm it (the result says how), and the proposal expires after a day. " +
 	"Never say that something is saved until the result says so. " +
-	"content is the full new text of the file, not a patch: read the current file first and keep what stays. " +
+	"content is the full new text of the file, not a patch, and a memory note must have it: a proposal replaces the whole file, so read the current file first and keep what stays. " +
 	"kind is memory (a Markdown file under Memory/), profile (the agent's standing rules, at most 4 KiB, scope agent), " +
 	"skill (a full SKILL.md with name and description, target is the skill name, scope user or agent; a skill its owner locked cannot be changed), " +
 	"page (a small app: target is the page name, scope user, files is an object of path to text and must hold index.html), " +
@@ -44,7 +44,7 @@ const proposeChangeDescription = "Ask to change something that lasts: a note in 
 // proposeChangeSchema is the schema of the tool for a chat that may propose
 // the given kinds.
 func proposeChangeSchema(kinds []contract.ChangeKind) string {
-	return proposeChangeSchemaFor(kinds, nil)
+	return proposeChangeSchemaFor(kinds, nil, false)
 }
 
 // kindScopes are the scopes the kinds other than memory accept.
@@ -60,10 +60,14 @@ var kindScopes = map[contract.ChangeKind][]string{
 // choice of notes: memory is the scopes a memory note may go to (nil: the
 // model chooses, as for a chat without an agent). With a choice the scope
 // list holds only what the kinds offered accept, and a note needs no scope:
-// the host puts it where the choice says.
-func proposeChangeSchemaFor(kinds []contract.ChangeKind, memory []string) string {
+// the host puts it where the choice says. project says the chat belongs to a
+// project and may propose a note for it: only then is the scope project offered.
+func proposeChangeSchemaFor(kinds []contract.ChangeKind, memory []string, project bool) string {
 	enum, _ := json.Marshal(kinds)
 	scopes, required := `["user","agent","channel"]`, `["kind","scope","summary"]`
+	if project {
+		scopes = `["user","agent","channel","project"]`
+	}
 	if memory != nil && slices.Contains(kinds, contract.ChangeMemory) {
 		want := map[string]bool{}
 		for _, sc := range memory {
@@ -75,13 +79,18 @@ func proposeChangeSchemaFor(kinds []contract.ChangeKind, memory []string) string
 			}
 		}
 		var list []string
-		for _, sc := range []string{"user", "agent", "channel"} {
+		want["project"] = project
+		for _, sc := range []string{"user", "agent", "channel", "project"} {
 			if want[sc] {
 				list = append(list, sc)
 			}
 		}
 		b, _ := json.Marshal(list)
 		scopes, required = string(b), `["kind","summary"]`
+	}
+	if len(kinds) == 1 && kinds[0] == contract.ChangeMemory {
+		// Only a memory note can be proposed here, and it always has text.
+		required = strings.Replace(required, `"summary"`, `"content","summary"`, 1)
 	}
 	return `{"type":"object","properties":{` +
 		`"kind":{"type":"string","enum":` + string(enum) + `},` +
@@ -93,9 +102,66 @@ func proposeChangeSchemaFor(kinds []contract.ChangeKind, memory []string) string
 		`"required":` + required + `}`
 }
 
+// sharedProjectArg is the argument that names a project shared with the person.
+const sharedProjectArg = `"project":{"type":"string","maxLength":24,"description":"Only for scope project: the reference of a project shared with you for editing, exactly as listed in this tool description. Leave it out for the project of this chat."},`
+
+// withSharedProjects adds the argument project and its sentence to the tool
+// when the chat has pulled a project shared with the person for editing. Names
+// are another person's text: they pass through PromptName.
+func (s *Service) withSharedProjects(ctx context.Context, c builtins.Chat, schema, desc string) (string, string) {
+	shared := s.pulledWritable(ctx, c)
+	if len(shared) == 0 || !strings.Contains(schema, `"target":{`) {
+		return schema, desc
+	}
+	var list []string
+	for _, sh := range shared {
+		list = append(list, fmt.Sprintf("%s (%s, shared by %s)", sh.Ref, session.PromptName(sh.Name), session.PromptName(sh.OwnerName)))
+	}
+	listed := "Projects shared with you for editing, which you may name with project (use the reference exactly): " + strings.Join(list, "; ") + ". Their owner confirms the note. "
+	if _, ok := s.homeProjectOf(ctx, c); ok {
+		desc = strings.Replace(desc, projectScopeSentence, homeAndSharedScopeSentence+listed, 1)
+	} else {
+		desc = strings.Replace(desc, projectScopeSentence, sharedOnlyScopeSentence+listed, 1)
+	}
+	return strings.Replace(schema, `"target":{`, sharedProjectArg+`"target":{`, 1), desc
+}
+
 // proposeChangeDescriptionFor words the tool for a chat whose notes go to
-// fixed scopes: the model is told where a note goes and not to choose.
-func proposeChangeDescriptionFor(memory []string) string {
+// fixed scopes: the model is told where a note goes and not to choose. project
+// adds the scope project for a chat that belongs to a project.
+func proposeChangeDescriptionFor(memory []string, project bool) string {
+	d := proposeChangeDescriptionFixed(memory)
+	if !project {
+		return d
+	}
+	return strings.Replace(d, "summary is one line", projectScopeSentence+"summary is one line", 1)
+}
+
+// proposeChangeDescriptionProjectOnly words the tool for a chat that holds only
+// the project memory grant: a memory note goes to the project, and no other
+// scope of memory is named.
+func proposeChangeDescriptionProjectOnly() string {
+	fixed := "A memory note is saved to the memory of the project of this chat (scope project); the other kinds say which scope they take. " +
+		projectScopeSentence
+	return strings.Replace(proposeChangeDescription, scopeSentence, fixed, 1)
+}
+
+// projectScopeSentence tells the model what scope project is. The host picks
+// the project from the chat, so the model gives no name.
+const projectScopeSentence = "scope project is for a memory note about the project this chat belongs to, shared by its chats: the host picks the project, so give no project name, and the note always waits for the owner to confirm. " +
+	"For scope project target is required: name a topic file such as decisions.md. A proposal replaces the whole file, so a note for index.md replaces the whole project index. "
+
+// The sentences for a chat that has pulled a project shared with the person
+// for editing. They replace projectScopeSentence, which says the host picks the
+// project and the model names none.
+const (
+	homeAndSharedScopeSentence = "scope project is for a memory note about a project: without project the host picks the project this chat belongs to, shared by its chats, and the note always waits for the owner to confirm. " +
+		"For scope project target is required: name a topic file such as decisions.md. A proposal replaces the whole file, so a note for index.md replaces the whole project index. "
+	sharedOnlyScopeSentence = "scope project is for a memory note about a project that another person shares with you for editing: this chat has no project of its own, so name that project with project, and the note always waits for its owner to confirm. " +
+		"For scope project target is required: name a topic file such as decisions.md. A proposal replaces the whole file, so a note for index.md replaces the whole project index. "
+)
+
+func proposeChangeDescriptionFixed(memory []string) string {
 	if memory == nil {
 		return proposeChangeDescription
 	}
@@ -151,7 +217,7 @@ func (s *Service) registerChangeTools() error {
 				}
 				// The tool exists when the chat holds a grant of some kind; it
 				// offers the kinds it holds and no others.
-				kinds := s.changes.kindsHeld(c)
+				kinds := s.changes.kindsOffered(ctx, c)
 				if !s.memoryWritable(ctx, c) {
 					kinds = withoutMemory(kinds)
 				}
@@ -174,9 +240,17 @@ func (s *Service) registerChangeTools() error {
 					// An agent with a choice of notes saves to the scope the host
 					// fixes; the model is not offered another.
 					fixed := s.memoryChatScopes(ctx, c)
-					schema, desc = proposeChangeSchemaFor(kinds, fixed), proposeChangeDescriptionFor(fixed)
+					project := s.projectScopeOpen(ctx, c, fixed)
+					schema, desc = proposeChangeSchemaFor(kinds, fixed, project), proposeChangeDescriptionFor(fixed, project)
+					if project && c.Agent && !c.HoldsGrant(builtins.GrantMemoryWrite) {
+						// Only the project grant: a note can go to the project and
+						// nowhere else, so no other memory scope is offered.
+						schema, desc = proposeChangeSchemaFor(kinds, []string{}, true), proposeChangeDescriptionProjectOnly()
+					}
 					if !slices.Contains(kinds, contract.ChangeMemory) {
 						schema, desc = proposeChangeSchema(kinds), proposeChangeDescription
+					} else if project {
+						schema, desc = s.withSharedProjects(ctx, c, schema, desc)
 					}
 				}
 				// The count of automatic writes is for this turn's tools.
@@ -199,6 +273,8 @@ func memoryScopeWords(scope string) string {
 		return "its own memory"
 	case string(contract.ScopeChannel):
 		return "this conversation's memory"
+	case string(contract.ScopeProject):
+		return "this project's memory"
 	}
 	return "the user's memory"
 }
@@ -240,28 +316,84 @@ func changeErr(err error) error {
 }
 
 func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.RawMessage, turn *autoTurn) (string, error) {
+	// projectID is the chat's own project for a project note, set by the host
+	// below; no argument of the model reaches it.
+	var projectID, pulledRef string
+	var err error
 	var args struct {
 		Kind, Scope, Target, Content, Summary string
-		Files                                 map[string]string
+		// Project names a project shared with the person, by the reference of
+		// the chat's pulled list. Only for scope project.
+		Project string
+		Files   map[string]string
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
 	if k, ok := h.kinds.Lookup(args.Kind); ok && k.Internal {
-		return "", fmt.Errorf("kind must be one of %v", h.kindsHeld(c))
+		return "", fmt.Errorf("kind must be one of %v", h.kindsOffered(ctx, c))
 	}
 	if err := c.Require(changeCapability(args.Kind)); err != nil {
 		return "", err
+	}
+	if memoryKindOf(args.Kind) && strings.TrimSpace(args.Content) == "" {
+		// An empty note is never meant: confirmed, it would replace the file
+		// with nothing, for a project its index, which the next chat reads.
+		return "", errors.New("content is required for a memory note and it is empty, so nothing was proposed. Call propose_change again with content set to the full new text of the note")
 	}
 	if args.Kind == string(contract.ChangeKnowledge) {
 		if err := h.knowledgeGate(ctx, c, &args.Scope); err != nil {
 			return "", err
 		}
+		// A collection the chat is restricted away from answers like one
+		// that does not exist.
+		if err := h.s.collectionRefused(ctx, c.Actor.Principal, c.Actor.ChatID, args.Target); err != nil {
+			return "", err
+		}
+	}
+	if memoryKindOf(args.Kind) && args.Scope == "" && c.Agent && !c.HoldsGrant(builtins.GrantMemoryWrite) && c.HoldsGrant(builtins.GrantProjectMemoryWrite) {
+		// An agent that holds only the project memory grant has one place to
+		// write: its project.
+		args.Scope = string(contract.ScopeProject)
 	}
 	if memoryKindOf(args.Kind) && !h.s.memoryWritable(ctx, c) {
 		return "", errors.New("memory is off here, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
 	}
-	if memoryKindOf(args.Kind) {
+	if memoryKindOf(args.Kind) && args.Scope == string(contract.ScopeProject) {
+		// A note for the project is only for the chat's own project, which the
+		// host reads from the chat. It needs the same standing as a note for
+		// the person: memory not off for the agent, and a paired sender in a
+		// messaging chat.
+		fixed := h.s.memoryChatScopes(ctx, c)
+		switch {
+		case fixed != nil && len(fixed) == 0:
+			return "", errors.New("memory is off here, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
+		case c.Origin == session.OriginConnector && !h.s.senderPaired(c):
+			return "", fmt.Errorf("only a sender who is paired with this bot can add to %s, and this sender is not. Use scope channel (this conversation's memory), or leave scope out", memoryScopeWords(args.Scope))
+		}
+		if strings.TrimSpace(args.Target) == "" {
+			// No default: a note that names no file would land on the index
+			// and a confirm would replace the whole project note with it.
+			return "", errors.New("target is required for a project note: name the topic file the note belongs to, such as decisions.md. A proposal replaces the whole file, so only name index.md to rewrite the whole project index, with its full new text")
+		}
+		if args.Project != "" {
+			// A project shared with the person, named by its reference. The
+			// reference must be an entry of this chat's pulled list as it is;
+			// the home project is named by no argument.
+			pulledRef, err = h.s.pulledSharedRef(ctx, c, args.Project)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			home, ok := h.s.homeProjectOf(ctx, c)
+			if !ok {
+				return "", errNoHomeProject
+			}
+			projectID = home.ID
+		}
+	} else if args.Project != "" {
+		return "", errors.New("project is only for a note with scope project")
+	} else if memoryKindOf(args.Kind) {
 		// The host, not the model, decides where a note of an agent with a
 		// choice of notes goes. Leaving the scope out takes the one the
 		// choice allows; any other is refused.
@@ -289,7 +421,7 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 		}
 		args.Content = string(b)
 	}
-	in := ProposeInput{User: c.Actor.Principal, Agent: c.AgentID, Source: h.sourceOf(c),
+	in := ProposeInput{User: c.Actor.Principal, Agent: c.AgentID, Source: h.sourceOf(c), Project: projectID, PulledRef: pulledRef,
 		Kind: args.Kind, Scope: args.Scope, Target: args.Target, Content: args.Content, Summary: args.Summary}
 	// How a memory note is saved is the person's choice (see changemode.go).
 	// Every other kind always asks.
@@ -307,6 +439,11 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 				autoNote = " It was not saved at once because a note for the agent or the person needs a confirmation; a note for this conversation is saved at once."
 				break
 			}
+			if args.Scope == string(contract.ScopeProject) {
+				// A project is shared by its chats: its notes always wait.
+				autoNote = " It was not saved at once because a note for a project needs a confirmation."
+				break
+			}
 			ok, why := autoFits(args.Content, turn)
 			if ok {
 				return h.saveNow(ctx, in, turn)
@@ -320,8 +457,12 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	}
 	// The card lets the interface show Confirm and Dismiss on this tool line,
 	// also after a reload.
-	session.SetToolCard(ctx, session.ToolCard{Kind: ChangeProposalCardKind, ID: p.ID})
-	if c.Origin == session.OriginConnector {
+	if p.Proposer == "" {
+		// A note for another person's project is answered by its owner, not
+		// here: no card with buttons that would not work.
+		session.SetToolCard(ctx, session.ToolCard{Kind: ChangeProposalCardKind, ID: p.ID})
+	}
+	if c.Origin == session.OriginConnector && p.Proposer == "" {
 		// The person reads the chat of the messaging app, not Studio: the host
 		// writes the question there and the person answers it there.
 		return h.connectorProposed(ctx, c, p, autoNote), nil
@@ -329,8 +470,12 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	if p.Warning != "" {
 		autoNote += " The text looks like it holds a secret: the owner sees a warning next to it. Do not repeat the secret."
 	}
-	return fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet: the owner must confirm it in Studio, and it expires in 24 hours. Do not say it is saved.%s",
-		p.ID, p.Summary, p.Kind, p.Scope, autoNote), nil
+	who := "the owner"
+	if p.Proposer != "" {
+		who = "the owner of the project (another person)"
+	}
+	return fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet: %s must confirm it in Studio, and it expires in 24 hours. Do not say it is saved.%s",
+		p.ID, p.Summary, p.Kind, p.Scope, who, autoNote), nil
 }
 
 // saveNow applies a memory note at once, for a person who chose that. The note
@@ -413,7 +558,7 @@ func (h *Changes) revertTool(ctx context.Context, c builtins.Chat, raw json.RawM
 	if h.saveModeOf(ctx, c) == SaveAlways {
 		kind := ""
 		if args.ID != "" {
-			if q, gerr := h.Get(ctx, c.Actor.Principal, args.ID); gerr == nil {
+			if q, gerr := h.load(ctx, c.Actor.Principal, args.ID); gerr == nil {
 				kind = string(q.Kind)
 			}
 		}
@@ -427,8 +572,11 @@ func (h *Changes) revertTool(ctx context.Context, c builtins.Chat, raw json.RawM
 	if args.ID != "" {
 		// An id from another agent's scope is not this chat's to revert.
 		need := contract.CapMemoryWrite
-		if q, gerr := h.Get(ctx, c.Actor.Principal, args.ID); gerr == nil {
-			if q.Agent != c.AgentID {
+		// The stored record tells whose change it is: a note that another
+		// person proposed carries that person's agent and chat, which the
+		// owner's chat never holds, so it is not this chat's to revert.
+		if q, gerr := h.load(ctx, c.Actor.Principal, args.ID); gerr == nil {
+			if q.Proposer != "" || q.Agent != c.AgentID {
 				return "", errors.New("that change belongs to another agent")
 			}
 			need = changeCapability(string(q.Kind))

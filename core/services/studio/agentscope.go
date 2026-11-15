@@ -55,7 +55,10 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 	if s.d.Agents == nil {
 		return &scope{deleted: true}
 	}
-	ag, err := s.chatAgent(ctx, rec.Principal, rec.AgentID)
+	ag, err := s.storedChatAgent(ctx, rec.Principal, rec.AgentID)
+	if err == nil {
+		ag, err = s.cappedForChat(ctx, rec, ag)
+	}
 	if errors.Is(err, agents.ErrNotFound) {
 		return &scope{deleted: true}
 	}

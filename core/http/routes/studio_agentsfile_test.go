@@ -84,7 +84,9 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 				Expect(m["description"]).NotTo(BeEmpty())
 				byName[m["name"].(string)] = m
 			}
-			Expect(byName).To(And(HaveKey("memory.write"), HaveKey("skills.write"), HaveKey("pages.write"), HaveKey("dashboard.write"), HaveKey("saved_agents")))
+			Expect(byName).To(And(HaveKey("memory.write"), HaveKey("skills.write"), HaveKey("pages.write"), HaveKey("dashboard.write"), HaveKey("saved_agents"), HaveKey("project.memory.write")))
+			Expect(byName["project.memory.write"]["title"]).To(Equal("Remember things in the project"))
+			Expect(byName["project.memory.write"]["sensitive"]).To(BeFalse())
 			Expect(byName["skills.write"]["sensitive"]).To(BeTrue())
 			Expect(byName["memory.write"]["sensitive"]).To(BeFalse())
 		})

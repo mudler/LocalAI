@@ -42,6 +42,13 @@ const (
 	// GuestFolderPrefix starts the mount name of an agent's folder after the
 	// first: /workspace/folder-<name>. The first folder is "home".
 	GuestFolderPrefix = "folder-"
+	// GuestProjectName is the mount name of the project of a chat:
+	// /workspace/project holds its files and /workspace/project-memory its
+	// memory.
+	GuestProjectName = "project"
+	// GuestPulledPrefix starts the mount name of a project a chat reads from:
+	// /workspace/pulled-<slug>, and /workspace/pulled-<slug>-memory.
+	GuestPulledPrefix = "pulled-"
 	// DefaultTitle is the title of a new chat.
 	DefaultTitle = "New chat"
 	// MaxTitleRunes is the longest title of a chat, in characters.
@@ -286,8 +293,11 @@ func FolderMountNames(paths []string) []string {
 // BuildViewFolders is BuildView for an agent with several folders: primary is
 // the first and extra are the others, mounted at "folder-<name>". The store
 // caps each mount at the fence's mode. An extra folder the store refuses is
-// skipped and logged.
-func BuildViewFolders(ctx context.Context, st workspace.Store, a workspace.Actor, primary string, extra []string, chat string, shared []SharedRoot, log *slog.Logger) (workspace.View, error) {
+// skipped and logged. projectMounts are the folders of the chat's projects, at
+// the names and modes the caller asks for. They are not shared roots: a folder
+// inside the home is fine. One that the store refuses is skipped and logged,
+// and a name that is taken gets a number.
+func BuildViewFolders(ctx context.Context, st workspace.Store, a workspace.Actor, primary string, extra []string, chat string, shared []SharedRoot, log *slog.Logger, projectMounts ...workspace.MountRequest) (workspace.View, error) {
 	home := HomePath(a.Principal)
 	reqs := []workspace.MountRequest{{Path: primary, At: GuestHome, Mode: workspace.ModeWrite}}
 	v, err := st.View(ctx, a, reqs)
@@ -320,6 +330,28 @@ func BuildViewFolders(ctx context.Context, st workspace.Store, a workspace.Actor
 		}
 		used[workspace.FoldName(at)] = true
 		v.Mounts = append(v.Mounts, ev.Mounts...)
+	}
+	for _, pm := range projectMounts {
+		base := strings.TrimRight(fitBytes(pm.At, maxNameBytes-len(" 999")), " ")
+		at, err := uniqueName(base, " ", func(n string) (bool, error) { return used[workspace.FoldName(n)], nil })
+		if err != nil {
+			return workspace.View{}, err
+		}
+		pm.At = at
+		pv, err := st.View(ctx, a, []workspace.MountRequest{pm})
+		for i := range pv.Mounts {
+			pv.Mounts[i].Role = pm.Role
+			pv.Mounts[i].Label = pm.Label
+		}
+		if err != nil {
+			if missingFolder(err) {
+				log.Warn("session: skipping a project folder", "path", pm.Path, "error", err)
+				continue
+			}
+			return workspace.View{}, err
+		}
+		used[workspace.FoldName(at)] = true
+		v.Mounts = append(v.Mounts, pv.Mounts...)
 	}
 	for _, s := range shared {
 		p := path.Clean("/" + strings.Trim(s.Path, "/"))
@@ -394,14 +426,50 @@ func LayoutPrompt(v workspace.View, scoped ScopedPrompt) string {
 		switch {
 		case m.At == GuestHome:
 			fmt.Fprintf(&b, "- %s/%s: the user's home folder (%s). Files the user uploads to a chat are in %s/%s/%s/.\n", GuestRoot, m.At, access, GuestRoot, m.At, ChatsDir)
+		case m.Role == workspace.RoleProjectFiles:
+			fmt.Fprintf(&b, "- %s/%s: the files of this chat's project (%s).\n", GuestRoot, m.At, access)
+		case m.Role == workspace.RoleProjectMemory:
+			fmt.Fprintf(&b, "- %s/%s: the memory of this chat's project (%s). Do not write here: to save a note, propose a change with propose_change (scope project) and the user confirms it.\n", GuestRoot, m.At, access)
+		case m.Role == workspace.RolePulledMemory:
+			fmt.Fprintf(&b, "- %s/%s: the memory of another project, for reading (%s).\n", GuestRoot, m.At, access)
+		case m.Role == workspace.RoleSharedMemory:
+			fmt.Fprintf(&b, "- %s/%s: the memory of a project shared by %s, for reading (%s). Do not change it, also not through the shared folder; propose a note instead.\n", GuestRoot, m.At, promptName(m.Label), access)
+		case m.Role == workspace.RoleSharedFiles:
+			fmt.Fprintf(&b, "- %s/%s: the files of a project shared by %s (%s).\n", GuestRoot, m.At, promptName(m.Label), access)
+		case m.Role == workspace.RolePulledFiles:
+			fmt.Fprintf(&b, "- %s/%s: the files of another project, for reading (%s).\n", GuestRoot, m.At, access)
 		default:
 			fmt.Fprintf(&b, "- %s/%s: a folder shared with the user (%s).\n", GuestRoot, m.At, access)
 		}
+	}
+	for _, n := range v.Notes {
+		b.WriteString(n + "\n")
 	}
 	b.WriteString("There is nothing else under " + GuestRoot + ": a path such as " + GuestRoot + "/myapp is not a folder of the user; write " + GuestRoot + "/" + GuestHome + "/myapp instead. " +
 		"To make an app the user can open, build a Page: " + GuestRoot + "/" + GuestHome + "/pages/<name>/index.html. Every change is saved, and the user can undo it.")
 	return b.String()
 }
+
+// maxPromptNameRunes bounds a display name in the prompt.
+const maxPromptNameRunes = 60
+
+// promptName makes a display name safe for one line of the prompt: one line,
+// no format or control characters, cut, and a neutral text when nothing is
+// left. The name is another person's text.
+func promptName(s string) string {
+	t := CleanTitle(s)
+	if r := []rune(t); len(r) > maxPromptNameRunes {
+		t = strings.TrimRight(string(r[:maxPromptNameRunes]), " ")
+	}
+	if t == "" {
+		return "another user"
+	}
+	return t
+}
+
+// PromptName makes the display name of another person safe for one line of a
+// prompt or a tool description. See promptName.
+func PromptName(s string) string { return promptName(s) }
 
 func accessWords(m workspace.Mode) string {
 	if m < workspace.ModeWrite {
@@ -434,6 +502,9 @@ func scopedLayoutPrompt(v workspace.View) string {
 	}
 	if v.NotMounted > 0 {
 		fmt.Fprintf(&b, "%d shared folders are not mounted: they did not fit the access limit of this chat.\n", v.NotMounted)
+	}
+	for _, n := range v.Notes {
+		b.WriteString(n + "\n")
 	}
 	b.WriteString("There is nothing else under " + GuestRoot + ". Every change is saved, and the user can undo it.")
 	return b.String()

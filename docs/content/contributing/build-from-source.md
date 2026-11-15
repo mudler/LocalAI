@@ -184,4 +184,4 @@ docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_
 Note:
 
 - BUILD_TYPE can be either: `cublas`, `hipblas`, `sycl_f16`, `sycl_f32`, `metal`.
-- BASE_IMAGE is tested on `ubuntu:24.04` (and defaults to it) and `quay.io/go-skynet/intel-oneapi-base:latest` for intel/sycl
+- BASE_IMAGE is tested on `ubuntu:24.04` (and defaults to it) and `intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04` for intel/sycl

@@ -59,6 +59,7 @@ type fakeClient struct {
 	setBranding           func(SetBrandingRequest) (*Branding, error)
 	listVoiceProfiles     func() ([]VoiceProfile, error)
 	createVoiceProfile    func(CreateVoiceProfileRequest) (*VoiceProfile, error)
+	projects              func(ProjectsRequest) (*ProjectsResult, error)
 	deleteVoiceProfile    func(string) error
 	getUsageStats         func(UsageStatsQuery) (*UsageStats, error)
 	getPIIEvents          func(PIIEventsQuery) ([]PIIEvent, error)
@@ -388,6 +389,14 @@ func (f *fakeClient) DeleteVoiceProfile(_ context.Context, id string) error {
 		return f.deleteVoiceProfile(id)
 	}
 	return nil
+}
+
+func (f *fakeClient) Projects(_ context.Context, req ProjectsRequest) (*ProjectsResult, error) {
+	f.record("Projects", req)
+	if f.projects != nil {
+		return f.projects(req)
+	}
+	return &ProjectsResult{}, nil
 }
 
 func (f *fakeClient) GetUsageStats(_ context.Context, q UsageStatsQuery) (*UsageStats, error) {

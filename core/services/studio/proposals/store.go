@@ -20,16 +20,26 @@ var (
 	ErrTooManyPending = errors.New("proposals: too many proposals are waiting for an answer")
 	// ErrRateLimited: the agent made the most proposals of the last hour.
 	ErrRateLimited = errors.New("proposals: too many proposals in the last hour")
+	// ErrTooManyForProject: the project already has the most proposals of other
+	// people waiting for its owner.
+	ErrTooManyForProject = errors.New("proposals: too many proposals from others are waiting for the owner of this project")
 	// ErrExists: a proposal with that ID is stored already.
 	ErrExists = errors.New("proposals: the ID is taken")
 )
 
 // Limits bound what Create accepts. A zero field sets no bound.
 type Limits struct {
-	// MaxPending is the most pending proposals of one owner.
+	// MaxPending is the most pending proposals of one owner. A proposal that
+	// has a Proposer is counted against that person instead, and counts for
+	// the owner's own queue never.
 	MaxPending int
+	// MaxPendingProject is the most pending proposals of other people (those
+	// with a Proposer) for one project of one owner. It applies only to a
+	// proposal that has a Proposer.
+	MaxPendingProject int
 	// PerWindow is the most proposals of one owner and agent created in the
 	// Window before the new one. Agent "" is the plain chats of the owner.
+	// For a proposal with a Proposer the count is of that person and agent.
 	PerWindow int
 	Window    time.Duration
 }

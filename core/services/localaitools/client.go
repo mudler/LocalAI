@@ -238,4 +238,9 @@ type LocalAIClient interface {
 	ListVoiceProfiles(ctx context.Context) ([]VoiceProfile, error)
 	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
 	DeleteVoiceProfile(ctx context.Context, id string) error
+
+	// Projects runs one action of the projects tool for the acting user. It
+	// goes through the project routes of the chats API, so the ownership
+	// rules of the API apply: a user reaches their own projects and chats only.
+	Projects(ctx context.Context, req ProjectsRequest) (*ProjectsResult, error)
 }

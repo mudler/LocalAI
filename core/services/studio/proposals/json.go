@@ -69,12 +69,14 @@ func (s *jsonStore) find(owner, id string) int {
 func (s *jsonStore) Create(_ context.Context, p contract.ChangeProposal, lim Limits) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	pending, recent := 0, 0
+	pending, recent, forProject := 0, 0, 0
 	for _, o := range s.d.Proposals {
 		if o.ID == p.ID {
 			return ErrExists
 		}
-		if o.Owner != p.Owner {
+		// The caps are counted on the person who proposes: the proposer for
+		// a proposal made for another person, the owner for the owner's own.
+		if !sameQueue(o, p) {
 			continue
 		}
 		if o.Status == contract.ProposalPending {
@@ -84,8 +86,18 @@ func (s *jsonStore) Create(_ context.Context, p contract.ChangeProposal, lim Lim
 			recent++
 		}
 	}
+	if p.Proposer != "" {
+		for _, o := range s.d.Proposals {
+			if o.Proposer != "" && o.Owner == p.Owner && o.ProjectNode == p.ProjectNode && o.Status == contract.ProposalPending {
+				forProject++
+			}
+		}
+	}
 	if lim.MaxPending > 0 && pending >= lim.MaxPending {
 		return ErrTooManyPending
+	}
+	if p.Proposer != "" && lim.MaxPendingProject > 0 && forProject >= lim.MaxPendingProject {
+		return ErrTooManyForProject
 	}
 	if lim.PerWindow > 0 && recent >= lim.PerWindow {
 		return ErrRateLimited
@@ -96,6 +108,15 @@ func (s *jsonStore) Create(_ context.Context, p contract.ChangeProposal, lim Lim
 		return err
 	}
 	return nil
+}
+
+// sameQueue says whether o is counted with p for the caps: the same proposer
+// when p has one, else the same owner among the owner's own proposals.
+func sameQueue(o, p contract.ChangeProposal) bool {
+	if p.Proposer != "" {
+		return o.Proposer == p.Proposer
+	}
+	return o.Owner == p.Owner && o.Proposer == ""
 }
 
 func (s *jsonStore) Get(_ context.Context, owner, id string) (contract.ChangeProposal, error) {

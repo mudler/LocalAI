@@ -153,6 +153,10 @@ func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingReque
 	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
 }
 
+func (stubClient) Projects(_ context.Context, _ localaitools.ProjectsRequest) (*localaitools.ProjectsResult, error) {
+	return &localaitools.ProjectsResult{}, nil
+}
+
 func (stubClient) ListVoiceProfiles(_ context.Context) ([]localaitools.VoiceProfile, error) {
 	return []localaitools.VoiceProfile{}, nil
 }

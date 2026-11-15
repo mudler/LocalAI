@@ -1040,7 +1040,8 @@
       "user": "你的所有聊天",
       "agent": "智能体 {{agent}}",
       "agentAny": "一个智能体",
-      "channel": "此对话"
+      "channel": "此对话",
+      "project": "此项目"
     },
     "help": "确认之前不会保存任何内容。",
     "row": {
@@ -1048,7 +1049,9 @@
       "target": "文件",
       "source": "来源",
       "expires": "剩余时间",
-      "collection": "集合"
+      "collection": "集合",
+      "proposedBy": "提议者",
+      "note": "笔记"
     },
     "source": {
       "chat": "聊天",
@@ -1123,6 +1126,17 @@
       "consent": "录音将保存为语音档案，供你的聊天用来说话。你可以在语音库中删除它。",
       "consentAdmin": "你是管理员，因此该语音将对此服务器的所有用户可用。",
       "confirm": "说话人已同意：保存声音"
+    },
+    "fromOther": {
+      "title": "{{name}} 为 {{project}} 提议了一条笔记",
+      "titleNoProject": "{{name}} 提议了一条笔记",
+      "help": "在你确认之前不会写入任何内容。{{name}} 是在引入了此项目的聊天中提出的。",
+      "by": "{{name}}，来自其自己的聊天",
+      "voided": "{{name}} 已无法再编辑此项目。",
+      "noteFor": "{{project}} 的笔记",
+      "thisProject": "此项目",
+      "why": "请重新以编辑权限共享项目，如果仍然需要，再请对方重新提议这条笔记。",
+      "nameHint": "项目名称取自其文件夹"
     }
   },
   "proposalsPage": {

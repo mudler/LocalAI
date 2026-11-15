@@ -1209,5 +1209,59 @@
     "asksTitle_one": "This agent asks for {{count}} thing your chat starts without:",
     "asksTitle_other": "This agent asks for {{count}} things your chat starts without:",
     "asksHelp": "It runs as you. Turn them on in the chat only if you trust the agent and the person who shared it."
+  },
+  "project": {
+    "chip": "Project: {{name}}",
+    "deleted": "deleted project",
+    "files": "Project files",
+    "filesMode": "Files mode",
+    "canEdit": "Can edit",
+    "readOnly": "Read only",
+    "filesHelp": "The agent works only in the files folder of {{name}}. Shared folders and skills stay readable.",
+    "filesHelpNoName": "The agent works only in the files folder of its project. Shared folders and skills stay readable.",
+    "memory": "Project memory",
+    "memoryHelp": "The agent can save a note to the project memory only with the grant \"Remember things in the project\": it proposes a change and you confirm it. Without the grant, memory is read only.",
+    "limited": "Limited by the project",
+    "noShare": "Project agents cannot be shared.",
+    "exportHelp": "Export writes an agent file. Choosing a project happens when the file is imported.",
+    "paused": "This agent is paused because its project is {{reason}}.",
+    "reason": {
+      "archived": "archived",
+      "deleted": "deleted",
+      "changed": "changed"
+    },
+    "fix": {
+      "archived": "Open the project and restore it. The agent works again after that.",
+      "deleted": "The project is gone. Restore it from the Trash in Files, and the agent works again.",
+      "changed": "A project folder was replaced, renamed or moved. Reconnect the agent to link it to the project folders again."
+    },
+    "openProject": "Open project",
+    "reconnect": "Reconnect",
+    "reconnected": "{{name}} is connected to the project again.",
+    "reconnectFailed": "Could not reconnect the agent: {{message}}",
+    "unavailable": "Unavailable",
+    "listReason": {
+      "archived": "Its project is archived.",
+      "deleted": "Its project was deleted.",
+      "changed": "Its project folders changed. Open it to reconnect."
+    },
+    "fact": "Project",
+    "memoryFact": "Memory",
+    "memoryReadOnly": "Project memory, read only",
+    "runsPaused": "Runs resume when the project is active again."
+  },
+  "importProject": {
+    "title": "This agent belongs to a project",
+    "text": "Choose where to put it. Project agents work only inside their project. Shared folders and skills stay readable.",
+    "textNamed": "The file is for the agent \"{{agent}}\". Choose where to put it. Project agents work only inside their project. Shared folders and skills stay readable.",
+    "label": "Project",
+    "choose": "Choose a project",
+    "create": "Create a project named '{{name}}'",
+    "createUnnamed": "Create a new project for this agent",
+    "help": "Only your active projects are listed.",
+    "createHelp": "A new project named {{name}} is made, and the agent is added to it.",
+    "needsChoice": "Choose a project, or create one, to import this agent.",
+    "cancel": "Cancel",
+    "import": "Import"
   }
 }

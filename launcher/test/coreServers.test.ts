@@ -104,6 +104,7 @@ describe('a remote default: the local server is not touched', () => {
   it('opens a remote default at once, and never starts, checks or installs the local server', async () => {
     const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id, auto_start_server: true })
     await r.core.init()
+    r.core.openDefaultRemote()
     expect(r.core.webuiState().target).toMatchObject({ kind: 'remote', host: 'office.example.com' })
     expect(r.effects).toEqual([{ kind: 'show', origin: 'https://office.example.com', url: 'https://office.example.com/app' }])
     await r.core.autoStart()
@@ -114,6 +115,26 @@ describe('a remote default: the local server is not touched', () => {
     r.core.installServer({})
     await r.core.installIdle()
     expect(r.provider.lookups).toBe(0)
+  })
+
+  it('does not open the remote default during init, before the shell has a window to show it in', async () => {
+    const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id })
+    await r.core.init()
+    // An effect emitted now has no window to land in and is lost, while the model would count the view as up.
+    expect(r.effects).toEqual([])
+    expect(r.probes).toEqual([])
+    r.core.openDefaultRemote()
+    expect(r.effects).toEqual([{ kind: 'show', origin: 'https://office.example.com', url: 'https://office.example.com/app' }])
+    await until(() => r.probes.length > 0)
+    expect(r.probes).toEqual(['https://office.example.com'])
+  })
+
+  it('openDefaultRemote does nothing when this computer is the default', async () => {
+    const r = await rig({ remotes: [REMOTE] })
+    await r.core.init()
+    r.core.openDefaultRemote()
+    expect(r.effects).toEqual([])
+    expect(r.probes).toEqual([])
   })
 
   it('"keep local running" gives the local server its normal rules back', async () => {
@@ -329,6 +350,7 @@ describe('a remote default that does not answer', () => {
     const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id })
     r.results.set(REMOTE.url, { status: 'unreachable', reason: 'timeout' })
     await r.core.init()
+    r.core.openDefaultRemote()
     await until(() => r.core.webuiState().remote !== null)
     expect(r.core.webuiState()).toMatchObject({ layout: 'shell-only', home: 'shell-only', remote: { kind: 'unreachable', reason: 'timed out' } })
     expect(r.effects.map((e) => e.kind)).toEqual(['show', 'close'])
@@ -346,6 +368,7 @@ describe('a remote default that does not answer', () => {
     const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id }, { remoteRetryMs: 60_000 })
     r.results.set(REMOTE.url, { status: 'unreachable', reason: 'refused' })
     await r.core.init()
+    r.core.openDefaultRemote()
     await until(() => r.core.webuiState().remote !== null)
     r.results.delete(REMOTE.url)
     await r.core.retryRemote()

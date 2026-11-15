@@ -1,0 +1,21 @@
+/* The Agents tab of a project. */
+.pjag-row { align-items: flex-start; padding-block: var(--sp-3); }
+.pjag-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pjag-desc { color: var(--dk-muted); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.pjag-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.pjag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--dk-inset);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+}
+.pjag-chip .lai-icon { width: 13px; height: 13px; }
+.pjag-why { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--dk-warn-text); font-size: var(--fs-small); }
+.pjag-why .lai-icon { width: 14px; height: 14px; flex: none; }
+.pjag-end { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
+.pjag-row .pj-tile { flex: none; }

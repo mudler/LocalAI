@@ -52,6 +52,7 @@ var _ = Describe("agent validation", func() {
 			"ask is not offered": {Name: "a", MemorySave: "ask"},
 			"folder, no mode":    {Name: "a", FolderID: 7},
 			"bad folder mode":    {Name: "a", FolderID: 7, FolderMode: "admin"},
+			"long project id":    {Name: "a", ProjectID: strings.Repeat("p", agents.MaxProjectIDRunes+1)},
 		} {
 			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid), name)
 		}

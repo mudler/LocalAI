@@ -273,11 +273,29 @@ type Conflict struct {
 	Kept   string // path of the conflict copy, when the store kept one
 }
 
+// The roles of a mount that the layout prompt tells apart. A role is set by the
+// code that asks for the mount, never read back from the mount's name: a shared
+// folder that happens to be named like a project mount stays a shared folder.
+const (
+	RoleProjectFiles  = "project-files"
+	RoleProjectMemory = "project-memory"
+	RolePulledFiles   = "pulled-files"
+	RolePulledMemory  = "pulled-memory"
+	// The roles of the folders of a project that another user shares: the
+	// mount carries the sharer's display name in Label.
+	RoleSharedFiles  = "shared-project-files"
+	RoleSharedMemory = "shared-project-memory"
+)
+
 // MountRequest asks for one folder in a view.
 type MountRequest struct {
 	Path string // workspace path of the folder
 	At   string // one name: the folder's name inside the view
 	Mode Mode   // ModeRead or ModeWrite
+	Role string // what the folder is for, one of the Role constants, or ""
+	// Label is a display text for the prompt that goes with Role (the
+	// sharer's display name). It grants nothing and is never a path.
+	Label string
 }
 
 // Mount is one folder of a view.
@@ -286,6 +304,8 @@ type Mount struct {
 	At     string
 	Mode   Mode // at most the mode the actor has
 	NodeID int64
+	Role   string // the role the caller asked for, or ""
+	Label  string // the label the caller asked for, or ""
 }
 
 // View is the set of folders that one session sees.
@@ -296,6 +316,9 @@ type View struct {
 	// the fence does not reach them (the budget of a fence layer is limited).
 	// It is for the prompt and the editor; it grants nothing.
 	NotMounted int
+	// Notes are plain sentences for the prompt: what the product left out of
+	// this view for this turn. They grant nothing.
+	Notes []string
 }
 
 // HistoryQuery selects change sets for History.

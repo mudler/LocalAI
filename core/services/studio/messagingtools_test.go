@@ -116,6 +116,35 @@ var _ = Describe("the LocalAI groups in a messaging chat", func() {
 		}
 	})
 
+	It("refuses every action of projects in a messaging chat, with a plain error", func() {
+		for _, args := range []string{`{"action":"list"}`, `{"action":"get","project":"p1"}`, `{"action":"delete","project":"p1"}`,
+			`{"action":"pull","chat_id":"c1","project":"p1"}`} {
+			res, calls := run(session.OriginConnector, localaitools.ToolProjects, args)
+			Expect(res.Err).To(MatchError(ContainSubstring("not available in a messaging chat")), args)
+			Expect(calls).To(BeZero(), args)
+		}
+	})
+
+	It("lets a run that starts by itself read projects and refuses every change", func() {
+		for _, c := range []struct {
+			args string
+			ok   bool
+		}{
+			{`{"action":"list"}`, true}, {`{"action":"get","project":"p1"}`, true},
+			{`{"action":"create","name":"x"}`, false}, {`{"action":"delete","project":"p1"}`, false},
+			{`{"action":"pull","chat_id":"c1","project":"p1"}`, false}, {`{"action":"set_chat_project","chat_id":"c1"}`, false},
+		} {
+			res, calls := run(session.OriginTrigger, localaitools.ToolProjects, c.args)
+			if c.ok {
+				Expect(res.Err).NotTo(HaveOccurred(), c.args)
+				Expect(calls).To(Equal(1), c.args)
+				continue
+			}
+			Expect(res.Err).To(MatchError(ContainSubstring("nobody watches")), c.args)
+			Expect(calls).To(BeZero(), c.args)
+		}
+	})
+
 	It("leaves verify, list and the other client tools available in a messaging chat", func() {
 		for _, c := range []struct{ tool, args string }{
 			{localaitools.ToolVoice, `{"action":"verify","audio":"a.wav","audio2":"b.wav"}`},

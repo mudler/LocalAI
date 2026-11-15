@@ -116,6 +116,21 @@ func registerClientTools(s *mcp.Server, client LocalAIClient, opts Options) {
 			return voiceProfileAction(ctx, client, in)
 		},
 		actions...)
+	// projects keeps only the actions the flavour allows: the read-only server
+	// drops everything that changes a project or a chat.
+	pActions := projectsActions
+	if opts.DisableMutating {
+		pActions = projectsReads
+	}
+	addActionTool(s, ToolProjects,
+		"Projects: folders and memory that chats share. delete, set_chat_project, pull, unpull: API/MCP callers only; a chat model asks the person.",
+		func(ctx context.Context, in ProjectsToolInput) (any, error) {
+			if !slices.Contains(pActions, in.Action) && slices.Contains(projectsActions, in.Action) {
+				return nil, fmt.Errorf("projects: action %q is not available on this server (use %s)", in.Action, strings.Join(pActions, ", "))
+			}
+			return projectsAction(ctx, client, in)
+		},
+		pActions...)
 }
 
 // clientToolWrites lists the client tools the read-only server leaves out: they

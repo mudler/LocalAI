@@ -15,10 +15,11 @@ const leaf = () => null
 let captured
 const scope = {
   ...Object.fromEntries(names.map(n => [n, leaf])), ...slash,
-  React, useCallback, useMemo, useState,
+  React, useCallback, useEffect: () => {}, useMemo, useState,
   useTranslation: () => ({ t: k => k }), useAuth: () => ({ isAdmin: true, user: { id: 'a' } }),
+  useProjectList: () => ({ projects: null, status: 'idle' }),
   useModelFit: () => ({ resources: null }), useCommandsNotice: () => ({}), useUserCommands: () => [],
-  hostMemory: () => null, agentFolderLine: () => '', CAP_CHAT: 'chat',
+  hostMemory: () => null, agentFolderLine: () => '', folderState: () => 'none', CAP_CHAT: 'chat',
   CHAT_SLASH_ACTIONS: [], SLASH_ACTIONS: [],
   HomeComposer: props => { captured = props; return React.createElement('textarea', { defaultValue: props.message }) },
   useToolGroups: () => [], useChatGrants: () => null, SAVED_AGENTS: 'saved_agents', SUBAGENTS: 'subagents',

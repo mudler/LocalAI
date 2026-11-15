@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -173,10 +174,38 @@ func (r *Runner) apply(ctx context.Context, cs workspace.ChangeSet, files map[st
 			if cs.CreatedAt.Before(t.Since) {
 				continue // the trigger did not watch yet
 			}
+			if !authorMayStart(t, cs, op) {
+				// Another person wrote into the project folder of the
+				// trigger's owner. The file waits for nothing, and a file of
+				// the owner that this change touched is dropped: it is no
+				// longer what the owner wrote.
+				k := pendKey{t.ID, op.NodeID}
+				if _, waiting := r.feed.pend[k]; waiting {
+					r.logf("triggers: a change by another account dropped a waiting file of trigger %s", t.ID)
+					delete(r.feed.pend, k)
+				}
+				continue
+			}
 			r.applyOp(t, op, cs.Rev, own == t.ID, now)
 		}
 	}
 	return nil
+}
+
+// authorMayStart says whether the author of a change set may start the
+// trigger t with the change op. A change inside a project of the trigger's
+// owner (at its new path, or at its old path for a move) starts the trigger
+// only when the owner made it: the person, or a chat of the person (the
+// journal records the principal of the author in ChangeSet.Actor). A person who
+// has a grant on the shared project writes there too, and must not be able to
+// start the owner's agent. The rule follows the path of the change, never the
+// folder of the trigger, so a trigger on the Projects folder or on the home
+// is held to it too. Every other change starts every trigger, as before.
+func authorMayStart(t Trigger, cs workspace.ChangeSet, op workspace.Op) bool {
+	if cs.Actor == t.Owner {
+		return true
+	}
+	return !projects.OwnsProjectPath(op.NewPath, t.Owner) && !projects.OwnsProjectPath(op.OldPath, t.Owner)
 }
 
 func (r *Runner) applyOp(t Trigger, op workspace.Op, rev int64, ownRun bool, now time.Time) {

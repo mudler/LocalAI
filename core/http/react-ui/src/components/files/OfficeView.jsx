@@ -24,7 +24,11 @@ export default function OfficeView({ item, kind, t, onFallback }) {
   const [full, setFull] = useState(false)
   const fallback = useRef(onFallback)
   fallback.current = onFallback
-  const fail = useCallback((reason, error) => fallback.current?.(reason, error), [])
+  const fail = useCallback((reason, error) => {
+    // Say why the text view took over: nothing else shows the cause of a failed drawing.
+    if (error) console.warn('office preview: the drawing failed, showing the text view', reason, error)
+    fallback.current?.(reason, error)
+  }, [])
   const ready = useCallback(() => setState(s => (s.ready ? s : { ...s, ready: true })), [])
 
   useEffect(() => {

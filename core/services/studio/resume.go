@@ -112,6 +112,14 @@ func (s *Service) resumeInterruptedVia(ctx context.Context, p, conv string) (Sen
 func (s *Service) ResumeInterrupted(ctx context.Context, p, conv string) (SendResult, error) {
 	unlock := s.lock(key(p, conv))
 	defer unlock()
+	// A chat of a project agent whose project is not available is left for
+	// later: nothing is claimed, so no attempt is spent and a restore of the
+	// project lets the next sweep resume it.
+	if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil {
+		if _, _, err := s.chatScopes(ctx, rec, false); errors.Is(err, ErrProjectUnavailable) {
+			return SendResult{}, nil
+		}
+	}
 	runID := newID()
 	switch err := s.d.Store.ClaimResume(ctx, p, conv, runID); {
 	case errors.Is(err, store.ErrTurnRunning), errors.Is(err, store.ErrNotResumable):

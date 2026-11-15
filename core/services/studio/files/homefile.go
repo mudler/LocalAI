@@ -29,6 +29,27 @@ func (s *Service) ReadHome(ctx context.Context, principal, rel string, max int64
 	return text, true, nil
 }
 
+// ReadShared reads a text file at the workspace path abs as the person
+// principal, through the grants the person has and nothing else. It is for a
+// file in a folder that another person shared. A file that is missing, or that
+// the person may not read, gives ok false.
+func (s *Service) ReadShared(ctx context.Context, principal, abs string, max int64) (text string, ok bool, err error) {
+	if !s.Available() {
+		return "", false, ErrUnavailable
+	}
+	if !validPrincipal(principal) {
+		return "", false, workspace.ErrBadName
+	}
+	text, _, err = s.readText(ctx, s.Actor(principal), abs, max)
+	if errors.Is(err, workspace.ErrNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return text, true, nil
+}
+
 // WriteHome replaces a file in the home of principal as one change set with
 // the given title, and returns its revision, so the caller can undo it. It
 // writes as the user: it is for a change the user confirmed. The content may

@@ -50,17 +50,19 @@ func ValidChangeKind(s string) bool { return slices.Contains(ChangeKinds(), Chan
 type ChangeScope string
 
 // The scopes. user: the person, in every chat. agent: one saved agent.
-// channel: one connector conversation.
+// channel: one connector conversation. project: the project a chat belongs
+// to; the host picks it from the chat, never from the model.
 const (
 	ScopeUser    ChangeScope = "user"
 	ScopeAgent   ChangeScope = "agent"
 	ScopeChannel ChangeScope = "channel"
+	ScopeProject ChangeScope = "project"
 )
 
 // ValidChangeScope reports whether s names a scope.
 func ValidChangeScope(s string) bool {
 	switch ChangeScope(s) {
-	case ScopeUser, ScopeAgent, ScopeChannel:
+	case ScopeUser, ScopeAgent, ScopeChannel, ScopeProject:
 		return true
 	}
 	return false
@@ -111,18 +113,29 @@ type ChangeSource struct {
 // or empty when the target did not exist; a proposal is refused if the target
 // has another hash when the owner confirms.
 type ChangeProposal struct {
-	V        int            `json:"v"`
-	ID       string         `json:"id"`
-	Owner    string         `json:"owner,omitempty"`
-	Agent    string         `json:"agent,omitempty"`
-	Kind     ChangeKind     `json:"kind"`
-	Scope    ChangeScope    `json:"scope"`
-	Target   string         `json:"target"`
-	Summary  string         `json:"summary,omitempty"`
-	Content  string         `json:"content,omitempty"`
-	BaseHash string         `json:"base_hash,omitempty"`
-	Source   ChangeSource   `json:"source,omitzero"`
-	Status   ProposalStatus `json:"status"`
+	V     int    `json:"v"`
+	ID    string `json:"id"`
+	Owner string `json:"owner,omitempty"`
+	// Proposer is the person who made the proposal when it is not the Owner:
+	// someone a project is shared with, who proposes a note for it. Owner is
+	// still the person whose home the change writes and the only one who can
+	// confirm. A host that stores the record keeps the account here; a host
+	// that sends it to the Owner shows a display name instead, never an
+	// account. Empty for a proposal the Owner's own chat made.
+	Proposer string       `json:"proposer,omitempty"`
+	Agent    string       `json:"agent,omitempty"`
+	Kind     ChangeKind   `json:"kind"`
+	Scope    ChangeScope  `json:"scope"`
+	Target   string       `json:"target"`
+	Summary  string       `json:"summary,omitempty"`
+	Content  string       `json:"content,omitempty"`
+	BaseHash string       `json:"base_hash,omitempty"`
+	Source   ChangeSource `json:"source,omitzero"`
+	// ProjectNode is the identity of the shared project folder a proposal with
+	// a Proposer is for. The host checks again, when the Owner confirms, that
+	// the Proposer still has write access to that folder. Zero otherwise.
+	ProjectNode int64          `json:"project_node,omitempty"`
+	Status      ProposalStatus `json:"status"`
 	// Warning is set by the host when the text of a proposal looks risky, as a
 	// stable code (see the Warning constants). The owner still sees the text,
 	// with a warning, and can confirm it in the web interface; a messaging chat
@@ -148,7 +161,12 @@ const (
 	// ChangeExpiry is how long a proposal waits for an answer.
 	ChangeExpiry = 24 * time.Hour
 	// MaxPendingChanges is the most proposals of one person waiting at once.
+	// For a person who proposes to another (a Proposer) it is the most that
+	// person has waiting; the queue of the Owner is not charged.
 	MaxPendingChanges = 10
+	// MaxPendingPerProject is the most proposals of other people that wait for
+	// the Owner for one shared project.
+	MaxPendingPerProject = 10
 	// MaxChangesPerHour is the most proposals one agent (or one plain chat
 	// user) makes in an hour.
 	MaxChangesPerHour = 5

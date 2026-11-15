@@ -85,4 +85,4 @@ FLAG_UPSCALE FLAG_MOTION FLAG_FORECAST
 {"contextFiles":[{"scope":"user","path":"Memory/index.md"},{"scope":"agent","path":"Memory/agents/{agent}/index.md","cap":1024}]}
 ```
 
-Every path lies under `Memory/`, ends in `.md` and holds no parent segment. An agent path holds `{agent}` once and a channel path holds `{channel}` once; the host fills them from the chat, never from the model. `cap` lowers the 2 KiB index cap; it cannot raise it. The add-on declares and the host reads: the add-on gains no access to the files.
+Every path lies under `Memory/`, ends in `.md` and holds no parent segment. An agent path holds `{agent}` once, a channel path holds `{channel}` once and a project path holds `{project}` once; the host fills them from the chat, never from the model. `cap` lowers the 2 KiB index cap; it cannot raise it. The add-on declares and the host reads: the add-on gains no access to the files.

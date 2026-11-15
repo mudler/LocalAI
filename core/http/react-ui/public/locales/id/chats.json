@@ -1040,7 +1040,8 @@
       "user": "Semua obrolan Anda",
       "agent": "Agen {{agent}}",
       "agentAny": "Satu agen",
-      "channel": "Percakapan ini"
+      "channel": "Percakapan ini",
+      "project": "Proyek ini"
     },
     "help": "Tidak ada yang disimpan sampai Anda mengonfirmasi.",
     "row": {
@@ -1048,7 +1049,9 @@
       "target": "Berkas",
       "source": "Dari",
       "expires": "Kedaluwarsa dalam",
-      "collection": "Koleksi"
+      "collection": "Koleksi",
+      "proposedBy": "Diusulkan oleh",
+      "note": "Catatan"
     },
     "source": {
       "chat": "Obrolan",
@@ -1123,6 +1126,17 @@
       "consent": "Rekaman disimpan sebagai profil suara yang dapat dipakai chat Anda untuk berbicara. Anda dapat menghapusnya di pustaka Suara.",
       "consentAdmin": "Anda administrator, jadi suara ini tersedia untuk semua pengguna server ini.",
       "confirm": "Pembicara setuju: simpan suara"
+    },
+    "fromOther": {
+      "title": "{{name}} mengusulkan catatan untuk {{project}}",
+      "titleNoProject": "{{name}} mengusulkan catatan",
+      "help": "Tidak ada yang ditulis sampai Anda mengonfirmasi. {{name}} mengusulkannya dari obrolan yang menarik proyek ini.",
+      "by": "{{name}}, dari obrolannya sendiri",
+      "voided": "{{name}} tidak lagi dapat mengubah proyek ini.",
+      "noteFor": "Catatan untuk {{project}}",
+      "thisProject": "proyek ini",
+      "why": "Bagikan proyek lagi dengan akses ubah, lalu minta catatan itu lagi jika Anda masih menginginkannya.",
+      "nameHint": "Nama proyek diambil dari foldernya"
     }
   },
   "proposalsPage": {

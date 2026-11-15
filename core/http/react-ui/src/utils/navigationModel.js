@@ -1,7 +1,7 @@
 // Pure rules of the primary sidebar items. No React, no imports, so a node
 // test drives it directly.
 
-// Files, Pages (once there is one), Agents, Connections, Memory, Skills, Models and Add-ons. Home and the
+// Files, Projects, Pages (once there is one), Agents, Connections, Memory, Skills, Models and Add-ons. Home and the
 // Operate hub keep the place they have today (see hubConfig.js and
 // destinations.js). Settings is a tab of the Operate hub, not a primary item.
 // Chats is not an item: Home is where a chat starts, and the sidebar lists the
@@ -10,6 +10,8 @@
 export const primaryDestinations = Object.freeze([
   // The user's own files: a workspace of folders, with a Trash and history.
   { id: 'files', path: '/app/files', icon: 'folder', labelKey: 'items.files', feature: 'chats' },
+  // Projects: the files, memory, tool choices and chats of one stream.
+  { id: 'projects', path: '/app/projects', icon: 'layers', labelKey: 'items.projects', feature: 'chats' },
   // The user's pages (pages/<name>/index.html in the files). Shown only once
   // the user has a page; pinned pages are listed under it.
   { id: 'pages', path: '/app/pages', icon: 'file-code', labelKey: 'items.pages', feature: 'pages', pagesEntry: true },

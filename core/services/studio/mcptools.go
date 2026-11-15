@@ -54,7 +54,7 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) (tools
 	}
 	tools, missing = append(tools, dropHidden(t, hidden)...), append(missing, m...)
 	if !hidden[collectionToolNames[0]] {
-		t, m = s.collectionTools(ctx, a, sc)
+		t, m = s.collectionTools(ctx, a, sc, rec.Collections)
 		tools, missing = append(tools, t...), append(missing, m...)
 	}
 	t, conns, m = s.mcpTools(ctx, a, rec, sc, tools)

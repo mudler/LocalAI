@@ -249,7 +249,7 @@ var _ = Describe("the memory choice of an agent", func() {
 				a := agent("A-"+choice, choice, false)
 				tt := turn(CreateInput{Model: "m", AgentID: a.ID})
 				Expect(schemaOf(tt)).To(ContainSubstring(`"scope":{"type":"string","enum":["agent"]}`), choice)
-				Expect(schemaOf(tt)).To(ContainSubstring(`"required":["kind","summary"]`), choice)
+				Expect(schemaOf(tt)).To(ContainSubstring(`"required":["kind","content","summary"]`), choice)
 				t, _ := toolOf(tt, "propose_change")
 				Expect(t.Description).To(ContainSubstring("saved to this agent's own memory"))
 				Expect(t.Description).NotTo(ContainSubstring("or channel"))
@@ -300,7 +300,7 @@ var _ = Describe("the memory choice of an agent", func() {
 			a := agent("Old", "", false, "memory")
 			tt := turn(CreateInput{Model: "m", AgentID: a.ID})
 			Expect(schemaOf(tt)).To(ContainSubstring(`"scope":{"type":"string","enum":["user","agent","channel"]}`))
-			Expect(schemaOf(tt)).To(ContainSubstring(`"required":["kind","scope","summary"]`))
+			Expect(schemaOf(tt)).To(ContainSubstring(`"required":["kind","scope","content","summary"]`))
 			t, _ := toolOf(tt, "propose_change")
 			Expect(t.Description).To(Equal(proposeChangeDescription))
 			for _, scope := range []string{"user", "agent"} {

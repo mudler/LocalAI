@@ -40,6 +40,10 @@ const (
 	// chats (the group GroupHistory). A run that starts by itself, a
 	// sub-agent and a messaging chat never hold it.
 	GrantHistoryRead = "history.read"
+	// GrantProjectMemoryWrite lets a project agent propose a note for the memory
+	// of its own project. The owner still confirms every note. Without it the
+	// memory of the project is read only for the agent.
+	GrantProjectMemoryWrite = "project.memory.write"
 )
 
 // Grant describes one grant for a person: a title and what the agent can do
@@ -73,6 +77,7 @@ var grants = []Grant{
 	{GrantActSpend, "Use paid or external tools on its own", "A run that nobody watches may use paid or external tools and the network.", true},
 	{GrantSavedAgents, "Call your saved agents", "The agent can list your saved agents and start one as a sub-agent.", false},
 	{GrantHistoryRead, "Read your earlier chats", "The agent can search and read your earlier chats. An agent that works in a folder reads only the chats of its own. Private chats, messaging chats and sub-agent runs are never read.", true},
+	{GrantProjectMemoryWrite, "Remember things in the project", "An agent that belongs to a project can propose a note in the memory of that project, which its chats share. You confirm each note.", false},
 }
 
 // Grants returns the declared grants in display order. The caller may change

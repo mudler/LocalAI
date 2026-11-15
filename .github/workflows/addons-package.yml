@@ -198,6 +198,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # A pull request checks out the merge commit; its first parent is the
+          # base branch tip, so two commits are enough to list the changed files.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 1 }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -237,8 +240,50 @@ jobs:
           # that publishes nothing: that add-on gets no legs. On a publishing
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
+          all_ids="tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search sandbox ssh web"
+          ids=$all_ids
+          if [ "$EVENT" = "pull_request" ]; then
+            # A pull request builds only the add-ons whose own files changed,
+            # plus the add-ons that import them. Any other changed file that
+            # can reach a package build (shared Go code, the build scripts, the
+            # module files, the workflow, the host UI build) selects every
+            # add-on. When the changed files cannot be listed, build them all.
+            if changed=$(git diff --name-only HEAD^1 HEAD 2>/dev/null) && [ -n "$changed" ]; then
+              printf '%s\n' "$changed" > changed-files.txt
+              # Files that no package build reads. The validate job still
+              # checks the catalog and the packaging tests run elsewhere.
+              shared=$(grep -vE '^(addons/[^/]+/|gallery/addons/|tests/addons/packaging/|docs/content/addons/contract-reference\.md$)' changed-files.txt || true)
+              # Files directly under addons/, addons/internal and
+              # addons/testhost are shared by every add-on.
+              shared="$shared$(grep -E '^addons/([^/]+$|internal/|testhost/)' changed-files.txt || true)"
+              # A directory that is not a known add-on (a new one) selects all.
+              for dir in $(sed -n 's#^addons/\([^/]*\)/.*#\1#p' changed-files.txt | sort -u); do
+                case " $all_ids internal testhost " in *" $dir "*) ;; *) shared="$shared$dir" ;; esac
+              done
+              if [ -z "$shared" ]; then
+                ids=""
+                for id in $all_ids; do
+                  if grep -q "^addons/$id/" changed-files.txt; then ids="$ids $id"; fi
+                done
+                # Add every add-on that imports a selected one, until stable.
+                prev=""
+                while [ "$prev" != "$ids" ]; do
+                  prev=$ids
+                  for id in $all_ids; do
+                    for dep in $prev; do
+                      [ "$dep" = "$id" ] && continue
+                      if grep -rqF "github.com/mudler/LocalAI/addons/$dep" --include='*.go' "addons/$id" 2>/dev/null; then
+                        case " $ids " in *" $id "*) ;; *) ids="$ids $id" ;; esac
+                      fi
+                    done
+                  done
+                done
+              fi
+            fi
+          fi
+          echo "add-ons to build: ${ids:-none}"
           include='[]'
-          for id in tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search sandbox ssh web; do
+          for id in $ids; do
             cfg="addons/$id/package/platforms.yaml"
             err="matrix-$id.err"
             if rows=$(go run ./scripts/addons/cmd/addonpkg matrix --config "$cfg" 2>"$err"); then

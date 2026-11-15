@@ -144,11 +144,39 @@ export function timeLeft(p, now = Date.now()) {
 
 // A kind the card has no wording for is shown by its raw name.
 export const KNOWN_KINDS = ['memory', 'profile', 'skill', 'page', 'dashboard', 'knowledge', 'voice_profile']
-export const KNOWN_SCOPES = ['user', 'agent', 'channel']
+export const KNOWN_SCOPES = ['user', 'agent', 'channel', 'project']
 
 // A short, readable size.
 export function byteText(n) {
   if (!Number.isFinite(n)) return ''
   if (n < 1024) return `${n} B`
   return `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KiB`
+}
+
+// The display name of the person who proposed a change for the owner's project,
+// or '' for a proposal the owner's own chat made. The server sets it only for
+// a proposal from another person, and never as an account.
+export const proposalProposer = (p) => (typeof p?.proposer === 'string' ? p.proposer : '')
+
+// The project a proposal is for: its label when the record has one, else the
+// slug in the target ("Projects/<slug>/..."), as words. '' for a target that
+// is not in a project.
+export function proposalProject(p) {
+  if (typeof p?.project === 'string' && p.project) return p.project
+  const m = /^\/?Projects\/([^/]+)\//.exec(String(p?.target || ''))
+  if (!m) return ''
+  const words = m[1].replace(/[-_]+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+// A proposal from another person that the server voided: it settled as stale
+// because that person can no longer edit the project.
+export const proposalVoidedForProposer = (p) => p?.status === 'stale' && proposalProposer(p) !== ''
+
+// The pending proposals that write the memory of one project: the target is
+// "Projects/<slug>/memory/<file>" (a leading slash is allowed).
+export function proposalsForProject(list, slug) {
+  if (!slug || !Array.isArray(list)) return []
+  const prefix = `Projects/${slug}/memory/`
+  return list.filter(p => p?.status === 'pending' && String(p.target || '').replace(/^\//, '').startsWith(prefix))
 }

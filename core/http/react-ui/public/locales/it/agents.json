@@ -980,5 +980,59 @@
     "asksTitle_one": "Questo agente chiede {{count}} cosa che la tua chat non ha all’avvio:",
     "asksTitle_other": "Questo agente chiede {{count}} cose che la tua chat non ha all’avvio:",
     "asksHelp": "Funziona come te. Attivale nella chat solo se ti fidi dell’agente e della persona che lo ha condiviso."
+  },
+  "project": {
+    "chip": "Progetto: {{name}}",
+    "deleted": "progetto eliminato",
+    "files": "File del progetto",
+    "filesMode": "Modalità dei file",
+    "canEdit": "Può modificare",
+    "readOnly": "Sola lettura",
+    "filesHelp": "L’agente lavora solo nella cartella dei file di {{name}}. Le cartelle condivise e le skill restano leggibili.",
+    "filesHelpNoName": "L’agente lavora solo nella cartella dei file del suo progetto. Le cartelle condivise e le skill restano leggibili.",
+    "memory": "Memoria del progetto",
+    "memoryHelp": "L’agente può salvare una nota nella memoria del progetto solo con il permesso «Remember things in the project»: propone una modifica che confermi tu. Senza il permesso, la memoria è di sola lettura.",
+    "limited": "Limitato dal progetto",
+    "noShare": "Gli agenti di progetto non si possono condividere.",
+    "exportHelp": "L’esportazione scrive un file di agente. Il progetto si sceglie quando il file viene importato.",
+    "paused": "Questo agente è in pausa perché il suo progetto è {{reason}}.",
+    "reason": {
+      "archived": "archiviato",
+      "deleted": "eliminato",
+      "changed": "cambiato"
+    },
+    "fix": {
+      "archived": "Apri il progetto e ripristinalo. Poi l’agente torna a funzionare.",
+      "deleted": "Il progetto non c’è più. Ripristinalo dal Cestino in File e l’agente tornerà a funzionare.",
+      "changed": "Una cartella del progetto è stata sostituita, rinominata o spostata. Ricollega l’agente per legarlo di nuovo alle cartelle del progetto."
+    },
+    "openProject": "Apri progetto",
+    "reconnect": "Ricollega",
+    "reconnected": "{{name}} è di nuovo collegato al progetto.",
+    "reconnectFailed": "Impossibile ricollegare l’agente: {{message}}",
+    "unavailable": "Non disponibile",
+    "listReason": {
+      "archived": "Il suo progetto è archiviato.",
+      "deleted": "Il suo progetto è stato eliminato.",
+      "changed": "Le cartelle del suo progetto sono cambiate. Aprilo per ricollegarlo."
+    },
+    "fact": "Progetto",
+    "memoryFact": "Memoria",
+    "memoryReadOnly": "Memoria del progetto, sola lettura",
+    "runsPaused": "Le esecuzioni riprendono quando il progetto torna attivo."
+  },
+  "importProject": {
+    "title": "Questo agente appartiene a un progetto",
+    "text": "Scegli dove metterlo. Gli agenti di progetto lavorano solo dentro il loro progetto. Le cartelle condivise e le skill restano leggibili.",
+    "textNamed": "Il file è per l’agente «{{agent}}». Scegli dove metterlo. Gli agenti di progetto lavorano solo dentro il loro progetto. Le cartelle condivise e le skill restano leggibili.",
+    "label": "Progetto",
+    "choose": "Scegli un progetto",
+    "create": "Crea un progetto chiamato '{{name}}'",
+    "createUnnamed": "Crea un nuovo progetto per questo agente",
+    "help": "Sono elencati solo i tuoi progetti attivi.",
+    "createHelp": "Viene creato un nuovo progetto chiamato {{name}} e l’agente vi viene aggiunto.",
+    "needsChoice": "Scegli un progetto, o creane uno, per importare questo agente.",
+    "cancel": "Annulla",
+    "import": "Importa"
   }
 }

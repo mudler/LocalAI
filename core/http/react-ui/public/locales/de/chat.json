@@ -34,6 +34,8 @@
     "agentHelp": "Dieser Chat läuft mit dem Agenten {{name}}: mit seinen Anweisungen und nur den Werkzeugen, die er erlaubt.",
     "editAgent": "Agent bearbeiten",
     "deleteHelp": "Diesen Chat und seine Nachrichten endgültig löschen.",
+    "collections": "Sammlungen",
+    "collectionsHelp": "Dieser Chat kann nur diese Sammlungen nutzen.",
     "sliderOf": "{{name}}-Regler",
     "reset": "Standardwert des Modells für {{name}} verwenden",
     "hint": {
@@ -167,7 +169,8 @@
       "from": "Von",
       "to": "Bis",
       "reset": "Filter zurücksetzen"
-    }
+    },
+    "clearShown": "Angezeigte leeren"
   },
   "message": {
     "you": "You",
@@ -718,7 +721,9 @@
     "missing": "Der Ordner dieses Agenten existiert nicht mehr. Wähle im Agenten einen anderen Ordner.",
     "startError": "Der Ordner dieses Agenten fehlt, daher kann der Chat nicht starten. Wähle einen anderen Ordner für den Agenten.",
     "editAgent": "Agent bearbeiten",
-    "toolsMany": "Dateien: nur {{n}} Ordner: {{list}}. Geteilte Ordner und Skills bleiben lesbar."
+    "toolsMany": "Dateien: nur {{n}} Ordner: {{list}}. Geteilte Ordner und Skills bleiben lesbar.",
+    "projectPaused": "Dieser Agent ist pausiert, weil sein Projekt archiviert oder gelöscht ist. Öffne das Projekt und stelle es wieder her.",
+    "projectChanged": "Dieser Agent ist pausiert, weil sich seine Projektordner geändert haben. Öffne den Agenten und verbinde ihn neu."
   },
   "origin": {
     "banner": "Diese Unterhaltung wurde von {{title}} gestartet.",
@@ -913,5 +918,11 @@
       "code": "Codeblock ausgelassen.",
       "table": "Tabelle ausgelassen."
     }
+  },
+  "deleteShownDialog": {
+    "title": "Angezeigte Chats löschen",
+    "message_one": "Den {{count}} angezeigten Chat in {{project}} löschen? Das kann nicht rückgängig gemacht werden.",
+    "message_other": "Die {{count}} angezeigten Chats in {{project}} löschen? Das kann nicht rückgängig gemacht werden.",
+    "confirm": "Angezeigte löschen"
   }
 }
