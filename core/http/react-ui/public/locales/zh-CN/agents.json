@@ -980,5 +980,59 @@
     "asksTitle_one": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
     "asksTitle_other": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
     "asksHelp": "它以你的身份运行。只有在你信任此智能体和分享它的人时，才在聊天中打开它们。"
+  },
+  "project": {
+    "chip": "项目：{{name}}",
+    "deleted": "已删除的项目",
+    "files": "项目文件",
+    "filesMode": "文件模式",
+    "canEdit": "可编辑",
+    "readOnly": "只读",
+    "filesHelp": "智能体只在 {{name}} 的文件文件夹中工作。 共享文件夹和技能仍可读取。",
+    "filesHelpNoName": "智能体只在其项目的文件文件夹中工作。 共享文件夹和技能仍可读取。",
+    "memory": "项目记忆",
+    "memoryHelp": "只有拥有“Remember things in the project”权限时，智能体才能把笔记保存到项目记忆：它提出更改，由你确认。没有该权限时，记忆为只读。",
+    "limited": "受项目限制",
+    "noShare": "项目智能体不能共享。",
+    "exportHelp": "导出会生成智能体文件。导入文件时再选择项目。",
+    "paused": "此智能体已暂停，因为它的项目{{reason}}。",
+    "reason": {
+      "archived": "已归档",
+      "deleted": "已被删除",
+      "changed": "已更改"
+    },
+    "fix": {
+      "archived": "打开项目并恢复它，之后智能体会恢复工作。",
+      "deleted": "项目已不存在。在“文件”的回收站中恢复它，智能体就会恢复工作。",
+      "changed": "项目文件夹被替换、重命名或移动了。重新连接智能体，使其再次关联项目文件夹。"
+    },
+    "openProject": "打开项目",
+    "reconnect": "重新连接",
+    "reconnected": "{{name}} 已重新连接到项目。",
+    "reconnectFailed": "无法重新连接智能体：{{message}}",
+    "unavailable": "不可用",
+    "listReason": {
+      "archived": "它的项目已归档。",
+      "deleted": "它的项目已被删除。",
+      "changed": "它的项目文件夹已更改。打开它以重新连接。"
+    },
+    "fact": "项目",
+    "memoryFact": "记忆",
+    "memoryReadOnly": "项目记忆，只读",
+    "runsPaused": "项目重新启用后，运行会继续。"
+  },
+  "importProject": {
+    "title": "此智能体属于一个项目",
+    "text": "选择放到哪里。项目智能体只在其项目内工作。 共享文件夹和技能仍可读取。",
+    "textNamed": "此文件属于智能体“{{agent}}”。选择放到哪里。项目智能体只在其项目内工作。 共享文件夹和技能仍可读取。",
+    "label": "项目",
+    "choose": "选择项目",
+    "create": "创建名为“{{name}}”的项目",
+    "createUnnamed": "为此智能体创建新项目",
+    "help": "只列出你的活跃项目。",
+    "createHelp": "将创建名为 {{name}} 的新项目，并把智能体添加进去。",
+    "needsChoice": "请选择一个项目，或新建一个，才能导入此智能体。",
+    "cancel": "取消",
+    "import": "导入"
   }
 }

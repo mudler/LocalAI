@@ -190,6 +190,7 @@ func (a *Application) initStudioService() {
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns
 	}
+	deps.Projects = a.initStudioProjects()
 	// The built-in bash runs commands on this machine when no Sandbox serves
 	// bash. Its scratch folders are per process; the files are the truth.
 	// The hooks run in chat turns, which start only after svcRef is set; it

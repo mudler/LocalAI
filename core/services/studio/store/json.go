@@ -485,6 +485,8 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
 	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
 	r.AllowedTools = append([]string(nil), r.AllowedTools...)
+	r.PulledProjects = append([]string(nil), r.PulledProjects...)
+	r.Collections = append([]string(nil), r.Collections...)
 	r.Connections = connsets.Clone(r.Connections)
 	r.Jobs = slices.Clone(r.Jobs)
 	if r.HostConsent != nil {
@@ -605,6 +607,32 @@ func (s *jsonStore) SetBuiltinsOn(_ context.Context, principal, id string, on []
 
 func (s *jsonStore) SetConnections(_ context.Context, principal, id string, connections connsets.Sets) error {
 	return s.set(principal, id, func(next *chatState) { next.Rec.Connections = connsets.Clone(connections) })
+}
+
+func (s *jsonStore) SetProject(_ context.Context, principal, id, projectID string) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.ProjectID = projectID })
+}
+
+func (s *jsonStore) SetPulledProjects(_ context.Context, principal, id string, ids []string) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.PulledProjects = append([]string(nil), ids...) })
+}
+
+func (s *jsonStore) SetCollections(_ context.Context, principal, id string, names []string) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.Collections = append([]string(nil), names...) })
+}
+
+func (s *jsonStore) ListChatsInProject(_ context.Context, principal, projectID string, limit int) ([]session.ChatRecord, error) {
+	out := s.records(func(r session.ChatRecord) bool { return r.Principal == principal && r.ProjectID == projectID })
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].Updated.Equal(out[j].Updated) {
+			return out[i].Updated.After(out[j].Updated)
+		}
+		return out[i].ID > out[j].ID
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (s *jsonStore) SetScopedAgent(_ context.Context, principal, id string, scoped bool) error {

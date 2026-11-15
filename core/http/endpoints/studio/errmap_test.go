@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -63,6 +64,8 @@ var _ = Describe("the studio endpoint helpers", func() {
 			{"a busy chat", failFor, studiosvc.ErrChatBusy, 409, "conflict", "a turn is running; stop it first"},
 			{"an agent over its folder budget", failFor, fmt.Errorf("secret /path: %w", studiosvc.ErrAgentFolderLimit), 409, "agent_folder_limit", "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."},
 			{"an agent whose folder is missing", failFor, fmt.Errorf("opening: %w", studiosvc.ErrAgentFolderMissing), 409, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings."},
+			{"an agent whose project folders changed", failFor, fmt.Errorf("opening: %w", studiosvc.ErrProjectFoldersChanged), 409, "project_folders_changed", studiosvc.ProjectFoldersChangedText},
+			{"an agent whose project is not available", failFor, fmt.Errorf("opening: %w", studiosvc.ErrProjectUnavailable), 409, "project_unavailable", studiosvc.ProjectUnavailableText},
 			{"a refusal keeps its text less the package prefix", failFor, fmt.Errorf("%w", studiosvc.ErrNothingToRegenerate), 400, "invalid_request_error", "the chat has no message to answer again"},
 			{"an attachment over the limit", failFor, workspace.ErrTooLarge, 413, "invalid_request_error", "an attachment is too large"},
 			{"an unknown error hides its text", failFor, errors.New("secret detail"), 500, "server_error", "the request failed"},
@@ -73,6 +76,7 @@ var _ = Describe("the studio endpoint helpers", func() {
 			{"an action of the owner of a shared agent", failFor, studiosvc.ErrAgentNotOwner, 403, "authorization_error", "only the owner of this agent can do this"},
 			{"an agent that is no longer shared", failFor, studiosvc.ErrAgentNotShared, 409, "agent_not_shared", "this agent is no longer shared with you"},
 			{"a server that does not share agents", failFor, fmt.Errorf("%w: no policy", studiosvc.ErrAgentSharingOff), 409, "sharing_disabled", "agents cannot be shared on this server"},
+			{"a project that changed during its rewrite", failProject, fmt.Errorf("saving: %w", projects.ErrConflict), 409, "conflict", "the project changed while it was saved; try again"},
 			{"a missing trigger", failTrigger, triggers.ErrNotFound, 404, "not_found", "trigger not found"},
 			{"a bad trigger says why", failTrigger, fmt.Errorf("%w: the schedule is empty", studiosvc.ErrBadTrigger), 400, "invalid_request_error", "the schedule is empty"},
 			{"triggers off", failTrigger, studiosvc.ErrTriggersOff, 409, "triggers_off", studiosvc.ErrTriggersOff.Error()},

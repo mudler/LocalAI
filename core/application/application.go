@@ -65,6 +65,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -203,6 +204,7 @@ type Application struct {
 	studioLoopsStop       context.CancelFunc
 	studioConnStore       connectors.Store
 	studioMCPStore        mcpconns.Store
+	studioProjectStore    projects.Store
 	studioMCPConns        *mcpconns.Service
 	studioConnectors      *studio.Connectors
 	studioConnectorsHook  atomic.Pointer[studio.Connectors] // the same manager, for the inbox hook that runs on other goroutines

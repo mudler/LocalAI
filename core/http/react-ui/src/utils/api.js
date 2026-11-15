@@ -190,9 +190,10 @@ export const chatsApi = {
   // the chat gets the LocalAI management tools (admin only, setting on).
   // switches are the drafted switches of a new chat (useChatSwitches): the
   // chat is stored with them.
-  create: (model, title, agentId, assistant, switches) => postJSON(API_CONFIG.endpoints.chats, {
+  create: (model, title, agentId, assistant, switches, projectId) => postJSON(API_CONFIG.endpoints.chats, {
     ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),
     ...(assistant ? { assistant: true } : {}), ...(switches ? { switches } : {}),
+    ...(projectId ? { project_id: projectId } : {}),
   }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
@@ -549,6 +550,42 @@ export const chatMCPConnectorsApi = {
   test: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/test`, {}),
 }
 
+// Projects: a folder of files and memory with tool defaults and chats.
+// putMemory replaces one memory file; setChatProject moves a chat into a
+// project (null takes it out); setChatPulled sets the other projects it reads.
+export const chatProjectsApi = {
+  list: () => fetchJSON('/api/chats/projects'),
+  create: (body) => postJSON('/api/chats/projects', body),
+  get: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}`),
+  update: (id, body) => fetchJSON(`/api/chats/projects/${enc2(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}`, { method: 'DELETE' }),
+  archive: (id) => postJSON(`/api/chats/projects/${enc2(id)}/archive`, {}),
+  restore: (id) => postJSON(`/api/chats/projects/${enc2(id)}/restore`, {}),
+  memory: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/memory`),
+  putMemory: (id, file, content) => fetchJSON(`/api/chats/projects/${enc2(id)}/memory/${enc2(file)}`, { method: 'PUT', body: JSON.stringify({ content }) }),
+  chats: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/chats`),
+  // The agents created from the project: { agents: [{ id, name, description,
+  // model, unavailable, files_mode, memory_write }] }.
+  agents: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/agents`),
+  // The messaging connections that answer as an agent of the project:
+  // { connections: [{ id, kind, name, agent_id, agent_name, enabled }] }. No token.
+  connections: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/connections`),
+  // The triggers of the project's agents: { triggers: [{ id, name, kind,
+  // agent_id, agent_name, schedule, folder, enabled, next }] }.
+  triggers: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/triggers`),
+  // The loops that have not ended, in chats of the project's agents: { loops: [{ id, chat_id, chat_title, prompt, state }] }.
+  loops: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/loops`),
+  // The projects other people share with you: { projects: [{ ref, name,
+  // description, status, mode, owner_name, error }] }. The ref is "s:<number>"
+  // and is the only identity; it is encoded in a path. sharedMemory is
+  // { index, files: [names] }.
+  shared: () => fetchJSON('/api/chats/projects/shared'),
+  sharedGet: (ref) => fetchJSON(`/api/chats/projects/shared/${enc2(ref)}`),
+  sharedMemory: (ref) => fetchJSON(`/api/chats/projects/shared/${enc2(ref)}/memory`),
+  setChatProject: (chat, projectId) => fetchJSON(`/api/chats/${enc2(chat)}/project`, { method: 'PUT', body: JSON.stringify({ project_id: projectId || '' }) }),
+  setChatPulled: (chat, projectIds) => fetchJSON(`/api/chats/${enc2(chat)}/projects`, { method: 'PUT', body: JSON.stringify({ project_ids: projectIds || [] }) }),
+}
+
 // The built-in tool groups (such as web), the MCP servers and the connectors of
 // a chat, with their switches. The add-ons have their own calls above.
 export const chatToolsApi = {
@@ -572,7 +609,9 @@ export const chatAgentsApi = {
   // body of a create, or an export of the old agents; it always makes a new
   // agent and says in `warnings` what it changed.
   exportFile: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/export`),
-  importFile: (data) => postJSON('/api/chats/agents/import', data),
+  // params are query parameters: project_id or create_project=true map a file
+  // of a project agent to a project. The mapping is never part of the file.
+  importFile: (data, params) => postJSON(`/api/chats/agents/import${q(params || {})}`, data),
   // The builtin grants an agent can hold: { grants: [{ name, title, description, sensitive }] }.
   builtinGrants: () => fetchJSON('/api/chats/agents/builtin-grants'),
   // The resources of one add-on you may give an agent, with the add-on's own

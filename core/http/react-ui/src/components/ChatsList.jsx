@@ -24,7 +24,9 @@ const SEARCH_DELAY_MS = 250
 // The chat history: a search box, one block per day, the model that answered
 // and the time, with rename, copy, export and delete on each row. A chat that
 // no person started (a trigger, a connector, a job or a page) carries a badge
-// with the name of what started it (originTitle) or the name of its kind. It reads
+// with the name of what started it (originTitle) or the name of its kind. A chat in
+// a project carries the project's name as a small label (projectNames maps
+// ids to names; without it no label shows). It reads
 // like the Home "Jump back in" list. Two frames show it: the Ctrl or Cmd K
 // dialog of a transcript (ChatsMenu) and the All chats page.
 //
@@ -43,6 +45,8 @@ export default function ChatsList({
   onCopyChat,
   onSearch,
   originTitle,
+  projectNames,
+  filtered = false,
   onEscape,
   autoFocus = false,
   idPrefix = 'chats',
@@ -247,6 +251,9 @@ export default function ChatsList({
               {chat.name || t('menu.untitled')}
             </span>
           )}
+          {chat.projectId && projectNames?.[chat.projectId] && (
+            <span className="cx-row-item__project" data-testid="chats-project-label" title={projectNames[chat.projectId]}>{projectNames[chat.projectId]}</span>
+          )}
           {originKind && (
             <span className="cx-row-item__origin" data-testid="chats-origin-badge" title={t(`menu.origin.${originKind}`)}>
               {(originCtx && resolveOrigin({ origin: chat.origin, originId: chat.originId }, originCtx).title) || originTitle?.(chat) || t(`menu.originBadge.${originKind}`)}
@@ -373,14 +380,15 @@ export default function ChatsList({
         <span><kbd className="dk-kbd">F2</kbd> {t('menu.keys.rename')}</span>
         <span><kbd className="dk-kbd">Del</kbd> {t('menu.keys.delete')}</span>
         <span><kbd className="dk-kbd">Esc</kbd> {t('menu.keys.clear')}</span>
-        {onDeleteAll && chats.length > 1 && (
+        {/* A filtered list may be one row; the action then clears what is shown. */}
+        {onDeleteAll && chats.length > (filtered ? 0 : 1) && (
           <button
             type="button"
             className="cx-btn cx-btn--ghost cx-menu__clear"
             onClick={() => onDeleteAll?.()}
             title={t('menu.deleteAllTitle')}
           >
-            {t('menu.clearAll')}
+            {filtered ? t('menu.clearShown') : t('menu.clearAll')}
           </button>
         )}
       </div>

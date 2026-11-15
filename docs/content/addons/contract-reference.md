@@ -3439,6 +3439,36 @@ A memory change writes under
 most 16 KiB. A target that is not a plain lower-case file name is refused, so a
 proposal cannot leave `Memory/`.
 
+A memory change with scope `project` writes `Projects/<folder>/memory/<file>.md`
+for the project of the chat. A person who has write access to a project that
+another person shares can also propose a note for it. This widens the record
+with two optional fields, and a reader that does not know them ignores them:
+
+- `proposer`: the person who made the proposal, when it is not the owner. The
+  `owner` is still the person whose home the note is written to and the only
+  one who can confirm, edit, dismiss or revert it. The host never sends an
+  account here: the owner reads a display name. The field is empty for a note
+  from the owner's own chat.
+- `project_node`: the identity of the shared project folder, which the host
+  checks again when the owner confirms.
+
+The model names the shared project with the `project` argument of
+`propose_change`: the reference of a shared project that the chat has pulled,
+exactly as the tool description lists it. It cannot name a project the chat did
+not pull, a project of its own, or an ID. A project that is shared read-only is
+refused. The host checks the share again when the owner confirms. If the
+project is no longer shared for editing, or it is archived, deleted or moved,
+the proposal is settled as `stale`, the owner is told, and nothing is written.
+The host keeps a read-only view of the proposals a person made for other
+people's projects, with their status and never the owner. Today it is a service
+call only: an endpoint and a screen for it come later. The owner sees a display
+name for the proposer and nothing of the proposer's chat, agent or messaging
+sender. The owner's "revert last" skips a grantee note that the owner confirmed: the
+owner undoes it by its ID. A note for another person's project is never saved at once, whatever
+the save setting of either person. The save setting and the memory choice of the
+proposing chat decide whether it may propose; the settings of the owner do
+not.
+
 The other three kinds follow the same flow:
 
 - `skill`: the content is a full `SKILL.md` (name and description in the
@@ -3462,7 +3492,8 @@ Limits and safety:
 | Rule | Value |
 |---|---|
 | A proposal waits | 5 minutes, then it expires |
-| Pending proposals of one person | 10 |
+| Pending proposals of one person | 10 (for notes proposed for other people's projects, counted on the person who proposes) |
+| Pending proposals of other people for one shared project | 10 |
 | Proposals of one agent (or of plain chats) in an hour | 5 |
 | Target changed after the proposal | the confirmation is refused (409) |
 | Run started by a trigger, a job or a page, and sub-agents | never offered the tools |
@@ -3575,8 +3606,8 @@ A source has four fields:
 | Field | Meaning |
 |---|---|
 | `id` | A name, unique among the sources of the host. |
-| `scope` | `user` (every chat of the user), `agent` (the chats of one saved agent) or `channel` (the chats that one connector binding started). |
-| `path` | The index file, relative to the user's home, ending in `.md`. An `agent` path holds `{agent}` once and a `channel` path holds `{channel}` once. The host fills them from the chat; the model never names them. |
+| `scope` | `user` (every chat of the user), `project` (the chats of one project), `agent` (the chats of one saved agent) or `channel` (the chats that one connector binding started). |
+| `path` | The index file, relative to the user's home, ending in `.md`. An `agent` path holds `{agent}` once, a `channel` path holds `{channel}` once and a `project` path holds `{project}` once. The host fills them from the chat; the model never names them. |
 | `cap` | The most bytes of the index that the prompt carries. Default and maximum: 2 KiB. |
 
 For example, an add-on that keeps its own notes declares three sources: `Notes/index.md` for the user,

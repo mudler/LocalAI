@@ -1040,7 +1040,8 @@
       "user": "Alle deine Chats",
       "agent": "Agent {{agent}}",
       "agentAny": "Ein Agent",
-      "channel": "Diese Unterhaltung"
+      "channel": "Diese Unterhaltung",
+      "project": "Dieses Projekt"
     },
     "help": "Nichts wird gespeichert, bevor du bestätigst.",
     "row": {
@@ -1048,7 +1049,9 @@
       "target": "Datei",
       "source": "Von",
       "expires": "Läuft ab in",
-      "collection": "Sammlung"
+      "collection": "Sammlung",
+      "proposedBy": "Vorgeschlagen von",
+      "note": "Notiz"
     },
     "source": {
       "chat": "Ein Chat",
@@ -1123,6 +1126,17 @@
       "consent": "Die Aufnahme wird als Stimmprofil gespeichert, mit dem deine Chats sprechen können. Du kannst sie in der Stimmbibliothek löschen.",
       "consentAdmin": "Du bist Administrator, daher steht diese Stimme allen Nutzern dieses Servers zur Verfügung.",
       "confirm": "Die Person hat zugestimmt: Stimme speichern"
+    },
+    "fromOther": {
+      "title": "{{name}} hat eine Notiz für {{project}} vorgeschlagen",
+      "titleNoProject": "{{name}} hat eine Notiz vorgeschlagen",
+      "help": "Es wird nichts geschrieben, bevor Sie bestätigen. {{name}} hat dies in einem Chat vorgeschlagen, der dieses Projekt eingebunden hat.",
+      "by": "{{name}}, aus dem eigenen Chat",
+      "voided": "{{name}} kann dieses Projekt nicht mehr bearbeiten.",
+      "noteFor": "Eine Notiz für {{project}}",
+      "thisProject": "dieses Projekt",
+      "why": "Geben Sie das Projekt erneut mit Bearbeitungsrechten frei und bitten Sie dann erneut um die Notiz, falls Sie sie noch möchten.",
+      "nameHint": "Projektname aus dem Ordner übernommen"
     }
   },
   "proposalsPage": {

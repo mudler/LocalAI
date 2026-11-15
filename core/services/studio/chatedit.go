@@ -264,6 +264,12 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
+	// A chat of a project agent is not copied while its project is not
+	// available: the copy would be a chat of that agent made without the check
+	// every new chat of it gets.
+	if _, _, err := s.chatScopes(ctx, src, false); errors.Is(err, ErrProjectUnavailable) {
+		return session.ChatRecord{}, err
+	}
 	entries, err := s.d.Store.Entries(ctx, conv, 0, 0)
 	if err != nil {
 		return session.ChatRecord{}, err
@@ -285,6 +291,25 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 		ID: newID(), Principal: p, Title: title, Created: now, Updated: now, Kind: session.KindChat,
 		Model: src.Model, AgentID: src.AgentID, Assistant: src.Assistant, Settings: src.Settings,
 		Egress: forkEgress(src.Egress),
+		// The fork of a fenced chat is fenced: the mark keeps it from the
+		// whole home if its agent is deleted later.
+		ScopedAgent: src.ScopedAgent || s.chatFenced(ctx, src),
+		// A limit, not a link: the fork keeps it whatever the project says.
+		Collections: slices.Clone(src.Collections),
+	}
+	// The fork stays in the project of its source and reads the same pulled
+	// projects, unless the source is fenced: a stale project of a fenced chat
+	// is not carried on.
+	if !s.chatFenced(ctx, src) {
+		rec.ProjectID = src.ProjectID
+		rec.PulledProjects = slices.Clone(src.PulledProjects)
+	} else if pag, ok, err := s.projectAgentOf(ctx, src); err != nil {
+		return session.ChatRecord{}, err
+	} else if ok && pag.ID == src.AgentID {
+		// The chat of a project agent belongs to the project of its agent,
+		// from the record of the agent and never from the record of the
+		// source, so the fork is listed and counted with the project.
+		rec.ProjectID = pag.ProjectID
 	}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		return session.ChatRecord{}, err

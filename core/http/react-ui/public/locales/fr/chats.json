@@ -1040,7 +1040,8 @@
       "user": "Toutes vos conversations",
       "agent": "Agent {{agent}}",
       "agentAny": "Un agent",
-      "channel": "Cette conversation"
+      "channel": "Cette conversation",
+      "project": "Ce projet"
     },
     "help": "Rien n'est enregistré avant votre confirmation.",
     "row": {
@@ -1048,7 +1049,9 @@
       "target": "Fichier",
       "source": "De",
       "expires": "Expire dans",
-      "collection": "Collection"
+      "collection": "Collection",
+      "proposedBy": "Proposé par",
+      "note": "Note"
     },
     "source": {
       "chat": "Une conversation",
@@ -1123,6 +1126,17 @@
       "consent": "L'enregistrement est conservé comme profil vocal avec lequel vos conversations peuvent parler. Vous pouvez le supprimer dans la bibliothèque Voix.",
       "consentAdmin": "Vous êtes administrateur : cette voix sera disponible pour tous les utilisateurs de ce serveur.",
       "confirm": "La personne a donné son accord : enregistrer la voix"
+    },
+    "fromOther": {
+      "title": "{{name}} a proposé une note pour {{project}}",
+      "titleNoProject": "{{name}} a proposé une note",
+      "help": "Rien n'est écrit tant que vous n'avez pas confirmé. {{name}} l'a proposé depuis une discussion qui a intégré ce projet.",
+      "by": "{{name}}, depuis sa propre discussion",
+      "voided": "{{name}} ne peut plus modifier ce projet.",
+      "noteFor": "Une note pour {{project}}",
+      "thisProject": "ce projet",
+      "why": "Partagez de nouveau le projet avec le droit de modifier, puis redemandez la note si vous la voulez encore.",
+      "nameHint": "Nom du projet tiré de son dossier"
     }
   },
   "proposalsPage": {

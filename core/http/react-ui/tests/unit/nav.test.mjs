@@ -64,7 +64,7 @@ test('nav: sections follow the order, renames and hidden entries', () => {
   assert.equal(secs[0].entries[1].label, 'Recipes')
   assert.deepEqual(secs[1].entries.map(e => e.id), ['memory'])
   // The built-in entries the list does not name follow the last item, in the default order.
-  assert.deepEqual(secs[2].entries.map(e => e.id), ['models', 'home', 'pages', 'connections', 'addons'])
+  assert.deepEqual(secs[2].entries.map(e => e.id), ['models', 'home', 'projects', 'pages', 'connections', 'addons'])
 })
 
 test('nav: the entries of a viewer who cannot use them stay out, and an empty group is not drawn', () => {
@@ -112,7 +112,7 @@ test('nav: the editor rows list every built-in entry and keep what this version 
 
 test('nav: reorder, rename, hide, group and link produce the list the file needs', () => {
   let rows = editorRows([]).rows
-  rows = move(rows, 3, 0) // agents first
+  rows = move(rows, 4, 0) // agents first
   rows = rename(rows, 0, ' Bots ')
   rows = setHidden(rows, 1, true) // home: never
   rows = setHidden(rows, 5, true)

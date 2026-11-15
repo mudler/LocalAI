@@ -369,7 +369,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 
 // UpdateConnector replaces a binding.
 // @Summary Replace a connector binding.
-// @Description The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.
+// @Description The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved. A binding that has an agent can only move to an agent of the same project: the connection of a project agent stays in its project, and a connection outside projects cannot use a project agent (400).
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Param request body schema.ChatsConnectorWrite true "the binding"

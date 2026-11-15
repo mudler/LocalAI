@@ -52,8 +52,14 @@ type chatRow struct {
 	Assistant    bool
 	// ScopedAgent came after the table existed: the default reads the rows of
 	// chats made before as not scoped, so AutoMigrate is its migration.
-	ScopedAgent bool   `gorm:"not null;default:false"`
-	Settings    string `gorm:"type:text"` // JSON of session.ChatSettings
+	ScopedAgent bool `gorm:"not null;default:false"`
+	// ProjectID and PulledProjects came after the table existed: the defaults
+	// fill the rows of chats made before, so AutoMigrate is their migration.
+	ProjectID      string `gorm:"index;size:128;not null;default:''"`
+	PulledProjects string `gorm:"type:text;not null;default:''"` // JSON list of project IDs
+	Settings       string `gorm:"type:text"`                     // JSON of session.ChatSettings
+	// Collections came after the table existed: the default fills older rows.
+	Collections string `gorm:"type:text;not null;default:''"` // JSON list of collection names
 	// AllowedTools came after the table existed: it is a nullable text
 	// column, so AutoMigrate adds it and older rows read as no list.
 	AllowedTools string `gorm:"type:text"` // JSON list of the tool names of a sub-agent
@@ -259,7 +265,17 @@ func (r chatRow) record() (session.ChatRecord, error) {
 		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
 		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status,
 		AgentID: r.AgentID, Origin: r.Origin, OriginID: r.OriginID, Assistant: r.Assistant,
-		ScopedAgent: r.ScopedAgent,
+		ScopedAgent: r.ScopedAgent, ProjectID: r.ProjectID,
+	}
+	if r.PulledProjects != "" {
+		if err := json.Unmarshal([]byte(r.PulledProjects), &rec.PulledProjects); err != nil {
+			return rec, err
+		}
+	}
+	if r.Collections != "" {
+		if err := json.Unmarshal([]byte(r.Collections), &rec.Collections); err != nil {
+			return rec, err
+		}
 	}
 	if r.SkillsOff != "" {
 		if err := json.Unmarshal([]byte(r.SkillsOff), &rec.SkillsOff); err != nil {
@@ -360,7 +376,21 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
 		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
-		ScopedAgent: rec.ScopedAgent,
+		ScopedAgent: rec.ScopedAgent, ProjectID: rec.ProjectID,
+	}
+	if len(rec.PulledProjects) > 0 {
+		raw, err := json.Marshal(rec.PulledProjects)
+		if err != nil {
+			return err
+		}
+		row.PulledProjects = string(raw)
+	}
+	if len(rec.Collections) > 0 {
+		raw, err := json.Marshal(rec.Collections)
+		if err != nil {
+			return err
+		}
+		row.Collections = string(raw)
 	}
 	// A chat can start with its switches (the composer of a new chat drafts
 	// them), so they are written with the row.
@@ -557,6 +587,95 @@ func (s *gormStore) SetConnections(ctx context.Context, principal, id string, co
 		}
 	}
 	return nil
+}
+
+func (s *gormStore) SetProject(ctx context.Context, principal, id, projectID string) error {
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("project_id", projectID)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		// An update to the value the row already has counts no row on some
+		// drivers; tell that apart from a missing chat.
+		var n int64
+		if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return session.ErrNotFound
+		}
+	}
+	return nil
+}
+
+func (s *gormStore) SetCollections(ctx context.Context, principal, id string, names []string) error {
+	raw := ""
+	if len(names) > 0 {
+		b, err := json.Marshal(names)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("collections", raw)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		var n int64
+		if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return session.ErrNotFound
+		}
+	}
+	return nil
+}
+
+func (s *gormStore) SetPulledProjects(ctx context.Context, principal, id string, ids []string) error {
+	raw := ""
+	if len(ids) > 0 {
+		b, err := json.Marshal(ids)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("pulled_projects", raw)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		var n int64
+		if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return session.ErrNotFound
+		}
+	}
+	return nil
+}
+
+func (s *gormStore) ListChatsInProject(ctx context.Context, principal, projectID string, limit int) ([]session.ChatRecord, error) {
+	q := s.db.WithContext(ctx).Where("principal = ? AND project_id = ?", principal, projectID).Order("updated DESC, id DESC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var rows []chatRow
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]session.ChatRecord, 0, len(rows))
+	for _, r := range rows {
+		rec, err := r.record()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rec)
+	}
+	return out, nil
 }
 
 func (s *gormStore) SetScopedAgent(ctx context.Context, principal, id string, scoped bool) error {

@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatNotificationsApi, chatsApi } from '../utils/api'
+import { useProjectList } from '../hooks/useProjectList'
+import { NO_PROJECT, chatsInProject, projectNames } from '../utils/projects'
 import { chatFromExport, chatMarkdown, downloadFrom, menuChats } from '../utils/chatThread'
 import { copyToClipboard } from '../utils/clipboard'
 import { chatAddress } from '../utils/chatSearch'
@@ -18,6 +20,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import './chat.css'
+import '../components/projects/projectchat.css'
 
 // All chats: the chat history on a page of its own, reached from Home and
 // from the sidebar's recent chats. It is the list of the Ctrl+K menu of a
@@ -34,12 +37,20 @@ export default function AllChats() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
+  const { t: tp } = useTranslation('projects')
   const { models: chatModels } = useModels(CAP_CHAT)
   const [state, setState] = useState({ status: 'loading', chats: [], needsYou: new Set(), error: null })
   const [tab, setTabState] = useState(() => readTab())
   const setTab = (id) => { setTabState(id); writeTab(id) }
   const [confirmDialog, setConfirmDialog] = useState(null)
   const importInputRef = useRef(null)
+  // The Project filter and the row labels come from the projects list. When
+  // projects are off or the list cannot be read there is no filter and no label.
+  const projectList = useProjectList(true)
+  const [projectFilter, setProjectFilter] = useState('')
+  const names = useMemo(() => projectNames(projectList.projects), [projectList.projects])
+  const filterOn = projectList.status === 'ready' && projectList.projects.length > 0
+  const filtering = filterOn && projectFilter !== ''
 
   const load = useCallback(async (keep = false) => {
     if (!keep) setState(s => ({ ...s, status: 'loading', error: null }))
@@ -73,14 +84,15 @@ export default function AllChats() {
     () => menuChats(state.chats).filter(c => c.id !== deletes.pending?.id),
     [state.chats, deletes.pending],
   )
-  const visibleChats = useMemo(() => allVisible.filter(c => !c.origin), [allVisible])
+  const mineAll = useMemo(() => allVisible.filter(c => !c.origin), [allVisible])
+  const visibleChats = useMemo(() => chatsInProject(mineAll, filterOn ? projectFilter : '', projectList.status === 'ready' ? projectList.projects : null), [mineAll, projectFilter, filterOn, projectList.status, projectList.projects])
   const automatedChats = useMemo(() => allVisible.filter(c => c.origin), [allVisible])
   const originCtx = useOriginContext(automatedChats.length > 0)
   const { waiting } = attention(automatedChats, state.needsYou)
   // The tabs appear once there is a second list to show.
   const showTabs = automatedChats.length > 0 || tab === 'automated'
   // The sidebar's recent chats follow this list.
-  useEffect(() => { if (state.status === 'ready') announceChats(visibleChats) }, [visibleChats, state.status])
+  useEffect(() => { if (state.status === 'ready') announceChats(mineAll) }, [mineAll, state.status])
 
   const rename = async (id, title) => {
     try {
@@ -120,10 +132,13 @@ export default function AllChats() {
     }
   }
 
+  // With a Project filter on, the action deletes exactly the chats shown and
+  // the dialog says so; without one it is the old "delete all".
+  const shownIn = projectFilter === NO_PROJECT ? tp('filter.none') : (names[projectFilter] || '')
   const promptDeleteAll = () => setConfirmDialog({
-    title: t('deleteAllDialog.title'),
-    message: t('deleteAllDialog.message'),
-    confirmLabel: t('deleteAllDialog.confirm'),
+    title: filtering ? t('deleteShownDialog.title') : t('deleteAllDialog.title'),
+    message: filtering ? t('deleteShownDialog.message', { count: visibleChats.length, project: shownIn }) : t('deleteAllDialog.message'),
+    confirmLabel: filtering ? t('deleteShownDialog.confirm') : t('deleteAllDialog.confirm'),
     danger: true,
     onConfirm: async () => {
       setConfirmDialog(null)
@@ -168,7 +183,7 @@ export default function AllChats() {
               }}
             >
               {t(`allChats.tab.${id}`)}
-              <span className="ac-tab__count" data-testid={`all-chats-count-${id}`}>{id === 'mine' ? visibleChats.length : automatedChats.length}</span>
+              <span className="ac-tab__count" data-testid={`all-chats-count-${id}`}>{id === 'mine' ? mineAll.length : automatedChats.length}</span>
               {id === 'automated' && waiting > 0 && (
                 <span className="ac-tab__wait" data-testid="all-chats-waiting" title={t('allChats.automated.waitingCount', { count: waiting })} aria-label={t('allChats.automated.waitingCount', { count: waiting })}>{waiting}</span>
               )}
@@ -191,7 +206,27 @@ export default function AllChats() {
           />
         </div>
       )}
-      {state.status === 'ready' && tab === 'mine' && visibleChats.length === 0 && !deletes.pending && (
+      {state.status === 'ready' && tab === 'mine' && filterOn && mineAll.length > 0 && (
+        <div className="ac-filter" data-testid="all-chats-filter">
+          <div className="dk-select-wrap">
+            <select
+              className="dk-select"
+              aria-label={tp('filter.label')}
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              data-testid="all-chats-project-filter"
+            >
+              <option value="">{tp('filter.all')}</option>
+              <option value={NO_PROJECT}>{tp('filter.none')}</option>
+              {projectList.projects.filter(p => p.status !== 'broken').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+      {state.status === 'ready' && tab === 'mine' && visibleChats.length === 0 && mineAll.length > 0 && !deletes.pending && (
+        <p className="dk-hint" data-testid="all-chats-filter-empty">{tp('filter.empty')}</p>
+      )}
+      {state.status === 'ready' && tab === 'mine' && mineAll.length === 0 && !deletes.pending && (
         <EmptyState
           testId="all-chats-empty"
           title={t('allChats.emptyTitle')}
@@ -212,6 +247,8 @@ export default function AllChats() {
             onExport={(c) => downloadFrom(chatsApi.exportUrl(c.id, 'markdown'))}
             onCopyChat={copyChat}
             onSearch={(text, params) => chatsApi.search(text, 50, params)}
+            projectNames={names}
+            filtered={filtering}
           />
         </div>
       )}

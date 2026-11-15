@@ -980,5 +980,59 @@
     "asksTitle_one": "Este agente pede {{count}} item com o qual seu chat não começa:",
     "asksTitle_other": "Este agente pede {{count}} itens com os quais seu chat não começa:",
     "asksHelp": "Ele roda como você. Ligue-os no chat só se você confiar no agente e na pessoa que o compartilhou."
+  },
+  "project": {
+    "chip": "Projeto: {{name}}",
+    "deleted": "projeto excluído",
+    "files": "Arquivos do projeto",
+    "filesMode": "Modo dos arquivos",
+    "canEdit": "Pode editar",
+    "readOnly": "Somente leitura",
+    "filesHelp": "O agente trabalha apenas na pasta de arquivos de {{name}}. As pastas compartilhadas e as skills continuam legíveis.",
+    "filesHelpNoName": "O agente trabalha apenas na pasta de arquivos do seu projeto. As pastas compartilhadas e as skills continuam legíveis.",
+    "memory": "Memória do projeto",
+    "memoryHelp": "O agente só pode salvar uma nota na memória do projeto com a permissão \"Remember things in the project\": ele propõe uma alteração que você confirma. Sem a permissão, a memória é somente leitura.",
+    "limited": "Limitado pelo projeto",
+    "noShare": "Agentes de projeto não podem ser compartilhados.",
+    "exportHelp": "A exportação gera um arquivo de agente. O projeto é escolhido quando o arquivo é importado.",
+    "paused": "Este agente está pausado porque o projeto dele está {{reason}}.",
+    "reason": {
+      "archived": "arquivado",
+      "deleted": "excluído",
+      "changed": "alterado"
+    },
+    "fix": {
+      "archived": "Abra o projeto e restaure-o. Depois disso o agente volta a funcionar.",
+      "deleted": "O projeto não existe mais. Restaure-o pela Lixeira em Arquivos e o agente volta a funcionar.",
+      "changed": "Uma pasta do projeto foi substituída, renomeada ou movida. Reconecte o agente para ligá-lo de novo às pastas do projeto."
+    },
+    "openProject": "Abrir projeto",
+    "reconnect": "Reconectar",
+    "reconnected": "{{name}} voltou a ficar conectado ao projeto.",
+    "reconnectFailed": "Não foi possível reconectar o agente: {{message}}",
+    "unavailable": "Indisponível",
+    "listReason": {
+      "archived": "O projeto dele está arquivado.",
+      "deleted": "O projeto dele foi excluído.",
+      "changed": "As pastas do projeto dele mudaram. Abra-o para reconectar."
+    },
+    "fact": "Projeto",
+    "memoryFact": "Memória",
+    "memoryReadOnly": "Memória do projeto, somente leitura",
+    "runsPaused": "As execuções voltam quando o projeto estiver ativo de novo."
+  },
+  "importProject": {
+    "title": "Este agente pertence a um projeto",
+    "text": "Escolha onde colocá-lo. Agentes de projeto trabalham apenas dentro do seu projeto. As pastas compartilhadas e as skills continuam legíveis.",
+    "textNamed": "O arquivo é do agente \"{{agent}}\". Escolha onde colocá-lo. Agentes de projeto trabalham apenas dentro do seu projeto. As pastas compartilhadas e as skills continuam legíveis.",
+    "label": "Projeto",
+    "choose": "Escolha um projeto",
+    "create": "Criar um projeto chamado '{{name}}'",
+    "createUnnamed": "Criar um novo projeto para este agente",
+    "help": "Apenas seus projetos ativos são listados.",
+    "createHelp": "Um novo projeto chamado {{name}} é criado e o agente é adicionado a ele.",
+    "needsChoice": "Escolha um projeto, ou crie um, para importar este agente.",
+    "cancel": "Cancelar",
+    "import": "Importar"
   }
 }

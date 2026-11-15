@@ -71,8 +71,14 @@ func (s *Service) knowledgeBlock(ctx context.Context, user, agentID string) (cod
 	}
 	if agentID != "" && s.d.Agents != nil {
 		ag, err := s.chatAgent(ctx, principal(user), agentID)
-		if err == nil && len(ag.Collections) == 0 {
+		switch {
+		case err == nil && len(ag.Collections) == 0:
 			return CodeKnowledgeNone, "no collection is on the list of the agent"
+		case errors.Is(err, ErrProjectUnavailable):
+			return CodeAgentUnavailable, "the project of the agent of this bot is not available"
+		case err != nil && !errors.Is(err, agents.ErrNotFound):
+			// Like the check at run time, fail closed.
+			return CodeAgentUnavailable, "the agent of this bot cannot be read"
 		}
 	}
 	return "", ""

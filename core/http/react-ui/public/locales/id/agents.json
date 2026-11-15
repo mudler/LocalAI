@@ -980,5 +980,59 @@
     "asksTitle_one": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
     "asksTitle_other": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
     "asksHelp": "Agen berjalan sebagai Anda. Nyalakan di chat hanya jika Anda memercayai agen dan orang yang membagikannya."
+  },
+  "project": {
+    "chip": "Proyek: {{name}}",
+    "deleted": "proyek dihapus",
+    "files": "File proyek",
+    "filesMode": "Mode file",
+    "canEdit": "Bisa mengubah",
+    "readOnly": "Hanya baca",
+    "filesHelp": "Agen hanya bekerja di folder file {{name}}. Folder bersama dan skill tetap bisa dibaca.",
+    "filesHelpNoName": "Agen hanya bekerja di folder file proyeknya. Folder bersama dan skill tetap bisa dibaca.",
+    "memory": "Memori proyek",
+    "memoryHelp": "Agen hanya dapat menyimpan catatan ke memori proyek dengan izin \"Remember things in the project\": agen mengusulkan perubahan yang Anda konfirmasi. Tanpa izin ini, memori hanya bisa dibaca.",
+    "limited": "Dibatasi oleh proyek",
+    "noShare": "Agen proyek tidak bisa dibagikan.",
+    "exportHelp": "Ekspor menulis file agen. Proyek dipilih saat file diimpor.",
+    "paused": "Agen ini dijeda karena proyeknya {{reason}}.",
+    "reason": {
+      "archived": "diarsipkan",
+      "deleted": "dihapus",
+      "changed": "berubah"
+    },
+    "fix": {
+      "archived": "Buka proyek dan pulihkan. Setelah itu agen bekerja lagi.",
+      "deleted": "Proyeknya hilang. Pulihkan dari Sampah di Berkas, lalu agen bekerja lagi.",
+      "changed": "Folder proyek diganti, diubah namanya, atau dipindahkan. Sambungkan ulang agen agar tertaut lagi ke folder proyek."
+    },
+    "openProject": "Buka proyek",
+    "reconnect": "Sambungkan ulang",
+    "reconnected": "{{name}} tersambung lagi ke proyek.",
+    "reconnectFailed": "Tidak bisa menyambungkan ulang agen: {{message}}",
+    "unavailable": "Tidak tersedia",
+    "listReason": {
+      "archived": "Proyeknya diarsipkan.",
+      "deleted": "Proyeknya dihapus.",
+      "changed": "Folder proyeknya berubah. Buka agen untuk menyambungkan ulang."
+    },
+    "fact": "Proyek",
+    "memoryFact": "Memori",
+    "memoryReadOnly": "Memori proyek, hanya baca",
+    "runsPaused": "Proses berjalan lagi saat proyek aktif kembali."
+  },
+  "importProject": {
+    "title": "Agen ini milik sebuah proyek",
+    "text": "Pilih tempatnya. Agen proyek hanya bekerja di dalam proyeknya. Folder bersama dan skill tetap bisa dibaca.",
+    "textNamed": "File ini untuk agen \"{{agent}}\". Pilih tempatnya. Agen proyek hanya bekerja di dalam proyeknya. Folder bersama dan skill tetap bisa dibaca.",
+    "label": "Proyek",
+    "choose": "Pilih proyek",
+    "create": "Buat proyek bernama '{{name}}'",
+    "createUnnamed": "Buat proyek baru untuk agen ini",
+    "help": "Hanya proyek aktif Anda yang ditampilkan.",
+    "createHelp": "Proyek baru bernama {{name}} dibuat dan agen ditambahkan ke dalamnya.",
+    "needsChoice": "Pilih proyek, atau buat satu, untuk mengimpor agen ini.",
+    "cancel": "Batal",
+    "import": "Impor"
   }
 }

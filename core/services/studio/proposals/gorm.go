@@ -17,23 +17,28 @@ import (
 // proposalRow is the table of change proposals. The source is JSON text so
 // one schema works on SQLite and PostgreSQL.
 type proposalRow struct {
-	ID        string `gorm:"primaryKey;size:64"`
-	Owner     string `gorm:"index:idx_studio_change_owner,priority:1;size:255"`
-	Agent     string `gorm:"size:64"`
-	Kind      string `gorm:"size:16"`
-	Scope     string `gorm:"size:16"`
-	Target    string `gorm:"size:512"`
-	Summary   string `gorm:"size:512"`
-	Content   string
-	BaseHash  string `gorm:"size:64"`
-	Source    string
-	Status    string `gorm:"index:idx_studio_change_owner,priority:2;size:16"`
-	Rev       int64
-	RevertRev int64
-	Created   time.Time
-	Expires   time.Time
-	Answered  *time.Time
-	Auto      bool `gorm:"not null;default:false"` // a note applied at once; the default keeps older rows readable
+	ID    string `gorm:"primaryKey;size:64"`
+	Owner string `gorm:"index:idx_studio_change_owner,priority:1;size:255"`
+	// Proposer and ProjectNode are for a note a person with a share of a
+	// project proposed to its owner. The defaults keep older rows readable:
+	// they read as the owner's own proposals.
+	Proposer    string `gorm:"index:idx_studio_change_proposer;size:255;not null;default:''"`
+	ProjectNode int64  `gorm:"not null;default:0"`
+	Agent       string `gorm:"size:64"`
+	Kind        string `gorm:"size:16"`
+	Scope       string `gorm:"size:16"`
+	Target      string `gorm:"size:512"`
+	Summary     string `gorm:"size:512"`
+	Content     string
+	BaseHash    string `gorm:"size:64"`
+	Source      string
+	Status      string `gorm:"index:idx_studio_change_owner,priority:2;size:16"`
+	Rev         int64
+	RevertRev   int64
+	Created     time.Time
+	Expires     time.Time
+	Answered    *time.Time
+	Auto        bool `gorm:"not null;default:false"` // a note applied at once; the default keeps older rows readable
 }
 
 func (proposalRow) TableName() string { return "studio_change_proposals" }
@@ -51,7 +56,7 @@ type eventRow struct {
 func (eventRow) TableName() string { return "studio_change_events" }
 
 func (r proposalRow) proposal() (contract.ChangeProposal, error) {
-	p := contract.ChangeProposal{V: contract.ChangeProposalVersion, ID: r.ID, Owner: r.Owner, Agent: r.Agent,
+	p := contract.ChangeProposal{V: contract.ChangeProposalVersion, ID: r.ID, Owner: r.Owner, Proposer: r.Proposer, ProjectNode: r.ProjectNode, Agent: r.Agent,
 		Kind: contract.ChangeKind(r.Kind), Scope: contract.ChangeScope(r.Scope), Target: r.Target, Summary: r.Summary,
 		Content: r.Content, BaseHash: r.BaseHash, Status: contract.ProposalStatus(r.Status), Auto: r.Auto, Rev: r.Rev, RevertRev: r.RevertRev,
 		Created: r.Created.UTC(), Expires: r.Expires.UTC()}
@@ -71,7 +76,7 @@ func rowOf(p contract.ChangeProposal) (proposalRow, error) {
 	if err != nil {
 		return proposalRow{}, err
 	}
-	r := proposalRow{ID: p.ID, Owner: p.Owner, Agent: p.Agent, Kind: string(p.Kind), Scope: string(p.Scope), Target: p.Target,
+	r := proposalRow{ID: p.ID, Owner: p.Owner, Proposer: p.Proposer, ProjectNode: p.ProjectNode, Agent: p.Agent, Kind: string(p.Kind), Scope: string(p.Scope), Target: p.Target,
 		Summary: p.Summary, Content: p.Content, BaseHash: p.BaseHash, Source: string(src), Status: string(p.Status), Auto: p.Auto,
 		Rev: p.Rev, RevertRev: p.RevertRev, Created: p.Created, Expires: p.Expires}
 	if !p.Answered.IsZero() {
@@ -100,18 +105,36 @@ func (s *gormStore) Create(ctx context.Context, p contract.ChangeProposal, lim L
 		return err
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// The caps are counted on the person who proposes: the proposer for a
+		// proposal made for another person, the owner for the owner's own.
+		queue := func(q *gorm.DB) *gorm.DB {
+			if p.Proposer != "" {
+				return q.Where("proposer = ?", p.Proposer)
+			}
+			return q.Where("owner = ? AND proposer = ''", p.Owner)
+		}
 		if lim.MaxPending > 0 {
 			var n int64
-			if err := tx.Model(&proposalRow{}).Where("owner = ? AND status = ?", p.Owner, string(contract.ProposalPending)).Count(&n).Error; err != nil {
+			if err := queue(tx.Model(&proposalRow{})).Where("status = ?", string(contract.ProposalPending)).Count(&n).Error; err != nil {
 				return err
 			}
 			if int(n) >= lim.MaxPending {
 				return ErrTooManyPending
 			}
 		}
+		if p.Proposer != "" && lim.MaxPendingProject > 0 {
+			var n int64
+			if err := tx.Model(&proposalRow{}).Where("owner = ? AND proposer <> '' AND project_node = ? AND status = ?",
+				p.Owner, p.ProjectNode, string(contract.ProposalPending)).Count(&n).Error; err != nil {
+				return err
+			}
+			if int(n) >= lim.MaxPendingProject {
+				return ErrTooManyForProject
+			}
+		}
 		if lim.PerWindow > 0 && lim.Window > 0 {
 			var n int64
-			if err := tx.Model(&proposalRow{}).Where("owner = ? AND agent = ? AND created > ?", p.Owner, p.Agent, p.Created.Add(-lim.Window)).Count(&n).Error; err != nil {
+			if err := queue(tx.Model(&proposalRow{})).Where("agent = ? AND created > ?", p.Agent, p.Created.Add(-lim.Window)).Count(&n).Error; err != nil {
 				return err
 			}
 			if int(n) >= lim.PerWindow {
@@ -141,7 +164,11 @@ func (s *gormStore) Get(ctx context.Context, owner, id string) (contract.ChangeP
 }
 
 func (s *gormStore) List(ctx context.Context, owner string, statuses ...contract.ProposalStatus) ([]contract.ChangeProposal, error) {
-	q := s.db.WithContext(ctx).Where("owner = ?", owner)
+	return s.list(ctx, s.db.WithContext(ctx).Where("owner = ?", owner), statuses)
+}
+
+// list runs a query for proposals, newest first, with the statuses it keeps.
+func (s *gormStore) list(_ context.Context, q *gorm.DB, statuses []contract.ProposalStatus) ([]contract.ChangeProposal, error) {
 	if len(statuses) > 0 {
 		st := make([]string, len(statuses))
 		for i, v := range statuses {

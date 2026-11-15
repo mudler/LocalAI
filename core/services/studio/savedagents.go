@@ -190,6 +190,10 @@ func (s *Service) listAgentsTool(ctx context.Context, p, chatID string) (string,
 			} else {
 				l.Folder = path.Base(sc.primary().path)
 			}
+		} else if a.ProjectID != "" {
+			// A project agent without folders is not usable: it never gets
+			// the whole home.
+			l.FolderMissing = true
 		}
 		out.Agents = append(out.Agents, l)
 	}

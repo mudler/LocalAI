@@ -1,0 +1,39 @@
+/* The Connections and Automations tabs of a project. */
+.pjl-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-4);
+  padding: 14px var(--sp-4);
+  border-top: 1px solid var(--dk-edge);
+}
+.pjl-row:first-child { border-top: 0; }
+.pjl-row--paused { background: color-mix(in srgb, var(--dk-hover) 55%, transparent); }
+.pjl-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pjl-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.pjl-name { font: 600 var(--fs-body)/var(--lh-body) var(--font-sans); color: var(--dk-text); overflow-wrap: anywhere; text-decoration: none; }
+a.pjl-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.pjl-meta { display: flex; flex-wrap: wrap; gap: 0 var(--sp-2); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); min-width: 0; }
+.pjl-meta > span { overflow-wrap: anywhere; }
+.pjl-meta > span:not(:last-child)::after { content: "·"; margin-left: var(--sp-2); }
+.pjl-path { font-family: var(--font-mono); font-size: var(--fs-meta); }
+.pjl-prompt {
+  margin: 2px 0 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.pjl-end { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+.pjl-choose { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); }
+.pjl-choose__q { flex: 1 1 14rem; margin: 0; font-size: var(--fs-small); color: var(--dk-text); }
+.pjl-choose .input { width: auto; min-width: 12rem; max-width: 100%; }
+.pjl-sec + .pjl-sec { margin-top: var(--sp-4); }
+@media (max-width: 639px) {
+  .pjl-row { grid-template-columns: 40px minmax(0, 1fr); align-items: start; }
+  .pjl-end { grid-column: 1 / -1; justify-content: flex-start; }
+}

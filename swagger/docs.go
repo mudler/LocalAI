@@ -5395,7 +5395,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/import": {
             "post": {
-                "description": "Send the export file (version 1, 2 for an agent with a folder, or 3 for an agent with several) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
+                "description": "Send the export file (version 1 to 5) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too, but not one that carries project_id or projectRef (400). A version 5 file is a project agent: send project_id (one of your own active projects: 404 for an unknown or another person's, 400 for an archived one) or create_project true (a project is made from the name in the file) as query parameters, or as form fields of a multipart import; never inside the file, whose own project fields are ignored. The query string wins over a form field, and create_project is the value of that one parameter. Without either the answer is 409 with the error type project_required and the project's name in project_name. The agent is made a project agent of that project with its files and memory folders; the file's files entry only chooses the files mode (read or write), memory is always read, and a project id inside the file's agent is ignored. With project_id, a file of an older version is imported as a project agent too, its folders ignored with a warning. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
                 "consumes": [
                     "application/json",
                     "multipart/form-data"
@@ -5419,6 +5419,18 @@ const docTemplate = `{
                         "description": "the agent file (multipart)",
                         "name": "file",
                         "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "one of your own active projects to make the agent a project agent of",
+                        "name": "project_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "make a project from the project name in the file and put the agent in it",
+                        "name": "create_project",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5426,6 +5438,12 @@ const docTemplate = `{
                         "description": "The new agent and what the import changed",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgentImportResult"
+                        }
+                    },
+                    "409": {
+                        "description": "The file is a project agent and no project was chosen (error type project_required)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentProjectRequired"
                         }
                     }
                 }
@@ -5611,7 +5629,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. The builtins list (builtin grants) is an extra field of any version: a server that does not know it ignores it, so the agent comes back without the grants. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent of a project is version 5: it carries projectRef (id, name and slug of the project it was made in, a hint only) and folders as the project-relative paths files (with its mode) and memory (read); it holds no node ID and no path of your files, and a server that knows only versions up to 4 refuses it. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. The builtins list (builtin grants) is an extra field of any version: a server that does not know it ignores it, so the agent comes back without the grants. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -5760,6 +5778,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsAgentShareRef"
                         }
                     },
+                    "400": {
+                        "description": "The agent belongs to a project; project agents cannot be shared",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "403": {
                         "description": "The agent is shared with you, not yours",
                         "schema": {
@@ -5904,7 +5928,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Stale, expired or answered",
+                        "description": "Stale, expired, answered, or the person who proposed it can no longer edit the shared project",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -6126,7 +6150,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
+                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved. A binding that has an agent can only move to an agent of the same project: the connection of a project agent stays in its project, and a connection outside projects cannot use a project agent (400).",
                 "tags": [
                     "chats"
                 ],
@@ -8521,6 +8545,629 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The path leaves the page's folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects": {
+            "get": {
+                "description": "A project is a folder under Projects/ in your files, with a manifest, a memory and defaults that its chats start with. The list is read from the folders, so a project you added or edited by hand shows up. chat_count counts up to 500 chats; agent_count is the number of your agents that belong to the project. Another user's projects are never listed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your projects.",
+                "responses": {
+                    "200": {
+                        "description": "Your projects, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectList"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Makes the folder Projects/\u003cslug\u003e in your files with its manifest and an empty memory, as one change set that one undo removes. The slug comes from the name and is unique among your projects, so two projects can share a name but not a folder name.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a project.",
+                "parameters": [
+                    {
+                        "description": "the project",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The name is taken, or projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/shared": {
+            "get": {
+                "description": "The projects of other people whose folder was shared with you, or with everyone, sorted by name. ref is the only identity: use it in the other shared-project routes and in the list a chat pulls from. mode is read or write. An archived or broken project is listed with its status and is not available. The list is read from the grants on every call, so a revoked share is gone at once. The owner's account, paths and tool lists never appear.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the projects shared with you.",
+                "responses": {
+                    "200": {
+                        "description": "The projects shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSharedProjectList"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/shared/{ref}": {
+            "get": {
+                "description": "ref is the reference from the list (\"s:12\"; the colon may be sent as %3A). A project that is not shared with you, and one that does not exist, give the same 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a project shared with you.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the reference of the shared project",
+                        "name": "ref",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSharedProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is not shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/shared/{ref}/memory": {
+            "get": {
+                "description": "Returns the text of index.md and the names of the topic files next to it, read as you through your own grant. It is read only. With a write grant a note is proposed in a chat and confirmed by the owner; with a read grant nothing can be proposed. An archived or broken project, a project that is not shared with you and an unknown one give the same 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the memory of a project shared with you.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the reference of the shared project",
+                        "name": "ref",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The index and the topic files",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSharedProjectMemory"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is not shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the project folder, with its files and memory, as one change set that one undo restores. Chats that belonged to it stay and read as having no project.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "A field that is left out keeps its value. The folder keeps its name. For each of skills, add-ons and MCP servers, a non-empty default list means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Change a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The project changed while it was saved",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/agents": {
+            "get": {
+                "description": "Your saved agents that were created from this project, sorted by name, as brief rows: id, name, description, model, files_mode (read or write), memory_write (the agent holds the grant project.memory.write) and unavailable. An agent is unavailable while its project is archived, deleted or broken, or its folders changed; it works again after a restore or a new save. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the agents of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The agents of the project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectAgentList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/archive": {
+            "post": {
+                "description": "An archived project keeps its folder and takes no new chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Archive a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The project changed while it was saved",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/chats": {
+            "get": {
+                "description": "Your chats whose project is this one, newest first. limit defaults to 50 and is at most 200.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the chats of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most chats to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chats",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversationList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/connections": {
+            "get": {
+                "description": "Your messaging connections that are bound to an agent of this project, as brief rows: id, kind, name, agent_id, agent_name and enabled. A token or a list of senders never appears. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the messaging connections of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The connections",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectConnectionList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/loops": {
+            "get": {
+                "description": "Your loops that have not ended, in chats that use an agent of this project (a loop that ended is history and is left out), as brief rows: id, chat_id, chat_title, prompt (cut to 200 characters) and state. While the project is archived its loops skip their runs; state does not change. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the loops of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The loops",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectLoopList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/memory": {
+            "get": {
+                "description": "Returns the text of index.md and the topic files next to it. The memory is the folder memory/ of the project.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the memory of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The index and the topic files",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectMemory"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/memory/{file}": {
+            "put": {
+                "description": "This is your own edit, so it is written as you, as one change set that undo restores. file is a name such as index.md or food.md: lowercase letters, digits, dot, dash and underscore, ending in .md, at most 64 characters. The content is at most 16 KiB, the same as a note the model proposes. The edit is accepted for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Write a memory file of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the file name, for example index.md",
+                        "name": "file",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new content",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectMemoryWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Written"
+                    },
+                    "400": {
+                        "description": "The file name or the body is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The content is too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/restore": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Restore an archived project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The project changed while it was saved",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/triggers": {
+            "get": {
+                "description": "Your triggers that run an agent of this project, as brief rows: id, name, kind, agent_id, agent_name, schedule, folder, enabled, proposed and next (the next run of an enabled schedule trigger). While the project is archived its agents do not start, so its triggers skip their runs; enabled does not change. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the triggers of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The triggers",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectTriggerList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -12141,6 +12788,112 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/project": {
+            "put": {
+                "description": "project_id is the project's id; an empty one takes the chat out of its project. The chat must be idle (409 otherwise). The tool switches of the chat stay as they are: the defaults of a project apply to new chats only. An archived project takes no chats (400).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Put a chat in a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the project",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsChatProject"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such chat or project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The chat is running, or projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/projects": {
+            "put": {
+                "description": "The list replaces the earlier one. At most 8 projects, none twice, none the chat's own project, each an active project of yours. An empty list clears it. A pulled project is mounted read only at its pulled-* path for the chat's turns; note that your home is still mounted read and write in an ordinary chat.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set the projects a chat pulls in.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the projects",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsChatPulledProjects"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such chat or project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -19545,11 +20298,13 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "user",
+                "project",
                 "agent",
                 "channel"
             ],
             "x-enum-varnames": [
                 "ScopeUser",
+                "ScopeProject",
                 "ScopeAgent",
                 "ScopeChannel"
             ]
@@ -19609,6 +20364,14 @@ const docTemplate = `{
                 "owner": {
                     "type": "string"
                 },
+                "project_node": {
+                    "description": "ProjectNode is the identity of the shared project folder a proposal with\na Proposer is for. The host checks again, when the Owner confirms, that\nthe Proposer still has write access to that folder. Zero otherwise.",
+                    "type": "integer"
+                },
+                "proposer": {
+                    "description": "Proposer is the person who made the proposal when it is not the Owner:\nsomeone a project is shared with, who proposes a note for it. Owner is\nstill the person whose home the change writes and the only one who can\nconfirm. A host that stores the record keeps the account here; a host\nthat sends it to the Owner shows a display name instead, never an\naccount. Empty for a proposal the Owner's own chat made.",
+                    "type": "string"
+                },
                 "rev": {
                     "description": "Rev is the workspace change set that applying wrote; RevertRev the one\nthat reverting wrote. Zero until then.",
                     "type": "integer"
@@ -19645,12 +20408,14 @@ const docTemplate = `{
             "enum": [
                 "user",
                 "agent",
-                "channel"
+                "channel",
+                "project"
             ],
             "x-enum-varnames": [
                 "ScopeUser",
                 "ScopeAgent",
-                "ScopeChannel"
+                "ScopeChannel",
+                "ScopeProject"
             ]
         },
         "contract.ChangeSource": {
@@ -24876,6 +25641,11 @@ const docTemplate = `{
                     "description": "Network is the network preset of the Sandbox commands of the agent's\nunattended runs: off (the default), registries or all, capped by the\nadministrator's ceiling.",
                     "type": "string"
                 },
+                "project_id": {
+                    "description": "ProjectID is the project the agent belongs to, absent for an agent of no\nproject. It is set when the agent is created and cannot change.",
+                    "type": "string",
+                    "example": "3f2a9c"
+                },
                 "resources": {
                     "description": "Resources names, for each add-on whose manifest scopes its resources per\nagent (by add-on ID), the resources the agent may use and the mode of\neach, read or write. An add-on of that kind with no entry gives the\nagent no resource; the field has no effect on any other add-on. The host\nchecks it on every tool call that takes a resource, on top of what you\nmay use yourself, and the resource list and the selection of a chat show\nthe agent nothing outside it.",
                     "allOf": [
@@ -25078,6 +25848,46 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAgentNeed"
                     }
+                }
+            }
+        },
+        "schema.ChatsAgentProjectRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentProjectRequired": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/schema.ChatsAgentProjectRequiredError"
+                }
+            }
+        },
+        "schema.ChatsAgentProjectRequiredError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "project_required"
                 }
             }
         },
@@ -25387,6 +26197,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "network": {
+                    "type": "string"
+                },
+                "projectRef": {
+                    "description": "ProjectRef is set in an export file (version 5) of a project agent: the\nproject of the exporting server, used only as a hint for the name to\noffer. An import never takes the project from it. A write to\nPOST /api/chats/agents ignores it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentProjectRef"
+                        }
+                    ]
+                },
+                "project_id": {
+                    "description": "ProjectID makes the agent a project agent. It is read on create only: it\nmust be one of your own active projects (404 for an unknown or foreign\none, 400 for an archived one). A write to an existing agent may leave it\nout or repeat the stored value; a different value is 400.",
                     "type": "string"
                 },
                 "resources": {
@@ -25814,6 +26636,25 @@ const docTemplate = `{
                 "snippet": {
                     "description": "Snippet is the matching text with a little around it.",
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsChatProject": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsChatPulledProjects": {
+            "type": "object",
+            "properties": {
+                "project_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -27190,6 +28031,13 @@ const docTemplate = `{
                     "description": "Assistant is true for a chat that has the LocalAI management tools.",
                     "type": "boolean"
                 },
+                "collections": {
+                    "description": "Collections is the restriction of the chat's collection tools: only\nthese collections. Absent means all of the user's collections.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "created": {
                     "type": "string"
                 },
@@ -27247,6 +28095,16 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "project_id": {
+                    "description": "ProjectID is the project the chat belongs to; PulledProjects are the\nother projects it reads from. ProjectID can name a project that was\ndeleted since; read that as no project.",
+                    "type": "string"
+                },
+                "pulled_projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "resume_attempts": {
                     "type": "integer"
                 },
@@ -27284,6 +28142,13 @@ const docTemplate = `{
                 "assistant": {
                     "description": "Assistant is true for a chat that has the LocalAI management tools.",
                     "type": "boolean"
+                },
+                "collections": {
+                    "description": "Collections is the restriction of the chat's collection tools: only\nthese collections. Absent means all of the user's collections.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "created": {
                     "type": "string"
@@ -27369,6 +28234,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsPlace"
                         }
                     ]
+                },
+                "project_id": {
+                    "description": "ProjectID is the project the chat belongs to; PulledProjects are the\nother projects it reads from. ProjectID can name a project that was\ndeleted since; read that as no project.",
+                    "type": "string"
+                },
+                "pulled_projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "resume_attempts": {
                     "type": "integer"
@@ -27500,8 +28375,19 @@ const docTemplate = `{
                     "description": "Assistant starts the chat with the LocalAI management tools (install\nmodels and backends, change settings). It needs an administrator and the\nassistant setting on, and it cannot be combined with AgentID.",
                     "type": "boolean"
                 },
+                "collections": {
+                    "description": "Collections restricts the chat to these collections of yours: it can\nlist and search only them. Empty means all of your collections. A name\nyou have no collection of matches nothing. At most 100 names, each\n1 to 200 characters. It overrides the project's default list.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "model": {
                     "description": "Model is the model the conversation talks to. It cannot change later.",
+                    "type": "string"
+                },
+                "project_id": {
+                    "description": "ProjectID starts the chat in one of your projects. The project's\ndefaults set the switches the request leaves unset. An unknown or\narchived project refuses the request.",
                     "type": "string"
                 },
                 "switches": {
@@ -29655,6 +30541,294 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsProject": {
+            "type": "object",
+            "properties": {
+                "agent_count": {
+                    "description": "AgentCount is the number of saved agents that belong to the project.",
+                    "type": "integer"
+                },
+                "chat_count": {
+                    "description": "ChatCount is the number of chats in the project, counted up to 500.",
+                    "type": "integer"
+                },
+                "defaults": {
+                    "$ref": "#/definitions/schema.ChatsProjectDefaults"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "description": "Slug is the name of the project's folder under Projects/ in the caller's files.",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is active, archived or broken. Error says why a project is broken.",
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectAgent": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "files_mode": {
+                    "description": "FilesMode is read or write: how the agent uses the files of the project.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "memory_write": {
+                    "description": "MemoryWrite is true when the agent holds the grant project.memory.write.",
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "unavailable": {
+                    "description": "Unavailable is true while the agent cannot start: its project is\narchived, deleted or broken, or its folders changed.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsProjectAgentList": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectAgent"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectConnection": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "agent_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectConnectionList": {
+            "type": "object",
+            "properties": {
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectConnection"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectDefaults": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectList": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProject"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectLoop": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "chat_title": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectLoopList": {
+            "type": "object",
+            "properties": {
+                "loops": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectLoop"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectMemory": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectMemoryFile"
+                    }
+                },
+                "index": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectMemoryFile": {
+            "type": "object",
+            "properties": {
+                "modified": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsProjectMemoryWrite": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectTrigger": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "agent_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "next": {
+                    "description": "Next is when a schedule trigger runs next. It is absent for a trigger\nthat is off, a file trigger, or a schedule with no later time.",
+                    "type": "string"
+                },
+                "proposed": {
+                    "description": "Proposed is always false for now: a trigger that a model proposed and\nyou have not confirmed is not listed. The field keeps the shape stable.",
+                    "type": "boolean"
+                },
+                "schedule": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectTriggerList": {
+            "type": "object",
+            "properties": {
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectTrigger"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectWrite": {
+            "type": "object",
+            "properties": {
+                "defaults": {
+                    "$ref": "#/definitions/schema.ChatsProjectDefaults"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsProvider": {
             "type": "object",
             "properties": {
@@ -30195,6 +31369,72 @@ const docTemplate = `{
                 },
                 "role": {
                     "description": "Role is always use: a binding is never shared with everyone.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSharedProject": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error says why a broken project cannot be read.",
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode is what you may do in the project folder: \"read\" or \"write\".",
+                    "type": "string",
+                    "enum": [
+                        "read",
+                        "write"
+                    ]
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner_name": {
+                    "description": "OwnerName is the display name of the owner.",
+                    "type": "string"
+                },
+                "ref": {
+                    "description": "Ref names the project in the other shared-project routes and in the\nlist a chat pulls from.",
+                    "type": "string",
+                    "example": "s:12"
+                },
+                "status": {
+                    "description": "Status is \"active\", \"archived\" or \"broken\". An archived or broken\nproject is listed but is not available.",
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "archived",
+                        "broken"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsSharedProjectList": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSharedProject"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSharedProjectMemory": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "index": {
                     "type": "string"
                 }
             }

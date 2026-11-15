@@ -401,6 +401,9 @@ description, sensitive}]}` for the editor. The names are `memory.write`,
 `profile.write`, `skills.write`, `pages.write`, `dashboard.write`, `knowledge.write`,
 `triggers.propose`, `triggers.run`, `talkback.channels`, `talkback.new_channel`,
 `files.upload`, `act.files`, `act.addons`, `act.send`, `act.spend`,
+`project.memory.write` (**Remember things in the project**: an agent that
+belongs to a project can propose a note for the memory of that project; you
+confirm each note, and it never applies to a sub-agent or an unattended run),
 `saved_agents` (the opt-in group of that name; granting it also switches the
 group on) and `history.read` (the agent can search and read your earlier chats
 with the opt-in group **Past chats**; granting it also switches the group on, an
@@ -451,28 +454,51 @@ curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
 The file holds the definition only (kind `localai-agent`): no ID, owner or
-time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list, `memory` and `memory_save` are extra fields of any version; a server that does not know them ignores them, so the agent arrives without the grants, as before and without its own save rule (it then follows the setting of the person); a server that knows `memory_save` but only `always` and `never` refuses a file with `auto` (400). An import makes a new agent: it has the exported `memory` choice and `memory_save` rule and none of the original's notes. An agent without a folder or tool switches is version 1. An agent with one folder is
-version 2 and carries `folder` with the folder's path at export time and the
-mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
-empty when the folder is missing, not chosen, or now outside your home).
-A followed folder in a shared location stays usable by the original agent,
-but its export carries an empty path and the mode. Import keeps it scoped
-with state `unset` and warns you to choose a folder; it never interprets the
-shared path as a folder in your home. An agent with several folders is version 3 and carries `folders`, a list of
-the same `{path, mode}` entries. A server that reads only
-version 1 refuses a version 2 file, and one that reads only version 2 refuses
-a version 3 file, so an agent limited to folders is never
-imported somewhere as an agent with more files. On import each path is looked up;
-a folder that is not found stays in the list as a row that is not chosen, with
-the mode, and a warning names it. An import always makes a
-new agent. The folder is looked up by its path in your files; when you have
-no such folder, the agent is saved with the mode and no folder (`state:
-unset`), it does not start until you choose one, and a warning says so. A name you already use gets
-" (2)", " (3)" and so on, and a model that this server does not have, or that you
-may not use, is dropped. The response lists such changes under `warnings`. The
-grants (MCP servers, add-ons, collections, skills) are kept as names; a grant
-that names something you do not have gives the chat nothing, as for any agent.
-Secrets are never part of an agent, so the file has none.
+time. The version says what the agent needs, so that an older server refuses
+a file it cannot read safely instead of importing an agent with more access:
+
+| Version | The agent |
+|---|---|
+| 1 | Has no folder and no tool switches. |
+| 2 | Has one folder. The file carries `folder` with the folder's path at export time and the mode, for example `{"path": "/Projects/Acme", "mode": "read"}`. The path is empty when the folder is missing, not chosen, or now outside your home. |
+| 3 | Has several folders. The file carries `folders`, a list of the same `{path, mode}` entries. |
+| 4 | Has tool switches (`builtins_off`, `builtins_on`). A server that does not know them refuses the file instead of giving the agent every tool. |
+| 5 | Belongs to a project. The file carries `projectRef` (the project name, as a hint only) and the two project folders as the project-relative paths `files` and `memory`. It carries no folder ID and no path of your files. |
+
+A server that reads only version 1 refuses a version 2 file, and one that
+reads only version 2 refuses a version 3 file, so an agent limited to folders
+is never imported somewhere as an agent with more files. The same holds for
+versions 4 and 5.
+
+The `builtins` list, `memory` and `memory_save` are extra fields of any
+version. A server that does not know them ignores them, so the agent arrives
+without the grants, as before, and without its own save rule (it then follows
+the setting of the person). A server that knows `memory_save` but only `always`
+and `never` refuses a file with `auto` (400).
+
+An import always makes a new agent. It has the exported `memory` choice and
+`memory_save` rule and none of the original's notes. A name you already use
+gets " (2)", " (3)" and so on, and a model that this server does not have, or
+that you may not use, is dropped. The response lists such changes under
+`warnings`. The grants (MCP servers, add-ons, collections, skills) are kept as
+names; a grant that names something you do not have gives the chat nothing,
+as for any agent. Secrets are never part of an agent, so the file has none.
+
+Folders on import (versions 2 and 3). Each path is looked up in your files. A
+folder that is not found stays in the list as a row that is not chosen, with
+the mode, and a warning names it. When you have no such folder, the agent is
+saved with the mode and no folder (`state: unset`), it does not start until you
+choose one, and a warning says so. A followed folder in a shared location
+stays usable by the original agent, but its export carries an empty path and
+the mode. Import keeps it scoped with state `unset` and warns you to choose a
+folder; it never interprets the shared path as a folder in your home.
+
+Version 5 on import. The project is never taken from the file. You choose one
+of your own projects with the query parameter `project_id`, or create one with
+`create_project=true`; until you do, the answer is `409` with the error type
+`project_required` and the project name in `project_name`. The request
+parameters are the only mapping: see
+[Agents created from a project]({{% relref "/features/chat-apps#agents-created-from-a-project" %}}).
 
 ### Run history
 

@@ -26,6 +26,15 @@ type ChatsCreateRequest struct {
 	// new chat drafts them. They are stored with the chat: the chat never
 	// exists without them. A bad entry refuses the whole request.
 	Switches *ChatsSwitches `json:"switches,omitempty"`
+	// ProjectID starts the chat in one of your projects. The project's
+	// defaults set the switches the request leaves unset. An unknown or
+	// archived project refuses the request.
+	ProjectID string `json:"project_id,omitempty"`
+	// Collections restricts the chat to these collections of yours: it can
+	// list and search only them. Empty means all of your collections. A name
+	// you have no collection of matches nothing. At most 100 names, each
+	// 1 to 200 characters. It overrides the project's default list.
+	Collections []string `json:"collections,omitempty"`
 }
 
 // ChatsSwitches are the switches of a chat, each list in the form its own
@@ -60,6 +69,9 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
+	// ProjectID is the project the agent belongs to, absent for an agent of no
+	// project. It is set when the agent is created and cannot change.
+	ProjectID string `json:"project_id,omitempty" example:"3f2a9c"`
 	// SandboxProfile is the sandbox profile of the agent's unattended runs and
 	// the starting profile of its chats (GET /api/chats/sandbox-profiles lists
 	// them). Empty: the administrator's default. A profile the Sandbox does
@@ -253,6 +265,11 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// ProjectID makes the agent a project agent. It is read on create only: it
+	// must be one of your own active projects (404 for an unknown or foreign
+	// one, 400 for an archived one). A write to an existing agent may leave it
+	// out or repeat the stored value; a different value is 400.
+	ProjectID string `json:"project_id,omitempty"`
 	// SandboxProfile is the sandbox profile of the agent (see ChatsAgent).
 	// A profile ID, or empty for the default; a value that is not a profile ID
 	// is 400.
@@ -299,6 +316,20 @@ type ChatsAgentWrite struct {
 	// the agent has; "folders": [] clears them. Where a folder is inside
 	// another one, it gets the outer folder's mode.
 	Folders []ChatsAgentFolderWrite `json:"folders,omitempty"`
+	// ProjectRef is set in an export file (version 5) of a project agent: the
+	// project of the exporting server, used only as a hint for the name to
+	// offer. An import never takes the project from it. A write to
+	// POST /api/chats/agents ignores it.
+	ProjectRef *ChatsAgentProjectRef `json:"projectRef,omitempty"`
+}
+
+// ChatsAgentProjectRef names the project an exported project agent came from.
+// It is a hint: the importer chooses one of their own projects, or has one
+// made from the name.
+type ChatsAgentProjectRef struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name"`
+	Slug string `json:"slug,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.
@@ -320,9 +351,17 @@ type ChatsConversation struct {
 	Origin   string `json:"origin,omitempty"`
 	OriginID string `json:"origin_id,omitempty"`
 	// Assistant is true for a chat that has the LocalAI management tools.
-	Assistant bool      `json:"assistant,omitempty"`
-	Created   time.Time `json:"created"`
-	Updated   time.Time `json:"updated"`
+	Assistant bool `json:"assistant,omitempty"`
+	// ProjectID is the project the chat belongs to; PulledProjects are the
+	// other projects it reads from. ProjectID can name a project that was
+	// deleted since; read that as no project.
+	ProjectID      string   `json:"project_id,omitempty"`
+	PulledProjects []string `json:"pulled_projects,omitempty"`
+	// Collections is the restriction of the chat's collection tools: only
+	// these collections. Absent means all of the user's collections.
+	Collections []string  `json:"collections,omitempty"`
+	Created     time.Time `json:"created"`
+	Updated     time.Time `json:"updated"`
 	// Running is true while a turn runs. LastTurn is how the last finished turn
 	// ended: done, stopped, failed, interrupted, or paused (the tool loop
 	// reached its step limit; send a message to go on).

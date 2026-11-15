@@ -349,6 +349,22 @@ const (
 	ActionDelete   = "delete"
 )
 
+// Actions of the projects tool, besides list, create and delete above.
+const (
+	ActionGet            = "get"
+	ActionUpdate         = "update"
+	ActionArchive        = "archive"
+	ActionRestore        = "restore"
+	ActionSetChatProject = "set_chat_project"
+	ActionPull           = "pull"
+	ActionUnpull         = "unpull"
+	ActionAgents         = "agents"
+	ActionConnections    = "connections"
+	ActionTriggers       = "triggers"
+	ActionLoops          = "loops"
+	ActionShared         = "shared"
+)
+
 // VoiceToolInput is the input of the voice tool. One flat object: the action
 // says which fields count, and the handler checks them.
 type VoiceToolInput struct {
@@ -444,4 +460,114 @@ type ModelList struct {
 	// Hint names the next call when more models remain, and says what to do
 	// when the list is empty.
 	Hint string `json:"hint,omitempty"`
+}
+
+// ProjectsToolInput is the input of the projects tool. One flat object: the
+// action says which fields count, and the handler checks them.
+type ProjectsToolInput struct {
+	Action  string `json:"action"                jsonschema:"Needs: get, agents, connections, triggers, loops, archive, restore, delete, update: project; create: name; set_chat_project, pull, unpull: chat_id, project."`
+	Project string `json:"project,omitempty"     jsonschema:"Project id."`
+	Name    string `json:"name,omitempty"`
+	// Description is a pointer so that update can clear it: "" is sent, absent is left alone.
+	Description *string `json:"description,omitempty"`
+	ChatID      string  `json:"chat_id,omitempty"`
+}
+
+// ProjectsRequest is what the client sends for one action of the projects
+// tool. The shared code maps it to the project routes of the acting user.
+type ProjectsRequest struct {
+	Action      string
+	Project     string
+	Name        string
+	Description *string
+	ChatID      string
+}
+
+// ProjectInfo is one project as the tool shows it. The defaults of a project
+// stay out: they name skills, add-ons and servers the model does not need.
+type ProjectInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description,omitempty"`
+	Status      string `json:"status"`
+	ChatCount   int    `json:"chat_count,omitempty"`
+	AgentCount  int    `json:"agent_count,omitempty"`
+}
+
+// SharedProjectInfo is one project of another person that is shared with the
+// caller, as the shared action shows it. ref is what pull takes as project.
+// Never the owner's account, a path or the manifest id.
+type SharedProjectInfo struct {
+	Ref       string `json:"ref"`
+	Name      string `json:"name"`
+	Mode      string `json:"mode"`
+	Status    string `json:"status"`
+	OwnerName string `json:"owner_name"`
+}
+
+// ProjectAgentInfo is one agent of a project as the agents action shows it:
+// a brief row, never the instructions or the lists of the agent.
+type ProjectAgentInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Unavailable bool   `json:"unavailable,omitempty"`
+	FilesMode   string `json:"files_mode,omitempty"`
+	MemoryWrite bool   `json:"memory_write,omitempty"`
+}
+
+// ProjectConnectionInfo is a messaging connection of a project agent, as the
+// connections action shows it: never a token or a sender list.
+type ProjectConnectionInfo struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	AgentID   string `json:"agent_id"`
+	AgentName string `json:"agent_name,omitempty"`
+	Enabled   bool   `json:"enabled,omitempty"`
+}
+
+// ProjectTriggerInfo is a trigger of a project agent. Next is the next run of
+// a schedule trigger, when it has one.
+type ProjectTriggerInfo struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	AgentName string `json:"agent_name,omitempty"`
+	Schedule  string `json:"schedule,omitempty"`
+	Folder    string `json:"folder,omitempty"`
+	Enabled   bool   `json:"enabled,omitempty"`
+	Next      string `json:"next,omitempty"`
+}
+
+// ProjectLoopInfo is a loop in a chat of a project agent; Prompt is cut short.
+type ProjectLoopInfo struct {
+	ID        string `json:"id"`
+	ChatID    string `json:"chat_id"`
+	ChatTitle string `json:"chat_title,omitempty"`
+	Prompt    string `json:"prompt,omitempty"`
+	State     string `json:"state"`
+}
+
+// ProjectChat is the project part of a chat after set_chat_project, pull or unpull.
+type ProjectChat struct {
+	ID             string   `json:"id"`
+	ProjectID      string   `json:"project_id,omitempty"`
+	PulledProjects []string `json:"pulled_projects,omitempty"`
+}
+
+// ProjectsResult is the answer of the projects tool: the member that fits the
+// action is set.
+type ProjectsResult struct {
+	Projects    []ProjectInfo           `json:"projects,omitempty"`
+	Project     *ProjectInfo            `json:"project,omitempty"`
+	Agents      []ProjectAgentInfo      `json:"agents,omitempty"`
+	Connections []ProjectConnectionInfo `json:"connections,omitempty"`
+	Triggers    []ProjectTriggerInfo    `json:"triggers,omitempty"`
+	Loops       []ProjectLoopInfo       `json:"loops,omitempty"`
+	Shared      []SharedProjectInfo     `json:"shared,omitempty"`
+	Chat        *ProjectChat            `json:"chat,omitempty"`
+	Deleted     bool                    `json:"deleted,omitempty"`
 }

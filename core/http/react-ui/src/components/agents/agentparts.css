@@ -113,3 +113,21 @@
 .aed-try__form { display: grid; gap: var(--sp-2); min-width: 0; }
 .aed-try__form .textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
 .aed-try__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+
+/* The Files section of an agent created from a project: two fixed folders. */
+.ag-pfolders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.ag-pfolder { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; padding: var(--sp-4); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); }
+.ag-pfolder p { margin: 0; }
+.ag-pfolder__title { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font: 600 var(--fs-body)/var(--lh-body) var(--font-sans); }
+.ag-pfolder__title .lai-icon, .ag-pfolder__fixed .lai-icon { width: 15px; height: 15px; flex: none; }
+.ag-pfolder__fixed { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-body); }
+.ag-limit { display: inline-flex; align-items: center; gap: var(--sp-1); margin: 0; color: var(--dk-accent-text); font-size: var(--fs-small); }
+.ag-limit .lai-icon { width: 13px; height: 13px; flex: none; }
+.ag-project-chip { margin-top: var(--sp-1); }
+@media (max-width: 720px) { .ag-pfolders { grid-template-columns: minmax(0, 1fr); } }
+
+/* The project choice of an agent import. */
+.ag-import-error { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0 0; color: var(--dk-error); font-size: var(--fs-small); }
+.ag-import-error .lai-icon { width: 14px; height: 14px; flex: none; }
+.ag-reason { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--dk-warn-text); font-size: var(--fs-small); max-width: 28ch; }
+.ag-reason .lai-icon { width: 14px; height: 14px; flex: none; }

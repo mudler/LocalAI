@@ -442,6 +442,11 @@ func (h *Triggers) switchByChange(ctx context.Context, user, chatID, id string, 
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	if on && !live.Enabled {
+		if err := h.checkProjectAvailable(ctx, live.Owner, live.AgentID); err != nil {
+			return triggers.Trigger{}, err
+		}
+	}
 	t := live
 	t.Enabled = on
 	t.Touched = live.Touched || live.Outcome != ""
@@ -759,6 +764,13 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
+	}
+	// An undo that brings back a trigger that is on is a switch on: refused
+	// while the project of its agent is not available.
+	if t.Enabled && !live.Enabled {
+		if err := h.checkProjectAvailable(ctx, t.Owner, t.AgentID); err != nil {
+			return triggers.Trigger{}, err
+		}
 	}
 	at := h.o.Clock().UTC()
 	if err := h.claimChange(ctx, rec, triggers.OutcomeAccepted, triggers.OutcomeUndone, at); err != nil {
