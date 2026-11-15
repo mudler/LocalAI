@@ -66,8 +66,13 @@ pin_packages() {
         name=$(echo "$line" | awk '{print $2}')
         ver=$(echo "$name" | sed -E "s/^${asset}-([0-9.]+)-.*/\1/")
         if [ -n "${!verref}" ] && [ "${!verref}" != "$ver" ]; then
-            echo "Refusing to bump: ${asset} packages of $TAG disagree on the version (${!verref}, $ver)" >&2
-            exit 1
+            # An upstream release that mixes engine versions is not something a
+            # bump can fix, and the Makefile holds one version per engine. Skip
+            # the bump without touching anything and without failing the job; the
+            # workflow sees that no output files were written and opens no PR.
+            echo "::warning title=Strata bump skipped::${asset} packages of $TAG disagree on the version (${!verref}, $ver); no bump this run"
+            rm -f "$PINS"
+            exit 0
         fi
         printf -v "$verref" '%s' "$ver"
         # GitHub's own digest for the uploaded asset must agree with SHA256SUMS.txt.
