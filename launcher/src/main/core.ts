@@ -199,6 +199,8 @@ export interface CoreDeps {
   loginItem?: (enabled: boolean) => LoginItemResult
   /** Electron's safeStorage. Missing means no secure storage: secrets stay in memory unless the user opts in. */
   safeStorage?: SafeStorageLike
+  /** Milestones of init(), for the packaged-build smoke test. Not for users. */
+  trace?: (milestone: string) => void
   /** secrets.json; default: next to launcher.json. */
   secretsPath?: string
   /** Default: process.platform. Decides whether the Linux fallback of safeStorage counts. */
@@ -314,11 +316,13 @@ export class LauncherCore {
   async init(): Promise<void> {
     const launcherLog = (m: string) => (this.hub ? this.hub.write('launcher', m) : this.early.push(m))
 
+    this.d.trace?.('init-start')
     // 1. config
     this.store = await ConfigStore.open({ home: this.d.home, path: this.d.configPath, log: launcherLog })
     if (this.store.loaded.status === 'recovered') {
       this.configNotice = { status: 'recovered', reason: this.store.loaded.reason ?? 'config file could not be used' }
     }
+    this.d.trace?.('config-opened')
     // 1a. the old "last server chosen in Connect" moves into the server list, once
     const idGen = () => newRemoteId((n) => this.random(n))
     if (migrateRemoteUrl(this.store.get(), idGen).changed) {
@@ -335,7 +339,9 @@ export class LauncherCore {
       log: launcherLog,
     })
     launcherLog(`secrets: ${this.secrets.backend()}`)
+    this.d.trace?.('secrets-opened')
     await this.migrateSecrets(launcherLog)
+    this.d.trace?.('secrets-migrated')
     config = this.store.get()
     // The server never listens on the network without a key. Without a keyring
     // the key lives only for a session while the address is saved, and an old
@@ -354,16 +360,19 @@ export class LauncherCore {
       )
     }
 
+    this.d.trace?.('step-folders')
     // 2. data folders, as the Go launcher created them at start
     const data = dataPath(config, this.d.home)
     this.ensureFolders([config.models_path, config.backends_path, defaultLogsDir(data)], launcherLog)
 
+    this.d.trace?.('step-logs')
     // 3. logs
     this.hub = new LogHub({ dir: defaultLogsDir(data) })
     for (const m of this.early.splice(0)) this.hub.write('launcher', m)
     this.hub.subscribe((l) => this.queueLog(l))
     this.hub.write('launcher', `launcher ${this.d.launcherVersion} starting`)
 
+    this.d.trace?.('step-sandbox')
     // 4. sandbox
     try {
       this.attachPattern = this.d.sandboxAttachPattern ? validateAttachPattern(this.d.sandboxAttachPattern) : undefined
@@ -380,9 +389,11 @@ export class LauncherCore {
       dismissedVersion: sandboxNoticeDismissedVersion(config),
     })
 
+    this.d.trace?.('step-supervisor')
     // 5. supervisor
     this.buildSupervisor(config)
 
+    this.d.trace?.('step-installer')
     // 6. installer
     const paths = this.installPaths()
     const core = this // the getter below must read the current supervisor, which a settings change replaces
@@ -425,10 +436,12 @@ export class LauncherCore {
       this.webuiInputs({ installActive: this.installActive(), serverUpdate: this.serverUpdateOffered() })
     })
 
+    this.d.trace?.('step-webui-model')
     // 7. WebUI view model
     this.webui = new WebuiModel(this.currentWebuiInputs())
     void this.installer.installedVersion().then((v) => (this.localVersion = v)).catch(() => undefined)
 
+    this.d.trace?.('step-default-server')
     // 8. the default server: a remote opens at once, and the local server is not touched
     this.monitor = new RemoteMonitor({
       probe: (origin) => this.checkOrigin(origin),

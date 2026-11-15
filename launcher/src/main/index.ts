@@ -418,6 +418,7 @@ if (!gotLock) {
     win?.focus()
   })
   app.whenReady().then(async () => {
+    signal('ready')
     const owner = 'mudler'
     const repo = 'LocalAI'
     core = new LauncherCore({
@@ -442,6 +443,7 @@ if (!gotLock) {
       loginItem: setLoginItem,
       onIncludePrereleases: setLauncherPrereleases,
       safeStorage,
+      trace: (m) => signal(`init ${m}`),
       networkInterfaces: () => os.networkInterfaces(),
       webuiCredential,
     })
