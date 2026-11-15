@@ -1,0 +1,185 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "兼容 OpenAI",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "自定义"
+  },
+  "connect": {
+    "kind": "远程类型",
+    "provider": "提供商",
+    "address": "地址",
+    "addressHintLocalai": "另一台 LocalAI 服务器的地址。",
+    "addressHintOpenai": "服务的基础地址，通常以 /v1 结尾。",
+    "key": "API 密钥",
+    "optional": "可选",
+    "keyHint": "密钥只保存在这台服务器上，之后不会再显示。",
+    "pii": "发往托管服务的请求会经过 LocalAI 的 PII 过滤器，该过滤器默认开启。",
+    "test": "测试连接",
+    "testing": "正在测试…",
+    "ok": "已连接，找到 {{count}} 个模型。",
+    "ok_other": "已连接，找到 {{count}} 个模型。",
+    "failTitle": "无法连接。",
+    "fail": {
+      "invalid_url": "该地址无效，请检查后重试。",
+      "unreachable": "无法连接到该服务器。请检查地址，并确认对方服务器正在运行且可从这台服务器访问。",
+      "auth": "提供商拒绝了该密钥。请检查后重试。",
+      "no_models": "连接正常，但没有可添加的模型。",
+      "other": "测试失败。",
+      "authLocalai": "另一台 LocalAI 服务器拒绝了该密钥。请使用可以列出其模型的密钥；如果服务器不需要密钥，请留空。",
+      "unsupported": "此服务器无法连接远程。"
+    }
+  },
+  "choose": {
+    "waiting": "请先测试连接，其模型会显示在这里。",
+    "search": "搜索模型",
+    "count": "已选 {{selected}} / {{total}}",
+    "selectAll": "全选",
+    "selectNone": "全不选",
+    "listLabel": "要添加的模型",
+    "noMatch": "没有符合搜索的模型。",
+    "name": "名称",
+    "nameHint": "显示在远程列表中。",
+    "submit": "连接并添加模型",
+    "pick": "请至少选择一个模型。",
+    "error": {
+      "nameTaken": "已有同名远程，请换一个名称。",
+      "invalid": "服务器不接受这些信息：{{message}}",
+      "other": "出错了：{{message}}",
+      "unsupported": "此服务器无法连接远程。"
+    },
+    "tooMany": "一次最多选择 {{max}} 个模型，其余的稍后再添加。"
+  },
+  "usecase": {
+    "chat": "聊天",
+    "transcript": "转写",
+    "tts": "语音",
+    "embeddings": "嵌入",
+    "image": "图像",
+    "video": "视频",
+    "rerank": "重排序",
+    "completion": "补全",
+    "edit": "编辑",
+    "vision": "视觉",
+    "tokenize": "分词",
+    "upscale": "放大",
+    "3d": "3D",
+    "3d_animation": "3D 动画",
+    "motion": "动作",
+    "sound_generation": "声音生成",
+    "detection": "检测",
+    "depth": "深度",
+    "forecast": "预测",
+    "vad": "语音活动",
+    "audio_transform": "音频转换",
+    "diarization": "说话人分离",
+    "sound_classification": "声音分类",
+    "realtime_audio": "实时音频",
+    "face_recognition": "人脸识别",
+    "speaker_recognition": "说话人识别"
+  },
+  "sheet": {
+    "open": "连接远程"
+  },
+  "card": {
+    "justNow": "刚刚",
+    "status": {
+      "ok": "已连接 · {{when}}刷新",
+      "never": "尚未刷新",
+      "auth_failed": "密钥被拒绝",
+      "unreachable": "无法访问",
+      "noUsable": "已连接 · 没有可用的模型"
+    },
+    "refresh": "刷新",
+    "edit": "编辑",
+    "authTitle": "远程拒绝了该密钥。",
+    "authText": "更新密钥以重新连接。",
+    "unreachableTitle": "无法访问远程。",
+    "unreachableText": "请检查地址，并确认对方服务器正在运行。",
+    "updateKey": "更新密钥",
+    "editRemote": "编辑远程",
+    "newTitle": "此远程有 {{count}} 个新模型",
+    "newTitle_other": "此远程有 {{count}} 个新模型",
+    "addSelected": "添加所选",
+    "notNow": "暂不",
+    "adopted": "已从 {{name}} 添加 {{count}} 个模型。",
+    "adopted_other": "已从 {{name}} 添加 {{count}} 个模型。",
+    "adoptFailed": "无法添加模型：{{message}}",
+    "refreshFailed": "无法刷新 {{name}}：{{message}}",
+    "models": "此远程有 {{count}} 个模型",
+    "models_other": "此远程有 {{count}} 个模型",
+    "gone": "{{count}} 个已不在列表中",
+    "gone_other": "{{count}} 个已不在列表中",
+    "view": "在“已安装”中查看",
+    "noUsableTitle": "没有可用的模型。",
+    "noUsableText": "远程已响应，但没有列出此服务器可以使用的模型。",
+    "refreshWarn": "已刷新 {{name}}，但它没有可用的模型。",
+    "authTextLocalai": "请使用可以列出该服务器模型的密钥，然后重新连接。"
+  },
+  "empty": {
+    "title": "尚未连接远程",
+    "body": "连接另一台 LocalAI、兼容 OpenAI 的服务或 Anthropic。你选的每个模型都会成为这里的一个模型。"
+  },
+  "load": {
+    "error": "无法加载你的远程。"
+  },
+  "edit": {
+    "title": "编辑远程",
+    "close": "关闭",
+    "cancel": "取消",
+    "save": "保存",
+    "name": "名称",
+    "key": "新的 API 密钥",
+    "keySet": "已设置密钥。留空则保持不变。",
+    "keyNotSet": "尚未设置密钥。",
+    "keyRestart": "新密钥会重启已加载的模型。",
+    "saved": "已保存 {{name}}。",
+    "savedKey": "已保存 {{name}}。已加载的模型会用新密钥重启。",
+    "savedWarn": "已保存 {{name}}，但仍有问题。请打开该远程查看。"
+  },
+  "remove": {
+    "button": "移除远程",
+    "title": "要移除 {{name}} 吗？",
+    "choiceLabel": "如何处理这些模型",
+    "keep": "保留模型",
+    "removeAll": "同时移除模型",
+    "keepExplain": "只会移除远程，其 {{count}} 个模型仍留在“已安装”中。如果远程需要密钥，请在模型编辑器中设置。",
+    "keepExplain_other": "只会移除远程，其 {{count}} 个模型仍留在“已安装”中。如果远程需要密钥，请在模型编辑器中设置。",
+    "removeExplain": "将移除该远程及其 {{count}} 个模型，此操作无法撤销。",
+    "removeExplain_other": "将移除该远程及其 {{count}} 个模型，此操作无法撤销。",
+    "confirm": "移除远程",
+    "doneKeep": "已移除 {{name}}，其模型予以保留。",
+    "doneAll": "已移除 {{name}} 及其模型。"
+  },
+  "result": {
+    "added": "已添加 {{count}} 个模型。",
+    "added_other": "已添加 {{count}} 个模型。",
+    "partialTitle": "远程已保存，但部分模型没有添加。",
+    "skippedTitle": "部分模型没有添加。",
+    "adoptHint": "请采用缺少的模型。这不会再次创建远程。",
+    "adopt": "采用模型",
+    "continue": "继续"
+  },
+  "skipped": {
+    "summary": "{{count}} 个模型未添加",
+    "summary_other": "{{count}} 个模型未添加",
+    "reason": {
+      "listedTwice": "重复列出",
+      "alreadyAdopted": "已添加",
+      "noFreeName": "没有可用的模型名称",
+      "nameExists": "已存在同名模型",
+      "invalid": "模型名称或设置无效",
+      "buildFailed": "无法准备该模型",
+      "writeFailed": "无法保存该模型"
+    }
+  },
+  "unsupported": {
+    "title": "远程不可用",
+    "body": "此服务器未启用模型库，因此无法连接远程。"
+  }
+}

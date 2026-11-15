@@ -14,6 +14,7 @@ on:
       - master
     tags:
       - '*'
+      - '!dev-master'
 
 concurrency:
   group: ci-tests-extra-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}

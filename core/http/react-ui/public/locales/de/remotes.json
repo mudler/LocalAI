@@ -1,0 +1,185 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "OpenAI-kompatibel",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "Eigener"
+  },
+  "connect": {
+    "kind": "Art der Gegenstelle",
+    "provider": "Anbieter",
+    "address": "Adresse",
+    "addressHintLocalai": "Die Adresse des anderen LocalAI-Servers.",
+    "addressHintOpenai": "Die Basisadresse des Dienstes. Sie endet meist auf /v1.",
+    "key": "API-Schlüssel",
+    "optional": "optional",
+    "keyHint": "Der Schlüssel bleibt auf diesem Server und wird nicht noch einmal angezeigt.",
+    "pii": "Anfragen an gehostete Dienste laufen über den PII-Filter von LocalAI, der standardmäßig aktiv ist.",
+    "test": "Verbindung testen",
+    "testing": "Wird getestet …",
+    "ok": "Verbunden. {{count}} Modell gefunden.",
+    "ok_other": "Verbunden. {{count}} Modelle gefunden.",
+    "failTitle": "Verbindung fehlgeschlagen.",
+    "fail": {
+      "invalid_url": "Diese Adresse ist ungültig. Prüfen Sie sie und versuchen Sie es erneut.",
+      "unreachable": "Der Server ist nicht erreichbar. Prüfen Sie die Adresse und ob der andere Server läuft und von diesem Server aus erreichbar ist.",
+      "auth": "Der Anbieter hat den Schlüssel abgelehnt. Prüfen Sie ihn und versuchen Sie es erneut.",
+      "no_models": "Die Verbindung funktioniert, aber es gibt keine Modelle zum Hinzufügen.",
+      "other": "Der Test ist fehlgeschlagen.",
+      "authLocalai": "Der andere LocalAI-Server hat den Schlüssel abgelehnt. Verwenden Sie einen Schlüssel, der seine Modelle auflisten darf, oder lassen Sie ihn leer, wenn der Server keinen braucht.",
+      "unsupported": "Dieser Server kann keine Remotes verbinden."
+    }
+  },
+  "choose": {
+    "waiting": "Testen Sie zuerst die Verbindung. Ihre Modelle erscheinen dann hier.",
+    "search": "Modelle suchen",
+    "count": "{{selected}} von {{total}} ausgewählt",
+    "selectAll": "Alle auswählen",
+    "selectNone": "Keine auswählen",
+    "listLabel": "Hinzuzufügende Modelle",
+    "noMatch": "Kein Modell passt zur Suche.",
+    "name": "Name",
+    "nameHint": "Wird in der Liste der Gegenstellen angezeigt.",
+    "submit": "Verbinden und Modelle hinzufügen",
+    "pick": "Wählen Sie mindestens ein Modell aus.",
+    "error": {
+      "nameTaken": "Eine Gegenstelle mit diesem Namen gibt es schon. Wählen Sie einen anderen Namen.",
+      "invalid": "Der Server hat diese Angaben nicht akzeptiert: {{message}}",
+      "other": "Etwas ist schiefgegangen: {{message}}",
+      "unsupported": "Dieser Server kann keine Remotes verbinden."
+    },
+    "tooMany": "Wählen Sie höchstens {{max}} Modelle auf einmal aus. Den Rest fügen Sie später hinzu."
+  },
+  "usecase": {
+    "chat": "Chat",
+    "transcript": "Transkription",
+    "tts": "Sprache",
+    "embeddings": "Embeddings",
+    "image": "Bild",
+    "video": "Video",
+    "rerank": "Rerank",
+    "completion": "Vervollständigung",
+    "edit": "Bearbeiten",
+    "vision": "Bildverstehen",
+    "tokenize": "Tokenisierung",
+    "upscale": "Hochskalieren",
+    "3d": "3D",
+    "3d_animation": "3D-Animation",
+    "motion": "Bewegung",
+    "sound_generation": "Klangerzeugung",
+    "detection": "Erkennung",
+    "depth": "Tiefe",
+    "forecast": "Prognose",
+    "vad": "Sprachaktivität",
+    "audio_transform": "Audiobearbeitung",
+    "diarization": "Sprechertrennung",
+    "sound_classification": "Klangklassifizierung",
+    "realtime_audio": "Echtzeit-Audio",
+    "face_recognition": "Gesichtserkennung",
+    "speaker_recognition": "Sprechererkennung"
+  },
+  "sheet": {
+    "open": "Gegenstelle verbinden"
+  },
+  "card": {
+    "justNow": "gerade eben",
+    "status": {
+      "ok": "Verbunden · aktualisiert {{when}}",
+      "never": "Noch nicht aktualisiert",
+      "auth_failed": "Schlüssel abgelehnt",
+      "unreachable": "Nicht erreichbar",
+      "noUsable": "Verbunden · keine nutzbaren Modelle"
+    },
+    "refresh": "Aktualisieren",
+    "edit": "Bearbeiten",
+    "authTitle": "Die Gegenstelle hat den Schlüssel abgelehnt.",
+    "authText": "Aktualisieren Sie den Schlüssel, um sich erneut zu verbinden.",
+    "unreachableTitle": "Die Gegenstelle ist nicht erreichbar.",
+    "unreachableText": "Prüfen Sie die Adresse und ob der andere Server läuft.",
+    "updateKey": "Schlüssel aktualisieren",
+    "editRemote": "Gegenstelle bearbeiten",
+    "newTitle": "{{count}} neues Modell auf dieser Gegenstelle",
+    "newTitle_other": "{{count}} neue Modelle auf dieser Gegenstelle",
+    "addSelected": "Auswahl hinzufügen",
+    "notNow": "Nicht jetzt",
+    "adopted": "{{count}} Modell von {{name}} hinzugefügt.",
+    "adopted_other": "{{count}} Modelle von {{name}} hinzugefügt.",
+    "adoptFailed": "Die Modelle konnten nicht hinzugefügt werden: {{message}}",
+    "refreshFailed": "{{name}} konnte nicht aktualisiert werden: {{message}}",
+    "models": "{{count}} Modell von dieser Gegenstelle",
+    "models_other": "{{count}} Modelle von dieser Gegenstelle",
+    "gone": "{{count}} nicht mehr gelistet",
+    "gone_other": "{{count}} nicht mehr gelistet",
+    "view": "In „Installiert“ ansehen",
+    "noUsableTitle": "Keine nutzbaren Modelle.",
+    "noUsableText": "Die Remote hat geantwortet, listet aber keine Modelle auf, die dieser Server nutzen kann.",
+    "refreshWarn": "{{name}} aktualisiert, aber es hat keine nutzbaren Modelle.",
+    "authTextLocalai": "Verwenden Sie einen Schlüssel, der die Modelle dieses Servers auflisten darf, und verbinden Sie erneut."
+  },
+  "empty": {
+    "title": "Keine Gegenstelle verbunden",
+    "body": "Verbinden Sie ein weiteres LocalAI, einen OpenAI-kompatiblen Dienst oder Anthropic. Jedes gewählte Modell wird hier zu einem Modell."
+  },
+  "load": {
+    "error": "Ihre Gegenstellen konnten nicht geladen werden."
+  },
+  "edit": {
+    "title": "Gegenstelle bearbeiten",
+    "close": "Schließen",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "name": "Name",
+    "key": "Neuer API-Schlüssel",
+    "keySet": "Ein Schlüssel ist gesetzt. Lassen Sie das Feld leer, um ihn zu behalten.",
+    "keyNotSet": "Es ist kein Schlüssel gesetzt.",
+    "keyRestart": "Ein neuer Schlüssel startet die geladenen Modelle neu.",
+    "saved": "{{name}} gespeichert.",
+    "savedKey": "{{name}} gespeichert. Die geladenen Modelle starten mit dem neuen Schlüssel neu.",
+    "savedWarn": "{{name}} gespeichert, aber es gibt noch ein Problem. Öffnen Sie die Remote, um es zu sehen."
+  },
+  "remove": {
+    "button": "Gegenstelle entfernen",
+    "title": "{{name}} entfernen?",
+    "choiceLabel": "Was mit den Modellen geschieht",
+    "keep": "Modelle behalten",
+    "removeAll": "Modelle auch entfernen",
+    "keepExplain": "Nur die Gegenstelle wird entfernt. Ihr {{count}} Modell bleibt unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
+    "keepExplain_other": "Nur die Gegenstelle wird entfernt. Ihre {{count}} Modelle bleiben unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
+    "removeExplain": "Die Gegenstelle und ihr {{count}} Modell werden entfernt. Das lässt sich nicht rückgängig machen.",
+    "removeExplain_other": "Die Gegenstelle und ihre {{count}} Modelle werden entfernt. Das lässt sich nicht rückgängig machen.",
+    "confirm": "Gegenstelle entfernen",
+    "doneKeep": "{{name}} entfernt. Die Modelle bleiben.",
+    "doneAll": "{{name}} und seine Modelle entfernt."
+  },
+  "result": {
+    "added": "{{count}} Modell hinzugefügt.",
+    "added_other": "{{count}} Modelle hinzugefügt.",
+    "partialTitle": "Die Remote ist gespeichert, aber einige Modelle wurden nicht hinzugefügt.",
+    "skippedTitle": "Einige Modelle wurden nicht hinzugefügt.",
+    "adoptHint": "Übernehmen Sie die fehlenden Modelle. Die Remote wird dabei nicht erneut angelegt.",
+    "adopt": "Modelle übernehmen",
+    "continue": "Weiter"
+  },
+  "skipped": {
+    "summary": "{{count}} Modell nicht hinzugefügt",
+    "summary_other": "{{count}} Modelle nicht hinzugefügt",
+    "reason": {
+      "listedTwice": "Doppelt aufgeführt",
+      "alreadyAdopted": "Bereits hinzugefügt",
+      "noFreeName": "Kein freier Modellname",
+      "nameExists": "Ein Modell mit diesem Namen existiert",
+      "invalid": "Modellname oder Einstellungen sind ungültig",
+      "buildFailed": "Das Modell konnte nicht vorbereitet werden",
+      "writeFailed": "Das Modell konnte nicht gespeichert werden"
+    }
+  },
+  "unsupported": {
+    "title": "Remotes sind nicht verfügbar",
+    "body": "Dieser Server läuft ohne die Modellgalerie und kann daher keine Remotes verbinden."
+  }
+}

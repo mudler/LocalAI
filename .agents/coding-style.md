@@ -122,6 +122,16 @@ The shared controls live in `core/http/react-ui/src/components/ui/` (read its
 `dk-select`, `dk-check`) and `src/components/SideSheet.jsx`. Every screen uses
 them. `/app/ui-catalog` shows each one with an example.
 
+Most controls, their CSS (`css/kit.css`), the icon set, the LocalAI palette
+and the vendored kit are in the UI kit package,
+`core/http/react-ui/packages/ui-kit/` (read its `README.md`). Other React apps
+in the repository import it. The package depends only on React: no router, no
+i18next, no import from `src/`. A link takes the app's router link as
+`linkComponent`, and words arrive as props with English defaults. In the web
+UI, import the controls from `components/ui`; its wrappers pass the router
+link and the translated words. `tests/unit/uikitpackage.test.mjs` checks these
+rules.
+
 - Use the kit for every button (`Button`), text input (`dk-input`), select
   (`dk-select`), switch (`Switch`), checkbox (`<input type="checkbox"
   className="dk-check">`), segmented control (`Segmented`), pill
@@ -173,7 +183,8 @@ npm run lint:colours:write    # refresh colour-baseline.txt after you fixed some
 
 Use `var(--dk-accent)` and the other roles, or `color-mix(in srgb, var(--dk-text) 20%, transparent)`
 for a tint. The palette files, the vendored kit and the third-party vendor
-colours in `src/utils/format.js` are exempt. Do not add a line to
+colours in `src/utils/format.js` are exempt. The gates scan `packages/ui-kit` as well
+as `src`. Do not add a line to
 `colour-baseline.txt` to make a check pass.
 
 Before you finish UI work, run `npm run lint:ui-kit` and attach screenshots at

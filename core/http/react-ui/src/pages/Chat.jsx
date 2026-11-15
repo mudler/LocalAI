@@ -353,7 +353,7 @@ function ChatPage() {
   const pane = useChatPreviewPane({
     chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
-    blocked: pageDock.dock.open,
+    blocked: pageDock.dock.open, madeHere: chat.madeHere || arrival.handoff?.chat?.id || null, startedTurn: chat.startedTurn,
   })
   // The dock and the files pane share the right side, one at a time: the one
   // the person opens last takes it, and the other hides without being closed
@@ -1041,7 +1041,7 @@ function ChatPage() {
     if (!filesOn || row.kind !== 'msg' || row.msg.role !== 'assistant' || noteKeyByTurn.get(row.msg.turn) !== row.key) return null
     const list = turnFiles(chatFiles.files, row.msg.turn)
     if (list.length === 0) return null
-    return <FileChipRow key={`fc-${row.msg.turn}`} files={list} onOpen={openFile} />
+    return <FileChipRow key={`fc-${row.msg.turn}`} files={list} onOpen={openFile} text={row.msg.text} />
   }
 
   const streaming = streamingParts(chat.live)
@@ -1392,6 +1392,8 @@ function ChatPage() {
                     activityItems={row.activity}
                     proposalItems={row.proposals}
                     actions={messageActions}
+                    files={chatFiles.files}
+                    onOpenFile={filesOn ? openFile : undefined}
                     conversationId={activeId}
                     canRegenerate={!chat.running && row.key === lastAnswerKey}
                     proposalTick={chat.ticks.proposals}
@@ -1406,6 +1408,8 @@ function ChatPage() {
 
               {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
                 <StreamingTurn
+                  files={chatFiles.files}
+                  onOpenFile={filesOn ? openFile : undefined}
                   identity={shownIdentity}
                   model={model}
                   warm={modelWarm}

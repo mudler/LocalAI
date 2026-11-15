@@ -27,7 +27,7 @@ The simplest way to use MLX distributed is with LocalAI's P2P auto-discovery.
 
 ### 1. Start LocalAI with P2P
 
-Run LocalAI natively on the Mac. Containers cannot use Metal, so there is no container image for this setup. Install the [macOS app or the binary]({{% relref "/start/install/macos" %}}), then run:
+Run LocalAI natively on the Mac. Containers cannot use Metal, so there is no container image for this setup. Install the [desktop app]({{% relref "/start/install/desktop" %}}) or the [binary]({{% relref "/start/install" %}}#install-script), then run:
 
 ```bash
 local-ai run --p2p

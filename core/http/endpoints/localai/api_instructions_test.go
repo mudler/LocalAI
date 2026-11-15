@@ -39,7 +39,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 
 			instructions, ok := resp["instructions"].([]any)
 			Expect(ok).To(BeTrue())
-			Expect(instructions).To(HaveLen(33))
+			Expect(instructions).To(HaveLen(34))
 
 			// Verify each instruction has required fields and correct URL format
 			seen := map[string]bool{}
@@ -91,6 +91,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 				"voice-library",
 				"3d",
 				"failover",
+				"remotes",
 				"decisions",
 				"studio-history",
 				"motion",

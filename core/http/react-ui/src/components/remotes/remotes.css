@@ -1,0 +1,116 @@
+/* Remotes: the connect form, the model list, the Remotes tab.
+   Kit controls carry their own look; this file only lays them out. */
+
+.remotes-stack { display: flex; flex-direction: column; gap: var(--sp-5); }
+.remotes-form { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.remotes-form .ui-seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.remotes-form .ui-seg__item { white-space: nowrap; }
+.remotes-optional { color: var(--dk-muted); font-weight: var(--font-weight-regular); }
+.remotes-note,
+.remotes-hint { margin: 0; color: var(--dk-muted); font-size: var(--fs-small); line-height: 1.45; }
+.remotes-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.remotes-result { outline: none; }
+.remotes-result:empty { display: none; }
+.remotes-result:focus-visible { box-shadow: var(--focus-ring); border-radius: var(--r-md); }
+.remotes-detail { overflow-wrap: anywhere; }
+
+.remotes-choose { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.remotes-choose__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.remotes-choose__all { display: inline-flex; gap: var(--sp-1); }
+.remotes-count { color: var(--dk-muted); font-size: var(--fs-small); }
+.remotes-models {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+}
+.remotes-models > li + li { border-top: 1px solid var(--dk-edge); }
+.remotes-models > li.remotes-hint { padding: var(--sp-3); }
+.remotes-model {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--ctl-h);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+}
+.remotes-model:hover { background: var(--dk-hover); }
+.remotes-model:focus-within { box-shadow: inset 0 0 0 2px var(--dk-accent); }
+.remotes-model__id { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--fs-small); }
+.remotes-model__uses { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-1); }
+.remotes-danger { padding-top: var(--sp-4); border-top: 1px solid var(--dk-edge); }
+.remotes-remove { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+/* Inside the first-run guide the two steps hold forms, not button rows. */
+.home-where { padding: var(--sp-4) var(--sp-5); color: var(--dk-text); }
+.home-where + .home-step { border-top: 1px solid var(--dk-edge); }
+.home-where > .home-step__main > b { display: block; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.home-where .home-step__extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+.home-where .home-step__desc { display: block; margin-top: var(--sp-1); color: var(--dk-muted); font-size: var(--fs-small); line-height: 1.45; }
+.home-where .home-step__extra + .home-step__desc { margin-top: var(--sp-3); }
+.home-step__extra--block { display: block; }
+.home-step__extra--block .remotes-form,
+.home-step__extra--block .remotes-choose { max-width: 560px; }
+
+/* The Remotes tab */
+.remotes-list { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 880px; }
+.remotes-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+  min-width: 0;
+}
+.remotes-card__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.remotes-card__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); min-width: 0; }
+.remotes-card__name { margin: 0; font-size: var(--fs-lead); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.remotes-card__host { color: var(--dk-muted); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.remotes-card__actions { display: inline-flex; gap: var(--sp-2); }
+.remotes-card__status { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-small); color: var(--dk-text); }
+.remotes-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--dk-edge);
+  color: var(--dk-muted);
+  font-size: var(--fs-small);
+}
+.remotes-card__gone { color: var(--dk-warn-text); }
+.remotes-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--dk-accent) 30%, transparent);
+  border-radius: var(--r-md);
+  background: var(--dk-accent-wash);
+}
+.remotes-new__title { color: var(--dk-accent-text); font-weight: var(--font-weight-semibold); }
+.remotes-new .remotes-models { max-height: 240px; }
+
+@media (max-width: 640px) {
+  .remotes-card { padding: var(--sp-3); }
+  .remotes-model { align-items: flex-start; }
+  .remotes-model__uses { justify-content: flex-start; }
+  .remotes-card__actions { width: 100%; }
+}
+
+/* Models a create, an adopt or a refresh left out: a count that opens. */
+.remotes-skipped { min-width: 0; }
+.remotes-skipped__summary { cursor: pointer; color: var(--dk-warn-text); font-size: var(--fs-small); font-weight: var(--font-weight-semibold); }
+.remotes-skipped__summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.remotes-skipped__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.remotes-skipped__item { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-1) var(--sp-3); }
+.remotes-outcome { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.remotes-form[data-locked="true"] { opacity: 0.7; }
+.remotes-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); }

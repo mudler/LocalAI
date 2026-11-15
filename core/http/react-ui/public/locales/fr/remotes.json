@@ -1,0 +1,185 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "Compatible OpenAI",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "Personnalisé"
+  },
+  "connect": {
+    "kind": "Type de serveur distant",
+    "provider": "Fournisseur",
+    "address": "Adresse",
+    "addressHintLocalai": "L'adresse de l'autre serveur LocalAI.",
+    "addressHintOpenai": "L'adresse de base du service. Elle se termine souvent par /v1.",
+    "key": "Clé API",
+    "optional": "facultatif",
+    "keyHint": "La clé reste sur ce serveur et n'est plus affichée ensuite.",
+    "pii": "Les requêtes vers des services hébergés passent par le filtre PII de LocalAI, activé par défaut.",
+    "test": "Tester la connexion",
+    "testing": "Test en cours…",
+    "ok": "Connecté. {{count}} modèle trouvé.",
+    "ok_other": "Connecté. {{count}} modèles trouvés.",
+    "failTitle": "Connexion impossible.",
+    "fail": {
+      "invalid_url": "Cette adresse n'est pas valide. Vérifiez-la et réessayez.",
+      "unreachable": "Le serveur est injoignable. Vérifiez l'adresse, et que l'autre serveur fonctionne et est joignable depuis ce serveur.",
+      "auth": "Le fournisseur a refusé la clé. Vérifiez-la et réessayez.",
+      "no_models": "La connexion fonctionne, mais aucun modèle n'est proposé à l'ajout.",
+      "other": "Le test a échoué.",
+      "authLocalai": "L'autre serveur LocalAI a refusé la clé. Utilisez une clé autorisée à lister ses modèles, ou laissez le champ vide si le serveur n'en demande pas.",
+      "unsupported": "Ce serveur ne peut pas connecter de serveurs distants."
+    }
+  },
+  "choose": {
+    "waiting": "Testez d'abord la connexion. Ses modèles apparaîtront ici.",
+    "search": "Rechercher des modèles",
+    "count": "{{selected}} sur {{total}} sélectionnés",
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Tout désélectionner",
+    "listLabel": "Modèles à ajouter",
+    "noMatch": "Aucun modèle ne correspond à la recherche.",
+    "name": "Nom",
+    "nameHint": "Affiché dans la liste des serveurs distants.",
+    "submit": "Connecter et ajouter les modèles",
+    "pick": "Sélectionnez au moins un modèle.",
+    "error": {
+      "nameTaken": "Un serveur distant porte déjà ce nom. Choisissez un autre nom.",
+      "invalid": "Le serveur n'a pas accepté ces informations : {{message}}",
+      "other": "Une erreur s'est produite : {{message}}",
+      "unsupported": "Ce serveur ne peut pas connecter de serveurs distants."
+    },
+    "tooMany": "Sélectionnez au plus {{max}} modèles à la fois. Ajoutez le reste plus tard."
+  },
+  "usecase": {
+    "chat": "Chat",
+    "transcript": "Transcription",
+    "tts": "Voix",
+    "embeddings": "Embeddings",
+    "image": "Image",
+    "video": "Vidéo",
+    "rerank": "Rerank",
+    "completion": "Complétion",
+    "edit": "Édition",
+    "vision": "Vision",
+    "tokenize": "Tokenisation",
+    "upscale": "Agrandissement",
+    "3d": "3D",
+    "3d_animation": "Animation 3D",
+    "motion": "Mouvement",
+    "sound_generation": "Génération de sons",
+    "detection": "Détection",
+    "depth": "Profondeur",
+    "forecast": "Prévision",
+    "vad": "Activité vocale",
+    "audio_transform": "Transformation audio",
+    "diarization": "Diarisation",
+    "sound_classification": "Classification de sons",
+    "realtime_audio": "Audio en temps réel",
+    "face_recognition": "Reconnaissance faciale",
+    "speaker_recognition": "Reconnaissance du locuteur"
+  },
+  "sheet": {
+    "open": "Connecter un serveur distant"
+  },
+  "card": {
+    "justNow": "à l'instant",
+    "status": {
+      "ok": "Connecté · actualisé {{when}}",
+      "never": "Pas encore actualisé",
+      "auth_failed": "Clé refusée",
+      "unreachable": "Injoignable",
+      "noUsable": "Connecté · aucun modèle utilisable"
+    },
+    "refresh": "Actualiser",
+    "edit": "Modifier",
+    "authTitle": "Le serveur distant a refusé la clé.",
+    "authText": "Mettez à jour la clé pour vous reconnecter.",
+    "unreachableTitle": "Le serveur distant est injoignable.",
+    "unreachableText": "Vérifiez l'adresse et que l'autre serveur fonctionne.",
+    "updateKey": "Mettre à jour la clé",
+    "editRemote": "Modifier le serveur distant",
+    "newTitle": "{{count}} nouveau modèle sur ce serveur distant",
+    "newTitle_other": "{{count}} nouveaux modèles sur ce serveur distant",
+    "addSelected": "Ajouter la sélection",
+    "notNow": "Pas maintenant",
+    "adopted": "{{count}} modèle de {{name}} ajouté.",
+    "adopted_other": "{{count}} modèles de {{name}} ajoutés.",
+    "adoptFailed": "Impossible d'ajouter les modèles : {{message}}",
+    "refreshFailed": "Impossible d'actualiser {{name}} : {{message}}",
+    "models": "{{count}} modèle de ce serveur distant",
+    "models_other": "{{count}} modèles de ce serveur distant",
+    "gone": "{{count}} n'apparaît plus",
+    "gone_other": "{{count}} n'apparaissent plus",
+    "view": "Voir dans Installés",
+    "noUsableTitle": "Aucun modèle utilisable.",
+    "noUsableText": "Le serveur distant a répondu, mais il ne liste aucun modèle que ce serveur peut utiliser.",
+    "refreshWarn": "{{name}} actualisé, mais il n'a aucun modèle utilisable.",
+    "authTextLocalai": "Utilisez une clé autorisée à lister les modèles de ce serveur, puis reconnectez-vous."
+  },
+  "empty": {
+    "title": "Aucun serveur distant connecté",
+    "body": "Connectez un autre LocalAI, un service compatible OpenAI ou Anthropic. Chaque modèle choisi devient un modèle ici."
+  },
+  "load": {
+    "error": "Impossible de charger vos serveurs distants."
+  },
+  "edit": {
+    "title": "Modifier le serveur distant",
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "name": "Nom",
+    "key": "Nouvelle clé API",
+    "keySet": "Une clé est enregistrée. Laissez vide pour la conserver.",
+    "keyNotSet": "Aucune clé n'est enregistrée.",
+    "keyRestart": "Une nouvelle clé redémarre les modèles chargés.",
+    "saved": "{{name}} enregistré.",
+    "savedKey": "{{name}} enregistré. Ses modèles chargés redémarrent avec la nouvelle clé.",
+    "savedWarn": "{{name}} enregistré, mais un problème persiste. Ouvrez le serveur distant pour le voir."
+  },
+  "remove": {
+    "button": "Supprimer le serveur distant",
+    "title": "Supprimer {{name}} ?",
+    "choiceLabel": "Ce qu'il advient des modèles",
+    "keep": "Garder les modèles",
+    "removeAll": "Supprimer aussi les modèles",
+    "keepExplain": "Seul le serveur distant est supprimé. Son {{count}} modèle reste dans Installés. Si le serveur distant exige une clé, définissez-la dans l'éditeur de modèle.",
+    "keepExplain_other": "Seul le serveur distant est supprimé. Ses {{count}} modèles restent dans Installés. Si le serveur distant exige une clé, définissez-la dans l'éditeur de modèle.",
+    "removeExplain": "Le serveur distant et son {{count}} modèle sont supprimés. Cette action est irréversible.",
+    "removeExplain_other": "Le serveur distant et ses {{count}} modèles sont supprimés. Cette action est irréversible.",
+    "confirm": "Supprimer le serveur distant",
+    "doneKeep": "{{name}} supprimé. Ses modèles restent.",
+    "doneAll": "{{name}} et ses modèles supprimés."
+  },
+  "result": {
+    "added": "{{count}} modèle ajouté.",
+    "added_other": "{{count}} modèles ajoutés.",
+    "partialTitle": "Le serveur distant est enregistré, mais certains modèles n'ont pas été ajoutés.",
+    "skippedTitle": "Certains modèles n'ont pas été ajoutés.",
+    "adoptHint": "Adoptez les modèles manquants. Cela ne recrée pas le serveur distant.",
+    "adopt": "Adopter les modèles",
+    "continue": "Continuer"
+  },
+  "skipped": {
+    "summary": "{{count}} modèle non ajouté",
+    "summary_other": "{{count}} modèles non ajoutés",
+    "reason": {
+      "listedTwice": "Listé deux fois",
+      "alreadyAdopted": "Déjà ajouté",
+      "noFreeName": "Aucun nom de modèle libre",
+      "nameExists": "Un modèle de ce nom existe déjà",
+      "invalid": "Le nom ou les réglages du modèle ne sont pas valides",
+      "buildFailed": "Impossible de préparer le modèle",
+      "writeFailed": "Impossible d'enregistrer le modèle"
+    }
+  },
+  "unsupported": {
+    "title": "Les serveurs distants ne sont pas disponibles",
+    "body": "Ce serveur fonctionne sans la galerie de modèles, il ne peut donc pas connecter de serveurs distants."
+  }
+}

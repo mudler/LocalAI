@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements of the Electron launcher (app and helpers).
+  - allow-jit, allow-unsigned-executable-memory: V8 in Electron needs them.
+  - device.audio-input, device.camera: the WebUI shown in the window has voice
+    and talk features that call getUserMedia. macOS asks the user only when a
+    page asks, and the launcher allows it only for the server origin.
+  Nothing else. The app is not in the App Sandbox, so network entitlements
+  have no effect and are not set. Library validation stays on: the server is a
+  separate process with its own signature, not a library loaded by the app.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.device.camera</key>
+    <true/>
+</dict>
+</plist>

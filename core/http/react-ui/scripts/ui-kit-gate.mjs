@@ -2,13 +2,15 @@
 /**
  * UI kit ratchet.
  *
- * The kit in src/components/ui/ holds the shared controls. This gate keeps
+ * The kit in packages/ui-kit/ (with the web UI's wrappers in
+ * src/components/ui/) holds the shared controls. This gate keeps
  * pages from growing new copies of them. It does not forbid the old code that
  * already exists: a baseline file lists today's violations, and the gate fails
  * on any new one. It also fails when the baseline lists a violation that is
  * gone, so the baseline can only shrink. Fix some, then refresh it.
  *
- * Rules (src/components/ui/, src/vendor/ and SideSheet.jsx are exempt):
+ * Scanned: src/ and packages/ui-kit/. Rules (packages/ui-kit/,
+ * src/components/ui/ and SideSheet.jsx are exempt):
  *   checkbox     an <input type="checkbox"> without the kit's dk-check class
  *   toggle       an import of the legacy src/components/Toggle
  *   sheet-jsx    the class name dk-sheet in JSX (use SideSheet)
@@ -28,9 +30,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE = join(ROOT, 'ui-kit-baseline.txt')
 const RULES = ['checkbox', 'toggle', 'sheet-jsx', 'width', 'btn']
 
-// Files that may hold what the rules forbid elsewhere: the kit, the vendored
-// kit CSS, and the one component that draws the sheet markup for everyone.
-const EXEMPT = ['src/components/ui/', 'src/vendor/', 'src/components/SideSheet.jsx']
+// Files that may hold what the rules forbid elsewhere: the kit package (with
+// the vendored kit CSS), the web UI's kit wrappers, and the one component that
+// draws the sheet markup for everyone.
+const EXEMPT = ['packages/ui-kit/', 'src/components/ui/', 'src/components/SideSheet.jsx']
 const TOGGLE = 'src/components/Toggle'
 
 // A whole <input ...> tag. "=>" inside a handler must not end it early.
@@ -158,8 +161,8 @@ function walk(dir, out = []) {
 }
 
 function loadFiles() {
-  const base = join(ROOT, 'src')
-  return walk(base).map(f => [relative(ROOT, f).split(sep).join('/'), readFileSync(f, 'utf8')])
+  return ['src', 'packages/ui-kit'].flatMap(dir => walk(join(ROOT, dir)))
+    .map(f => [relative(ROOT, f).split(sep).join('/'), readFileSync(f, 'utf8')])
 }
 
 const HINTS = {

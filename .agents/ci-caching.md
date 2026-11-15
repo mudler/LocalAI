@@ -164,7 +164,7 @@ The volume is real: 13 gallery-only PRs merged that week with 10 open at once, a
 
 Version-pin bumps dominate PR volume: 48 `update/*` PRs in the week to 2026-07-30, from 16 pins, each a two-line diff. Most edit nothing but one `backend/*/<name>/Makefile`.
 
-Neither of those two workflows can observe such a change. `make build` is `go build ./cmd/local-ai`, GoReleaser builds the same plus `./cmd/launcher`, and the core image's final stage ships only `entrypoint.sh`, `healthcheck.sh` and that binary. The per-backend trees are copied into the builder but nothing in them reaches the output.
+Neither of those two workflows can observe such a change. `make build` is `go build ./cmd/local-ai`, GoReleaser builds the same, and the core image's final stage ships only `entrypoint.sh`, `healthcheck.sh` and that binary. The per-backend trees are copied into the builder but nothing in them reaches the output.
 
 What still triggers a full run, because none of it lives under those prefixes:
 

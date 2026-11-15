@@ -14450,6 +14450,420 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/remotes": {
+            "get": {
+                "description": "Lists the saved remotes. The key is never part of the answer; \"key_set\" says whether one is stored. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "List remotes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteListResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Create a remote",
+                "parameters": [
+                    {
+                        "description": "Remote to create; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteResultResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/test": {
+            "post": {
+                "description": "Lists the models of a remote without saving anything. A failed test is a 200 answer with ok=false and the failed step. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Test a remote",
+                "parameters": [
+                    {
+                        "description": "Remote to test; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.TestResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Get a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Remote"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "With entries=keep (the default) the entries stay as plain models without the remote and its key; with entries=remove they are deleted. When some entries could not be handled, the remote stays and the answer is a 500 error; a retry finishes the job. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Delete a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "keep",
+                            "remove"
+                        ],
+                        "type": "string",
+                        "default": "keep",
+                        "description": "What to do with the entries",
+                        "name": "entries",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "An absent field is left as it is; an empty api_key removes the key (not allowed for the anthropic kind). The key must be printable ASCII. A new key restarts every loaded model that names the remote and a new url patches the entries the remote owns. A new key or url also refreshes the remote, so status, last_error, new and unavailable in the answer are current; a rename does not. When the change is saved but patching some entries failed, the answer is a 500 error that says so, not the saved remote: read it again with GET. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Update a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Remote"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/{id}/adopt": {
+            "post": {
+                "description": "Turns each chosen model into a model config (an entry) that carries only the remote id. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When some models were added but the rest failed, the answer is still 200 with \"warning\" set. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Adopt models of a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Models to adopt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteAdoptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteResultResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/{id}/refresh": {
+            "post": {
+                "description": "Asks the remote for its models and records the answer: status, \"new\" (found, not adopted) and \"unavailable\" (adopted, no longer listed). It never writes an entry. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Refresh a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Remote"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/router/decide": {
             "post": {
                 "consumes": [
@@ -22506,6 +22920,105 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.RemoteAdoptRequest": {
+            "type": "object",
+            "properties": {
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                }
+            }
+        },
+        "localai.RemoteCreateRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/remotes.Kind"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RemoteListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Remote"
+                    }
+                }
+            }
+        },
+        "localai.RemoteResultResponse": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "remote": {
+                    "$ref": "#/definitions/remotes.Remote"
+                },
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Skip"
+                    }
+                },
+                "warning": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RemoteTestRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/remotes.Kind"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RemoteUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.SearchSourcesRequest": {
             "type": "object",
             "properties": {
@@ -23554,6 +24067,132 @@ const docTemplate = `{
                 },
                 "state": {
                     "type": "string"
+                }
+            }
+        },
+        "remotes.Kind": {
+            "type": "string",
+            "enum": [
+                "localai",
+                "openai",
+                "anthropic"
+            ],
+            "x-enum-varnames": [
+                "KindLocalAI",
+                "KindOpenAI",
+                "KindAnthropic"
+            ]
+        },
+        "remotes.Remote": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "description": "model config names this remote owns",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "key_set": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "$ref": "#/definitions/remotes.Kind"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_refresh": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "new": {
+                    "description": "discovered at last refresh, not adopted",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                },
+                "status": {
+                    "$ref": "#/definitions/remotes.Status"
+                },
+                "unavailable": {
+                    "description": "subset of Entries the upstream no longer lists",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "description": "address as entered; empty for anthropic",
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.Skip": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.Status": {
+            "type": "string",
+            "enum": [
+                "never",
+                "ok",
+                "auth_failed",
+                "unreachable"
+            ],
+            "x-enum-varnames": [
+                "StatusNever",
+                "StatusOK",
+                "StatusAuthFailed",
+                "StatusUnreachable"
+            ]
+        },
+        "remotes.TestResult": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "step": {
+                    "description": "invalid_url, unreachable, auth, no_models",
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.UpstreamModel": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "usecases": {
+                    "description": "Usecases are valid known_usecases values. For the cloud kinds it is\nempty, which means chat.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

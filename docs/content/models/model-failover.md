@@ -49,6 +49,10 @@ Rules:
 - A chain cannot also set `alias` or `backend`.
 - Responses name the chain as the model. The `X-LocalAI-Served-Model` header
   names the target that served the request.
+- The entries that a [remote]({{% relref "/administration/remotes" %}})
+  creates are remote models. They can be targets of a chain like any other
+  `localai-proxy` or `cloud-proxy` model. The health check sends the key of
+  the remote, with the same address check as a model load.
 - A remote (`localai-proxy` or `cloud-proxy`) target receives its own model
   name, never the chain name: `proxy.upstream_model`, or the target name when
   `upstream_model` is empty. The health check looks for the same name.

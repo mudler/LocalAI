@@ -12,7 +12,7 @@ devbuild = "feature"
 This section takes you from a fresh install to a working chat, a working API call and your first agent. Follow the pages in order the first time.
 
 {{% callout style="tip" %}}
-On Linux and macOS, install LocalAI with the script `curl -sSL https://localai.io/install.sh | sh`. Use Docker on Windows or when you prefer a container. See the [install guide]({{% relref "/start/install" %}}).
+On Linux and macOS, install LocalAI with the script `curl -sSL https://localai.io/install.sh | sh`. Use Docker on Windows or when you prefer a container. On a desktop, you can use the [desktop app]({{% relref "/start/install/desktop" %}}) instead. See the [install guide]({{% relref "/start/install" %}}).
 {{% /callout %}}
 
 ## The path

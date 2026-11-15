@@ -48,7 +48,9 @@ test('ui kit gate: a clean sample passes', () => {
 test('ui kit gate: the kit, the vendored CSS and SideSheet are exempt', () => {
   assert.deepEqual(scanFile('src/components/ui/Switch.jsx', BAD_JSX), [])
   assert.deepEqual(scanFile('src/components/SideSheet.jsx', BAD_JSX), [])
-  assert.deepEqual(scanFile('src/vendor/ui-kit/components.css', '.dk-sheet { width: 1px }'), [])
+  assert.deepEqual(scanFile('packages/ui-kit/vendor/components.css', '.dk-sheet { width: 1px }'), [])
+  assert.deepEqual(scanFile('packages/ui-kit/src/Switch.jsx', BAD_JSX), [])
+  assert.deepEqual(scanFile('packages/ui-kit/css/kit.css', '.ui-pane { width: 1px }'), [])
 })
 
 test('ui kit gate: checkbox matches both quotes, braces and a multi-line tag', () => {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/mudler/LocalAI/core/services/collections"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"io"
 	"math/rand/v2"
@@ -240,11 +241,15 @@ type Application struct {
 	routerCorpus      *corpus.Manager
 	admissionLimiter  *admission.Limiter
 	failoverManager   *failover.Manager
+	remotes           remotes.Service
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
 	p2pMutex          sync.Mutex
 	p2pCtx            context.Context
 	p2pCancel         context.CancelFunc
+
+	// remotesStop cancels the startup refresh of the remotes and waits for it.
+	remotesStop func()
 
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
@@ -724,6 +729,9 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.remotesStop != nil {
+			a.remotesStop()
+		}
 		// A chat worker stops taking starts first: a start that arrived now
 		// would meet a closing service. Its running turns end as interrupted.
 		a.stopChatWorker()

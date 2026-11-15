@@ -378,5 +378,19 @@
         "body": "비공개이거나 삭제되었거나 이 소스에 없는 저장소입니다."
       }
     }
+  },
+  "remotes": {
+    "tab": "원격",
+    "filter": "원격",
+    "unavailable": "업스트림에서 사용 불가",
+    "rowMark": "원격 모델",
+    "sizeRemote": "원격",
+    "connectButton": "원격 연결",
+    "sheetTitle": "원격 연결",
+    "sheetDescription": "다른 서버나 서비스에서 실행되는 모델을 추가합니다.",
+    "toastDone": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
+    "toastDone_other": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
+    "toastSkipped": "모델 {{count}}개는 추가되지 않았습니다.",
+    "toastSkipped_other": "모델 {{count}}개는 추가되지 않았습니다."
   }
 }

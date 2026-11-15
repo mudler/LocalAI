@@ -9,16 +9,19 @@ import { router } from './router'
 import './i18n'
 import '@fontsource-variable/geist'
 import '@fontsource-variable/geist-mono'
-import './vendor/ui-kit/tokens.css'
-import './theme-localai.css'
-import './vendor/ui-kit/motion.css'
-import './vendor/ui-kit/components.css'
+// The UI kit's CSS in its documented order (packages/ui-kit/README.md), with
+// the app's global rules and its theme bridge in place of the kit defaults.
+import '../packages/ui-kit/vendor/tokens.css'
+import '../packages/ui-kit/themes/localai.css'
+import '../packages/ui-kit/vendor/motion.css'
+import '../packages/ui-kit/vendor/components.css'
 import './index.css'
 import './theme.css'
-// The UI primitives' rules sit between the tokens and the app's own rules:
-// a page's class on the same element still wins over a primitive's base.
-import './components/ui/ui.css'
+// The kit's rules sit between the tokens and the app's own rules: a page's
+// class on the same element still wins over a kit component's base rule.
+import '../packages/ui-kit/css/kit.css'
 import './App.css'
+import './components/remotes/remotes.css'
 import { ShellFallback } from './components/RouteFallback'
 
 // The first paint is the app shell with placeholders, not a blank window

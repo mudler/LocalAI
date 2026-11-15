@@ -6,6 +6,8 @@ on:
 jobs:
   bump-docs:
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -21,11 +23,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/bump_docs.sh ${{ matrix.repository }}
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: ':arrow_up: Update docs version ${{ matrix.repository }}'
           title: 'docs: :arrow_up: update docs version ${{ matrix.repository }}'
           branch: "update/docs"
