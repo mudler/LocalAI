@@ -394,7 +394,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs := application.galleryService
 			sys := options.SystemState
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
-			modelRevisionLifecycle := modeladmin.NewDistributedModelRevisionLifecycle(distSvc.Registry, distSvc.ModelCleanup)
+			modelRevisionLifecycle := application.ModelRevisionLifecycle()
 			gs.SetModelRevisionLifecycle(modelRevisionLifecycle)
 			// Captured here, used after the model configs are loaded below: the
 			// resync reads the loader, which is still empty at this point.

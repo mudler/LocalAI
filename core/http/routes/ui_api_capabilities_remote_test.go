@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/remotes"
@@ -41,6 +42,12 @@ func (s *listStub) List(context.Context) ([]remotes.Remote, error) {
 // capabilitiesRaw is capabilitiesOf with a remotes service and the
 // untouched JSON objects of the answer.
 func capabilitiesRaw(svc remotes.Service, models map[string]string) []map[string]any {
+	return capabilitiesAs(svc, models, nil)
+}
+
+// capabilitiesAs is capabilitiesRaw for a signed-in user. The auth
+// middleware stores the user under this context key.
+func capabilitiesAs(svc remotes.Service, models map[string]string, user *auth.User) []map[string]any {
 	dir := GinkgoT().TempDir()
 	st, err := system.GetSystemState(system.WithModelPath(dir))
 	Expect(err).ToNot(HaveOccurred())
@@ -59,6 +66,14 @@ func capabilitiesRaw(svc remotes.Service, models map[string]string) []map[string
 		a.SetRemotes(svc)
 	}
 	e := echo.New()
+	if user != nil {
+		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				c.Set("auth_user", user)
+				return next(c)
+			}
+		})
+	}
 	routes.RegisterUIAPIRoutes(e, cl, ml, ac, gs, galleryop.NewOpCache(gs), a, func(next echo.HandlerFunc) echo.HandlerFunc { return next })
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/models/capabilities", nil))
@@ -143,5 +158,15 @@ var _ = Describe("UI model capabilities of remote models", func() {
 		svc := &listStub{err: errors.New("store down")}
 		got := byID(capabilitiesRaw(svc, remoteModels))
 		Expect(got["gone"]).To(HaveKeyWithValue("upstream_state", "ok"))
+	})
+
+	It("shows remote_id to an admin only", func() {
+		svc := &listStub{list: []remotes.Remote{{ID: "c1", Entries: []string{"up", "gone"}, Unavailable: []string{"gone"}}}}
+		user := byID(capabilitiesAs(svc, remoteModels, &auth.User{ID: "u", Role: auth.RoleUser}))
+		Expect(user["up"]).To(HaveKeyWithValue("remote", true))
+		Expect(user["up"]).NotTo(HaveKey("remote_id"))
+		Expect(user["gone"]).To(HaveKeyWithValue("upstream_state", "unavailable"))
+		admin := byID(capabilitiesAs(svc, remoteModels, &auth.User{ID: "a", Role: auth.RoleAdmin}))
+		Expect(admin["up"]).To(HaveKeyWithValue("remote_id", "c1"))
 	})
 })

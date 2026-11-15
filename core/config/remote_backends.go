@@ -1,22 +1,9 @@
 package config
 
 import (
-	"slices"
-	"strings"
+	"sort"
 
 	"github.com/mudler/LocalAI/pkg/model"
-)
-
-// UpstreamURLShape says what a remote backend expects in proxy.upstream_url.
-type UpstreamURLShape string
-
-const (
-	// UpstreamURLServerRoot means the URL is the root of the upstream server;
-	// the backend appends the endpoint path itself.
-	UpstreamURLServerRoot UpstreamURLShape = "server_root"
-	// UpstreamURLFullEndpoint means the URL is the complete endpoint the
-	// request body is posted to.
-	UpstreamURLFullEndpoint UpstreamURLShape = "full_endpoint"
 )
 
 // RemoteBackend describes a backend that serves a model from a remote
@@ -27,39 +14,14 @@ const (
 type RemoteBackend struct {
 	// Name is the backend name as written in a model config.
 	Name string
-	// Label is the human name shown in UIs.
-	Label string
 	// PIIDefault is true when the PII filter is on by default for models on
 	// this backend. An explicit pii.enabled in the model config still wins.
 	PIIDefault bool
-	// KnownUsecasesRequired is true when the model config must declare
-	// known_usecases, because LocalAI cannot guess what a remote model does.
-	KnownUsecasesRequired bool
-	// UpstreamURLShape says what proxy.upstream_url holds for this backend.
-	UpstreamURLShape UpstreamURLShape
-	// WarmApplies is true when the failover `warm` option has an effect on a
-	// target served by this backend. A remote upstream is not loaded by this
-	// instance, so it is false for every entry today.
-	WarmApplies bool
 }
 
 var remoteBackends = map[string]RemoteBackend{
-	model.CloudProxyBackend: {
-		Name:                  model.CloudProxyBackend,
-		Label:                 "Cloud proxy",
-		PIIDefault:            true,
-		KnownUsecasesRequired: false,
-		UpstreamURLShape:      UpstreamURLFullEndpoint,
-		WarmApplies:           false,
-	},
-	model.LocalAIProxyBackend: {
-		Name:                  model.LocalAIProxyBackend,
-		Label:                 "LocalAI proxy",
-		PIIDefault:            false,
-		KnownUsecasesRequired: true,
-		UpstreamURLShape:      UpstreamURLServerRoot,
-		WarmApplies:           false,
-	},
+	model.CloudProxyBackend:   {Name: model.CloudProxyBackend, PIIDefault: true},
+	model.LocalAIProxyBackend: {Name: model.LocalAIProxyBackend, PIIDefault: false},
 }
 
 // RemoteBackendFor returns the registry entry for a backend name.
@@ -74,25 +36,16 @@ func IsRemoteBackend(name string) bool {
 	return ok
 }
 
-// RemoteBackends returns a copy of the registry entries, sorted by name.
-func RemoteBackends() []RemoteBackend {
-	out := make([]RemoteBackend, 0, len(remoteBackends))
-	for _, b := range remoteBackends {
-		out = append(out, b)
-	}
-	slices.SortFunc(out, func(a, b RemoteBackend) int { return strings.Compare(a.Name, b.Name) })
-	return out
-}
-
 // PIIDefaultBackends returns the names, sorted, of the remote backends that
 // have the PII filter on by default.
 func PIIDefaultBackends() []string {
 	out := []string{}
-	for _, b := range RemoteBackends() {
+	for _, b := range remoteBackends {
 		if b.PIIDefault {
 			out = append(out, b.Name)
 		}
 	}
+	sort.Strings(out)
 	return out
 }
 

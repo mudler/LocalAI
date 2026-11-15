@@ -149,7 +149,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/api/models/remote/estimate", localai.RemoteModelEstimateEndpoint(remotemodel.Shared()), adminMiddleware)
 
 		// Custom model edit endpoint
-		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, galleryService, appConfig, app.ModelRevisionLifecycle()), adminMiddleware)
 
 		// List model aliases endpoint
 		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
@@ -160,18 +160,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// because adopting a model writes a model config. The provider is read
 		// for every request: the service is built after the routes exist and
 		// is nil when its store could not be opened.
-		remotesFn := localai.RemotesProvider(app.Remotes)
-		router.POST("/api/remotes/test", localai.CheckRemoteEndpoint(remotesFn), adminMiddleware)
-		router.POST("/api/remotes", localai.CreateRemoteEndpoint(remotesFn), adminMiddleware)
-		router.GET("/api/remotes", localai.ListRemotesEndpoint(remotesFn), adminMiddleware)
-		router.GET("/api/remotes/:id", localai.GetRemoteEndpoint(remotesFn), adminMiddleware)
-		router.PATCH("/api/remotes/:id", localai.UpdateRemoteEndpoint(remotesFn), adminMiddleware)
-		router.DELETE("/api/remotes/:id", localai.DeleteRemoteEndpoint(remotesFn), adminMiddleware)
-		router.POST("/api/remotes/:id/refresh", localai.RefreshRemoteEndpoint(remotesFn), adminMiddleware)
-		router.POST("/api/remotes/:id/adopt", localai.AdoptRemoteModelsEndpoint(remotesFn), adminMiddleware)
+		registerRemoteRoutes(router, app.Remotes, adminMiddleware)
 
 		// Toggle model enable/disable endpoint
-		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)
+		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, galleryService, appConfig, app.ModelRevisionLifecycle()), adminMiddleware)
 
 		// Toggle model pinned status endpoint
 		router.PUT("/models/toggle-pinned/:name/:action", localai.TogglePinnedModelEndpoint(cl, appConfig, func() {
@@ -640,4 +632,17 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
 		router.OPTIONS("/api/cors-proxy", localai.CORSProxyOptionsEndpoint())
 	}
+}
+
+// registerRemoteRoutes mounts the eight remote routes, each behind
+// adminMiddleware.
+func registerRemoteRoutes(router *echo.Echo, get localai.RemotesProvider, adminMiddleware echo.MiddlewareFunc) {
+	router.POST("/api/remotes/test", localai.CheckRemoteEndpoint(get), adminMiddleware)
+	router.POST("/api/remotes", localai.CreateRemoteEndpoint(get), adminMiddleware)
+	router.GET("/api/remotes", localai.ListRemotesEndpoint(get), adminMiddleware)
+	router.GET("/api/remotes/:id", localai.GetRemoteEndpoint(get), adminMiddleware)
+	router.PATCH("/api/remotes/:id", localai.UpdateRemoteEndpoint(get), adminMiddleware)
+	router.DELETE("/api/remotes/:id", localai.DeleteRemoteEndpoint(get), adminMiddleware)
+	router.POST("/api/remotes/:id/refresh", localai.RefreshRemoteEndpoint(get), adminMiddleware)
+	router.POST("/api/remotes/:id/adopt", localai.AdoptRemoteModelsEndpoint(get), adminMiddleware)
 }

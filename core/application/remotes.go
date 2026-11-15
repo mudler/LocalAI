@@ -21,9 +21,13 @@ func (a *Application) Remotes() remotes.Service { return a.remotes }
 // for tests of the code that reads it.
 func (a *Application) SetRemotes(s remotes.Service) { a.remotes = s }
 
-// remotesModelRevisionLifecycle returns the lifecycle that the model
-// routes use: local shutdown in standalone mode, the registry in a cluster.
-func (a *Application) remotesModelRevisionLifecycle() modeladmin.ModelRevisionLifecycle {
+// ModelRevisionLifecycle returns the lifecycle that applies a model config
+// change: local shutdown in standalone mode, the node registry in a cluster.
+// The model routes, the startup wiring and the remotes service share it.
+func (a *Application) ModelRevisionLifecycle() modeladmin.ModelRevisionLifecycle {
+	if a == nil {
+		return nil
+	}
 	if a.distributed == nil {
 		return modeladmin.NewLocalModelRevisionLifecycle(a.ModelLoader())
 	}
@@ -57,7 +61,7 @@ func (a *Application) startRemotes(ctx context.Context) {
 		xlog.Error("Remotes are unavailable: the store could not be opened", "error", err)
 		return
 	}
-	admin := modeladmin.NewConfigService(a.ModelConfigLoader(), a.ApplicationConfig(), a.remotesModelRevisionLifecycle())
+	admin := modeladmin.NewConfigService(a.ModelConfigLoader(), a.ApplicationConfig(), a.ModelRevisionLifecycle())
 	opts := remotes.Options{
 		Store:      store,
 		Admin:      admin,
@@ -77,5 +81,16 @@ func (a *Application) startRemotes(ctx context.Context) {
 	// One resolver per process: the key of a model load comes from here.
 	config.SetProxyKeyResolver(svc)
 
-	go remotes.StartupRefresh(ctx, svc, a.distributedDB())
+	// Shutdown cancels the refresh and waits for it, so no outbound call or
+	// store write outlives the application.
+	refreshCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	a.remotesStop = func() {
+		cancel()
+		<-done
+	}
+	go func() {
+		defer close(done)
+		remotes.StartupRefresh(refreshCtx, svc, a.distributedDB())
+	}()
 }

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/remotes"
@@ -81,5 +83,36 @@ var _ = Describe("remotes wiring", func() {
 			}
 			return ids
 		}, "10s", "100ms").Should(Equal([]string{"two"}))
+	})
+
+	It("stops the startup refresh at shutdown and waits for it", func() {
+		models, data := GinkgoT().TempDir(), GinkgoT().TempDir()
+		var hang atomic.Bool
+		entered := make(chan struct{}, 1)
+		remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if hang.Load() {
+				select {
+				case entered <- struct{}{}:
+				default:
+				}
+				<-r.Context().Done()
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{{"id": "one"}}})
+		}))
+		DeferCleanup(remote.Close)
+		DeferCleanup(func() { config.SetProxyKeyResolver(nil) })
+
+		app := newApp(context.Background(), models, data)
+		_, err := app.Remotes().Create(context.Background(), remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "Remote", URL: remote.URL})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(app.Shutdown()).To(Succeed())
+
+		hang.Store(true)
+		app2 := newApp(context.Background(), models, data)
+		Eventually(entered, "10s").Should(Receive())
+		start := time.Now()
+		Expect(app2.Shutdown()).To(Succeed())
+		Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second), "the refresh was cancelled, not waited out")
 	})
 })
