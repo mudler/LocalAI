@@ -88,7 +88,7 @@ export function voiceOf(ui) {
 // The backends that send a request to another server. A model on one of them
 // is not local: reading aloud sends the text of a reply to it.
 const REMOTE_BACKENDS = ['cloud-proxy', 'localai-proxy']
-// The server says so itself (`remote`) for a model of a remote connection.
+// The server says so itself (`remote`) for a model of a remote.
 // The backend list is the fallback for rows that do not carry the field, such
 // as an older server or a list not read from the capabilities route.
 export const isRemoteModel = (model) => (typeof model?.remote === 'boolean' ? model.remote : REMOTE_BACKENDS.includes(model?.backend))

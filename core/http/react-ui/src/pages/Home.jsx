@@ -982,7 +982,7 @@ export default function Home() {
                 // The models exist now, so reading them again ends first run:
                 // the guide gives way to the page with its model picker.
                 const created = result?.created?.length || 0
-                addToast?.(t('remoteSetup.done', { name: result?.connection?.name || '', count: created }), 'success')
+                addToast?.(t('remoteSetup.done', { name: result?.remote?.name || '', count: created }), 'success')
                 fetchSystemInfo()
               }}
             />

@@ -5,18 +5,18 @@ import ConfirmDialog from '../ConfirmDialog'
 import Button from '../ui/Button'
 import Callout from '../ui/Callout'
 import Segmented from '../ui/Segmented'
-import { connectionsApi } from '../../utils/api'
-import { createErrorKind } from '../../utils/connections'
+import { remotesApi } from '../../utils/api'
+import { createErrorKind } from '../../utils/remotes'
 
-// Edit one connection: its name, its address and a new key. The key is
+// Edit one remote: its name, its address and a new key. The key is
 // write-only: the server never sends it back, so the field is empty and an
 // empty field keeps the key that is set. A new key restarts the loaded models.
-// "Remove connection" asks what happens to the models first.
-export default function EditConnectionSheet({ connection, onClose, onSaved, onRemoved }) {
-  const { t } = useTranslation('connections')
+// "Remove remote" asks what happens to the models first.
+export default function EditRemoteSheet({ remote, onClose, onSaved, onRemoved }) {
+  const { t } = useTranslation('remotes')
   const uid = useId()
-  const [name, setName] = useState(connection.name)
-  const [url, setUrl] = useState(connection.url)
+  const [name, setName] = useState(remote.name)
+  const [url, setUrl] = useState(remote.url)
   const [key, setKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -24,11 +24,11 @@ export default function EditConnectionSheet({ connection, onClose, onSaved, onRe
   // Nothing is deleted unless the person says so.
   const [entries, setEntries] = useState('keep')
   const [removing, setRemoving] = useState(false)
-  const fixedUrl = connection.kind === 'anthropic'
+  const fixedUrl = remote.kind === 'anthropic'
 
   const body = {}
-  if (name.trim() && name.trim() !== connection.name) body.name = name.trim()
-  if (!fixedUrl && url.trim() && url.trim() !== connection.url) body.url = url.trim()
+  if (name.trim() && name.trim() !== remote.name) body.name = name.trim()
+  if (!fixedUrl && url.trim() && url.trim() !== remote.url) body.url = url.trim()
   if (key.trim()) body.api_key = key.trim()
   const dirty = Object.keys(body).length > 0
 
@@ -37,7 +37,7 @@ export default function EditConnectionSheet({ connection, onClose, onSaved, onRe
     if (!dirty || saving) return
     setSaving(true); setError(null)
     try {
-      const updated = await connectionsApi.update(connection.id, body)
+      const updated = await remotesApi.update(remote.id, body)
       onSaved?.(updated, { keyChanged: !!body.api_key })
     } catch (err) {
       setError({ kind: createErrorKind(err), message: err.message || '' })
@@ -49,9 +49,9 @@ export default function EditConnectionSheet({ connection, onClose, onSaved, onRe
   const remove = async () => {
     setRemoving(true)
     try {
-      await connectionsApi.remove(connection.id, entries)
+      await remotesApi.remove(remote.id, entries)
       setConfirming(false)
-      onRemoved?.(connection, entries)
+      onRemoved?.(remote, entries)
     } catch (err) {
       setConfirming(false)
       setError({ kind: 'other', message: err.message || '' })
@@ -69,9 +69,9 @@ export default function EditConnectionSheet({ connection, onClose, onSaved, onRe
     <>
       <SideSheet
         title={t('edit.title')}
-        description={connection.name}
-        labelId="edit-connection-title"
-        testId="edit-connection"
+        description={remote.name}
+        labelId="edit-remote-title"
+        testId="edit-remote"
         closeLabel={t('edit.close')}
         onClose={onClose}
         footer={(
@@ -81,7 +81,7 @@ export default function EditConnectionSheet({ connection, onClose, onSaved, onRe
           </>
         )}
       >
-        <form className="conn-form" onSubmit={save} noValidate>
+        <form className="remotes-form" onSubmit={save} noValidate>
           <div className="dk-field">
             <label className="dk-label" htmlFor={`${uid}-name`}>{t('edit.name')}</label>
             <input id={`${uid}-name`} className="dk-input" autoComplete="off" value={name} onChange={e => setName(e.target.value)} data-testid="edit-name" aria-invalid={error?.kind === 'nameTaken' || undefined} />
@@ -106,13 +106,13 @@ export default function EditConnectionSheet({ connection, onClose, onSaved, onRe
               data-testid="edit-key"
             />
             <p className="dk-hint" id={`${uid}-key-hint`} data-testid="edit-key-hint">
-              {connection.key_set ? t('edit.keySet') : t('edit.keyNotSet')} {t('edit.keyRestart')}
+              {remote.key_set ? t('edit.keySet') : t('edit.keyNotSet')} {t('edit.keyRestart')}
             </p>
           </div>
           {error && (
             <Callout tone="error" role="alert" testId="edit-error">{t(`choose.error.${error.kind}`, { message: error.message })}</Callout>
           )}
-          <div className="conn-danger">
+          <div className="remotes-danger">
             <Button variant="danger-ghost" icon="trash" onClick={() => { setEntries('keep'); setConfirming(true) }} data-testid="edit-remove">{t('remove.button')}</Button>
           </div>
         </form>
@@ -120,14 +120,14 @@ export default function EditConnectionSheet({ connection, onClose, onSaved, onRe
       <ConfirmDialog
         open={confirming}
         danger
-        title={t('remove.title', { name: connection.name })}
+        title={t('remove.title', { name: remote.name })}
         message={(
-          <div className="conn-remove">
+          <div className="remotes-remove">
             <Segmented mode="radio" label={t('remove.choiceLabel')} options={choices} value={entries} onChange={setEntries} testId="remove-choice" itemTestId="remove-choice-" />
-            <p className="conn-hint" data-testid="remove-explain">
+            <p className="remotes-hint" data-testid="remove-explain">
               {entries === 'keep'
-                ? t('remove.keepExplain', { count: connection.entries?.length || 0 })
-                : t('remove.removeExplain', { count: connection.entries?.length || 0 })}
+                ? t('remove.keepExplain', { count: remote.entries?.length || 0 })
+                : t('remove.removeExplain', { count: remote.entries?.length || 0 })}
             </p>
           </div>
         )}

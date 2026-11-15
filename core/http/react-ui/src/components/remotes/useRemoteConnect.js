@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
-import { connectionsApi } from '../../utils/api'
+import { remotesApi } from '../../utils/api'
 import {
   PRESETS, canTest, chosenModels, createErrorKind, defaultName, failStep, initialTicked, testBody,
-} from '../../utils/connections'
+} from '../../utils/remotes'
 
 // The state of "connect a remote": the form, the test and the choice of
 // models. The form step and the choose step read one of these, so the first
@@ -64,7 +64,7 @@ export function useRemoteConnect({ onDone } = {}) {
   const test = useCallback(async () => {
     setPhase('testing'); setFailure(null); setModels([]); setTicked([]); setCreateError(null)
     try {
-      const res = await connectionsApi.test(testBody(values))
+      const res = await remotesApi.test(testBody(values))
       if (res?.ok) {
         const list = Array.isArray(res.models) ? res.models : []
         setModels(list)
@@ -100,7 +100,7 @@ export function useRemoteConnect({ onDone } = {}) {
     setCreating(true); setCreateError(null)
     try {
       const body = { ...testBody(values), name: finalName, models: chosen }
-      const result = await connectionsApi.create(body)
+      const result = await remotesApi.create(body)
       onDone?.(result)
       return result
     } catch (err) {

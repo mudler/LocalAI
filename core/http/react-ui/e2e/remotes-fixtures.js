@@ -1,5 +1,5 @@
-// Fixtures for the remote connections specs: the connections API stubbed with
-// Playwright routes, plus a few connection and model rows. Hosts are
+// Fixtures for the remotes specs: the remotes API stubbed with
+// Playwright routes, plus a few remote and model rows. Hosts are
 // example.com style and the model names are neutral.
 
 export const LOCALAI_MODELS = [
@@ -16,8 +16,8 @@ export const CLOUD_MODELS = [
   { id: 'cloud-model-c', usecases: ['chat'] },
 ]
 
-export const connection = (over = {}) => ({
-  id: 'conn-1',
+export const remote = (over = {}) => ({
+  id: 'remotes-1',
   name: 'Office server',
   kind: 'localai',
   url: 'https://office.example.com',
@@ -30,32 +30,32 @@ export const connection = (over = {}) => ({
   ...over,
 })
 
-export const CONNECTED = connection({
+export const CONNECTED = remote({
   new: [{ id: 'chat-small', usecases: ['chat'] }, { id: 'text-to-speech', usecases: ['tts'] }],
 })
-export const REJECTED = connection({
-  id: 'conn-2', name: 'Hosted service', kind: 'openai', url: 'https://api.example.com/v1', status: 'auth_failed',
+export const REJECTED = remote({
+  id: 'remotes-2', name: 'Hosted service', kind: 'openai', url: 'https://api.example.com/v1', status: 'auth_failed',
   last_error: 'The service answered 401: invalid key', last_refresh: undefined, entries: ['cloud-model-a'],
 })
-export const UNREACHABLE = connection({
-  id: 'conn-3', name: 'Lab box', url: 'http://lab.example.com:8080', status: 'unreachable',
+export const UNREACHABLE = remote({
+  id: 'remotes-3', name: 'Lab box', url: 'http://lab.example.com:8080', status: 'unreachable',
   last_error: 'dial tcp: connection refused', entries: ['chat-large'], unavailable: ['chat-large'],
 })
-export const NEVER = connection({ id: 'conn-4', name: 'New remote', kind: 'anthropic', url: '', status: 'never', last_refresh: undefined, entries: [] })
+export const NEVER = remote({ id: 'remotes-4', name: 'New remote', kind: 'anthropic', url: '', status: 'never', last_refresh: undefined, entries: [] })
 
 // The answer of the test route for each outcome.
 export const TEST_OK = (models) => ({ ok: true, models })
 export const TEST_FAIL = (step, message = '') => ({ ok: false, step, ...(message ? { message } : {}) })
 
-// Stub every route of the connections API. `state.calls` holds each request as
+// Stub every route of the remotes API. `state.calls` holds each request as
 // { method, path, body }. `answers` can change while a spec runs.
-export async function mockConnections(page, { connections = [], test = TEST_OK(LOCALAI_MODELS), status = {} } = {}) {
-  // Copies: a spec edits its connections, and the next one must start clean.
-  const state = { connections: connections.map(c => structuredClone(c)), test, calls: [], status }
-  await page.route(/\/api\/connections(\/.*)?(\?.*)?$/, async (route) => {
+export async function mockRemotes(page, { remotes = [], test = TEST_OK(LOCALAI_MODELS), status = {} } = {}) {
+  // Copies: a spec edits its remotes, and the next one must start clean.
+  const state = { remotes: remotes.map(c => structuredClone(c)), test, calls: [], status }
+  await page.route(/\/api\/remotes(\/.*)?(\?.*)?$/, async (route) => {
     const req = route.request()
     const url = new URL(req.url())
-    const path = url.pathname.replace(/^.*\/api\/connections/, '') || '/'
+    const path = url.pathname.replace(/^.*\/api\/remotes/, '') || '/'
     const method = req.method()
     let body = null
     try { body = req.postDataJSON() } catch { body = null }
@@ -63,31 +63,31 @@ export async function mockConnections(page, { connections = [], test = TEST_OK(L
     const forced = state.status[`${method} ${path}`]
     if (forced) return route.fulfill({ status: forced.status, json: forced.json ?? { error: { message: forced.message || 'failed' } } })
     if (path === '/test' && method === 'POST') return route.fulfill({ json: state.test })
-    if (path === '/' && method === 'GET') return route.fulfill({ json: { data: state.connections } })
+    if (path === '/' && method === 'GET') return route.fulfill({ json: { data: state.remotes } })
     if (path === '/' && method === 'POST') {
-      const created = connection({
-        id: 'conn-new', name: body.name, kind: body.kind, url: body.url, key_set: !!body.api_key,
+      const created = remote({
+        id: 'remotes-new', name: body.name, kind: body.kind, url: body.url, key_set: !!body.api_key,
         entries: body.models.map(m => m.id), new: [],
       })
-      state.connections.push(created)
-      return route.fulfill({ status: 201, json: { connection: created, created: body.models.map(m => m.id), skipped: [] } })
+      state.remotes.push(created)
+      return route.fulfill({ status: 201, json: { remote: created, created: body.models.map(m => m.id), skipped: [] } })
     }
     const [, id, action] = path.match(/^\/([^/]+)(?:\/(.+))?$/) || []
-    const current = state.connections.find(c => c.id === id)
-    if (!current) return route.fulfill({ status: 404, json: { error: { message: 'unknown connection' } } })
+    const current = state.remotes.find(c => c.id === id)
+    if (!current) return route.fulfill({ status: 404, json: { error: { message: 'unknown remote' } } })
     if (!action && method === 'PATCH') {
       Object.assign(current, { ...(body.name ? { name: body.name } : {}), ...(body.url ? { url: body.url } : {}), ...(body.api_key ? { key_set: true, status: 'ok' } : {}) })
       return route.fulfill({ json: current })
     }
     if (!action && method === 'DELETE') {
-      state.connections = state.connections.filter(c => c.id !== id)
+      state.remotes = state.remotes.filter(c => c.id !== id)
       return route.fulfill({ status: 204, body: '' })
     }
     if (action === 'refresh') return route.fulfill({ json: current })
     if (action === 'adopt') {
       current.entries = [...current.entries, ...body.models.map(m => m.id)]
       current.new = current.new.filter(m => !body.models.some(b => b.id === m.id))
-      return route.fulfill({ json: { connection: current, created: body.models.map(m => m.id), skipped: [] } })
+      return route.fulfill({ json: { remote: current, created: body.models.map(m => m.id), skipped: [] } })
     }
     return route.fulfill({ status: 404, json: { error: { message: 'not found' } } })
   })

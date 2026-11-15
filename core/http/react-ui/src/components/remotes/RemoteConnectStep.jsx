@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
 import Callout from '../ui/Callout'
 import Segmented from '../ui/Segmented'
-import { KINDS, PRESETS } from '../../utils/connections'
+import { KINDS, PRESETS } from '../../utils/remotes'
 
 // The form of "connect a remote" and its test: the kind, the provider (for an
 // OpenAI-compatible service), the address, the key and a Test button. The
@@ -13,7 +13,7 @@ import { KINDS, PRESETS } from '../../utils/connections'
 //
 //   remote   the object useRemoteConnect returns
 export default function RemoteConnectStep({ remote }) {
-  const { t } = useTranslation('connections')
+  const { t } = useTranslation('remotes')
   const uid = useId()
   const resultRef = useRef(null)
   const { kind, preset, phase, failure, models } = remote
@@ -32,7 +32,7 @@ export default function RemoteConnectStep({ remote }) {
   }
 
   return (
-    <form className="conn-form" onSubmit={submit} noValidate data-testid="remote-connect-step">
+    <form className="remotes-form" onSubmit={submit} noValidate data-testid="remote-connect-step">
       <div className="dk-field">
         <span className="dk-label" id={`${uid}-kind`}>{t('connect.kind')}</span>
         <Segmented mode="radio" labelledBy={`${uid}-kind`} options={kindOptions} value={kind} onChange={remote.setKind} testId="remote-kind" itemTestId="remote-kind-" />
@@ -67,7 +67,7 @@ export default function RemoteConnectStep({ remote }) {
 
       <div className="dk-field">
         <label className="dk-label" htmlFor={`${uid}-key`}>
-          {t('connect.key')}{kind === 'localai' && <span className="conn-optional"> ({t('connect.optional')})</span>}
+          {t('connect.key')}{kind === 'localai' && <span className="remotes-optional"> ({t('connect.optional')})</span>}
         </label>
         <input
           id={`${uid}-key`}
@@ -83,22 +83,22 @@ export default function RemoteConnectStep({ remote }) {
         <p className="dk-hint" id={`${uid}-key-hint`}>{t('connect.keyHint')}</p>
       </div>
 
-      {cloud && <p className="conn-note" data-testid="remote-pii">{t('connect.pii')}</p>}
+      {cloud && <p className="remotes-note" data-testid="remote-pii">{t('connect.pii')}</p>}
 
-      <div className="conn-actions">
+      <div className="remotes-actions">
         <Button type="submit" variant="secondary" icon="plug" busy={phase === 'testing'} disabled={!remote.testable} data-testid="remote-test">
           {phase === 'testing' ? t('connect.testing') : t('connect.test')}
         </Button>
       </div>
 
-      <div className="conn-result" ref={resultRef} tabIndex={-1} aria-live="polite" data-testid="remote-result">
+      <div className="remotes-result" ref={resultRef} tabIndex={-1} aria-live="polite" data-testid="remote-result">
         {phase === 'ok' && (
           <Callout tone="ok" role="status" testId="remote-ok">{t('connect.ok', { count: models.length })}</Callout>
         )}
         {phase === 'failed' && failure && (
           <Callout tone="error" role="alert" title={t('connect.failTitle')} testId="remote-fail" data-step={failure.step}>
             {t(`connect.fail.${failure.step}`)}
-            {failure.message && <span className="conn-detail"> {failure.message}</span>}
+            {failure.message && <span className="remotes-detail"> {failure.message}</span>}
           </Callout>
         )}
       </div>

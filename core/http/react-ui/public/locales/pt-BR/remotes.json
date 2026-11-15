@@ -42,11 +42,11 @@
     "listLabel": "Modelos a adicionar",
     "noMatch": "Nenhum modelo corresponde à busca.",
     "name": "Nome",
-    "nameHint": "Mostrado na lista de conexões.",
+    "nameHint": "Mostrado na lista de remotos.",
     "submit": "Conectar e adicionar modelos",
     "pick": "Selecione pelo menos um modelo.",
     "error": {
-      "nameTaken": "Já existe uma conexão com esse nome. Escolha outro nome.",
+      "nameTaken": "Já existe um remoto com esse nome. Escolha outro nome.",
       "invalid": "O servidor não aceitou esses dados: {{message}}",
       "other": "Algo deu errado: {{message}}"
     }
@@ -78,7 +78,7 @@
     "unreachableTitle": "Não foi possível alcançar o remoto.",
     "unreachableText": "Confira o endereço e se o outro servidor está em execução.",
     "updateKey": "Atualizar chave",
-    "editConnection": "Editar conexão",
+    "editRemote": "Editar remoto",
     "newTitle": "{{count}} novo modelo neste remoto",
     "newTitle_other": "{{count}} novos modelos neste remoto",
     "addSelected": "Adicionar selecionados",
@@ -87,8 +87,8 @@
     "adopted_other": "{{count}} modelos de {{name}} adicionados.",
     "adoptFailed": "Não foi possível adicionar os modelos: {{message}}",
     "refreshFailed": "Não foi possível atualizar {{name}}: {{message}}",
-    "models": "{{count}} modelo desta conexão",
-    "models_other": "{{count}} modelos desta conexão",
+    "models": "{{count}} modelo deste remoto",
+    "models_other": "{{count}} modelos deste remoto",
     "gone": "{{count}} não listado mais",
     "gone_other": "{{count}} não listados mais",
     "view": "Ver em Instalados"
@@ -98,10 +98,10 @@
     "body": "Conecte outro LocalAI, um serviço compatível com OpenAI ou a Anthropic. Cada modelo escolhido vira um modelo aqui."
   },
   "load": {
-    "error": "Não foi possível carregar suas conexões."
+    "error": "Não foi possível carregar seus remotos."
   },
   "edit": {
-    "title": "Editar conexão",
+    "title": "Editar remoto",
     "close": "Fechar",
     "cancel": "Cancelar",
     "save": "Salvar",
@@ -114,16 +114,16 @@
     "savedKey": "{{name}} salvo. Os modelos carregados reiniciam com a nova chave."
   },
   "remove": {
-    "button": "Remover conexão",
+    "button": "Remover remoto",
     "title": "Remover {{name}}?",
     "choiceLabel": "O que acontece com os modelos",
     "keep": "Manter os modelos",
     "removeAll": "Remover também os modelos",
-    "keepExplain": "Só a conexão é removida. O {{count}} modelo dela continua em Instalados. Se o remoto exigir chave, defina-a no editor de modelos.",
-    "keepExplain_other": "Só a conexão é removida. Os {{count}} modelos dela continuam em Instalados. Se o remoto exigir chave, defina-a no editor de modelos.",
-    "removeExplain": "A conexão e o {{count}} modelo dela serão removidos. Não é possível desfazer.",
-    "removeExplain_other": "A conexão e os {{count}} modelos dela serão removidos. Não é possível desfazer.",
-    "confirm": "Remover conexão",
+    "keepExplain": "Só o remoto é removido. O {{count}} modelo dele continua em Instalados. Se o remoto exigir chave, defina-a no editor de modelos.",
+    "keepExplain_other": "Só o remoto é removido. Os {{count}} modelos dele continuam em Instalados. Se o remoto exigir chave, defina-a no editor de modelos.",
+    "removeExplain": "O remoto e o {{count}} modelo dele serão removidos. Não é possível desfazer.",
+    "removeExplain_other": "O remoto e os {{count}} modelos dele serão removidos. Não é possível desfazer.",
+    "confirm": "Remover remoto",
     "doneKeep": "{{name}} removido. Os modelos dele continuam.",
     "doneAll": "{{name}} e os modelos dele removidos."
   }

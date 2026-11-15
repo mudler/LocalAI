@@ -944,8 +944,8 @@
       }
     }
   },
-  "connections": {
-    "tab": "Connections",
+  "remotes": {
+    "tab": "Remotes",
     "filter": "Remote",
     "unavailable": "Unavailable upstream",
     "rowMark": "Remote model",

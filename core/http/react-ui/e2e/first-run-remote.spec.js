@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockHome, mockUser } from './home-fixtures.js'
 import { mockRecommended, recommendedAnswer } from './recommended-fixtures.js'
-import { mockConnections, TEST_OK, TEST_FAIL, LOCALAI_MODELS, CLOUD_MODELS } from './connections-fixtures.js'
+import { mockRemotes, TEST_OK, TEST_FAIL, LOCALAI_MODELS, CLOUD_MODELS } from './remotes-fixtures.js'
 
 // First run, with the choice "where do your models run". On this machine keeps
 // the steps of today. On another server or service swaps steps 1 and 2 for
@@ -10,7 +10,7 @@ import { mockConnections, TEST_OK, TEST_FAIL, LOCALAI_MODELS, CLOUD_MODELS } fro
 async function firstRun(page, options = {}) {
   await mockHome(page, { loaded: [], models: [], chatModels: [] })
   await mockRecommended(page, recommendedAnswer())
-  const state = await mockConnections(page, options)
+  const state = await mockRemotes(page, options)
   await page.goto('/app')
   await expect(page.getByTestId('home-first-run')).toBeVisible({ timeout: 15_000 })
   return state

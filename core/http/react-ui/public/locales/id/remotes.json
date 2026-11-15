@@ -42,11 +42,11 @@
     "listLabel": "Model yang ditambahkan",
     "noMatch": "Tidak ada model yang cocok dengan pencarian.",
     "name": "Nama",
-    "nameHint": "Ditampilkan di daftar koneksi.",
+    "nameHint": "Ditampilkan di daftar remote.",
     "submit": "Hubungkan dan tambahkan model",
     "pick": "Pilih setidaknya satu model.",
     "error": {
-      "nameTaken": "Sudah ada koneksi dengan nama ini. Pilih nama lain.",
+      "nameTaken": "Sudah ada remote dengan nama ini. Pilih nama lain.",
       "invalid": "Server tidak menerima data ini: {{message}}",
       "other": "Terjadi kesalahan: {{message}}"
     }
@@ -78,7 +78,7 @@
     "unreachableTitle": "Remote tidak dapat dijangkau.",
     "unreachableText": "Periksa alamatnya dan pastikan server lain berjalan.",
     "updateKey": "Perbarui kunci",
-    "editConnection": "Ubah koneksi",
+    "editRemote": "Ubah remote",
     "newTitle": "{{count}} model baru di remote ini",
     "newTitle_other": "{{count}} model baru di remote ini",
     "addSelected": "Tambahkan yang dipilih",
@@ -87,8 +87,8 @@
     "adopted_other": "{{count}} model dari {{name}} ditambahkan.",
     "adoptFailed": "Tidak dapat menambahkan model: {{message}}",
     "refreshFailed": "Tidak dapat menyegarkan {{name}}: {{message}}",
-    "models": "{{count}} model dari koneksi ini",
-    "models_other": "{{count}} model dari koneksi ini",
+    "models": "{{count}} model dari remote ini",
+    "models_other": "{{count}} model dari remote ini",
     "gone": "{{count}} tidak lagi terdaftar",
     "gone_other": "{{count}} tidak lagi terdaftar",
     "view": "Lihat di Terpasang"
@@ -98,10 +98,10 @@
     "body": "Hubungkan LocalAI lain, layanan yang kompatibel dengan OpenAI, atau Anthropic. Setiap model yang Anda pilih menjadi model di sini."
   },
   "load": {
-    "error": "Tidak dapat memuat koneksi Anda."
+    "error": "Tidak dapat memuat remote Anda."
   },
   "edit": {
-    "title": "Ubah koneksi",
+    "title": "Ubah remote",
     "close": "Tutup",
     "cancel": "Batal",
     "save": "Simpan",
@@ -114,16 +114,16 @@
     "savedKey": "{{name}} disimpan. Model yang dimuat dimulai ulang dengan kunci baru."
   },
   "remove": {
-    "button": "Hapus koneksi",
+    "button": "Hapus remote",
     "title": "Hapus {{name}}?",
     "choiceLabel": "Apa yang terjadi pada model",
     "keep": "Pertahankan model",
     "removeAll": "Hapus model juga",
-    "keepExplain": "Hanya koneksi yang dihapus. {{count}} model-nya tetap ada di Terpasang. Jika remote memerlukan kunci, atur di editor model.",
-    "keepExplain_other": "Hanya koneksi yang dihapus. {{count}} model-nya tetap ada di Terpasang. Jika remote memerlukan kunci, atur di editor model.",
-    "removeExplain": "Koneksi dan {{count}} model-nya dihapus. Tindakan ini tidak dapat dibatalkan.",
-    "removeExplain_other": "Koneksi dan {{count}} model-nya dihapus. Tindakan ini tidak dapat dibatalkan.",
-    "confirm": "Hapus koneksi",
+    "keepExplain": "Hanya remote yang dihapus. {{count}} model-nya tetap ada di Terpasang. Jika remote memerlukan kunci, atur di editor model.",
+    "keepExplain_other": "Hanya remote yang dihapus. {{count}} model-nya tetap ada di Terpasang. Jika remote memerlukan kunci, atur di editor model.",
+    "removeExplain": "Remote dan {{count}} model-nya dihapus. Tindakan ini tidak dapat dibatalkan.",
+    "removeExplain_other": "Remote dan {{count}} model-nya dihapus. Tindakan ini tidak dapat dibatalkan.",
+    "confirm": "Hapus remote",
     "doneKeep": "{{name}} dihapus. Model-nya tetap ada.",
     "doneAll": "{{name}} dan model-nya dihapus."
   }

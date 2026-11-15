@@ -395,8 +395,8 @@
       }
     }
   },
-  "connections": {
-    "tab": "连接",
+  "remotes": {
+    "tab": "远程",
     "filter": "远程",
     "unavailable": "上游不可用",
     "rowMark": "远程模型",

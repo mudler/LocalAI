@@ -30,7 +30,7 @@ import {
   CAP_VAD, CAP_SCORE, CAP_DECISIONS,
 } from '../utils/capabilities'
 import Icon from '../components/Icon'
-import { connectionIndex, remoteSubline } from '../utils/connections'
+import { remoteIndex, remoteSubline } from '../utils/remotes'
 
 const USE_CASES = [
   { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chats?model=${encodeURIComponent(id)}` },
@@ -127,7 +127,7 @@ export default function InstalledModels({
   searchRef,
   onOpenCleanup,
   disk,
-  connections,
+  remotes,
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -212,7 +212,7 @@ export default function InstalledModels({
     )
   ), [loadedModelIds])
 
-  const connectionById = useMemo(() => connectionIndex(connections), [connections])
+  const remoteById = useMemo(() => remoteIndex(remotes), [remotes])
 
   const matchesStateKey = (model, key) => {
     if (key === 'running') return isRunning(model)
@@ -231,7 +231,7 @@ export default function InstalledModels({
     { key: 'disabled', label: t('lifecycle.filters.disabled'), icon: 'ban' },
     { key: 'pinned', label: t('lifecycle.filters.pinned'), icon: 'pin' },
     { key: 'distributed', label: t('lifecycle.filters.distributed'), icon: 'server' },
-    { key: 'remote', label: t('connections.filter'), icon: 'cloud' },
+    { key: 'remote', label: t('remotes.filter'), icon: 'cloud' },
   ].map(f => ({ ...f, count: f.key === 'all' ? models.length : countFor(f.key) }))
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -353,7 +353,7 @@ export default function InstalledModels({
     if (isRunning(model)) return { key: 'running', label: t('lifecycle.states.running') }
     // The remote stopped listing this model. The entry stays, and a request
     // to it may fail, so it says so; it has no filter of its own.
-    if (model.upstream_state === 'unavailable') return { key: 'unavailable', label: t('connections.unavailable') }
+    if (model.upstream_state === 'unavailable') return { key: 'unavailable', label: t('remotes.unavailable') }
     return { key: 'idle', label: t('lifecycle.states.idle') }
   }
 
@@ -672,7 +672,7 @@ export default function InstalledModels({
                             <td className="ledger-name-cell">
                               <span className="dk-table-name ledger-name">
                                 <span className="ledger-name__text">{model.id}</span>
-                                {model.remote && <RowMark icon="cloud" label={t('connections.rowMark')} />}
+                                {model.remote && <RowMark icon="cloud" label={t('remotes.rowMark')} />}
                                 {model.pinned && <RowMark icon="pin" label={t('lifecycle.detail.pinned')} />}
                                 {aliasTargets[model.id] && <RowMark icon="swap" label={t('lifecycle.detail.alias', { target: aliasTargets[model.id] })} />}
                                 {chain && <RowMark icon="shuffle" label={t('lifecycle.detail.chain', { target: chain.active })} />}
@@ -684,7 +684,7 @@ export default function InstalledModels({
                                 )}
                               </span>
                               <span className="dk-table-sub">
-                                {actionErrors[model.id] || [model.remote ? remoteSubline(model, connectionById, t('lifecycle.detail.auto')) : (model.backend || t('lifecycle.detail.auto')), model.source === 'registry-only' ? t('lifecycle.detail.adopted') : ''].filter(Boolean).join(' · ')}
+                                {actionErrors[model.id] || [model.remote ? remoteSubline(model, remoteById, t('lifecycle.detail.auto')) : (model.backend || t('lifecycle.detail.auto')), model.source === 'registry-only' ? t('lifecycle.detail.adopted') : ''].filter(Boolean).join(' · ')}
                               </span>
                             </td>
                             <td>
@@ -694,7 +694,7 @@ export default function InstalledModels({
                               </span>
                             </td>
                             <td className="dk-num dk-hide-phone ledger-size">
-                              {model.remote ? <span>{t('connections.sizeRemote')}</span> : <SizeCell
+                              {model.remote ? <span>{t('remotes.sizeRemote')}</span> : <SizeCell
                                 size={sizeOf(model.id)}
                                 disk={diskOf(model.id)}
                                 sharedWith={sharedWith(storage.index, model.id)}

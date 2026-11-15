@@ -7,7 +7,7 @@ import { useRemoteConnect } from './useRemoteConnect'
 export default function ConnectRemote({ onDone }) {
   const remote = useRemoteConnect({ onDone })
   return (
-    <div className="conn-stack">
+    <div className="remotes-stack">
       <RemoteConnectStep remote={remote} />
       <RemoteChooseStep remote={remote} />
     </div>
@@ -17,5 +17,5 @@ export default function ConnectRemote({ onDone }) {
 export function doneMessageParts(result) {
   const created = Array.isArray(result?.created) ? result.created.length : 0
   const skipped = Array.isArray(result?.skipped) ? result.skipped.length : 0
-  return { name: result?.connection?.name || '', created, skipped }
+  return { name: result?.remote?.name || '', created, skipped }
 }

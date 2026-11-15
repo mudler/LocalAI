@@ -39,9 +39,9 @@ import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, PageHeader } from '../components/ui'
 import SideSheet from '../components/SideSheet'
-import ConnectRemote, { doneMessageParts } from '../components/connections/ConnectRemote'
-import ConnectionsView from '../components/connections/ConnectionsView'
-import { useConnections } from '../hooks/useConnections'
+import ConnectRemote, { doneMessageParts } from '../components/remotes/ConnectRemote'
+import RemotesView from '../components/remotes/RemotesView'
+import { useRemotes } from '../hooks/useRemotes'
 import { useAuth } from '../context/AuthContext'
 import KindLibraries from '../components/catalog/KindLibraries'
 // eslint-disable-next-line no-unused-vars
@@ -149,10 +149,10 @@ function rangeStyle(index) {
   return { '--dk-fill': `${(index / (CONTEXT_SIZES.length - 1)) * 100}%` }
 }
 
-function ModelsTabs({ activeView, searchParams, installedCount, connectionsCount, showConnections, t }) {
+function ModelsTabs({ activeView, searchParams, installedCount, remotesCount, showRemotes, t }) {
   const hrefFor = view => {
     const next = new URLSearchParams(searchParams)
-    if (view === 'installed' || view === 'connections') next.set('view', view)
+    if (view === 'installed' || view === 'remotes') next.set('view', view)
     else next.delete('view')
     const query = next.toString()
     return `/app/models${query ? `?${query}` : ''}`
@@ -175,15 +175,15 @@ function ModelsTabs({ activeView, searchParams, installedCount, connectionsCount
         <span>{t('lifecycle.views.installed')}</span>
         {installedCount > 0 && <span className="dk-hubtab-count">{installedCount}</span>}
       </Link>
-      {showConnections && (
+      {showRemotes && (
         <Link
           className="dk-hubtab"
-          to={hrefFor('connections')}
-          aria-current={activeView === 'connections' ? 'page' : undefined}
-          data-testid="models-tab-connections"
+          to={hrefFor('remotes')}
+          aria-current={activeView === 'remotes' ? 'page' : undefined}
+          data-testid="models-tab-remotes"
         >
-          <span>{t('connections.tab')}</span>
-          {connectionsCount > 0 && <span className="dk-hubtab-count">{connectionsCount}</span>}
+          <span>{t('remotes.tab')}</span>
+          {remotesCount > 0 && <span className="dk-hubtab-count">{remotesCount}</span>}
         </Link>
       )}
     </nav>
@@ -209,10 +209,10 @@ export default function Models() {
   if (!detailOpen) frozenParams.current = liveParams
   const searchParams = frozenParams.current
   const { isAdmin } = useAuth()
-  // The list of connections is for administrators; nobody else sees the tab.
+  // The list of remotes is for administrators; nobody else sees the tab.
   const activeView = searchParams.get('view') === 'installed'
     ? 'installed'
-    : searchParams.get('view') === 'connections' && isAdmin ? 'connections' : 'explore'
+    : searchParams.get('view') === 'remotes' && isAdmin ? 'remotes' : 'explore'
   const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed', 'remote'].includes(searchParams.get('state'))
     ? searchParams.get('state')
     : 'all'
@@ -983,7 +983,7 @@ export default function Models() {
     </>
   )
 
-  const connectionsState = useConnections({ enabled: isAdmin })
+  const remotesState = useRemotes({ enabled: isAdmin })
   const [connectOpen, setConnectOpen] = useState(false)
   const goToView = useCallback((view, extra = {}) => {
     setSearchParams(previous => {
@@ -998,17 +998,17 @@ export default function Models() {
   }, [setSearchParams])
   const afterConnect = (result) => {
     const { name, created, skipped } = doneMessageParts(result)
-    addToast(t('connections.toastDone', { name, count: created }), 'success')
-    if (skipped > 0) addToast(t('connections.toastSkipped', { count: skipped }), 'warning')
+    addToast(t('remotes.toastDone', { name, count: created }), 'success')
+    if (skipped > 0) addToast(t('remotes.toastSkipped', { count: skipped }), 'warning')
     setConnectOpen(false)
     setRefreshToken(n => n + 1)
-    connectionsState.refetch()
-    goToView('connections')
+    remotesState.refetch()
+    goToView('remotes')
   }
   const connectSheet = connectOpen && (
     <SideSheet
-      title={t('connections.sheetTitle')}
-      description={t('connections.sheetDescription')}
+      title={t('remotes.sheetTitle')}
+      description={t('remotes.sheetDescription')}
       labelId="connect-remote-title"
       testId="connect-remote-sheet"
       wide
@@ -1031,7 +1031,7 @@ export default function Models() {
       </Button>
       {isAdmin && (
         <Button icon="plug" onClick={() => setConnectOpen(true)} data-testid="models-connect-remote">
-          {t('connections.connectButton')}
+          {t('remotes.connectButton')}
         </Button>
       )}
     </div>
@@ -1047,8 +1047,8 @@ export default function Models() {
           activeView={activeView}
           searchParams={searchParams}
           installedCount={statsLoaded ? stats.installed : 0}
-          connectionsCount={connectionsState.connections.length}
-          showConnections={isAdmin}
+          remotesCount={remotesState.remotes.length}
+          showRemotes={isAdmin}
           t={t}
         />
         {count}
@@ -1089,13 +1089,13 @@ export default function Models() {
     </>
   )
 
-  if (activeView === 'connections') {
+  if (activeView === 'remotes') {
     return withDetail(
       <div className="page page--full page--app models-page">
         {pageHead(null)}
         <Suspense fallback={null}>
-          <ConnectionsView
-            state={connectionsState}
+          <RemotesView
+            state={remotesState}
             addToast={addToast}
             onConnect={() => setConnectOpen(true)}
             onChanged={() => setRefreshToken(n => n + 1)}
@@ -1128,7 +1128,7 @@ export default function Models() {
           searchRef={searchRef}
           onOpenCleanup={() => setSheetOpen(true)}
           disk={disk}
-          connections={connectionsState.connections}
+          remotes={remotesState.remotes}
         />
         {overlays}
       </div>,

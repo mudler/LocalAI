@@ -379,8 +379,8 @@
       }
     }
   },
-  "connections": {
-    "tab": "연결",
+  "remotes": {
+    "tab": "원격",
     "filter": "원격",
     "unavailable": "업스트림에서 사용 불가",
     "rowMark": "원격 모델",

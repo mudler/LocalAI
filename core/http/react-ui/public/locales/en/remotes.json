@@ -42,11 +42,11 @@
     "listLabel": "Models to add",
     "noMatch": "No model matches your search.",
     "name": "Name",
-    "nameHint": "Shown in the list of connections.",
+    "nameHint": "Shown in the list of remotes.",
     "submit": "Connect and add models",
     "pick": "Select at least one model.",
     "error": {
-      "nameTaken": "A connection with this name already exists. Choose another name.",
+      "nameTaken": "A remote with this name already exists. Choose another name.",
       "invalid": "The server did not accept these details: {{message}}",
       "other": "Something went wrong: {{message}}"
     }
@@ -78,7 +78,7 @@
     "unreachableTitle": "Could not reach the remote.",
     "unreachableText": "Check the address and that the other server is running.",
     "updateKey": "Update key",
-    "editConnection": "Edit connection",
+    "editRemote": "Edit remote",
     "newTitle": "{{count}} new model on this remote",
     "newTitle_other": "{{count}} new models on this remote",
     "addSelected": "Add selected",
@@ -87,8 +87,8 @@
     "adopted_other": "Added {{count}} models from {{name}}.",
     "adoptFailed": "Could not add the models: {{message}}",
     "refreshFailed": "Could not refresh {{name}}: {{message}}",
-    "models": "{{count}} model from this connection",
-    "models_other": "{{count}} models from this connection",
+    "models": "{{count}} model from this remote",
+    "models_other": "{{count}} models from this remote",
     "gone": "{{count}} no longer listed",
     "gone_other": "{{count}} no longer listed",
     "view": "View in Installed"
@@ -98,10 +98,10 @@
     "body": "Connect another LocalAI, an OpenAI-compatible service or Anthropic. Each model you pick becomes a model here."
   },
   "load": {
-    "error": "Could not load your connections."
+    "error": "Could not load your remotes."
   },
   "edit": {
-    "title": "Edit connection",
+    "title": "Edit remote",
     "close": "Close",
     "cancel": "Cancel",
     "save": "Save",
@@ -114,16 +114,16 @@
     "savedKey": "Saved {{name}}. Its loaded models restart with the new key."
   },
   "remove": {
-    "button": "Remove connection",
+    "button": "Remove remote",
     "title": "Remove {{name}}?",
     "choiceLabel": "What happens to the models",
     "keep": "Keep the models",
     "removeAll": "Remove models too",
-    "keepExplain": "Only the connection goes away. Its {{count}} model stays in Installed. If the remote needs a key, set it in the model editor.",
-    "keepExplain_other": "Only the connection goes away. Its {{count}} models stay in Installed. If the remote needs a key, set it in the model editor.",
-    "removeExplain": "The connection and its {{count}} model are removed. This cannot be undone.",
-    "removeExplain_other": "The connection and its {{count}} models are removed. This cannot be undone.",
-    "confirm": "Remove connection",
+    "keepExplain": "Only the remote goes away. Its {{count}} model stays in Installed. If the remote needs a key, set it in the model editor.",
+    "keepExplain_other": "Only the remote goes away. Its {{count}} models stay in Installed. If the remote needs a key, set it in the model editor.",
+    "removeExplain": "The remote and its {{count}} model are removed. This cannot be undone.",
+    "removeExplain_other": "The remote and its {{count}} models are removed. This cannot be undone.",
+    "confirm": "Remove remote",
     "doneKeep": "Removed {{name}}. Its models stay.",
     "doneAll": "Removed {{name}} and its models."
   }

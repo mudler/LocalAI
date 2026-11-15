@@ -411,8 +411,8 @@
       }
     }
   },
-  "connections": {
-    "tab": "Conexões",
+  "remotes": {
+    "tab": "Remotos",
     "filter": "Remotos",
     "unavailable": "Indisponível na origem",
     "rowMark": "Modelo remoto",

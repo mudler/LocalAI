@@ -483,8 +483,8 @@
       }
     }
   },
-  "connections": {
-    "tab": "Connexions",
+  "remotes": {
+    "tab": "Serveurs distants",
     "filter": "Distants",
     "unavailable": "Indisponible en amont",
     "rowMark": "Modèle distant",

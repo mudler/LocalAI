@@ -42,11 +42,11 @@
     "listLabel": "Modèles à ajouter",
     "noMatch": "Aucun modèle ne correspond à la recherche.",
     "name": "Nom",
-    "nameHint": "Affiché dans la liste des connexions.",
+    "nameHint": "Affiché dans la liste des serveurs distants.",
     "submit": "Connecter et ajouter les modèles",
     "pick": "Sélectionnez au moins un modèle.",
     "error": {
-      "nameTaken": "Une connexion porte déjà ce nom. Choisissez un autre nom.",
+      "nameTaken": "Un serveur distant porte déjà ce nom. Choisissez un autre nom.",
       "invalid": "Le serveur n'a pas accepté ces informations : {{message}}",
       "other": "Une erreur s'est produite : {{message}}"
     }
@@ -78,7 +78,7 @@
     "unreachableTitle": "Le serveur distant est injoignable.",
     "unreachableText": "Vérifiez l'adresse et que l'autre serveur fonctionne.",
     "updateKey": "Mettre à jour la clé",
-    "editConnection": "Modifier la connexion",
+    "editRemote": "Modifier le serveur distant",
     "newTitle": "{{count}} nouveau modèle sur ce serveur distant",
     "newTitle_other": "{{count}} nouveaux modèles sur ce serveur distant",
     "addSelected": "Ajouter la sélection",
@@ -87,8 +87,8 @@
     "adopted_other": "{{count}} modèles de {{name}} ajoutés.",
     "adoptFailed": "Impossible d'ajouter les modèles : {{message}}",
     "refreshFailed": "Impossible d'actualiser {{name}} : {{message}}",
-    "models": "{{count}} modèle de cette connexion",
-    "models_other": "{{count}} modèles de cette connexion",
+    "models": "{{count}} modèle de ce serveur distant",
+    "models_other": "{{count}} modèles de ce serveur distant",
     "gone": "{{count}} n'apparaît plus",
     "gone_other": "{{count}} n'apparaissent plus",
     "view": "Voir dans Installés"
@@ -98,10 +98,10 @@
     "body": "Connectez un autre LocalAI, un service compatible OpenAI ou Anthropic. Chaque modèle choisi devient un modèle ici."
   },
   "load": {
-    "error": "Impossible de charger vos connexions."
+    "error": "Impossible de charger vos serveurs distants."
   },
   "edit": {
-    "title": "Modifier la connexion",
+    "title": "Modifier le serveur distant",
     "close": "Fermer",
     "cancel": "Annuler",
     "save": "Enregistrer",
@@ -114,16 +114,16 @@
     "savedKey": "{{name}} enregistré. Ses modèles chargés redémarrent avec la nouvelle clé."
   },
   "remove": {
-    "button": "Supprimer la connexion",
+    "button": "Supprimer le serveur distant",
     "title": "Supprimer {{name}} ?",
     "choiceLabel": "Ce qu'il advient des modèles",
     "keep": "Garder les modèles",
     "removeAll": "Supprimer aussi les modèles",
-    "keepExplain": "Seule la connexion est supprimée. Son {{count}} modèle reste dans Installés. Si le serveur distant exige une clé, définissez-la dans l'éditeur de modèle.",
-    "keepExplain_other": "Seule la connexion est supprimée. Ses {{count}} modèles restent dans Installés. Si le serveur distant exige une clé, définissez-la dans l'éditeur de modèle.",
-    "removeExplain": "La connexion et son {{count}} modèle sont supprimés. Cette action est irréversible.",
-    "removeExplain_other": "La connexion et ses {{count}} modèles sont supprimés. Cette action est irréversible.",
-    "confirm": "Supprimer la connexion",
+    "keepExplain": "Seul le serveur distant est supprimé. Son {{count}} modèle reste dans Installés. Si le serveur distant exige une clé, définissez-la dans l'éditeur de modèle.",
+    "keepExplain_other": "Seul le serveur distant est supprimé. Ses {{count}} modèles restent dans Installés. Si le serveur distant exige une clé, définissez-la dans l'éditeur de modèle.",
+    "removeExplain": "Le serveur distant et son {{count}} modèle sont supprimés. Cette action est irréversible.",
+    "removeExplain_other": "Le serveur distant et ses {{count}} modèles sont supprimés. Cette action est irréversible.",
+    "confirm": "Supprimer le serveur distant",
     "doneKeep": "{{name}} supprimé. Ses modèles restent.",
     "doneAll": "{{name}} et ses modèles supprimés."
   }

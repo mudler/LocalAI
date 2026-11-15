@@ -1,6 +1,6 @@
-// Pure helpers of the remote connections UI: what the form offers for each
-// kind, which models start ticked, how a connection shows, and how a failed
-// test reads. No React here, so tests/unit/connections.test.mjs can run it.
+// Pure helpers of the remotes UI: what the form offers for each
+// kind, which models start ticked, how a remote shows, and how a failed
+// test reads. No React here, so tests/unit/remotes.test.mjs can run it.
 
 export const KINDS = ['localai', 'openai', 'anthropic']
 
@@ -11,7 +11,7 @@ export const PRESETS = [
   { id: 'custom', url: '' },
 ]
 
-// The name a connection gets until the person types another one.
+// The name a remote gets until the person types another one.
 const PRESET_NAMES = { openai: 'OpenAI', openrouter: 'OpenRouter', groq: 'Groq' }
 
 export function presetFor(url) {
@@ -71,15 +71,15 @@ export function filterModels(models, query) {
 }
 
 // The steps a failed test can name, each with its words under
-// connections.fail.<step>. An unknown step reads as the general failure.
+// remotes.fail.<step>. An unknown step reads as the general failure.
 export const FAIL_STEPS = ['invalid_url', 'unreachable', 'auth', 'no_models']
 export function failStep(step) {
   return FAIL_STEPS.includes(step) ? step : 'other'
 }
 
-// The state of a connection as the card shows it.
-export function statusOf(connection) {
-  switch (connection?.status) {
+// The state of a remote as the card shows it.
+export function statusOf(remote) {
+  switch (remote?.status) {
     case 'ok': return 'ok'
     case 'auth_failed': return 'auth_failed'
     case 'unreachable': return 'unreachable'
@@ -87,23 +87,23 @@ export function statusOf(connection) {
   }
 }
 
-export function needsAttention(connection) {
-  const s = statusOf(connection)
+export function needsAttention(remote) {
+  const s = statusOf(remote)
   return s === 'auth_failed' || s === 'unreachable'
 }
 
-// connection id -> connection, for the Installed list.
-export function connectionIndex(list) {
+// remote id -> remote, for the Installed list.
+export function remoteIndex(list) {
   const map = new Map()
   for (const c of Array.isArray(list) ? list : []) map.set(c.id, c)
   return map
 }
 
-// The sub line of a remote row: "backend · connection name", or the backend
-// alone while the connection is not known (still loading, or removed).
+// The sub line of a remote row: "backend · remote name", or the backend
+// alone while the remote is not known (still loading, or removed).
 export function remoteSubline(model, index, fallbackBackend) {
   const backend = model?.backend || fallbackBackend
-  const name = index?.get(model?.connection)?.name
+  const name = index?.get(model?.remote_id)?.name
   return [backend, name].filter(Boolean).join(' · ')
 }
 

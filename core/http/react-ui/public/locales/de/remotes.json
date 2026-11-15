@@ -42,11 +42,11 @@
     "listLabel": "Hinzuzufügende Modelle",
     "noMatch": "Kein Modell passt zur Suche.",
     "name": "Name",
-    "nameHint": "Wird in der Liste der Verbindungen angezeigt.",
+    "nameHint": "Wird in der Liste der Gegenstellen angezeigt.",
     "submit": "Verbinden und Modelle hinzufügen",
     "pick": "Wählen Sie mindestens ein Modell aus.",
     "error": {
-      "nameTaken": "Eine Verbindung mit diesem Namen gibt es schon. Wählen Sie einen anderen Namen.",
+      "nameTaken": "Eine Gegenstelle mit diesem Namen gibt es schon. Wählen Sie einen anderen Namen.",
       "invalid": "Der Server hat diese Angaben nicht akzeptiert: {{message}}",
       "other": "Etwas ist schiefgegangen: {{message}}"
     }
@@ -78,7 +78,7 @@
     "unreachableTitle": "Die Gegenstelle ist nicht erreichbar.",
     "unreachableText": "Prüfen Sie die Adresse und ob der andere Server läuft.",
     "updateKey": "Schlüssel aktualisieren",
-    "editConnection": "Verbindung bearbeiten",
+    "editRemote": "Gegenstelle bearbeiten",
     "newTitle": "{{count}} neues Modell auf dieser Gegenstelle",
     "newTitle_other": "{{count}} neue Modelle auf dieser Gegenstelle",
     "addSelected": "Auswahl hinzufügen",
@@ -87,8 +87,8 @@
     "adopted_other": "{{count}} Modelle von {{name}} hinzugefügt.",
     "adoptFailed": "Die Modelle konnten nicht hinzugefügt werden: {{message}}",
     "refreshFailed": "{{name}} konnte nicht aktualisiert werden: {{message}}",
-    "models": "{{count}} Modell von dieser Verbindung",
-    "models_other": "{{count}} Modelle von dieser Verbindung",
+    "models": "{{count}} Modell von dieser Gegenstelle",
+    "models_other": "{{count}} Modelle von dieser Gegenstelle",
     "gone": "{{count}} nicht mehr gelistet",
     "gone_other": "{{count}} nicht mehr gelistet",
     "view": "In „Installiert“ ansehen"
@@ -98,10 +98,10 @@
     "body": "Verbinden Sie ein weiteres LocalAI, einen OpenAI-kompatiblen Dienst oder Anthropic. Jedes gewählte Modell wird hier zu einem Modell."
   },
   "load": {
-    "error": "Ihre Verbindungen konnten nicht geladen werden."
+    "error": "Ihre Gegenstellen konnten nicht geladen werden."
   },
   "edit": {
-    "title": "Verbindung bearbeiten",
+    "title": "Gegenstelle bearbeiten",
     "close": "Schließen",
     "cancel": "Abbrechen",
     "save": "Speichern",
@@ -114,16 +114,16 @@
     "savedKey": "{{name}} gespeichert. Die geladenen Modelle starten mit dem neuen Schlüssel neu."
   },
   "remove": {
-    "button": "Verbindung entfernen",
+    "button": "Gegenstelle entfernen",
     "title": "{{name}} entfernen?",
     "choiceLabel": "Was mit den Modellen geschieht",
     "keep": "Modelle behalten",
     "removeAll": "Modelle auch entfernen",
-    "keepExplain": "Nur die Verbindung wird entfernt. Ihr {{count}} Modell bleibt unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
-    "keepExplain_other": "Nur die Verbindung wird entfernt. Ihre {{count}} Modelle bleiben unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
-    "removeExplain": "Die Verbindung und ihr {{count}} Modell werden entfernt. Das lässt sich nicht rückgängig machen.",
-    "removeExplain_other": "Die Verbindung und ihre {{count}} Modelle werden entfernt. Das lässt sich nicht rückgängig machen.",
-    "confirm": "Verbindung entfernen",
+    "keepExplain": "Nur die Gegenstelle wird entfernt. Ihr {{count}} Modell bleibt unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
+    "keepExplain_other": "Nur die Gegenstelle wird entfernt. Ihre {{count}} Modelle bleiben unter „Installiert“. Braucht die Gegenstelle einen Schlüssel, setzen Sie ihn im Modelleditor.",
+    "removeExplain": "Die Gegenstelle und ihr {{count}} Modell werden entfernt. Das lässt sich nicht rückgängig machen.",
+    "removeExplain_other": "Die Gegenstelle und ihre {{count}} Modelle werden entfernt. Das lässt sich nicht rückgängig machen.",
+    "confirm": "Gegenstelle entfernen",
     "doneKeep": "{{name}} entfernt. Die Modelle bleiben.",
     "doneAll": "{{name}} und seine Modelle entfernt."
   }

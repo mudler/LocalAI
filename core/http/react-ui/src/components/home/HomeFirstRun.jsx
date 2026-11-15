@@ -7,9 +7,9 @@ import StarterModels from '../StarterModels'
 // eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
 import Segmented from '../ui/Segmented'
-import RemoteConnectStep from '../connections/RemoteConnectStep'
-import RemoteChooseStep from '../connections/RemoteChooseStep'
-import { useRemoteConnect } from '../connections/useRemoteConnect'
+import RemoteConnectStep from '../remotes/RemoteConnectStep'
+import RemoteChooseStep from '../remotes/RemoteChooseStep'
+import { useRemoteConnect } from '../remotes/useRemoteConnect'
 
 // The guide that prints a coding agent's config, under API keys in Account.
 export const AGENTS_GUIDE_PATH = '/app/account?tab=keys'
@@ -31,7 +31,7 @@ export const CODING_AGENTS = 'Codex, Claude Code, opencode, Hermes Agent, nib, p
 // An administrator can also say the models run somewhere else (another
 // server or a hosted service). That swaps steps 1 and 2 for "connect a
 // remote" and "choose models"; the steps after them stay. `onRemoteDone` runs
-// with the result of the connection, so the page can say so and read the
+// with the result of the remote, so the page can say so and read the
 // models again: they now exist, and the guide goes away on its own.
 export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, onImport, onRemoteDone }) {
   const { t } = useTranslation('home')

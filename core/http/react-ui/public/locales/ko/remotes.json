@@ -42,11 +42,11 @@
     "listLabel": "추가할 모델",
     "noMatch": "검색과 일치하는 모델이 없습니다.",
     "name": "이름",
-    "nameHint": "연결 목록에 표시됩니다.",
+    "nameHint": "원격 목록에 표시됩니다.",
     "submit": "연결하고 모델 추가",
     "pick": "모델을 하나 이상 선택하세요.",
     "error": {
-      "nameTaken": "같은 이름의 연결이 이미 있습니다. 다른 이름을 입력하세요.",
+      "nameTaken": "같은 이름의 원격이 이미 있습니다. 다른 이름을 입력하세요.",
       "invalid": "서버가 이 정보를 받아들이지 않았습니다: {{message}}",
       "other": "문제가 발생했습니다: {{message}}"
     }
@@ -78,7 +78,7 @@
     "unreachableTitle": "원격에 연결할 수 없습니다.",
     "unreachableText": "주소를 확인하고 다른 서버가 실행 중인지 확인하세요.",
     "updateKey": "키 업데이트",
-    "editConnection": "연결 편집",
+    "editRemote": "원격 편집",
     "newTitle": "이 원격에 새 모델 {{count}}개",
     "newTitle_other": "이 원격에 새 모델 {{count}}개",
     "addSelected": "선택 항목 추가",
@@ -87,8 +87,8 @@
     "adopted_other": "{{name}}에서 모델 {{count}}개를 추가했습니다.",
     "adoptFailed": "모델을 추가할 수 없습니다: {{message}}",
     "refreshFailed": "{{name}}을(를) 새로 고칠 수 없습니다: {{message}}",
-    "models": "이 연결의 모델 {{count}}개",
-    "models_other": "이 연결의 모델 {{count}}개",
+    "models": "이 원격의 모델 {{count}}개",
+    "models_other": "이 원격의 모델 {{count}}개",
     "gone": "{{count}}개는 더 이상 목록에 없음",
     "gone_other": "{{count}}개는 더 이상 목록에 없음",
     "view": "설치됨에서 보기"
@@ -98,10 +98,10 @@
     "body": "다른 LocalAI, OpenAI 호환 서비스 또는 Anthropic을 연결하세요. 선택한 모델은 여기에서 하나의 모델이 됩니다."
   },
   "load": {
-    "error": "연결 목록을 불러올 수 없습니다."
+    "error": "원격 목록을 불러올 수 없습니다."
   },
   "edit": {
-    "title": "연결 편집",
+    "title": "원격 편집",
     "close": "닫기",
     "cancel": "취소",
     "save": "저장",
@@ -114,16 +114,16 @@
     "savedKey": "{{name}}을(를) 저장했습니다. 로드된 모델이 새 키로 다시 시작됩니다."
   },
   "remove": {
-    "button": "연결 제거",
+    "button": "원격 제거",
     "title": "{{name}}을(를) 제거할까요?",
     "choiceLabel": "모델 처리 방법",
     "keep": "모델 유지",
     "removeAll": "모델도 제거",
-    "keepExplain": "연결만 제거됩니다. 모델 {{count}}개는 설치됨에 남습니다. 원격에 키가 필요하면 모델 편집기에서 설정하세요.",
-    "keepExplain_other": "연결만 제거됩니다. 모델 {{count}}개는 설치됨에 남습니다. 원격에 키가 필요하면 모델 편집기에서 설정하세요.",
-    "removeExplain": "연결과 모델 {{count}}개가 제거됩니다. 되돌릴 수 없습니다.",
-    "removeExplain_other": "연결과 모델 {{count}}개가 제거됩니다. 되돌릴 수 없습니다.",
-    "confirm": "연결 제거",
+    "keepExplain": "원격만 제거됩니다. 모델 {{count}}개는 설치됨에 남습니다. 원격에 키가 필요하면 모델 편집기에서 설정하세요.",
+    "keepExplain_other": "원격만 제거됩니다. 모델 {{count}}개는 설치됨에 남습니다. 원격에 키가 필요하면 모델 편집기에서 설정하세요.",
+    "removeExplain": "원격과 모델 {{count}}개가 제거됩니다. 되돌릴 수 없습니다.",
+    "removeExplain_other": "원격과 모델 {{count}}개가 제거됩니다. 되돌릴 수 없습니다.",
+    "confirm": "원격 제거",
     "doneKeep": "{{name}}을(를) 제거했습니다. 모델은 그대로 남습니다.",
     "doneAll": "{{name}}과(와) 그 모델을 제거했습니다."
   }

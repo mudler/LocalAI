@@ -408,8 +408,8 @@
       }
     }
   },
-  "connections": {
-    "tab": "Koneksi",
+  "remotes": {
+    "tab": "Remote",
     "filter": "Remote",
     "unavailable": "Tidak tersedia di hulu",
     "rowMark": "Model remote",
