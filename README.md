@@ -34,11 +34,11 @@ Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run
-# open http://localhost:8080 and install the model it recommends
+local-ai
+# open http://localhost:8080 and install a model from there
 ```
 
-To pick the model yourself, for example a small one that runs on a CPU: `local-ai run gemma-4-e2b-it-qat-q4_0`.
+The script installs the program and does not start it; `local-ai` starts the server. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model for CPUs (about 4.3 GB to download).
 
 **Container** (Docker, podman, ...):
 
