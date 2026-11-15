@@ -11,6 +11,7 @@ illus: "sandbox"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
 demo: ""
 points:
+  - "With the media profile (ffmpeg, sox, ImageMagick), the assistant can join, trim, mix and subtitle clips, and make animated video from pictures, text or a chart. The built-in `assemble-media` skill has tested recipes."
   - "Run Python and shell commands on your files."
   - "Code runs in an isolated sandbox (KVM or gVisor)."
   - "The sandbox has no internet by default."
