@@ -317,5 +317,96 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "sourcesButton": "来源",
+    "sourcesTitle": "搜索来源",
+    "sourcesClose": "关闭",
+    "sourcesHelp": "选择模型搜索要查询的来源。Hugging Face 为内置来源，其他来源由附加组件提供。",
+    "sourcesError": "无法保存所选内容，请重试。",
+    "sourceBuiltin": "内置",
+    "sourceAddon": "来自附加组件",
+    "sourceNotInstalled": "附加组件未安装",
+    "missingHint": "{{sources}} 已开启，但其附加组件未安装。",
+    "missingInstall": "安装附加组件",
+    "noSources": "没有开启任何来源，因此不会搜索任何内容。",
+    "dropped_one": "已跳过 {{count}} 条结果",
+    "dropped_other": "已跳过 {{count}} 条结果",
+    "heading": "来自 {{source}}",
+    "latestHeading": "{{source}} 上的最新模型",
+    "placeholder": "在 {{source}} 中搜索",
+    "resultCount_one": "{{count}} 个结果",
+    "resultCount_other": "{{count}} 个结果",
+    "downloads": "次下载",
+    "seeds_one": "{{count}} 个做种",
+    "seeds_other": "{{count}} 个做种",
+    "gated": "需授权",
+    "ggufOnly": "仅 GGUF",
+    "hint": {
+      "title": "在 {{source}} 中搜索",
+      "text": "在搜索框中输入模型名称。结果实时来自该来源，而不是你的模型库。"
+    },
+    "failed": {
+      "title": "{{source}} 没有响应",
+      "text": "搜索失败。请稍后重试。",
+      "stale": "以下是上一次的结果。{{message}}"
+    },
+    "none": {
+      "title": "在 {{source}} 中没有找到",
+      "text": "换个名称试试。",
+      "gguf": "没有找到 GGUF 格式的结果。关闭“仅 GGUF”可扩大搜索范围。",
+      "fits": "所有结果对这台机器来说都太大。关闭“能放下”筛选即可查看。"
+    },
+    "loadMore": "加载更多",
+    "noLatest": "{{source}} 不提供最新模型列表。请按名称搜索以查看其模型。",
+    "chooseBuild": "选择版本 {{variant}}",
+    "recommended": "推荐",
+    "fits": "能放下",
+    "spill": "部分转到 CPU",
+    "over": "太大",
+    "installed": "{{model}} 已安装。",
+    "ambiguous": "有多个后端可以运行此模型。请在“导入模型”中选择一个。",
+    "gatedTitle": "访问受限。",
+    "gatedBody": "此仓库需要在 Hugging Face 上获得批准，因此 LocalAI 无法从这里安装。",
+    "gatedP2p": "此模型在 Hugging Face 上需要授权。种子下载不需要令牌，但该模型的许可条款仍然适用。",
+    "gatedHfInstall": "在 Hugging Face 上受限：需要批准，无法从这里安装。",
+    "sizesUnknown": "没有找到文件大小。Hugging Face 没有收录此仓库，因此无法估算是否能放下。",
+    "importError": "没有与这些文件匹配的后端。",
+    "importErrorBody": "安装仍可能失败。请在“导入模型”中选择后端。",
+    "approximate": "这是粗略估算。无法读取模型头信息，因此内存按文件大小加上上下文的经验值计算。",
+    "noEstimate": "大小未知，因此没有该模型的估算。",
+    "files": {
+      "failed": {
+        "title": "无法读取文件列表",
+        "body": "该来源没有响应。请重试。"
+      },
+      "rateLimited": {
+        "title": "该来源要求放慢速度",
+        "body": "请求过多。请等待一分钟后重试。"
+      },
+      "notFound": {
+        "title": "未找到仓库",
+        "body": "它是私有的、已被删除，或未被此来源收录。"
+      }
+    }
+  },
+  "remotes": {
+    "tab": "远程",
+    "filter": "远程",
+    "unavailable": "上游不可用",
+    "rowMark": "远程模型",
+    "sizeRemote": "远程",
+    "connectButton": "连接远程",
+    "sheetTitle": "连接远程",
+    "sheetDescription": "添加在其他服务器或服务上运行的模型。",
+    "toastDone": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "toastDone_other": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "toastSkipped": "有 {{count}} 个模型未添加。",
+    "toastSkipped_other": "有 {{count}} 个模型未添加。"
   }
 }

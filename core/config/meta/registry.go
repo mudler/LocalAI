@@ -1258,6 +1258,14 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "input",
 			Order:       211,
 		},
+		"proxy.remote": {
+			Section:     "proxy",
+			Label:       "Proxy Remote",
+			Description: "Id of the remote that owns this model and supplies its key. Set by the remotes feature; remove it to detach the model. Cannot be combined with api_key, api_key_env or api_key_file.",
+			Component:   "input",
+			Advanced:    true,
+			Order:       211,
+		},
 		"proxy.upstream_model": {
 			Section:     "proxy",
 			Label:       "Proxy Upstream Model",

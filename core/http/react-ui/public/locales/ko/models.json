@@ -301,5 +301,96 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "sourcesButton": "소스",
+    "sourcesTitle": "검색 소스",
+    "sourcesClose": "닫기",
+    "sourcesHelp": "모델 검색이 조회할 소스를 고르세요. Hugging Face는 기본 제공됩니다. 다른 소스는 애드온에서 옵니다.",
+    "sourcesError": "선택을 저장하지 못했습니다. 다시 시도하세요.",
+    "sourceBuiltin": "기본 제공",
+    "sourceAddon": "애드온 제공",
+    "sourceNotInstalled": "애드온이 설치되지 않음",
+    "missingHint": "{{sources}}이(가) 켜져 있지만 해당 애드온이 설치되어 있지 않습니다.",
+    "missingInstall": "애드온 설치",
+    "noSources": "켜진 소스가 없어 아무것도 검색하지 않습니다.",
+    "dropped_one": "결과 {{count}}개 건너뜀",
+    "dropped_other": "결과 {{count}}개 건너뜀",
+    "heading": "{{source}}의 결과",
+    "latestHeading": "{{source}}의 최신 모델",
+    "placeholder": "{{source}}에서 검색",
+    "resultCount_one": "결과 {{count}}개",
+    "resultCount_other": "결과 {{count}}개",
+    "downloads": "다운로드",
+    "seeds_one": "시드 {{count}}개",
+    "seeds_other": "시드 {{count}}개",
+    "gated": "접근 제한",
+    "ggufOnly": "GGUF만",
+    "hint": {
+      "title": "{{source}}에서 검색",
+      "text": "검색창에 모델 이름을 입력하세요. 결과는 라이브러리가 아니라 해당 소스에서 바로 가져옵니다."
+    },
+    "failed": {
+      "title": "{{source}}에서 응답이 없습니다",
+      "text": "검색에 실패했습니다. 잠시 후 다시 시도하세요.",
+      "stale": "마지막 결과를 표시하고 있습니다. {{message}}"
+    },
+    "none": {
+      "title": "{{source}}에서 찾지 못했습니다",
+      "text": "다른 이름으로 시도해 보세요.",
+      "gguf": "GGUF 형식에서는 찾지 못했습니다. 검색을 넓히려면 “GGUF만”을 끄세요.",
+      "fits": "모든 결과가 이 컴퓨터에는 너무 큽니다. 결과를 보려면 적합 필터를 끄세요."
+    },
+    "loadMore": "더 보기",
+    "noLatest": "{{source}}은(는) 최신 모델 목록을 제공하지 않습니다. 이름으로 검색하면 모델을 볼 수 있습니다.",
+    "chooseBuild": "{{variant}} 빌드 선택",
+    "recommended": "권장",
+    "fits": "적합",
+    "spill": "일부 CPU 사용",
+    "over": "너무 큼",
+    "installed": "{{model}}이(가) 설치되었습니다.",
+    "ambiguous": "이 모델을 실행할 수 있는 백엔드가 여러 개입니다. 모델 가져오기에서 하나를 고르세요.",
+    "gatedTitle": "접근이 제한되어 있습니다.",
+    "gatedBody": "이 저장소는 Hugging Face에서 승인이 필요하므로 LocalAI가 여기서 설치할 수 없습니다.",
+    "gatedP2p": "이 모델은 Hugging Face에서 접근이 제한되어 있습니다. 토렌트에는 토큰이 필요 없지만 모델의 라이선스 조건은 그대로 적용됩니다.",
+    "gatedHfInstall": "Hugging Face에서 접근이 제한됨: 승인이 필요하여 여기서 설치할 수 없습니다.",
+    "sizesUnknown": "파일 크기를 찾지 못했습니다. Hugging Face에 이 저장소가 없어서 적합 여부를 추정할 수 없습니다.",
+    "importError": "이 파일들과 맞는 백엔드가 없습니다.",
+    "importErrorBody": "설치가 실패할 수 있습니다. 모델 가져오기에서 백엔드를 고르세요.",
+    "approximate": "대략적인 추정입니다. 모델 헤더를 읽지 못해 메모리를 파일 크기에 컨텍스트용 경험 규칙을 더해 계산했습니다.",
+    "noEstimate": "크기를 알 수 없어 이 모델의 적합 추정치가 없습니다.",
+    "files": {
+      "failed": {
+        "title": "파일 목록을 읽지 못했습니다",
+        "body": "소스에서 응답이 없습니다. 다시 시도하세요."
+      },
+      "rateLimited": {
+        "title": "소스에서 속도를 줄여 달라고 요청했습니다",
+        "body": "요청이 너무 많습니다. 1분 뒤에 다시 시도하세요."
+      },
+      "notFound": {
+        "title": "저장소를 찾을 수 없습니다",
+        "body": "비공개이거나 삭제되었거나 이 소스에 없는 저장소입니다."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "원격",
+    "filter": "원격",
+    "unavailable": "업스트림에서 사용 불가",
+    "rowMark": "원격 모델",
+    "sizeRemote": "원격",
+    "connectButton": "원격 연결",
+    "sheetTitle": "원격 연결",
+    "sheetDescription": "다른 서버나 서비스에서 실행되는 모델을 추가합니다.",
+    "toastDone": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
+    "toastDone_other": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
+    "toastSkipped": "모델 {{count}}개는 추가되지 않았습니다.",
+    "toastSkipped_other": "모델 {{count}}개는 추가되지 않았습니다."
   }
 }

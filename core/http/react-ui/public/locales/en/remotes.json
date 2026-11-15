@@ -1,0 +1,185 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "OpenAI-compatible",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "Custom"
+  },
+  "connect": {
+    "kind": "Type of remote",
+    "provider": "Provider",
+    "address": "Address",
+    "addressHintLocalai": "The address of the other LocalAI server.",
+    "addressHintOpenai": "The base address of the service. It usually ends in /v1.",
+    "key": "API key",
+    "optional": "optional",
+    "keyHint": "The key stays on this server and is not shown again.",
+    "pii": "Requests to hosted services pass through LocalAI's PII filter, which is on by default.",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "ok": "Connected. Found {{count}} model.",
+    "ok_other": "Connected. Found {{count}} models.",
+    "failTitle": "Could not connect.",
+    "fail": {
+      "invalid_url": "That address is not valid. Check it and try again.",
+      "unreachable": "Could not reach the server. Check the address and that the other server is running and reachable from this server.",
+      "auth": "The provider rejected the key. Check it and try again.",
+      "no_models": "The connection works, but it lists no models to add.",
+      "other": "The test failed.",
+      "authLocalai": "The other LocalAI server rejected the key. Use a key that can list its models, or leave the key empty if the server needs none.",
+      "unsupported": "This server cannot connect remotes."
+    }
+  },
+  "choose": {
+    "waiting": "Test the connection first. Its models appear here.",
+    "search": "Search models",
+    "count": "{{selected}} of {{total}} selected",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "listLabel": "Models to add",
+    "noMatch": "No model matches your search.",
+    "name": "Name",
+    "nameHint": "Shown in the list of remotes.",
+    "submit": "Connect and add models",
+    "pick": "Select at least one model.",
+    "error": {
+      "nameTaken": "A remote with this name already exists. Choose another name.",
+      "invalid": "The server did not accept these details: {{message}}",
+      "other": "Something went wrong: {{message}}",
+      "unsupported": "This server cannot connect remotes."
+    },
+    "tooMany": "Select at most {{max}} models at a time. Add the rest later."
+  },
+  "usecase": {
+    "chat": "Chat",
+    "transcript": "Transcription",
+    "tts": "Speech",
+    "embeddings": "Embeddings",
+    "image": "Image",
+    "video": "Video",
+    "rerank": "Rerank",
+    "completion": "Completion",
+    "edit": "Edit",
+    "vision": "Vision",
+    "tokenize": "Tokenize",
+    "upscale": "Upscale",
+    "3d": "3D",
+    "3d_animation": "3D animation",
+    "motion": "Motion",
+    "sound_generation": "Sound generation",
+    "detection": "Detection",
+    "depth": "Depth",
+    "forecast": "Forecast",
+    "vad": "Voice activity",
+    "audio_transform": "Audio transform",
+    "diarization": "Diarization",
+    "sound_classification": "Sound classification",
+    "realtime_audio": "Realtime audio",
+    "face_recognition": "Face recognition",
+    "speaker_recognition": "Speaker recognition"
+  },
+  "sheet": {
+    "open": "Connect a remote"
+  },
+  "card": {
+    "justNow": "just now",
+    "status": {
+      "ok": "Connected · refreshed {{when}}",
+      "never": "Not refreshed yet",
+      "auth_failed": "Key rejected",
+      "unreachable": "Unreachable",
+      "noUsable": "Connected · no usable models"
+    },
+    "refresh": "Refresh",
+    "edit": "Edit",
+    "authTitle": "The remote rejected the key.",
+    "authText": "Update the key to connect again.",
+    "unreachableTitle": "Could not reach the remote.",
+    "unreachableText": "Check the address and that the other server is running.",
+    "updateKey": "Update key",
+    "editRemote": "Edit remote",
+    "newTitle": "{{count}} new model on this remote",
+    "newTitle_other": "{{count}} new models on this remote",
+    "addSelected": "Add selected",
+    "notNow": "Not now",
+    "adopted": "Added {{count}} model from {{name}}.",
+    "adopted_other": "Added {{count}} models from {{name}}.",
+    "adoptFailed": "Could not add the models: {{message}}",
+    "refreshFailed": "Could not refresh {{name}}: {{message}}",
+    "models": "{{count}} model from this remote",
+    "models_other": "{{count}} models from this remote",
+    "gone": "{{count}} no longer listed",
+    "gone_other": "{{count}} no longer listed",
+    "view": "View in Installed",
+    "noUsableTitle": "No usable models.",
+    "noUsableText": "The remote answered, but it lists no models this server can use.",
+    "refreshWarn": "Refreshed {{name}}, but it has no usable models.",
+    "authTextLocalai": "Use a key that can list the models of that server, then connect again."
+  },
+  "empty": {
+    "title": "No remotes connected",
+    "body": "Connect another LocalAI, an OpenAI-compatible service or Anthropic. Each model you pick becomes a model here."
+  },
+  "load": {
+    "error": "Could not load your remotes."
+  },
+  "edit": {
+    "title": "Edit remote",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "name": "Name",
+    "key": "New API key",
+    "keySet": "A key is set. Leave this empty to keep it.",
+    "keyNotSet": "No key is set.",
+    "keyRestart": "A new key restarts the models that are loaded.",
+    "saved": "Saved {{name}}.",
+    "savedKey": "Saved {{name}}. Its loaded models restart with the new key.",
+    "savedWarn": "Saved {{name}}, but it still has a problem. Open the remote to see it."
+  },
+  "remove": {
+    "button": "Remove remote",
+    "title": "Remove {{name}}?",
+    "choiceLabel": "What happens to the models",
+    "keep": "Keep the models",
+    "removeAll": "Remove models too",
+    "keepExplain": "Only the remote goes away. Its {{count}} model stays in Installed. If the remote needs a key, set it in the model editor.",
+    "keepExplain_other": "Only the remote goes away. Its {{count}} models stay in Installed. If the remote needs a key, set it in the model editor.",
+    "removeExplain": "The remote and its {{count}} model are removed. This cannot be undone.",
+    "removeExplain_other": "The remote and its {{count}} models are removed. This cannot be undone.",
+    "confirm": "Remove remote",
+    "doneKeep": "Removed {{name}}. Its models stay.",
+    "doneAll": "Removed {{name}} and its models."
+  },
+  "result": {
+    "added": "Added {{count}} model.",
+    "added_other": "Added {{count}} models.",
+    "partialTitle": "The remote is saved, but some models were not added.",
+    "skippedTitle": "Some models were not added.",
+    "adoptHint": "Adopt the missing models. This does not create the remote again.",
+    "adopt": "Adopt models",
+    "continue": "Continue"
+  },
+  "skipped": {
+    "summary": "{{count}} model not added",
+    "summary_other": "{{count}} models not added",
+    "reason": {
+      "listedTwice": "Listed twice",
+      "alreadyAdopted": "Already added",
+      "noFreeName": "No free model name",
+      "nameExists": "A model with that name exists",
+      "invalid": "The model name or settings are not valid",
+      "buildFailed": "Could not prepare the model",
+      "writeFailed": "Could not save the model"
+    }
+  },
+  "unsupported": {
+    "title": "Remotes are not available",
+    "body": "This server runs without the model gallery, so it cannot connect remotes."
+  }
+}

@@ -64,6 +64,16 @@ func (r VersionRange) accepts(v uint64) bool {
 // one: a manifest declares the range {"min": 2, "max": 2}.
 const HostAPIVersion uint64 = 2
 
+// HostVersion, HostProtocolVersion and HostDataFormatVersion are the other
+// version numbers a host reports in HostCompatibility. The host protocol
+// is the process protocol of pkg/addons/sdk/protocol. The data format is the
+// layout of the files an add-on keeps in its data directory.
+const (
+	HostVersion           uint64 = 1
+	HostProtocolVersion   uint64 = 1
+	HostDataFormatVersion uint64 = 1
+)
+
 // isHostAPI reports whether the range is exactly the manifest API of the host.
 func (r VersionRange) isHostAPI() bool {
 	return r.Min == HostAPIVersion && r.Max == HostAPIVersion
@@ -83,7 +93,8 @@ func (r VersionRange) isHostAPI() bool {
 // Level 6: capabilities.executionProvider.jobs.
 // Level 7: capabilities.client (routes that a paired client may call).
 // Level 8: a wildcard tail ({name...}) as the last segment of a client route.
-const HostFeatureLevel uint64 = 8
+// Level 9: capabilities.modelSearch (a source of the model-search slot).
+const HostFeatureLevel uint64 = 9
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -117,6 +128,9 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if m.Capabilities.ModelSearch != nil {
+		return 9
+	}
 	if m.usesClientTail() {
 		return 8
 	}
@@ -267,6 +281,9 @@ type Capabilities struct {
 	// providerslots.go). The person picks one provider per slot; the add-on's
 	// context files and skills count only while it is the one picked.
 	Provides []ProviderDeclaration `json:"provides,omitempty"`
+	// ModelSearch describes the source of an add-on that provides the
+	// model-search slot (see modelsearch.go). Feature level 9.
+	ModelSearch *ModelSearch `json:"modelSearch,omitempty"`
 
 	// Credentials declare the secret that the host keeps for the person and
 	// hands to each call (see credentials.go). It needs a connector
@@ -574,6 +591,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateProvides(c); e != nil {
+		return e
+	}
+	if e := validateModelSearch(m); e != nil {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {

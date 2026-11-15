@@ -4,7 +4,6 @@ go 1.26.0
 
 require (
 	dario.cat/mergo v1.0.2
-	fyne.io/fyne/v2 v2.7.3
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.15.0
 	github.com/anacrolix/generics v0.2.0
@@ -19,7 +18,7 @@ require (
 	github.com/containerd/containerd v1.7.33
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
-	github.com/ebitengine/purego v0.10.0
+	github.com/ebitengine/purego v0.11.3
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6
 	github.com/emersion/go-smtp v0.24.0
@@ -74,6 +73,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/nats v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/timbutler/zxcvbn v1.0.4
+	github.com/tmc/apple v0.6.18
 	github.com/valkey-io/valkey-go v1.0.76
 	github.com/valkey-io/valkey-go/mock v1.0.76
 	github.com/yalue/onnxruntime_go v1.11.0
@@ -310,8 +310,6 @@ require (
 )
 
 require (
-	fyne.io/systray v1.12.0 // indirect
-	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
 	github.com/charmbracelet/x/ansi v0.10.2 // indirect
@@ -323,23 +321,9 @@ require (
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fredbi/uri v1.1.1 // indirect
-	github.com/fyne-io/gl-js v0.2.0 // indirect
-	github.com/fyne-io/glfw-js v0.3.0 // indirect
-	github.com/fyne-io/image v0.1.1 // indirect
-	github.com/fyne-io/oksvg v0.2.0 // indirect
-	github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71 // indirect
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20240506104042-037f3cc74f2a // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/go-text/render v0.2.0 // indirect
-	github.com/go-text/typesetting v0.3.3 // indirect
-	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/jsonschema-go v0.4.2
-	github.com/hack-pad/go-indexeddb v0.3.2 // indirect
-	github.com/hack-pad/safejs v0.1.0 // indirect
-	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
 	github.com/libp2p/go-yamux/v5 v5.1.0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -350,8 +334,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
-	github.com/nicksnyder/go-i18n/v2 v2.5.1 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pion/datachannel v1.6.0 // indirect
 	github.com/pion/dtls/v3 v3.1.2 // indirect
@@ -369,10 +351,7 @@ require (
 	github.com/pion/turn/v4 v4.1.4 // indirect
 	github.com/pion/webrtc/v4 v4.2.11
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
-	github.com/rymdport/portal v0.4.2 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
-	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
-	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect

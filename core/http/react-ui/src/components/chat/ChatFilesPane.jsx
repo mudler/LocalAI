@@ -13,6 +13,7 @@ import { useArrivals } from '../../hooks/useArrivals'
 import { copyToClipboard } from '../../utils/clipboard'
 import { makeZip, zipNames } from '../../utils/zip'
 import { TEXT_VIEWS, extensionForLanguage, viewOf } from '../../utils/previewPane'
+import { findChatFile } from '../../utils/chatMedia'
 // The rows of the list are the Files page's rows.
 import '../../pages/workspace.css'
 
@@ -50,16 +51,6 @@ function FileRow({ file, selected, fresh, recent, onSelect, t, tw }) {
       </a>
     </li>
   )
-}
-
-// The file a step of the transcript names: by its path, as the pane or the
-// model knows it, or else by its name.
-export function findChatFile(files, path) {
-  if (!path) return null
-  const name = path.split('/').pop()
-  return files.find(f => f.path === path || f.guest_path === path)
-    || files.find(f => f.name === name)
-    || null
 }
 
 const folderOf = (path) => {

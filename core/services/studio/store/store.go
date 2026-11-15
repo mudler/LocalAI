@@ -195,6 +195,19 @@ type Store interface {
 	// like the switches above.
 	SetScopedAgent(ctx context.Context, principal, chatID string, scoped bool) error
 
+	// SetProject sets ChatRecord.ProjectID; "" clears it. UpdateChat leaves it
+	// alone, like the switches above.
+	SetProject(ctx context.Context, principal, chatID, projectID string) error
+	// SetPulledProjects sets ChatRecord.PulledProjects, replacing the earlier
+	// list. UpdateChat leaves it alone.
+	SetPulledProjects(ctx context.Context, principal, chatID string, ids []string) error
+	// SetCollections sets ChatRecord.Collections, replacing the earlier list;
+	// nil or empty lifts the restriction. UpdateChat leaves it alone.
+	SetCollections(ctx context.Context, principal, chatID string, names []string) error
+	// ListChatsInProject returns the chats of principal whose ProjectID is
+	// projectID, newest update first. A limit of 0 or less means no limit.
+	ListChatsInProject(ctx context.Context, principal, projectID string, limit int) ([]session.ChatRecord, error)
+
 	// SetHostConsent sets the consent card of the built-in bash that waits for
 	// an answer, or clears it with nil. UpdateChat leaves it alone, like the
 	// switches above.

@@ -330,5 +330,96 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "sourcesButton": "Sumber",
+    "sourcesTitle": "Sumber pencarian",
+    "sourcesClose": "Tutup",
+    "sourcesHelp": "Pilih sumber yang ditanyai oleh pencarian model. Hugging Face sudah bawaan. Sumber lain berasal dari add-on.",
+    "sourcesError": "Pilihan tidak dapat disimpan. Coba lagi.",
+    "sourceBuiltin": "Bawaan",
+    "sourceAddon": "Dari add-on",
+    "sourceNotInstalled": "Add-on belum terpasang",
+    "missingHint": "{{sources}} aktif, tetapi add-on-nya belum terpasang.",
+    "missingInstall": "Pasang add-on",
+    "noSources": "Tidak ada sumber yang aktif, jadi tidak ada yang dicari.",
+    "dropped_one": "{{count}} hasil dilewati",
+    "dropped_other": "{{count}} hasil dilewati",
+    "heading": "Dari {{source}}",
+    "latestHeading": "Terbaru di {{source}}",
+    "placeholder": "Cari di {{source}}",
+    "resultCount_one": "{{count}} hasil",
+    "resultCount_other": "{{count}} hasil",
+    "downloads": "unduhan",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seed",
+    "gated": "Dibatasi",
+    "ggufOnly": "Hanya GGUF",
+    "hint": {
+      "title": "Cari di {{source}}",
+      "text": "Ketik nama model di kotak pencarian. Hasilnya datang langsung dari sumber, bukan dari pustaka Anda."
+    },
+    "failed": {
+      "title": "{{source}} tidak merespons",
+      "text": "Pencarian gagal. Coba lagi sebentar lagi.",
+      "stale": "Ini hasil terakhir. {{message}}"
+    },
+    "none": {
+      "title": "Tidak ada hasil di {{source}}",
+      "text": "Coba nama lain.",
+      "gguf": "Tidak ada hasil dalam format GGUF. Matikan “Hanya GGUF” untuk memperluas pencarian.",
+      "fits": "Semua hasil terlalu besar untuk mesin ini. Matikan filter muat untuk melihatnya."
+    },
+    "loadMore": "Muat lebih banyak",
+    "noLatest": "{{source}} tidak menyediakan daftar model terbarunya. Cari berdasarkan nama untuk melihat modelnya.",
+    "chooseBuild": "Pilih varian {{variant}}",
+    "recommended": "Disarankan",
+    "fits": "Muat",
+    "spill": "Sebagian di CPU",
+    "over": "Terlalu besar",
+    "installed": "{{model}} sudah terpasang.",
+    "ambiguous": "Beberapa backend dapat menjalankan model ini. Gunakan Impor model untuk memilih salah satu.",
+    "gatedTitle": "Akses dibatasi.",
+    "gatedBody": "Repositori ini perlu persetujuan di Hugging Face, sehingga LocalAI tidak dapat memasangnya dari sini.",
+    "gatedP2p": "Model ini dibatasi di Hugging Face. Torrent tidak memerlukan token, tetapi ketentuan lisensi model tetap berlaku.",
+    "gatedHfInstall": "Dibatasi di Hugging Face: perlu persetujuan, sehingga tidak dapat dipasang dari sini.",
+    "sizesUnknown": "Ukuran berkas tidak ditemukan. Hugging Face tidak mencantumkan repositori ini, sehingga kecocokan tidak dapat diperkirakan.",
+    "importError": "Tidak ada backend yang cocok dengan berkas ini.",
+    "importErrorBody": "Pemasangan masih bisa gagal. Gunakan Impor model untuk memilih backend.",
+    "approximate": "Perkiraan kasar. Header model tidak dapat dibaca, jadi memori dihitung dari ukuran berkas ditambah aturan praktis untuk konteks.",
+    "noEstimate": "Ukuran tidak diketahui, jadi tidak ada perkiraan kecocokan untuk model ini.",
+    "files": {
+      "failed": {
+        "title": "Daftar berkas tidak dapat dibaca",
+        "body": "Sumber tidak merespons. Coba lagi."
+      },
+      "rateLimited": {
+        "title": "Sumber meminta untuk memperlambat",
+        "body": "Terlalu banyak permintaan. Tunggu semenit lalu coba lagi."
+      },
+      "notFound": {
+        "title": "Repositori tidak ditemukan",
+        "body": "Repositori ini privat, dihapus, atau tidak tercantum di sumber ini."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "Remote",
+    "filter": "Remote",
+    "unavailable": "Tidak tersedia di hulu",
+    "rowMark": "Model remote",
+    "sizeRemote": "Remote",
+    "connectButton": "Hubungkan remote",
+    "sheetTitle": "Hubungkan remote",
+    "sheetDescription": "Tambahkan model yang berjalan di server atau layanan lain.",
+    "toastDone": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "toastDone_other": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "toastSkipped": "{{count}} model tidak ditambahkan.",
+    "toastSkipped_other": "{{count}} model tidak ditambahkan."
   }
 }

@@ -180,7 +180,22 @@ func (s *Service) SharedAgent(ctx context.Context, user, id string) (agents.Agen
 // or an agent shared with p. The definition is the owner's; everything the
 // chat then resolves (files, add-ons, collections, connections, grants) is
 // resolved for p.
+//
+// The agent of a project comes back capped by its project's tool lists (see
+// capAgent), or with ErrProjectUnavailable: a run never reads the uncapped
+// lists. Code that must show or keep the stored lists (the editor, export) or
+// that checks the project itself uses storedChatAgent.
 func (s *Service) chatAgent(ctx context.Context, p, id string) (agents.Agent, error) {
+	ag, err := s.storedChatAgent(ctx, p, id)
+	if err != nil {
+		return ag, err
+	}
+	return s.runtimeAgent(ctx, ag)
+}
+
+// storedChatAgent is chatAgent without the project ceiling: the lists are the
+// stored ones.
+func (s *Service) storedChatAgent(ctx context.Context, p, id string) (agents.Agent, error) {
 	if s.d.Agents == nil {
 		return agents.Agent{}, agents.ErrNotFound
 	}
@@ -321,6 +336,9 @@ func (s *Service) AgentShareRef(ctx context.Context, user, id string) (string, e
 	ag, err := s.ownAgent(ctx, user, id)
 	if err != nil {
 		return "", err
+	}
+	if ag.ProjectID != "" {
+		return "", fmt.Errorf("%w: project agents cannot be shared", agents.ErrInvalid)
 	}
 	if ag.ShareRef != "" {
 		return ag.ShareRef, nil

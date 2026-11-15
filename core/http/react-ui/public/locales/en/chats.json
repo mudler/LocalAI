@@ -1364,7 +1364,8 @@
       "user": "All your chats",
       "agent": "Agent {{agent}}",
       "agentAny": "One agent",
-      "channel": "This conversation"
+      "channel": "This conversation",
+      "project": "This project"
     },
     "help": "Nothing is saved until you confirm.",
     "row": {
@@ -1372,7 +1373,9 @@
       "target": "File",
       "source": "From",
       "expires": "Expires in",
-      "collection": "Collection"
+      "collection": "Collection",
+      "proposedBy": "Proposed by",
+      "note": "Note"
     },
     "source": {
       "chat": "A chat",
@@ -1447,6 +1450,17 @@
       "consent": "The recording is saved as a voice profile that your chats can speak with. You can delete it in the Voice library.",
       "consentAdmin": "You are an administrator, so this voice becomes available to all users of this server.",
       "confirm": "The speaker agreed: save the voice"
+    },
+    "fromOther": {
+      "title": "{{name}} proposed a note for {{project}}",
+      "titleNoProject": "{{name}} proposed a note",
+      "help": "Nothing is written until you confirm. {{name}} proposed this from a chat that pulled in this project.",
+      "by": "{{name}}, from their own chat",
+      "voided": "{{name}} can no longer edit this project.",
+      "noteFor": "A note for {{project}}",
+      "thisProject": "this project",
+      "why": "Share the project with edit access again, then ask for the note again if you still want it.",
+      "nameHint": "Project name taken from its folder"
     }
   },
   "proposalsPage": {

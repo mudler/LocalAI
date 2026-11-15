@@ -11,8 +11,8 @@ import (
 	"github.com/mudler/LocalAI/addons/github/githubtest"
 	"github.com/mudler/LocalAI/addons/github/internal/ghapi"
 	"github.com/mudler/LocalAI/addons/github/internal/tools"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

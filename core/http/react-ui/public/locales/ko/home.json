@@ -82,13 +82,19 @@
       "step2Title": "모델 설치",
       "step2Body": "설치를 클릭하면 자동으로 다운로드되고 구성됩니다.",
       "step3Title": "채팅 시작",
-      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요."
+      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요.",
+      "step4Title": "에이전트 연결하기",
+      "step4Body": "API 키를 만든 뒤 코딩 에이전트를 연결하세요: {{agents}}. 가이드가 주소와 키를 채워 줍니다.",
+      "step5Title": "애드온으로 LocalAI 확장",
+      "step5Body": "애드온은 새 기능을 추가합니다. 라이브러리에서 설치하세요."
     },
     "browseGallery": "모델 갤러리 둘러보기",
     "importModel": "모델 가져오기",
     "docs": "문서",
     "noModelsTitle": "사용 가능한 모델 없음",
-    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요."
+    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요.",
+    "connectAgents": "코딩 에이전트 연결",
+    "browseAddons": "애드온 둘러보기"
   },
   "connect": {
     "title": "하나의 엔드포인트, 모든 API",
@@ -100,7 +106,8 @@
     "copied": "복사됨",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "코딩 에이전트 연결: API 키를 만들고 설정 복사"
   },
   "jump": {
     "heading": "Jump back in",
@@ -191,5 +198,22 @@
     "installing": "설치 중",
     "installStarted": "{{model}} 설치 중…",
     "installFailed": "설치 실패: {{message}}"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "모델은 어디에서 실행되나요?",
+      "local": "이 컴퓨터에서",
+      "remote": "다른 서버나 서비스에서",
+      "remoteIntro": "이미 다른 곳에서 실행 중인 모델을 연결하세요. 로컬 모델은 나중에 설치할 수 있습니다.",
+      "remoteNote": "원격 모델은 권장 모델과 컨텍스트 크기 확인을 건너뜁니다."
+    },
+    "step1Title": "원격 연결",
+    "step1Body": "유형을 고른 뒤 LocalAI가 접속할 수 있는지 확인하세요.",
+    "step2Title": "모델 선택",
+    "step2Body": "선택한 모델은 여기에서 하나의 모델이 됩니다.",
+    "done": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
+    "done_other": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
+    "skipped": "모델 {{count}}개가 추가되지 않았습니다:",
+    "skipped_other": "모델 {{count}}개가 추가되지 않았습니다:"
   }
 }

@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // rowArgs is the argument object of the row tools. Unknown fields are

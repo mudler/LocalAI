@@ -12,9 +12,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/gdrive/internal/driveapi"
-	"github.com/mudler/LocalAI/addons/internal/argutil"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 type searchArgs struct {

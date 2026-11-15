@@ -3,9 +3,12 @@ package session
 import (
 	"context"
 	"fmt"
+	"path"
+	"slices"
 	"sort"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -41,7 +44,7 @@ func sameActor(a, b workspace.Actor) bool {
 
 // sameView reports whether two views have the same mounts with the same modes.
 func sameView(a, b workspace.View) bool {
-	if len(a.Mounts) != len(b.Mounts) {
+	if len(a.Mounts) != len(b.Mounts) || !slices.Equal(a.Notes, b.Notes) {
 		return false
 	}
 	for i := range a.Mounts {
@@ -57,7 +60,7 @@ func sameView(a, b workspace.View) bool {
 // is the one place a chat's view is built: UserAccess (the home) and
 // ScopedAccess (the agent's folder and the chat folder) both call it, so an
 // unscoped and a scoped chat get the same layout rules.
-func (m *Manager) buildView(ctx context.Context, a workspace.Actor, primary string, extra []string, chat string) (workspace.View, error) {
+func (m *Manager) buildView(ctx context.Context, a workspace.Actor, primary string, extra []string, chat string, projectMounts ...workspace.MountRequest) (workspace.View, error) {
 	if m.o.Workspace == nil {
 		return workspace.View{Actor: a}, nil
 	}
@@ -68,20 +71,36 @@ func (m *Manager) buildView(ctx context.Context, a workspace.Actor, primary stri
 			return workspace.View{}, fmt.Errorf("session: list shared folders: %w", err)
 		}
 	}
-	return BuildViewFolders(ctx, m.o.Workspace, a, primary, extra, chat, shared, m.log)
+	if workspace.HasFence(a) {
+		// A fenced chat is never offered the projects that other users
+		// share: the fence leaves them out, so they must not be counted as
+		// "not mounted" either (the notice would be false).
+		shared = slices.DeleteFunc(slices.Clone(shared), func(r SharedRoot) bool {
+			return projects.CoversOtherProjects(path.Clean("/"+strings.Trim(r.Path, "/")), a.Principal)
+		})
+	}
+	return BuildViewFolders(ctx, m.o.Workspace, a, primary, extra, chat, shared, m.log, projectMounts...)
 }
 
 // UserAccess is the access of a chat that works on the whole home: the
 // actor as given and the view of its home and its shared folders. The actor
 // must not be fenced: a fenced actor cannot mount the home.
 func (m *Manager) UserAccess(ctx context.Context, a workspace.Actor) (Access, error) {
+	return m.UserAccessProjects(ctx, a, nil, nil)
+}
+
+// UserAccessProjects is UserAccess for a chat in a project: projectMounts are
+// the folders of its projects (see BuildViewFolders) and notes are sentences
+// for the prompt, for example the pulled projects left out this turn.
+func (m *Manager) UserAccessProjects(ctx context.Context, a workspace.Actor, projectMounts []workspace.MountRequest, notes []string) (Access, error) {
 	if _, fenced := a.Fence(); fenced {
 		return Access{}, fmt.Errorf("%w: a fenced actor has no view of the home", ErrInvalid)
 	}
-	v, err := m.buildView(ctx, a, HomePath(a.Principal), nil, "")
+	v, err := m.buildView(ctx, a, HomePath(a.Principal), nil, "", projectMounts...)
 	if err != nil {
 		return Access{}, err
 	}
+	v.Notes = append([]string(nil), notes...)
 	return NewAccess(a, v)
 }
 
@@ -100,6 +119,12 @@ func (m *Manager) ScopedAccess(ctx context.Context, a workspace.Actor, primary, 
 // primary is the first one, at "home", and extra are the others, at
 // "folder-<name>" (see FolderMountNames).
 func (m *Manager) ScopedAccessFolders(ctx context.Context, a workspace.Actor, primary string, extra []string, chat string) (Access, error) {
+	return m.ScopedAccessNotes(ctx, a, primary, extra, chat, nil)
+}
+
+// ScopedAccessNotes is ScopedAccessFolders with notes: sentences for the
+// prompt of the scoped chat, for example the project the folders belong to.
+func (m *Manager) ScopedAccessNotes(ctx context.Context, a workspace.Actor, primary string, extra []string, chat string, notes []string) (Access, error) {
 	if !workspace.HasFence(a) {
 		return Access{}, fmt.Errorf("%w: a scoped access needs a fenced actor", ErrInvalid)
 	}
@@ -113,6 +138,7 @@ func (m *Manager) ScopedAccessFolders(ctx context.Context, a workspace.Actor, pr
 	if err != nil {
 		return Access{}, err
 	}
+	v.Notes = append([]string(nil), notes...)
 	return NewAccess(a, v)
 }
 

@@ -7,7 +7,6 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
-LAUNCHER_BINARY_NAME=local-ai-launcher
 
 UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
@@ -46,11 +45,6 @@ TEST_FLAKES?=5
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
-# fyne package only accepts numeric x[.y[.z]] app versions, so reduce git
-# describe output (v4.9.0, v4.9.0-14-gabc1234, or a bare sha on untagged
-# checkouts) to its numeric core; anything non-numeric falls back to 0.0.0.
-# Without this the packaged launcher reports itself as version 0.0.0 (#11673).
-LAUNCHER_APP_VERSION?=$(shell v=$$(echo "$(VERSION)" | sed -E 's/^v//; s/[+-].*$$//'); echo "$$v" | grep -qE '^[0-9]+(\.[0-9]+){0,2}$$' && echo "$$v" || echo "0.0.0")
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=-s -w
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
@@ -100,9 +94,12 @@ else
 endif
 
 ## ./addons/... holds the Go tests of every add-on (sandbox, office, tables,
-## fine-tuning, quantization and the shared packages). The Sandbox add-on is
-## Linux only and does not compile elsewhere, so the add-on tests run on Linux
-## only. tests/addons/actione2e and tests/addons/clientflow are the
+## fine-tuning, quantization and the shared packages). The Sandbox add-on
+## compiles for macOS on Apple silicon too (CGO_ENABLED=0 GOOS=darwin
+## GOARCH=arm64, its VM backend), but its tests need Linux tools and the
+## darwin ones need a signed binary and a guest image, so the add-on tests
+## run on Linux only; sandbox-tests.yml vets the darwin build.
+## tests/addons/actione2e and tests/addons/clientflow are the
 ## tests/addons suites that build everything they need themselves (clientflow
 ## needs the auth build tag, which the coverage run sets); the other
 ## tests/addons suites need the fixtures and executables that
@@ -201,16 +198,6 @@ build: protogen-go generate install-go-tools core/http/react-ui/dist ## Build th
 	$(info ${GREEN}I UPX: ${YELLOW}$(UPX)${RESET})
 	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./cmd/local-ai
-
-build-launcher: ## Build the launcher application
-	$(info ${GREEN}I local-ai launcher build info:${RESET})
-	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
-	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
-	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
-	rm -rf $(LAUNCHER_BINARY_NAME) || true
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(LAUNCHER_BINARY_NAME) ./cmd/launcher
-
-build-all: build build-launcher ## Build both server and launcher
 
 build-dev: ## Run LocalAI in dev mode with live reload
 	@command -v air >/dev/null 2>&1 || go install github.com/air-verse/air@latest
@@ -325,11 +312,10 @@ test-coverage-check: test-coverage
 ##
 ## LINT_EXCLUDE_DIRS_RE matches directories whose Go packages can't typecheck
 ## without C/C++ headers we don't install in the lint runner (cgo wrappers
-## around llama.cpp, piper/spdlog, silero-vad/onnxruntime, and Fyne/OpenGL for
-## the launcher). Their compile-time correctness is enforced by their own
+## around llama.cpp, piper/spdlog, silero-vad/onnxruntime). Their compile-time correctness is enforced by their own
 ## build pipelines. Keep this as a deny list — `go list ./...` discovers
 ## everything else automatically, so new packages are scanned by default.
-LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
+LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm))(/|$$)
 
 ## Set LINT_NEW_FROM to a git ref to override .golangci.yml's
 ## new-from-merge-base (origin/master). Useful from a fork clone where
@@ -1778,13 +1764,13 @@ test-i18n:
 ## because -ginkgo.focus is an error for a test binary that has no Ginkgo.
 POSTGRES_STORE_PKGS = ./core/services/studio/agents ./core/services/studio/connectors \
 	./core/services/studio/notify ./core/services/studio/store ./core/services/studio/triggers \
-	./core/services/studio/workspace/gormstore ./core/services/studio/jobs ./core/http/auth
+	./core/services/studio/workspace/gormstore ./core/services/studio/jobs ./core/services/studio/projects ./core/http/auth
 test-postgres:
 	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }
 	@out=$$($(GOCMD) test -count=1 -v -tags "$(COVERAGE_TAGS)" $(POSTGRES_STORE_PKGS) -ginkgo.focus 'PostgreSQL' -ginkgo.v -ginkgo.no-color 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
 	printf '%s\n' "$$out" | grep -E '^(Ran [0-9]+ of|ok |FAIL|\s*\[SKIPPED\])' ; \
 	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'a PostgreSQL test skipped' >&2; exit 1; fi; \
-	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 8 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
+	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 9 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
 
 ## The multi-frontend paths run against the in-process bus (testutil.FakeBus)
 ## under the race detector: two frontends, a worker and the cluster state, with
@@ -1821,19 +1807,33 @@ test-addons-suites:
 ## A platform other than this host needs the native executables at
 ## <dir>/<os>-<arch>/<executable name>. ADDON_VERSION overrides the manifest
 ## version, ADDON_LOCAL_CHECK=1 builds a platform the matrix has not enabled.
-## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons).
+## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons, or
+## <ADDON_ROOT>/dist/addons with ADDON_ROOT).
 ADDON?=
 PLATFORMS?=
 ADDON_VERSION?=
 ADDON_EXECUTABLES?=
 ADDON_LOCAL_CHECK?=
-ADDONS_ZIP_DIR?=dist/addons
+## ADDON_ROOT builds the zip of an add-on in another repository: the directory
+## that holds package/platforms.yaml and cmd/<executable>. Relative paths are
+## relative to the directory where make starts. ADDON_EXECUTABLE is a
+## built binary to pack instead of building one (one platform only).
+ADDON_ROOT?=
+ADDON_EXECUTABLE?=
+ADDONS_ZIP_DIR?=
 .PHONY: addons-zip
 addons-zip:
-	sh scripts/addons/zip.sh --out "$(ADDONS_ZIP_DIR)" \
+	sh scripts/addons/zip.sh $(if $(ADDONS_ZIP_DIR),--out "$(ADDONS_ZIP_DIR)") \
+		$(if $(ADDON_ROOT),--root "$(ADDON_ROOT)") $(if $(ADDON_EXECUTABLE),--executable "$(ADDON_EXECUTABLE)") \
 		$(if $(ADDON),--addon "$(ADDON)") $(if $(PLATFORMS),--platforms "$(PLATFORMS)") \
 		$(if $(ADDON_VERSION),--version "$(ADDON_VERSION)") $(if $(ADDON_EXECUTABLES),--executables "$(ADDON_EXECUTABLES)") \
 		$(if $(ADDON_LOCAL_CHECK),--local-check)
+
+## Builds examples/addon-hello outside this checkout, packs it with --root and
+## checks the zip (see scripts/addons/outoftree_test.sh).
+.PHONY: addons-outoftree-check
+addons-outoftree-check:
+	sh scripts/addons/outoftree_test.sh
 
 test-ui-e2e-docker:
 	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .
@@ -1895,51 +1895,3 @@ site: docs/static/gallery.html
 .PHONY: site-serve
 site-serve: site
 	cd website/public && python3 -m http.server 8000
-
-########################################################
-## Platform-specific builds
-########################################################
-
-## fyne cross-platform build
-# Build LocalAI.app from the launcher via fyne (metadata read from cmd/launcher/FyneApp.toml).
-# Signing happens via contrib/macos/sign-and-notarize.sh, which is a no-op when the signing
-# secrets are unset, so unsigned local/fork builds keep working.
-build-launcher-darwin:
-	rm -rf dist/LocalAI.app cmd/launcher/LocalAI.app
-	mkdir -p dist
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME) --app-version $(LAUNCHER_APP_VERSION)
-	mv cmd/launcher/LocalAI.app dist/LocalAI.app
-	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
-
-# Notarize + staple the .app itself, then wrap it into a drag-to-Applications
-# DMG via hdiutil and sign the DMG. The app is stapled BEFORE packaging so the
-# bundle carries its own ticket and verifies offline (a dmg-only staple leaves
-# the app relying on an online Gatekeeper check, which fails offline / once the
-# app is copied out of the dmg). No-op without notary secrets.
-dmg-launcher-darwin: build-launcher-darwin
-	bash contrib/macos/sign-and-notarize.sh notarize-app dist/LocalAI.app
-	rm -rf dist/dmg dist/LocalAI.dmg
-	mkdir -p dist/dmg
-	cp -R dist/LocalAI.app dist/dmg/LocalAI.app
-	ln -s /Applications dist/dmg/Applications
-	hdiutil create -volname "LocalAI" -srcfolder dist/dmg -ov -format UDZO dist/LocalAI.dmg
-	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.dmg
-
-# Submit the DMG to Apple notarization and staple the ticket (no-op without notary secrets).
-notarize-launcher-darwin: dmg-launcher-darwin
-	bash contrib/macos/sign-and-notarize.sh notarize dist/LocalAI.dmg
-
-# Single entrypoint for CI: build -> sign app -> notarize+staple app -> dmg -> sign dmg -> notarize+staple dmg.
-release-launcher-darwin: notarize-launcher-darwin
-	@echo "dist/LocalAI.dmg is ready"
-
-build-launcher-linux:
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux --app-version $(LAUNCHER_APP_VERSION) && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
-
-# Thin native launcher only; retains the first-run LocalAI runtime downloader.
-.PHONY: build-launcher-appimage test-launcher-appimage
-build-launcher-appimage:
-	APPIMAGE_ARCH=$(or $(APPIMAGE_ARCH),amd64) bash contrib/appimage/build.sh
-
-test-launcher-appimage:
-	python3 -m unittest discover -s contrib/appimage -p 'test_*.py' -v

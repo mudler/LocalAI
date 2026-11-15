@@ -5395,7 +5395,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/import": {
             "post": {
-                "description": "Send the export file (version 1, 2 for an agent with a folder, or 3 for an agent with several) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
+                "description": "Send the export file (version 1 to 5) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too, but not one that carries project_id or projectRef (400). A version 5 file is a project agent: send project_id (one of your own active projects: 404 for an unknown or another person's, 400 for an archived one) or create_project true (a project is made from the name in the file) as query parameters, or as form fields of a multipart import; never inside the file, whose own project fields are ignored. The query string wins over a form field, and create_project is the value of that one parameter. Without either the answer is 409 with the error type project_required and the project's name in project_name. The agent is made a project agent of that project with its files and memory folders; the file's files entry only chooses the files mode (read or write), memory is always read, and a project id inside the file's agent is ignored. With project_id, a file of an older version is imported as a project agent too, its folders ignored with a warning. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
                 "consumes": [
                     "application/json",
                     "multipart/form-data"
@@ -5419,6 +5419,18 @@ const docTemplate = `{
                         "description": "the agent file (multipart)",
                         "name": "file",
                         "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "one of your own active projects to make the agent a project agent of",
+                        "name": "project_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "make a project from the project name in the file and put the agent in it",
+                        "name": "create_project",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5426,6 +5438,12 @@ const docTemplate = `{
                         "description": "The new agent and what the import changed",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgentImportResult"
+                        }
+                    },
+                    "409": {
+                        "description": "The file is a project agent and no project was chosen (error type project_required)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentProjectRequired"
                         }
                     }
                 }
@@ -5611,7 +5629,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. The builtins list (builtin grants) is an extra field of any version: a server that does not know it ignores it, so the agent comes back without the grants. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent of a project is version 5: it carries projectRef (id, name and slug of the project it was made in, a hint only) and folders as the project-relative paths files (with its mode) and memory (read); it holds no node ID and no path of your files, and a server that knows only versions up to 4 refuses it. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. The builtins list (builtin grants) is an extra field of any version: a server that does not know it ignores it, so the agent comes back without the grants. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -5760,6 +5778,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsAgentShareRef"
                         }
                     },
+                    "400": {
+                        "description": "The agent belongs to a project; project agents cannot be shared",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "403": {
                         "description": "The agent is shared with you, not yours",
                         "schema": {
@@ -5904,7 +5928,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Stale, expired or answered",
+                        "description": "Stale, expired, answered, or the person who proposed it can no longer edit the shared project",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -6126,7 +6150,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
+                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved. A binding that has an agent can only move to an agent of the same project: the connection of a project agent stays in its project, and a connection outside projects cannot use a project agent (400).",
                 "tags": [
                     "chats"
                 ],
@@ -8521,6 +8545,629 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The path leaves the page's folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects": {
+            "get": {
+                "description": "A project is a folder under Projects/ in your files, with a manifest, a memory and defaults that its chats start with. The list is read from the folders, so a project you added or edited by hand shows up. chat_count counts up to 500 chats; agent_count is the number of your agents that belong to the project. Another user's projects are never listed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your projects.",
+                "responses": {
+                    "200": {
+                        "description": "Your projects, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectList"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Makes the folder Projects/\u003cslug\u003e in your files with its manifest and an empty memory, as one change set that one undo removes. The slug comes from the name and is unique among your projects, so two projects can share a name but not a folder name.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a project.",
+                "parameters": [
+                    {
+                        "description": "the project",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The name is taken, or projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/shared": {
+            "get": {
+                "description": "The projects of other people whose folder was shared with you, or with everyone, sorted by name. ref is the only identity: use it in the other shared-project routes and in the list a chat pulls from. mode is read or write. An archived or broken project is listed with its status and is not available. The list is read from the grants on every call, so a revoked share is gone at once. The owner's account, paths and tool lists never appear.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the projects shared with you.",
+                "responses": {
+                    "200": {
+                        "description": "The projects shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSharedProjectList"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/shared/{ref}": {
+            "get": {
+                "description": "ref is the reference from the list (\"s:12\"; the colon may be sent as %3A). A project that is not shared with you, and one that does not exist, give the same 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a project shared with you.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the reference of the shared project",
+                        "name": "ref",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSharedProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is not shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/shared/{ref}/memory": {
+            "get": {
+                "description": "Returns the text of index.md and the names of the topic files next to it, read as you through your own grant. It is read only. With a write grant a note is proposed in a chat and confirmed by the owner; with a read grant nothing can be proposed. An archived or broken project, a project that is not shared with you and an unknown one give the same 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the memory of a project shared with you.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the reference of the shared project",
+                        "name": "ref",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The index and the topic files",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSharedProjectMemory"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is not shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the project folder, with its files and memory, as one change set that one undo restores. Chats that belonged to it stay and read as having no project.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "A field that is left out keeps its value. The folder keeps its name. For each of skills, add-ons and MCP servers, a non-empty default list means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Change a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The project changed while it was saved",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/agents": {
+            "get": {
+                "description": "Your saved agents that were created from this project, sorted by name, as brief rows: id, name, description, model, files_mode (read or write), memory_write (the agent holds the grant project.memory.write) and unavailable. An agent is unavailable while its project is archived, deleted or broken, or its folders changed; it works again after a restore or a new save. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the agents of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The agents of the project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectAgentList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/archive": {
+            "post": {
+                "description": "An archived project keeps its folder and takes no new chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Archive a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The project changed while it was saved",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/chats": {
+            "get": {
+                "description": "Your chats whose project is this one, newest first. limit defaults to 50 and is at most 200.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the chats of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most chats to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chats",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversationList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/connections": {
+            "get": {
+                "description": "Your messaging connections that are bound to an agent of this project, as brief rows: id, kind, name, agent_id, agent_name and enabled. A token or a list of senders never appears. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the messaging connections of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The connections",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectConnectionList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/loops": {
+            "get": {
+                "description": "Your loops that have not ended, in chats that use an agent of this project (a loop that ended is history and is left out), as brief rows: id, chat_id, chat_title, prompt (cut to 200 characters) and state. While the project is archived its loops skip their runs; state does not change. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the loops of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The loops",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectLoopList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/memory": {
+            "get": {
+                "description": "Returns the text of index.md and the topic files next to it. The memory is the folder memory/ of the project.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the memory of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The index and the topic files",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectMemory"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/memory/{file}": {
+            "put": {
+                "description": "This is your own edit, so it is written as you, as one change set that undo restores. file is a name such as index.md or food.md: lowercase letters, digits, dot, dash and underscore, ending in .md, at most 64 characters. The content is at most 16 KiB, the same as a note the model proposes. The edit is accepted for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Write a memory file of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the file name, for example index.md",
+                        "name": "file",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new content",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectMemoryWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Written"
+                    },
+                    "400": {
+                        "description": "The file name or the body is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The content is too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/restore": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Restore an archived project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The project",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The project changed while it was saved",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/projects/{id}/triggers": {
+            "get": {
+                "description": "Your triggers that run an agent of this project, as brief rows: id, name, kind, agent_id, agent_name, schedule, folder, enabled, proposed and next (the next run of an enabled schedule trigger). While the project is archived its agents do not start, so its triggers skip their runs; enabled does not change. The list works for an archived project too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the triggers of a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the project's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The triggers",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsProjectTriggerList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -12148,6 +12795,112 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/project": {
+            "put": {
+                "description": "project_id is the project's id; an empty one takes the chat out of its project. The chat must be idle (409 otherwise). The tool switches of the chat stay as they are: the defaults of a project apply to new chats only. An archived project takes no chats (400).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Put a chat in a project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the project",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsChatProject"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such chat or project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The chat is running, or projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/projects": {
+            "put": {
+                "description": "The list replaces the earlier one. At most 8 projects, none twice, none the chat's own project, each an active project of yours. An empty list clears it. A pulled project is mounted read only at its pulled-* path for the chat's turns; note that your home is still mounted read and write in an ordinary chat.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set the projects a chat pulls in.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the projects",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsChatPulledProjects"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such chat or project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Projects are not available (projects_off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/regenerate": {
             "post": {
                 "description": "Removes everything the model said after your last message (all your messages of that turn stay), then starts a new turn. Files that the removed turn changed stay changed. 409 while a turn runs.",
@@ -13493,6 +14246,243 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/remote/estimate": {
+            "get": {
+                "description": "Same answer as GET /api/models/estimate/{id} for a gallery model, for one quantization of a Hugging Face or Pirate Face repository: the download size and the memory needed at each requested context size, plus ` + "`" + `file` + "`" + `, ` + "`" + `quantization` + "`" + ` and ` + "`" + `source` + "`" + `. ` + "`" + `source` + "`" + ` is ` + "`" + `gguf-header` + "`" + ` when the layer count, width and heads were read from the GGUF header (exact KV cache term), ` + "`" + `file-size` + "`" + ` when only the file size was known, and ` + "`" + `unknown` + "`" + ` when no size was known. ` + "`" + `approximate` + "`" + ` is true whenever the architecture was not read, so the figure is the file size plus a rule of thumb per context token. ` + "`" + `variants` + "`" + ` repeats the estimate for every quantization of a GGUF repository: they share one architecture, so the header read of the chosen file serves them all and one call answers a whole variant list. When the header cannot be read (a gated repository, a host without range requests) the figures fall back to file sizes and ` + "`" + `approximate` + "`" + ` is true. The header read runs through the same bounded upstream budget as the file listing.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Estimate the memory a remote model file needs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Repository uri: huggingface://owner/repo or pirateface://owner/repo",
+                        "name": "uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "First file of a variant, as listed by /api/models/remote/files (default: the recommended variant)",
+                        "name": "file",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated context sizes (default 8192)",
+                        "name": "contexts",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.EstimateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/remote/files": {
+            "get": {
+                "description": "Reads one repository of Hugging Face or Pirate Face and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's ` + "`" + `preference` + "`" + ` is the value for ` + "`" + `preferences.quantizations` + "`" + ` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; ` + "`" + `size_known` + "`" + ` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the weight files of a remote model, grouped by quantization",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo or a huggingface.co url",
+                        "name": "uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quantization preference to dry-run the import with (default: the importer's)",
+                        "name": "quantization",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.RepoFiles"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/search": {
+            "get": {
+                "description": "Fans the query out to the sources and returns the merged results plus one status per source, so a source that is down does not fail the search. Without ` + "`" + `providers` + "`" + ` the sources are the caller's enabled set (every source the caller can see that they did not turn off; see /api/models/search/sources). A source can come from an add-on that provides the model-search slot. ` + "`" + `filters.\u003csource\u003e.\u003cid\u003e=value` + "`" + ` sets a filter that the source declares in ` + "`" + `sources` + "`" + ` of the answer; an unknown filter or a value that does not fit its type gives a 400 that names the filter. Each result's ` + "`" + `uri` + "`" + ` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (` + "`" + `installed` + "`" + `, ` + "`" + `installed_name` + "`" + `), the backend an import would likely pick (` + "`" + `backend` + "`" + `, a hint derived from the tags) and whether the repository likely has several quantizations (` + "`" + `has_variants` + "`" + `). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each source that can list them. A source that cannot is not called and its status says ` + "`" + `unsupported` + "`" + `. A status has ` + "`" + `dropped` + "`" + `, the number of rows the host refused because of a scheme or a size it does not accept.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Search remote sources for installable models",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search text. Required unless sort is latest",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated source IDs (default: the enabled set of the caller)",
+                        "name": "providers",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Results per source (default 20, max 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "File format filter (default gguf, any disables it)",
+                        "name": "format",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "downloads (default), likes, updated, trending or latest (newest first; the only sort that works with no q)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "A filter of one source, for example filters.pirateface.min_seeders=2. The sources and their filters are listed in ` + "`" + `sources` + "`" + ` of the answer.",
+                        "name": "filters.source.id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/search/sources": {
+            "get": {
+                "description": "Lists the sources that are installed (Hugging Face, and every add-on that provides the model-search slot and that the caller can see) with their titles, sorts and filters, and the enabled set of the caller: every source they can see that they did not turn off, so a source from a newly installed add-on is on with no action. ` + "`" + `missing` + "`" + ` is kept for older clients and is always empty.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the model search sources and the enabled set",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Overview"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Stores the set of sources the caller searches. The host stores what the caller turned off: every source they can see that is not in the list. An ID that is off and whose add-on is gone stays off, so installing the add-on again keeps the choice. The list has at most as many IDs as the visible sources, the stored off IDs and the built-in source, and never more than 64; a longer list gives a 400. It takes effect at once, with no restart. An ID must be a built-in source, a visible source, or already off. An empty list means nothing is searched.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Set the enabled model search sources",
+                "parameters": [
+                    {
+                        "description": "The enabled set",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.SearchSourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Overview"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/storage": {
             "get": {
                 "description": "Per-model disk usage, shared-file relations and missing references under the models path",
@@ -14208,6 +15198,420 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes": {
+            "get": {
+                "description": "Lists the saved remotes. The key is never part of the answer; \"key_set\" says whether one is stored. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "List remotes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteListResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Create a remote",
+                "parameters": [
+                    {
+                        "description": "Remote to create; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteResultResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/test": {
+            "post": {
+                "description": "Lists the models of a remote without saving anything. A failed test is a 200 answer with ok=false and the failed step. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Test a remote",
+                "parameters": [
+                    {
+                        "description": "Remote to test; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.TestResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Get a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Remote"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "With entries=keep (the default) the entries stay as plain models without the remote and its key; with entries=remove they are deleted. When some entries could not be handled, the remote stays and the answer is a 500 error; a retry finishes the job. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Delete a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "keep",
+                            "remove"
+                        ],
+                        "type": "string",
+                        "default": "keep",
+                        "description": "What to do with the entries",
+                        "name": "entries",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "An absent field is left as it is; an empty api_key removes the key (not allowed for the anthropic kind). The key must be printable ASCII. A new key restarts every loaded model that names the remote and a new url patches the entries the remote owns. A new key or url also refreshes the remote, so status, last_error, new and unavailable in the answer are current; a rename does not. When the change is saved but patching some entries failed, the answer is a 500 error that says so, not the saved remote: read it again with GET. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Update a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change; api_key is write-only, for example \\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Remote"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/{id}/adopt": {
+            "post": {
+                "description": "Turns each chosen model into a model config (an entry) that carries only the remote id. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When some models were added but the rest failed, the answer is still 200 with \"warning\" set. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Adopt models of a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Models to adopt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteAdoptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RemoteResultResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/remotes/{id}/refresh": {
+            "post": {
+                "description": "Asks the remote for its models and records the answer: status, \"new\" (found, not adopted) and \"unavailable\" (adopted, no longer listed). It never writes an entry. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Refresh a remote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Remote id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Remote"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -18894,11 +20298,13 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "user",
+                "project",
                 "agent",
                 "channel"
             ],
             "x-enum-varnames": [
                 "ScopeUser",
+                "ScopeProject",
                 "ScopeAgent",
                 "ScopeChannel"
             ]
@@ -18958,6 +20364,14 @@ const docTemplate = `{
                 "owner": {
                     "type": "string"
                 },
+                "project_node": {
+                    "description": "ProjectNode is the identity of the shared project folder a proposal with\na Proposer is for. The host checks again, when the Owner confirms, that\nthe Proposer still has write access to that folder. Zero otherwise.",
+                    "type": "integer"
+                },
+                "proposer": {
+                    "description": "Proposer is the person who made the proposal when it is not the Owner:\nsomeone a project is shared with, who proposes a note for it. Owner is\nstill the person whose home the change writes and the only one who can\nconfirm. A host that stores the record keeps the account here; a host\nthat sends it to the Owner shows a display name instead, never an\naccount. Empty for a proposal the Owner's own chat made.",
+                    "type": "string"
+                },
                 "rev": {
                     "description": "Rev is the workspace change set that applying wrote; RevertRev the one\nthat reverting wrote. Zero until then.",
                     "type": "integer"
@@ -18994,12 +20408,14 @@ const docTemplate = `{
             "enum": [
                 "user",
                 "agent",
-                "channel"
+                "channel",
+                "project"
             ],
             "x-enum-varnames": [
                 "ScopeUser",
                 "ScopeAgent",
-                "ScopeChannel"
+                "ScopeChannel",
+                "ScopeProject"
             ]
         },
         "contract.ChangeSource": {
@@ -19127,6 +20543,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.ModelSearchText": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/contract.SearchFilterText"
+                    }
+                },
+                "title": {
                     "type": "string"
                 }
             }
@@ -19293,6 +20723,67 @@ const docTemplate = `{
                 },
                 "schema": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.SearchFilter": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "description": "Default is a string (enum, text), a bool or a number (range)."
+                },
+                "help": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "maxLength": {
+                    "description": "MaxLength bounds a text filter; zero means MaxFilterTextLength.",
+                    "type": "integer"
+                },
+                "min": {
+                    "description": "Min, Max, Step and Unit describe a range filter.",
+                    "type": "number"
+                },
+                "step": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "values": {
+                    "description": "Values are the choices of an enum filter.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "contract.SearchFilterText": {
+            "type": "object",
+            "properties": {
+                "help": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -21930,6 +23421,117 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.RemoteAdoptRequest": {
+            "type": "object",
+            "properties": {
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                }
+            }
+        },
+        "localai.RemoteCreateRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/remotes.Kind"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RemoteListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Remote"
+                    }
+                }
+            }
+        },
+        "localai.RemoteResultResponse": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "remote": {
+                    "$ref": "#/definitions/remotes.Remote"
+                },
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Skip"
+                    }
+                },
+                "warning": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RemoteTestRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/remotes.Kind"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RemoteUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "write-only",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.SearchSourcesRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled is the new enabled set of source IDs. The host stores the\nvisible sources that are not in it as the ones turned off. An empty list\nsearches nothing.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "localai.TTSModelVoices": {
             "type": "object",
             "properties": {
@@ -22057,7 +23659,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "block_count": {
-                    "description": "BlockCount is the number of layers of the model, read\nfrom the GGUF metadata. Absent when it is unknown.",
+                    "description": "BlockCount is the number of layers of the model, read from the GGUF\nmetadata. Absent when it is unknown.",
                     "type": "integer"
                 },
                 "context_length": {
@@ -22083,6 +23685,438 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vram_display": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.EstimateResult": {
+            "type": "object",
+            "properties": {
+                "approximate": {
+                    "description": "Approximate is true when the architecture was not read from a GGUF\nheader, so the KV cache term is a rule of thumb (size plus 2 KiB per\ncontext token) and not computed from layers, width and heads.",
+                    "type": "boolean"
+                },
+                "blockCount": {
+                    "description": "from GGUF metadata; the layer count",
+                    "type": "integer"
+                },
+                "estimates": {
+                    "description": "keys: context size as string",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/vram.VRAMAt"
+                    }
+                },
+                "expertCount": {
+                    "description": "from GGUF metadata; zero for a dense model",
+                    "type": "integer"
+                },
+                "file": {
+                    "description": "File is the first file of the variant that was estimated; empty when\nthe whole repository was.",
+                    "type": "string"
+                },
+                "modelMaxContext": {
+                    "description": "from GGUF metadata",
+                    "type": "integer"
+                },
+                "quantization": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "sizeDisplay": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source says where the architecture came from: \"gguf-header\" when the\nheader of the file was read (layers, width and heads are exact),\n\"file-size\" when only the file size was known (the KV cache term is a\nrule of thumb) and \"unknown\" when no size was known at all.",
+                    "type": "string"
+                },
+                "variants": {
+                    "description": "Variants has the same estimate for every quantization of a GGUF\nrepository. Quantizations of one model share an architecture, so the\nheader read for the chosen file serves them all: one upstream read\nanswers the whole variant list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.VariantEstimate"
+                    }
+                }
+            }
+        },
+        "modelsearch.GGUFInfo": {
+            "type": "object",
+            "properties": {
+                "architecture": {
+                    "type": "string"
+                },
+                "context_length": {
+                    "type": "integer"
+                },
+                "parameters": {
+                    "type": "integer"
+                }
+            }
+        },
+        "modelsearch.Overview": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled is the enabled set: every source the person can see that they\ndid not turn off, in the order of Sources.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missing": {
+                    "description": "Missing is kept for older clients and is always empty: the store holds\nwhat the person turned off, so no stored ID asks for an add-on to be\ninstalled.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Source"
+                    }
+                }
+            }
+        },
+        "modelsearch.ProviderStatus": {
+            "type": "object",
+            "properties": {
+                "cached": {
+                    "description": "Cached is true when the results came from the cache.",
+                    "type": "boolean"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "dropped": {
+                    "description": "Dropped counts the rows that the host refused: a scheme it does not\nhandle, or a field over its cap.",
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "description": "Title is the name of the source, when it has one.",
+                    "type": "string"
+                },
+                "unsupported": {
+                    "description": "Unsupported is true when the provider was not asked because it cannot\nanswer this kind of request: a list of the newest models with no search\ntext. The provider is ok and has no results; nothing went upstream.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "modelsearch.RepoFile": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is \"gguf\", \"mmproj\" or \"weights\" (safetensors, bin, pt).",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Size is in bytes; zero when the provider did not say.",
+                    "type": "integer"
+                }
+            }
+        },
+        "modelsearch.RepoFiles": {
+            "type": "object",
+            "properties": {
+                "backend": {
+                    "description": "The fields below are filled by the route, not by the Inspector.\nBackend and ImportFiles come from a dry run of the import (no download,\nno job) on this very listing; ImportError says why it could not run.",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description is the first paragraph of the model card, at most 400\ncharacters. Empty when the card could not be read.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.RepoFile"
+                    }
+                },
+                "gated": {
+                    "description": "Gated is reported as is. For Pirate Face it is also true when the site\nshows no magnet link, which is what a gated licence looks like there.",
+                    "type": "boolean"
+                },
+                "gguf": {
+                    "$ref": "#/definitions/modelsearch.GGUFInfo"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "import_error": {
+                    "type": "string"
+                },
+                "import_files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "installed": {
+                    "type": "boolean"
+                },
+                "installed_name": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "library_name": {
+                    "type": "string"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "pipeline_tag": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "revision": {
+                    "description": "Revision is the commit the file list and sizes come from.",
+                    "type": "string"
+                },
+                "size_known": {
+                    "description": "SizeKnown is false when no file size could be found, which happens for\na Pirate Face repository Hugging Face does not know.",
+                    "type": "boolean"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "uri": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "variants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Variant"
+                    }
+                }
+            }
+        },
+        "modelsearch.Response": {
+            "type": "object",
+            "properties": {
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.ProviderStatus"
+                    }
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Result"
+                    }
+                },
+                "sources": {
+                    "description": "Sources describes the sources that were asked, with their filters, so a\nclient needs no second call to draw the controls.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Source"
+                    }
+                }
+            }
+        },
+        "modelsearch.Result": {
+            "type": "object",
+            "properties": {
+                "backend": {
+                    "description": "Backend is the backend an import would likely pick, derived from the\ntags; a hint. RepoFiles.Backend is exact.",
+                    "type": "string"
+                },
+                "downloads": {
+                    "type": "integer"
+                },
+                "gated": {
+                    "description": "Gated is true when the provider says access needs approval. It is\nreported as is; nothing here tries to get around it.",
+                    "type": "boolean"
+                },
+                "has_variants": {
+                    "description": "HasVariants is true when opening the model is likely to list several\nquantizations: a GGUF repository, or any Pirate Face one (the source of an add-on).",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is the owner/repo name.",
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is true when an installed model comes from this repository;\nInstalledName is that model's name.",
+                    "type": "boolean"
+                },
+                "installed_name": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "likes": {
+                    "type": "integer"
+                },
+                "magnet": {
+                    "description": "Magnet is the BitTorrent magnet link, when the provider lists one.",
+                    "type": "string"
+                },
+                "pipeline_tag": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "seeders": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "uri": {
+                    "description": "URI is what the import route accepts: huggingface://owner/repo for\nHugging Face, pirateface://owner/repo for Pirate Face.",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is a page a person can open.",
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.Source": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SearchFilter"
+                    }
+                },
+                "has_variants": {
+                    "type": "boolean"
+                },
+                "i18n": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/contract.ModelSearchText"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is \"builtin\" or \"addon\".",
+                    "type": "string"
+                },
+                "lists_latest": {
+                    "type": "boolean"
+                },
+                "p2p": {
+                    "type": "boolean"
+                },
+                "running": {
+                    "description": "Running is false for an add-on that is installed and not running.",
+                    "type": "boolean"
+                },
+                "sorts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.Variant": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "description": "File is the first shard; pass it to the estimate route.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "preference": {
+                    "description": "Preference is the value for preferences.quantizations on\nPOST /models/import-uri that makes the import pick exactly this\nvariant. Empty when no safe value exists.",
+                    "type": "string"
+                },
+                "quantization": {
+                    "description": "Quantization is the label read from the file name, such as \"Q4_K_M\".",
+                    "type": "string"
+                },
+                "recommended": {
+                    "description": "Recommended marks the variant LocalAI would suggest first.",
+                    "type": "boolean"
+                },
+                "shards": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "description": "SizeBytes sums the shards; zero when sizes are unknown.",
+                    "type": "integer"
+                }
+            }
+        },
+        "modelsearch.VariantEstimate": {
+            "type": "object",
+            "properties": {
+                "estimates": {
+                    "description": "Estimates is keyed by context size, like the gallery estimate.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/vram.VRAMAt"
+                    }
+                },
+                "file": {
+                    "type": "string"
+                },
+                "quantization": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "sizeDisplay": {
                     "type": "string"
                 }
             }
@@ -22534,6 +24568,132 @@ const docTemplate = `{
                 },
                 "state": {
                     "type": "string"
+                }
+            }
+        },
+        "remotes.Kind": {
+            "type": "string",
+            "enum": [
+                "localai",
+                "openai",
+                "anthropic"
+            ],
+            "x-enum-varnames": [
+                "KindLocalAI",
+                "KindOpenAI",
+                "KindAnthropic"
+            ]
+        },
+        "remotes.Remote": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "description": "model config names this remote owns",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "key_set": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "$ref": "#/definitions/remotes.Kind"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_refresh": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "new": {
+                    "description": "discovered at last refresh, not adopted",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                },
+                "status": {
+                    "$ref": "#/definitions/remotes.Status"
+                },
+                "unavailable": {
+                    "description": "subset of Entries the upstream no longer lists",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "description": "address as entered; empty for anthropic",
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.Skip": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.Status": {
+            "type": "string",
+            "enum": [
+                "never",
+                "ok",
+                "auth_failed",
+                "unreachable"
+            ],
+            "x-enum-varnames": [
+                "StatusNever",
+                "StatusOK",
+                "StatusAuthFailed",
+                "StatusUnreachable"
+            ]
+        },
+        "remotes.TestResult": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.UpstreamModel"
+                    }
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "step": {
+                    "description": "invalid_url, unreachable, auth, no_models",
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.UpstreamModel": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "usecases": {
+                    "description": "Usecases are valid known_usecases values. For the cloud kinds it is\nempty, which means chat.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -23481,6 +25641,11 @@ const docTemplate = `{
                     "description": "Network is the network preset of the Sandbox commands of the agent's\nunattended runs: off (the default), registries or all, capped by the\nadministrator's ceiling.",
                     "type": "string"
                 },
+                "project_id": {
+                    "description": "ProjectID is the project the agent belongs to, absent for an agent of no\nproject. It is set when the agent is created and cannot change.",
+                    "type": "string",
+                    "example": "3f2a9c"
+                },
                 "resources": {
                     "description": "Resources names, for each add-on whose manifest scopes its resources per\nagent (by add-on ID), the resources the agent may use and the mode of\neach, read or write. An add-on of that kind with no entry gives the\nagent no resource; the field has no effect on any other add-on. The host\nchecks it on every tool call that takes a resource, on top of what you\nmay use yourself, and the resource list and the selection of a chat show\nthe agent nothing outside it.",
                     "allOf": [
@@ -23683,6 +25848,46 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAgentNeed"
                     }
+                }
+            }
+        },
+        "schema.ChatsAgentProjectRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentProjectRequired": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/schema.ChatsAgentProjectRequiredError"
+                }
+            }
+        },
+        "schema.ChatsAgentProjectRequiredError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "project_required"
                 }
             }
         },
@@ -23992,6 +26197,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "network": {
+                    "type": "string"
+                },
+                "projectRef": {
+                    "description": "ProjectRef is set in an export file (version 5) of a project agent: the\nproject of the exporting server, used only as a hint for the name to\noffer. An import never takes the project from it. A write to\nPOST /api/chats/agents ignores it.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentProjectRef"
+                        }
+                    ]
+                },
+                "project_id": {
+                    "description": "ProjectID makes the agent a project agent. It is read on create only: it\nmust be one of your own active projects (404 for an unknown or foreign\none, 400 for an archived one). A write to an existing agent may leave it\nout or repeat the stored value; a different value is 400.",
                     "type": "string"
                 },
                 "resources": {
@@ -24419,6 +26636,25 @@ const docTemplate = `{
                 "snippet": {
                     "description": "Snippet is the matching text with a little around it.",
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsChatProject": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsChatPulledProjects": {
+            "type": "object",
+            "properties": {
+                "project_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -25737,7 +27973,7 @@ const docTemplate = `{
                     ]
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is off, progress or stream; empty means progress.",
+                    "description": "ReplyMode is off, progress, stream or reasoning; empty means progress.",
                     "type": "string"
                 },
                 "resources": {
@@ -25794,6 +28030,13 @@ const docTemplate = `{
                 "assistant": {
                     "description": "Assistant is true for a chat that has the LocalAI management tools.",
                     "type": "boolean"
+                },
+                "collections": {
+                    "description": "Collections is the restriction of the chat's collection tools: only\nthese collections. Absent means all of the user's collections.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "created": {
                     "type": "string"
@@ -25852,6 +28095,16 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "project_id": {
+                    "description": "ProjectID is the project the chat belongs to; PulledProjects are the\nother projects it reads from. ProjectID can name a project that was\ndeleted since; read that as no project.",
+                    "type": "string"
+                },
+                "pulled_projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "resume_attempts": {
                     "type": "integer"
                 },
@@ -25889,6 +28142,13 @@ const docTemplate = `{
                 "assistant": {
                     "description": "Assistant is true for a chat that has the LocalAI management tools.",
                     "type": "boolean"
+                },
+                "collections": {
+                    "description": "Collections is the restriction of the chat's collection tools: only\nthese collections. Absent means all of the user's collections.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "created": {
                     "type": "string"
@@ -25974,6 +28234,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsPlace"
                         }
                     ]
+                },
+                "project_id": {
+                    "description": "ProjectID is the project the chat belongs to; PulledProjects are the\nother projects it reads from. ProjectID can name a project that was\ndeleted since; read that as no project.",
+                    "type": "string"
+                },
+                "pulled_projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "resume_attempts": {
                     "type": "integer"
@@ -26105,8 +28375,19 @@ const docTemplate = `{
                     "description": "Assistant starts the chat with the LocalAI management tools (install\nmodels and backends, change settings). It needs an administrator and the\nassistant setting on, and it cannot be combined with AgentID.",
                     "type": "boolean"
                 },
+                "collections": {
+                    "description": "Collections restricts the chat to these collections of yours: it can\nlist and search only them. Empty means all of your collections. A name\nyou have no collection of matches nothing. At most 100 names, each\n1 to 200 characters. It overrides the project's default list.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "model": {
                     "description": "Model is the model the conversation talks to. It cannot change later.",
+                    "type": "string"
+                },
+                "project_id": {
+                    "description": "ProjectID starts the chat in one of your projects. The project's\ndefaults set the switches the request leaves unset. An unknown or\narchived project refuses the request.",
                     "type": "string"
                 },
                 "switches": {
@@ -28260,6 +30541,294 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsProject": {
+            "type": "object",
+            "properties": {
+                "agent_count": {
+                    "description": "AgentCount is the number of saved agents that belong to the project.",
+                    "type": "integer"
+                },
+                "chat_count": {
+                    "description": "ChatCount is the number of chats in the project, counted up to 500.",
+                    "type": "integer"
+                },
+                "defaults": {
+                    "$ref": "#/definitions/schema.ChatsProjectDefaults"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "description": "Slug is the name of the project's folder under Projects/ in the caller's files.",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is active, archived or broken. Error says why a project is broken.",
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectAgent": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "files_mode": {
+                    "description": "FilesMode is read or write: how the agent uses the files of the project.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "memory_write": {
+                    "description": "MemoryWrite is true when the agent holds the grant project.memory.write.",
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "unavailable": {
+                    "description": "Unavailable is true while the agent cannot start: its project is\narchived, deleted or broken, or its folders changed.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsProjectAgentList": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectAgent"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectConnection": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "agent_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectConnectionList": {
+            "type": "object",
+            "properties": {
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectConnection"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectDefaults": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectList": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProject"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectLoop": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "chat_title": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectLoopList": {
+            "type": "object",
+            "properties": {
+                "loops": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectLoop"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectMemory": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectMemoryFile"
+                    }
+                },
+                "index": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectMemoryFile": {
+            "type": "object",
+            "properties": {
+                "modified": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsProjectMemoryWrite": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectTrigger": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "agent_name": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "next": {
+                    "description": "Next is when a schedule trigger runs next. It is absent for a trigger\nthat is off, a file trigger, or a schedule with no later time.",
+                    "type": "string"
+                },
+                "proposed": {
+                    "description": "Proposed is always false for now: a trigger that a model proposed and\nyou have not confirmed is not listed. The field keeps the shape stable.",
+                    "type": "boolean"
+                },
+                "schedule": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsProjectTriggerList": {
+            "type": "object",
+            "properties": {
+                "triggers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsProjectTrigger"
+                    }
+                }
+            }
+        },
+        "schema.ChatsProjectWrite": {
+            "type": "object",
+            "properties": {
+                "defaults": {
+                    "$ref": "#/definitions/schema.ChatsProjectDefaults"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsProvider": {
             "type": "object",
             "properties": {
@@ -28800,6 +31369,72 @@ const docTemplate = `{
                 },
                 "role": {
                     "description": "Role is always use: a binding is never shared with everyone.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSharedProject": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error says why a broken project cannot be read.",
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode is what you may do in the project folder: \"read\" or \"write\".",
+                    "type": "string",
+                    "enum": [
+                        "read",
+                        "write"
+                    ]
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner_name": {
+                    "description": "OwnerName is the display name of the owner.",
+                    "type": "string"
+                },
+                "ref": {
+                    "description": "Ref names the project in the other shared-project routes and in the\nlist a chat pulls from.",
+                    "type": "string",
+                    "example": "s:12"
+                },
+                "status": {
+                    "description": "Status is \"active\", \"archived\" or \"broken\". An archived or broken\nproject is listed but is not available.",
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "archived",
+                        "broken"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsSharedProjectList": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSharedProject"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSharedProjectMemory": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "index": {
                     "type": "string"
                 }
             }
@@ -35346,6 +37981,20 @@ const docTemplate = `{
                     "$ref": "#/definitions/voiceprofile.AudioMetadata"
                 },
                 "transcript": {
+                    "type": "string"
+                }
+            }
+        },
+        "vram.VRAMAt": {
+            "type": "object",
+            "properties": {
+                "contextLength": {
+                    "type": "integer"
+                },
+                "vramBytes": {
+                    "type": "integer"
+                },
+                "vramDisplay": {
                     "type": "string"
                 }
             }

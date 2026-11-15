@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // Event types of the outbox.

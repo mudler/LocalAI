@@ -142,7 +142,7 @@ func expandSource(ctx context.Context, f *files.Service, principal string, src c
 	for _, seg := range segs {
 		var next []contextPath
 		for _, p := range paths {
-			if seg != "{agent}" && seg != "{channel}" {
+			if seg != "{agent}" && seg != "{channel}" && seg != "{project}" {
 				next = append(next, contextPath{path: path.Join(p.path, seg), key: p.key})
 				continue
 			}

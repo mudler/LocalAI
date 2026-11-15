@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // state is state.json of a session folder.

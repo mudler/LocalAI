@@ -19,6 +19,8 @@ import { useModels } from './useModels'
 //   activeChat   the open chat's record ({ model, agent_id }), or null
 //   filesOn      files work on this server: attaching and the skills need it
 //   initialModel, initialAgent   the model and the agent a new chat starts on
+// projectId (setProjectId) is the project the new chat starts in; '' is none.
+// pulledDraft (setPulledDraft) are the refs of shared projects it pulls in.
 export function useChatComposer({ chatId = null, draftKey = '', userId, activeChat = null, filesOn = true, canAgents = false, initialModel = '', initialAgent = '' }) {
   const { user, sessionEpoch } = useAuth()
   const actorSession = JSON.stringify([user?.id ?? userId ?? null, sessionEpoch])
@@ -28,6 +30,10 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   const { setFiles } = drafts
   const [draftModel, setDraftModel] = useState(initialModel)
   const [agentId, setAgentId] = useState(initialAgent)
+  // The project a new chat starts in: the draft's own, forgotten with it.
+  const [projectId, setProjectId] = useState('')
+  // The shared projects the new chat pulls in (refs), pulled once it exists.
+  const [pulledDraft, setPulledDraft] = useState([])
   const [agents, setAgents] = useState([])
   const { models, loading: modelsLoading } = useModels(CAP_CHAT)
 
@@ -72,7 +78,7 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   }, [filesOn, setFiles])
 
   return {
-    drafts, draftId, draftModel, setDraftModel, agentId, setAgentId, agents, pickedAgent, effectiveModel,
+    drafts, draftId, draftModel, setDraftModel, agentId, setAgentId, projectId, setProjectId, pulledDraft, setPulledDraft, agents, pickedAgent, effectiveModel,
     models, modelsLoading, switches, attach, paste,
   }
 }

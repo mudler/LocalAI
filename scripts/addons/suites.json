@@ -801,7 +801,49 @@
           "a refusal with data",
           "a long refusal",
           "output on input",
-          "written too much"
+          "written too much",
+          "backslash",
+          "empty segment",
+          "trailing slash",
+          "space",
+          "tells a wrong method from an unknown path",
+          "percent escape",
+          "nul byte",
+          "non ascii",
+          "dot segment",
+          "dot dot",
+          "dot dot in the middle",
+          "dot at the end",
+          "dot dot at the end",
+          "encoded dot",
+          "a segment over 128 bytes",
+          "more segments than the tail limit",
+          "a path over the tail limit",
+          "is a set slot with Hugging Face as its built-in source",
+          "accepts a source with every filter type",
+          "needs feature level 9 and a host that has it",
+          "unknown filter type",
+          "too many filters",
+          "too many enum values",
+          "duplicate filter id",
+          "enum default outside its values",
+          "range with no span",
+          "filter id that no tool argument may use",
+          "filter id of a reserved argument",
+          "markup in a label",
+          "source id of the built-in provider",
+          "unknown sort",
+          "search tool not declared",
+          "search tool defined but absent from capabilities.tools",
+          "repeated sort",
+          "a filter value label with markup",
+          "search role missing",
+          "modelSearch without the slot",
+          "slot without modelSearch",
+          "translation of an unknown filter",
+          "takes the source properties hasVariants and p2p, which the host sends to the panel",
+          "takes translations of the title and the filters",
+          "refuses mode set on a slot that is pick-one by its descriptor"
         ]
       },
       {
@@ -992,6 +1034,7 @@
           "has consistent package files for jellyfin",
           "has consistent package files for mail",
           "has consistent package files for pikvm",
+          "has consistent package files for pirateface-search",
           "has consistent package files for ssh",
           "writes the zip of a verified layout with a digest manifest and a sha256 file",
           "audits actual host calls and strict package contract for github",
@@ -1001,6 +1044,7 @@
           "audits actual host calls and strict package contract for jellyfin",
           "audits actual host calls and strict package contract for mail",
           "audits actual host calls and strict package contract for pikvm",
+          "audits actual host calls and strict package contract for pirateface-search",
           "audits actual host calls and strict package contract for ssh",
           "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
@@ -1431,7 +1475,8 @@
       "reads again when the library lists another package for the same version",
       "does not wait behind a read of the same release that is in flight",
       "is a recent check once the owner has refreshed in the background, not unknown",
-      "refuses a candidate that needs a newer feature level, and offers one the host has"
+      "refuses a candidate that needs a newer feature level, and offers one the host has",
+      "installs a manifest that requests the client job operations once they are approved"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1457,8 +1502,8 @@
         "2",
         "-tags",
         "auth,nosqlite,purego_utp",
-        "./addons/internal/protocol",
-        "-ginkgo.json-report=../../../.cache/addons/logs/runtime-protocol.json"
+        "./pkg/addons/sdk/protocol",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/runtime-protocol.json"
       ]
     ],
     "report": ".cache/addons/logs/runtime.json",
@@ -1553,7 +1598,9 @@
           "keeps the start live after the call and ends it when an answer reports the job finished",
           "leases nothing for another tool, a refusal, a finished start, a bad answer or an add-on without jobs",
           "refuses a start, without sending it, when every lease place of the add-on is taken",
-          "gives the reserved place back when the start makes no job"
+          "gives the reserved place back when the start makes no job",
+          "is read for a GET route and apply for a route that changes things, and never act",
+          "builds the envelope of a stream with the read scope and refuses a caller that is not a client"
         ]
       },
       {
@@ -1918,7 +1965,9 @@
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
           "answers an unknown lifecycle operation with its own type, not as a denial",
-          "carries the jobs tool of an app, which the public apps API leaves out"
+          "carries the jobs tool of an app, which the public apps API leaves out",
+          "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
+          "carries the credential-slot words and the translated resource nouns of an app"
         ]
       },
       {
@@ -2591,7 +2640,17 @@
       "pikvm/type-text: waits for a person in propose mode",
       "pikvm/type-text: runs from a chat turn in Allow all, and the default is not Allow all",
       "keeps no hard approval on any write tool of these add-ons",
-      "refuses every write in off mode"
+      "refuses every write in off mode",
+      "returns a proposal that waits and runs nothing until a person confirms",
+      "still applies a tool without approval always at once",
+      "holds the proposal for a person, with the hold and the expiry on it",
+      "holds an overridable tool too, since only a credential can relax it",
+      "applies once when a person confirms, and a repeat sends nothing",
+      "never runs for a caller that is not a person, with or without the chat mark",
+      "does not let a person's browser confirm through a chat turn mark",
+      "does not let the messaging-chat mark confirm it, even for a credential that stands for a person",
+      "never runs a cancelled or an expired proposal",
+      "keeps today's behavior for a tool without approval always"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2900,7 +2959,17 @@
           "pikvm/type-text: waits for a person in propose mode",
           "pikvm/type-text: runs from a chat turn in Allow all, and the default is not Allow all",
           "keeps no hard approval on any write tool of these add-ons",
-          "refuses every write in off mode"
+          "refuses every write in off mode",
+          "holds the proposal for a person, with the hold and the expiry on it",
+          "holds an overridable tool too, since only a credential can relax it",
+          "applies once when a person confirms, and a repeat sends nothing",
+          "never runs for a caller that is not a person, with or without the chat mark",
+          "does not let a person's browser confirm through a chat turn mark",
+          "does not let the messaging-chat mark confirm it, even for a credential that stands for a person",
+          "never runs a cancelled or an expired proposal",
+          "keeps today's behavior for a tool without approval always",
+          "returns a proposal that waits and runs nothing until a person confirms",
+          "still applies a tool without approval always at once"
         ]
       },
       {
@@ -3434,7 +3503,9 @@
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
           "answers an unknown lifecycle operation with its own type, not as a denial",
-          "carries the jobs tool of an app, which the public apps API leaves out"
+          "carries the jobs tool of an app, which the public apps API leaves out",
+          "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
+          "carries the credential-slot words and the translated resource nouns of an app"
         ]
       },
       {
@@ -3836,7 +3907,8 @@
           "reads again when the library lists another package for the same version",
           "does not wait behind a read of the same release that is in flight",
           "is a recent check once the owner has refreshed in the background, not unknown",
-          "refuses a candidate that needs a newer feature level, and offers one the host has"
+          "refuses a candidate that needs a newer feature level, and offers one the host has",
+          "installs a manifest that requests the client job operations once they are approved"
         ]
       },
       {
@@ -3929,7 +4001,9 @@
           "keeps the start live after the call and ends it when an answer reports the job finished",
           "leases nothing for another tool, a refusal, a finished start, a bad answer or an add-on without jobs",
           "refuses a start, without sending it, when every lease place of the add-on is taken",
-          "gives the reserved place back when the start makes no job"
+          "gives the reserved place back when the start makes no job",
+          "is read for a GET route and apply for a route that changes things, and never act",
+          "builds the envelope of a stream with the read scope and refuses a caller that is not a client"
         ]
       },
       {
@@ -5559,6 +5633,8 @@
       "package.sh refuses a guest image that is not by digest",
       "package.sh refuses a sandbox release build without SANDBOX_GUEST_IMAGE",
       "package.sh stamps the sandbox executable with a guest image in a local check",
+      "package.sh signs the macOS sandbox executable with the virtualization entitlement",
+      "package.sh signs no other add-on",
       "go: packages all four document slots with the actual validator and no core fallback",
       "go: proves every source block and local reference without Git or network",
       "go: writes the zip of a verified layout with a digest manifest and a sha256 file",
@@ -5572,6 +5648,7 @@
       "go: audits actual host calls and strict package contract for mail",
       "go: audits actual host calls and strict package contract for office",
       "go: audits actual host calls and strict package contract for pikvm",
+      "go: audits actual host calls and strict package contract for pirateface-search",
       "go: audits actual host calls and strict package contract for ssh",
       "go: audits actual host calls and strict package contract for quantization",
       "go: audits actual host calls and strict package contract for sandbox",
@@ -5595,6 +5672,7 @@
       "go: has consistent package files for jellyfin",
       "go: has consistent package files for mail",
       "go: has consistent package files for pikvm",
+      "go: has consistent package files for pirateface-search",
       "go: has consistent package files for ssh",
       "go: changes the package digest when a translation changes, and the package still verifies",
       "go: refuses to build a package whose translation the host would refuse",

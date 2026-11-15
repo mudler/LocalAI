@@ -16,9 +16,9 @@ import (
 	"github.com/mudler/LocalAI/addons/home-assistant/internal/policy"
 	"github.com/mudler/LocalAI/addons/home-assistant/internal/tools"
 	"github.com/mudler/LocalAI/addons/internal/connector"
-	"github.com/mudler/LocalAI/addons/internal/hostclient"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 type runtime struct {

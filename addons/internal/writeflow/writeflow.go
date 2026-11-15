@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/argutil"
 	"github.com/mudler/LocalAI/addons/internal/googleapi"
 	"github.com/mudler/LocalAI/addons/internal/journal"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // Config is what an add-on says about itself.

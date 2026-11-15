@@ -2,6 +2,8 @@
 package auth_test
 
 import (
+	"strings"
+
 	. "github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -181,6 +183,24 @@ var _ = Describe("Chats feature registration", func() {
 			if r.Feature == FeatureChats {
 				Expect(r.Pattern).NotTo(MatchRegexp(`/api/chats/(agents|triggers|connectors)(/|$)`), r.Method+" "+r.Pattern)
 			}
+		}
+	})
+
+	It("gates the shared project routes with the chats feature, read only", func() {
+		want := map[string]bool{"GET /api/chats/projects/shared": false, "GET /api/chats/projects/shared/:ref": false,
+			"GET /api/chats/projects/shared/:ref/memory": false}
+		for _, r := range RouteFeatureRegistry {
+			key := r.Method + " " + r.Pattern
+			if _, ok := want[key]; ok {
+				Expect(r.Feature).To(Equal(FeatureChats), key)
+				want[key] = true
+			}
+			if strings.Contains(r.Pattern, "projects/shared") {
+				Expect(r.Method).To(Equal("GET"), key)
+			}
+		}
+		for k, seen := range want {
+			Expect(seen).To(BeTrue(), k)
 		}
 	})
 

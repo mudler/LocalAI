@@ -17,7 +17,7 @@ const (
 // product, and what it does with add-on tools. The list is executable: the
 // consumer matrix test scans the sources for the markers of tool discovery and
 // execution and fails for a file no entry names, so a new consumer cannot ship
-// without a decision. The same table is in docs/content/features/tables.md.
+// without a decision. The same table is in docs/content/addons/catalogue/work/tables.md.
 type Consumer struct {
 	// ID is the stable name used in the documentation table.
 	ID string

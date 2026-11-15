@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type Options struct {
@@ -16,6 +17,13 @@ type Options struct {
 	context        context.Context
 
 	gRPCOptions *pb.ModelOptions
+
+	// gRPCOptionsFinalizer runs on a copy of gRPCOptions right before a real
+	// load in this process, never on a cache hit and never in distributed
+	// mode (the router completes the options when it sends a load). It lets
+	// the caller add a value that is costly to fetch or must not sit in the
+	// options for long, such as a credential.
+	gRPCOptionsFinalizer func(context.Context, *pb.ModelOptions) error
 
 	externalBackends map[string]string
 
@@ -96,6 +104,29 @@ func WithLoadGRPCLoadModelOpts(opts *pb.ModelOptions) Option {
 	return func(o *Options) {
 		o.gRPCOptions = opts
 	}
+}
+
+// WithLoadGRPCOptionsFinalizer sets a function that completes the load options
+// just before a real load. If it fails, the load fails with its error.
+func WithLoadGRPCOptionsFinalizer(fn func(context.Context, *pb.ModelOptions) error) Option {
+	return func(o *Options) {
+		o.gRPCOptionsFinalizer = fn
+	}
+}
+
+// finalized returns the options to use for one real load: o itself when there
+// is no finalizer, else a copy that holds a finalized clone of the load
+// options.
+func (o *Options) finalized() (*Options, error) {
+	if o.gRPCOptionsFinalizer == nil || o.gRPCOptions == nil {
+		return o, nil
+	}
+	cp := *o
+	cp.gRPCOptions = proto.Clone(o.gRPCOptions).(*pb.ModelOptions)
+	if err := o.gRPCOptionsFinalizer(o.context, cp.gRPCOptions); err != nil {
+		return nil, err
+	}
+	return &cp, nil
 }
 
 func WithContext(ctx context.Context) Option {

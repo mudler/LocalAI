@@ -202,12 +202,31 @@ type ChatsMCPRef struct {
 // is 1, 2 for an agent with one folder (folder), or 3 for an agent with
 // several (folders): an older server refuses the file instead of importing the agent without its folder. The
 // file holds the definition only: no ID, owner or time, and the folder as a
-// path, never as the server's own reference to it.
+// path, never as the server's own reference to it. Version 5 is a project
+// agent: it carries projectRef and the folders as the project-relative paths
+// files and memory.
 type ChatsAgentExport struct {
 	Version    int             `json:"version"`
 	Kind       string          `json:"kind"`
 	ExportedAt time.Time       `json:"exported_at"`
 	Agent      ChatsAgentWrite `json:"agent"`
+}
+
+// ChatsAgentProjectRequired is the 409 answer of an import of a project agent
+// when no project was chosen. Error.type is project_required and
+// Error.project_name is the name of the project in the file (empty when the
+// file has none): send the query parameter project_id (one of your own
+// projects) or create_project=true, and import again.
+type ChatsAgentProjectRequired struct {
+	Error ChatsAgentProjectRequiredError `json:"error"`
+}
+
+// ChatsAgentProjectRequiredError is the error of ChatsAgentProjectRequired.
+type ChatsAgentProjectRequiredError struct {
+	Message     string `json:"message"`
+	Code        int    `json:"code"`
+	Type        string `json:"type" example:"project_required"`
+	ProjectName string `json:"project_name"`
 }
 
 // ChatsAgentImportResult is the response of an agent import.

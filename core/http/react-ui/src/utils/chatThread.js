@@ -226,6 +226,7 @@ export function menuChats(conversations) {
     originId: c.origin_id || '',
     lastTurn: c.last_turn || '',
     agentId: c.agent_id || '',
+    projectId: c.project_id || '',
     assistant: Boolean(c.assistant),
     createdAt: Date.parse(c.created) || 0,
     updatedAt: Date.parse(c.updated) || Date.parse(c.created) || 0,

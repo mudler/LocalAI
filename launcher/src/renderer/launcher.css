@@ -1,0 +1,390 @@
+/* Launcher layout only. Colours come from the theme roles (--dk-*), type,
+   spacing, radii and control heights from the product tokens. No literal
+   colour here: test/rendererColours.test.ts checks it. */
+:root {
+  /* The bar is one small control tall plus its top edge. */
+  --lnr-bar-h: calc(var(--ctl-h-sm) + 2px);
+  /* The name column of a settings row. */
+  --lnr-field-name: 240px;
+  --lnr-card-edge: var(--color-border-card);
+}
+
+html, body, #root { height: 100%; }
+/* The shell never scrolls as a page (its areas scroll); a page scrollbar would
+   show beside the bar and over the WebUI while the shell is raised. */
+html, body { overflow: hidden; }
+body {
+  margin: 0;
+  background: var(--dk-canvas);
+  color: var(--dk-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+}
+#root { min-height: 0; }
+
+/* ---- frame ---------------------------------------------------------------- */
+.lnr-shell { display: flex; flex-direction: column; height: 100%; background: var(--dk-canvas); }
+/* Over the WebUI view the shell draws only the strips and the bar; the area between is the view. */
+.lnr-shell--web { background: transparent; }
+/* While the shell is raised above the WebUI (a popover is open), the page
+   itself must be see-through too, or it hides the WebUI behind it. */
+:root:has(.lnr-shell--web), :root:has(.lnr-shell--web) body { background: transparent; }
+.lnr-area { flex: 1; min-height: 0; overflow: auto; position: relative; display: flex; flex-direction: column; }
+.lnr-area > * { flex: none; }
+.lnr-webslot { flex: 1; min-height: 0; }
+.lnr-bottom { flex: none; }
+.lnr-strip { padding: var(--sp-2) var(--sp-3); background: var(--dk-canvas); border-bottom: 1px solid var(--dk-edge); }
+.lnr-bottom .lnr-strip { border-bottom: 0; border-top: 1px solid var(--dk-edge); }
+.lnr-strip--inset { background: var(--dk-inset); font-size: var(--fs-small); padding: 6px var(--sp-3) 6px var(--sp-4); }
+.lnr-grow { flex: 1; min-width: 0; }
+.lnr-row { display: flex; align-items: center; gap: var(--sp-3); }
+.lnr-row--tight { gap: var(--sp-2); }
+.lnr-stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.lnr-block { display: block; }
+
+/* ---- status bar ----------------------------------------------------------- */
+.lnr-bar {
+  height: var(--lnr-bar-h);
+  display: flex; align-items: center; gap: var(--sp-1);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  background: var(--dk-inset);
+  border-top: 1px solid var(--dk-edge);
+  font-size: var(--fs-meta);
+  color: var(--dk-muted);
+  white-space: nowrap;
+}
+/* The kit's small controls (28 px) fit the 30 px bar. Their hit area grows to
+   the full bar height and to at least 44 px wide through an invisible layer
+   that takes no space, so the layout does not move. The bar is the bottom
+   edge of the window, so 30 px is the most height a target can have. */
+.lnr-bar > .dk-btn,
+.lnr-bar > .lnr-anchor > .dk-btn,
+.lnr-bar > .lnr-anchor > .lnr-chipbtn { position: relative; }
+.lnr-bar > .dk-btn::after,
+.lnr-bar > .lnr-anchor > .dk-btn::after,
+.lnr-bar > .lnr-anchor > .lnr-chipbtn::after {
+  content: "";
+  position: absolute;
+  top: -1px; bottom: -1px;
+  left: min(0px, calc((100% - 44px) / 2));
+  right: min(0px, calc((100% - 44px) / 2));
+}
+.lnr-bar__logo { width: var(--sp-4); height: var(--sp-4); border-radius: var(--r-xs); margin-right: var(--sp-1); flex: none; }
+.lnr-bar__status { display: inline-flex; align-items: center; gap: var(--sp-2); margin-right: var(--sp-1); min-width: 0; }
+.lnr-bar__addr {
+  font-size: var(--fs-meta);
+  color: var(--dk-text);
+  padding-left: var(--sp-2);
+  border-left: 1px solid var(--dk-edge);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.lnr-bar__addr[data-tone="ok"] { color: var(--dk-ok-text); }
+.lnr-bar__addr[data-tone="error"] { color: var(--dk-error-text); }
+.lnr-bar__addr[data-tone="warn"] { color: var(--dk-warn-text); }
+.lnr-bar__addr[data-tone="accent"] { color: var(--dk-accent-text); }
+.lnr-anchor { position: relative; display: inline-flex; }
+.lnr-chipbtn {
+  display: inline-flex; padding: 0; border: 0; background: none; cursor: pointer;
+  border-radius: var(--r-sm);
+  /* The warn wash is close to the bar colour; an outline keeps the chip readable. */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-warn-text) 40%, transparent);
+}
+.lnr-chipbtn:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+.lnr-pop { z-index: 30; }
+.lnr-menu { min-width: 236px; }
+.lnr-about { min-width: 240px; display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; }
+.lnr-about__list { display: grid; grid-template-columns: auto auto; gap: var(--sp-1) var(--sp-4); margin: 0; }
+.lnr-about__list dd { margin: 0; }
+
+/* The guide opens upward from the chip, over the WebUI. */
+.lnr-guide { width: 470px; max-width: calc(100vw - 2 * var(--sp-4)); white-space: normal; color: var(--dk-text); font-size: var(--fs-body); display: flex; flex-direction: column; gap: var(--sp-2); }
+.lnr-guide__head { display: flex; align-items: center; gap: var(--sp-2); }
+.lnr-guide__icon { color: var(--dk-warn-text); }
+.lnr-guide__p { margin: 0; }
+.lnr-guide__label { margin-top: var(--sp-1); }
+.lnr-guide__plan { display: flex; flex-direction: column; gap: var(--sp-2); }
+.lnr-guide__details summary { cursor: pointer; color: var(--dk-muted); }
+.lnr-guide__details .lnr-code { margin-top: var(--sp-2); max-height: 160px; overflow: auto; }
+.lnr-guide__actions { gap: var(--sp-2); margin-top: var(--sp-1); }
+.lnr-guide__foot { margin: var(--sp-1) 0 0; padding-top: var(--sp-3); border-top: 1px solid var(--dk-edge); }
+.lnr-guide__link { display: inline; padding: 0; text-decoration: underline; text-underline-offset: 3px; font-weight: var(--font-weight-medium); }
+.lnr-placeholder { border: 1px dashed var(--dk-control-edge); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); }
+.lnr-placeholder__cmd { color: var(--dk-text); margin-bottom: var(--sp-1); }
+
+/* The dot of a hidden bar. */
+.lnr-corner { position: fixed; right: var(--sp-3); bottom: var(--sp-3); z-index: 20; }
+.lnr-corner__btn {
+  display: grid; place-items: center;
+  width: var(--ctl-h-sm); height: var(--ctl-h-sm);
+  padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--radius-full);
+  background: var(--dk-card); cursor: pointer;
+  box-shadow: var(--shadow-subtle);
+}
+.lnr-corner__btn:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+.lnr-corner .dk-tooltip { left: auto; right: 0; transform: none; }
+.lnr-corner:hover .dk-tooltip, .lnr-corner:focus-within .dk-tooltip { transform: none; }
+
+/* ---- screens -------------------------------------------------------------- */
+.lnr-back {
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: calc(var(--ctl-h) + var(--sp-2));
+  padding: var(--sp-1) var(--sp-4);
+  border-bottom: 1px solid var(--dk-edge);
+  background: var(--dk-canvas);
+  position: sticky; top: 0; z-index: 5;
+}
+.lnr-screen { padding: var(--sp-6) calc(var(--sp-6) + var(--sp-1)) var(--sp-8); margin: 0 auto; max-width: var(--page-max, none); width: 100%; }
+.lnr-screen__banner { margin-bottom: var(--sp-4); }
+.lnr-screen__head { margin-bottom: var(--sp-4); }
+.lnr-h { margin: 0 0 var(--sp-1); font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; }
+.lnr-sub { margin: 0 0 var(--sp-5); color: var(--dk-muted); }
+.lnr-sub--narrow { max-width: 440px; }
+.lnr-section { margin: var(--sp-4) 0 var(--sp-2); }
+.lnr-card { border-color: var(--lnr-card-edge); }
+.lnr-gap { margin-bottom: var(--sp-3); }
+.lnr-gap-sm { margin-bottom: var(--sp-3); }
+.lnr-card__title { margin: 0 0 var(--sp-1); }
+.lnr-card__bar { margin-bottom: var(--sp-2); }
+.lnr-card__bar h3 { margin: 0; }
+.lnr-card__foot { margin-top: var(--sp-3); }
+.lnr-card__lead { margin: 0 0 var(--sp-1); }
+.lnr-tabs { margin: var(--sp-2) 0 var(--sp-4); }
+.lnr-actions { margin-top: var(--sp-4); gap: var(--sp-2); }
+
+/* A settings row: name and note left, control right. */
+.lnr-field { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--dk-edge); }
+.lnr-card__title + .lnr-field, .lnr-card__lead + .lnr-field, .lnr-field:first-child { border-top: 0; }
+.lnr-field__name { width: var(--lnr-field-name); flex: none; display: flex; flex-direction: column; }
+.lnr-field__label { font-size: var(--fs-small); font-weight: var(--font-weight-medium); }
+.lnr-field__note { font-size: var(--fs-meta); color: var(--dk-muted); line-height: var(--lh-meta); }
+.lnr-field__input { flex: 1; height: var(--ctl-h); }
+/* A data folder: shown, not typed (the main process picks it). Looks like a value, as in the mocks. */
+.lnr-field__input[readonly] { background: var(--dk-inset); border-color: var(--dk-edge); box-shadow: none; cursor: default; }
+.lnr-field__select { width: 200px; }
+.lnr-field--wide { align-items: flex-start; }
+.lnr-value {
+  display: flex; align-items: center; min-height: var(--ctl-h); padding: 0 var(--sp-3);
+  background: var(--dk-inset); border: 1px solid var(--dk-edge); border-radius: var(--r-md);
+  font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lnr-env { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.lnr-env__row { gap: var(--sp-2); }
+.lnr-env__row > * { flex: none; }
+.lnr-env__row > .lnr-grow { flex: 1; min-width: 0; }
+.lnr-env__row .dk-input { height: var(--ctl-h); }
+.lnr-env__name { width: 160px; }
+/* A key the user chose to show: all of it, wrapped, never cut off. */
+.lnr-value--wrap { white-space: normal; word-break: break-all; padding-block: var(--sp-1); }
+/* The "Allow other devices" plan: the addresses that will be exposed. */
+.lnr-plan__list { margin: var(--sp-1) 0 var(--sp-2); padding-left: var(--sp-5); font-size: var(--fs-small); }
+.lnr-plan p { margin: 0 0 var(--sp-1); }
+
+/* Centred screens: install, progress, first run, stopped. */
+.lnr-area > .lnr-center { flex: 1 0 auto; }
+.lnr-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: var(--sp-10) var(--sp-6) var(--sp-8); }
+.lnr-center--hero { padding-top: 70px; }
+.lnr-center--progress { padding-top: 60px; }
+.lnr-center--firstrun { padding-top: 44px; }
+.lnr-hero { width: 84px; height: 84px; border-radius: 20px; margin-bottom: var(--sp-4); }
+.lnr-hero__foot { margin: var(--sp-3) 0 0; }
+.lnr-install-card { width: 420px; max-width: 100%; text-align: left; margin-bottom: var(--sp-5); }
+.lnr-progress-card { width: 480px; max-width: 100%; text-align: left; }
+.lnr-progress-actions { margin-top: var(--sp-5); justify-content: center; }
+.lnr-progress-done { margin: var(--sp-3) 0 0; color: var(--dk-ok-text); font-weight: var(--font-weight-medium); }
+.lnr-firstrun { width: 560px; max-width: 100%; text-align: left; display: flex; flex-direction: column; }
+.lnr-firstrun .lnr-card + .lnr-card { margin-top: var(--sp-3); }
+.lnr-next__icon {
+  display: grid; place-items: center; flex: none;
+  width: 34px; height: 34px; border-radius: var(--r-md);
+  background: var(--dk-accent-wash); color: var(--dk-accent-text); font-weight: var(--font-weight-semibold);
+}
+
+/* Steps with a mark: tick when done, the number otherwise. */
+.lnr-steps { list-style: none; margin: 0; padding: 0; }
+.lnr-step { padding: 7px 0; font-size: var(--fs-small); }
+.lnr-step__row { display: flex; align-items: center; gap: 10px; }
+.lnr-step__mark {
+  display: grid; place-items: center; flex: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: var(--fs-meta); font-weight: var(--font-weight-semibold);
+}
+.lnr-stepper .lnr-step__mark { width: 26px; height: 26px; }
+.lnr-step__mark--done { background: var(--dk-ok); color: var(--dk-canvas); }
+.lnr-step__mark--active { background: var(--dk-accent); color: var(--dk-on-accent); }
+.lnr-step__mark--todo { background: var(--dk-inset); color: var(--dk-muted); }
+.lnr-step__mark .lai-icon { width: 14px; height: 14px; }
+.lnr-step__progress { margin: var(--sp-2) 0 var(--sp-1) 30px; }
+.lnr-stepper { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: 22px; }
+.lnr-stepper__line { width: 36px; height: 2px; background: var(--dk-edge); }
+.lnr-stepper__text { margin-left: var(--sp-2); }
+
+/* Start failed: fix rows. */
+.lnr-fix { display: flex; align-items: center; gap: var(--sp-3); padding: 11px 0; border-top: 1px solid var(--dk-edge); }
+.lnr-card__title + .lnr-fix { border-top: 0; }
+
+.lnr-code {
+  margin: 0; padding: 10px var(--sp-3);
+  background: var(--dk-inset); border: 1px solid var(--dk-edge); border-radius: var(--r-md);
+  font-size: var(--fs-small); line-height: 1.6; color: var(--dk-text);
+  white-space: pre-wrap; overflow-wrap: anywhere; text-align: left;
+}
+.lnr-log__error { color: var(--dk-error-text); }
+
+/* Logs. */
+.lnr-logs__bar { margin-bottom: var(--sp-3); gap: var(--sp-2); flex-wrap: wrap; }
+.lnr-logs__bar .lnr-h { margin: 0; }
+.lnr-logs__filter { width: 170px; flex: none; }
+.lnr-log {
+  height: 350px; overflow: auto; padding: 10px var(--sp-3);
+  background: var(--dk-inset); border: 1px solid var(--dk-edge); border-radius: var(--r-md);
+  font-size: var(--fs-small); line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+.lnr-log__line { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lnr-log__t { color: var(--dk-muted); }
+.lnr-log__line--warn { color: var(--dk-warn-text); }
+.lnr-log__line--error { color: var(--dk-error-text); }
+.lnr-logs__foot { margin-top: 10px; gap: var(--sp-2); }
+
+/* Worker run mode cards. */
+.lnr-picks { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: 14px; }
+.lnr-pick { display: flex; align-items: center; gap: var(--sp-3); border-color: var(--lnr-card-edge); }
+.lnr-pick--on { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
+
+/* ---- servers, switcher, channel (mock screens 17 to 34) ------------------------ */
+.lnr-link { display: inline; padding: 0; border: 0; background: none; color: var(--dk-accent-text); text-decoration: underline; font: inherit; font-weight: var(--font-weight-medium); cursor: pointer; }
+.lnr-link:focus-visible, .lnr-backlink:focus-visible, .lnr-switch:focus-visible { box-shadow: var(--focus-ring); outline: none; border-radius: var(--r-sm); }
+.lnr-backlink { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 0; border: 0; background: none; color: var(--dk-accent-text); font: inherit; cursor: pointer; margin-bottom: var(--sp-3); }
+.lnr-badge { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 1px var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-meta); font-weight: var(--font-weight-medium); }
+.lnr-badge--accent { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.lnr-badge--ok { background: var(--dk-ok-wash); color: var(--dk-ok-text); }
+.lnr-badge--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+.lnr-kbd { display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--dk-control-edge); border-radius: var(--r-sm); background: var(--dk-warn-wash); color: var(--dk-text); font-family: var(--font-mono); font-size: var(--fs-meta); }
+.lnr-dot { flex: none; }
+.lnr-pop--down { top: calc(100% + var(--sp-1)); bottom: auto; }
+.lnr-menu__danger { color: var(--dk-error-text); }
+
+/* Dialogs and the soft card of a switch. */
+.lnr-scrim { position: fixed; inset: 0; z-index: var(--dk-z-dialog, 40); display: grid; place-items: center; padding: var(--sp-4); background: var(--dk-scrim); }
+.lnr-scrim--soft { background: var(--dk-scrim); }
+.lnr-dialog { width: 460px; max-width: 100%; max-height: calc(100vh - 2 * var(--sp-4)); overflow: auto; padding: var(--sp-5); background: var(--dk-card); color: var(--dk-text); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); box-shadow: var(--dk-shadow-float); display: flex; flex-direction: column; gap: var(--sp-3); }
+.lnr-dialog--wide { width: 540px; }
+.lnr-dialog--form { width: 520px; }
+.lnr-dialog--card { width: 420px; }
+.lnr-dialog__title { margin: 0; font-size: var(--fs-title-sm, var(--fs-body)); font-weight: var(--font-weight-semibold); display: flex; align-items: center; gap: var(--sp-2); }
+.lnr-dialog__sub { margin: var(--sp-1) 0 0; color: var(--dk-muted); }
+.lnr-dialog__p { margin: 0; }
+.lnr-dialog__steps { margin: 0; }
+.lnr-dialog__actions { margin-top: var(--sp-2); gap: var(--sp-2); }
+.lnr-switching__head { display: flex; gap: var(--sp-3); align-items: center; }
+.lnr-switching__spin { font-size: 28px; color: var(--dk-accent); }
+.lnr-switching__steps { margin: 0; }
+.lnr-ticks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.lnr-ticks li { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-small); }
+.lnr-check { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* The address form. */
+.lnr-form { display: flex; flex-direction: column; gap: var(--sp-1); text-align: left; }
+.lnr-form--page { width: 560px; max-width: 100%; }
+.lnr-form__label { font-weight: var(--font-weight-semibold); font-size: var(--fs-small); margin-top: var(--sp-2); }
+.lnr-form__card { display: flex; flex-direction: column; gap: var(--sp-1); }
+.lnr-form__input { position: relative; display: flex; align-items: center; }
+.lnr-form__input .dk-input { width: 100%; height: var(--ctl-h); padding-right: 96px; }
+.lnr-form__input.is-warn .dk-input { border-color: var(--dk-warn-text); background: var(--dk-warn-wash); }
+.lnr-form__input.is-ok .dk-input { border-color: var(--dk-ok-text); }
+.lnr-form__input.is-error .dk-input { border-color: var(--dk-error-text); }
+.lnr-form__flag { position: absolute; right: var(--sp-3); color: var(--dk-warn-text); }
+.lnr-form__input.is-ok .lnr-form__flag { color: var(--dk-ok-text); }
+.lnr-form__badge { position: absolute; right: var(--sp-3); font-size: var(--fs-meta); color: var(--dk-muted); }
+.lnr-form__note { margin: 0; font-size: var(--fs-meta); color: var(--dk-muted); }
+.lnr-form__test { margin-top: var(--sp-2); }
+.lnr-form__foot { margin-top: var(--sp-3); align-items: center; gap: var(--sp-2); }
+.lnr-form__lock { margin: 0; display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-small); color: var(--dk-muted); }
+.lnr-form__default { margin: 0; display: flex; gap: var(--sp-2); align-items: center; font-size: var(--fs-small); }
+.lnr-hint { min-height: var(--sp-1); }
+.lnr-hint__p { margin: var(--sp-1) 0 0; display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-small); }
+.lnr-hint__p--warn { color: var(--dk-warn-text); }
+.lnr-hint__p--error { color: var(--dk-error-text); }
+.lnr-hint__p--ok { color: var(--dk-ok-text); }
+.lnr-hint__tag { flex: none; padding: 0 var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-meta); font-weight: var(--font-weight-medium); }
+.lnr-hint__tag--fix { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+.lnr-hint__tag--note { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.lnr-hint__tag--error { background: var(--dk-error-wash); color: var(--dk-error-text); }
+.lnr-hint__tag--ok { background: var(--dk-ok-wash); color: var(--dk-ok-text); }
+
+/* A test result. The icon and the title carry the meaning; the wash only supports it. */
+.lnr-result { display: flex; gap: var(--sp-3); padding: var(--sp-3); margin-top: var(--sp-2); border: 1px solid var(--dk-edge); border-radius: var(--r-md); text-align: left; }
+.lnr-result--ok { background: var(--dk-ok-wash); border-color: var(--dk-ok-text); color: var(--dk-ok-text); }
+.lnr-result--warn { background: var(--dk-warn-wash); border-color: var(--dk-warn-text); color: var(--dk-warn-text); }
+.lnr-result--error { background: var(--dk-error-wash); border-color: var(--dk-error-text); color: var(--dk-error-text); }
+.lnr-result--busy { background: var(--dk-accent-wash); border-color: var(--dk-accent); color: var(--dk-accent-text); }
+.lnr-result__icon { flex: none; margin-top: 2px; }
+.lnr-result__p { margin: var(--sp-1) 0 0; font-size: var(--fs-small); }
+.lnr-result__actions { margin-top: var(--sp-2); }
+
+/* First run: two cards. */
+.lnr-center--firstchoose { padding-top: 36px; }
+.lnr-choice { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); width: 640px; max-width: 100%; text-align: left; }
+.lnr-choice__card { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-5); background: var(--dk-card); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); }
+.lnr-choice__card .dk-btn { margin-top: auto; }
+.lnr-choice__icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.lnr-choice__title { margin: var(--sp-2) 0 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.lnr-choice__p { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
+.lnr-first__foot { display: flex; gap: var(--sp-2); max-width: 520px; margin-top: var(--sp-4); }
+.lnr-center--connectfirst { padding-top: var(--sp-6); justify-content: flex-start; }
+
+/* The recovery screen of a remote that does not answer. */
+.lnr-center--unreach { padding-top: var(--sp-8); }
+.lnr-banner { display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); border: 1px solid var(--dk-error-text); background: var(--dk-error-wash); color: var(--dk-error-text); width: 520px; max-width: 100%; text-align: left; margin-bottom: var(--sp-5); }
+.lnr-banner__p { margin: var(--sp-1) 0 0; font-size: var(--fs-small); }
+.lnr-h--mid { margin-top: 0; }
+.lnr-paths { width: 520px; max-width: 100%; text-align: left; margin-bottom: var(--sp-3); }
+.lnr-path { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--dk-edge); }
+.lnr-path:first-child { border-top: 0; }
+.lnr-path__p { margin: var(--sp-1) 0 0; font-size: var(--fs-small); }
+
+/* Settings > Servers. */
+.lnr-slist { list-style: none; margin: 0; padding: 0; }
+.lnr-srow { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--dk-edge); }
+.lnr-srow:first-child { border-top: 0; }
+.lnr-srow__main { flex: 1; min-width: 0; }
+.lnr-srow__name { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.lnr-srow__host { color: var(--dk-muted); overflow-wrap: anywhere; }
+.lnr-srow__status { flex: none; }
+.lnr-srow__note { min-height: var(--sp-4); }
+.lnr-card__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
+.lnr-card__head .lnr-card__title { margin: 0; }
+.lnr-keep { display: flex; align-items: center; gap: var(--sp-4); }
+.lnr-keep__text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.lnr-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-3); border: 1px dashed var(--dk-control-edge); border-radius: var(--r-md); }
+.lnr-empty p { margin: 0; }
+
+/* Settings > Updates: the channel. */
+.lnr-radios { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.lnr-radio { position: relative; display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); cursor: pointer; }
+.lnr-radio.is-on { background: var(--dk-accent-wash); border-color: var(--dk-accent); }
+.lnr-radio input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.lnr-radio:has(input:focus-visible) { box-shadow: var(--focus-ring); }
+.lnr-radio__dot { flex: none; width: 16px; height: 16px; margin-top: 3px; border-radius: 50%; border: 2px solid var(--dk-control-edge); background: var(--dk-card); }
+.lnr-radio.is-on .lnr-radio__dot { border-color: var(--dk-accent); box-shadow: inset 0 0 0 3px var(--dk-card); background: var(--dk-accent); }
+.lnr-radio__text { display: flex; flex-direction: column; gap: 2px; }
+.lnr-radio__name { display: flex; gap: var(--sp-2); align-items: center; }
+.lnr-effect { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+
+/* The bar: switcher, chips, popover. */
+.lnr-switch { display: inline-flex; align-items: center; gap: var(--sp-1); height: calc(var(--lnr-bar-h) - 4px); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--dk-text); font: inherit; cursor: pointer; }
+.lnr-switch:hover { background: var(--dk-hover); }
+.lnr-switch__name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.lnr-bar__dev { flex: none; }
+.lnr-bar__status[data-insecure] .lnr-bar__addr { color: var(--dk-warn-text); }
+.lnr-switcher { width: 340px; max-width: calc(100vw - 2 * var(--sp-4)); white-space: normal; color: var(--dk-text); font-size: var(--fs-body); }
+.lnr-switcher__head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-2) var(--sp-3); }
+.lnr-switcher__row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; text-align: left; }
+.lnr-switcher__tick { width: var(--sp-4); flex: none; color: var(--dk-text); }
+.lnr-switcher__text { display: flex; flex-direction: column; min-width: 0; }
+.lnr-switcher__name { font-weight: var(--font-weight-medium); }
+.lnr-switcher__keys { margin: 0; padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--dk-edge); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lnr-shell *, .lnr-shell *::before, .lnr-shell *::after { transition: none !important; }
+}

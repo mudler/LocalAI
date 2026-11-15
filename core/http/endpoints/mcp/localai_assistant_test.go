@@ -32,6 +32,14 @@ func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capabili
 	return []localaitools.InstalledModel{{Name: "stub"}}, nil
 }
 
+func (stubClient) SearchModels(_ context.Context, _ localaitools.ModelSearchRequest) (*localaitools.ModelSearchResponse, error) {
+	return &localaitools.ModelSearchResponse{}, nil
+}
+
+func (stubClient) InspectRemoteModel(_ context.Context, _ localaitools.RemoteModelRequest) (*localaitools.RemoteModelInfo, error) {
+	return &localaitools.RemoteModelInfo{}, nil
+}
+
 func (stubClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
 	return []config.Gallery{{Name: "stub-gallery", URL: "http://example"}}, nil
 }
@@ -143,6 +151,10 @@ func (stubClient) GetBranding(_ context.Context) (*localaitools.Branding, error)
 
 func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
 	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
+}
+
+func (stubClient) Projects(_ context.Context, _ localaitools.ProjectsRequest) (*localaitools.ProjectsResult, error) {
+	return &localaitools.ProjectsResult{}, nil
 }
 
 func (stubClient) ListVoiceProfiles(_ context.Context) ([]localaitools.VoiceProfile, error) {

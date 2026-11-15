@@ -27,6 +27,14 @@ import (
 type LocalAIClient interface {
 	// ---- Models / gallery (read) ----
 	GallerySearch(ctx context.Context, q GallerySearchQuery) ([]gallery.Metadata, error)
+	// SearchModels asks the model sources of the person (Hugging Face and the sources of add-ons) for
+	// models that are not in a configured gallery. A result's URI goes to
+	// ImportModelURI.
+	SearchModels(ctx context.Context, req ModelSearchRequest) (*ModelSearchResponse, error)
+	// InspectRemoteModel reads one search result: its weight files grouped by
+	// quantization with sizes, licence, gated flag, the backend an import
+	// would pick, and optionally a memory estimate. Nothing is downloaded.
+	InspectRemoteModel(ctx context.Context, req RemoteModelRequest) (*RemoteModelInfo, error)
 	ListInstalledModels(ctx context.Context, capability Capability) ([]InstalledModel, error)
 	ListGalleries(ctx context.Context) ([]config.Gallery, error)
 	GetJobStatus(ctx context.Context, jobID string) (*JobStatus, error)
@@ -230,4 +238,9 @@ type LocalAIClient interface {
 	ListVoiceProfiles(ctx context.Context) ([]VoiceProfile, error)
 	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
 	DeleteVoiceProfile(ctx context.Context, id string) error
+
+	// Projects runs one action of the projects tool for the acting user. It
+	// goes through the project routes of the chats API, so the ownership
+	// rules of the API apply: a user reaches their own projects and chats only.
+	Projects(ctx context.Context, req ProjectsRequest) (*ProjectsResult, error)
 }

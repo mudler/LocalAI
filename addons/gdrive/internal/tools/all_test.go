@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/mudler/LocalAI/addons/gdrive/gdrivetest"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

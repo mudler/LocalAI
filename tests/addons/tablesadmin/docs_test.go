@@ -112,9 +112,9 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 				registered[entry.Method+" "+entry.Pattern] = true
 			}
 		}
-		docs, err := os.ReadFile("../../../docs/content/features/addons.md")
+		docs, err := os.ReadFile("../../../docs/content/addons/contract-reference.md")
 		Expect(err).NotTo(HaveOccurred())
-		tables, err := os.ReadFile("../../../docs/content/features/tables.md")
+		tables, err := os.ReadFile("../../../docs/content/addons/catalogue/work/tables.md")
 		Expect(err).NotTo(HaveOccurred())
 		for _, key := range []string{
 			"GET /api/addons/resources", "POST /api/addons/resources",

@@ -120,5 +120,15 @@
     "ollama": {
       "title": "Ollama"
     }
+  },
+  "found": {
+    "kind": {
+      "magnet": "Tautan magnet",
+      "pirateface": "Model Pirate Face"
+    },
+    "ref": {
+      "magnet": "Info hash",
+      "pirateface": "Model"
+    }
   }
 }

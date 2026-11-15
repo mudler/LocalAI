@@ -7,7 +7,7 @@
 #
 #   sh scripts/addons/zip.sh [--addon <id>] [--platforms <os/arch,...>]
 #       [--out <dir>] [--version <semver>] [--executables <dir>]
-#       [--runtime-dir <dir>] [--local-check]
+#       [--runtime-dir <dir>] [--local-check] [--root <dir>] [--executable <file>]
 #
 # Without --addon every add-on that has a platform file is built, except the
 # Sandbox add-on when SANDBOX_GUEST_IMAGE is not set (its executable needs the
@@ -17,14 +17,25 @@
 # --local-check allows a platform that the platform matrix has not enabled.
 # --version defaults to the version in the manifest of the add-on.
 #
+# --root <dir> builds the zip of an add-on that lives outside this repository
+# (see package.sh): <dir>/package/platforms.yaml, the executable from
+# <dir>/cmd/<executable name>. --addon is not needed then. --out defaults to
+# <dir>/dist/addons. --executable <file> is the built binary to pack instead of
+# building one; use it with a single platform (more than one platform is an
+# error). --addonpkg <file> uses an installed addonpkg instead of building it
+# from this checkout; without it the tool is always built from this checkout.
+# Every path flag (--out, --executable, --executables, --runtime-dir,
+# --addonpkg, --root) is relative to the directory the script was started in.
+#
 # The files are written to --out, dist/addons by default:
 #   <id>-<version>-<os>-<arch>.zip
 #   <id>-<version>-<os>-<arch>.zip.sha256   (sha256sum format)
 # Install one with:  local-ai addons install dist/addons/<name>.zip
 set -eu
+start=$PWD
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root"
-addon= platforms= out=dist/addons version= executables= runtime_dir= local_check=
+addon= platforms= out= version= executables= runtime_dir= local_check= addon_root= executable= addonpkg=
 while [ "$#" -gt 0 ]; do
     case "$1" in
     --addon) addon=${2-}; shift 2 ;;
@@ -34,9 +45,27 @@ while [ "$#" -gt 0 ]; do
     --executables) executables=${2-}; shift 2 ;;
     --runtime-dir) runtime_dir=${2-}; shift 2 ;;
     --local-check) local_check=1; shift ;;
+    --root) addon_root=${2-}; shift 2 ;;
+    --executable) executable=${2-}; shift 2 ;;
+    --addonpkg) addonpkg=${2-}; shift 2 ;;
     *) echo "zip.sh: unknown argument $1" >&2; exit 2 ;;
     esac
 done
+# A relative path flag is relative to the caller's directory, not the checkout.
+absp() { case "$1" in '') ;; /*) printf '%s\n' "$1" ;; *) printf '%s/%s\n' "$start" "$1" ;; esac; }
+out=$(absp "$out"); executable=$(absp "$executable"); executables=$(absp "$executables")
+runtime_dir=$(absp "$runtime_dir"); addonpkg=$(absp "$addonpkg")
+if [ -n "$executable" ] && [ "$(echo "${platforms:-x}" | tr ',' ' ' | wc -w)" -gt 1 ]; then
+    echo "zip.sh: --executable fits one platform; pass one --platforms value, or use --executables <dir>" >&2
+    exit 2
+fi
+if [ -n "$addon_root" ]; then
+    case "$addon_root" in /*) ;; *) addon_root=$start/$addon_root ;; esac
+    addon_root=$(CDPATH= cd -- "$addon_root" 2>/dev/null && pwd) || { echo "zip.sh: --root is not a directory" >&2; exit 2; }
+    [ -f "$addon_root/package/platforms.yaml" ] || { echo "zip.sh: $addon_root/package/platforms.yaml not found" >&2; exit 2; }
+    [ -n "$out" ] || out=$addon_root/dist/addons
+fi
+[ -n "$out" ] || out=dist/addons
 host="$(go env GOOS)/$(go env GOARCH)"
 [ -n "$platforms" ] || platforms=$host
 # Work files live under the build cache of the checkout, never in /tmp.
@@ -44,10 +73,19 @@ work_root=${ADDON_ZIP_WORK:-$root/.cache/addons/zip}
 mkdir -p "$work_root" "$out"
 work=$(mktemp -d "$work_root/run.XXXXXX")
 trap 'chmod -R u+rwx "$work" 2>/dev/null; rm -rf "$work"' EXIT HUP INT TERM
-go build -o "$work/addonpkg" ./scripts/addons/cmd/addonpkg
-export ADDONPKG="$work/addonpkg"
+if [ -n "$addonpkg" ]; then
+    [ -x "$addonpkg" ] || { echo "zip.sh: --addonpkg $addonpkg is not an executable file" >&2; exit 2; }
+    ADDONPKG=$addonpkg
+else
+    go build -o "$work/addonpkg" ./scripts/addons/cmd/addonpkg
+    ADDONPKG="$work/addonpkg"
+fi
+export ADDONPKG
 
-if [ -n "$addon" ]; then
+if [ -n "$addon_root" ]; then
+    list=$(sed -n 's/^addon: //p' "$addon_root/package/platforms.yaml")
+    [ -z "$addon" ] || [ "$addon" = "$list" ] || { echo "zip.sh: --addon $addon does not match the add-on of --root ($list)" >&2; exit 2; }
+elif [ -n "$addon" ]; then
     case "$addon" in '' | *[!a-z0-9-]*) echo "zip.sh: --addon must be an add-on ID" >&2; exit 2 ;; esac
     [ -f "addons/$addon/package/platforms.yaml" ] || { echo "zip.sh: no add-on $addon has a platform file" >&2; exit 2; }
     list="$addon"
@@ -66,14 +104,22 @@ fi
 built=0
 for a in $list; do
     config="addons/$a/package/platforms.yaml"
+    manifest="addons/$a/manifest.json"
+    if [ -n "$addon_root" ]; then
+        config=$addon_root/package/platforms.yaml
+        manifest=$addon_root/$(sed -n 's/^manifest: //p' "$config")
+    fi
     exe_name=$(sed -n 's/^executable: //p' "$config")
+    grep -q '^manifest: ' "$config" || { echo "zip.sh: platform file $config has no manifest key" >&2; exit 2; }
     v=$version
-    [ -n "$v" ] || v=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "addons/$a/manifest.json" | head -1)
+    [ -n "$v" ] || v=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$manifest" | head -1)
     [ -n "$v" ] || { echo "zip.sh: no version for $a; pass --version" >&2; exit 2; }
     for p in $(echo "$platforms" | tr ',' ' '); do
         layout="$work/$a-$(echo "$p" | tr '/' '-')"
         set -- --layout "$layout" --version "$v" --platform "$p" --config "$config"
-        if [ "$p" != "$host" ]; then
+        if [ -n "$executable" ]; then
+            set -- "$@" --executable "$executable"
+        elif [ "$p" != "$host" ]; then
             exe="$executables/$(echo "$p" | tr '/' '-')/$exe_name"
             [ -n "$executables" ] && [ -f "$exe" ] || {
                 echo "zip.sh: $a for $p needs the native executable at $exe (pass --executables <dir>)" >&2
@@ -82,10 +128,11 @@ for a in $list; do
             set -- "$@" --executable "$exe"
         fi
         [ -z "$runtime_dir" ] || set -- "$@" --runtime-dir "$runtime_dir"
+        [ -z "$addon_root" ] || set -- "$@" --root "$addon_root"
         # A platform the matrix has not enabled is built only on request. The
         # sandbox stand-in guest image of a local check is never used here.
         if [ -n "$local_check" ]; then
-            [ "$a" != sandbox ] || [ -n "${SANDBOX_GUEST_IMAGE-}" ] || { echo "zip.sh: sandbox needs SANDBOX_GUEST_IMAGE" >&2; exit 2; }
+            [ -n "$addon_root" ] || [ "$a" != sandbox ] || [ -n "${SANDBOX_GUEST_IMAGE-}" ] || { echo "zip.sh: sandbox needs SANDBOX_GUEST_IMAGE" >&2; exit 2; }
             set -- "$@" --local-check
         fi
         echo "zip.sh: $a $v $p" >&2

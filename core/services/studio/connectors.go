@@ -848,9 +848,18 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	// A scoped agent whose folder is missing does not run, on any frontend
 	// or worker: one plain reply, and the binding stays on, so it works
 	// again once the folder is back.
-	if _, err := c.svc.agentScope(ctx, b.Owner, b.AgentID); errors.Is(err, ErrAgentFolderMissing) {
+	_, scopeErr := c.svc.agentScope(ctx, b.Owner, b.AgentID)
+	if errors.Is(scopeErr, ErrAgentFolderMissing) {
 		c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)
 		tell("no_folder")
+		return
+	}
+	// An agent of a project that is archived, deleted or broken does not run
+	// either: one plain reply, no chat, and the binding stays on, so it works
+	// again when the project is restored.
+	if errors.Is(scopeErr, ErrProjectUnavailable) {
+		c.log.Warn("studio: a connector message was refused: the agent's project is not available", "binding", b.ID)
+		tell(projectKey(scopeErr))
 		return
 	}
 	// The files are read before the chat is made: a message that cannot
@@ -883,6 +892,10 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)
 			tell("no_folder")
 			return
+		case errors.Is(err, ErrProjectUnavailable):
+			c.log.Warn("studio: a connector message was refused: the agent's project is not available", "binding", b.ID)
+			tell(projectKey(err))
+			return
 		default:
 			c.log.Warn("studio: could not make the chat of a sender", "binding", b.ID, "error", err)
 		}
@@ -905,6 +918,15 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	}
 	ctx = withTurnWho(ctx, who)
 	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up, earlier)
+}
+
+// projectKey is the sentence for a refused project agent: the project is not
+// available, or its folders changed and the owner must save the agent again.
+func projectKey(err error) string {
+	if errors.Is(err, ErrProjectFoldersChanged) {
+		return "project_changed"
+	}
+	return "project_unavailable"
 }
 
 // refusalKey picks the sentence a sender reads for a refused capability, so
@@ -931,14 +953,16 @@ func refusalKey(b connectors.Binding, m contract.ConnectorMessage, d Decision, f
 // code of the note the chat keeps (session.RoleHostNote). A sentence that has
 // no code here is told to the sender and not noted.
 var hostNoteCodes = map[string]string{
-	"unsupported":  session.HostNoteUnsupported,
-	"too_long":     session.HostNoteTooLong,
-	"no_upload":    session.HostNoteNoUpload,
-	"rate":         session.HostNoteRate,
-	"pairing.done": session.HostNotePairing,
-	"no_folder":    session.HostNoteRefused,
-	"folder_limit": session.HostNoteRefused,
-	"no_files":     session.HostNoteRefused,
+	"unsupported":         session.HostNoteUnsupported,
+	"too_long":            session.HostNoteTooLong,
+	"no_upload":           session.HostNoteNoUpload,
+	"rate":                session.HostNoteRate,
+	"pairing.done":        session.HostNotePairing,
+	"no_folder":           session.HostNoteRefused,
+	"project_unavailable": session.HostNoteRefused,
+	"project_changed":     session.HostNoteRefused,
+	"folder_limit":        session.HostNoteRefused,
+	"no_files":            session.HostNoteRefused,
 	// The reasons a capability was refused (see refusalKey): the sender read
 	// one sentence, and so does the owner.
 	"refuse.channel":  session.HostNoteRefused,
@@ -1221,6 +1245,11 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			// The folder went away between the check and the turn.
 			c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)
 			text = v.T("no_folder")
+		}
+		if errors.Is(err, ErrProjectUnavailable) {
+			// The project went away between the check and the turn.
+			c.log.Warn("studio: a connector message was refused: the agent's project is not available", "binding", b.ID)
+			text = v.T(projectKey(err))
 		}
 		c.say(b, token, m.Chat, m.Thread, text)
 		return

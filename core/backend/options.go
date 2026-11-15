@@ -226,6 +226,18 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 
 	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
+	if c.IsRemoteProxy() && c.Proxy.Remote != "" {
+		// The model loader runs this finalizer only for a load in this
+		// process, never on a cache hit. In distributed mode the loader hands
+		// the options to the router without it: the router resolves the key
+		// with LoadOptionsFinalizer when it sends a load to a worker, so a
+		// request for a loaded model costs no key lookup and the options that
+		// the node registry stores never hold the key.
+		remote := c.Proxy.Remote
+		defOpts = append(defOpts, model.WithLoadGRPCOptionsFinalizer(func(ctx context.Context, o *pb.ModelOptions) error {
+			return applyProxyRemoteKey(ctx, remote, o)
+		}))
+	}
 
 	defOpts = append(defOpts, model.EnableParallelRequests)
 
@@ -585,6 +597,57 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	}
 
 	return opts
+}
+
+// applyProxyRemoteKey sets the upstream key of a remote in the
+// load options. In distributed mode the backend runs on a worker that cannot
+// read the remote store, so the frontend passes the key itself. The key is
+// bound to the address of the remote: options whose upstream_url is not
+// below it get no key and the load fails.
+func applyProxyRemoteKey(ctx context.Context, remote string, o *pb.ModelOptions) error {
+	if o.Proxy == nil {
+		return nil
+	}
+	key, err := config.ResolveProxyRemoteKey(ctx, remote, o.Proxy.UpstreamUrl)
+	if err != nil {
+		return err
+	}
+	o.Proxy.ApiKey = key
+	o.Proxy.ApiKeyEnv = ""
+	o.Proxy.ApiKeyFile = ""
+	return nil
+}
+
+// ModelConfigGetter reads a model config by name.
+type ModelConfigGetter interface {
+	GetModelConfig(name string) (config.ModelConfig, bool)
+}
+
+// LoadOptionsFinalizer returns the function that the distributed router runs
+// on a copy of the load options right before it sends a load to a worker, for
+// a fresh load and for a replay of stored options alike. The router stores
+// the options without any key, so this puts the key back: from the remote
+// store (with the address check) for a model with proxy.remote, or from the
+// model config for a model with an inline api_key. Reading the current model
+// config and the remote store at send time means a rotated key or a removed
+// remote takes effect on the next load.
+func LoadOptionsFinalizer(configs ModelConfigGetter) func(ctx context.Context, modelID string, o *pb.ModelOptions) error {
+	return func(ctx context.Context, modelID string, o *pb.ModelOptions) error {
+		if o == nil || o.Proxy == nil || configs == nil {
+			return nil
+		}
+		cfg, ok := configs.GetModelConfig(modelID)
+		if !ok || !cfg.IsRemoteProxy() {
+			return nil
+		}
+		if cfg.Proxy.Remote != "" {
+			return applyProxyRemoteKey(ctx, cfg.Proxy.Remote, o)
+		}
+		if o.Proxy.ApiKey == "" && cfg.Proxy.APIKey != "" {
+			o.Proxy.ApiKey = cfg.Proxy.APIKey
+		}
+		return nil
+	}
 }
 
 func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions {

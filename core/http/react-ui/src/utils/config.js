@@ -9,6 +9,10 @@ export const API_CONFIG = {
 
     // Models gallery
     models: '/api/models',
+    modelsSearch: '/api/models/search',
+    modelsSearchSources: '/api/models/search/sources',
+    modelsRemoteFiles: '/api/models/remote/files',
+    modelsRemoteEstimate: '/api/models/remote/estimate',
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelsRecommended: '/api/models/recommended',
@@ -112,6 +116,13 @@ export const API_CONFIG = {
     modelsList: '/v1/models',
     modelsCapabilities: '/api/models/capabilities',
     modelsAliases: '/api/aliases',
+
+    // Remotes (admin)
+    remotes: '/api/remotes',
+    remotesTest: '/api/remotes/test',
+    remote: (id) => `/api/remotes/${encodeURIComponent(id)}`,
+    remoteRefresh: (id) => `/api/remotes/${encodeURIComponent(id)}/refresh`,
+    remoteAdopt: (id) => `/api/remotes/${encodeURIComponent(id)}/adopt`,
 
     // Realtime / WebRTC
     realtimeCalls: '/v1/realtime/calls',

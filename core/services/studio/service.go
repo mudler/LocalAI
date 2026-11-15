@@ -33,6 +33,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -106,6 +107,8 @@ type Deps struct {
 	// MCPConnectors is the same service with its management calls, for the
 	// connectors API. When set and Connectors is not, it is used for both.
 	MCPConnectors *mcpconns.Service
+	// Projects keeps the users' projects. Nil: the chats have none.
+	Projects *projects.Service
 	// Agents holds the saved agents. Nil: a chat cannot name an agent.
 	Agents agents.Store
 	// AgentShares is the sharing policy of saved agents (share kind
@@ -333,6 +336,17 @@ type CreateInput struct {
 	// the Set*Off calls check them and stored with the new record, so the
 	// chat never exists without them.
 	Switches Switches
+	// ProjectID puts the chat in a project of the user. The project's
+	// defaults for skills, add-ons and MCP servers set the switches the
+	// request leaves unset. An unknown project, another person's, or an
+	// archived one is refused.
+	ProjectID string
+	// Collections restricts the chat's collection tools to these names; empty
+	// means all of the user's collections. A request that names some wins over
+	// the project's default. The list is checked (at most 100 names, none
+	// empty, each at most 200 characters) but the names are kept as given: a
+	// name that is no collection of the user just matches nothing.
+	Collections []string
 }
 
 // Switches are the lists of a chat's switches: the add-ons, MCP servers and
@@ -397,8 +411,11 @@ type SendResult struct {
 
 // Service runs conversations.
 type Service struct {
-	d   Deps
-	mgr *session.Manager
+	// scopeChecks, when set, is called each time chatProjectScopeOpen runs. Specs
+	// use it to count the checks; it is nil in production.
+	scopeChecks func()
+	d           Deps
+	mgr         *session.Manager
 	// builtins holds the built-in chat tools an add-on may replace.
 	builtins *builtins.Registry
 	// access holds the grants of the running connector turns and the recent
@@ -574,6 +591,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerHistoryTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerProjectTools(); err != nil {
 		return nil, err
 	}
 	if d.PageErrors == nil {
@@ -873,6 +893,9 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	// shared says the agent is another person's, shared with user.
 	shared := false
 	var agentOn []string
+	// agentProject is the project of a project agent: the chat belongs to it
+	// through the agent, never through the request.
+	agentProject := ""
 	if in.Assistant {
 		if in.AgentID != "" {
 			return session.ChatRecord{}, ErrAssistantAgent
@@ -903,7 +926,13 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		}
 		shared = ag.Principal != principal(user)
 		agentOn = grantedOn(ag, shared)
-		if ag.HasFolder() {
+		if ag.ProjectID != "" {
+			if in.ProjectID != "" && in.ProjectID != ag.ProjectID {
+				return session.ChatRecord{}, fmt.Errorf("%w: a chat of a project agent belongs to the project of the agent", session.ErrInvalid)
+			}
+			agentProject = ag.ProjectID
+		}
+		if fencedAgent(ag) {
 			// A chat never starts on the whole home in place of a folder
 			// that is missing or not chosen.
 			sc, err := s.liveFolder(ctx, principal(user), ag)
@@ -923,19 +952,39 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
+	collections, err := cleanCollections(in.Collections)
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	if in.ProjectID != "" && agentProject == "" {
+		if scoped {
+			return session.ChatRecord{}, fmt.Errorf("%w: a chat of an agent that has a folder cannot be in a project or read one", session.ErrInvalid)
+		}
+		proj, err := s.usableProject(ctx, user, in.ProjectID)
+		if err != nil {
+			return session.ChatRecord{}, err
+		}
+		avail := s.available(ctx, user, model, proj.Manifest.Defaults)
+		sw = projectSwitches(proj.Manifest.Defaults, sw, avail)
+		collections = projectCollections(proj.Manifest.Defaults, collections, avail)
+	}
 	if err := s.checkConnections(ctx, user, sw.Connections); err != nil {
 		return session.ChatRecord{}, err
 	}
 	// The opt-in groups the agent starts with (saved agents) are on in its
 	// chats from the first turn; the chat may still switch them off.
 	sw.BuiltinsOn = mergeGroups(sw.BuiltinsOn, agentOn)
+	projectID := in.ProjectID
+	if agentProject != "" {
+		projectID = agentProject
+	}
 	title := in.Title
 	if title == "" {
 		title = session.DefaultTitle
 	}
 	now := time.Now().UTC()
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
-		AgentID: in.AgentID, ScopedAgent: scoped, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
+		AgentID: in.AgentID, ScopedAgent: scoped, ProjectID: projectID, Collections: collections, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
 		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
 		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff), Connections: nilIfEmpty(sw.Connections)}
 	if origin.Kind == "" {
@@ -1939,6 +1988,10 @@ func (s *Service) Delete(ctx context.Context, user, conv string) error {
 // MCPConnectors returns the service that keeps the users' MCP connectors, or
 // nil when the chats have none.
 func (s *Service) MCPConnectors() *mcpconns.Service { return s.d.MCPConnectors }
+
+// Projects returns the service that keeps the users' projects, or nil when
+// the chats have none.
+func (s *Service) Projects() *projects.Service { return s.d.Projects }
 
 // mergeGroups returns a with the entries of b it lacks, in order.
 func mergeGroups(a, b []string) []string {

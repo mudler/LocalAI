@@ -27,10 +27,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/web/internal/providers"
 	"github.com/mudler/LocalAI/addons/web/internal/settings"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	"github.com/mudler/LocalAI/pkg/web/safehttp"
 	"github.com/mudler/LocalAI/pkg/web/search"
 	"github.com/mudler/LocalAI/pkg/web/webtools"

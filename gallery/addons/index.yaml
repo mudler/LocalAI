@@ -2450,6 +2450,90 @@
     - "send-key"
     - "get-settings"
     - "set-settings"
+- id: "pirateface-search"
+  name: Pirate Face search
+  description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pirateface-search-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Pirate Face search"
+    description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+    mainPage: ""
+    icon: ""
+  toolCount: 1
+  tools:
+    - "search"
+- id: "pirateface-search"
+  name: Pirate Face search
+  description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pirateface-search-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Pirate Face search"
+    description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+    mainPage: ""
+    icon: ""
+  toolCount: 1
+  tools:
+    - "search"
+- id: "pirateface-search"
+  name: Pirate Face search
+  description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pirateface-search-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Pirate Face search"
+    description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+    mainPage: ""
+    icon: ""
+  toolCount: 1
+  tools:
+    - "search"
+- id: "pirateface-search"
+  name: Pirate Face search
+  description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pirateface-search-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Pirate Face search"
+    description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
+    mainPage: ""
+    icon: ""
+  toolCount: 1
+  tools:
+    - "search"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."

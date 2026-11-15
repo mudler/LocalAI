@@ -17,11 +17,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/mudler/LocalAI/addons/internal/hostclient"
 	"github.com/mudler/LocalAI/addons/internal/jobundo"
 	"github.com/mudler/LocalAI/addons/internal/journal"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // Tool names. They are the entries of capabilities.tools in the manifest and

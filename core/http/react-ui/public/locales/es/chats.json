@@ -1040,7 +1040,8 @@
       "user": "Todos tus chats",
       "agent": "Agente {{agent}}",
       "agentAny": "Un agente",
-      "channel": "Esta conversación"
+      "channel": "Esta conversación",
+      "project": "Este proyecto"
     },
     "help": "No se guarda nada hasta que confirmes.",
     "row": {
@@ -1048,7 +1049,9 @@
       "target": "Archivo",
       "source": "De",
       "expires": "Caduca en",
-      "collection": "Colección"
+      "collection": "Colección",
+      "proposedBy": "Propuesto por",
+      "note": "Nota"
     },
     "source": {
       "chat": "Un chat",
@@ -1123,6 +1126,17 @@
       "consent": "La grabación se guarda como un perfil de voz con el que tus chats pueden hablar. Puedes borrarla en la biblioteca de Voz.",
       "consentAdmin": "Eres administrador, así que esta voz queda disponible para todos los usuarios de este servidor.",
       "confirm": "La persona dio su consentimiento: guardar la voz"
+    },
+    "fromOther": {
+      "title": "{{name}} propuso una nota para {{project}}",
+      "titleNoProject": "{{name}} propuso una nota",
+      "help": "No se escribe nada hasta que confirmes. {{name}} lo propuso desde un chat que incorporó este proyecto.",
+      "by": "{{name}}, desde su propio chat",
+      "voided": "{{name}} ya no puede editar este proyecto.",
+      "noteFor": "Una nota para {{project}}",
+      "thisProject": "este proyecto",
+      "why": "Vuelve a compartir el proyecto con permiso de edición y pide la nota de nuevo si todavía la quieres.",
+      "nameHint": "Nombre del proyecto tomado de su carpeta"
     }
   },
   "proposalsPage": {

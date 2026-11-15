@@ -333,5 +333,96 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "sourcesButton": "Fontes",
+    "sourcesTitle": "Fontes de busca",
+    "sourcesClose": "Fechar",
+    "sourcesHelp": "Escolha quais fontes a busca de modelos consulta. O Hugging Face é integrado. As outras fontes vêm de complementos.",
+    "sourcesError": "Não foi possível salvar a escolha. Tente de novo.",
+    "sourceBuiltin": "Integrada",
+    "sourceAddon": "De um complemento",
+    "sourceNotInstalled": "Complemento não instalado",
+    "missingHint": "{{sources}} está ativada, mas o complemento dela não está instalado.",
+    "missingInstall": "Instalar o complemento",
+    "noSources": "Nenhuma fonte está ativada, então nada é pesquisado.",
+    "dropped_one": "{{count}} resultado ignorado",
+    "dropped_other": "{{count}} resultados ignorados",
+    "heading": "De {{source}}",
+    "latestHeading": "Mais recentes em {{source}}",
+    "placeholder": "Pesquisar em {{source}}",
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_other": "{{count}} resultados",
+    "downloads": "downloads",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seeds",
+    "gated": "Acesso restrito",
+    "ggufOnly": "Somente GGUF",
+    "hint": {
+      "title": "Pesquisar em {{source}}",
+      "text": "Digite o nome de um modelo na caixa de busca. Os resultados vêm ao vivo da fonte, não das suas bibliotecas."
+    },
+    "failed": {
+      "title": "{{source}} não respondeu",
+      "text": "A busca falhou. Tente novamente em instantes.",
+      "stale": "Estes são os últimos resultados. {{message}}"
+    },
+    "none": {
+      "title": "Nada encontrado em {{source}}",
+      "text": "Tente outro nome.",
+      "gguf": "Nada encontrado no formato GGUF. Desative “Somente GGUF” para ampliar a busca.",
+      "fits": "Todos os resultados são grandes demais para esta máquina. Desative o filtro de compatibilidade para vê-los."
+    },
+    "loadMore": "Carregar mais",
+    "noLatest": "{{source}} não lista os modelos mais recentes. Pesquise por nome para ver os modelos.",
+    "chooseBuild": "Escolher a variante {{variant}}",
+    "recommended": "Recomendada",
+    "fits": "Cabe",
+    "spill": "Passa parte para a CPU",
+    "over": "Grande demais",
+    "installed": "{{model}} está instalado.",
+    "ambiguous": "Vários backends poderiam executar este modelo. Use “Importar modelo” para escolher um.",
+    "gatedTitle": "O acesso é restrito.",
+    "gatedBody": "Este repositório precisa de aprovação no Hugging Face, então o LocalAI não pode instalá-lo daqui.",
+    "gatedP2p": "Este modelo tem acesso restrito no Hugging Face. O torrent não precisa de token, mas os termos de licença do modelo continuam valendo.",
+    "gatedHfInstall": "Acesso restrito no Hugging Face: precisa de aprovação e não pode ser instalado daqui.",
+    "sizesUnknown": "Nenhum tamanho de arquivo encontrado. O Hugging Face não lista este repositório, então não é possível estimar se cabe.",
+    "importError": "Nenhum backend corresponde a estes arquivos.",
+    "importErrorBody": "A instalação ainda pode falhar. Use “Importar modelo” para escolher um backend.",
+    "approximate": "Estimativa aproximada. Não foi possível ler o cabeçalho do modelo, então a memória é o tamanho do arquivo mais uma regra prática para o contexto.",
+    "noEstimate": "Nenhum tamanho conhecido, então não há estimativa para este modelo.",
+    "files": {
+      "failed": {
+        "title": "Não foi possível ler a lista de arquivos",
+        "body": "A fonte não respondeu. Tente novamente."
+      },
+      "rateLimited": {
+        "title": "A fonte pediu para ir mais devagar",
+        "body": "Muitas solicitações. Aguarde um minuto e tente novamente."
+      },
+      "notFound": {
+        "title": "Repositório não encontrado",
+        "body": "Ele é privado, foi removido ou não está listado nesta fonte."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "Remotos",
+    "filter": "Remotos",
+    "unavailable": "Indisponível na origem",
+    "rowMark": "Modelo remoto",
+    "sizeRemote": "Remoto",
+    "connectButton": "Conectar um remoto",
+    "sheetTitle": "Conectar um remoto",
+    "sheetDescription": "Adicione modelos que rodam em outro servidor ou serviço.",
+    "toastDone": "{{name}} conectado. {{count}} modelo adicionado.",
+    "toastDone_other": "{{name}} conectado. {{count}} modelos adicionados.",
+    "toastSkipped": "{{count}} modelo não foi adicionado.",
+    "toastSkipped_other": "{{count}} modelos não foram adicionados."
   }
 }

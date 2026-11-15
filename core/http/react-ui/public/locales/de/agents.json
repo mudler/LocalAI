@@ -980,5 +980,59 @@
     "asksTitle_one": "Dieser Agent verlangt {{count}} Sache, ohne die Ihr Chat startet:",
     "asksTitle_other": "Dieser Agent verlangt {{count}} Sachen, ohne die Ihr Chat startet:",
     "asksHelp": "Er läuft als Sie. Schalten Sie sie im Chat nur ein, wenn Sie dem Agenten und der Person vertrauen, die ihn geteilt hat."
+  },
+  "project": {
+    "chip": "Projekt: {{name}}",
+    "deleted": "gelöschtes Projekt",
+    "files": "Projektdateien",
+    "filesMode": "Dateimodus",
+    "canEdit": "Darf ändern",
+    "readOnly": "Nur lesen",
+    "filesHelp": "Der Agent arbeitet nur im Dateiordner von {{name}}. Geteilte Ordner und Skills bleiben lesbar.",
+    "filesHelpNoName": "Der Agent arbeitet nur im Dateiordner seines Projekts. Geteilte Ordner und Skills bleiben lesbar.",
+    "memory": "Projektgedächtnis",
+    "memoryHelp": "Der Agent kann nur mit der Berechtigung „Remember things in the project“ eine Notiz im Projektgedächtnis speichern: Er schlägt eine Änderung vor, die du bestätigst. Ohne die Berechtigung ist das Gedächtnis nur lesbar.",
+    "limited": "Durch das Projekt begrenzt",
+    "noShare": "Projekt-Agenten können nicht geteilt werden.",
+    "exportHelp": "Der Export schreibt eine Agentendatei. Das Projekt wird beim Import der Datei gewählt.",
+    "paused": "Dieser Agent ist pausiert, weil sein Projekt {{reason}} ist.",
+    "reason": {
+      "archived": "archiviert",
+      "deleted": "gelöscht",
+      "changed": "geändert"
+    },
+    "fix": {
+      "archived": "Öffne das Projekt und stelle es wieder her. Danach arbeitet der Agent wieder.",
+      "deleted": "Das Projekt ist weg. Stelle es im Papierkorb unter Dateien wieder her, dann arbeitet der Agent wieder.",
+      "changed": "Ein Projektordner wurde ersetzt, umbenannt oder verschoben. Verbinde den Agenten neu mit den Projektordnern."
+    },
+    "openProject": "Projekt öffnen",
+    "reconnect": "Neu verbinden",
+    "reconnected": "{{name}} ist wieder mit dem Projekt verbunden.",
+    "reconnectFailed": "Der Agent konnte nicht neu verbunden werden: {{message}}",
+    "unavailable": "Nicht verfügbar",
+    "listReason": {
+      "archived": "Das Projekt ist archiviert.",
+      "deleted": "Das Projekt wurde gelöscht.",
+      "changed": "Die Projektordner haben sich geändert. Öffne den Agenten, um ihn neu zu verbinden."
+    },
+    "fact": "Projekt",
+    "memoryFact": "Gedächtnis",
+    "memoryReadOnly": "Projektgedächtnis, nur lesen",
+    "runsPaused": "Läufe werden fortgesetzt, sobald das Projekt wieder aktiv ist."
+  },
+  "importProject": {
+    "title": "Dieser Agent gehört zu einem Projekt",
+    "text": "Wähle, wohin er kommt. Projekt-Agenten arbeiten nur innerhalb ihres Projekts. Geteilte Ordner und Skills bleiben lesbar.",
+    "textNamed": "Die Datei gehört zum Agenten „{{agent}}“. Wähle, wohin er kommt. Projekt-Agenten arbeiten nur innerhalb ihres Projekts. Geteilte Ordner und Skills bleiben lesbar.",
+    "label": "Projekt",
+    "choose": "Projekt wählen",
+    "create": "Projekt „{{name}}“ erstellen",
+    "createUnnamed": "Neues Projekt für diesen Agenten erstellen",
+    "help": "Nur deine aktiven Projekte werden angezeigt.",
+    "createHelp": "Es wird ein neues Projekt namens {{name}} erstellt und der Agent wird hinzugefügt.",
+    "needsChoice": "Wähle ein Projekt oder erstelle eines, um diesen Agenten zu importieren.",
+    "cancel": "Abbrechen",
+    "import": "Importieren"
   }
 }

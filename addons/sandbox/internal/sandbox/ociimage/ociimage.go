@@ -28,6 +28,15 @@ const LayoutPrefix = "oci-layout:"
 // Resolve checks that ref names a digest and returns the digest and a loader
 // for the image. A reference without a digest is refused.
 func Resolve(ctx context.Context, ref string) (string, func() (v1.Image, error), error) {
+	return resolve(ctx, ref, runtime.GOARCH)
+}
+
+// Platform is the platform of the guest on a host with the processor
+// architecture arch. The guest is always Linux, whatever the host system is: a
+// Mac with Apple silicon (darwin/arm64) runs a linux/arm64 guest.
+func Platform(arch string) v1.Platform { return v1.Platform{OS: "linux", Architecture: arch} }
+
+func resolve(ctx context.Context, ref, arch string) (string, func() (v1.Image, error), error) {
 	if rest, ok := strings.CutPrefix(ref, LayoutPrefix); ok {
 		at := strings.LastIndex(rest, "@")
 		if at < 0 {
@@ -52,7 +61,7 @@ func Resolve(ctx context.Context, ref string) (string, func() (v1.Image, error),
 	}
 	return d.DigestStr(), func() (v1.Image, error) {
 		opts := []remote.Option{remote.WithContext(ctx), remote.WithAuthFromKeychain(authn.DefaultKeychain),
-			remote.WithPlatform(v1.Platform{OS: "linux", Architecture: runtime.GOARCH})}
+			remote.WithPlatform(Platform(arch))}
 		if p := progressFrom(ctx); p != nil {
 			opts = append(opts, remote.WithTransport(countingTransport{base: remote.DefaultTransport, p: p}))
 		}

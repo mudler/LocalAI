@@ -3,6 +3,7 @@ disableToc = false
 title = "Chats: moving from the old chat, agents and skills"
 weight = 24
 url = "/features/chats-migration/"
+devbuild = "feature"
 +++
 
 [Chats](/features/chats/) replace the old chat page, the old agents, the agent

@@ -32,7 +32,7 @@ import (
 // does not contain them is not installable and must not be published.
 func hostFor(platform string) contract.HostCompatibility {
 	os_, arch, _ := strings.Cut(platform, "/")
-	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: os_, Arch: arch}
+	return contract.HostCompatibility{Host: contract.HostVersion, API: contract.HostAPIVersion, Protocol: contract.HostProtocolVersion, SDK: contract.HostSDKVersion, DataFormat: contract.HostDataFormatVersion, FeatureLevel: contract.HostFeatureLevel, OS: os_, Arch: arch}
 }
 
 type fileEntry struct {

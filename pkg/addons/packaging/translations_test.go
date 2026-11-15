@@ -28,7 +28,7 @@ func readManifest(id string) (contract.Manifest, []byte) {
 }
 
 var _ = Describe("first-party add-on translations", func() {
-	for _, id := range firstPartyAddons {
+	for _, id := range addonsWithUI {
 		It("translates the title and the description of "+id+" in every main language", func() {
 			m, _ := readManifest(id)
 			ui := m.Capabilities.UI
@@ -172,7 +172,7 @@ var _ = Describe("translations in the package and the library", func() {
 	})
 
 	It("renders the translated title and description of every add-on into its library entry", func() {
-		for _, id := range firstPartyAddons {
+		for _, id := range addonsWithUI {
 			m, _ := readManifest(id)
 			p := newProjectFor(id, both)
 			out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")

@@ -1139,6 +1139,8 @@ button.cx-step__head:hover,
 .cxs-field { margin-bottom: var(--sp-4); }
 .cxs-row { display: flex; align-items: center; gap: var(--sp-4); }
 .cxs-row__text { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.cxs-names { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.cxs-names li { padding: 2px var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-sm); font: var(--fs-small)/var(--lh-small) var(--font-mono); overflow-wrap: anywhere; }
 .cxs-facts { display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
 .cxs-facts div { display: flex; justify-content: space-between; gap: var(--sp-4); font-size: var(--fs-small); }
 .cxs-facts dt { color: var(--dk-muted); }

@@ -34,6 +34,7 @@ const (
 	ToolListModels      = "list_models"
 	ToolUpscaleImage    = "upscale_image"
 	ToolTransformAudio  = "transform_audio"
+	ToolProjects        = "projects"
 )
 
 // ClientToolSpec is what a client tool needs from the API: the route it
@@ -85,10 +86,32 @@ var ClientTools = []ClientToolSpec{
 	{ToolVoiceProfile, ActionDelete, "DELETE", "/api/voice-profiles/:id", auth.FeatureAudioSpeech, config.FLAG_ANY, "voice profiles"},
 	{ToolUpscaleImage, "", "POST", "/v1/images/upscale", auth.FeatureImages, config.FLAG_UPSCALE, "image upscaling"},
 	{ToolTransformAudio, "", "POST", "/audio/transformations", auth.FeatureAudioTransform, config.FLAG_AUDIO_TRANSFORM, "audio transformation"},
+	// projects manages the studio projects of the acting user: data of the chats
+	// feature, no model. The rows are per action, as voice_profile has them. The
+	// row "chat" reads a chat, so pull and unpull can add to its list.
+	{ToolProjects, ActionList, "GET", "/api/chats/projects", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionGet, "GET", "/api/chats/projects/:id", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionCreate, "POST", "/api/chats/projects", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionUpdate, "PATCH", "/api/chats/projects/:id", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionArchive, "POST", "/api/chats/projects/:id/archive", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionRestore, "POST", "/api/chats/projects/:id/restore", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionDelete, "DELETE", "/api/chats/projects/:id", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionAgents, "GET", "/api/chats/projects/:id/agents", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionConnections, "GET", "/api/chats/projects/:id/connections", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionTriggers, "GET", "/api/chats/projects/:id/triggers", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionLoops, "GET", "/api/chats/projects/:id/loops", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionShared, "GET", "/api/chats/projects/shared", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionSetChatProject, "PUT", "/api/chats/:id/project", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionPull, "PUT", "/api/chats/:id/projects", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionUnpull, "PUT", "/api/chats/:id/projects", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, actionChat, "GET", "/api/chats/:id", auth.FeatureChats, config.FLAG_ANY, "projects"},
 	// list_models has no feature: any signed-in user may list the models the
 	// route shows them (their own allow-list applies).
 	{ToolListModels, "", "GET", "/v1/models/capabilities", NoFeature, config.FLAG_ANY, "models"},
 }
+
+// actionChat is the Action of the projects row that reads one chat.
+const actionChat = "chat"
 
 // ActionEdit is the Action of the generate_image row that repaints an image.
 const ActionEdit = "edit"

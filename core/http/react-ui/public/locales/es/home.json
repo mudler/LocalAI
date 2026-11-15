@@ -82,13 +82,19 @@
       "step2Title": "Instala un modelo",
       "step2Body": "Haz clic en instalar para descargarlo y configurarlo automáticamente.",
       "step3Title": "Empieza a chatear",
-      "step3Body": "Chatea con tu modelo desde el navegador o usa la API."
+      "step3Body": "Chatea con tu modelo desde el navegador o usa la API.",
+      "step4Title": "Conecta tus agentes",
+      "step4Body": "Crea una clave de API y conecta un agente de programación: {{agents}}. La guía rellena la dirección y la clave por ti.",
+      "step5Title": "Amplía LocalAI con un add-on",
+      "step5Body": "Los add-ons aportan nuevas capacidades. Instálalos desde la biblioteca."
     },
     "browseGallery": "Explorar galería de modelos",
     "importModel": "Importar modelo",
     "docs": "Documentación",
     "noModelsTitle": "No hay modelos disponibles",
-    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear."
+    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear.",
+    "connectAgents": "Conectar un agente de programación",
+    "browseAddons": "Explorar add-ons"
   },
   "connect": {
     "title": "Un endpoint, todas las APIs",
@@ -100,7 +106,8 @@
     "copied": "Copiado",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "Conectar un agente de programación: crea una clave de API y copia su configuración"
   },
   "jump": {
     "heading": "Jump back in",
@@ -191,5 +198,22 @@
     "installing": "Instalando",
     "installStarted": "Instalando {{model}}…",
     "installFailed": "Error de instalación: {{message}}"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "¿Dónde se ejecutan tus modelos?",
+      "local": "En esta máquina",
+      "remote": "En otro servidor o servicio",
+      "remoteIntro": "Conecta un modelo que ya se ejecuta en otro sitio. Puedes instalar modelos locales más tarde.",
+      "remoteNote": "Con modelos remotos se omiten las comprobaciones del modelo recomendado y del tamaño de contexto."
+    },
+    "step1Title": "Conecta un remoto",
+    "step1Body": "Elige el tipo y comprueba que LocalAI pueda llegar a él.",
+    "step2Title": "Elige modelos",
+    "step2Body": "Cada modelo que elijas se convierte en un modelo aquí.",
+    "done": "{{name}} conectado. Se añadió {{count}} modelo.",
+    "done_other": "{{name}} conectado. Se añadieron {{count}} modelos.",
+    "skipped": "{{count}} modelo no se añadió:",
+    "skipped_other": "{{count}} modelos no se añadieron:"
   }
 }

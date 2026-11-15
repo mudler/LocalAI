@@ -1,6 +1,6 @@
 import ModelLaunch from '../addons/ModelLaunch'
 // eslint-disable-next-line no-unused-vars
-import { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, useMemo } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link, Outlet, useMatch, useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -38,7 +38,23 @@ import { addFlag, removeFlag, FALLBACK_MS } from '../utils/installFlags'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, PageHeader } from '../components/ui'
+import SideSheet from '../components/SideSheet'
+import ConnectRemote, { doneMessageParts } from '../components/remotes/ConnectRemote'
+import RemotesView from '../components/remotes/RemotesView'
+import { useRemotes } from '../hooks/useRemotes'
+import { idsText } from '../utils/remotes'
+import { useAuth } from '../context/AuthContext'
 import KindLibraries from '../components/catalog/KindLibraries'
+// eslint-disable-next-line no-unused-vars
+import RemoteNotice from '../components/models/RemoteNotice'
+import { sourceText } from '../utils/modelSearch'
+import SourceFilters from '../components/models/SourceFilters'
+import SourcesPanel from '../components/models/SourcesPanel'
+import { useSearchSources, useRemoteSearches, useRemoteDetails, useRemoteInstalls } from '../hooks/useRemoteModels'
+import {
+  BUILTIN_SOURCES, nextEnabled, remoteSourcesFrom, allSourcesFrom, REMOTE_PAGE_STEP, REMOTE_SECTION_STEP, remoteSource, remoteRow, remoteVariantData, defaultVariantFile, estimateOfVariant,
+  installBlock, remoteFitsVisible, canLoadMore, nextLimit, parseRemoteKey,
+} from '../utils/remoteModels'
 import { filterRowsBySource } from '../components/catalog/catalogState'
 import './models-ledger.css'
 
@@ -134,10 +150,10 @@ function rangeStyle(index) {
   return { '--dk-fill': `${(index / (CONTEXT_SIZES.length - 1)) * 100}%` }
 }
 
-function ModelsTabs({ activeView, searchParams, installedCount, t }) {
+function ModelsTabs({ activeView, searchParams, installedCount, remotesCount, showRemotes, t }) {
   const hrefFor = view => {
     const next = new URLSearchParams(searchParams)
-    if (view === 'installed') next.set('view', 'installed')
+    if (view === 'installed' || view === 'remotes') next.set('view', view)
     else next.delete('view')
     const query = next.toString()
     return `/app/models${query ? `?${query}` : ''}`
@@ -160,6 +176,17 @@ function ModelsTabs({ activeView, searchParams, installedCount, t }) {
         <span>{t('lifecycle.views.installed')}</span>
         {installedCount > 0 && <span className="dk-hubtab-count">{installedCount}</span>}
       </Link>
+      {showRemotes && (
+        <Link
+          className="dk-hubtab"
+          to={hrefFor('remotes')}
+          aria-current={activeView === 'remotes' ? 'page' : undefined}
+          data-testid="models-tab-remotes"
+        >
+          <span>{t('remotes.tab')}</span>
+          {remotesCount > 0 && <span className="dk-hubtab-count">{remotesCount}</span>}
+        </Link>
+      )}
     </nav>
   )
 }
@@ -171,7 +198,8 @@ export default function Models() {
   // A model's page is a child route: this component stays mounted, hidden, so
   // the list is exactly as it was when the page closes.
   const detailOpen = !!useMatch('/app/models/:id')
-  const { t } = useTranslation('models')
+  const { t, i18n } = useTranslation('models')
+  const lang = i18n.resolvedLanguage || i18n.language || 'en'
   const { operations, dismissFailedOp } = useOperations()
   const { resources } = useResources()
   const [liveParams, setSearchParams] = useSearchParams()
@@ -181,8 +209,12 @@ export default function Models() {
   const frozenParams = useRef(liveParams)
   if (!detailOpen) frozenParams.current = liveParams
   const searchParams = frozenParams.current
-  const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'explore'
-  const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed'].includes(searchParams.get('state'))
+  const { isAdmin } = useAuth()
+  // The list of remotes is for administrators; nobody else sees the tab.
+  const activeView = searchParams.get('view') === 'installed'
+    ? 'installed'
+    : searchParams.get('view') === 'remotes' && isAdmin ? 'remotes' : 'explore'
+  const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed', 'remote'].includes(searchParams.get('state'))
     ? searchParams.get('state')
     : 'all'
   const [models, setModels] = useState([])
@@ -225,6 +257,49 @@ export default function Models() {
   // sheet read the list again.
   const [refreshToken, setRefreshToken] = useState(0)
   const [librarySource, setLibrarySource] = useState(null)
+  // An online source (Hugging Face, Pirate Face) in place of the gallery. It is
+  // in the address, so a search is linkable and Back leaves it.
+  //
+  // The choice is held in state as well as in the address: a router update is
+  // not committed the moment it is made, and a keystroke right after a click
+  // builds its address from the one before it. The state is what the page reads;
+  // the address follows it and is read back only when the user navigates.
+  // The sources come from the server: Hugging Face, and the sources that
+  // add-ons provide, each on or off for this person.
+  const searchSources = useSearchSources()
+  const sources = useMemo(() => remoteSourcesFrom(searchSources.overview), [searchSources.overview])
+  const installedSources = useMemo(() => allSourcesFrom(searchSources.overview), [searchSources.overview])
+  const missingSources = searchSources.overview?.missing || []
+  const [sourcesOpen, setSourcesOpen] = useState(false)
+  const [sourcesError, setSourcesError] = useState(false)
+  const sourceName = (src) => t(`remote.sources.${src.id}`, { defaultValue: sourceText(src, lang) })
+  const urlSource = remoteSource(searchParams.get('source'), sources)?.id || ''
+  const [remoteId, setRemoteId] = useState(urlSource)
+  const sourceRef = useRef(remoteId)
+  sourceRef.current = remoteId
+  const seenUrlSource = useRef(urlSource)
+  useEffect(() => {
+    if (seenUrlSource.current === urlSource) return
+    seenUrlSource.current = urlSource
+    setRemoteId(urlSource)
+  }, [urlSource])
+  const remote = remoteSource(remoteId, sources)
+  // The debounced term of the online sources, whichever way they are shown:
+  // alone under a source chip, or as sections under All.
+  const [remoteTerm, setRemoteTerm] = useState(() => (searchParams.get('q') || '').trim())
+  const [remoteLimit, setRemoteLimit] = useState(REMOTE_PAGE_STEP)
+  // Under All each online source is a section with its own row count and its
+  // own retry.
+  const [sectionLimits, setSectionLimits] = useState({})
+  // What the person set in the filters that sources declare, by source.
+  const [filterValues, setFilterValues] = useState({})
+  const [sectionReloads, setSectionReloads] = useState({})
+  const [ggufOnly, setGgufOnly] = useState(true)
+  const [remoteReload, setRemoteReload] = useState(0)
+  // The build picked in the inspector, by row key; absent means the recommended one.
+  const [chosenFiles, setChosenFiles] = useState({})
+  // Rows a finished import turned into installed models, by row key.
+  const [remoteInstalled, setRemoteInstalled] = useState({})
   const searchRef = useRef(null)
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
@@ -358,6 +433,11 @@ export default function Models() {
 
   const debouncedFetch = useDebouncedCallback((value) => {
     setPage(1)
+    // The same debounce drives the online sources: one search per pause.
+    setRemoteTerm(value.trim())
+    setRemoteLimit(REMOTE_PAGE_STEP)
+    setSectionLimits({})
+    if (remote) return
     fetchModels({ search: value, page: 1 })
   })
 
@@ -372,7 +452,7 @@ export default function Models() {
   useEffect(() => {
     // A page open over the list has no use for the rows' figures; they are
     // filled in when the list comes back.
-    if (models.length === 0 || detailOpen) return
+    if (remote || models.length === 0 || detailOpen) return
     const queue = models
       .map(m => m.name || m.id)
       .filter(id => !estimates[id])
@@ -420,7 +500,7 @@ export default function Models() {
         return next
       })
     }
-  }, [models, detailOpen])
+  }, [models, detailOpen, remote])
 
   const handleSearch = (value) => {
     setSearch(value)
@@ -428,6 +508,7 @@ export default function Models() {
       const next = new URLSearchParams(previous)
       if (value) next.set('q', value)
       else next.delete('q')
+      if (sourceRef.current) next.set('source', sourceRef.current)
       return next
     }, { replace: true })
     debouncedFetch(value)
@@ -627,19 +708,128 @@ export default function Models() {
     ready: activeView === 'explore' && statsLoaded,
   })
 
-  // The gallery field of a row is the library it comes from.
-  const visibleModels = filterRowsBySource(models, librarySource).filter((model) => {
-    if (!fitsFilter) return true
-    const name = model.name || model.id
-    const vramBytes = estimates[name]?.estimates?.[String(contextSize)]?.vramBytes
-    const fit = fitsGpu(vramBytes)
-    // Keep models visible while estimate is still loading; hide only explicit non-fits.
-    return fit !== false
+  // --- an online source in place of the gallery ------------------------------
+  // The rows of a search of Hugging Face or Pirate Face go through the same
+  // table and inspector. They are keyed by provider:id, sized lazily, and
+  // installed through the import route; the job id, not a name, tells which
+  // row an install belongs to.
+  const sourceLabel = remote ? sourceName(remote) : ''
+  // Under All, with a term typed, the online sources are asked as well and
+  // shown as sections under the library rows. A library chip, a use case chip
+  // or a backend narrows the gallery on purpose, so the online sections stay out.
+  const allOnline = activeView === 'explore' && !remote && !librarySource && filters.length === 0 && !backendFilter
+  const sectionIds = remote ? [remote.id] : allOnline ? sources.map(src => src.id) : []
+  const limitOf = (id) => (remote ? remoteLimit : (sectionLimits[id] ?? REMOTE_SECTION_STEP))
+  const searchOf = useRemoteSearches({
+    asks: sources.filter(src => sectionIds.includes(src.id)).map(src => ({
+      id: src.id,
+      limit: limitOf(src.id),
+      filters: src.filters,
+      filterValues: filterValues[src.id],
+      reloadKey: `${remoteReload}:${sectionReloads[src.id] || 0}`,
+    })),
+    term: remoteTerm,
+    ggufOnly,
+    sources,
   })
+  const remoteSearch = remote ? searchOf(remote.id) : { phase: 'idle', results: [], providers: [], error: '', unsupported: false, dropped: 0 }
+  // With no term an online source shows its newest models. One that has no such
+  // list (Pirate Face) shows a note instead.
+  const noLatest = (id) => !remoteTerm && (!remoteSource(id, sources)?.latest || searchOf(id).unsupported)
+  const details = useRemoteDetails()
+  const installs = useRemoteInstalls({
+    onDone: (key, name) => {
+      setRemoteInstalled(prev => ({ ...prev, [key]: name || key }))
+      setRemoteReload(n => n + 1)
+      addToast(t('remote.installed', { model: key.slice(key.indexOf(':') + 1) }), 'success')
+    },
+  })
+  const rowsOf = (id) => (sectionIds.includes(id) ? searchOf(id).results : []).map(r => remoteRow(r, {
+    installedName: remoteInstalled[`${r.provider}:${r.id}`] || '',
+    sourceLabel: sourceName(remoteSource(id, sources) || { id }),
+    p2p: !!remoteSource(id, sources)?.p2p,
+    labels: { downloads: t('remote.downloads'), seeds: count => t('remote.seeds', { count }) },
+  }))
+  const sectionRows = Object.fromEntries(sources.map(src => [src.id, rowsOf(src.id)]))
+  const remoteRows = sources.flatMap(src => sectionRows[src.id])
 
+  const pickSource = useCallback((id) => {
+    setRemoteId(id || '')
+    sourceRef.current = id || ''
+    seenUrlSource.current = id || ''
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      if (id) next.set('source', id)
+      else next.delete('source')
+      next.delete('model')
+      return next
+    }, { replace: !id })
+    setRemoteTerm(search.trim())
+    setRemoteLimit(REMOTE_PAGE_STEP)
+    if (id) setLibrarySource(null)
+  }, [search, setSearchParams])
+
+  // The inspector of an online row needs its listing; the table needs a size.
+  const selectedRemote = selectedName ? remoteRows.find(r => r.name === selectedName) : null
+  useEffect(() => {
+    if (!selectedRemote) return
+    details.requestFiles(selectedRemote.name, selectedRemote.uri)
+    details.requestEstimate(selectedRemote.name, selectedRemote.uri, CONTEXT_SIZES)
+  // details' callbacks are stable; the key is what changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRemote?.name])
+
+  const onRowVisible = useCallback((key) => {
+    const row = remoteRows.find(r => r.name === key)
+    if (row) details.requestEstimate(key, row.uri, CONTEXT_SIZES)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteRows.map(r => r.name).join('\n')])
+
+  const chosenFileOf = (key) => chosenFiles[key] || defaultVariantFile(details.files[key]?.data)
+
+  const installRemote = useCallback(async (key) => {
+    const row = remoteRows.find(r => r.name === key)
+    if (!row) return
+    const listing = details.files[key]?.data || await details.requestFiles(key, row.uri)
+    if (!listing) {
+      addToast(t('remote.files.failed.title'), 'error')
+      return
+    }
+    const block = installBlock(row, listing)
+    if (block) {
+      addToast(t(`remote.${block}`), 'error')
+      return
+    }
+    await installs.start(row, listing, chosenFiles[key] || defaultVariantFile(listing))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteRows.map(r => r.name).join('\n'), details.files, chosenFiles, installs.start])
+
+  const remoteJob = (key) => installs.jobs[key]
+  const remoteFailedOp = (key) => {
+    const job = remoteJob(key)
+    if (job?.state !== 'failed') return null
+    return { error: job.ambiguous ? t('remote.ambiguous') : (job.error || t('remote.files.failed.title')), jobID: '' }
+  }
+
+  // The gallery field of a row is the library it comes from.
+  const fitsOnline = row => !fitsFilter || remoteFitsVisible(details.estimates[row.name], contextSize, budget, ramAvailable)
+  const visibleModels = remote
+    ? remoteRows.filter(fitsOnline)
+    : filterRowsBySource(models, librarySource).filter((model) => {
+      if (!fitsFilter) return true
+      const name = model.name || model.id
+      const vramBytes = estimates[name]?.estimates?.[String(contextSize)]?.vramBytes
+      const fit = fitsGpu(vramBytes)
+      // Keep models visible while estimate is still loading; hide only explicit non-fits.
+      return fit !== false
+    })
+
+  // The online rows under All, in the order of their sections.
+  const onlineModels = remote ? [] : remoteRows.filter(fitsOnline)
   const selectedModel = selectedName
-    ? visibleModels.find(m => (m.name || m.id) === selectedName) || null
+    ? visibleModels.find(m => (m.name || m.id) === selectedName) || onlineModels.find(m => m.name === selectedName) || null
     : null
+  const selRemote = !!selectedModel?.remote
 
   const toggleGroup = useCallback((id) => {
     setCollapsedGroups(prev => {
@@ -655,6 +845,7 @@ export default function Models() {
       const next = new URLSearchParams(prev)
       if (name) next.set('model', name)
       else next.delete('model')
+      if (sourceRef.current) next.set('source', sourceRef.current)
       return next
     // Returning to the shelves replaces the entry rather than pushing one, so
     // Back leaves the gallery instead of bouncing between the two pane states.
@@ -742,19 +933,20 @@ export default function Models() {
   }, [])
 
   const openPage = useCallback((name) => {
-    if (!name) return
+    // An online result has no page of its own.
+    if (!name || remote || parseRemoteKey(name, sources)) return
     rememberScroll()
     lastOpened.current = name
     navigate(modelPath(name), { state: { from: location.pathname + location.search } })
-  }, [navigate, location.pathname, location.search, rememberScroll])
+  }, [navigate, location.pathname, location.search, rememberScroll, remote])
 
   // On a phone there is no inspector beside the table, so a tap on a row goes
   // straight to the page. Arrow keys still move the selection.
   const rowSelect = useCallback((name, options) => {
     const phone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
-    if (name && phone && !options?.replace) openPage(name)
+    if (name && phone && !remote && !parseRemoteKey(name, sources) && !options?.replace) openPage(name)
     else selectModel(name, options)
-  }, [openPage, selectModel])
+  }, [openPage, selectModel, remote])
 
   useLayoutEffect(() => {
     if (detailOpen) return
@@ -792,6 +984,45 @@ export default function Models() {
     </>
   )
 
+  const remotesState = useRemotes({ enabled: isAdmin })
+  const [connectOpen, setConnectOpen] = useState(false)
+  const goToView = useCallback((view, extra = {}) => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      next.set('view', view)
+      next.delete('model')
+      next.delete('q')
+      if (extra.state) next.set('state', extra.state)
+      else next.delete('state')
+      return next
+    })
+  }, [setSearchParams])
+  const afterConnect = (result) => {
+    const { name, created, skipped } = doneMessageParts(result)
+    addToast(t('remotes.toastDone', { name, count: created }), 'success')
+    // A toast has no room for a list: the count and the first ids. The reasons
+    // are in the Remotes tab.
+    if (skipped.length > 0) addToast(`${t('remotes.toastSkipped', { count: skipped.length })} ${idsText(skipped)}`, 'warning')
+    setConnectOpen(false)
+    setRefreshToken(n => n + 1)
+    remotesState.refetch()
+    goToView('remotes')
+  }
+  const connectSheet = connectOpen && (
+    <SideSheet
+      title={t('remotes.sheetTitle')}
+      description={t('remotes.sheetDescription')}
+      labelId="connect-remote-title"
+      testId="connect-remote-sheet"
+      wide
+      onClose={() => setConnectOpen(false)}
+    >
+      <Suspense fallback={null}>
+        <ConnectRemote onDone={afterConnect} />
+      </Suspense>
+    </SideSheet>
+  )
+
   const headerActions = (
     <div className="models-bar__actions">
       <DiskStrip disk={disk} open={sheetOpen} onOpen={() => setSheetOpen(true)} />
@@ -801,6 +1032,11 @@ export default function Models() {
       <Button icon="upload" onClick={() => navigate('/app/import-model')}>
         {t('actions.importModel')}
       </Button>
+      {isAdmin && !remotesState.unsupported && (
+        <Button icon="plug" onClick={() => setConnectOpen(true)} data-testid="models-connect-remote">
+          {t('remotes.connectButton')}
+        </Button>
+      )}
     </div>
   )
 
@@ -810,9 +1046,17 @@ export default function Models() {
     <>
       <PageHeader className="models-head" title={t('lifecycle.title')} supporting={t('lifecycle.supporting')} actions={headerActions} />
       <div className="models-tabsrow">
-        <ModelsTabs activeView={activeView} searchParams={searchParams} installedCount={statsLoaded ? stats.installed : 0} t={t} />
+        <ModelsTabs
+          activeView={activeView}
+          searchParams={searchParams}
+          installedCount={statsLoaded ? stats.installed : 0}
+          remotesCount={remotesState.remotes.length}
+          showRemotes={isAdmin && !remotesState.unsupported}
+          t={t}
+        />
         {count}
       </div>
+      {connectSheet}
     </>
   )
 
@@ -848,6 +1092,24 @@ export default function Models() {
     </>
   )
 
+  if (activeView === 'remotes') {
+    return withDetail(
+      <div className="page page--full page--app models-page">
+        {pageHead(null)}
+        <Suspense fallback={null}>
+          <RemotesView
+            state={remotesState}
+            addToast={addToast}
+            onConnect={() => setConnectOpen(true)}
+            onChanged={() => setRefreshToken(n => n + 1)}
+            onViewInstalled={() => goToView('installed', { state: 'remote' })}
+          />
+        </Suspense>
+        {overlays}
+      </div>,
+    )
+  }
+
   if (activeView === 'installed') {
     return withDetail(
       <div className="page page--full page--app models-page">
@@ -869,6 +1131,7 @@ export default function Models() {
           searchRef={searchRef}
           onOpenCleanup={() => setSheetOpen(true)}
           disk={disk}
+          remotes={remotesState.remotes}
         />
         {overlays}
       </div>,
@@ -887,8 +1150,102 @@ export default function Models() {
     }
   }
 
+  // What an online source shows in place of the table when it has no rows.
+  const remoteBusy = remote && remoteSearch.phase === 'loading'
+  const remoteFailed = remote && remoteSearch.phase === 'failed'
+  let remoteEmpty = null
+  if (remote && visibleModels.length === 0 && !remoteBusy) {
+    if (noLatest(remote.id)) {
+      remoteEmpty = (
+        <div className="dk-empty ledger-empty" data-testid="remote-hint">
+          <div className="dk-empty-icon"><Icon name="search" /></div>
+          <h2 className="dk-empty-title">{t('remote.hint.title', { source: sourceLabel })}</h2>
+          <p className="dk-empty-text">{t('remote.noLatest', { source: sourceLabel })}</p>
+        </div>
+      )
+    } else if (remoteFailed) {
+      remoteEmpty = (
+        <div className="dk-empty ledger-empty" data-testid="remote-unavailable">
+          <div className="dk-empty-icon"><Icon name="cloud" /></div>
+          <h2 className="dk-empty-title">{t('remote.failed.title', { source: sourceLabel })}</h2>
+          <p className="dk-empty-text">{remoteSearch.error || t('remote.failed.text')}</p>
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setRemoteReload(n => n + 1)}>
+            <Icon name="refresh" /> {t('ledger.retry')}
+          </button>
+        </div>
+      )
+    } else {
+      remoteEmpty = (
+        <div className="dk-empty ledger-empty" data-testid="remote-empty">
+          <div className="dk-empty-icon"><Icon name="search" /></div>
+          <h2 className="dk-empty-title">{t('remote.none.title', { source: sourceLabel })}</h2>
+          <p className="dk-empty-text">{remoteRows.length > 0 ? t('remote.none.fits') : ggufOnly ? t('remote.none.gguf') : t('remote.none.text')}</p>
+        </div>
+      )
+    }
+  }
+
   const contextIndex = CONTEXT_SIZES.indexOf(contextSize)
   const contextLabel = CONTEXT_LABELS[contextIndex]
+
+  // The inspector's view of the selected online row, from what its listing and
+  // its estimate have said so far.
+  let remoteDetail = {}
+  if (selRemote) {
+    const key = selectedModel.name
+    const listing = details.files[key]
+    const fd = listing?.data
+    const est = details.estimates[key]
+    const file = chosenFileOf(key)
+    remoteDetail = {
+      model: {
+        ...selectedModel,
+        description: fd?.description || '',
+        backend: fd?.backend || selectedModel.backend,
+        license: fd?.license || selectedModel.license,
+        tags: fd?.tags ? fd.tags.filter(tag => !tag.includes(':')).slice(0, 12) : selectedModel.tags,
+      },
+      estimate: est && !est.error ? estimateOfVariant(est, file) : undefined,
+      variantData: listing?.loading
+        ? { loading: true, variants: [] }
+        : remoteVariantData(fd, est, {
+          contextSize, budget, ramAvailable, backend: fd?.backend,
+          labels: { fits: t('remote.fits'), spill: t('remote.spill'), over: t('remote.over') },
+        }),
+      variantChoice: (fd?.variants || []).length > 0
+        ? { chosen: file, onChoose: f => setChosenFiles(prev => ({ ...prev, [key]: f })) }
+        : undefined,
+    }
+  }
+  // Under All: one section per online source, each with its own state.
+  const remoteOps = {
+    estimates: details.estimates,
+    pending: details.pending,
+    isInstalling: name => ['starting', 'running'].includes(remoteJob(name)?.state),
+    progressOf: name => remoteJob(name)?.progress ?? 0,
+    failedOp: remoteFailedOp,
+    onInstall: installRemote,
+    onRetry: name => { installs.clear(name); installRemote(name) },
+  }
+  const onlineSections = remote ? [] : sectionIds.map(id => {
+    const src = remoteSource(id, sources)
+    const st = searchOf(id)
+    const label = sourceName(src)
+    const rows = sectionRows[id].filter(fitsOnline)
+    const loading = st.phase === 'loading'
+    return {
+      id,
+      heading: { label: t(remoteTerm ? 'remote.heading' : 'remote.latestHeading', { source: label }), icon: 'cloud', tag: src.p2p ? t('remote.p2p') : '' },
+      models: rows,
+      loading,
+      error: st.phase === 'failed' ? { text: `${t('remote.failed.title', { source: label })}: ${st.error || t('remote.failed.text')}` } : null,
+      onRetry: () => setSectionReloads(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 })),
+      empty: noLatest(id) ? t('remote.noLatest', { source: label }) : st.phase === 'done' ? t('remote.none.title', { source: label }) : '',
+      more: canLoadMore(st.results, limitOf(id))
+        ? { busy: loading, onMore: () => setSectionLimits(prev => ({ ...prev, [id]: nextLimit(prev[id] ?? REMOTE_SECTION_STEP, REMOTE_SECTION_STEP) })) }
+        : null,
+    }
+  })
   const filtersActive = !!(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants)
   const firstLoad = loading && !loadedOnce.current
   const galleryEmpty = statsLoaded && stats.total === 0 && !filtersActive && !loadError
@@ -902,11 +1259,53 @@ export default function Models() {
 
   return withDetail(
     <div className="page page--full page--app models-page">
-      {pageHead(statsLoaded && (
-        <span className="models-tabsrow__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
+      {pageHead((remote || statsLoaded) && (
+        remote
+          ? <span className="models-tabsrow__count" data-testid="remote-count">{t('remote.resultCount', { count: visibleModels.length })}{remoteSearch.dropped > 0 && <> · <span data-testid="remote-dropped">{t('remote.dropped', { count: remoteSearch.dropped })}</span></>}</span>
+          : <span className="models-tabsrow__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
       ))}
 
-      <KindLibraries kind="model" onSelect={setLibrarySource} onChanged={() => setRefreshToken(n => n + 1)} />
+      <KindLibraries
+        kind="model"
+        onSelect={setLibrarySource}
+        onChanged={() => setRefreshToken(n => n + 1)}
+        extraChips={sources.map(src => ({ id: src.id, label: sourceName(src), tag: src.p2p ? t('remote.p2p') : '' }))}
+        extraActions={(installedSources.length > 1 || missingSources.length > 0 || sources.length === 0) && (
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-testid="model-sources-open" onClick={() => setSourcesOpen(true)}>
+            <Icon name="cloud" /> {t('remote.sourcesButton')}
+          </button>
+        )}
+        extraPicked={remote?.id || ''}
+        onExtraPick={pickSource}
+      />
+      {(missingSources.length > 0 || (searchSources.overview && sources.length === 0)) && (
+        <p className="source-hint" data-testid="source-hint">
+          {sources.length === 0 ? t('remote.noSources') : t('remote.missingHint', { sources: missingSources.map(id => t(`remote.sources.${id}`, { defaultValue: id })).join(', ') })}
+          {' '}
+          {sources.length === 0
+            ? <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setSourcesOpen(true)}>{t('remote.sourcesButton')}</button>
+            : <Link to="/addons">{t('remote.missingInstall')}</Link>}
+        </p>
+      )}
+      {sourcesOpen && (
+        <SourcesPanel
+          sources={installedSources}
+          enabled={searchSources.overview?.enabled || ['huggingface']}
+          missing={missingSources}
+          busy={searchSources.busy}
+          error={sourcesError}
+          lang={lang}
+          t={t}
+          onClose={() => setSourcesOpen(false)}
+          onToggle={async (id, on) => {
+            const now = searchSources.overview?.enabled || ['huggingface']
+            const next = nextEnabled(now, id, on)
+            const err = await searchSources.setEnabled(next)
+            setSourcesError(!!err)
+            if (!err && !on && remoteId === id) pickSource(null)
+          }}
+        />
+      )}
 
       {/* Filters, in two bands.
           1. Query scope: free-text search, the backend select, and the
@@ -925,8 +1324,8 @@ export default function Models() {
               className="dk-input"
               data-testid="models-search"
               type="text"
-              placeholder={t('search.placeholder')}
-              aria-label={t('search.placeholder')}
+              placeholder={remote ? t('remote.placeholder', { source: sourceLabel }) : t('search.placeholder')}
+              aria-label={remote ? t('remote.placeholder', { source: sourceLabel }) : t('search.placeholder')}
               aria-keyshortcuts="/"
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
@@ -960,7 +1359,7 @@ export default function Models() {
             <h2 className="models-filters__sheet-title" id="models-filter-sheet-title">{t('filters.sheetTitle')}</h2>
             <Button variant="primary" size="sm" onClick={closeFilters}>{t('filters.sheetDone')}</Button>
           </div>
-          {allBackends.length > 0 && (
+          {!remote && allBackends.length > 0 && (
             <div className="models-filters__backend">
               <SearchableSelect
                 value={backendFilter}
@@ -979,13 +1378,34 @@ export default function Models() {
                 off is the only way to page through every build the gallery
                 holds; searching reaches a specific one but cannot enumerate
                 them. */}
-            <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
-              <Toggle
-                checked={collapseVariants}
-                onChange={(v) => { setCollapseVariants(v); setPage(1) }}
+            {!remote && (
+              <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
+                <Toggle
+                  checked={collapseVariants}
+                  onChange={(v) => { setCollapseVariants(v); setPage(1) }}
+                />
+                <span>{t('filters.collapseVariants')}</span>
+              </label>
+            )}
+            {sectionIds.length > 0 && (
+              <label className="filter-bar-group__toggle" data-testid="remote-gguf-only">
+                <Toggle checked={ggufOnly} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits({}) }} />
+                <span>{t('remote.ggufOnly')}</span>
+              </label>
+            )}
+            {sectionIds.length > 0 && (
+              <SourceFilters
+                sources={sources.filter(src => sectionIds.includes(src.id) && src.filters.length > 0)}
+                values={filterValues}
+                lang={lang}
+                showSource={!remote}
+                onChange={(sourceId, id, v) => {
+                  setFilterValues(prev => ({ ...prev, [sourceId]: { ...prev[sourceId], [id]: v } }))
+                  setRemoteLimit(REMOTE_PAGE_STEP)
+                  setSectionLimits({})
+                }}
               />
-              <span>{t('filters.collapseVariants')}</span>
-            </label>
+            )}
             {totalGpuMemory > 0 && (
               <label className="filter-bar-group__toggle">
                 <Toggle checked={fitsFilter} onChange={setFitsFilter} />
@@ -1017,7 +1437,7 @@ export default function Models() {
               <Icon name="equals" />
             </button>
           </div>
-        <div className="ledger-controls__row ledger-controls__row--facets">
+        {!remote && <div className="ledger-controls__row ledger-controls__row--facets">
           <FacetBar
             facets={FILTERS}
             active={filters}
@@ -1028,11 +1448,23 @@ export default function Models() {
             t={t}
             ariaLabel={t('filters.useCaseLabel')}
           />
-        </div>
+        </div>}
           </div>
       </div>
 
-      {loadError && (
+      {remote && remoteFailed && visibleModels.length > 0 && (
+        <Callout
+          tone="warn"
+          testId="remote-stale"
+          className="ledger-callout"
+          title={t('remote.failed.title', { source: sourceLabel })}
+          actions={<Button size="sm" icon="refresh" onClick={() => setRemoteReload(n => n + 1)}>{t('ledger.retry')}</Button>}
+        >
+          {t('remote.failed.stale', { message: remoteSearch.error })}
+        </Callout>
+      )}
+
+      {!remote && loadError && (
         <Callout
           tone="error"
           role="alert"
@@ -1074,7 +1506,9 @@ export default function Models() {
               </div>
             </div>
           </div>
-          {!firstLoad && visibleModels.length === 0 ? (
+          {remote && remoteEmpty ? remoteEmpty : (
+          <>
+          {!remote && !firstLoad && visibleModels.length === 0 && (
             loadError ? (
               // The list could not be fetched, which is not the same as an empty
               // gallery. The banner above holds the reason and the way out.
@@ -1111,38 +1545,60 @@ export default function Models() {
               )}
             </div>
             )
-          ) : (
+          )}
+          {(remote || firstLoad || visibleModels.length > 0 || sectionIds.length > 0) && (
             <ExploreTable
               models={visibleModels}
-              loading={firstLoad}
+              loading={remote ? remoteBusy : firstLoad}
               // Grouped while browsing, flat while searching: once a term is
-              // typed the buckets stand between the reader and the answer.
-              grouped={!search.trim()}
+              // typed the buckets stand between the reader and the answer. An
+              // online source is always a flat list under its own heading.
+              grouped={!remote && !search.trim()}
+              heading={remote ? { label: t(remoteTerm ? 'remote.heading' : 'remote.latestHeading', { source: sourceLabel }), icon: 'cloud', tag: remote.p2p ? t('remote.p2p') : '' } : undefined}
+              onRowVisible={sectionIds.length > 0 ? onRowVisible : undefined}
+              sections={remote ? undefined : onlineSections}
+              remoteOps={remote ? undefined : remoteOps}
               collapsedGroups={collapsedGroups}
               onToggleGroup={toggleGroup}
               selectedName={selectedName}
               onSelect={rowSelect}
-              onOpen={openPage}
-              onInstall={handleInstall}
-              onRetry={handleRetry}
-              estimates={estimates}
-              pendingEstimates={pendingEstimates}
+              onOpen={remote ? undefined : openPage}
+              onInstall={remote ? installRemote : handleInstall}
+              onRetry={remote ? (name => { installs.clear(name); installRemote(name) }) : handleRetry}
+              estimates={remote ? details.estimates : estimates}
+              pendingEstimates={remote ? details.pending : pendingEstimates}
               contextSize={contextSize}
               contextLabel={contextLabel}
               budget={budget}
               ramAvailable={ramAvailable}
-              isInstalling={isInstalling}
-              progressOf={getOperationProgress}
-              failedOp={failedOp}
+              isInstalling={remote ? (name => ['starting', 'running'].includes(remoteJob(name)?.state)) : isInstalling}
+              progressOf={remote ? (name => remoteJob(name)?.progress ?? 0) : getOperationProgress}
+              failedOp={remote ? remoteFailedOp : failedOp}
               sort={sort}
               order={order}
-              onSort={handleSort}
+              onSort={remote ? undefined : handleSort}
               density={density}
               t={t}
             />
           )}
+          </>
+          )}
 
-          {totalPages > 1 && (
+          {remote && !remoteEmpty && canLoadMore(remoteSearch.results, remoteLimit) && (
+            <div className="ledger-more">
+              <button
+                type="button"
+                className="dk-btn dk-btn--secondary dk-btn--sm"
+                data-testid="remote-load-more"
+                disabled={remoteBusy}
+                onClick={() => setRemoteLimit(nextLimit)}
+              >
+                {remoteBusy ? <Icon name="spinner" spin /> : <Icon name="plus" />} {t('remote.loadMore')}
+              </button>
+            </div>
+          )}
+
+          {!remote && totalPages > 1 && (
             <div className="pagination split-view__pager ledger-pager">
               <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label={t('rail.previousPage')}>
                 <Icon name="chevron-left" />
@@ -1165,8 +1621,8 @@ export default function Models() {
         <aside className="ledger__pane" data-testid="discover-pane" aria-label={t('ledger.inspector')}>
           {selectedModel ? (
             <DiscoverDetail
-              model={selectedModel}
-              estimate={estimates[selectedName]}
+              model={selRemote ? remoteDetail.model : selectedModel}
+              estimate={selRemote ? remoteDetail.estimate : estimates[selectedName]}
               contextSize={contextSize}
               onPickContext={setContextSize}
               budget={budget}
@@ -1175,14 +1631,14 @@ export default function Models() {
               totalGpuMemory={totalGpuMemory}
               fitsGpu={fitsGpu}
               budgetNode={budget.scope === 'cluster' ? budget.nodeName : ''}
-              installing={isInstalling(selectedName)}
-              progress={getOperationProgress(selectedName)}
-              failed={failedOp(selectedName)}
-              onInstall={handleInstall}
-              onRetry={handleRetry}
+              installing={selRemote ? ['starting', 'running'].includes(remoteJob(selectedName)?.state) : isInstalling(selectedName)}
+              progress={selRemote ? (remoteJob(selectedName)?.progress ?? 0) : getOperationProgress(selectedName)}
+              failed={selRemote ? remoteFailedOp(selectedName) : failedOp(selectedName)}
+              onInstall={selRemote ? installRemote : handleInstall}
+              onRetry={selRemote ? (name => { installs.clear(name); installRemote(name) }) : handleRetry}
               installedProfile={installedProfiles[selectedName]}
               onOpen={route => navigate(route)}
-              onOpenPage={openPage}
+              onOpenPage={selRemote ? undefined : openPage}
               onManage={name => setSearchParams(previous => {
                 const next = new URLSearchParams(previous)
                 next.set('view', 'installed')
@@ -1192,7 +1648,11 @@ export default function Models() {
               onBack={() => selectModel(null)}
               expandedFiles={expandedFiles}
               setExpandedFiles={setExpandedFiles}
-              variantData={selectedModel.has_variants ? variantData[selectedName] : null}
+              variantData={selRemote ? remoteDetail.variantData : (selectedModel.has_variants ? variantData[selectedName] : null)}
+              variantChoice={selRemote ? remoteDetail.variantChoice : undefined}
+              notice={selRemote ? <RemoteNotice row={selectedModel} files={details.files[selectedName]} estimate={details.estimates[selectedName]} onRetry={() => details.requestFiles(selectedName, selectedModel.uri)} t={t} /> : undefined}
+              installBlocked={selRemote ? (installBlock(selectedModel, details.files[selectedName]?.data) ? t('remote.gatedHfInstall') : '') : undefined}
+              estimateNote={selRemote && remoteDetail.estimate?.source === 'unknown' ? t('remote.noEstimate') : undefined}
               variantDetails={variantDetails}
               onLoadVariantDetail={loadVariantDetail}
               t={t}
@@ -1327,7 +1787,10 @@ function VariantDetailPanel({ model, t }) {
   )
 }
 
-function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, installing, onInstall, nested, t }) {
+// variantChoice turns the build list from a menu of installs into a choice: a
+// click picks the build and the one Install button installs it. The rows of an
+// online repository use it ({ chosen, onChoose }); the gallery passes none.
+function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, variantChoice, installing, onInstall, nested, t }) {
   const files = model.additionalFiles || model.files || []
   const name = model.name || model.id
   // Which variant has its details revealed, or null. One at a time: the list is
@@ -1390,7 +1853,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           )}
           {variantData?.variants?.length > 0 && (
             <DetailRow label={t('variants.title')}>
-              <div className="variant-list">
+              <div className={`variant-list${variantChoice ? ' variant-list--choice' : ''}`}>
                 {variantData.variants.map(v => {
                   const isAuto = v.model === variantData.auto_selected
                   const detail = variantDetails?.[v.model]
@@ -1413,7 +1876,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                         nesting it would be invalid markup and, worse, would
                         make "tell me more" a click on "install this". It leads
                         the row because it acts on the name that follows it. */}
-                    <button
+                    {!variantChoice && <button
                       type="button"
                       ref={(el) => { infoRefs.current[v.model] = el }}
                       className="variant-row__info"
@@ -1433,7 +1896,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       }}
                     >
                       <Icon name="info" />
-                    </button>
+                    </button>}
                     {/* Listing the alternatives without offering them made the
                         detail view read as a menu that could not be ordered
                         from; installing one is the same call the split-button
@@ -1442,11 +1905,14 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       type="button"
                       className={`variant-row${v.fits ? '' : ' variant-row--unfit'}`}
                       disabled={installing}
-                      aria-label={t('variants.installVariant', { variant: v.model })}
-                      onClick={(e) => { e.stopPropagation(); onInstall(name, v.model) }}
+                      aria-label={variantChoice ? t('remote.chooseBuild', { variant: v.model }) : t('variants.installVariant', { variant: v.model })}
+                      aria-pressed={variantChoice ? variantChoice.chosen === v.model : undefined}
+                      data-testid={variantChoice ? 'remote-variant' : undefined}
+                      onClick={(e) => { e.stopPropagation(); if (variantChoice) variantChoice.onChoose(v.model); else onInstall(name, v.model) }}
                     >
-                      <span className="variant-row__name">{v.model}</span>
-                      <span className="variant-row__backend">{v.backend || t('variants.unknownBackend')}</span>
+                      <span className="variant-row__name">{v.label || v.model}</span>
+                      {/* A choice among builds of one repository shares one backend, which the pane already names above. */}
+                      <span className="variant-row__backend">{variantChoice ? '' : (v.backend || t('variants.unknownBackend'))}</span>
                       {/* Its own column rather than appended to the backend
                           cell, so precision lines up down the list and two
                           builds can be compared by scanning rather than by
@@ -1466,7 +1932,9 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                             <Icon name="check-circle" /> {t('variants.autoSelected')}
                           </span>
                         )}
-                        {!v.fits && <span className="badge badge-warning">{t('variants.doesNotFit')}</span>}
+                        {v.fitNote && <span className={`badge badge-${v.fitTone}`}>{v.fitNote}</span>}
+                        {v.recommended && !isAuto && <span className="badge badge-info">{t('remote.recommended')}</span>}
+                        {!v.fits && !v.fitNote && <span className="badge badge-warning">{t('variants.doesNotFit')}</span>}
                         {v.is_base && !isAuto && <span className="badge badge-info">{t('variants.base')}</span>}
                         {/* The room the detail row has over the dropdown is
                             spent here: "DFLASH" names nothing to a user who
@@ -1478,7 +1946,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                           </span>
                         ))}
                       </span>
-                      <Icon name="download" className="variant-row__action" />
+                      <Icon name={variantChoice ? (variantChoice.chosen === v.model ? 'check-circle' : 'circle') : 'download'} className="variant-row__action" />
                     </button>
                     {detailOpen && (
                       // An inline disclosure rather than a modal. This is
@@ -1721,7 +2189,8 @@ function FitSummary({ fit, hasGpu, ramAvailable, contextLabel, budgetNode, t }) 
 function DiscoverDetail({
   model, estimate, contextSize, onPickContext, budget, ramAvailable, disk, totalGpuMemory, fitsGpu, budgetNode,
   installing, progress, failed, onInstall, onRetry, installedProfile, onOpen, onOpenPage, onManage, onBack,
-  expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, t,
+  expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail,
+  variantChoice, notice, installBlocked, estimateNote, t,
 }) {
   const name = model.name || model.id
   const sizeDisplay = estimate?.sizeDisplay
@@ -1738,7 +2207,7 @@ function DiscoverDetail({
     <ModelLifecycleDetailShell
       testId="discover"
       icon={groupForEntity(model).icon}
-      name={name}
+      name={model.title || name}
       lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
       ledeTitle={model.description ? stripMarkdown(model.description) : null}
       onBack={onBack}
@@ -1774,19 +2243,21 @@ function DiscoverDetail({
               <Icon name="refresh" /> {t('ledger.retry')}
             </button>
           ) : (
-            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onInstall(name)} data-testid="discover-install">
+            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onInstall(name)} disabled={!!installBlocked} title={installBlocked || undefined} data-testid="discover-install">
               <Icon name="download" /> {t('actions.install')}
             </button>
           )}
-          <button
-            type="button"
-            className="dk-btn dk-btn--ghost dk-btn--sm"
-            onClick={() => onOpenPage(name)}
-            data-testid="inspector-open-page"
-            aria-keyshortcuts="o"
-          >
-            <Icon name="arrow-right" /> {t('page.openDetails')}
-          </button>
+          {onOpenPage && (
+            <button
+              type="button"
+              className="dk-btn dk-btn--ghost dk-btn--sm"
+              onClick={() => onOpenPage(name)}
+              data-testid="inspector-open-page"
+              aria-keyshortcuts="o"
+            >
+              <Icon name="arrow-right" /> {t('page.openDetails')}
+            </button>
+          )}
         </>
       )}
       stats={[
@@ -1803,6 +2274,8 @@ function DiscoverDetail({
         },
       ]}
     >
+      {notice}
+
       {canInstall && leaves !== null && (
         <p className={`ledger-leaves${leaves < 0 ? ' ledger-leaves--short' : ''}`} data-testid="leaves-free">
           {leaves < 0
@@ -1810,6 +2283,8 @@ function DiscoverDetail({
             : t('disk.leaves', { size: gbLabel(estimate.sizeBytes), amount: gbLabel(leaves) })}
         </p>
       )}
+
+      {estimateNote && <p className="ledger-estimate-note" data-testid="estimate-note">{estimateNote}</p>}
 
       <FitSummary
         fit={ledgerFit}
@@ -1839,6 +2314,7 @@ function DiscoverDetail({
         variantData={variantData}
         variantDetails={variantDetails}
         onLoadVariantDetail={onLoadVariantDetail}
+        variantChoice={variantChoice}
         installing={installing}
         onInstall={onInstall}
         nested

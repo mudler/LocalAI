@@ -200,7 +200,7 @@ func (s *Service) agentIsFenced(ctx context.Context, rec session.ChatRecord, c b
 	if errors.Is(err, agents.ErrNotFound) {
 		return rec.ScopedAgent
 	}
-	return err != nil || ag.HasFolder()
+	return err != nil || fencedAgent(ag)
 }
 
 type searchChatsArgs struct {

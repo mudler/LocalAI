@@ -28,8 +28,11 @@ type Backend interface {
 	// agent is ready.
 	Create(ctx context.Context, spec Spec) (Sandbox, error)
 	// Resume restores a suspended sandbox. Processes continue where they
-	// stopped. env must have the same Store, the same Actor and handlers for
-	// the same ports as when the sandbox was created.
+	// stopped, except under a backend that cannot save the memory of the
+	// guest (the vz backend on macOS): it boots a new guest over the same
+	// files, and the processes of the old one are gone. env must have the
+	// same Store, the same Actor and handlers for the same ports as when the
+	// sandbox was created.
 	Resume(ctx context.Context, snap SnapshotRef, env Env) (Sandbox, error)
 }
 
@@ -76,7 +79,10 @@ type Sandbox interface {
 	// error.
 	Refresh(ctx context.Context) error
 	// Suspend checkpoints, then saves the guest's memory and devices. The
-	// sandbox stops running; Exec and Process calls return ErrGone.
+	// sandbox stops running; Exec and Process calls return ErrGone. A backend
+	// that cannot save the memory (vz) saves the files only, and the
+	// processes do not survive; every process handle from before returns
+	// ErrGone, as after a Refresh.
 	Suspend(ctx context.Context) (SnapshotRef, error)
 	// Destroy stops the guest and deletes its files. Committed changes stay
 	// in the workspace.

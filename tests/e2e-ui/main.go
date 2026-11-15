@@ -52,6 +52,7 @@ func main() {
 	foundationRole := flag.String("foundation-role", "", "instance of the foundation cluster: owner, front-a or front-b")
 	librarySources := flag.Bool("library-sources", false, "start like a normal install for the library sources: default galleries and default sources of every kind")
 	sharedPagesFixture := flag.Bool("shared-pages-fixture", false, "seed shared folders with pages for the shared pages specs (see shared_fixture.go)")
+	disableGallery := flag.Bool("disable-gallery", false, "start with the gallery endpoints off, as --disable-gallery-endpoint does")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -179,6 +180,9 @@ func main() {
 		config.WithTrustedProxies("127.0.0.1/32,::1/128"),
 		config.EnableTracing,
 		config.EnableBackendLogging,
+	}
+	if *disableGallery {
+		appOptions = append(appOptions, config.DisableGalleryEndpoint)
 	}
 	var fixture *addonsFixture
 	if *addonsFixtureDir != "" {

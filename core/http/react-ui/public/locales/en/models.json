@@ -866,5 +866,96 @@
       "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
       "estimateNote": "The estimate does not include expert placement."
     }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "sourcesButton": "Sources",
+    "sourcesTitle": "Search sources",
+    "sourcesClose": "Close",
+    "sourcesHelp": "Choose which sources the model search asks. Hugging Face is built in. Other sources come from add-ons.",
+    "sourcesError": "The choice could not be saved. Try again.",
+    "sourceBuiltin": "Built in",
+    "sourceAddon": "From an add-on",
+    "sourceNotInstalled": "Add-on not installed",
+    "missingHint": "{{sources}} is turned on, but its add-on is not installed.",
+    "missingInstall": "Install the add-on",
+    "noSources": "No source is turned on, so nothing is searched.",
+    "dropped_one": "{{count}} result skipped",
+    "dropped_other": "{{count}} results skipped",
+    "heading": "From {{source}}",
+    "latestHeading": "Latest on {{source}}",
+    "placeholder": "Search {{source}}",
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "downloads": "downloads",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seeds",
+    "gated": "Gated",
+    "ggufOnly": "GGUF only",
+    "hint": {
+      "title": "Search {{source}}",
+      "text": "Type a model name in the search box. Results come live from the source, not from your libraries."
+    },
+    "failed": {
+      "title": "{{source}} did not answer",
+      "text": "The search failed. Try again in a moment.",
+      "stale": "These are the last results. {{message}}"
+    },
+    "none": {
+      "title": "Nothing found on {{source}}",
+      "text": "Try another name.",
+      "gguf": "Nothing found in GGUF format. Turn off GGUF only to widen the search.",
+      "fits": "Every result is too big for this machine. Turn off the fits filter to see them."
+    },
+    "loadMore": "Load more",
+    "noLatest": "{{source}} does not list its newest models. Search by name to see its models.",
+    "chooseBuild": "Choose build {{variant}}",
+    "recommended": "Recommended",
+    "fits": "Fits",
+    "spill": "Spills to CPU",
+    "over": "Too big",
+    "installed": "{{model}} is installed.",
+    "ambiguous": "Several backends could run this model. Use Import model to pick one.",
+    "gatedTitle": "Access is gated.",
+    "gatedBody": "This repository needs approval on Hugging Face, so LocalAI cannot install it from here.",
+    "gatedP2p": "This model is gated on Hugging Face. The torrent needs no token, but the licence terms of the model still apply.",
+    "gatedHfInstall": "Gated on Hugging Face: it needs approval, so it cannot be installed from here.",
+    "sizesUnknown": "No file sizes found. Hugging Face does not list this repository, so the fit cannot be estimated.",
+    "importError": "No backend matches these files.",
+    "importErrorBody": "The install can still fail. Use Import model to choose a backend.",
+    "approximate": "Approximate fit. The model header could not be read, so memory is the file size plus a rule of thumb for the context.",
+    "noEstimate": "No size is known, so there is no fit estimate for this model.",
+    "files": {
+      "failed": {
+        "title": "Could not read the file list",
+        "body": "The source did not answer. Try again."
+      },
+      "rateLimited": {
+        "title": "The source asked to slow down",
+        "body": "Too many requests. Wait a minute and try again."
+      },
+      "notFound": {
+        "title": "Repository not found",
+        "body": "It is private, removed or not listed on this source."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "Remotes",
+    "filter": "Remote",
+    "unavailable": "Unavailable upstream",
+    "rowMark": "Remote model",
+    "sizeRemote": "Remote",
+    "connectButton": "Connect a remote",
+    "sheetTitle": "Connect a remote",
+    "sheetDescription": "Add models that run on another server or service.",
+    "toastDone": "Connected {{name}}. Added {{count}} model.",
+    "toastDone_other": "Connected {{name}}. Added {{count}} models.",
+    "toastSkipped": "{{count}} model was not added.",
+    "toastSkipped_other": "{{count}} models were not added."
   }
 }

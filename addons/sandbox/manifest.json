@@ -325,6 +325,7 @@
                 "auto",
                 "gvisor",
                 "kvm",
+                "vz",
                 "host",
                 "off"
               ]

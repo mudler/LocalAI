@@ -34,6 +34,8 @@
     "agentHelp": "Este chat usa el agente {{name}}: sus instrucciones y solo las herramientas que concede.",
     "editAgent": "Editar agente",
     "deleteHelp": "Elimina este chat y sus mensajes para siempre.",
+    "collections": "Colecciones",
+    "collectionsHelp": "Este chat solo puede usar estas colecciones.",
     "sliderOf": "Control deslizante de {{name}}",
     "reset": "Usar el valor del modelo para {{name}}",
     "hint": {
@@ -167,7 +169,8 @@
       "from": "Desde",
       "to": "Hasta",
       "reset": "Restablecer filtros"
-    }
+    },
+    "clearShown": "Vaciar los mostrados"
   },
   "message": {
     "you": "You",
@@ -718,7 +721,9 @@
     "missing": "La carpeta de este agente ya no existe. Elige otra carpeta en el agente.",
     "startError": "Falta la carpeta de este agente, así que el chat no puede empezar. Elige otra carpeta para el agente.",
     "editAgent": "Editar agente",
-    "toolsMany": "Archivos: solo {{n}} carpetas: {{list}}. Las carpetas compartidas y las skills siguen siendo legibles."
+    "toolsMany": "Archivos: solo {{n}} carpetas: {{list}}. Las carpetas compartidas y las skills siguen siendo legibles.",
+    "projectPaused": "Este agente está en pausa porque su proyecto está archivado o eliminado. Abre el proyecto y restáuralo.",
+    "projectChanged": "Este agente está en pausa porque las carpetas de su proyecto cambiaron. Abre el agente y reconéctalo."
   },
   "origin": {
     "banner": "Esta conversación la inició {{title}}.",
@@ -915,5 +920,11 @@
       "code": "Bloque de código omitido.",
       "table": "Tabla omitida."
     }
+  },
+  "deleteShownDialog": {
+    "title": "Eliminar los chats mostrados",
+    "message_one": "¿Eliminar el chat mostrado en {{project}} ({{count}})? Esta acción no se puede deshacer.",
+    "message_other": "¿Eliminar los {{count}} chats mostrados en {{project}}? Esta acción no se puede deshacer.",
+    "confirm": "Eliminar los mostrados"
   }
 }

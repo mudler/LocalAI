@@ -24,9 +24,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/mudler/LocalAI/addons/internal/idle"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 type runtime struct {

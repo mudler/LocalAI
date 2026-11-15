@@ -1,0 +1,16 @@
+{{- /*
+  One place for the "this needs a newer build" lines. The latest release is
+  4.12.1. When a release carries these features, revert the commit that adds
+  this partial, or change the version here.
+  Input: a page (reads its devbuild parameter) or a dict with page and kind.
+  Kinds: "addon", "install", anything else is a feature.
+*/ -}}
+{{- $page := . -}}
+{{- $kind := "" -}}
+{{- if reflect.IsMap . }}{{ $page = .page }}{{ $kind = .kind }}{{ else }}{{ $kind = .Params.devbuild }}{{ end -}}
+{{- if $kind -}}
+{{- $text := "Needs a build newer than 4.12.1. In the current development builds." -}}
+{{- if eq $kind "addon" }}{{ $text = "Add-ons need a development build or a release newer than 4.12.1." }}{{ end -}}
+{{- if eq $kind "install" }}{{ $text = "The install script, the macOS app and the latest container image give version 4.12.1. The add-ons, Office, Sandbox, Pages and Team in these docs need a newer build." }}{{ end -}}
+{{- partial "shortcodes/callout.html" (dict "page" $page "style" "note" "content" $text) -}}
+{{- end -}}

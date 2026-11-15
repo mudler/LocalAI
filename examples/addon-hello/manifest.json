@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "hello",
+  "version": "0.1.0",
+  "executable": "hello",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {"min": 1, "max": 1},
+  "api": {"min": 2, "max": 2},
+  "protocol": {"min": 1, "max": 1},
+  "dataFormat": {"min": 1, "max": 1},
+  "capabilities": {
+    "tools": ["greet"],
+    "skillDefinitions": [{"name": "hello"}],
+    "toolDefinitions": [
+      {
+        "name": "greet",
+        "description": "Greet a person by name. Use it when the user asks you to say hello to someone.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string", "description": "The name to greet.", "maxLength": 80}
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+# electron-builder configuration of the LocalAI launcher.
+# The builder and Electron versions are exact pins in package.json.
+# Builds never publish (`--publish never`): the release workflow uploads the
+# tested files in a separate job. The `publish` block below is still needed,
+# because it makes the builder write the update feed files (latest-linux.yml,
+# latest-linux-arm64.yml, latest-mac.yml) and app-update.yml inside the app.
+# See launcher/README.md, "Packaging and CI".
+appId: io.localai.launcher
+productName: LocalAI Launcher
+# The server binary is `local-ai`. The launcher must never have that name.
+executableName: local-ai-launcher
+directories:
+  output: release
+  buildResources: build
+# Only what the app needs at run time. test/builderFiles.test.ts fails when a
+# main-process module that is imported is not matched by one of these globs.
+files:
+  - dist/node/**/*
+  - dist/renderer/**/*
+  - build/icon.png
+  - package.json
+  - "!**/*.map"
+asar: true
+# The feed is always `latest`, also for a release candidate. The GitHub
+# release of a release candidate is the newest release, so it must carry the
+# same feed file names as a stable release.
+detectUpdateChannel: false
+generateUpdatesFilesForAllChannels: false
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+  icon: build/icon.png
+  # Written as Categories= of the desktop entry.
+  category: Development;Utility
+  synopsis: Install, start and stop LocalAI
+  # Written as Comment= of the desktop entry.
+  description: Install, start and stop LocalAI and open its WebUI
+  # The legacy AppImage toolset puts --no-sandbox in Exec= of the desktop
+  # entry by default, so a desktop launch would always run without the
+  # Chromium sandbox. With no arguments, the AppImage start script decides:
+  # it adds --no-sandbox only when user namespaces are not available.
+  executableArgs: []
+  # No spaces: GitHub changes spaces in asset names, and the feed file names
+  # the asset. For an AppImage ${arch} is x86_64 or arm64, so the amd64 name is
+  # the name that the download links of earlier releases use.
+  # The build workflow adds "dev" for a development build (see the workflow).
+  artifactName: LocalAI-Launcher-${arch}.AppImage
+  # Electron uses desktopName as the window class / app_id, so the desktop
+  # entry and the running window are linked.
+  syncDesktopName: true
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
+  icon: build/icon.png
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Notarization runs when APPLE_API_KEY, APPLE_API_KEY_ID and
+  # APPLE_API_ISSUER are set (CI only). The builder notarizes and staples the
+  # .app before it makes the DMG and the zip, so the app verifies offline.
+  # It does not notarize the DMG file: the workflow does that afterwards.
+  # Without these variables it logs "skipped macOS notarization".
+  extendInfo:
+    NSMicrophoneUsageDescription: The LocalAI WebUI uses the microphone for voice input and talk mode, only when you start them.
+    NSCameraUsageDescription: The LocalAI WebUI uses the camera only when you start a feature that needs it, for example to send an image to a model.
+  # The zip is what the updater applies. latest-mac.yml names it.
+  artifactName: LocalAI-Launcher-${version}-${arch}-mac.${ext}
+
+dmg:
+  # No `sign: true` here. The builder's own DMG signing adds no secure
+  # timestamp, which notarization needs. The build workflow signs,
+  # notarizes and staples the DMG file with scripts/sign-dmg.sh.
+  # The name of the DMG link that earlier releases used, so that link works.
+  # The build workflow adds "dev" for a development build.
+  artifactName: LocalAI.dmg
+  title: LocalAI Launcher
+
+publish:
+  provider: github
+  owner: mudler
+  repo: LocalAI

@@ -62,5 +62,5 @@ func (c Config) WarnIfInsecure(distributed bool) {
 		return
 	}
 	xlog.Warn("NATS is used without JWT credentials — any client on the bus can publish backend.install. " +
-		"Set LOCALAI_NATS_ACCOUNT_SEED + LOCALAI_NATS_SERVICE_JWT (see docs/features/distributed-mode.md).")
+		"Set LOCALAI_NATS_ACCOUNT_SEED + LOCALAI_NATS_SERVICE_JWT (see docs/content/administration/distributed-mode.md).")
 }

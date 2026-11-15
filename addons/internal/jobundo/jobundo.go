@@ -12,8 +12,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // Retention is how long the start of a job can be undone.

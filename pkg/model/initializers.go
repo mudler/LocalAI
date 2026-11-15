@@ -74,12 +74,14 @@ const (
 // It also loads the model
 func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string, string) (*Model, error) {
 	return func(modelID, modelName, modelFile string) (*Model, error) {
-
 		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend)
 
 		// Distributed mode: delegate to the model router if set. No load
 		// event is emitted here: this branch runs per inference request and
-		// the actual load happens on the worker node.
+		// the actual load happens on the worker node. The options finalizer
+		// does not run here either: the router completes the options itself
+		// when it sends a load, so a request for a loaded model costs nothing
+		// extra and the options it stores hold no secret.
 		ml.mu.Lock()
 		router := ml.modelRouter
 		ml.mu.Unlock()
@@ -98,6 +100,10 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			return model, err
 		}
 
+		o, err := o.finalized()
+		if err != nil {
+			return nil, err
+		}
 		uri := ml.GetAllExternalBackends(o)[backend]
 		start := time.Now()
 		started := BackendLoadEvent{ModelID: modelID, ModelName: modelName, Backend: backend, BackendURI: uri}
@@ -488,9 +494,7 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		}
 		if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
 			client = newConnectionEvictingClient(client, o.modelID, func() {
-				if err := ml.ShutdownModel(o.modelID); err != nil {
-					xlog.Warn("Failed to shut down remote model after connection error", "model", o.modelID, "error", err)
-				}
+				ml.evictRemoteStub(o.modelID)
 			})
 		}
 		return client, nil

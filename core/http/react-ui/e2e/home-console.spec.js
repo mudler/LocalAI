@@ -447,13 +447,16 @@ test.describe('Home resume list', () => {
 })
 
 test.describe('Home first run', () => {
-  async function mockFirstRun(page) {
-    await mockHome(page, { loaded: [], models: [], chatModels: [] })
+  async function mockFirstRun(page, options = {}) {
+    await mockHome(page, { loaded: [], models: [], chatModels: [], ...options })
     await mockRecommended(page)
   }
 
   test('teaches the three steps, with the recommended model inside the second', async ({ page }) => {
-    await mockFirstRun(page)
+    // The add-on step shows once /api/features is read, and the steps of the
+    // add-ons have their own spec (connect-agents.spec.js). Left on, the count
+    // is 3 or 4 by the time that answer comes.
+    await mockFirstRun(page, { features: { distributed: false, localai_assistant: true, agents: true, mcp: true, addons: false } })
     await ready(page)
     const guide = page.getByTestId('home-first-run')
     // The steps only: the recommended models are a list inside the second step.

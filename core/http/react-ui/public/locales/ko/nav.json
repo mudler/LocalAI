@@ -42,6 +42,7 @@
     "audioTransform": "오디오 변환",
     "faceRecognition": "얼굴 인식",
     "voiceRecognition": "음성 인식",
+    "projects": "프로젝트",
     "agents": "에이전트",
     "skills": "스킬",
     "memory": "지식",

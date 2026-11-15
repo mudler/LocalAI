@@ -1,0 +1,17 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="kicker">Features</p>
+  <h1>What LocalAI <span class="hl">does</span>.</h1>
+  <p class="lede">Each page says what the code does today, and what an admin has to turn on first.</p>
+</div></header>
+<section><div class="shell">
+  <div class="grid">
+  {{ range .Pages.ByWeight }}
+    <a class="fcard rv" href="{{ .RelPermalink }}" aria-label="{{ .Title }}: {{ .Params.card }}"><span class="ic">{{ partial "icon.html" .Params.icon }}</span><h2>{{ .Title }}</h2><p>{{ .Params.card }}</p><span class="go" aria-hidden="true">Read about {{ .Title }} &rarr;</span></a>
+  {{ end }}
+  </div>
+  <p class="fine">Some features are add-ons or are off until an admin turns them on. Each page names the ones that apply.</p>
+</div></section>
+</main>
+{{ end }}

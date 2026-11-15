@@ -109,7 +109,7 @@ linters:
       - path: ^pkg/model/
         text: 'os\.(Getenv|LookupEnv|Environ)'
         linters: [forbidigo]
-      # Top-level main binaries (local-ai, launcher) are entry points.
+      # Top-level main binaries are entry points.
       - path: ^cmd/
         text: 'os\.(Getenv|LookupEnv|Environ)'
         linters: [forbidigo]

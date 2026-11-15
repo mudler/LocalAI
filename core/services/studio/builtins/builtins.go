@@ -48,6 +48,10 @@ const (
 	// GroupChanges holds propose_change and revert_change: a chat can ask to
 	// change the person's memory or an agent profile, and the person confirms.
 	GroupChanges = "changes"
+	// GroupProjects holds list_projects: the model can list the person's
+	// active projects. It is on until the chat switches it off, as the
+	// collections group is.
+	GroupProjects = "projects"
 	// GroupMemory is the switch of the notes of the chat: off makes it a
 	// private chat, which neither reads nor saves memory.
 	GroupMemory = "memory"

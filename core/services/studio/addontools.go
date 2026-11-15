@@ -94,6 +94,10 @@ func holdForPerson(ctx context.Context) context.Context { return addontools.Hold
 // roleToolName is the name a chat sees for a tool of an add-on.
 func roleToolName(addonID, tool string) string { return addontools.ToolName(addonID, tool) }
 
+// ProviderToolName is the name the broker gives the tool of an add-on, for a
+// caller that runs a provider's tool through AddonProviderCaller.
+func ProviderToolName(addonID, tool string) string { return roleToolName(addonID, tool) }
+
 // unavailableToolName is the name of the stand-in tool of an add-on that
 // cannot work. It has the shape of the broker's tool names.
 func unavailableToolName(addonID string) string { return addontools.ToolName(addonID, "unavailable") }

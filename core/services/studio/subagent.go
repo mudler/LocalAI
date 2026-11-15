@@ -182,6 +182,17 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			// This chat turned the notes off: the provider's files stay out.
 			extra = slices.DeleteFunc(extra, func(src contextfiles.Source) bool { return src.ID == prov.ID() })
 		}
+		// The notes of the chat's own project come with the person's: the host
+		// reads the project from the chat each turn. A project the chat only
+		// pulls in is not put in the prompt. A project agent reads its project
+		// index even when its own notes are off: that is project context.
+		if reads := s.memoryReads(ctx, rec, sc, legacy); reads || s.readsProjectContext(ctx, rec) {
+			choice := ""
+			if sc != nil {
+				choice = sc.memory
+			}
+			extra = append(s.projectSourcesFor(ctx, rec, choice), extra...)
+		}
 		if !s.personalNotesOpen(rec) {
 			// A messaging sender who is not paired reads the notes of the
 			// conversation only, never the owner's.
@@ -457,9 +468,13 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		// The connections the parent chose are the child's: its tools run with
 		// the same credentials, and it chooses none of its own.
 		Connections: connsets.Clone(parent.Connections),
+		// The child never sees more collections than its parent: the
+		// restriction is a limit, so it is copied, and an agent's own list
+		// narrows it further.
+		Collections: slices.Clone(parent.Collections),
 		// The child is refused, never given the whole home, when the folder
 		// it works in can no longer be found (chatScopes).
-		ScopedAgent: parent.ScopedAgent || agent.HasFolder()}
+		ScopedAgent: parent.ScopedAgent || fencedAgent(agent)}
 	if agent.ID == "" {
 		// The names the parent granted live with the chat, so the tools can be
 		// rebuilt after a restart or on another frontend (childAllowed).
@@ -536,7 +551,7 @@ func (s *Service) agentFitsChat(ctx context.Context, chat session.ChatRecord, ag
 // chat's agent (nil for a chat with none). An agent whose folder cannot be
 // found does not fit a folder: nothing says it is inside.
 func (s *Service) agentFitsScope(ctx context.Context, p string, outer *folderScope, ag agents.Agent) bool {
-	if outer == nil || !ag.HasFolder() {
+	if outer == nil || !fencedAgent(ag) {
 		return true
 	}
 	inner, err := s.liveFolder(ctx, p, ag)

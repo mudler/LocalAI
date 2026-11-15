@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -451,14 +452,51 @@ func (c *Connectors) openToken(ctx context.Context, b connectors.Binding) (strin
 // checkAgent makes sure the agent is the owner's and names a model, because a
 // binding has no model of its own.
 func (c *Connectors) checkAgent(ctx context.Context, owner, agentID string) error {
+	_, err := c.usableAgent(ctx, owner, agentID)
+	return err
+}
+
+func (c *Connectors) usableAgent(ctx context.Context, owner, agentID string) (agents.Agent, error) {
 	ag, err := c.svc.Agent(ctx, owner, agentID)
+	if err != nil {
+		return ag, err
+	}
+	if strings.TrimSpace(ag.Model) == "" {
+		return ag, connectorBad("the agent %q needs a model: a connector has no model of its own", ag.Name)
+	}
+	return ag, nil
+}
+
+// checkReassign is checkAgentIfAny for a binding that already has an agent. A
+// binding belongs to the project of its agent, so it can only move to an agent
+// of the same project: a project connection stays in its project and a
+// connection outside projects does not reach into one. The first agent of a
+// binding, and an agent that was deleted, leave no project to keep.
+func (c *Connectors) checkReassign(ctx context.Context, owner, oldAgentID, agentID string) error {
+	if agentID == "" {
+		return nil
+	}
+	ag, err := c.usableAgent(ctx, owner, agentID)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(ag.Model) == "" {
-		return connectorBad("the agent %q needs a model: a connector has no model of its own", ag.Name)
+	if oldAgentID == "" || oldAgentID == agentID {
+		return nil
 	}
-	return nil
+	old, err := c.svc.Agent(ctx, owner, oldAgentID)
+	if err != nil {
+		if isAgentMissing(err) {
+			return nil
+		}
+		return err
+	}
+	if old.ProjectID == ag.ProjectID {
+		return nil
+	}
+	if old.ProjectID != "" {
+		return connectorBad("a project connection can only use agents of its project")
+	}
+	return connectorBad("a connection that is not in a project cannot use a project agent")
 }
 
 // checkAgentIfAny is checkAgent for a binding that has an agent. The binding
@@ -654,7 +692,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	if err := c.checkTokenGuards(ctx, &old, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
-	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {
+	if err := c.checkReassign(ctx, old.Owner, old.AgentID, in.AgentID); err != nil {
 		return ConnectorInfo{}, err
 	}
 	mine, err := c.o.Store.ListBindings(ctx, old.Owner)

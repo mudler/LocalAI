@@ -12,10 +12,10 @@ import (
 
 	"github.com/mudler/xlog"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/ociimage"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // The phases of the image of a profile.

@@ -1,0 +1,356 @@
+# Builds, checks and smoke-tests the Electron launcher (launcher/), then keeps
+# the packages as workflow artifacts. Called by launcher-electron-release.yaml
+# (tags) and launcher-electron-dev.yaml (master, pull requests, manual runs).
+# It never writes to a release: the release workflow has a separate upload job.
+# See launcher/README.md, "Packaging and CI".
+name: Launcher (Electron) build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Launcher version (semver), from launcher/scripts/version.mjs
+        type: string
+        required: true
+      artifact-prefix:
+        description: Prefix of the artifact names (<prefix>-linux-amd64, -linux-arm64, -macos-arm64)
+        type: string
+        required: true
+      linux-arm64:
+        type: boolean
+        default: true
+      macos:
+        type: boolean
+        default: true
+      sign-macos:
+        description: Sign and notarize the macOS app and the DMG. Without the secrets, the build is unsigned and says so, unless require-signing is set.
+        type: boolean
+        default: false
+      require-signing:
+        description: Release builds. The job fails when a signing or notarization secret is missing, so it never makes an unsigned DMG. Needs sign-macos.
+        type: boolean
+        default: false
+      feed:
+        description: Keep the update feed files (latest-*.yml), blockmaps and the macOS zip. Releases only.
+        type: boolean
+        default: false
+      upload:
+        description: Keep the packages as workflow artifacts
+        type: boolean
+        default: true
+      retention-days:
+        type: number
+        default: 7
+    secrets:
+      MACOS_CERTIFICATE:
+        required: false
+      MACOS_CERTIFICATE_PWD:
+        required: false
+      MACOS_NOTARY_KEY:
+        required: false
+      MACOS_NOTARY_KEY_ID:
+        required: false
+      MACOS_NOTARY_ISSUER_ID:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  # Electron is downloaded by electron-builder (checked against its SHASUMS256);
+  # the unit tests do not need the binary.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+  LAUNCHER_VERSION: ${{ inputs.version }}
+
+jobs:
+  plan:
+    name: Plan the Linux builds
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      linux: ${{ steps.plan.outputs.linux }}
+    steps:
+      - id: plan
+        env:
+          ARM64: ${{ inputs.linux-arm64 }}
+        # amd64 on Ubuntu 22.04, the oldest glibc of the hosted runners. The
+        # app has no native code of its own, so the runner does not change the
+        # package; it is where the smoke runs. arm64 on the repository's native
+        # arm64 runner, so the smoke runs the arm64 image itself.
+        run: |
+          amd64='{"arch":"amd64","builder-arch":"x64","runner":"ubuntu-22.04","feed-file":"latest-linux.yml"}'
+          arm64='{"arch":"arm64","builder-arch":"arm64","runner":"ubuntu-24.04-arm","feed-file":"latest-linux-arm64.yml"}'
+          if [ "$ARM64" = true ]; then m="[$amd64,$arm64]"; else m="[$amd64]"; fi
+          echo "linux=$m" >> "$GITHUB_OUTPUT"
+          echo "$m"
+
+  linux:
+    name: AppImage ${{ matrix.arch }}
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.linux) }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      - name: Install the smoke test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth
+      - name: Install, type-check and unit-test
+        working-directory: launcher
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+      - name: Build the AppImage
+        working-directory: launcher
+        env:
+          BUILDER_ARCH: ${{ matrix.builder-arch }}
+        run: |
+          args=()
+          # A development build gets "-dev" in the file name, so it is never
+          # mistaken for the AppImage of a release.
+          if [[ "$LAUNCHER_VERSION" == *-dev.* ]]; then
+            args+=("-c.linux.artifactName=LocalAI-Launcher-dev-\${arch}.AppImage")
+          fi
+          npm run build
+          npx electron-builder --linux AppImage "--$BUILDER_ARCH" --publish never \
+            "-c.extraMetadata.version=$LAUNCHER_VERSION" "${args[@]}"
+          ls -l release
+      - name: Write the checksum
+        working-directory: launcher/release
+        env:
+          FEED_FILE: ${{ matrix.feed-file }}
+        run: |
+          f=$(ls ./*.AppImage)
+          [ "$(echo "$f" | wc -l)" -eq 1 ] || { echo "expected one AppImage, got: $f"; exit 1; }
+          f=$(basename "$f")
+          sha256sum "$f" > "$f.sha256"
+          cat "$f.sha256"
+          grep -q "^version: $LAUNCHER_VERSION$" "$FEED_FILE"
+          echo "APPIMAGE=$f" >> "$GITHUB_ENV"
+      # The same smoke for every build. No artifact is kept when it fails.
+      # FUSE is not installed on the runner: the smoke uses the documented
+      # fallback --appimage-extract-and-run.
+      - name: Smoke-test the packaged AppImage
+        working-directory: launcher
+        env:
+          SMOKE_DIR: ${{ runner.temp }}/smoke
+          SMOKE_SELF_UPDATE: ${{ contains(inputs.version, '-dev.') && 'off' || 'check' }}
+        run: bash scripts/smoke-packaged.sh "release/$APPIMAGE" --appimage-extract-and-run
+      - name: Choose the files to keep
+        if: inputs.upload
+        working-directory: launcher/release
+        env:
+          FEED: ${{ inputs.feed }}
+        run: |
+          mkdir -p ../keep
+          cp "$APPIMAGE" "$APPIMAGE.sha256" ../keep/
+          if [ "$FEED" = true ]; then
+            cp ./latest-linux*.yml ../keep/
+            cp ./*.blockmap ../keep/ 2>/dev/null || true
+          fi
+          ls -l ../keep
+      - uses: actions/upload-artifact@v7
+        if: inputs.upload
+        with:
+          name: ${{ inputs.artifact-prefix }}-linux-${{ matrix.arch }}
+          path: launcher/keep/
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+
+  macos:
+    name: DMG and zip arm64
+    if: inputs.macos
+    # GitHub-hosted Apple Silicon runner. It is not shared with other
+    # repositories, so the build needs no signing lock: the keychain that
+    # electron-builder makes is gone with the runner.
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      - name: Install, type-check and unit-test
+        working-directory: launcher
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+      - name: Prepare signing
+        id: signing
+        env:
+          SIGN: ${{ inputs.sign-macos }}
+          REQUIRE: ${{ inputs.require-signing }}
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+        run: |
+          if [ "$REQUIRE" = true ] && [ "$SIGN" != true ]; then
+            echo "::error::require-signing needs sign-macos. A release build is always signed."
+            exit 1
+          fi
+          if [ "$SIGN" != true ]; then
+            echo "Signing is off for this run: the app is not signed or notarized."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          missing=""
+          [ -n "$MACOS_CERTIFICATE" ] || missing="$missing MACOS_CERTIFICATE"
+          [ -n "$MACOS_CERTIFICATE_PWD" ] || missing="$missing MACOS_CERTIFICATE_PWD"
+          [ -n "$MACOS_NOTARY_KEY" ] || missing="$missing MACOS_NOTARY_KEY"
+          [ -n "$MACOS_NOTARY_KEY_ID" ] || missing="$missing MACOS_NOTARY_KEY_ID"
+          [ -n "$MACOS_NOTARY_ISSUER_ID" ] || missing="$missing MACOS_NOTARY_ISSUER_ID"
+          if [ -n "$missing" ]; then
+            if [ "$REQUIRE" = true ]; then
+              # A release never ships an unsigned DMG. Only the names are printed.
+              echo "::error::Signing is required for this build, but these secrets are missing:$missing"
+              exit 1
+            fi
+            # Fallback for development builds (forks, or secrets not available): an unsigned build.
+            echo "::warning::Signing was asked for, but these secrets are not available:$missing. The DMG is not signed or notarized."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # electron-builder notarizes with an App Store Connect API key file.
+          umask 077
+          echo "$MACOS_NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/notary-key.p8"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - name: Build the DMG and the zip
+        working-directory: launcher
+        env:
+          SIGNED: ${{ steps.signing.outputs.signed }}
+          # electron-builder imports the certificate (base64 .p12) into a
+          # temporary keychain of its own.
+          CSC_LINK: ${{ steps.signing.outputs.signed == 'true' && secrets.MACOS_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ steps.signing.outputs.signed == 'true' && secrets.MACOS_CERTIFICATE_PWD || '' }}
+          APPLE_API_KEY_ID: ${{ steps.signing.outputs.signed == 'true' && secrets.MACOS_NOTARY_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ steps.signing.outputs.signed == 'true' && secrets.MACOS_NOTARY_ISSUER_ID || '' }}
+        run: |
+          args=()
+          if [ "$SIGNED" = true ]; then
+            export APPLE_API_KEY="$RUNNER_TEMP/notary-key.p8"
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_ID APPLE_API_ISSUER
+          fi
+          if [[ "$LAUNCHER_VERSION" == *-dev.* ]]; then
+            args+=("-c.dmg.artifactName=LocalAI-Launcher-dev.dmg")
+          fi
+          npm run build
+          npx electron-builder --mac dmg zip --arm64 --publish never \
+            "-c.extraMetadata.version=$LAUNCHER_VERSION" "${args[@]}"
+          ls -l release
+      - name: Remove the notary key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/notary-key.p8"
+      # electron-builder signs, notarizes and staples the app inside the DMG,
+      # not the DMG file. This step does the DMG file: Developer ID signature
+      # with a timestamp, notarization, staple. It changes the file, so it must
+      # run before the checksums. It also refreshes the DMG entry of
+      # latest-mac.yml, which holds the hash of the unsigned file. Without
+      # secrets (a development build) the step does not run.
+      - name: Sign, notarize and staple the DMG
+        if: steps.signing.outputs.signed == 'true'
+        timeout-minutes: 60
+        working-directory: launcher/release
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+        run: |
+          dmg=$(ls ./*.dmg)
+          [ "$(echo "$dmg" | wc -l)" -eq 1 ] || { echo "expected one DMG, got: $dmg"; exit 1; }
+          bash ../scripts/sign-dmg.sh "$dmg" latest-mac.yml
+      - name: Check the signature and the stapled ticket of the DMG
+        if: steps.signing.outputs.signed == 'true'
+        working-directory: launcher/release
+        run: |
+          dmg=$(ls ./*.dmg)
+          codesign --verify --verbose=2 "$dmg"
+          spctl --assess --type open --context context:primary-signature -v "$dmg"
+          xcrun stapler validate "$dmg"
+      # After the signing step, so the checksum is the one of the final file.
+      - name: Write the checksums
+        working-directory: launcher/release
+        run: |
+          dmg=$(ls ./*.dmg); zip=$(ls ./*-mac.zip)
+          dmg=$(basename "$dmg"); zip=$(basename "$zip")
+          shasum -a 256 "$dmg" > "$dmg.sha256"
+          shasum -a 256 "$zip" > "$zip.sha256"
+          cat ./*.sha256
+          grep -q "^version: $LAUNCHER_VERSION$" latest-mac.yml
+          { echo "DMG=$dmg"; echo "ZIP=$zip"; } >> "$GITHUB_ENV"
+      # Mount the DMG as a user gets it, check the signature and the stapled
+      # ticket of the app inside it, then run the smoke on that app.
+      - name: Mount the DMG
+        working-directory: launcher/release
+        run: |
+          mnt="$RUNNER_TEMP/dmg"
+          mkdir -p "$mnt"
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$mnt"
+          app=$(find "$mnt" -maxdepth 1 -name '*.app' | head -n 1)
+          [ -n "$app" ] || { echo "no .app in the DMG"; exit 1; }
+          echo "APP=$app" >> "$GITHUB_ENV"
+          echo "MNT=$mnt" >> "$GITHUB_ENV"
+      - name: Check the signature, the entitlements and the stapled ticket
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --display --entitlements - "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+          xcrun stapler validate "$APP"
+      - name: Smoke-test the app from the DMG
+        working-directory: launcher
+        env:
+          SMOKE_DIR: ${{ runner.temp }}/smoke
+          SMOKE_FEED_FILE: release/latest-mac.yml
+          SMOKE_SELF_UPDATE: ${{ contains(inputs.version, '-dev.') && 'off' || 'check' }}
+        run: bash scripts/smoke-packaged.sh "$APP"
+      - name: Unmount the DMG
+        if: always() && env.MNT != ''
+        run: hdiutil detach "$MNT" || true
+      - name: Choose the files to keep
+        if: inputs.upload
+        working-directory: launcher/release
+        env:
+          FEED: ${{ inputs.feed }}
+        run: |
+          mkdir -p ../keep
+          cp "$DMG" "$DMG.sha256" ../keep/
+          if [ "$FEED" = true ]; then
+            # The updater applies the zip; latest-mac.yml names it.
+            # Only the blockmap of the zip. The blockmap of the DMG is from
+            # before signing, and nothing uses it.
+            cp "$ZIP" "$ZIP.sha256" latest-mac.yml ../keep/
+            cp "$ZIP.blockmap" ../keep/ 2>/dev/null || true
+          fi
+          ls -l ../keep
+      - uses: actions/upload-artifact@v7
+        if: inputs.upload
+        with:
+          name: ${{ inputs.artifact-prefix }}-macos-arm64
+          path: launcher/keep/
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}

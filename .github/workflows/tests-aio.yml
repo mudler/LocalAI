@@ -26,6 +26,7 @@ on:
       - master
     tags:
       - '*'
+      - '!dev-master'
 
 concurrency:
   group: ci-tests-aio-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}

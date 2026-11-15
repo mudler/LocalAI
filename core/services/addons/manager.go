@@ -1640,6 +1640,11 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	out.ContextFiles = append([]contract.ContextFile(nil), c.ContextFiles...)
 	out.Credentials = slices.Clone(c.Credentials)
 	out.Provides = slices.Clone(c.Provides)
+	if c.ModelSearch != nil {
+		ms := *c.ModelSearch
+		ms.Sorts, ms.Filters = slices.Clone(ms.Sorts), slices.Clone(ms.Filters)
+		out.ModelSearch = &ms
+	}
 	for _, us := range c.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		out.UserSettings = append(out.UserSettings, us)

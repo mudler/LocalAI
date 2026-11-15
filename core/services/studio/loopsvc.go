@@ -504,6 +504,13 @@ func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopL
 		h.skipBusy(ctx, l, now)
 		return
 	}
+	// A project that is not available gates the run, it does not change the
+	// loop: the run is skipped for its slot, nothing is counted as a failure
+	// and nothing is told, and the loop runs again when the project is back.
+	if h.projectGone(ctx, l) {
+		h.skipUnavailable(ctx, l, now)
+		return
+	}
 	if most := h.maxRunsFor(ctx, l.Owner, l.ChatID, lim); l.Runs >= most {
 		h.end(ctx, l.ID, fmt.Sprintf("Stopped after %d runs, the most a loop may make.", most))
 		return
@@ -593,6 +600,15 @@ func (h *Loops) start(ctx context.Context, l loops.Loop, now time.Time) {
 		h.wg.Done()
 		if err != nil {
 			h.log.Warn("studio: a loop run could not start", "loop", l.ID, "chat", l.ChatID, "error", err)
+			if errors.Is(err, ErrProjectUnavailable) {
+				// The project went away between the check in fire and the send:
+				// the run is given back for its next slot, not counted as a
+				// failure. The unit of the owner's daily budget that TakeRun
+				// took stays spent: the stores have no give-back, and the
+				// window is only the time between two reads in one pass.
+				h.unclaim(ctx, l, func(c *loops.Loop) { h.nextAfterBusy(c, now) })
+				return
+			}
 			h.finish(l.ID, true, "the run could not start")
 			return
 		}
@@ -629,6 +645,66 @@ func (h *Loops) busy(ctx context.Context, l loops.Loop) bool {
 	}
 	pend, err := h.svc.d.Store.Pending(ctx, l.Owner, l.ChatID)
 	return err != nil || len(pend) > 0
+}
+
+// projectGone says whether the chat of a loop cannot start its next run for
+// the project of its agent: the full live fence check of the chat says the
+// project is not available, or the agent's folders are no longer the
+// project's (ErrProjectFoldersChanged wraps ErrProjectUnavailable). It is
+// asked before the claim and before the owner's daily budget is taken, so a
+// loop in that state costs nothing and keeps its counters.
+func (h *Loops) projectGone(ctx context.Context, l loops.Loop) bool {
+	rec, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID)
+	if err != nil {
+		return false
+	}
+	_, _, err = h.svc.chatScopes(ctx, rec, false)
+	return errors.Is(err, ErrProjectUnavailable)
+}
+
+// Back-off of a loop whose project is not available: the first window is one
+// minute, each check that still finds the project unavailable doubles it, up
+// to half an hour.
+const (
+	projectBackoffMin = time.Minute
+	projectBackoffMax = 30 * time.Minute
+	// projectBackoffReason marks the Reason of a loop that waits for its
+	// project, so the next check can tell its window from a wait the model
+	// asked for.
+	projectBackoffReason = "Waits for its project: the project is not available."
+)
+
+// skipUnavailable skips a due run of a loop whose project is not available.
+// An interval loop goes to its next slot, as for a busy chat. A self-paced
+// loop or a wait would be due again at the next tick, and each check of a
+// deleted project reads the project index, so its Next moves out by a window
+// that doubles with each consecutive check. The window is kept in the loop
+// itself: while Reason is projectBackoffReason, Updated is when the last
+// window started and Next when it ends. The run claim clears the Reason, so a
+// project that is back starts the next window from one minute again.
+func (h *Loops) skipUnavailable(ctx context.Context, l loops.Loop, now time.Time) {
+	if !l.SelfPaced() && l.Watch == nil {
+		h.skipBusy(ctx, l, now)
+		return
+	}
+	_, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
+		if c.State != loops.StateActive || c.Running || c.Next.IsZero() || now.Before(c.Next) {
+			return errLoopSkip
+		}
+		window := projectBackoffMin
+		if c.Reason == projectBackoffReason {
+			window = min(max(2*c.Next.Sub(c.Updated), projectBackoffMin), projectBackoffMax)
+		}
+		c.Reason, c.Updated, c.Next = projectBackoffReason, now, now.Add(window)
+		return nil
+	})
+	if err != nil && !errors.Is(err, errLoopSkip) && !errors.Is(err, loops.ErrNotFound) {
+		h.log.Warn("studio: could not back off a loop of an unavailable project", "loop", l.ID, "error", err)
+		return
+	}
+	if err == nil {
+		h.publish(l.Owner, l.ChatID)
+	}
 }
 
 // skipBusy moves an interval loop to its next slot: the runs a busy chat

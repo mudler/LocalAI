@@ -315,7 +315,7 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 // chat chatID. A change of the definition waits for the person's answer and
 // applied is false. A change that only switches the trigger off or on applies
 // at once, applied is true, and the person can undo it. It is checked as a
-// proposal is: a schedule that changes runs at most once an hour.
+// proposal is: a schedule that changes runs at most once every MinCadence.
 func (h *Triggers) ProposeChange(ctx context.Context, user, chatID string, target triggers.Trigger, p TriggerPatch) (rec triggers.Trigger, applied bool, err error) {
 	return h.proposeChange(ctx, user, chatID, target, p, nil)
 }
@@ -441,6 +441,11 @@ func (h *Triggers) switchByChange(ctx context.Context, user, chatID, id string, 
 	live, err := h.owned(ctx, user, id)
 	if err != nil {
 		return triggers.Trigger{}, err
+	}
+	if on && !live.Enabled {
+		if err := h.checkProjectAvailable(ctx, live.Owner, live.AgentID); err != nil {
+			return triggers.Trigger{}, err
+		}
 	}
 	t := live
 	t.Enabled = on
@@ -759,6 +764,13 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
+	}
+	// An undo that brings back a trigger that is on is a switch on: refused
+	// while the project of its agent is not available.
+	if t.Enabled && !live.Enabled {
+		if err := h.checkProjectAvailable(ctx, t.Owner, t.AgentID); err != nil {
+			return triggers.Trigger{}, err
+		}
 	}
 	at := h.o.Clock().UTC()
 	if err := h.claimChange(ctx, rec, triggers.OutcomeAccepted, triggers.OutcomeUndone, at); err != nil {

@@ -305,7 +305,7 @@ export default function Account() {
       <div className="dk-tabpanel" role="tabpanel" id={`ac-panel-${tab}`} aria-labelledby={`ac-tab-${tab}`}>
         {tab === 'profile' && <ProfileTab addToast={addToast} />}
         {tab === 'security' && <SecurityTab addToast={addToast} />}
-        {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={t('keys.accountIntro')} />}
+        {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={t('keys.accountIntro')} connect />}
         {tab === 'usage' && <UsageTab />}
         {tab === 'about' && <AboutYouTab />}
         {tab === 'memory' && <MemorySettings addToast={addToast}><MemoryTab addToast={addToast} embedded /></MemorySettings>}

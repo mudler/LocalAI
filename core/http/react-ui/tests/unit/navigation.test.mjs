@@ -199,15 +199,15 @@ test('sidebar entries own one route each: Apps on /app/addons, never a hub', asy
   assert.equal(hubOwnsPath(addons, '/app/addons', { ...auth, features: { addon_navigation: false } }), true)
 })
 
-test('the primary items: files, pages, agents, connections, knowledge, skills, models and add-ons', () => {
+test('the primary items: files, projects, pages, agents, connections, knowledge, skills, models and add-ons', () => {
   assert.deepEqual(primaryDestinations.map(i => i.path), [
-    '/app/files', '/app/pages', '/app/agents', '/app/chats/connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons',
+    '/app/files', '/app/projects', '/app/pages', '/app/agents', '/app/chats/connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons',
   ])
   // MCP connectors is a tab of Connections, not an item of its own.
   assert.ok(!primaryDestinations.some(i => i.path === '/app/mcp-connectors'))
   assert.equal(primaryDestinations.find(i => i.path === '/app/chats/connectors').labelKey, 'items.connections')
   const all = { isAdmin: true, hasFeature: () => true, hasBuiltin: false, features: {}, hasPages: true }
-  assert.equal(visiblePrimary(primaryDestinations, all).length, 8)
+  assert.equal(visiblePrimary(primaryDestinations, all).length, 9)
   // A server without collections hides Knowledge; a user without chats sees no chat pages.
   // Agents have their own feature: an administrator grants it apart from the chats.
   assert.ok(!visiblePrimary(primaryDestinations, { ...all, features: { collections: false } }).some(i => i.path === '/app/collections'))
@@ -217,7 +217,7 @@ test('the primary items: files, pages, agents, connections, knowledge, skills, m
   const order = visiblePrimary(primaryDestinations, all).map(i => i.path)
   assert.equal(order[order.indexOf('/app/collections') + 1], '/app/skills')
   const noAgents = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'agents' }).map(i => i.path)
-  assert.deepEqual(noAgents, ['/app/files', '/app/pages', '/app/chats/connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons'])
+  assert.deepEqual(noAgents, ['/app/files', '/app/projects', '/app/pages', '/app/chats/connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons'])
 })
 
 test('an item lights up on its own pages: agents own triggers; Connections own both tab routes; skills have their own item', () => {

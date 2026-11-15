@@ -129,6 +129,28 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(agent+"/jobs/:id/cancel", h.CancelJob)
 	e.POST(agent+"/jobs/:id/rerun", h.RerunJob)
 	e.DELETE(agent+"/jobs/:id", h.DeleteJob)
+	// The projects of the user. "projects" is not a chat id; the static
+	// segment wins over "/:id". The two PUT routes that put a chat in projects
+	// are with the other "/:id/..." routes below.
+	e.GET(base+"/projects", h.ListProjects)
+	e.POST(base+"/projects", h.CreateProject)
+	// Projects of other people shared with the caller. These static routes
+	// come before "/projects/:id", which would take "shared" as an id.
+	e.GET(base+"/projects/shared", h.ListSharedProjects)
+	e.GET(base+"/projects/shared/:ref", h.GetSharedProject)
+	e.GET(base+"/projects/shared/:ref/memory", h.GetSharedProjectMemory)
+	e.GET(base+"/projects/:id", h.GetProject)
+	e.PATCH(base+"/projects/:id", h.UpdateProject)
+	e.DELETE(base+"/projects/:id", h.DeleteProject)
+	e.POST(base+"/projects/:id/archive", h.ArchiveProject)
+	e.POST(base+"/projects/:id/restore", h.RestoreProject)
+	e.GET(base+"/projects/:id/memory", h.GetProjectMemory)
+	e.PUT(base+"/projects/:id/memory/:file", h.PutProjectMemory)
+	e.GET(base+"/projects/:id/chats", h.ListProjectChats)
+	e.GET(base+"/projects/:id/agents", h.ListProjectAgents)
+	e.GET(base+"/projects/:id/connections", h.ListProjectConnections)
+	e.GET(base+"/projects/:id/triggers", h.ListProjectTriggers)
+	e.GET(base+"/projects/:id/loops", h.ListProjectLoops)
 	e.GET(base+"/files", h.ListFiles)
 	e.DELETE(base+"/files", h.DeleteFile)
 	e.GET(base+"/files/content", h.GetFileContent)
@@ -166,6 +188,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/draft/addons", h.DraftAddons)
 	e.GET(base+"/draft/egress", h.DraftEgress)
 	e.PUT(base+"/:id/skills", h.SetChatSkills)
+	e.PUT(base+"/:id/project", h.SetChatProject)
+	e.PUT(base+"/:id/projects", h.SetChatPulledProjects)
 	e.GET(base+"/:id/addons", h.ListChatAddons)
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
 	e.PUT(base+"/:id/connections", h.SetChatConnection)

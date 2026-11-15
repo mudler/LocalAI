@@ -78,6 +78,27 @@ var _ = Describe("the GORM agent store on SQLite", func() {
 		Expect(n).To(Equal(int64(1)))
 	})
 
+	It("reads an agent stored before the project column as in no project", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		db := openSQLite(path)
+		first, err := agents.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		now := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+		Expect(first.Put(context.Background(), agents.Agent{ID: "old", Principal: "u1", Name: "Old", Created: now, Updated: now})).To(Succeed())
+		// The table as it was before the column.
+		Expect(db.Exec("DROP INDEX idx_studio_agents_project_id").Error).To(Succeed())
+		Expect(db.Exec("ALTER TABLE studio_agents DROP COLUMN project_id").Error).To(Succeed())
+		second, err := agents.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		got, err := second.Get(context.Background(), "u1", "old")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ProjectID).To(BeEmpty())
+		got.ProjectID = "p1"
+		Expect(second.Put(context.Background(), got)).To(Succeed())
+		again, _ := second.Get(context.Background(), "u1", "old")
+		Expect(again.ProjectID).To(Equal("p1"))
+	})
+
 	It("survives a reopen", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
 		first, err := agents.NewGORM(openSQLite(path))

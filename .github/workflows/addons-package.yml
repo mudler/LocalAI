@@ -74,7 +74,7 @@ on:
       - 'scripts/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
-      - 'docs/content/features/addons.md'
+      - 'docs/content/addons/contract-reference.md'
       - '.github/actions/**'
   push:
     branches: [master]
@@ -95,7 +95,7 @@ on:
       - 'scripts/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
-      - 'docs/content/features/addons.md'
+      - 'docs/content/addons/contract-reference.md'
       - '.github/actions/**'
   release:
     types: [published]
@@ -117,7 +117,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, sandbox, ssh, web]
+        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, sandbox, ssh, web]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -144,6 +144,8 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Build the UI of this add-on
+        # A data-only add-on has no ui directory and nothing to build.
+        if: hashFiles(format('addons/{0}/ui/build.mjs', matrix.addon)) != ''
         env:
           ADDON: ${{ matrix.addon }}
         run: node "addons/$ADDON/ui/build.mjs"
@@ -236,7 +238,7 @@ jobs:
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
           include='[]'
-          for id in tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm sandbox ssh web; do
+          for id in tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search sandbox ssh web; do
             cfg="addons/$id/package/platforms.yaml"
             err="matrix-$id.err"
             if rows=$(go run ./scripts/addons/cmd/addonpkg matrix --config "$cfg" 2>"$err"); then
@@ -288,6 +290,8 @@ jobs:
         with:
           node-version: '22'
       - name: Build the UI
+        # A data-only add-on has no ui directory and nothing to build.
+        if: hashFiles(format('addons/{0}/ui/build.mjs', matrix.addon)) != ''
         env:
           ADDON: ${{ matrix.addon }}
         run: |

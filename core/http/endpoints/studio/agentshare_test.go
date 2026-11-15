@@ -144,6 +144,14 @@ func (r *shareAPI) shareWith(principal string, role policy.Role) string {
 }
 
 var _ = Describe("the shared agents API", func() {
+	It("refuses to share a project agent with 400", func() {
+		r := newShareAPI(true)
+		Expect(r.ag.Put(context.Background(), agents.Agent{ID: "pa", Principal: "alice", Name: "Planner", ProjectID: "p1", Created: time.Now()})).To(Succeed())
+		code, body := r.call("alice", http.MethodPost, "/api/chats/agents/pa/share", "")
+		Expect(code).To(Equal(http.StatusBadRequest), body)
+		Expect(body).To(ContainSubstring("project agents cannot be shared"))
+	})
+
 	It("lists a shared agent with the owner's name and role and nothing of the owner's", func() {
 		r := newShareAPI(true)
 		r.secretAgent()
@@ -278,6 +286,24 @@ var _ = Describe("the shared agents API", func() {
 		Expect(code).To(Equal(http.StatusNotFound), "a new chat with an agent that is no longer shared: %s", body)
 		code, body = r.call("carol", http.MethodPost, "/api/chats", `{"agent_id":"ag1"}`)
 		Expect(code).To(Equal(http.StatusNotFound), "a person the agent was never shared with: %s", body)
+	})
+
+	It("does not say a project agent can be shared: sharing it is refused", func() {
+		r := newShareAPI(true)
+		Expect(r.ag.Put(context.Background(), agents.Agent{ID: "pa1", Principal: "alice", Name: "Helper", Model: "m", ProjectID: "p1", Created: time.Now()})).To(Succeed())
+		code, body := r.call("alice", http.MethodGet, "/api/chats/agents/pa1", "")
+		Expect(code).To(Equal(http.StatusOK), body)
+		var a schema.ChatsAgent
+		Expect(json.Unmarshal([]byte(body), &a)).To(Succeed())
+		Expect(a.Access).NotTo(BeNil())
+		Expect(a.Access.Sharing).To(BeFalse(), "the share call answers 400 for this agent")
+		code, body = r.call("alice", http.MethodGet, "/api/chats/agents", "")
+		Expect(code).To(Equal(http.StatusOK))
+		var list schema.ChatsAgentList
+		Expect(json.Unmarshal([]byte(body), &list)).To(Succeed())
+		Expect(list.Agents[0].Access.Sharing).To(BeFalse())
+		code, _ = r.call("alice", http.MethodPost, "/api/chats/agents/pa1/share", "")
+		Expect(code).To(Equal(http.StatusBadRequest))
 	})
 
 	It("answers 409 for a share when the server does not share agents", func() {

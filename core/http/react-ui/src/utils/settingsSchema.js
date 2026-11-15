@@ -18,7 +18,7 @@
 //            compares with the built-in default, not with the startup value.
 //   apply    'live'    the save handler applies it at once
 //                      (core/http/endpoints/localai/settings.go)
-//             'restart' the setting is read at start (docs/content/features/
+//             'restart' the setting is read at start (docs/content/administration/
 //                      runtime-settings.md, the page's own hint)
 //             none      the code does not say, so the page says nothing
 //   note     what applying does, only where the handler says it

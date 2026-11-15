@@ -42,3 +42,29 @@ var _ = Describe("Proxy credential logging", func() {
 		Expect(string(data)).To(ContainSubstring("fake-direct-secret"))
 	})
 })
+
+var _ = Describe("Proxy remote", func() {
+	It("round-trips through YAML without a credential", func() {
+		var c ModelConfig
+		Expect(yaml.Unmarshal([]byte("name: m\nbackend: localai-proxy\nproxy:\n  upstream_url: https://remote.example.com\n  remote: conn-1\n"), &c)).To(Succeed())
+		Expect(c.Proxy.Remote).To(Equal("conn-1"))
+		out, err := yaml.Marshal(c)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(out)).To(ContainSubstring("remote: conn-1"))
+		Expect(string(out)).NotTo(ContainSubstring("api_key"))
+	})
+	for name, p := range map[string]ProxyConfig{
+		"api_key":      {Remote: "c", APIKey: "k"},
+		"api_key_env":  {Remote: "c", APIKeyEnv: "E"},
+		"api_key_file": {Remote: "c", APIKeyFile: "/f"},
+	} {
+		It("rejects a remote combined with "+name, func() {
+			err := p.validateCredentialSources()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("remote"))
+		})
+	}
+	It("accepts a remote alone", func() {
+		Expect(ProxyConfig{Remote: "c"}.validateCredentialSources()).To(Succeed())
+	})
+})

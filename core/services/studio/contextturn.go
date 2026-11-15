@@ -89,7 +89,7 @@ func (s *Service) contextTurnFor(ctx context.Context, rec session.ChatRecord, to
 	if !s.d.Files.Available() {
 		return "", ""
 	}
-	sub := contextSubject(rec, saveToolOf(tools))
+	sub := s.withProjectDir(ctx, rec, contextSubject(rec, saveToolOf(tools)))
 	sub.OmitEmpty = omitEmpty
 	// The profile holds the standing rules of the agent, like its
 	// instructions, so every sender gets it. Only the personal notes are held
@@ -113,7 +113,7 @@ func (s *Service) contextTools(rec session.ChatRecord, tools []session.Tool, ext
 	if !s.d.Files.Available() || len(s.ctxfiles.Sources(extra...)) == 0 {
 		return nil
 	}
-	sub := contextSubject(rec, saveToolOf(tools))
+	base := contextSubject(rec, saveToolOf(tools))
 	return []session.Tool{{
 		Name:        contextfiles.ToolName,
 		Description: contextfiles.ToolDescription,
@@ -129,6 +129,8 @@ func (s *Service) contextTools(rec session.ChatRecord, tools []session.Tool, ext
 			if err := json.Unmarshal(raw, &args); err != nil {
 				return "", err
 			}
+			// The project is the chat's own, read now; the model names a topic only.
+			sub := s.withProjectDir(ctx, rec, base)
 			return s.ctxfiles.Detail(ctx, sub, contextfiles.Scope(args.Scope), args.Topic, extra...)
 		},
 	}}
@@ -138,7 +140,7 @@ func (s *Service) contextTools(rec session.ChatRecord, tools []session.Tool, ext
 // the model is offered only the notes the chat reads.
 func scopeEnum(sources []contextfiles.Source) string {
 	var out []string
-	for _, sc := range []contextfiles.Scope{contextfiles.ScopeUser, contextfiles.ScopeAgent, contextfiles.ScopeChannel} {
+	for _, sc := range []contextfiles.Scope{contextfiles.ScopeUser, contextfiles.ScopeProject, contextfiles.ScopeAgent, contextfiles.ScopeChannel} {
 		for _, src := range sources {
 			if src.Scope == sc {
 				out = append(out, `"`+string(sc)+`"`)

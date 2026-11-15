@@ -30,6 +30,7 @@ import {
   CAP_VAD, CAP_SCORE, CAP_DECISIONS,
 } from '../utils/capabilities'
 import Icon from '../components/Icon'
+import { remoteIndex, remoteSubline } from '../utils/remotes'
 
 const USE_CASES = [
   { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chats?model=${encodeURIComponent(id)}` },
@@ -126,6 +127,7 @@ export default function InstalledModels({
   searchRef,
   onOpenCleanup,
   disk,
+  remotes,
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -210,12 +212,15 @@ export default function InstalledModels({
     )
   ), [loadedModelIds])
 
+  const remoteById = useMemo(() => remoteIndex(remotes), [remotes])
+
   const matchesStateKey = (model, key) => {
     if (key === 'running') return isRunning(model)
     if (key === 'idle') return !model.disabled && !isRunning(model)
     if (key === 'disabled') return !!model.disabled
     if (key === 'pinned') return !!model.pinned
     if (key === 'distributed') return Array.isArray(model.loaded_on) && model.loaded_on.length > 0
+    if (key === 'remote') return !!model.remote
     return true
   }
   const countFor = key => models.filter(model => matchesStateKey(model, key)).length
@@ -226,6 +231,7 @@ export default function InstalledModels({
     { key: 'disabled', label: t('lifecycle.filters.disabled'), icon: 'ban' },
     { key: 'pinned', label: t('lifecycle.filters.pinned'), icon: 'pin' },
     { key: 'distributed', label: t('lifecycle.filters.distributed'), icon: 'server' },
+    { key: 'remote', label: t('remotes.filter'), icon: 'cloud' },
   ].map(f => ({ ...f, count: f.key === 'all' ? models.length : countFor(f.key) }))
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -345,6 +351,9 @@ export default function InstalledModels({
     if (model.disabled) return { key: 'disabled', label: t('lifecycle.states.disabled') }
     if (pendingActions.has(model.id)) return { key: 'busy', label: t('lifecycle.states.working') }
     if (isRunning(model)) return { key: 'running', label: t('lifecycle.states.running') }
+    // The remote stopped listing this model. The entry stays, and a request
+    // to it may fail, so it says so; it has no filter of its own.
+    if (model.upstream_state === 'unavailable') return { key: 'unavailable', label: t('remotes.unavailable') }
     return { key: 'idle', label: t('lifecycle.states.idle') }
   }
 
@@ -353,13 +362,13 @@ export default function InstalledModels({
     const running = isRunning(model)
     return (
       <>
-        {!model.disabled && !running && (
+        {!model.remote && !model.disabled && !running && (
           <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={e => { e.stopPropagation(); handleLoad(model.id) }} disabled={pending}>
             <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
             {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
           </button>
         )}
-        {running && (
+        {!model.remote && running && (
           <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={e => { e.stopPropagation(); handleStop(model.id) }} disabled={pending}>
             <Icon name="stop" /> {t('lifecycle.actions.stop')}
           </button>
@@ -444,13 +453,13 @@ export default function InstalledModels({
             >
               <Icon name="arrow-right" /> {t('page.openDetails')}
             </button>
-            {!selectedModel.disabled && !running && (
+            {!selectedModel.remote && !selectedModel.disabled && !running && (
               <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => handleLoad(selectedModel.id)} disabled={pending}>
                 <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
                 {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
               </button>
             )}
-            {running && (
+            {!selectedModel.remote && running && (
               <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => handleStop(selectedModel.id)} disabled={pending}>
                 <Icon name="stop" /> {t('lifecycle.actions.stop')}
               </button>
@@ -663,6 +672,7 @@ export default function InstalledModels({
                             <td className="ledger-name-cell">
                               <span className="dk-table-name ledger-name">
                                 <span className="ledger-name__text">{model.id}</span>
+                                {model.remote && <RowMark icon="cloud" label={t('remotes.rowMark')} />}
                                 {model.pinned && <RowMark icon="pin" label={t('lifecycle.detail.pinned')} />}
                                 {aliasTargets[model.id] && <RowMark icon="swap" label={t('lifecycle.detail.alias', { target: aliasTargets[model.id] })} />}
                                 {chain && <RowMark icon="shuffle" label={t('lifecycle.detail.chain', { target: chain.active })} />}
@@ -674,23 +684,23 @@ export default function InstalledModels({
                                 )}
                               </span>
                               <span className="dk-table-sub">
-                                {actionErrors[model.id] || [model.backend || t('lifecycle.detail.auto'), model.source === 'registry-only' ? t('lifecycle.detail.adopted') : ''].filter(Boolean).join(' · ')}
+                                {actionErrors[model.id] || [model.remote ? remoteSubline(model, remoteById, t('lifecycle.detail.auto')) : (model.backend || t('lifecycle.detail.auto')), model.source === 'registry-only' ? t('lifecycle.detail.adopted') : ''].filter(Boolean).join(' · ')}
                               </span>
                             </td>
                             <td>
                               <span className="dk-status ledger-state" data-state={st.key}>
-                                <span className={`dk-dot${st.key === 'running' ? ' dk-dot--ok' : st.key === 'busy' ? ' dk-dot--accent' : ''}`} />
+                                <span className={`dk-dot${st.key === 'running' ? ' dk-dot--ok' : st.key === 'busy' ? ' dk-dot--accent' : st.key === 'unavailable' ? ' dk-dot--warn' : ''}`} />
                                 {st.label}
                               </span>
                             </td>
                             <td className="dk-num dk-hide-phone ledger-size">
-                              <SizeCell
+                              {model.remote ? <span>{t('remotes.sizeRemote')}</span> : <SizeCell
                                 size={sizeOf(model.id)}
                                 disk={diskOf(model.id)}
                                 sharedWith={sharedWith(storage.index, model.id)}
                                 loading={storage.status === 'loading'}
                                 t={t}
-                              />
+                              />}
                             </td>
                             <td className="dk-table-actions ledger-status">
                               <span className="ledger-rowactions">{rowActions(model)}</span>
