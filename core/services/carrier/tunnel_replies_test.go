@@ -51,7 +51,7 @@ func (n *peerNet) askedOf() []string {
 	return slices.Clone(n.asked)
 }
 
-func (n *peerNet) Request(ctx context.Context, target, subject string, data []byte, _ int) ([]byte, error) {
+func (n *peerNet) Request(ctx context.Context, target, subject string, data []byte, _ int, _ time.Duration) ([]byte, error) {
 	n.mu.Lock()
 	n.asked = append(n.asked, target)
 	err, r := n.fail[target], n.replicas[target]

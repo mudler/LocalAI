@@ -17,7 +17,7 @@ import (
 // PeerRequester sends one request to another replica over the peer link.
 // tunnel.PeerPool is one.
 type PeerRequester interface {
-	Request(ctx context.Context, target, subject string, data []byte, maxBytes int) ([]byte, error)
+	Request(ctx context.Context, target, subject string, data []byte, maxBytes int, openWithin time.Duration) ([]byte, error)
 }
 
 // QueueMembers lists the replicas that serve a queue subject now.
@@ -156,7 +156,7 @@ func (t *tunnelReplies) ask(ctx context.Context, instance, subject string, data 
 	if instance == t.self {
 		return t.local.Dispatch(ctx, subject, data)
 	}
-	return t.peers.Request(ctx, instance, subject, data, messaging.MaxBroadcastBytes)
+	return t.peers.Request(ctx, instance, subject, data, messaging.MaxBroadcastBytes, 0)
 }
 
 // isAbsent reports a failure that says that nobody serves the subject there: the

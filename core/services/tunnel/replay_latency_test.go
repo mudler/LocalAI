@@ -99,7 +99,7 @@ var _ = Describe("Delay of a request between replicas during a bulk transfer", L
 		for range requests {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			start := time.Now()
-			out, err := tunnel.RequestThrough(ctx, request, "owner", "chats.replay.owner", []byte(`{"key":"k"}`), 8<<20)
+			out, err := tunnel.RequestThrough(ctx, request, "owner", "chats.replay.owner", []byte(`{"key":"k"}`), 8<<20, 0)
 			cancel()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(out).To(HaveLen(replyBytes))
