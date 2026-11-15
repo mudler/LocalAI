@@ -23756,14 +23756,14 @@
             "type": "object",
             "properties": {
                 "enabled": {
-                    "description": "Enabled is the enabled set as stored, in order, including IDs that are\nnot installed.",
+                    "description": "Enabled is the enabled set: every source the person can see that they\ndid not turn off, in the order of Sources.",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
                 "missing": {
-                    "description": "Missing lists the enabled IDs that no installed add-on provides.",
+                    "description": "Missing is kept for older clients and is always empty: the store holds\nwhat the person turned off, so no stored ID asks for an add-on to be\ninstalled.",
                     "type": "array",
                     "items": {
                         "type": "string"

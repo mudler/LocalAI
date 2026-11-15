@@ -25820,11 +25820,11 @@ paths:
         plus one status per source, so a source that is down does not fail the search.
         Without `providers` the sources are the caller''s enabled set (every source
         the caller can see that they did not turn off; see /api/models/search/sources).
-        A source can come from an add-on that provides the model-search slot. `filters.<source>.<id>=value` sets a
-        filter that the source declares in `sources` of the answer; an unknown filter
-        or a value that does not fit its type gives a 400 that names the filter. Each
-        result''s `uri` can be passed to POST /models/import-uri. Results also say
-        whether an installed model already comes from the repository (`installed`,
+        A source can come from an add-on that provides the model-search slot. `filters.<source>.<id>=value`
+        sets a filter that the source declares in `sources` of the answer; an unknown
+        filter or a value that does not fit its type gives a 400 that names the filter.
+        Each result''s `uri` can be passed to POST /models/import-uri. Results also
+        say whether an installed model already comes from the repository (`installed`,
         `installed_name`), the backend an import would likely pick (`backend`, a hint
         derived from the tags) and whether the repository likely has several quantizations
         (`has_variants`). Use /api/models/remote/files for the exact files, sizes
@@ -25875,10 +25875,10 @@ paths:
       - models
   /api/models/search/sources:
     get:
-      description: 'Lists the sources that are installed (Hugging Face, and every add-on
-        that provides the model-search slot and that the caller can see) with their
-        titles, sorts and filters, and the enabled set of the caller: every source
-        they can see that they did not turn off, so a source from a newly installed
+      description: 'Lists the sources that are installed (Hugging Face, and every
+        add-on that provides the model-search slot and that the caller can see) with
+        their titles, sorts and filters, and the enabled set of the caller: every
+        source they can see that they did not turn off, so a source from a newly installed
         add-on is on with no action. `missing` is kept for older clients and is always
         empty.'
       responses:
