@@ -30,7 +30,7 @@ on:
       - '.github/workflows/tests-e2e.yml'
   push:
     branches: [master]
-    tags: ['*']
+    tags: ['*', '!dev-master']
     paths:
       - 'core/**'
       - 'pkg/**'
