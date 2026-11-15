@@ -134,7 +134,7 @@ jobs:
           FEED_FILE: ${{ matrix.feed-file }}
         run: |
           f=$(ls ./*.AppImage)
-          [ "$(echo "$f" | wc -l)" = 1 ] || { echo "expected one AppImage, got: $f"; exit 1; }
+          [ "$(echo "$f" | wc -l)" -eq 1 ] || { echo "expected one AppImage, got: $f"; exit 1; }
           f=$(basename "$f")
           sha256sum "$f" > "$f.sha256"
           cat "$f.sha256"
@@ -281,7 +281,7 @@ jobs:
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
         run: |
           dmg=$(ls ./*.dmg)
-          [ "$(echo "$dmg" | wc -l)" = 1 ] || { echo "expected one DMG, got: $dmg"; exit 1; }
+          [ "$(echo "$dmg" | wc -l)" -eq 1 ] || { echo "expected one DMG, got: $dmg"; exit 1; }
           bash ../scripts/sign-dmg.sh "$dmg" latest-mac.yml
       - name: Check the signature and the stapled ticket of the DMG
         if: steps.signing.outputs.signed == 'true'
