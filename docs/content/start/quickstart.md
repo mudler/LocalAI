@@ -21,8 +21,8 @@ On Linux, or on a Mac with Apple Silicon, run the install script, then start Loc
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run
-# open http://localhost:8080 and install the model it recommends
+local-ai
+# open http://localhost:8080 and install a model from there
 ```
 
 On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
@@ -33,7 +33,7 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 
 On Linux or a Mac you can also download the [desktop app]({{% relref "/start/install/desktop" %}}): a DMG for macOS or an AppImage for Linux. It installs and starts the server for you. For all install methods, see the [install guide]({{% relref "/start/install" %}}).
 
-You should see the log line `LocalAI is started and running` with the address `:8080`. The server starts with no model. Open `http://localhost:8080`: on a fresh install the first-run guide recommends a model for your hardware and downloads it when you agree. To choose a model yourself, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small model that runs on a CPU. The first run of a model takes longer, because it downloads the model.
+You should see the log line `LocalAI is started and running` with the address `:8080`. The script installs the `local-ai` program and does not start it. The command `local-ai` starts the server, with no model. Open `http://localhost:8080`: on a fresh install the first-run guide recommends a model for your hardware and downloads it when you agree. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model that runs on a CPU (a download of about 4.3 GB). The first run of a model takes longer, because it downloads the model.
 
 For GPU acceleration in a container, use the image that matches your hardware:
 

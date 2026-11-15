@@ -34,8 +34,8 @@ curl -sSL https://localai.io/install.sh | sh
 Start the server, open the web interface and accept the model it recommends. LocalAI downloads the model and picks the engine for your machine. See the [quickstart]({{% relref "/start/quickstart" %}}).
 
 ```bash
-local-ai run
-# open http://localhost:8080 and install the model it recommends
+local-ai
+# open http://localhost:8080 and install a model from there
 ```
 
 </div>

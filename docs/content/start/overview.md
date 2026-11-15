@@ -43,8 +43,8 @@ On Linux or macOS, install with the script:
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run
-# open http://localhost:8080 and install the model it recommends
+local-ai
+# open http://localhost:8080 and install a model from there
 ```
 
 Then open **http://localhost:8080** to use the web interface. A fresh install recommends a model for your hardware. On Windows, or if you prefer a container, use Docker:
