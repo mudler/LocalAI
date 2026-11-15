@@ -59,8 +59,11 @@ pin_packages() {
         suffix=$(echo "$key" | sed -e 's/x86_64/X8664/' -e 's/_/-/g' -e 's/X8664/x86_64/')
         line=$(echo "$SUMS" | grep -E "  ${asset}-[0-9.]+-${suffix}\.tar\.gz\$" || true)
         if [ "$(echo "$line" | grep -c .)" != "1" ]; then
-            echo "Refusing to bump: $TAG has no single ${asset} package for $suffix" >&2
-            exit 1
+            # An incomplete upstream release cannot be bumped to. Skip it the
+            # same way as a version disagreement: warn, change nothing, exit 0.
+            echo "::warning title=Strata bump skipped::$TAG has no single ${asset} package for $suffix; no bump this run"
+            rm -f "$PINS"
+            exit 0
         fi
         sum=$(echo "$line" | cut -d' ' -f1)
         name=$(echo "$line" | awk '{print $2}')
