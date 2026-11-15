@@ -49,8 +49,8 @@ type DistributedServices struct {
 	// takes this, never the connection of a carrier.
 	Broadcaster messaging.Broadcaster
 	// Replies is request and reply between the processes of the cluster, on the
-	// same holder as Broadcaster. On a carrier that has none, every request finds
-	// nobody (messaging.IsNoResponders) and the caller handles it here.
+	// same holder as Broadcaster. On a carrier that has none, every request fails
+	// with messaging.ErrNotDelivered: nothing was sent, and it is not absence.
 	Replies      messaging.RequestReply
 	AgentControl mcpTools.AgentControl
 	Store        storage.ObjectStore
