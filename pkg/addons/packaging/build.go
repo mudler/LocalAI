@@ -287,9 +287,6 @@ func cmdBuild(args []string) error {
 	return nil
 }
 
-// collectUI reads every file under the UI directory that sits below prefix
-// (the top directory of the declared entry). Links and special files are
-// refused so a build output cannot smuggle content from outside the tree.
 // collectSkills reads the skills directory of the platform matrix and checks
 // it with the rules the owner applies when it stages the package, so a build
 // never publishes a package the owner would refuse. The files are laid under
@@ -321,6 +318,9 @@ func collectSkills(root, dir string, m contract.Manifest) ([]fileEntry, error) {
 	return out, nil
 }
 
+// collectUI reads every file under the UI directory that sits below prefix
+// (the top directory of the declared entry). Links and special files are
+// refused so a build output cannot smuggle content from outside the tree.
 func collectUI(dir, prefix string) ([]fileEntry, error) {
 	top := filepath.Join(dir, filepath.FromSlash(prefix))
 	var out []fileEntry
