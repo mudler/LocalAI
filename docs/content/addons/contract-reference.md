@@ -7222,7 +7222,7 @@ grants unless an explicit host-operations override is present.
 | `website/static/install/kubernetes.yaml` | Inherits the stock image selection. A custom image must ship/select policy or mount an administrator file and select its absolute path. |
 | External Helm chart referenced by the Kubernetes guide | Not shipped here. Check the selected image and chart environment; custom images are unconfigured unless the operator selects policy. |
 | `.devcontainer/docker-compose-devcontainer.yml` | Uses the development target, not the stock runtime stage. A manually launched binary is unconfigured. |
-| Release binaries, `website/static/install.sh`, AppImage/desktop launchers (`contrib/appimage`), macOS launcher packaging | Unconfigured standalone behavior. Operators must explicitly select policy or host operations; packaging does not migrate consent. |
+| Release binaries, `website/static/install.sh`, the desktop launcher packages (`launcher/`) | Unconfigured standalone behavior. Operators must explicitly select policy or host operations; packaging does not migrate consent. |
 | Custom systemd services | No maintained unit ships in this tree. Set `LOCALAI_ADDON_HOST_POLICY` or explicit host operations in the unit, protect the file, and restart. |
 | `docs/docker-compose.yaml` | Documentation-site server only; it does not launch LocalAI. |
 

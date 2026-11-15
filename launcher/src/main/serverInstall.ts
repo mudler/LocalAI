@@ -1,7 +1,7 @@
 // Install, update and rollback of the LocalAI server binary. No Electron import.
 //
-// Go source ported: cmd/launcher/internal/release_manager.go (release lookup,
-// asset naming, checksum file, install location, version detection).
+// Ported from the earlier Go launcher, since removed: release lookup, asset
+// naming, checksum file, install location, version detection.
 //
 // This file has two layers. The reducer below is pure: it only maps a state
 // and an event to the next state. The runner (further down) does the work and
