@@ -97,7 +97,7 @@ export LOCALAI_LAUNCHER_ENDPOINT="http://127.0.0.1:$((SMOKE_PORT + 1))"
 # The checks. On Linux, xvfb-run starts and stops the display around them.
 INNER='
   now_ms() { node -e "process.stdout.write(String(Date.now()))"; }
-  fail() { echo "FAIL: $*"; echo "--- app log"; cat "$SMOKE_DIR/app.log" 2>/dev/null || true; kill -KILL $wrapper 2>/dev/null || true; exit 1; }
+  fail() { echo "FAIL: $*"; echo "--- startup signals"; cat "$SIGNAL" 2>/dev/null || echo "(none)"; echo "--- app log"; cat "$SMOKE_DIR/app.log" 2>/dev/null || true; kill -KILL $wrapper 2>/dev/null || true; exit 1; }
   t0=$(now_ms)
   "$APP_EXE" "$@" > "$SMOKE_DIR/app.log" 2>&1 &
   wrapper=$!
