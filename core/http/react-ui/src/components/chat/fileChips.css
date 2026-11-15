@@ -9,6 +9,9 @@
   list-style: none;
 }
 .cx-fchips > li { display: flex; min-width: 0; max-width: 100%; }
+.cx-fchips { align-items: flex-start; }
+/* A thumbnail takes a row of its own. */
+.cx-fchips > li:has(.cx-fimg) { flex-basis: 100%; }
 .cx-fchip {
   display: inline-flex;
   align-items: center;
@@ -50,3 +53,19 @@
     .cx-fchip { opacity: 0; transform: translateY(4px); }
   }
 }
+/* An image the turn made, drawn under the answer. */
+.cx-fimg {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  overflow: hidden;
+  cursor: pointer;
+}
+.cx-fimg:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.cx-fimg img { display: block; max-width: min(100%, 360px); max-height: 280px; }
+/* The chip an image of the answer becomes when it does not load. */
+.cx-fchip--missing { cursor: default; }
+button.cx-fchip--missing { cursor: pointer; }

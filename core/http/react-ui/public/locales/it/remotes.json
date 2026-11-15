@@ -1,0 +1,185 @@
+{
+  "kinds": {
+    "localai": "LocalAI",
+    "openai": "Compatibile con OpenAI",
+    "anthropic": "Anthropic"
+  },
+  "presets": {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "custom": "Personalizzato"
+  },
+  "connect": {
+    "kind": "Tipo di remoto",
+    "provider": "Provider",
+    "address": "Indirizzo",
+    "addressHintLocalai": "L'indirizzo dell'altro server LocalAI.",
+    "addressHintOpenai": "L'indirizzo di base del servizio. Di solito termina con /v1.",
+    "key": "Chiave API",
+    "optional": "facoltativa",
+    "keyHint": "La chiave resta su questo server e non viene più mostrata.",
+    "pii": "Le richieste ai servizi ospitati passano dal filtro PII di LocalAI, attivo per impostazione predefinita.",
+    "test": "Prova la connessione",
+    "testing": "Prova in corso…",
+    "ok": "Connesso. Trovato {{count}} modello.",
+    "ok_other": "Connesso. Trovati {{count}} modelli.",
+    "failTitle": "Impossibile connettersi.",
+    "fail": {
+      "invalid_url": "Questo indirizzo non è valido. Controllalo e riprova.",
+      "unreachable": "Impossibile raggiungere il server. Controlla l'indirizzo e che l'altro server sia in esecuzione e raggiungibile da questo server.",
+      "auth": "Il provider ha rifiutato la chiave. Controllala e riprova.",
+      "no_models": "La connessione funziona, ma non elenca modelli da aggiungere.",
+      "other": "La prova non è riuscita.",
+      "authLocalai": "L'altro server LocalAI ha rifiutato la chiave. Usa una chiave che possa elencarne i modelli, oppure lascia vuoto il campo se il server non ne richiede una.",
+      "unsupported": "Questo server non può collegare remoti."
+    }
+  },
+  "choose": {
+    "waiting": "Prova prima la connessione. I suoi modelli compariranno qui.",
+    "search": "Cerca modelli",
+    "count": "{{selected}} di {{total}} selezionati",
+    "selectAll": "Seleziona tutti",
+    "selectNone": "Deseleziona tutti",
+    "listLabel": "Modelli da aggiungere",
+    "noMatch": "Nessun modello corrisponde alla ricerca.",
+    "name": "Nome",
+    "nameHint": "Mostrato nell'elenco dei remoti.",
+    "submit": "Connetti e aggiungi i modelli",
+    "pick": "Seleziona almeno un modello.",
+    "error": {
+      "nameTaken": "Esiste già un remoto con questo nome. Scegline un altro.",
+      "invalid": "Il server non ha accettato questi dati: {{message}}",
+      "other": "Qualcosa è andato storto: {{message}}",
+      "unsupported": "Questo server non può collegare remoti."
+    },
+    "tooMany": "Seleziona al massimo {{max}} modelli alla volta. Aggiungi gli altri più tardi."
+  },
+  "usecase": {
+    "chat": "Chat",
+    "transcript": "Trascrizione",
+    "tts": "Voce",
+    "embeddings": "Embedding",
+    "image": "Immagine",
+    "video": "Video",
+    "rerank": "Rerank",
+    "completion": "Completamento",
+    "edit": "Modifica",
+    "vision": "Visione",
+    "tokenize": "Tokenizzazione",
+    "upscale": "Upscaling",
+    "3d": "3D",
+    "3d_animation": "Animazione 3D",
+    "motion": "Movimento",
+    "sound_generation": "Generazione di suoni",
+    "detection": "Rilevamento",
+    "depth": "Profondità",
+    "forecast": "Previsione",
+    "vad": "Attività vocale",
+    "audio_transform": "Trasformazione audio",
+    "diarization": "Diarizzazione",
+    "sound_classification": "Classificazione dei suoni",
+    "realtime_audio": "Audio in tempo reale",
+    "face_recognition": "Riconoscimento facciale",
+    "speaker_recognition": "Riconoscimento del parlante"
+  },
+  "sheet": {
+    "open": "Connetti un remoto"
+  },
+  "card": {
+    "justNow": "proprio ora",
+    "status": {
+      "ok": "Connesso · aggiornato {{when}}",
+      "never": "Non ancora aggiornato",
+      "auth_failed": "Chiave rifiutata",
+      "unreachable": "Non raggiungibile",
+      "noUsable": "Connesso · nessun modello utilizzabile"
+    },
+    "refresh": "Aggiorna",
+    "edit": "Modifica",
+    "authTitle": "Il remoto ha rifiutato la chiave.",
+    "authText": "Aggiorna la chiave per riconnetterti.",
+    "unreachableTitle": "Impossibile raggiungere il remoto.",
+    "unreachableText": "Controlla l'indirizzo e che l'altro server sia in esecuzione.",
+    "updateKey": "Aggiorna chiave",
+    "editRemote": "Modifica remoto",
+    "newTitle": "{{count}} nuovo modello su questo remoto",
+    "newTitle_other": "{{count}} nuovi modelli su questo remoto",
+    "addSelected": "Aggiungi selezionati",
+    "notNow": "Non ora",
+    "adopted": "Aggiunto {{count}} modello da {{name}}.",
+    "adopted_other": "Aggiunti {{count}} modelli da {{name}}.",
+    "adoptFailed": "Impossibile aggiungere i modelli: {{message}}",
+    "refreshFailed": "Impossibile aggiornare {{name}}: {{message}}",
+    "models": "{{count}} modello da questo remoto",
+    "models_other": "{{count}} modelli da questo remoto",
+    "gone": "{{count}} non più elencato",
+    "gone_other": "{{count}} non più elencati",
+    "view": "Vedi in Installati",
+    "noUsableTitle": "Nessun modello utilizzabile.",
+    "noUsableText": "Il remoto ha risposto, ma non elenca modelli che questo server possa usare.",
+    "refreshWarn": "{{name}} aggiornato, ma non ha modelli utilizzabili.",
+    "authTextLocalai": "Usa una chiave che possa elencare i modelli di quel server, poi collega di nuovo."
+  },
+  "empty": {
+    "title": "Nessun remoto connesso",
+    "body": "Connetti un altro LocalAI, un servizio compatibile con OpenAI o Anthropic. Ogni modello scelto diventa un modello qui."
+  },
+  "load": {
+    "error": "Impossibile caricare i remoti."
+  },
+  "edit": {
+    "title": "Modifica remoto",
+    "close": "Chiudi",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "name": "Nome",
+    "key": "Nuova chiave API",
+    "keySet": "Una chiave è impostata. Lascia vuoto per mantenerla.",
+    "keyNotSet": "Nessuna chiave impostata.",
+    "keyRestart": "Una nuova chiave riavvia i modelli caricati.",
+    "saved": "{{name}} salvato.",
+    "savedKey": "{{name}} salvato. I suoi modelli caricati si riavviano con la nuova chiave.",
+    "savedWarn": "{{name}} salvato, ma c'è ancora un problema. Apri il remoto per vederlo."
+  },
+  "remove": {
+    "button": "Rimuovi remoto",
+    "title": "Rimuovere {{name}}?",
+    "choiceLabel": "Cosa succede ai modelli",
+    "keep": "Mantieni i modelli",
+    "removeAll": "Rimuovi anche i modelli",
+    "keepExplain": "Viene rimosso solo il remoto. Il suo {{count}} modello resta in Installati. Se il remoto richiede una chiave, impostala nell'editor del modello.",
+    "keepExplain_other": "Viene rimosso solo il remoto. I suoi {{count}} modelli restano in Installati. Se il remoto richiede una chiave, impostala nell'editor del modello.",
+    "removeExplain": "Vengono rimossi il remoto e il suo {{count}} modello. Non si può annullare.",
+    "removeExplain_other": "Vengono rimossi il remoto e i suoi {{count}} modelli. Non si può annullare.",
+    "confirm": "Rimuovi remoto",
+    "doneKeep": "{{name}} rimossa. I suoi modelli restano.",
+    "doneAll": "{{name}} e i suoi modelli rimossi."
+  },
+  "result": {
+    "added": "Aggiunto {{count}} modello.",
+    "added_other": "Aggiunti {{count}} modelli.",
+    "partialTitle": "Il remoto è stato salvato, ma alcuni modelli non sono stati aggiunti.",
+    "skippedTitle": "Alcuni modelli non sono stati aggiunti.",
+    "adoptHint": "Adotta i modelli mancanti. Il remoto non viene creato di nuovo.",
+    "adopt": "Adotta i modelli",
+    "continue": "Continua"
+  },
+  "skipped": {
+    "summary": "{{count}} modello non aggiunto",
+    "summary_other": "{{count}} modelli non aggiunti",
+    "reason": {
+      "listedTwice": "Elencato due volte",
+      "alreadyAdopted": "Già aggiunto",
+      "noFreeName": "Nessun nome di modello libero",
+      "nameExists": "Esiste già un modello con quel nome",
+      "invalid": "Il nome o le impostazioni del modello non sono validi",
+      "buildFailed": "Impossibile preparare il modello",
+      "writeFailed": "Impossibile salvare il modello"
+    }
+  },
+  "unsupported": {
+    "title": "I remoti non sono disponibili",
+    "body": "Questo server funziona senza la galleria dei modelli, quindi non può collegare remoti."
+  }
+}

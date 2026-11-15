@@ -5,8 +5,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buttonClass } from '../../src/components/ui/buttonClass.js'
-import { resolveStatus, legacyPillTone, STATUS } from '../../src/components/ui/status.js'
+import { buttonClass } from '../../packages/ui-kit/src/buttonClass.js'
+import { resolveStatus, legacyPillTone, STATUS } from '../../packages/ui-kit/src/status.js'
 import { toastDuration, pushToast, markLeaving, toastLift, TOAST_MS, TOAST_MAX } from '../../src/components/ui/toastModel.js'
 import { initialLoad, loadReducer, errorMessage } from '../../src/utils/loadState.js'
 
@@ -103,7 +103,7 @@ test('load state: the error text is the server message', () => {
 })
 
 test('notice: severity sets the live role, unknown severity reads as info', async () => {
-  const { noticeRole, noticeSeverity, NOTICE_ICONS } = await import('../../src/components/ui/noticeModel.js')
+  const { noticeRole, noticeSeverity, NOTICE_ICONS } = await import('../../packages/ui-kit/src/noticeModel.js')
   assert.equal(noticeRole('error'), 'alert')
   assert.equal(noticeRole('warn'), 'status')
   assert.equal(noticeRole('info'), 'note')
@@ -113,7 +113,7 @@ test('notice: severity sets the live role, unknown severity reads as info', asyn
 })
 
 test('notice: an action needs a label and something to do', async () => {
-  const { noticeAction } = await import('../../src/components/ui/noticeModel.js')
+  const { noticeAction } = await import('../../packages/ui-kit/src/noticeModel.js')
   const go = () => {}
   assert.equal(noticeAction(null), null)
   assert.equal(noticeAction({ label: 'Open', onClick: undefined }), null)

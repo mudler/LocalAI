@@ -7,10 +7,23 @@ states, status, toasts, loading and detail panes. Import them from one place:
 import { Button, EmptyState, LoadError, Page, PageHeader, StatusChip } from '../components/ui'
 ```
 
+Most of them live in the UI kit package, `packages/ui-kit` (see its
+`README.md`), so another React app can use them too. The package depends
+only on React. The files in this folder keep the import paths of the web UI:
+
+- `Button` and `Notice` pass react-router's `Link` to the kit component.
+- `LoadError` and `StatusChip` pass the translated words (`common:ui.*`,
+  `common:chip.*`).
+- The others re-export the kit file.
+- `SidePane`, `toastModel` and `usePresence` live here, with `PageHeader`,
+  `Skeleton`, `LoadingSpinner`, `RouteFallback` and `useLoad` one level up.
+
 All of them read the tokens in `src/theme.css` (type, space, radius, control
-height, motion). Their rules are in `ui.css` in this folder. `main.jsx` loads
-`ui.css` after `theme.css` and before `App.css`, so a page class on the same
-element still wins over a primitive's base rule.
+height, motion). Their rules are in `packages/ui-kit/css/kit.css`, with the
+icon rules and the `.page` frame. `main.jsx` loads `kit.css` after `theme.css`
+and before `App.css`, so a page class on the same element still wins over a
+primitive's base rule. Icons (`components/Icon.jsx`) are the kit's `Icon`,
+drawn inline.
 
 To see every component in every state, open `/app/ui-catalog` (admin only, not
 in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
@@ -26,6 +39,7 @@ in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 | A setting that applies at once | `Switch` | On or off, no Save. |
 | A choice that applies on Save | `dk-check` | A yes or no inside a form. |
 | One choice of a few that filters | `Segmented` | A list filter with counts. |
+| One choice of 2-4 that sets a value | `Segmented mode="radio"` | A value, such as where models run or a kind. Not a filter and not a view switch. |
 | A state | `StatusChip` | The state of one item. |
 | Something that needs attention | `Callout` | A warning, news or a result on this page. |
 | The detail of an item beside a list | `SidePane` | Read, act, close. |
@@ -60,7 +74,7 @@ it can only shrink (`npm run lint:ui-kit:write` after you fix some).
 | `size` | `md` (default, `--ctl-h`, 36 px), `sm` (`--ctl-h-sm`, 28 px), `lg` (48 px) | 40 px and 32 px on a touch screen |
 | `icon`, `iconEnd` | a kit icon id | 16 px (14 px in `sm`), 6 px gap |
 | `busy` | boolean | keeps the width, shows a spinner, sets `aria-busy` |
-| `to` / `href` | a router path / an address | renders `<Link>` / `<a>` |
+| `to` / `href` | a router path / an address | renders `<Link>` / `<a>` (the kit component takes the link as `linkComponent`; this wrapper passes it) |
 
 An `icon` with no children is a square icon button. Give it an `aria-label`.
 
@@ -190,14 +204,15 @@ it (`who`), then one fix button. Do not write a new "off" banner; use this.
 
 An action with no label or nothing to do is not drawn. The add-on UIs draw
 the same markup with `FixNotice` in `addons/internal/connector-ui/src/controls.jsx`;
-the rules for both are in `ui.css`.
+the rules for both are in `packages/ui-kit/css/kit.css`.
 
 ## StatusChip
 
 `<StatusChip status tone label dot />`
 
-One status vocabulary (`status.js`). Each word has a tone, an icon and its
-words, so a state never depends on colour alone:
+One status vocabulary (`status.js` in the kit). Each word has a tone, an icon
+and its words, so a state never depends on colour alone. The web UI says the
+words through `common:chip.*`; the kit's English defaults are `STATUS_WORDS`:
 
 | `status` | Tone | Words |
 |---|---|---|
@@ -323,9 +338,28 @@ The list toolbar: a search box that fills the row, and one choice of a few.
 ```
 
 - `SearchField` needs a `label`; it is the accessible name and the placeholder.
-- `Segmented` is a filter, not navigation: pressed buttons in a tray, with an
-  optional count after each label. Each button has `data-filter={id}`. Use tabs
-  to change views.
+- `Segmented` has two modes. Both draw the same tray and the same buttons, and
+  each button has `data-filter={id}`.
+  - `mode="filter"` (default): a filter, not navigation. Pressed buttons
+    (`aria-pressed`) in a `role="group"`, with an optional count after each
+    label. Use it to filter a list on the page.
+  - `mode="radio"`: a choice of one among 2-4 options that sets a value, for
+    example where models run or a kind selector. Do not use it to filter a
+    list; to switch views use tabs.
+- Props: `options` (`{ id, label, count, disabled }`), `value`, `onChange(id)`,
+  `label` (the accessible name), `labelledBy` (radio mode: the id of an element
+  that names the group, used instead of `label`), `mode`, `className`,
+  `testId`, `itemTestId`.
+- Radio contract: the container is `role="radiogroup"` with `aria-label` (or
+  `aria-labelledby`); each item is `role="radio"` with `aria-checked` and no
+  `aria-pressed`. The group is one tab stop: the checked item has `tabIndex` 0
+  and the others -1; when `value` matches no option, the first enabled item has
+  it. ArrowRight and ArrowDown choose the next enabled option, ArrowLeft and
+  ArrowUp the previous one (both wrap), Home the first and End the last. The
+  choice follows the focus: the key calls `onChange(id)` and moves focus to that
+  item. Disabled options are skipped. Space and Enter choose the focused item.
+  The arrow keys are not mirrored in right-to-left layouts; the kit has no
+  right-to-left handling.
 - On a phone the page can let the tray fill the row and scroll sideways.
 
 ## SidePane

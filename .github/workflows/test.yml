@@ -40,7 +40,7 @@ on:
       - 'coverage-baseline.txt'
   push:
     branches: [master]
-    tags: ['*']
+    tags: ['*', '!dev-master']
     paths:
       - 'core/**'
       - 'pkg/**'

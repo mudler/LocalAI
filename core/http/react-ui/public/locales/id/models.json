@@ -407,5 +407,19 @@
         "body": "Repositori ini privat, dihapus, atau tidak tercantum di sumber ini."
       }
     }
+  },
+  "remotes": {
+    "tab": "Remote",
+    "filter": "Remote",
+    "unavailable": "Tidak tersedia di hulu",
+    "rowMark": "Model remote",
+    "sizeRemote": "Remote",
+    "connectButton": "Hubungkan remote",
+    "sheetTitle": "Hubungkan remote",
+    "sheetDescription": "Tambahkan model yang berjalan di server atau layanan lain.",
+    "toastDone": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "toastDone_other": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "toastSkipped": "{{count}} model tidak ditambahkan.",
+    "toastSkipped_other": "{{count}} model tidak ditambahkan."
   }
 }

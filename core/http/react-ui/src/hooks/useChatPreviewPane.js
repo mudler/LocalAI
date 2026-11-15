@@ -26,10 +26,14 @@ function phoneNow() {
 //   messages         the transcript
 //   ready            the chat's transcript is read: the watermark is taken then
 //   running          a turn runs now (its own messages count as new)
+//   madeHere         the id of the chat this page created: all of it is new
+//   startedTurn      { chat, turn } of the last turn this page saw start: that
+//                    turn and the ones after it are new, even when the chat
+//                    is read only after the turn has ended
 //   blocked          another panel holds the right side (the dock is open):
 //                    nothing opens by itself, and what a turn produced then
 //                    counts as seen
-export function useChatPreviewPane({ chatId, userId, files, loaded, messages, ready, running, blocked = false }) {
+export function useChatPreviewPane({ chatId, userId, files, loaded, messages, ready, running, blocked = false, madeHere = null, startedTurn = null }) {
   const key = closedKey(userId)
   const [open, setOpen] = useState(false)
   const [focus, setFocus] = useState(null)
@@ -48,14 +52,23 @@ export function useChatPreviewPane({ chatId, userId, files, loaded, messages, re
     seen.current = new Set()
   }, [chatId])
   useEffect(() => {
-    if (!chatId || !ready || !loaded || since.id === chatId) return
+    if (!chatId || since.id === chatId) return
+    // A chat this page created has nothing old in it. Waiting for the first
+    // read would take the watermark after a quick first turn has ended, and
+    // that turn's file would count as old.
+    if (madeHere === chatId) {
+      setSince({ id: chatId, turn: 0, seq: 0 })
+      return
+    }
+    if (!ready || !loaded) return
     const lastTurn = messages.reduce((n, m) => Math.max(n, m.turn || 0), 0)
-    const turn = running ? Math.max(0, lastTurn - 1) : lastTurn
+    let turn = running ? Math.max(0, lastTurn - 1) : lastTurn
+    if (startedTurn?.chat === chatId) turn = Math.min(turn, startedTurn.turn - 1)
     // A running turn's own answers are new: the watermark is the last
     // message of the turns before it.
     const seq = messages.filter(m => (m.turn || 0) <= turn).reduce((n, m) => Math.max(n, m.seq || 0), 0)
     setSince({ id: chatId, turn, seq })
-  }, [chatId, ready, loaded, running, messages, since.id])
+  }, [chatId, ready, loaded, running, messages, since.id, madeHere, startedTurn])
 
   const ask = useCallback((target, by) => {
     setFocus(f => ({ path: target.type === 'file' ? target.path : undefined, block: target.type === 'block' ? target.id : undefined, by, n: (f?.n || 0) + 1 }))

@@ -72,6 +72,7 @@ import Skeleton from '../components/Skeleton'
 import { Button, Callout, LoadError } from '../components/ui'
 import './home.css'
 import Icon from '../components/Icon'
+import { idsText, resultParts } from '../utils/remotes'
 
 const DOCS_URL = 'https://localai.io'
 const ADDONS_DOCS_URL = 'https://localai.io/features/addons/#turning-the-owner-on-or-off'
@@ -978,6 +979,14 @@ export default function Home() {
               onInstallStarted={fetchSystemInfo}
               onGallery={() => navigate('/app/models')}
               onImport={() => navigate('/app/import-model')}
+              onRemoteDone={(result) => {
+                // The models exist now, so reading them again ends first run:
+                // the guide gives way to the page with its model picker.
+                const { created, skipped } = resultParts(result)
+                addToast?.(t('remoteSetup.done', { name: result?.remote?.name || '', count: created.length }), 'success')
+                if (skipped.length > 0) addToast?.(`${t('remoteSetup.skipped', { count: skipped.length })} ${idsText(skipped)}`, 'warning')
+                fetchSystemInfo()
+              }}
             />
           </div>
         )}

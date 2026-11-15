@@ -1,4 +1,4 @@
-import spriteSource from '../vendor/ui-kit/icons/sprite.svg?raw'
+import spriteSource from '../../packages/ui-kit/vendor/icons/sprite.svg?raw'
 
 // Every symbol id in the vendored sprite, without the dk-icon- prefix.
 export const SPRITE_PREFIX = 'dk-icon-'

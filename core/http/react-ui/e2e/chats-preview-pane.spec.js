@@ -64,6 +64,11 @@ function pdf(text) {
   return Buffer.from(out)
 }
 
+// A small bar chart, as a model writes one with a script.
+const CHART = '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="200" viewBox="0 0 360 200"><rect width="360" height="200" fill="#ffffff"/>'
+  + [['Q1', 90], ['Q2', 130], ['Q3', 70], ['Q4', 160]].map(([q, h], i) => `<rect x="${30 + i * 80}" y="${180 - h}" width="50" height="${h}" fill="#3b82f6"/><text x="${55 + i * 80}" y="196" font-size="12" text-anchor="middle">${q}</text>`).join('')
+  + '</svg>'
+
 const TEXTS = {
   'notes.md': '# Plan\n\n- **Hire** two engineers\n- Renew the contract\n',
   'config.json': JSON.stringify({ name: 'budget', quarters: ['Q1', 'Q2'], owner: { team: 'finance', approved: true } }),
@@ -93,6 +98,8 @@ async function stubChat(page, state) {
     const path = new URL(route.request().url()).searchParams.get('path')
     const name = path.split('/').pop()
     if (name.endsWith('.pdf')) return route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'Content-Security-Policy': "sandbox; default-src 'none'" }, body: pdf('Invoice 2026-104') })
+    if (name.startsWith('gone')) return route.fulfill({ status: 404, json: { error: { message: 'not found' } } })
+    if (name === 'chart.svg') return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: CHART })
     if (name.endsWith('.png')) return route.fulfill({ status: 200, contentType: 'image/png', body: PNG })
     if (name.endsWith('.svg')) return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60" fill="#3b82f6"/></svg>' })
     if (TEXTS[name] !== undefined) return route.fulfill({ status: 200, contentType: 'text/plain', body: TEXTS[name] })
@@ -409,4 +416,70 @@ test('on a phone every view fits the bottom sheet without a sideways scroll of t
     await sheet.getByTestId('chat-files-close').click()
     await expect(sheet).toHaveCount(0)
   }
+})
+
+test('several files of one turn open the pane with all of them listed and the newest selected', async ({ page }) => {
+  const state = newState({ chats: [CHAT], messages: firstTurn(), chatFiles: [] })
+  const endTurn = await open(page, state)
+  state.messages = [...state.messages, user(3, 2, 'Give me the numbers in three formats'), answer(4, 2, 'Saved budget.xlsx, q1.csv and notes.md in the chat folder.')]
+  state.chatFiles = [file('budget.xlsx', 2, { at: '2026-10-30T09:02:01Z' }), file('q1.csv', 2, { at: '2026-10-30T09:02:02Z' }), file('notes.md', 2, { at: '2026-10-30T09:02:03Z' })]
+  endTurn(2)
+  await expect(pane(page)).toBeVisible()
+  await expect(pane(page).getByTestId('chat-file-row')).toHaveCount(3)
+  await expect(pane(page).getByTestId('file-preview').getByRole('heading', { name: 'notes.md' })).toBeVisible()
+  await expect(page.getByTestId('chat-file-chip')).toHaveCount(3)
+  await shot(page, 'pane-several-files')
+  // Another file of the list takes the preview.
+  await pane(page).getByTestId('chat-file-row').filter({ hasText: 'q1.csv' }).getByRole('button', { name: 'q1.csv' }).click()
+  await expect(pane(page).getByTestId('file-preview').getByRole('heading', { name: 'q1.csv' })).toBeVisible()
+})
+
+test('an image or a chart of an answer shows in the message, and one that does not load is a chip', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  const dir = '/workspace/home/Chats/2026-10-30 Quarterly budget'
+  const state = newState({ chats: [CHAT], messages: firstTurn(), chatFiles: [] })
+  const endTurn = await open(page, state)
+  // The model names the files by the path of its sandbox, by a bare name, and
+  // one that is gone; the answer holds a link to a page too.
+  state.messages = [...state.messages, user(3, 2, 'Chart the quarters'), answer(4, 2,
+    `Here is the chart:\n\n![Sales by quarter](${dir}/chart.svg)\n\nThe same data as a picture: ![Picture](plot.png)\n\nAnd the old one: ![Old chart](${dir}/gone.png)\n\nThe interactive version is [page.html](${dir}/page.html).`)]
+  state.chatFiles = [file('chart.svg', 2, { mime: 'image/svg+xml' }), file('plot.png', 2, { mime: 'image/png' }), file('gone.png', 2, { mime: 'image/png' }), file('page.html', 2)]
+  endTurn(2)
+  const prose = page.locator('.cx-prose').filter({ hasText: 'Here is the chart' })
+  const imgs = prose.locator('img')
+  await expect(imgs).toHaveCount(2)
+  for (const img of await imgs.all()) {
+    await expect(img).toHaveAttribute('src', /\/api\/chats\/files\/content\?path=/)
+    await expect.poll(() => img.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true)
+  }
+  // The missing image is a chip that opens the pane on its file, never a broken icon.
+  const missing = prose.getByTestId('chat-image-fallback')
+  await expect(missing).toHaveCount(1)
+  await expect(missing).toContainText('Old chart')
+  await expect(prose.locator('img[alt="Old chart"]')).toHaveCount(0)
+  // The link to the page opens the pane on it.
+  const link = prose.getByRole('link', { name: 'page.html' })
+  await expect(link).toHaveAttribute('href', /\/api\/chats\/files\/content\?path=/)
+  await shot(page, 'inline-images')
+  await pane(page).getByTestId('chat-files-close').click().catch(() => {})
+  await link.click()
+  await expect(pane(page).getByTestId('file-preview').getByRole('heading', { name: 'page.html' })).toBeVisible()
+})
+
+test('an image the answer does not draw shows under it as a thumbnail that opens the pane', async ({ page }) => {
+  const state = newState({ chats: [CHAT], messages: firstTurn(), chatFiles: [] })
+  const endTurn = await open(page, state)
+  state.messages = [...state.messages, user(3, 2, 'Chart the quarters'), answer(4, 2, 'Done.')]
+  state.chatFiles = [file('chart.svg', 2, { mime: 'image/svg+xml' }), file('gone.png', 2, { mime: 'image/png' })]
+  endTurn(2)
+  const tile = page.getByTestId('chat-file-image')
+  await expect(tile).toHaveCount(1)
+  await expect.poll(() => tile.locator('img').evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true)
+  // The one that does not load is the chip of its file, not a broken icon.
+  await expect(page.getByTestId('chat-file-chip').filter({ hasText: 'gone.png' })).toBeVisible()
+  await expect(page.getByTestId('chat-file-chip')).toHaveCount(2)
+  await shot(page, 'image-tile')
+  await pane(page).getByTestId('chat-files-close').click()
+  await tile.click()
+  await expect(pane(page).getByTestId('file-preview').getByRole('heading', { name: 'chart.svg' })).toBeVisible()
 })

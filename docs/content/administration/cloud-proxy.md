@@ -29,6 +29,10 @@ egress remains subject to the same redaction rules a local model would apply.
 - Use the intelligent router to send small or simple prompts to a local model
   and complex ones to Claude or GPT-4o.
 
+To create these models from the web interface, with the key stored once and
+one model entry for each model of the other server, use a
+[remote]({{% relref "/administration/remotes" %}}).
+
 To fall back to a local model when the upstream is down, list the proxy model
 in a [failover chain]({{%relref "/models/model-failover" %}}).
 
@@ -335,6 +339,17 @@ proxy:
 
 The file is read at backend load time and trimmed of surrounding whitespace.
 `api_key`, `api_key_env`, and `api_key_file` are mutually exclusive.
+
+## The `proxy.remote` field
+
+`proxy.remote` is the id of a
+[remote]({{% relref "/administration/remotes" %}}). The remotes
+feature sets it on the models that it creates. Do not write it by
+hand. When it is set, LocalAI reads the upstream key from the remote when
+it sends a load of the model. The key is bound to the address of the remote:
+if `upstream_url` is not below that address, the model fails to load and gets
+no key. You cannot combine it with `api_key`, `api_key_env` or
+`api_key_file`: LocalAI refuses a config that sets both.
 
 ## Combining with the intelligent router
 

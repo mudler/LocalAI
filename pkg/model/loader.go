@@ -720,6 +720,29 @@ func (ml *ModelLoader) shutdownModel(ctx context.Context, modelName string, forc
 	return ml.deleteProcess(ctx, modelName, force)
 }
 
+// evictRemoteStub drops the local stub of a remote model without telling any
+// worker to stop it. A model can run as several replicas, and a connection
+// error says only that the replica this stub points at is unreachable. Stopping
+// the model cluster-wide (ShutdownModel) would also kill the healthy replicas
+// and their in-flight requests. The next request re-routes through the
+// router, whose health probe removes the registry row of a replica that is
+// really gone.
+func (ml *ModelLoader) evictRemoteStub(modelName string) {
+	ml.mu.Lock()
+	store := ml.store
+	wd := ml.wd
+	ml.mu.Unlock()
+
+	m, ok := store.Get(modelName)
+	if !ok {
+		return
+	}
+	store.Delete(modelName)
+	if wd != nil {
+		wd.Untrack(m.address)
+	}
+}
+
 // isResident reports whether the model store already holds an entry for
 // modelID. Unlike checkIsLoaded it never probes the backend and never evicts,
 // so it is safe to call on a per-request hot path: it answers "have we been

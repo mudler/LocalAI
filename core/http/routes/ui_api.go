@@ -865,6 +865,36 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// as broken rather than hiding it.
 			AliasOf    string `json:"alias_of,omitempty"`
 			AliasError string `json:"alias_error,omitempty"`
+			// Remote is true when a remote backend serves the model: a
+			// proxy to another LocalAI or to a cloud endpoint. RemoteID
+			// is the id of the remote that owns the entry, when
+			// there is one, and only for an admin. UpstreamState is "unavailable" when the remote
+			// no longer lists the model, "ok" for any other remote entry,
+			// and absent for a local model.
+			Remote        bool   `json:"remote"`
+			RemoteID      string `json:"remote_id,omitempty"`
+			UpstreamState string `json:"upstream_state,omitempty"`
+		}
+
+		// One lookup per request, and none when no model is remote. Without the service (its store could not
+		// be opened) there is no remote state to report.
+		unavailable := map[string]bool{}
+		anyRemote := slices.ContainsFunc(modelConfigs, func(m config.ModelConfig) bool { return config.IsRemoteBackend(m.Backend) })
+		// Any signed-in user reads this route; the id of a remote is for
+		// admins, who manage remotes. With authentication off every caller
+		// is an admin.
+		user := auth.GetUser(c)
+		showRemoteID := user == nil || user.Role == auth.RoleAdmin
+		if svc := applicationInstance.Remotes(); anyRemote && svc != nil {
+			if conns, err := svc.List(c.Request().Context()); err == nil {
+				for _, conn := range conns {
+					for _, name := range conn.Unavailable {
+						unavailable[name] = true
+					}
+				}
+			} else {
+				xlog.Warn("Remotes could not be listed for the capabilities payload", "error", err)
+			}
 		}
 
 		// Join with the node registry when we have one (distributed mode). A
@@ -915,6 +945,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			entry.UpscaleScale = config.UpscaleScaleFromOptions(*effective)
 			entry.ThreeDOperations = effective.ThreeDOperations()
 			entry.Backend = effective.Backend
+			if entry.Remote = config.IsRemoteBackend(effective.Backend); entry.Remote {
+				if showRemoteID {
+					entry.RemoteID = effective.Proxy.Remote
+				}
+				entry.UpstreamState = "ok"
+				if unavailable[effective.Name] {
+					entry.UpstreamState = "unavailable"
+				}
+			}
 			sized := *effective
 			if sized.ContextSize == nil && appConfig.ContextSize > 0 {
 				sized.ContextSize = &appConfig.ContextSize
@@ -1287,7 +1326,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/models/config-metadata/autocomplete/:provider", localai.AutocompleteEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	// PATCH config endpoint - partial update using nested JSON merge
-	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(applicationInstance)), adminMiddleware)
+	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, galleryService, appConfig, applicationInstance.ModelRevisionLifecycle()), adminMiddleware)
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)

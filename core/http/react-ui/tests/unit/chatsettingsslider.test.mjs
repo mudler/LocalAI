@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { REASONING_EFFORTS, SETTING_RANGES, settingsBody, settingsErrors, settingsForm, settingsWithEffort } from '../../src/utils/chatSettings.js'
-import { sliderFill, sliderText, sliderValue } from '../../src/components/ui/sliderModel.js'
+import { sliderFill, sliderText, sliderValue } from '../../packages/ui-kit/src/sliderModel.js'
 
 test('slider ranges match what the server accepts', () => {
   const { temperature, top_p: topP, top_k: topK } = SETTING_RANGES

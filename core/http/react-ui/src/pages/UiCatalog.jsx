@@ -151,8 +151,9 @@ function FormControls() {
 
 function Segments() {
   const [filter, setFilter] = useState('all')
+  const [place, setPlace] = useState('auto')
   return (
-    <Section id="segmented" title="Segmented" note="One choice of a few that filters a list on this page, with a count. To change views, use tabs.">
+    <Section id="segmented" title="Segmented" note="One choice of a few that filters a list on this page, with a count. To change views, use tabs. In radio mode it sets a value: one tab stop, arrow keys move the choice.">
       <Segmented
         label="Show tasks"
         value={filter}
@@ -160,6 +161,18 @@ function Segments() {
         testId="cat-segmented"
         options={[{ id: 'all', label: 'All', count: 4 }, { id: 'on', label: 'On', count: 3 }, { id: 'off', label: 'Off', count: 1 }]}
       />
+      <div className="ui-cat__stack" data-testid="cat-segmented-radio-set">
+        <Segmented
+          mode="radio"
+          label="Where it runs"
+          value={place}
+          onChange={setPlace}
+          testId="cat-segmented-radio"
+          itemTestId="cat-segmented-radio-"
+          options={[{ id: 'auto', label: 'Automatic' }, { id: 'here', label: 'Here' }, { id: 'away', label: 'Away', disabled: true }, { id: 'both', label: 'Both' }]}
+        />
+        <Button variant="secondary" data-testid="cat-segmented-after">Next field</Button>
+      </div>
     </Section>
   )
 }

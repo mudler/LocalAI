@@ -371,6 +371,7 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-state { gap: 8px; }
 .ledger-state[data-state="disabled"] { color: var(--dk-muted); }
 .ledger-state[data-state="running"] { color: var(--dk-ok-text); font-weight: var(--dk-weight-semibold); }
+.ledger-state[data-state="unavailable"] { color: var(--dk-warn-text); }
 
 /* Group rows: a quiet heading that folds its section. */
 .ledger-group > td { height: 36px; padding: 0; background: var(--dk-inset); border-bottom-color: var(--dk-edge); }

@@ -30,7 +30,7 @@ On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-On a Mac you can also use the [macOS app]({{% relref "/start/install/macos" %}}). For all install methods, see the [install guide]({{% relref "/start/install" %}}).
+On Linux or a Mac you can also use the [desktop app]({{% relref "/start/install/desktop" %}}). For all install methods, see the [install guide]({{% relref "/start/install" %}}).
 
 You should see the log line `LocalAI is started and running` with the address `:8080`. The first run of `local-ai run qwen3-4b` downloads the model, so it takes longer.
 

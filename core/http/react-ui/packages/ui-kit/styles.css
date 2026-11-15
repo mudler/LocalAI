@@ -1,0 +1,18 @@
+/* The one CSS entry of the UI kit for an app that does not load the web UI's
+   own theme files. The order matters:
+     1. vendor/tokens.css      the kit's base tokens (--dk-space-*, --dk-z-*, ...)
+     2. themes/localai.css     the LocalAI palette: the --dk-* colour roles
+     3. vendor/motion.css      motion keyframes and classes (dk-spin, dk-veil-in)
+     4. vendor/components.css  the dk-* component classes (dk-btn, dk-switch, ...)
+     5. css/defaults.css       the product tokens kit.css reads (--sp-*, --fs-*, ...)
+     6. css/kit.css            the rules of the kit components and the icons
+   Load the Geist fonts yourself (@fontsource-variable/geist); without them the
+   system font is used. To get the web UI's exact look, load the files one by
+   one in the order README.md gives, with the web UI's theme.css in place of
+   css/defaults.css. */
+@import './vendor/tokens.css';
+@import './themes/localai.css';
+@import './vendor/motion.css';
+@import './vendor/components.css';
+@import './css/defaults.css';
+@import './css/kit.css';

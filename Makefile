@@ -7,7 +7,6 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
-LAUNCHER_BINARY_NAME=local-ai-launcher
 
 UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
@@ -46,11 +45,6 @@ TEST_FLAKES?=5
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
-# fyne package only accepts numeric x[.y[.z]] app versions, so reduce git
-# describe output (v4.9.0, v4.9.0-14-gabc1234, or a bare sha on untagged
-# checkouts) to its numeric core; anything non-numeric falls back to 0.0.0.
-# Without this the packaged launcher reports itself as version 0.0.0 (#11673).
-LAUNCHER_APP_VERSION?=$(shell v=$$(echo "$(VERSION)" | sed -E 's/^v//; s/[+-].*$$//'); echo "$$v" | grep -qE '^[0-9]+(\.[0-9]+){0,2}$$' && echo "$$v" || echo "0.0.0")
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=-s -w
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
@@ -205,16 +199,6 @@ build: protogen-go generate install-go-tools core/http/react-ui/dist ## Build th
 	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./cmd/local-ai
 
-build-launcher: ## Build the launcher application
-	$(info ${GREEN}I local-ai launcher build info:${RESET})
-	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
-	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
-	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
-	rm -rf $(LAUNCHER_BINARY_NAME) || true
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(LAUNCHER_BINARY_NAME) ./cmd/launcher
-
-build-all: build build-launcher ## Build both server and launcher
-
 build-dev: ## Run LocalAI in dev mode with live reload
 	@command -v air >/dev/null 2>&1 || go install github.com/air-verse/air@latest
 	air -c .air.toml
@@ -328,11 +312,10 @@ test-coverage-check: test-coverage
 ##
 ## LINT_EXCLUDE_DIRS_RE matches directories whose Go packages can't typecheck
 ## without C/C++ headers we don't install in the lint runner (cgo wrappers
-## around llama.cpp, piper/spdlog, silero-vad/onnxruntime, and Fyne/OpenGL for
-## the launcher). Their compile-time correctness is enforced by their own
+## around llama.cpp, piper/spdlog, silero-vad/onnxruntime). Their compile-time correctness is enforced by their own
 ## build pipelines. Keep this as a deny list — `go list ./...` discovers
 ## everything else automatically, so new packages are scanned by default.
-LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
+LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm))(/|$$)
 
 ## Set LINT_NEW_FROM to a git ref to override .golangci.yml's
 ## new-from-merge-base (origin/master). Useful from a fork clone where
@@ -1912,51 +1895,3 @@ site: docs/static/gallery.html
 .PHONY: site-serve
 site-serve: site
 	cd website/public && python3 -m http.server 8000
-
-########################################################
-## Platform-specific builds
-########################################################
-
-## fyne cross-platform build
-# Build LocalAI.app from the launcher via fyne (metadata read from cmd/launcher/FyneApp.toml).
-# Signing happens via contrib/macos/sign-and-notarize.sh, which is a no-op when the signing
-# secrets are unset, so unsigned local/fork builds keep working.
-build-launcher-darwin:
-	rm -rf dist/LocalAI.app cmd/launcher/LocalAI.app
-	mkdir -p dist
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME) --app-version $(LAUNCHER_APP_VERSION)
-	mv cmd/launcher/LocalAI.app dist/LocalAI.app
-	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
-
-# Notarize + staple the .app itself, then wrap it into a drag-to-Applications
-# DMG via hdiutil and sign the DMG. The app is stapled BEFORE packaging so the
-# bundle carries its own ticket and verifies offline (a dmg-only staple leaves
-# the app relying on an online Gatekeeper check, which fails offline / once the
-# app is copied out of the dmg). No-op without notary secrets.
-dmg-launcher-darwin: build-launcher-darwin
-	bash contrib/macos/sign-and-notarize.sh notarize-app dist/LocalAI.app
-	rm -rf dist/dmg dist/LocalAI.dmg
-	mkdir -p dist/dmg
-	cp -R dist/LocalAI.app dist/dmg/LocalAI.app
-	ln -s /Applications dist/dmg/Applications
-	hdiutil create -volname "LocalAI" -srcfolder dist/dmg -ov -format UDZO dist/LocalAI.dmg
-	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.dmg
-
-# Submit the DMG to Apple notarization and staple the ticket (no-op without notary secrets).
-notarize-launcher-darwin: dmg-launcher-darwin
-	bash contrib/macos/sign-and-notarize.sh notarize dist/LocalAI.dmg
-
-# Single entrypoint for CI: build -> sign app -> notarize+staple app -> dmg -> sign dmg -> notarize+staple dmg.
-release-launcher-darwin: notarize-launcher-darwin
-	@echo "dist/LocalAI.dmg is ready"
-
-build-launcher-linux:
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux --app-version $(LAUNCHER_APP_VERSION) && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
-
-# Thin native launcher only; retains the first-run LocalAI runtime downloader.
-.PHONY: build-launcher-appimage test-launcher-appimage
-build-launcher-appimage:
-	APPIMAGE_ARCH=$(or $(APPIMAGE_ARCH),amd64) bash contrib/appimage/build.sh
-
-test-launcher-appimage:
-	python3 -m unittest discover -s contrib/appimage -p 'test_*.py' -v

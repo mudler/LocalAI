@@ -67,7 +67,7 @@ LocalAI is a community-driven project. You can:
 
 Ready to dive in? Here are some recommended next steps:
 
-1. **[Install LocalAI]({{% relref "/start/install" %}})** - Start with the install script, or choose another method
+1. **[Install LocalAI]({{% relref "/start/install" %}})** - Choose the desktop app or a server install
 2. **[Quickstart guide]({{% relref "/start/quickstart" %}})** - Run a first model and send a first message
 3. [Explore available models](https://models.localai.io)
 4. [Model compatibility]({{% relref "/models/compatibility-table" %}})
