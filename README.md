@@ -17,11 +17,11 @@
 <a href="https://localai.io/blog/">Blog</a>
 </p>
 
-**LocalAI** is your own AI, on your own hardware, ready to work for you. It is open source. Chat with open models, run agents that use your files, and work on documents with your team. It also does voice, images, video and more. No GPU required.
+**LocalAI** is an open-source AI engine and platform: your own AI, on your own hardware. It runs open models for text, vision, images, video, music, speech, embeddings and reranking behind one OpenAI-compatible API, on a laptop, a server, in a container or on Kubernetes (with a distributed mode for clusters). No GPU required. On top of the engine, it has chats and agents that use your files, Projects, Office documents and team sharing.
 
-- **Agents, documents and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, collections and skills. Users, roles, quotas and shared folders for a team (development builds).
+- **Agents, projects, documents and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, collections and skills. [Projects](https://localai.io/docs/features/projects/) group chats, files, notes and agents around one piece of work. Users, roles, quotas and shared folders for a team (development builds).
 - **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps (Telegram, Slack, Discord), mail, calendar and more (development builds).
-- **Every kind of model, one API**: text, vision, voice, images, video and embeddings, in the OpenAI, Anthropic and ElevenLabs formats, with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
+- **Every kind of model, one API**: text, vision, speech to text, text to speech, images, video, music and sound, embeddings and reranking, in the OpenAI and Anthropic formats (with ElevenLabs-compatible text to speech and sound generation), with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
 - **Your hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, NVIDIA Jetson or CPU only. The server, the models and your files stay on your own machines.
 
 ![LocalAI is a small core with an API, chats and agents, files, collections, team sharing, a model gallery and an MCP client and server for agent tools. Backends such as llama.cpp, vLLM, MLX and whisper.cpp plug in on one side, add-ons such as Office, Sandbox, Tables and chat apps on the other. It runs on CPU, NVIDIA, AMD, Intel, Apple Silicon and Vulkan.](docs/static/images/diagrams/composable-core.png)
@@ -43,9 +43,9 @@ local-ai run qwen3-4b
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ```
 
-**Desktop app**: the launcher installs and updates the server for you, on Linux (AppImage) and macOS (DMG). Download `LocalAI.dmg` or the AppImage from the [releases page](https://github.com/mudler/LocalAI/releases) and see the [desktop app guide](https://localai.io/docs/start/install/desktop/).
+**Desktop app**: it installs, updates, starts and stops the server for you and shows the web interface in its own window. Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) (macOS, Apple Silicon) or the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) (Linux). The ARM64 AppImage is `LocalAI-Launcher-arm64.AppImage` on the [releases page](https://github.com/mudler/LocalAI/releases/latest). See the [desktop app guide](https://localai.io/docs/start/install/desktop/).
 
-The script, the app and the latest container image give version 4.12.1. The add-ons, Office, Sandbox and team features described below need a development build or a newer release.
+The script, the app and the latest container image give version 4.12.1. Projects, the new desktop app, the add-ons, Office, Sandbox and team features described below need a development build or a newer release.
 
 Then open `http://localhost:8080`. To restart an existing container, use `docker start -i local-ai`. More ways to install: [Install LocalAI](https://localai.io/docs/start/install/).
 
@@ -107,8 +107,9 @@ More in the [Quickstart](https://localai.io/docs/start/quickstart/).
 | [Chats](https://localai.io/docs/features/chats/) | Conversations the server keeps, with saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/), skills and files, triggers, and chat apps |
 | [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, Telegram, Slack, Discord, mail, calendar and more install from a library and run beside the server (development builds) |
 | [Text generation](https://localai.io/docs/models/capabilities/text/text-generation/) | `llama.cpp`, `transformers`, `vllm` ... [and more](https://localai.io/docs/models/compatibility-table/), with an [OpenAI-compatible tools API](https://localai.io/docs/api/openai-functions/) and [constrained grammars](https://localai.io/docs/models/capabilities/text/constrained_grammars/) |
+| Music and sound | Make music and sound effects from a text prompt with `/v1/sound-generation`. See [text to audio](https://localai.io/docs/models/capabilities/audio/text-to-audio/) |
 | Speech | [Text to audio](https://localai.io/docs/models/capabilities/audio/text-to-audio/), [audio to text](https://localai.io/docs/models/capabilities/audio/audio-to-text/), voice activity detection (Silero-VAD) and the [Realtime API](https://localai.io/docs/api/openai-realtime/) for speech-to-speech |
-| Images and vision | [Image generation](https://localai.io/docs/models/capabilities/vision/image-generation/), the [Vision API](https://localai.io/docs/models/capabilities/vision/gpt-vision/) and [object detection](https://localai.io/docs/models/capabilities/vision/object-detection/) |
+| Images, video and vision | [Image generation](https://localai.io/docs/models/capabilities/vision/image-generation/), [video generation](https://localai.io/docs/models/capabilities/vision/video-generation/), the [Vision API](https://localai.io/docs/models/capabilities/vision/gpt-vision/) and [object detection](https://localai.io/docs/models/capabilities/vision/object-detection/) |
 | Search | [Embeddings](https://localai.io/docs/models/capabilities/text/embeddings/) and a [reranker](https://localai.io/docs/models/capabilities/text/reranker/) |
 | Operations | API key auth, user quotas and roles, [distributed mode](https://localai.io/docs/administration/distributed-mode/) (PostgreSQL + NATS) and [P2P inferencing](https://localai.io/docs/administration/p2p-federated-inference/) |
 | Models and backends | [Models from Hugging Face](https://localai.io/docs/models/) and a [Backend Gallery](https://localai.io/docs/models/backends/) to install or remove backends on the fly, plus the integrated web UI |
