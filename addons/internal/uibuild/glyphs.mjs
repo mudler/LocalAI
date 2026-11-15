@@ -57,6 +57,8 @@ export const GLYPHS = {
   home: [{ line: [[3, 11.2], [12, 3.5], [21, 11.2]] }, { line: [[5.5, 9.5], [5.5, 20.5], [18.5, 20.5], [18.5, 9.5]] }, { line: [[10, 20.5], [10, 15], [14, 15], [14, 20.5]] }],
   // A screen with a play button, for media.
   play: [box(3, 4.5, 18, 15, 2.5), { loop: [[10, 9], [15.5, 12], [10, 15]] }],
+  // A terminal window with a prompt, for a remote shell.
+  terminal: [box(3, 4, 18, 16, 2.5), { line: [[7, 9.5], [10.5, 12.5], [7, 15.5]] }, { line: [[13, 15.5], [17, 15.5]] }],
   // A screen on a stand, for a remote machine.
   screen: [box(3, 4, 18, 12, 2.5), { line: [[12, 16], [12, 20]] }, { line: [[8, 20], [16, 20]] }],
   // The fallback: a rounded square with a plus, for an add-on that names no glyph.

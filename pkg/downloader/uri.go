@@ -281,6 +281,11 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 }
 
 func (u URI) FilenameFromUrl() (string, error) {
+	if u.LooksLikeMagnet() || u.LooksLikePirateFace() {
+		if f := torrentFilename(u); f != "" {
+			return f, nil
+		}
+	}
 	if f := filenameFromUrl(string(u)); f != "" {
 		return f, nil
 	}
@@ -319,7 +324,9 @@ func (u URI) LooksLikeURL() bool {
 		strings.HasPrefix(string(u), GithubURI) ||
 		strings.HasPrefix(string(u), OllamaPrefix) ||
 		strings.HasPrefix(string(u), OCIPrefix) ||
-		strings.HasPrefix(string(u), GithubURI2)
+		strings.HasPrefix(string(u), GithubURI2) ||
+		u.LooksLikeMagnet() ||
+		u.LooksLikePirateFace()
 }
 
 // hasLocalSource reports whether the URI names a local file to copy from
@@ -426,23 +433,27 @@ func (s URI) ResolveURL() string {
 		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
 
 		repoPieces := strings.Split(repository, "/")
-		repoID := strings.Split(repository, "@")
 		if len(repoPieces) < 3 {
 			return string(s)
 		}
 
 		owner := repoPieces[0]
 		repo := repoPieces[1]
-
-		branch := "main"
 		filepath := strings.Join(repoPieces[2:], "/")
 
-		if len(repoID) > 1 {
-			if strings.Contains(repo, "@") {
-				branch = repoID[1]
-			}
-			if strings.Contains(filepath, "@") {
-				filepath = repoID[2]
+		// The revision is the last "@" suffix on the whole reference, so a
+		// repository or directory name that itself contains "@" stays intact.
+		// Splitting the repository on "@" instead left the branch in the file
+		// path — producing a URL that resolves to nothing — and indexed past
+		// the two fields it produced whenever the suffix was present, which
+		// panicked the importer and preload paths.
+		branch := "main"
+		if at := strings.LastIndex(filepath, "@"); at != -1 {
+			branch = filepath[at+1:]
+			filepath = filepath[:at]
+			if filepath == "" {
+				// "owner/repo@branch" names no file in the repository.
+				return string(s)
 			}
 		}
 
@@ -745,9 +756,16 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 				return nil
 			}
 		}
-	} else if !os.IsNotExist(err) || !(URI(url).LooksLikeHTTPURL() || uri.hasLocalSource()) {
+	} else if !os.IsNotExist(err) || !(URI(url).LooksLikeHTTPURL() || uri.hasLocalSource() || uri.LooksLikeTorrent()) {
 		// Error occurred while checking file existence
-		return fmt.Errorf("could not fetch %q: local file does not exist (%v) and %q is not a recognized downloadable URL (supported schemes: %s)", filePath, err, url, strings.Join([]string{HTTPPrefix, HTTPSPrefix, LocalPrefix, HuggingFacePrefix, HuggingFacePrefix1, OllamaPrefix, OCIPrefix, OCIFilePrefix, GithubURI2}, ", "))
+		return fmt.Errorf("could not fetch %q: local file does not exist (%v) and %q is not a recognized downloadable URL (supported schemes: %s)", filePath, err, url, strings.Join([]string{HTTPPrefix, HTTPSPrefix, LocalPrefix, HuggingFacePrefix, HuggingFacePrefix1, OllamaPrefix, OCIPrefix, OCIFilePrefix, GithubURI2, MagnetPrefix, PirateFacePrefix, TorrentFileSuffix}, ", "))
+	}
+
+	// Magnet links, pirateface:// shorthands and .torrent sources go through the
+	// BitTorrent engine. It writes the same .partial and renames it only after
+	// the checks pass, so the rest of this function does not apply.
+	if uri.LooksLikeTorrent() {
+		return uri.downloadTorrentFile(ctx, filePath, sha, fileN, total, downloadStatus, dopts, opts)
 	}
 
 	xlog.Info("Downloading", "url", url)

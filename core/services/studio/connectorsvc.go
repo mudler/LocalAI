@@ -3,7 +3,6 @@ package studio
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -20,9 +19,13 @@ type ConnectorInput struct {
 	// is required and fixed when the binding is made.
 	Kind string
 	Name string
-	// Token is the bot token. It is needed to create a binding; an update
-	// without one keeps the stored token.
+	// Token is the bot token. It is needed to create a token binding; an
+	// update without one keeps the stored token. An OAuth binding takes none.
 	Token string
+	// AuthKind is connectors.AuthToken (or empty) or connectors.AuthOAuth2. It
+	// is fixed when the binding is made. An OAuth binding gets its credential
+	// from a login (see StartLogin).
+	AuthKind string
 	// AgentID is required: the agent's grants are the only tools a message gets.
 	AgentID string
 	// AcceptAny lets anyone who can message the bot use the agent. Without it
@@ -88,6 +91,9 @@ type ConnectorInput struct {
 	// ConfirmDuplicate must be DuplicateConfirmation to save an enabled
 	// connection that is the same bot as another enabled one. Not stored.
 	ConfirmDuplicate string
+	// InboundMedia is connectors.Binding.InboundMedia. Nil means none (every
+	// kind) for a new binding and unchanged for an update.
+	InboundMedia *[]string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -150,10 +156,16 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	if in.Approval != nil {
 		b.Approval = in.Approval.Cleaned()
 	}
+	if in.InboundMedia != nil {
+		b.InboundMedia = nil
+		if len(*in.InboundMedia) > 0 {
+			b.InboundMedia = slices.Clone(*in.InboundMedia)
+		}
+	}
 }
 
 // ErrTokenRefused means the platform refused the bot token of a binding.
-var ErrTokenRefused = fmt.Errorf("%w: the platform refused the bot token", connectors.ErrInvalid)
+var ErrTokenRefused error = &connectors.InvalidError{Reason: "the platform refused the bot token"}
 
 // VerifyTokenWithMe returns a token check for ConnectorOptions.VerifyToken
 // that asks the platform, through the binding's add-on, who the bot of the
@@ -202,6 +214,9 @@ type ConnectorInfo struct {
 	Reason string
 	// Files are the file limits in effect for the binding.
 	Files FileLimits
+	// OAuth is the state of the login of an OAuth binding; nil for a token
+	// binding.
+	OAuth *OAuthView
 	// SameBotAs lists the other enabled connections of the owner that are the
 	// same bot as this one, oldest first. It is empty unless this binding is
 	// enabled too. Both then answer the same message.
@@ -209,6 +224,10 @@ type ConnectorInfo struct {
 	// Share is the share of the binding, for its owner, once the owner made
 	// it shareable. Nil otherwise.
 	Share *ShareState
+	// UsedBy is how many of the owner's saved agents hold this connection in
+	// their set of connections. It is set only for a binding of a tool-only
+	// kind, and only while the agents can be read.
+	UsedBy *int
 }
 
 func info(b connectors.Binding) ConnectorInfo {
@@ -220,15 +239,78 @@ func info(b connectors.Binding) ConnectorInfo {
 // withState marks a binding whose add-on does not run.
 func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorInfo {
 	i.Files = c.FileLimits(ctx, i.Binding)
+	if i.UsesOAuth() {
+		i.OAuth = c.oauthView(ctx, i.Binding)
+	}
 	kinds, err := c.o.Transport.Kinds(ctx)
 	if err != nil {
 		return i
 	}
-	if _, ok := kindFor(kinds, i.Binding); ok {
+	if k, ok := kindFor(kinds, i.Binding); ok {
+		if k.ToolOnly {
+			i.Binding = toolOnlyView(i.Binding)
+		}
 		return i
 	}
 	i.Active, i.Reason = false, "install the "+i.AddonID+" add-on"
 	return i
+}
+
+// toolOnlyView is a binding of a tool-only kind as the host treats it: no
+// agent, not listening, not accepting anyone. A row saved before the kind was
+// tool-only may still hold them; the stored row is left alone and every reader
+// goes through here, so no migration is needed.
+func toolOnlyView(b connectors.Binding) connectors.Binding {
+	b.AgentID, b.Enabled, b.AcceptAny = "", false, false
+	return b
+}
+
+// toolOnly says whether the running kind of the binding is tool-only.
+func (c *Connectors) toolOnly(ctx context.Context, b connectors.Binding) bool {
+	k := c.kindOf(ctx, b)
+	return k != nil && k.ToolOnly
+}
+
+// usageOf counts, for each binding ID, the agents of the owner whose set of
+// connections names it. The second result is false when the agents cannot be
+// read.
+func (c *Connectors) usageOf(ctx context.Context, owner string) (map[string]int, bool) {
+	list, err := c.svc.Agents(ctx, owner)
+	if err != nil {
+		return nil, false
+	}
+	n := map[string]int{}
+	for _, ag := range list {
+		seen := map[string]bool{}
+		for _, ids := range ag.Connections {
+			for _, id := range ids {
+				if !seen[id] {
+					seen[id] = true
+					n[id]++
+				}
+			}
+		}
+	}
+	return n, true
+}
+
+// withUsage sets UsedBy on the tool-only bindings of items.
+func (c *Connectors) withUsage(ctx context.Context, owner string, items ...*ConnectorInfo) {
+	var n map[string]int
+	var read, tried bool
+	for _, i := range items {
+		if !c.toolOnly(ctx, i.Binding) {
+			continue
+		}
+		if !tried {
+			n, read = c.usageOf(ctx, owner)
+			tried = true
+		}
+		if read {
+			v := n[i.ID]
+			i.UsedBy = &v
+		}
+	}
 }
 
 // kindTitle is the name of the platform of a binding, for people.
@@ -248,17 +330,31 @@ func (c *Connectors) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error
 }
 
 // resolveAddon finds the add-on that serves a kind.
-func (c *Connectors) resolveAddon(ctx context.Context, kind string) (string, error) {
+func (c *Connectors) resolveAddon(ctx context.Context, kind string) (ConnectorKind, error) {
 	kinds, err := c.o.Transport.Kinds(ctx)
 	if err != nil {
-		return "", err
+		return ConnectorKind{}, err
 	}
 	for _, k := range kinds {
 		if k.ID == kind {
-			return k.AddonID, nil
+			return k, nil
 		}
 	}
-	return "", connectorBad("no installed add-on serves the kind %q", kind)
+	return ConnectorKind{}, connectorBad("no installed add-on serves the kind %q", kind)
+}
+
+// checkAuthKind refuses a binding whose auth kind does not fit the
+// credential of its add-on: an add-on whose slot is an OAuth login takes
+// oauth2 bindings only, and every other add-on token bindings.
+func checkAuthKind(b connectors.Binding, k ConnectorKind) error {
+	oauth := k.AuthKind == contract.CredentialKindOAuth2
+	switch {
+	case oauth && !b.UsesOAuth():
+		return connectorBad("the add-on of the kind %q logs in with OAuth: create the connection with auth_kind \"oauth2\" and no token, then connect it", k.ID)
+	case !oauth && b.UsesOAuth():
+		return connectorBad("the add-on of the kind %q takes a token, not an OAuth login: create the connection without auth_kind", k.ID)
+	}
+	return nil
 }
 
 // checkOptions refuses a choice that the kind of the binding does not offer.
@@ -312,7 +408,7 @@ func (c *Connectors) checkPermissions(ctx context.Context, b connectors.Binding)
 }
 
 func connectorBad(format string, a ...any) error {
-	return fmt.Errorf("%w: %s", connectors.ErrInvalid, fmt.Sprintf(format, a...))
+	return connectors.Invalidf(format, a...)
 }
 
 // Connectors returns the connector manager of the service, or nil.
@@ -379,7 +475,7 @@ func (c *Connectors) checkAgentIfAny(ctx context.Context, owner, agentID string)
 // agent. A kind whose add-on does not run cannot say, so it needs an agent.
 func (c *Connectors) agentOptional(ctx context.Context, b connectors.Binding) bool {
 	k := c.kindOf(ctx, b)
-	return k != nil && k.AgentOptional
+	return k != nil && k.NoAgentAllowed()
 }
 
 func (c *Connectors) owned(ctx context.Context, user, id string) (connectors.Binding, error) {
@@ -397,13 +493,23 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if kind == "" {
 		return ConnectorInfo{}, connectorBad("a binding needs a kind")
 	}
-	addon, err := c.resolveAddon(ctx, kind)
+	k, err := c.resolveAddon(ctx, kind)
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon}
+	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: k.AddonID, AuthKind: in.AuthKind}
 	in.apply(&b)
+	if c.toolOnly(ctx, b) {
+		if err := connectors.ValidateToolOnly(b); err != nil {
+			return ConnectorInfo{}, err
+		}
+		// Agents choose the connection through their own sets: the binding has none.
+		b.AgentID, in.AgentID = "", ""
+	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := checkAuthKind(b, k); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOptions(ctx, b); err != nil {
@@ -421,7 +527,10 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.checkTokenGuards(ctx, nil, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
-	if strings.TrimSpace(in.Token) == "" {
+	switch {
+	case b.UsesOAuth() && strings.TrimSpace(in.Token) != "":
+		return ConnectorInfo{}, connectorBad("a connection that uses a login takes no token")
+	case !b.UsesOAuth() && strings.TrimSpace(in.Token) == "":
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
 	if err := c.checkAgentIfAny(ctx, owner, in.AgentID); err != nil {
@@ -431,7 +540,10 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.verifyToken(ctx, b, strings.TrimSpace(in.Token)); err != nil {
 		return ConnectorInfo{}, err
 	}
-	b.AccountID = c.accountOf(ctx, b, strings.TrimSpace(in.Token))
+	if !b.UsesOAuth() {
+		// An OAuth connection has no token yet; its login tells who it is.
+		b.AccountID = c.accountOf(ctx, b, strings.TrimSpace(in.Token))
+	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	mine, err := c.o.Store.ListBindings(ctx, owner)
@@ -447,12 +559,14 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := checkDuplicate(nil, b, mine, in); err != nil {
 		return ConnectorInfo{}, err
 	}
-	sealer, err := c.sealerFor(ctx)
-	if err != nil {
-		return ConnectorInfo{}, err
-	}
-	if b.Token, err = sealer.Seal(connectors.AAD(b.ID, owner), []byte(strings.TrimSpace(in.Token))); err != nil {
-		return ConnectorInfo{}, err
+	if !b.UsesOAuth() {
+		sealer, err := c.sealerFor(ctx)
+		if err != nil {
+			return ConnectorInfo{}, err
+		}
+		if b.Token, err = sealer.Seal(connectors.AAD(b.ID, owner), []byte(strings.TrimSpace(in.Token))); err != nil {
+			return ConnectorInfo{}, err
+		}
 	}
 	b.Created = c.o.Clock().UTC()
 	b.Updated = b.Created
@@ -460,7 +574,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.viewOf(ctx, b), nil
 }
 
 // checkConnectionName refuses a name that another credential-only binding of
@@ -488,12 +602,16 @@ func checkConnectionName(b connectors.Binding, mine []connectors.Binding) error 
 // UpdateConnector replaces the definition of a binding of the user.
 func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in ConnectorInput) (ConnectorInfo, error) {
 	// A new token is checked before the write lock: the check asks the
-	// platform. The kind and the add-on of a binding never change.
+	// platform. The kind, the auth kind and the add-on of a binding never
+	// change.
 	newAccount := ""
 	if t := strings.TrimSpace(in.Token); t != "" {
 		cur, err := c.owned(ctx, user, id)
 		if err != nil {
 			return ConnectorInfo{}, err
+		}
+		if cur.UsesOAuth() {
+			return ConnectorInfo{}, connectorBad("a connection that uses a login takes no token")
 		}
 		if err := c.verifyToken(ctx, cur, t); err != nil {
 			return ConnectorInfo{}, err
@@ -511,6 +629,12 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	if strings.TrimSpace(in.Token) != "" {
 		// A new token may belong to another account: the identity is the one just read.
 		b.AccountID = newAccount
+	}
+	if c.toolOnly(ctx, b) {
+		if err := connectors.ValidateToolOnly(b); err != nil {
+			return ConnectorInfo{}, err
+		}
+		b.AgentID, in.AgentID = "", ""
 	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
@@ -559,7 +683,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.viewOf(ctx, b), nil
 }
 
 // SetConnectorEnabled switches a binding on or off.
@@ -570,6 +694,9 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
+	if on && c.toolOnly(ctx, b) {
+		return ConnectorInfo{}, connectorBad("a tool-only connection does not listen: agents use it through their own connections")
+	}
 	if on && b.CredentialsOnly() {
 		return ConnectorInfo{}, connectorBad("listening needs an agent: a connection without an agent only holds credentials")
 	}
@@ -578,7 +705,7 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 		return ConnectorInfo{}, err
 	}
 	c.Notify()
-	return c.withDuplicates(ctx, c.withState(ctx, info(b))), nil
+	return c.viewOf(ctx, b), nil
 }
 
 // GetConnector returns a binding of the user, without its token.
@@ -587,7 +714,15 @@ func (c *Connectors) GetConnector(ctx context.Context, user, id string) (Connect
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	return c.withShare(ctx, c.withDuplicates(ctx, c.withState(ctx, info(b)))), nil
+	return c.withShare(ctx, c.viewOf(ctx, b)), nil
+}
+
+// viewOf is the view of one stored binding for its owner: state, duplicates
+// and, for a tool-only kind, how many agents use it.
+func (c *Connectors) viewOf(ctx context.Context, b connectors.Binding) ConnectorInfo {
+	i := c.withDuplicates(ctx, c.withState(ctx, info(b)))
+	c.withUsage(ctx, b.Owner, &i)
+	return i
 }
 
 // withDuplicates fills SameBotAs of one binding. A store that fails leaves it empty.
@@ -608,19 +743,34 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 		return nil, err
 	}
 	out := make([]ConnectorInfo, len(all))
+	ptrs := make([]*ConnectorInfo, len(all))
 	for i, b := range all {
 		out[i] = c.withShare(ctx, c.withState(ctx, info(b)))
+		ptrs[i] = &out[i]
 	}
 	markDuplicates(out, all)
+	c.withUsage(ctx, principal(user), ptrs...)
 	return out, nil
 }
 
 // DeleteConnector removes a binding of the user with its offset, senders and chats.
-// The chats it made stay.
+// The chats it made stay. The login of an OAuth binding is revoked at the
+// service first when this process can read the add-on's descriptor, as
+// Disconnect does; the grant is deleted with the binding in any case.
 func (c *Connectors) DeleteConnector(ctx context.Context, user, id string) error {
+	b, err := c.owned(ctx, user, id)
+	if err != nil {
+		return err
+	}
+	if b.UsesOAuth() {
+		// Outside the write lock: the revocation asks the service.
+		if g, err := c.o.Store.GetGrant(ctx, b.ID); err == nil {
+			c.revoke(ctx, b, g)
+		}
+	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	b, err := c.owned(ctx, user, id)
+	b, err = c.owned(ctx, user, id)
 	if err != nil {
 		return err
 	}
@@ -649,11 +799,17 @@ func (c *Connectors) TestConnector(ctx context.Context, user, id string) (Connec
 	if !c.withState(ctx, info(b)).Active {
 		return ConnectorBot{}, ErrConnectorAddon
 	}
-	token, err := c.openToken(ctx, b)
+	acc, err := c.accessTokenFor(ctx, b)
 	if err != nil {
 		return ConnectorBot{}, err
 	}
-	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+	scope := BindingConnectorScope(b)
+	if b.UsesOAuth() {
+		// The stored binding holds no token, so the call carries the access
+		// token the way a token check does.
+		scope.Purpose = ConnectorPurposeVerifyToken
+	}
+	resp, err := c.o.Transport.Call(ctx, scope, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: acc.secret})
 	if err == nil && resp.Error != nil {
 		err = resp.Error
 	}

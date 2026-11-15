@@ -11,9 +11,11 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
+	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // maxBackgroundChildren is how many sub-agents one conversation may run in the
@@ -69,27 +71,38 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			return session.TurnTools{}, err
 		}
 		tools := s.childAllowed(ctx, rec, &px)
-		var prompt, work string
+		// The job tool acts for the sub-agent, in the parent's sandbox.
+		tools = s.bindChildJobs(px.Actor(), a, tools)
+		var prompt, work, workNote string
 		cmds := s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools)
 		if cmds.State != CommandsAvailable {
 			prompt = subAgentCommandsBlock
 		}
 		if canWriteFiles(tools, cmds) {
-			work = s.subWorkBlock(ctx, rec, x)
+			work, workNote = s.subWorkBlock(ctx, rec, x)
 		}
 		prompt = joinBlocks(prompt, webBlock(tools), work, droppedToolsNote(rec.AllowedTools, tools))
 		// The loop tools come last: a sub-agent may arm a loop of its own and
 		// wait, whatever tools its parent gave it.
 		tools = append(slices.Clone(tools), s.loopTools(ctx, a, rec)...)
-		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
+		return session.TurnTools{Tools: tools, Prompt: prompt, Note: workNote}, nil
 	}
-	tools, missing, heldAddons, err := s.scopedHostTools(ctx, a)
+	tools, conns, missing, heldAddons, err := s.scopedHostTools(ctx, a)
 	if err != nil {
 		var policyErr *providerPolicyError
 		if errors.As(err, &policyErr) {
 			return session.TurnTools{}, err
 		}
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
+	}
+	// The tools of the user's MCP connectors go behind the tool search with
+	// the LocalAI groups when the setting says on; otherwise they are sent in
+	// full, as before.
+	var connDeferred []session.Tool
+	if connectorsDeferred(s.toolSearchMode(), conns) {
+		connDeferred = conns
+	} else {
+		tools = append(tools, conns...)
 	}
 	sc := s.scopeOf(ctx, rec)
 	// The tools the chat's switches take away (a sub-agent follows its
@@ -98,7 +111,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
-	built := s.builtinsFor(ctx, a, rec, sub)
+	bchat := s.builtinChat(ctx, a, rec, sub)
+	built := s.builtins.Build(ctx, bchat)
+	s.traceTriggerTools(rec, bchat, built)
 	tools = s.applyBuiltins(tools, built)
 	cmds = shellSwitched(s.withHostBash(cmds, tools), hidden)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
@@ -209,17 +224,28 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
-		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)), s.waitAgentsTool(a))
+		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)))
+		// In a connector chat the wait needs the loops.wait capability of the
+		// sender, as wait_for does.
+		if s.loopAllowed(rec, contract.CapLoopsWait) {
+			tools = append(tools, s.waitAgentsTool(a))
+		}
 	}
 	// The two LocalAI groups go through the registry like every built-in group:
 	// the setting, the chat's switches and the agent's ceiling apply. They are
 	// not part of hostTools, so the admin tools never reach a sub-agent,
 	// whatever its parent names (the group refuses a sub-agent as well).
-	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, tools)
+	// A deferred connector tool still holds its name, so no LocalAI tool takes it.
+	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, append(slices.Clone(tools), connDeferred...))
 	tools = append(tools, aTools...)
 	// The deferred tools are gated like the typed ones (the action policy of
-	// an unattended run), then hidden behind the three tool-search tools.
-	tools = append(tools, toolSearchTools(s.gateBuiltinActs(ctx, rec, aDeferred), aDeferredGroups)...)
+	// an unattended run), then hidden behind the three tool-search tools. The
+	// connector tools were gated in scopedHostTools.
+	deferred := slices.Concat(s.gateBuiltinActs(ctx, rec, aDeferred), connDeferred)
+	if len(connDeferred) > 0 {
+		aDeferredGroups = append(slices.Clone(aDeferredGroups), toolSearchConnectors)
+	}
+	tools = append(tools, toolSearchTools(deferred, aDeferredGroups)...)
 	// The tools of a self-paced loop, while the chat has one.
 	tools = append(tools, s.loopTools(ctx, a, rec)...)
 	if aPrompt != "" {
@@ -231,9 +257,19 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// A tool the sender of a connector message may not use is not offered. The
 	// model hears why, so it tells the person what the owner can change
 	// instead of saying that it has no such tool.
-	if line := deniedToolsNote(rec, append(slices.Clone(built), heldAddons...)); line != "" {
+	// A turn without a trigger tool says so, and why, so that the model does
+	// not claim a reminder it could not set. The denied note keeps room for it.
+	absent := triggersAbsentNote(built)
+	reserve := 0
+	if absent != "" {
+		reserve = len(absent) + 1
+	}
+	if line := deniedToolsNoteReserve(rec, append(slices.Clone(built), heldAddons...), reserve); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 		s.noteHeldBack(ctx, rec, line)
+	}
+	if absent != "" {
+		note = strings.TrimSpace(absent + " " + note)
 	}
 	// What the user did with the triggers this chat proposed: the tool result
 	// said they were waiting, so a later turn must hear how they ended.
@@ -284,20 +320,22 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
 	}
-	// The files go last: the prompt is cut at its end, and a block that
-	// changes between turns leaves the start of the prompt as it was.
-	if fp := s.filesPrompt(ctx, x); fp != "" {
-		if !canRead {
-			fp += "\n" + filesNote
-		}
-		prompt = strings.TrimSpace(prompt + "\n\n" + fp)
+	// The files change at most turns that write one, so they are not in the
+	// prompt: a changed prompt makes the server read the whole conversation
+	// again. The session gives the list with the message when it changed.
+	fp := s.filesPrompt(ctx, x)
+	if fp != "" && !canRead {
+		fp += "\n" + filesNote
 	}
 	// A conversation names its own work folder (the session takes the folder
 	// name); a sub-agent saves in its parent's files, so it names the parent's.
 	// A chat that cannot save a file has no use for one.
 	work := !sub && s.workFolderOn() && s.d.Files.Available() && canWrite
 	if sub && canWrite {
-		prompt = joinBlocks(prompt, s.subWorkBlock(ctx, rec, x))
+		block, workNote := s.subWorkBlock(ctx, rec, x)
+		prompt = joinBlocks(prompt, block)
+		// First, so that the cut of a long note keeps it.
+		note = strings.TrimSpace(workNote + " " + note)
 	}
 	// load_skill learns from the final list whether the chat can read a
 	// skill's files and run what a skill needs.
@@ -305,7 +343,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The action policy of a run that nobody watches: the tools that change
 	// files or run commands on this machine are checked at each call.
 	tools = s.gateBuiltinActs(ctx, rec, tools)
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, Context: turnContext, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, Context: turnContext, Files: fp, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
 }
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets
@@ -456,7 +494,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 
 	if !wait {
 		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
-		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
+		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message. To be woken if it goes quiet, use wait_for with job %q and until \"stall\".", childID, childID), nil
 	}
 	st, err := s.waitChild(ctx, a.Principal, childID, done, foregroundLoopWait.get())
 	if errors.Is(err, errChildHeld) {
@@ -561,7 +599,7 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 				kept = append(kept, t)
 			}
 		}
-		return kept, nil
+		return withoutOrphanJob(kept), nil
 	}
 	byName := make(map[string]session.Tool, len(have))
 	for _, t := range have {
@@ -575,7 +613,7 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 		}
 		out = append(out, t)
 	}
-	return out, nil
+	return withoutOrphanJob(out), nil
 }
 
 // registerChild records a running sub-agent, refusing a background one past
@@ -747,6 +785,8 @@ func (s *Service) notifyWaiters(k string, status store.TurnStatus) {
 	for _, w := range ws {
 		w <- status
 	}
+	// The run of a sub-agent reached its parent: its jobs end.
+	s.endAgentRun(k)
 }
 
 // childResult is what the parent's tool call returns for a finished sub-agent.
@@ -818,6 +858,12 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 	if !st.Finished() {
 		return
 	}
+	if s.agentWaitArmed(ctx, a.Principal, a.ChatID, childID) {
+		// A wait of the parent on this sub-agent wakes it with the result
+		// (endAgentRun made it due): a second message would wake the parent
+		// again for the same end.
+		return
+	}
 	msg := fmt.Sprintf("[Sub-agent finished: %s]\n%s", title, s.finalText(ctx, childID))
 	if _, err := s.send(ctx, a.Principal, a.ChatID, session.Message{Text: msg}); err != nil {
 		s.log.Warn("studio: could not tell the parent that a sub-agent finished", "chat", a.ChatID, "error", err)
@@ -854,4 +900,19 @@ func truncate(s string, n int) string {
 // hasTool says whether the list has a tool of that name.
 func hasTool(tools []session.Tool, name string) bool {
 	return slices.ContainsFunc(tools, func(t session.Tool) bool { return t.Name == name })
+}
+
+// agentWaitArmed says whether the chat has a wait on the sub-agent that has
+// not woken it yet, so that the end of the sub-agent already has a wake-up.
+func (s *Service) agentWaitArmed(ctx context.Context, owner, chat, child string) bool {
+	if s.loops == nil {
+		return false
+	}
+	list, err := s.loops.o.Store.ListChat(ctx, principal(owner), chat)
+	if err != nil {
+		return false
+	}
+	return slices.ContainsFunc(list, func(l loops.Loop) bool {
+		return l.Watch != nil && l.Watch.Agent && l.Watch.Job == child && l.Watch.Wake == "" && l.State.Live()
+	})
 }

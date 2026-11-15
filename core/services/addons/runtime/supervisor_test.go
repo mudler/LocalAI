@@ -1,5 +1,3 @@
-//go:build linux
-
 // SPDX-License-Identifier: MIT
 package runtime
 
@@ -57,27 +55,27 @@ func TestRuntime(t *testing.T) {
 	RunSpecs(t, "Addon runtime")
 }
 
-func setStateRoot(c *Config, root string) { c.StateRoot = root }
-func processRunning(pid int) bool {
-	b, e := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	if os.IsNotExist(e) {
-		return false
-	}
+// realTempDir is a temporary directory with no symlink in its path. The
+// supervisor refuses a symlinked state root or package directory, and the
+// temporary directory of macOS (/var) is one.
+func realTempDir() string {
+	d, e := filepath.EvalSymlinks(GinkgoT().TempDir())
 	Expect(e).NotTo(HaveOccurred())
-	fields := strings.Fields(string(b)[strings.LastIndex(string(b), ")")+1:])
-	return fields[0] != "Z" && fields[0] != "X"
+	return d
 }
+
+func setStateRoot(c *Config, root string) { c.StateRoot = root }
 
 var binary string
 var _ = BeforeSuite(func() {
-	binary = filepath.Join(GinkgoT().TempDir(), "fixture")
+	binary = filepath.Join(realTempDir(), "fixture")
 	cmd := exec.Command("go", "build", "-o", binary, "../../../../tests/addons/fixture/cmd")
 	out, e := cmd.CombinedOutput()
 	Expect(e).NotTo(HaveOccurred(), string(out))
 })
 
 func fixture(mode string, capabilities contract.Capabilities) packages.PackageReceipt {
-	dir := GinkgoT().TempDir()
+	dir := realTempDir()
 	b, e := os.ReadFile(binary)
 	Expect(e).NotTo(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(dir, "fixture"), b, 0500)).To(Succeed())
@@ -97,7 +95,7 @@ func supervisor() *Supervisor {
 	l.BackoffInitial = 20 * time.Millisecond
 	l.BackoffMax = 40 * time.Millisecond
 	l.BackoffAttempts = 2
-	s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 300 * time.Millisecond, StableHealth: time.Second})
+	s, e := NewSupervisor(Config{StateRoot: realTempDir(), Limits: l, ReadyTimeout: startBudget, StableHealth: time.Second})
 	Expect(e).NotTo(HaveOccurred())
 	DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 	return s
@@ -183,7 +181,7 @@ var _ = Describe("Managed subprocess", func() {
 			start := time.Now()
 			_, e := s.Start(context.Background(), fixture(mode, service), 1)
 			Expect(e).To(HaveOccurred())
-			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+			Expect(time.Since(start)).To(BeNumerically("<", startBudget+1700*time.Millisecond))
 		}
 		s := supervisor()
 		i, e := s.Start(context.Background(), fixture("normal", service), 1)
@@ -380,7 +378,7 @@ var _ = Describe("Process state observation", func() {
 		l.BackoffInitial = 1500 * time.Millisecond
 		l.BackoffMax = 2 * time.Second
 		l.BackoffAttempts = 3
-		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 300 * time.Millisecond, StableHealth: time.Second})
+		s, e := NewSupervisor(Config{StateRoot: realTempDir(), Limits: l, ReadyTimeout: startBudget, StableHealth: time.Second})
 		Expect(e).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		return s
@@ -451,7 +449,7 @@ var _ = Describe("Process state observation", func() {
 
 var _ = Describe("Durable orphan recovery", func() {
 	It("kills the exact paused child of a killed owner before launching its replacement", func() {
-		root := GinkgoT().TempDir()
+		root := realTempDir()
 		pkg := fixture("normal", service)
 		helper := exec.Command(os.Args[0], "-test.run=^TestRuntime$")
 		helper.Env = append(os.Environ(), "ADDON_OWNER_HELPER="+root, "ADDON_HELPER_RECEIPT="+filepath.Join(pkg.Directory, "receipt.json"))
@@ -482,7 +480,7 @@ var _ = Describe("Durable orphan recovery", func() {
 var _ = Describe("Recovery fencing", func() {
 	It("fails closed on ambiguous launch identities and preserves unrelated reused PIDs", func() {
 		for _, mode := range []string{"pending", "missing-start", "reused", "boot"} {
-			root := GinkgoT().TempDir()
+			root := realTempDir()
 			other := exec.Command("sleep", "30")
 			Expect(other.Start()).To(Succeed())
 			DeferCleanup(func() { _ = other.Process.Kill(); _ = other.Wait() })
@@ -625,7 +623,7 @@ var _ = Describe("Addon data directory", func() {
 		l := contract.DefaultLimits()
 		l.ReadTimeout = 300 * time.Millisecond
 		l.ShutdownTimeout = 100 * time.Millisecond
-		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), DataRoot: dataRoot, Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second})
+		s, e := NewSupervisor(Config{StateRoot: realTempDir(), DataRoot: dataRoot, Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second})
 		Expect(e).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		return s
@@ -642,7 +640,7 @@ var _ = Describe("Addon data directory", func() {
 	}
 
 	It("creates one private data directory per addon and passes its path in the startup object", func() {
-		root := filepath.Join(GinkgoT().TempDir(), "data")
+		root := filepath.Join(realTempDir(), "data")
 		s := supervisorWith(root)
 		first, second := withID("sample"), withID("second")
 		_, e := s.Start(context.Background(), first, 1)
@@ -674,7 +672,7 @@ var _ = Describe("Addon data directory", func() {
 		_, e = relative.Start(context.Background(), withID("sample"), 1)
 		Expect(e).To(HaveOccurred())
 
-		root := filepath.Join(GinkgoT().TempDir(), "data")
+		root := filepath.Join(realTempDir(), "data")
 		strict := supervisorWith(root)
 		_, e = strict.Start(context.Background(), withID("a/b"), 1)
 		Expect(e).To(HaveOccurred())
@@ -704,7 +702,7 @@ var _ = Describe("Addon data directory", func() {
 		Expect(b.Register(hostops.Spec{Op: "finetune.get", Scope: "read", Feature: "fine_tuning", Handler: func(context.Context, hostops.Call) (json.RawMessage, error) {
 			return json.RawMessage(`{"ok":true}`), nil
 		}})).To(Succeed())
-		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Authority: auth}})
+		s, e := NewSupervisor(Config{StateRoot: realTempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Authority: auth}})
 		Expect(e).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		return s, in

@@ -100,6 +100,7 @@ export function updateErrorKey(error) {
   if (!error) return 'unavailable'
   if (error.type && UPDATE_TYPES.has(error.type)) return error.type
   if (error.kind === 'unknown_outcome') return 'unknownOutcome'
+  if (error.kind === 'operation_not_found') return 'operationNotFound'
   if (error.kind === 'denied') return 'denied'
   if (error.kind === 'auth') return 'auth'
   if (error.kind === 'network') return 'network'

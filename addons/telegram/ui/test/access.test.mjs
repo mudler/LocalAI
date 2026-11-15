@@ -71,6 +71,8 @@ test('access: the agent row names a missing agent, one without a model, and a re
   const a = (f, o) => row(readinessRows(base(f, o)), 'agent')
   assert.equal(a({}).state, 'attention')
   assert.equal(a({}, { agentOptional: true }).state, 'off')
+  assert.equal(a({}, { toolOnly: true }), undefined, 'a tool-only kind has no agent row')
+  assert.equal(a({ agent_id: 'zz' }, { toolOnly: true }), undefined)
   assert.equal(a({ agent_id: 'zz' }).state, 'attention')
   assert.equal(a({ agent_id: 'a2' }).state, 'broken')
   assert.deepEqual(a({ agent_id: 'a2' }).fix, { kind: 'open_agent', target: 'a2' })

@@ -320,6 +320,7 @@ func (t *API) updates(ctx context.Context, token string, offset int64, timeoutSe
 		u.SenderName = strings.TrimSpace(m.From.FirstName + " " + m.From.LastName)
 		u.SenderUsername, u.Text = m.From.Username, m.Text
 		u.Media = mediaRefs(m)
+		u.MediaKinds = mediaKinds(u.Media)
 		u.Unsupported = m.Text == "" && len(u.Media) == 0
 		if m.ID != 0 {
 			u.MessageID = strconv.FormatInt(m.ID, 10)

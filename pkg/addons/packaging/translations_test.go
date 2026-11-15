@@ -28,7 +28,7 @@ func readManifest(id string) (contract.Manifest, []byte) {
 }
 
 var _ = Describe("first-party add-on translations", func() {
-	for _, id := range firstPartyAddons {
+	for _, id := range addonsWithUI {
 		It("translates the title and the description of "+id+" in every main language", func() {
 			m, _ := readManifest(id)
 			ui := m.Capabilities.UI
@@ -124,11 +124,6 @@ var _ = Describe("first-party add-on translations", func() {
 		var ids []string
 		for _, d := range dirs {
 			id := filepath.Base(filepath.Dir(d))
-			// The retired Memory add-on is no longer packaged or offered. Its
-			// sources stay as the fixture of the copies that are still installed.
-			if id == retiredAddon {
-				continue
-			}
 			ids = append(ids, id)
 		}
 		slices.Sort(ids)
@@ -137,9 +132,6 @@ var _ = Describe("first-party add-on translations", func() {
 		Expect(ids).To(Equal(want), "a new add-on joins firstPartyAddons and gets its translations")
 	})
 })
-
-// retiredAddon is the add-on whose package was retired. See addons/memory.
-const retiredAddon = "memory"
 
 var _ = Describe("translations in the package and the library", func() {
 	It("changes the package digest when a translation changes, and the package still verifies", func() {
@@ -180,7 +172,7 @@ var _ = Describe("translations in the package and the library", func() {
 	})
 
 	It("renders the translated title and description of every add-on into its library entry", func() {
-		for _, id := range firstPartyAddons {
+		for _, id := range addonsWithUI {
 			m, _ := readManifest(id)
 			p := newProjectFor(id, both)
 			out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")

@@ -83,6 +83,7 @@ func (h *Handlers) Update(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	out.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	return c.JSON(http.StatusOK, out)
 }
 

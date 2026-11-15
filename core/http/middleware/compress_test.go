@@ -31,6 +31,7 @@ var _ = Describe("Compression middleware", func() {
 		e.GET("/api/traces", handler)
 		e.GET("/v1/chat/completions", handler)
 		e.GET("/api/agents/demo/sse", handler)
+		e.GET("/api/client/addons/demo/updates", handler)
 		e.GET("/api/tiny", func(c echo.Context) error {
 			return c.String(http.StatusOK, "ok")
 		})
@@ -79,6 +80,13 @@ var _ = Describe("Compression middleware", func() {
 
 	It("does not compress SSE bridges", func() {
 		rec := get("/api/agents/demo/sse", nil)
+
+		Expect(rec.Header().Get("Content-Encoding")).To(BeEmpty())
+		Expect(rec.Body.String()).To(Equal(body))
+	})
+
+	It("does not compress the client routes of an add-on, whatever the name of the stream", func() {
+		rec := get("/api/client/addons/demo/updates", nil)
 
 		Expect(rec.Header().Get("Content-Encoding")).To(BeEmpty())
 		Expect(rec.Body.String()).To(Equal(body))

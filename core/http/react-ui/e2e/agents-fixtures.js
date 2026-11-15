@@ -47,7 +47,7 @@ export const CHATS = [
 export const TRIGGERS = [
   {
     id: 't1', name: 'Morning digest', prompt: 'Summarise yesterday.', kind: 'schedule', schedule: 'weekdays 09:00', time_zone: 'Europe/Rome',
-    daily_cap: 24, enabled: true, agent_id: 'a1', model: '', summary: 'Every weekday at 09:00 (Europe/Rome)', next_run: '2026-10-28T08:00:00Z',
+    daily_cap: 24, run_limit: '30m', effective_run_limit: '15m', enabled: true, agent_id: 'a1', model: '', summary: 'Every weekday at 09:00 (Europe/Rome)', next_run: '2026-10-28T08:00:00Z',
     last_run: { id: 'r1', status: 'failed', reason: 'the agent was deleted', due: '2026-10-27T08:00:00Z' },
   },
   {

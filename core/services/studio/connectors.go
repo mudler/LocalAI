@@ -8,16 +8,20 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"golang.org/x/sync/singleflight"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/oauthtoken"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -56,6 +60,10 @@ type ConnectorOptions struct {
 	// Transport reaches the connector add-ons. Required.
 	Transport ConnectorTransport
 	Clock     func() time.Time
+	// LeaseWait pauses a caller that lost the refresh lease of an OAuth grant
+	// before it looks for the token the winner writes. Nil sleeps for real;
+	// a test passes a hook that does not.
+	LeaseWait func(ctx context.Context, d time.Duration) error
 	// Tick is how often the manager looks for bindings to start or stop; zero
 	// means 2 seconds.
 	Tick time.Duration
@@ -97,6 +105,15 @@ type ConnectorOptions struct {
 	// OutboxPoll is how often a queued message looks again for room under
 	// the limit of its binding; zero means one second.
 	OutboxPoll time.Duration
+	// OAuthDescriptor returns the OAuth descriptor that the credential slot of
+	// an installed add-on declares now. Nil: this process cannot run OAuth
+	// logins or refreshes, and an OAuth binding is unavailable here.
+	OAuthDescriptor func(ctx context.Context, addonID string) (contract.OAuthDescriptor, error)
+	// TokenClient calls the token endpoints. Nil: oauthtoken.New.
+	TokenClient *oauthtoken.Client
+	// InstanceID names this process in the lease of a grant. Empty: a
+	// random name.
+	InstanceID string
 	// Shares is the sharing policy of the bindings (see ConnectionShares).
 	// Nil: no binding is shared.
 	Shares ConnectionShares
@@ -135,7 +152,17 @@ type Connectors struct {
 
 	sealMu sync.Mutex
 	sealer *connectors.Sealer
-	wmu    sync.Mutex // serialises writes of bindings
+
+	// refreshes runs one refresh per grant and version in this process; the
+	// lease in the grant row does the same across processes.
+	refreshes    singleflight.Group
+	instance     string
+	defaultToken *oauthtoken.Client
+	wmu          sync.Mutex // serialises writes of bindings
+	// logins counts the login starts of each person in this process (see
+	// allowLoginStart).
+	loginMu sync.Mutex
+	logins  map[string]loginWindow
 
 	mu    sync.Mutex // guards loops and shut, and orders wg.Add before Close's Wait
 	loops map[string]context.CancelFunc
@@ -192,6 +219,9 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	if o.Clock == nil {
 		o.Clock = time.Now
 	}
+	if o.LeaseWait == nil {
+		o.LeaseWait = sleep
+	}
 	if o.Tick <= 0 {
 		o.Tick = 2 * time.Second
 	}
@@ -213,7 +243,10 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Connectors{svc: svc, o: o, log: o.Logger, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
+	if o.InstanceID == "" {
+		o.InstanceID = newID()
+	}
+	return &Connectors{svc: svc, o: o, log: o.Logger, instance: o.InstanceID, defaultToken: oauthtoken.New(), logins: map[string]loginWindow{}, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
 		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc), knowledgeSwitch(svc), resourcesSwitch(svc)}}, nil
 }
 
@@ -319,7 +352,8 @@ func (c *Connectors) Sync(ctx context.Context) {
 		if b.CredentialsOnly() {
 			continue
 		}
-		if k, ok := kindFor(kinds, b); ok && k.Delivery == contract.DeliveryPull {
+		// A tool-only kind never listens, whatever an older row says.
+		if k, ok := kindFor(kinds, b); ok && !k.ToolOnly && k.Delivery == contract.DeliveryPull {
 			want[b.ID] = b
 		}
 	}
@@ -424,6 +458,12 @@ poll:
 		backoff, conflicts = c.o.Backoff, 0
 		for _, u := range resp.Updates {
 			if ctx.Err() != nil {
+				return
+			}
+			// This frontend may have lost the lead while the poll was in
+			// flight: the new leader reads the update again from the stored
+			// offset, so handing it over here would answer it twice.
+			if c.o.Lead != nil && !c.o.Lead(ctx) {
 				return
 			}
 			// The same function as the host operation: it reads the binding
@@ -587,7 +627,7 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 		return nil
 	}
 	if m.Chat == "" || m.SenderID == "" || len(m.SenderID) > contract.MaxConnectorSender || len(m.Chat) > contract.MaxConnectorSender ||
-		len(m.Thread) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia {
+		len(m.Thread) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia || len(m.MediaKinds) > contract.MaxConnectorMedia {
 		return connectors.ErrInvalid
 	}
 	// The sender log keeps the name in a column of 255 characters.
@@ -914,9 +954,15 @@ var hostNoteCodes = map[string]string{
 // in the text under voiceMark; the recording is not kept. The sender is told
 // about a file that could not be read or was too large. It reports false when
 // the message must not start a turn: nothing is left to send, or a voice
-// message cannot be transcribed.
+// message cannot be transcribed. A file of a kind that the binding does not
+// take (see connectors.Binding.InboundMedia) is never read: the sender is
+// told, and the text still goes.
 func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, say func(string), v hostmsg.Voice) (string, []session.Upload, bool) {
-	got, note := c.media(ctx, b, token, m.Media, v)
+	refs, refused := c.accepted(b, m)
+	if len(refused) > 0 {
+		say(v.T("media.refused", "kinds", refusedKinds(v, refused)))
+	}
+	got, note := c.media(ctx, b, token, refs, v)
 	if note != "" {
 		say(note)
 	}
@@ -956,6 +1002,44 @@ func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token str
 		text = strings.Join(parts, "\n\n")
 	}
 	return text, up, len(up) > 0 || strings.TrimSpace(text) != ""
+}
+
+// accepted splits the files of a message into the references that the
+// binding takes and the kinds it refused, before any file is read. A
+// message whose add-on names no kind for a file (MediaKinds missing or not
+// one per file) has files of an unknown kind, which only a binding that
+// takes every kind reads.
+func (c *Connectors) accepted(b connectors.Binding, m contract.ConnectorMessage) ([]string, []string) {
+	var refs, refused []string
+	for i, ref := range m.Media {
+		kind := ""
+		if len(m.MediaKinds) == len(m.Media) {
+			kind = m.MediaKinds[i]
+		}
+		if !b.Accepts(kind) {
+			c.log.Info("studio: a connector message carried a file of a kind the binding does not take", "binding", b.ID, "kind", b.Kind, "media", kind)
+			refused = append(refused, kind)
+			continue
+		}
+		refs = append(refs, ref)
+	}
+	return refs, refused
+}
+
+// refusedKinds names the media kinds of the files that a binding did not
+// take, for the sentence "This bot does not accept photos." Each kind is
+// named once; a file of an unknown kind is one of "other files".
+func refusedKinds(v hostmsg.Voice, kinds []string) string {
+	var nouns []string
+	for _, k := range kinds {
+		if k == "" || !hostmsg.Has("media.kind."+k) {
+			k = "other"
+		}
+		if n := v.T("media.kind." + k); !slices.Contains(nouns, n) {
+			nouns = append(nouns, n)
+		}
+	}
+	return v.Join(nouns)
 }
 
 // transcribe makes a voice message text, through the same media service and
@@ -1371,5 +1455,17 @@ func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 		if !c.spawn(func() { c.say(b, token, b.NotifyChat, "", text) }) {
 			return // closed meanwhile
 		}
+	}
+}
+
+// sleep waits for d or until ctx ends.
+func sleep(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

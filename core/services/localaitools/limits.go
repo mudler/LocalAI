@@ -2,6 +2,7 @@ package localaitools
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,7 +19,16 @@ const (
 	maxSoundSeconds  = 600
 	maxFPS           = 60
 	maxTopK          = 50
+	maxUpscaleScale  = 16
 	maxRerankDocs    = 1000
+	maxVideoFrames   = 512 // frames of one reference video, as the video route
+	maxVideoRefs     = 16  // references of one kind, as the video route
+	maxVideoSide     = 4096
+	maxVideoInputs   = 256 << 20 // all media of one video call together
+	minSampleRate    = 8000
+	maxSampleRate    = 192000
+	maxPromptShapes  = 64 // points or boxes of one detect call
+	maxRefImages     = 16 // the video route stops at 16 references of a kind; images use the same bound
 	maxEmbedInputs   = 256
 	maxTextBatchSize = 1 << 20 // total bytes of the texts of one embed or rerank call
 
@@ -50,6 +60,57 @@ func checkVideoLength(seconds string, fps int) error {
 	}
 	if fps < 0 || fps > maxFPS {
 		return fmt.Errorf("fps must be from 1 to %d", maxFPS)
+	}
+	return nil
+}
+
+// videoGeometry turns "WxH" into width and height.
+func videoGeometry(size string) (w, h int, err error) {
+	size = strings.TrimSpace(size)
+	if size == "" {
+		return 0, 0, nil
+	}
+	ws, hs, ok := strings.Cut(strings.ToLower(size), "x")
+	w, e1 := strconv.Atoi(strings.TrimSpace(ws))
+	h, e2 := strconv.Atoi(strings.TrimSpace(hs))
+	if !ok || e1 != nil || e2 != nil || w < 1 || h < 1 || w > maxVideoSide || h > maxVideoSide {
+		return 0, 0, fmt.Errorf("size must be WIDTHxHEIGHT, each from 1 to %d", maxVideoSide)
+	}
+	return w, h, nil
+}
+
+// videoFrames returns the fps and num_frames to send: the length the caller
+// asked for in seconds, as a number of frames. Seconds need a frame rate to
+// mean anything; 24 is used when the caller gives none.
+func videoFrames(seconds string, fps int) (outFPS, frames int) {
+	s := strings.TrimSpace(seconds)
+	if s == "" {
+		return fps, 0
+	}
+	if fps == 0 {
+		fps = 24
+	}
+	v, _ := strconv.ParseFloat(s, 64) // checkVideoLength has validated it
+	return fps, max(1, int(math.Round(v*float64(fps))))
+}
+
+// checkPromptNumbers checks a flat list of numbers that the detection route
+// reads in groups: points as x,y,label triples, boxes as x1,y1,x2,y2 quads.
+func checkPromptNumbers(name string, v []float32, group int, labelLast bool) error {
+	if len(v) == 0 {
+		return nil
+	}
+	if len(v)%group != 0 || len(v)/group > maxPromptShapes {
+		return fmt.Errorf("%s: a flat list of groups of %d numbers, at most %d groups", name, group, maxPromptShapes)
+	}
+	for k, n := range v {
+		f := float64(n)
+		if math.IsNaN(f) || math.IsInf(f, 0) || n < 0 {
+			return fmt.Errorf("%s: numbers must be finite and not negative", name)
+		}
+		if labelLast && k%group == group-1 && n != 0 && n != 1 {
+			return fmt.Errorf("%s: the label of each point is 1 or 0", name)
+		}
 	}
 	return nil
 }

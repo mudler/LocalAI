@@ -192,3 +192,109 @@ test('a shared page split into files runs with the consent and rights of the vie
   expect(reads.some((r) => r.url.includes('path=dot.svg') && r.url.includes('encoding=base64'))).toBeTruthy()
   expect(reads.some((r) => r.url.includes('board'))).toBeFalsy()
 })
+
+test('a shared page in a slot runs only after the viewer allows it on Home or in a slot', async ({ page, request }) => {
+  const standup = (await api(request, '/api/chats/shared-pages')).pages.find((p) => p.name === 'standup')
+  const consent = `/api/chats/shared-pages/${standup.folder_id}/standup/consent`
+  // The viewer allowed the page to open; that does not let it run in a slot.
+  expect((await request.put(consent, { data: { hash: standup.hash } })).ok()).toBeTruthy()
+  const slots = { sidebarFooter: [{ type: 'page', page: 'standup', folder: standup.folder_id }] }
+  expect((await request.put('/api/chats/wellknown/ui', { data: { values: { slots } } })).ok()).toBeTruthy()
+  try {
+    await page.goto('/app/pages')
+    const bar = page.getByTestId('slot-sidebarFooter')
+    const allow = bar.getByTestId('slot-tile-allow')
+    await expect(allow).toBeVisible()
+    await expect(bar.locator('iframe')).toHaveCount(0)
+    await allow.click()
+    const sheet = page.getByTestId('trust-sheet')
+    await expect(sheet).toHaveAttribute('data-embed', 'true')
+    await expect(sheet.getByTestId('trust-embed-item')).toBeVisible()
+    await expect(sheet.getByTestId('trust-allow-once')).toHaveCount(0)
+    await expect(sheet.getByTestId('trust-allow-embed')).toHaveText('Allow on Home, in slots and in the dock')
+    await shot(page, 'slot-embed-sheet')
+    await sheet.getByTestId('trust-cancel').click()
+    await expect(sheet).toHaveCount(0)
+    await expect(bar.locator('iframe')).toHaveCount(0)
+    expect((await api(request, `/api/chats/shared-pages/${standup.folder_id}/standup`)).consent.embed).toBeUndefined()
+
+    await allow.click()
+    await page.getByTestId('trust-allow-embed').click()
+    const tile = bar.locator('[data-testid="slot-tile"]')
+    await expect(tile).toHaveAttribute('data-frame', 'live')
+    await expect(tile.frameLocator('[data-testid="page-frame"]').locator('#read')).toHaveText('{"n":1}', { timeout: 15_000 })
+    expect((await api(request, `/api/chats/shared-pages/${standup.folder_id}/standup`)).consent.embed).toBe(true)
+  } finally {
+    await request.delete(consent)
+    await request.delete(`/api/chats/files?path=${encodeURIComponent('/LocalAI/ui.json')}`)
+  }
+})
+
+test('a shared page in the page area of Home shows its consent state, and runs only after the viewer allows it on Home', async ({ page, request }) => {
+  const standup = (await api(request, '/api/chats/shared-pages')).pages.find((p) => p.name === 'standup')
+  const consent = `/api/chats/shared-pages/${standup.folder_id}/standup/consent`
+  // The viewer allowed the page to open; that does not let it run on Home.
+  expect((await request.put(consent, { data: { hash: standup.hash } })).ok()).toBeTruthy()
+  const home = { pageArea: { page: 'standup', folder: standup.folder_id } }
+  expect((await request.put('/api/chats/wellknown/home', { data: { values: home } })).ok()).toBeTruthy()
+  try {
+    await page.route('**/api/chats/triggers*', (r) => r.fulfill({ json: { triggers: [] } }))
+    await page.goto('/app')
+    const area = page.getByTestId('page-area')
+    const allow = area.getByTestId('page-area-allow')
+    await expect(allow).toBeVisible()
+    await expect(allow).toContainText('You have not allowed this page yet')
+    await expect(area.locator('iframe')).toHaveCount(0)
+    await area.getByTestId('page-area-allow-open').click()
+    const sheet = page.getByTestId('trust-sheet')
+    await expect(sheet).toHaveAttribute('data-embed', 'true')
+    await expect(sheet.getByTestId('trust-allow-once')).toHaveCount(0)
+    await shot(page, 'area-embed-sheet')
+    await sheet.getByTestId('trust-cancel').click()
+    await expect(area.locator('iframe')).toHaveCount(0)
+    expect((await api(request, `/api/chats/shared-pages/${standup.folder_id}/standup`)).consent.embed).toBeUndefined()
+    await area.getByTestId('page-area-allow-open').click()
+    await page.getByTestId('trust-allow-embed').click()
+    await expect(area).toHaveAttribute('data-frame', 'live')
+    await expect(area.frameLocator('[data-testid="page-frame"]').locator('#read')).toHaveText('{"n":1}', { timeout: 15_000 })
+    await expect(page.getByTestId('page-area-origin')).toContainText('Page shared by')
+    // A shared page is not the viewer's file: no Revert, and no Edit.
+    await expect(page.getByTestId('page-area-edit')).toHaveCount(0)
+  } finally {
+    await request.delete(consent)
+    await request.delete(`/api/chats/files?path=${encodeURIComponent('/LocalAI/home.json')}`)
+  }
+})
+
+test('a shared page opened in the dock runs only after the viewer allowed it there', async ({ page, request }) => {
+  const board = pages.find(p => p.name === 'board')
+  const consent = `/api/chats/shared-pages/${board.folder_id}/board/consent`
+  await request.delete(consent)
+  try {
+    await page.goto('/app/pages')
+    await page.getByTestId('shared-group').locator('[data-testid="shared-card"][data-page="board"]').getByTestId('shared-dock').click()
+    const dock = page.getByTestId('page-dock')
+    await expect(dock.getByTestId('dock-tab')).toHaveCount(1)
+    await expect(dock.getByTestId('dock-origin')).toHaveAttribute('data-by', 'shared')
+    await expect(dock.getByTestId('dock-allow')).toBeVisible()
+    await expect(dock.locator('iframe')).toHaveCount(0)
+    await expect(dock.getByTestId('dock-ask')).toHaveCount(0)
+    await dock.getByTestId('dock-allow-open').click()
+    const sheet = page.getByTestId('trust-sheet')
+    await expect(sheet).toHaveAttribute('data-embed', 'true')
+    // One consent covers Home, the slots and the dock, and the button says so.
+    await expect(sheet.getByTestId('trust-allow-embed')).toHaveText('Allow on Home, in slots and in the dock')
+    await shot(page, 'dock-shared-sheet')
+    await sheet.getByTestId('trust-cancel').click()
+    await expect(dock.locator('iframe')).toHaveCount(0)
+
+    await dock.getByTestId('dock-allow-open').click()
+    await page.getByTestId('trust-allow-embed').click()
+    await expect(dock.getByTestId('dock-body')).toHaveAttribute('data-frame', 'live')
+    await expect(dock.locator('iframe[data-testid="page-frame"]')).toHaveCount(1)
+    expect((await api(request, `/api/chats/shared-pages/${board.folder_id}/board`)).consent.embed).toBe(true)
+    await shot(page, 'dock-shared-running')
+  } finally {
+    await request.delete(consent)
+  }
+})

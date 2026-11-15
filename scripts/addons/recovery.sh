@@ -59,7 +59,7 @@ run_go() {
     shift
     report="$cache/logs/recovery-$name.json"
     rm -f "$report"
-    go test -count=1 -p 2 -tags auth "$@" -ginkgo.json-report="$report" >"$cache/logs/recovery-$name.log" 2>&1 || { tail -40 "$cache/logs/recovery-$name.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp "$@" -ginkgo.json-report="$report" >"$cache/logs/recovery-$name.log" 2>&1 || { tail -40 "$cache/logs/recovery-$name.log" >&2; exit 1; }
     go_cases "$report"
 }
 run_go package ./core/services/addons/recovery

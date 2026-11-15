@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -51,6 +54,7 @@ type fakeCredentials struct {
 	allowed map[string]string // key -> id
 	calls   []string
 	err     error
+	scopes  []string
 	// hold is set on every grant, as a source does for a shared binding.
 	hold func(context.Context, func(context.Context) error) error
 }
@@ -61,7 +65,7 @@ func (f *fakeCredentials) Credential(_ context.Context, a contract.Actor, addonI
 		return CredentialGrant{}, f.err
 	}
 	if key == "" {
-		return CredentialGrant{Credential: "secret", Hold: f.hold}, nil
+		return CredentialGrant{Credential: "secret", GrantedScopes: f.scopes, Hold: f.hold}, nil
 	}
 	id, ok := f.allowed[key]
 	if !ok {
@@ -196,6 +200,16 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(client.reads.Load()).To(Equal(int32(1)))
 	})
 
+	It("drops granted scopes that the caller put in the request and sets the host's", func() {
+		_, err := read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`), GrantedScopes: []string{"admin"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen[0].GrantedScopes).To(BeEmpty())
+		creds.scopes = []string{"read"}
+		_, err = read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`), GrantedScopes: []string{"admin"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen[1].GrantedScopes).To(Equal([]string{"read"}))
+	})
+
 	It("fails closed when the owner has no credential source", func() {
 		g.Credentials = nil
 		_, err := read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`)})
@@ -225,6 +239,89 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(creds.calls).To(BeEmpty())
 		Expect(client.seen[0].Credential).To(BeEmpty())
+	})
+})
+
+// perAddonCredentials gives each add-on ID its own credential and resource
+// list. It stands for any owner source: the host asks it by ID and never
+// branches on the ID itself.
+type perAddonCredentials struct{ lists map[string]*fakeCredentials }
+
+func (p perAddonCredentials) Credential(ctx context.Context, a contract.Actor, addonID, key string) (CredentialGrant, error) {
+	f, ok := p.lists[addonID]
+	if !ok {
+		return CredentialGrant{}, &CredentialRefusal{Code: CodeNoCredential}
+	}
+	g, err := f.Credential(ctx, a, addonID, key)
+	if err == nil {
+		g.Credential = "secret-of-" + addonID
+	}
+	return g, err
+}
+
+var _ = Describe("two differently named add-ons with credentials", Label("tools"), func() {
+	ctx := context.Background()
+	defs := []contract.ToolDefinition{
+		{Name: "read-file", Kind: "read", Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{"repo":{"type":"string"}},"required":["repo"],"additionalProperties":false}`)},
+	}
+	source := credCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"providerA": {"read-file"}, "providerB": {"read-file"}}}, defs: defs}}
+
+	It("needs no host change and no branch on the add-on ID", func() {
+		client := &envClient{}
+		a := &fakeCredentials{allowed: map[string]string{"acme/widgets": "r-0123456789"}}
+		b := &fakeCredentials{allowed: map[string]string{"acme/gadgets": "r-9876543210"}}
+		g := &Gateway{Admission: &addonAdmitted{}, Resolver: strictResolver{}, Runtime: currentFixture{client}, Tools: source,
+			Credentials: perAddonCredentials{lists: map[string]*fakeCredentials{"providerA": a, "providerB": b}},
+			Revalidate:  func(context.Context, contract.Actor) error { return nil }}
+		read := func(id, repo string) (contract.Result, error) {
+			req := contract.Request{AddonID: id, Generation: 1, OperationID: "op", Action: "read",
+				Arguments: json.RawMessage(`{"tool":"read-file","repo":"` + repo + `"}`)}
+			return g.Dispatch(ctx, contract.Actor{UserID: "alice", CredentialID: "c", Mode: "named-user"}, req)
+		}
+
+		_, err := read("providerA", "acme/widgets")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = read("providerB", "acme/gadgets")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen).To(HaveLen(2))
+		Expect(client.seen[0].Credential).To(Equal("secret-of-providerA"))
+		Expect(client.seen[0].ResourceID).To(Equal("r-0123456789"))
+		Expect(client.seen[1].Credential).To(Equal("secret-of-providerB"))
+		Expect(client.seen[1].ResourceID).To(Equal("r-9876543210"))
+
+		// A resource of one add-on is not allowed for the other, and the
+		// refusal is the same typed one, before the add-on is called.
+		for _, c := range []struct{ id, repo string }{{"providerA", "acme/gadgets"}, {"providerB", "acme/widgets"}} {
+			_, err = read(c.id, c.repo)
+			var refusal *CredentialRefusal
+			Expect(errors.As(err, &refusal)).To(BeTrue())
+			Expect(refusal.Code).To(Equal(CodeResourceNotAllowed))
+			Expect(err).To(MatchError(ErrForbidden))
+		}
+		Expect(client.reads.Load()).To(Equal(int32(2)))
+	})
+})
+
+var _ = Describe("the refusal codes of a credentialed call", func() {
+	codes := []string{CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection, CodeReconnectNeeded, CodeOwnerReconnectNeeded}
+	It("names reconnect_needed on the wire", func() {
+		Expect(CodeReconnectNeeded).To(Equal("reconnect_needed"))
+	})
+	It("crosses the carrier from the owner to a forwarding frontend as the same refusal", func() {
+		for _, code := range codes {
+			Expect(refusalCode(code)).To(BeTrue(), code)
+			rec := httptest.NewRecorder()
+			typedError(rec, fmt.Errorf("call: %w", &CredentialRefusal{Code: code}))
+			Expect(rec.Code).To(Equal(http.StatusForbidden), code)
+			var b sdkWire
+			Expect(json.Unmarshal(rec.Body.Bytes(), &b)).To(Succeed())
+			Expect(b.Type).To(Equal(code))
+			Expect(refusalCode(b.Type)).To(BeTrue(), code)
+		}
+		Expect(refusalCode("forbidden")).To(BeFalse())
+	})
+	It("is a plain denial for a caller that does not tell refusals apart", func() {
+		Expect(errors.Is(&CredentialRefusal{Code: CodeReconnectNeeded}, ErrForbidden)).To(BeTrue())
 	})
 })
 

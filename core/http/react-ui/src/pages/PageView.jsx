@@ -5,6 +5,8 @@ import Icon from '../components/Icon'
 import PageFrame from '../components/PageFrame'
 import PageLinkAsk from '../components/PageLinkAsk'
 import { usePageLinks } from '../hooks/usePageLinks'
+import { usePinnedPages } from '../hooks/usePinnedPages'
+import Switch from '../components/ui/Switch'
 import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -74,6 +76,24 @@ export default function PageView() {
   const age = usePageAge()
   const asksRef = useRef(asks)
   asksRef.current = asks
+  // The start page is the first pinned page. The switch of the bar writes the
+  // order of pinnedPages and nothing else.
+  const pinned = usePinnedPages(true)
+  const isStart = pinned.start === name
+  const alone = isStart && pinned.pins.length === 1
+  const [startBusy, setStartBusy] = useState(false)
+  const [startError, setStartError] = useState('')
+  const setStart = async (on) => {
+    setStartBusy(true)
+    setStartError('')
+    try {
+      await pinned.setStart(name, on)
+    } catch (e) {
+      setStartError(e?.message || 'error')
+    } finally {
+      setStartBusy(false)
+    }
+  }
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!isPageName(name)) {
@@ -176,12 +196,27 @@ export default function PageView() {
             <span className="pg-pill" title={t('view.runsAsYouHint')} data-testid="page-runs-as-you">
               <Icon name="user" /> {t('view.runsAsYou')}
             </span>
+            {isStart && (
+              <span className="pg-pill pg-pill--start" data-testid="page-start-badge">
+                <Icon name="pin" /> {t('view.startPage')}
+              </span>
+            )}
             <span className="pg-pill pg-pill--live" data-testid="page-updated">
               <Icon name="check-circle" /> {t(`view.updated.${by}`, { when })}
             </span>
           </div>
         )}
         <div className="pg-strip__actions">
+          {page && pinned.loaded && (
+            <span className="pg-start" data-testid="page-start">
+              <Switch
+                checked={isStart} onChange={setStart} disabled={startBusy || alone}
+                labelledBy="pg-start-label" describedBy={alone ? 'pg-start-hint' : undefined} testId="page-start-switch"
+              />
+              <span id="pg-start-label" className="pg-start__label">{t('view.makeStart')}</span>
+              {alone && <span id="pg-start-hint" className="pg-start__hint">{t('view.startAlone')}</span>}
+            </span>
+          )}
           <button type="button" className="btn btn-ghost btn-sm" onClick={reload} data-testid="page-reload">
             <Icon name="refresh" /> {t('view.reload')}
           </button>
@@ -190,6 +225,8 @@ export default function PageView() {
           </button>
         </div>
       </header>
+
+      {startError && <p className="pg-asks pg-ask__error" role="alert" data-testid="page-start-error">{t('view.startFailed', { message: startError })}</p>}
 
       {asks.length > 0 && (
         <div className="pg-asks">

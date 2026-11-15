@@ -53,7 +53,7 @@ export default function AnswerFields({ form, setForm, t, kindInfo, places, notif
       <legend>{s('answer.title')}</legend>
       {places}
       {notify}
-      <Field label={s('answer.replyLabel')} hint={s('answer.replyHelp')}>
+      <Field label={s('answer.replyLabel')} hint={form.reply_mode === 'reasoning' ? `${s('answer.replyHelp')} ${s('answer.replyReasoningHelp')}` : s('answer.replyHelp')}>
         {(p) => (
           <Select {...p} data-testid="connector-reply" value={form.reply_mode || 'progress'}
             onChange={(e) => setForm({ ...form, reply_mode: e.target.value })}>

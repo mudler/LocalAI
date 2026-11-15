@@ -10,7 +10,7 @@ import { connectorApi, openEdit, openPane } from './connector-fixtures.js'
 
 const PAGE = '/app/addons/mail/apps'
 const BINDING = { id: 'b1', name: 'Mail: ann@example.com', kind: 'mail', agent_id: '', enabled: false, accept_any: false, allow: [], resources: ['ann@example.com'], write_mode: 'propose', has_token: true }
-const KIND = { capabilities: [], kindExtra: { title: 'Mail', files: undefined, agent_optional: true } }
+const KIND = { capabilities: [], kindExtra: { title: 'Mail', files: undefined, agent_optional: true, tool_only: true } }
 const api = (page, initial = []) => connectorApi(page, initial, 'mail', [], undefined, KIND)
 
 // The check tool answers through the add-on gateway of the page.
@@ -97,7 +97,31 @@ test.describe('Mail add-on', () => {
     const group = page.getByRole('radiogroup', { name: 'What the agent may do with mail' })
     await expect(group.getByRole('radio', { name: /Read only/ })).toBeChecked()
     await expect(group).toContainText('Each send and each draft waits for your OK.')
-    await expect(group.getByRole('radio')).toHaveCount(2)
+    await expect(group.getByRole('radio')).toHaveCount(3)
+    await expect(group.getByRole('radio', { name: /Allow all/ })).not.toBeChecked()
+    await group.getByRole('radio', { name: /Allow all/ }).check()
+    await expect(page.getByTestId('mail-write-note')).toContainText('cannot be taken back')
+  })
+
+  test('Allow all is saved and reads back after a reload', async ({ page }) => {
+    await install(page)
+    const a = api(page, [{ ...BINDING, write_mode: 'off' }])
+    await a.install()
+    await page.goto(PAGE)
+    await openEdit(page)
+    await page.getByRole('radio', { name: /Allow all/ }).check()
+    await page.getByTestId('connector-save').click()
+    const put = a.s.calls.find(c => c.method === 'PUT' || (c.method === 'PATCH'))
+    expect(put.body.write_mode).toBe('auto')
+    await install(page)
+    const b = api(page, [{ ...BINDING, write_mode: 'auto' }])
+    await b.install()
+    await page.goto(PAGE)
+    await openPane(page)
+    await expect(page.getByTestId('mail-row-write')).toHaveText('Allow all')
+    await page.goto(PAGE)
+    await openEdit(page)
+    await expect(page.getByRole('radio', { name: /Allow all/ })).toBeChecked()
   })
 
   test('a save sends the address as the resource and the whole connection sealed as the token', async ({ page }) => {

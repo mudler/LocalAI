@@ -4,7 +4,7 @@ When adding a GGUF model from HuggingFace to the LocalAI model gallery, follow t
 
 ## Gallery file
 
-The source of the models is the library file, `gallery/models/index.yaml`. Edit it there, in the library entry shape (header plus a `model:` body; see `docs/content/features/model-gallery.md`). `gallery/index.yaml` is a generated copy for releases before the cutover and is never edited by hand: after an edit run `go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml` and commit both files. CI fails when the copy differs. The examples below use the gallery field names (`files`, `overrides`, `config_file`); in the library they sit under `model:`, with `config_file` written as `configFile`.
+The source of the models is the library file, `gallery/models/index.yaml`. Edit it there, in the library entry shape (header plus a `model:` body; see `docs/content/models/_index.md`). `gallery/index.yaml` is a generated copy for releases before the cutover and is never edited by hand: after an edit run `go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml` and commit both files. CI fails when the copy differs. The examples below use the gallery field names (`files`, `overrides`, `config_file`); in the library they sit under `model:`, with `config_file` written as `configFile`.
 
 Find the appropriate section (embedding models near other embeddings, chat models near similar chat models) and add a new entry.
 
@@ -160,7 +160,7 @@ Rules:
 
 Users can override the automatic choice with `variant` on `POST /models/apply`,
 `local-ai models install --variant`, or the `install_model` MCP tool. See
-`docs/content/features/model-gallery.md`.
+`docs/content/models/_index.md`.
 
 The gallery lint specs live in `core/gallery`, so run that suite after adding a
 `variants` list.

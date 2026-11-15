@@ -24,13 +24,23 @@ var _ = Describe("the confirmation of a held write from a messaging chat", Label
 	powerOff := json.RawMessage(`{"tool":"power-action","device":"` + device + `","command":"off"}`)
 	typeText := json.RawMessage(`{"tool":"type-text","device":"` + device + `","text":"hello"}`)
 
+	// hardTypeText gives type-text a hard approval, the way an add-on can still
+	// declare one for a tool that must never run unasked.
+	hardTypeText := false
 	open := func(mode string) (*brokerFixture, *spyRuntime) {
+		caps := manifest.Capabilities
+		caps.ToolDefinitions = append([]contract.ToolDefinition(nil), caps.ToolDefinitions...)
+		for i := range caps.ToolDefinitions {
+			if hardTypeText && caps.ToolDefinitions[i].Name == "type-text" {
+				caps.ToolDefinitions[i].Approval = contract.ApprovalAlways
+			}
+		}
 		binding := &bindingSource{mode: mode, repos: []string{device}, token: "kvm-user:kvm-pass"}
 		rt := newFixtureRuntime()
 		spy := &spyRuntime{fixtureRuntime: rt}
 		f := openBrokerFixture(ModeNamedUser, GinkgoT().TempDir(), rt, &fixtureInstances{gen: 1, rt: spy}, &clock{t: time.Now()}, &account{blocked: map[string]bool{}},
 			func(o *BrokerOptions) {
-				o.Tools = manifestTools{caps: manifest.Capabilities}
+				o.Tools = manifestTools{caps: caps}
 				o.Credentials = binding
 				o.ConfirmCredential = func(a contract.Actor) bool {
 					return a.CredentialID == "chats" || strings.HasPrefix(a.CredentialID, "session:")
@@ -73,6 +83,7 @@ var _ = Describe("the confirmation of a held write from a messaging chat", Label
 	})
 
 	It("does not let the mark lift a tool that always asks", func() {
+		hardTypeText = true
 		f, spy := open(gateway.WriteAuto)
 		p := propose(f, typeText)
 		Expect(p.Hold).To(Equal("approval_always"))

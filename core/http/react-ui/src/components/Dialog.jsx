@@ -4,7 +4,8 @@ import Icon from './Icon'
 
 // The kit's dialog as one component: portal, dialog roles, focus moved in and
 // returned, Tab kept inside, Escape and a click on the veil to close. Use
-// role="alertdialog" for a confirmation.
+// role="alertdialog" for a confirmation. An element with data-autofocus gets
+// the first focus (a confirmation puts it on Cancel).
 //
 //   title, description   the head
 //   foot                 buttons for the foot (primary action last)
@@ -21,7 +22,7 @@ export default function Dialog({ title, description, foot, onClose, role = 'dial
     const opener = document.activeElement
     const dialog = ref.current
     const field = dialog?.querySelector('.dk-dialog-body input:not([disabled]), .dk-dialog-body select, .dk-dialog-body textarea')
-    ;(field || dialog?.querySelector('.dk-dialog-foot .dk-btn--primary, .dk-dialog-foot .dk-btn, button'))?.focus()
+    ;(dialog?.querySelector('[data-autofocus]') || field || dialog?.querySelector('.dk-dialog-foot .dk-btn--primary, .dk-dialog-foot .dk-btn, button'))?.focus()
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault(); e.stopPropagation()

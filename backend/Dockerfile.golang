@@ -29,8 +29,8 @@ ARG APT_PORTS_MIRROR
 # at the apt step.
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+    sh /usr/local/sbin/apt-mirror apt-get update && \
+    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
         build-essential \
         git ccache \
         ca-certificates \
@@ -38,7 +38,7 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
         curl unzip \
         libssl-dev && \
     if apt-cache show gcc-14 >/dev/null 2>&1 && apt-cache show g++-14 >/dev/null 2>&1; then \
-        apt-get install -y --no-install-recommends gcc-14 g++-14 && \
+        sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends gcc-14 g++-14 && \
         update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 \
             --slave /usr/bin/g++ g++ /usr/bin/g++-14 \
             --slave /usr/bin/gcov gcov /usr/bin/gcov-14; \

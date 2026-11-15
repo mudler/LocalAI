@@ -212,3 +212,78 @@ var _ = Describe("the host backend", func() {
 		Expect(left).To(BeEmpty(), "a failed Create left folders")
 	})
 })
+
+// lockedBuf is a writer that a spec may read while a process writes to it.
+type lockedBuf struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
+
+func (l *lockedBuf) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+func (l *lockedBuf) String() string { l.mu.Lock(); defer l.mu.Unlock(); return l.b.String() }
+
+// startsAChild runs a command that forks a background sleep and prints its
+// pid, as a job or as a foreground command.
+func startsAChild(sb sandbox.Sandbox, job bool, ctx context.Context) (sandbox.Process, int) {
+	var out lockedBuf
+	p, err := sb.Exec(ctx, sandbox.Cmd{Job: job, Args: []string{"sh", "-c", "sleep 300 </dev/null >/dev/null 2>&1 & echo $!"}, Stdout: &out})
+	Expect(err).ToNot(HaveOccurred())
+	// The pid is printed before the shell exits; wait for it.
+	Eventually(func() string { return strings.TrimSpace(out.String()) }).ShouldNot(BeEmpty())
+	pid, err := strconv.Atoi(strings.TrimSpace(out.String()))
+	Expect(err).ToNot(HaveOccurred(), "pid %q", out.String())
+	DeferCleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+	return p, pid
+}
+
+var _ = Describe("a job process group", func() {
+	It("kills what a job left running when its main process returns", func() {
+		sb := newSandbox(newBackend(host.Options{Root: GinkgoT().TempDir()}))
+		p, pid := startsAChild(sb, true, context.Background())
+		_, err := p.Wait()
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() bool { return alive(pid) }, 5*time.Second).Should(BeFalse())
+	})
+
+	It("leaves what a foreground command left running", func() {
+		sb := newSandbox(newBackend(host.Options{Root: GinkgoT().TempDir()}))
+		p, pid := startsAChild(sb, false, context.Background())
+		_, err := p.Wait()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(alive(pid)).To(BeTrue())
+	})
+
+	It("kills the group of a job that is signalled after its main process ended", func() {
+		sb := newSandbox(newBackend(host.Options{Root: GinkgoT().TempDir()}))
+		var out lockedBuf
+		// The main process stays; the child ignores the signal.
+		p, err := sb.Exec(context.Background(), sandbox.Cmd{Job: true, Args: []string{"sh", "-c", "(trap '' TERM; sleep 300) </dev/null >/dev/null 2>&1 & echo $!; sleep 300"}, Stdout: &out})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() string { return strings.TrimSpace(out.String()) }).ShouldNot(BeEmpty())
+		pid, _ := strconv.Atoi(strings.TrimSpace(out.String()))
+		DeferCleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+		Expect(p.Signal(syscall.SIGTERM)).To(Succeed())
+		_, _ = p.Wait()
+		Eventually(func() bool { return alive(pid) }, 5*time.Second).Should(BeFalse())
+	})
+
+	It("kills the group when the lifetime context ends", func() {
+		sb := newSandbox(newBackend(host.Options{Root: GinkgoT().TempDir()}))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var out lockedBuf
+		p, err := sb.Exec(ctx, sandbox.Cmd{Job: true, Args: []string{"sh", "-c", "sleep 300 </dev/null >/dev/null 2>&1 & echo $!; sleep 300"}, Stdout: &out})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() string { return strings.TrimSpace(out.String()) }).ShouldNot(BeEmpty())
+		pid, _ := strconv.Atoi(strings.TrimSpace(out.String()))
+		DeferCleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+		cancel()
+		_, werr := p.Wait()
+		Expect(werr).To(HaveOccurred())
+		Eventually(func() bool { return alive(pid) }, 5*time.Second).Should(BeFalse())
+	})
+})

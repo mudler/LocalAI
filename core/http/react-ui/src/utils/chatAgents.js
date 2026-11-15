@@ -135,6 +135,9 @@ export function agentPayload(form, opts) {
     // The network of the isolated commands of the agent's unattended runs.
     network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
+  // The sandbox profile of its unattended runs: '' is the administrator's
+  // default. A form that never touched it sends nothing, so the stored one stays.
+  if (typeof form.sandbox_profile === 'string') body.sandbox_profile = form.sandbox_profile.trim()
   // The choice of notes. An agent saved before it has none, and a write
   // without it keeps the stored one.
   if (MEMORY_CHOICES.includes(form.memory)) body.memory = form.memory

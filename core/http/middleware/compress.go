@@ -41,6 +41,9 @@ var streamingPathPrefixes = []string{
 	"/api/generate",
 	"/api/backend-logs",
 	"/api/node-backend-logs",
+	// Client routes of add-ons: a stream among them must not sit in a gzip
+	// buffer, and the unary answers are small.
+	"/api/client/addons/",
 	"/ws/",
 }
 

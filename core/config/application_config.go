@@ -3,7 +3,11 @@ package config
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -219,6 +223,11 @@ type ApplicationConfig struct {
 	// LocalAI exposes at /api/middleware/proxy-ca.crt.
 	MITMListen string
 
+	// TLSFingerprint is the SHA-256 of the certificate the API server presents,
+	// in lower case hex, or empty when it serves plain HTTP. The pairing of a
+	// client offers it so that the client can pin the certificate.
+	TLSFingerprint string
+
 	// PIIDefaultDetectors lists token-classification (NER) detector model
 	// names applied to any PII-enabled model that does not name its own
 	// pii.detectors. This makes cloud-proxy / MITM redaction work out of the
@@ -344,6 +353,12 @@ type ApplicationConfig struct {
 	// Runtime-toggleable via /api/settings (shared_pages_enabled).
 	DisableSharedPages bool
 
+	// DisablePageArea turns off the page area of Home for every user: a
+	// pageArea of home.json is ignored and the area says an administrator
+	// turned it off. Runtime-toggleable via /api/settings
+	// (home_page_area_enabled).
+	DisablePageArea bool
+
 	// ChatsHostExec is who gets the chats' built-in bash, which runs commands
 	// on this machine with no isolation: off, ask (administrators, with a card
 	// for each command) or on. Empty: off with accounts, ask without.
@@ -412,6 +427,13 @@ type ApplicationConfig struct {
 	ChatsWebAllowPrivate    bool
 	ChatsWebPorts           string
 
+	// ClientJobsAllowAllTools lifts the read-only rule of the jobs that an add-on
+	// starts for a paired client: they may then use the write and act tools that
+	// the agent of the task is set up with, as an ordinary job of the task may,
+	// and no grant the agent does not hold. Off by default: such a job reads
+	// and reports only. It is read when a job runs.
+	ClientJobsAllowAllTools bool
+
 	// The network of the commands that chats run in the Sandbox, through the
 	// host proxy. Each is runtime-toggleable via /api/settings and read at
 	// each check, so no restart. ChatsEgressCeiling is the widest preset
@@ -461,6 +483,13 @@ type ApplicationConfig struct {
 	ChatsLoopMaxPerUser  int
 	ChatsLoopDailyRuns   int
 
+	// The limits of the triggers of the chats. Zero means the default.
+	// Runtime-settable via /api/settings (chats_trigger_run_limit,
+	// chats_trigger_max_per_user, chats_trigger_max_daily_cap); read at each use.
+	ChatsTriggerRunLimit    time.Duration
+	ChatsTriggerMaxPerUser  int
+	ChatsTriggerMaxDailyCap int
+
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents
 	// as sub-agents (list_agents and the agent argument of spawn_agent).
 	// Stored as the negation (chats_saved_agents), so it is on by default;
@@ -501,6 +530,15 @@ type ApplicationConfig struct {
 	// pass of the indexer, so no restart.
 	DisableChatsIndexFiles bool
 	ChatsIndexMaxTextBytes int
+
+	// ChatsExtractMaxBytes and ChatsExtractMaxEntries are the limits of
+	// "Extract here" on the Files page (chats_extract_max_bytes and
+	// chats_extract_max_entries; 0: the defaults). ChatsExtractSevenZipRar
+	// turns on 7z and RAR archives (chats_extract_7z_rar; off by default).
+	// All three are read at each request.
+	ChatsExtractMaxBytes    int64
+	ChatsExtractMaxEntries  int
+	ChatsExtractSevenZipRar bool
 
 	// DisableChatSuggestions stops the assistant from offering things (to
 	// remember a name, to make a shortcut, to update a widget on a schedule)
@@ -1182,6 +1220,14 @@ func WithDisableStats(disable bool) AppOption {
 	}
 }
 
+// WithTLSFingerprint records the fingerprint of the certificate of the API
+// server. CLI: --tls-cert, --tls-key and --tls-self-signed.
+func WithTLSFingerprint(fingerprint string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TLSFingerprint = fingerprint
+	}
+}
+
 // WithMITMListen sets the address the cloudproxy MITM listener
 // binds on. Empty = disabled. CLI: --mitm-listen.
 func WithMITMListen(addr string) AppOption {
@@ -1504,6 +1550,13 @@ func WithDisableSharedPages(disabled bool) AppOption {
 	}
 }
 
+// WithDisablePageArea turns off the page area of Home.
+func WithDisablePageArea(disabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisablePageArea = disabled
+	}
+}
+
 // WithExposeNodeHeader enables the X-LocalAI-Node response header on
 // inference endpoints. Default off; the node ID reveals internal cluster
 // topology and is opt-in for that reason.
@@ -1692,6 +1745,43 @@ func (o *ApplicationConfig) EffectiveChatsLoopDailyRuns() int {
 	return inRange(o.ChatsLoopDailyRuns, MaxChatsLoopDailyRuns, DefaultChatsLoopDailyRuns)
 }
 
+// Bounds and defaults of the trigger settings of the chats.
+const (
+	MinChatsTriggerRunLimit        = time.Minute
+	MaxChatsTriggerRunLimit        = 24 * time.Hour
+	DefaultChatsTriggerRunLimit    = 15 * time.Minute
+	DefaultChatsTriggerMaxPerUser  = 50
+	MaxChatsTriggerMaxPerUser      = 1000
+	DefaultChatsTriggerMaxDailyCap = 1000
+	MaxChatsTriggerMaxDailyCap     = 1000
+)
+
+// EffectiveChatsTriggerRunLimit is chats_trigger_run_limit as it applies now:
+// the longest one run of a trigger may take.
+func (o *ApplicationConfig) EffectiveChatsTriggerRunLimit() time.Duration {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	if d := o.ChatsTriggerRunLimit; d >= MinChatsTriggerRunLimit && d <= MaxChatsTriggerRunLimit {
+		return d
+	}
+	return DefaultChatsTriggerRunLimit
+}
+
+// EffectiveChatsTriggerMaxPerUser is chats_trigger_max_per_user as it applies now.
+func (o *ApplicationConfig) EffectiveChatsTriggerMaxPerUser() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsTriggerMaxPerUser, MaxChatsTriggerMaxPerUser, DefaultChatsTriggerMaxPerUser)
+}
+
+// EffectiveChatsTriggerMaxDailyCap is chats_trigger_max_daily_cap as it
+// applies now: the most runs a day that one trigger may be set to.
+func (o *ApplicationConfig) EffectiveChatsTriggerMaxDailyCap() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsTriggerMaxDailyCap, MaxChatsTriggerMaxDailyCap, DefaultChatsTriggerMaxDailyCap)
+}
+
 // Bounds of chats_index_max_text_bytes.
 const (
 	MinChatsIndexMaxTextBytes     = 64 << 10
@@ -1706,6 +1796,35 @@ func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
 		return n
 	}
 	return DefaultChatsIndexMaxTextBytes
+}
+
+// Bounds and defaults of the limits of "Extract here".
+const (
+	MinChatsExtractMaxBytes     int64 = 1 << 20
+	MaxChatsExtractMaxBytes     int64 = 64 << 30
+	DefaultChatsExtractMaxBytes int64 = 1 << 30
+
+	MinChatsExtractMaxEntries     = 1
+	MaxChatsExtractMaxEntries     = 1000000
+	DefaultChatsExtractMaxEntries = 20000
+)
+
+// EffectiveChatsExtractMaxBytes is the most bytes one archive may expand to:
+// the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsExtractMaxBytes() int64 {
+	if n := o.ChatsExtractMaxBytes; n >= MinChatsExtractMaxBytes && n <= MaxChatsExtractMaxBytes {
+		return n
+	}
+	return DefaultChatsExtractMaxBytes
+}
+
+// EffectiveChatsExtractMaxEntries is the most entries one archive may have:
+// the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsExtractMaxEntries() int {
+	if n := o.ChatsExtractMaxEntries; n >= MinChatsExtractMaxEntries && n <= MaxChatsExtractMaxEntries {
+		return n
+	}
+	return DefaultChatsExtractMaxEntries
 }
 
 // DefaultChatsEgressAuditDays is how long the Sandbox network audit keeps a
@@ -1764,4 +1883,26 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 
 func WithP2PEnableLimits(enabled bool) AppOption {
 	return func(o *ApplicationConfig) { o.P2PEnableLimits = enabled }
+}
+
+// BrandingAssetURL returns the URL clients should use for an uploaded
+// branding asset of the given kind, or defaultURL when file is empty.
+//
+// The asset route is a fixed path that browsers cache, so a replacement
+// upload would keep showing the old image. The URL therefore carries a
+// version derived from the stored file's modification time; every upload
+// changes it and forces a fresh fetch.
+func (o *ApplicationConfig) BrandingAssetURL(kind, file, defaultURL string) string {
+	if file == "" {
+		return defaultURL
+	}
+	url := "/branding/asset/" + kind
+	if o.DynamicConfigsDir == "" || strings.ContainsAny(file, "/\\") {
+		return url
+	}
+	info, err := os.Stat(filepath.Join(o.DynamicConfigsDir, "branding", file))
+	if err != nil {
+		return url
+	}
+	return url + "?v=" + strconv.FormatInt(info.ModTime().UnixNano(), 36)
 }

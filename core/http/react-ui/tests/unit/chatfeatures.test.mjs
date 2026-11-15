@@ -80,6 +80,8 @@ test('trigger proposals: the card says proposed, created (same id) or gone, and 
   })
   const f = { id: 'p2', name: 'Inbox', prompt: 'Read', kind: 'file', folder: '/In', quiet_seconds: 30 }
   assert.deepEqual(proposalEdit(f, { name: 'Inbox', when: '/Contracts' }), { name: 'Inbox', prompt: 'Read', kind: 'file', enabled: false, daily_cap: 0, folder: '/Contracts', quiet_seconds: 30 })
+  assert.equal(proposalEdit({ ...p, run_limit: '30m' }, { name: 'News', when: 'daily 08:00' }).run_limit, '30m', 'an edit keeps the time limit')
+  assert.equal('run_limit' in proposalEdit(p, { name: 'News', when: 'daily 08:00' }), false)
   assert.deepEqual(proposalIds([
     { role: 'tool', card: { kind: 'trigger_proposal', id: 'p1' } },
     { role: 'tool', card: { kind: 'mcp_app', id: 'x' } },
@@ -101,6 +103,8 @@ test('trigger changes: the card reads the state the server keeps and the cards k
   assert.equal(changeValue('enabled', { enabled: false }), 'off')
   assert.equal(changeValue('writes', { plan: { writes: 'data/a.json' } }), 'data/a.json')
   assert.equal(changeValue('estimated_tokens', { cost: {} }), '')
+  assert.equal(changeValue('run_limit', { run_limit: '30m' }), '30m')
+  assert.equal(changeValue('run_limit', { run_limit: '' }), '')
   assert.equal(changeValue('name', { name: 'X' }), 'X')
   assert.equal(changeValue('acts', { acts: ['act.files', 'act.spend'] }), 'act.files, act.spend')
   assert.equal(changeValue('acts', {}), '')

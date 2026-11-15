@@ -119,7 +119,7 @@ var _ = Describe("loops of agents and sub-agents", func() {
 			Expect(l.Reason).To(ContainSubstring("2 runs"))
 		})
 
-		It("keeps the loop tools from a connector chat", func() {
+		It("keeps the loop tools from a connector chat that has no sender turn", func() {
 			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
 			rec, err := r.svc.CreateAs(ctx, alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginConnector, ID: "c1"})
 			Expect(err).NotTo(HaveOccurred())

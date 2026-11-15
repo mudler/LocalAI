@@ -1,8 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
 import { ADMIN, app, installedAddon, sessionFor, mockAddons, ok, fail } from './addons-fixtures.js'
 
-// What follows an add-on upgrade after it is confirmed: Check for updates
-// reads every installed add-on, and an upgrade runs in the upgrade store, so it
+// What follows an add-on upgrade after it is confirmed: Check now on the
+// Updates page reads every installed add-on, and an upgrade runs in the upgrade store, so it
 // goes on when the page is left and shows in Activity. The confirmation and the
 // "Upgrade all" dialog are covered by addons-upgrade-list.spec.js, and the
 // backend dialog by backends-runtime.spec.js.
@@ -34,16 +34,16 @@ function twoPending(over = {}) {
 }
 
 test.describe('Add-on updates: after the confirmation', () => {
-  test('Check for updates reads every installed add-on and keeps going when one cannot be checked', async ({ page }) => {
+  test('Check now on the Updates page reads every installed add-on and keeps going when one cannot be checked', async ({ page }) => {
     await signIn(page)
     const state = await mockAddons(page, twoPending({
       check: ({ id }) => (id === 'wiki' ? fail(503, 'check_failed') : null),
     }))
-    await page.goto('/app/addons')
-    await page.getByTestId('addons-check-all').click()
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-check-now').click()
     await expect.poll(() => state.log.check.length).toBe(4)
     expect(state.log.check.every(c => c.confirm === c.operationId)).toBe(true)
-    await expect(page.getByText('1 could not be checked.')).toBeVisible()
+    await expect(page.getByTestId('updates-check-result')).toBeVisible()
     expect(state.log.upgrade).toHaveLength(0)
   })
 
@@ -67,14 +67,14 @@ test.describe('Add-on updates: after the confirmation', () => {
     })
     await page.goto('/app/addons')
     await page.locator('[data-testid="addon-tile"][data-app="wiki"]').getByTestId('update-upgrade-card').click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
 
     // Leave the page without a reload: the upgrade goes on.
     await page.evaluate(() => { window.history.pushState({}, '', '/app/activity'); window.dispatchEvent(new PopStateEvent('popstate')) })
     await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible()
     const card = page.locator('.operation-card').filter({ hasText: 'Wiki' })
     await expect(card).toBeVisible()
-    await expect(card).toContainText('Upgrading add-on')
+    await expect(card).toContainText('Updating add-on')
     await expect(card).toContainText('0.9.0 to 1.0.0')
     await expect(card.getByRole('button', { name: /cancel/i })).toHaveCount(0)
     await expect(card.getByRole('progressbar')).toHaveCount(0)
@@ -95,7 +95,7 @@ test.describe('Add-on updates: after the confirmation', () => {
     finished = true
     await expect(card).toHaveCount(0)
     const record = page.locator('.activity-row').filter({ hasText: 'Wiki' })
-    await expect(record).toContainText('Upgraded')
+    await expect(record).toContainText('Updated')
     await expect(record.getByRole('link', { name: 'View in Add-ons' })).toHaveAttribute('href', '/app/addons')
   })
 
@@ -109,17 +109,17 @@ test.describe('Add-on updates: after the confirmation', () => {
     }))
     await page.goto('/app/addons')
     await page.locator('[data-testid="addon-tile"][data-app="wiki"]').getByTestId('update-upgrade-card').click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(1)
     await page.evaluate(() => { window.history.pushState({}, '', '/app/activity'); window.dispatchEvent(new PopStateEvent('popstate')) })
 
     const card = page.locator('.operation-card').filter({ hasText: 'Wiki' })
-    await expect(card).toContainText("Couldn't upgrade add-on")
+    await expect(card).toContainText("Couldn't update add-on")
     await expect(card).toContainText('installed version is kept')
     await card.getByRole('button', { name: /retry/i }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(2)
     expect(state.log.upgrade[0].operationId).not.toBe(state.log.upgrade[1].operationId)
     await expect(card).toHaveCount(0)
-    await expect(page.locator('.activity-row').filter({ hasText: 'Wiki' })).toContainText('Upgraded')
+    await expect(page.locator('.activity-row').filter({ hasText: 'Wiki' })).toContainText('Updated')
   })
 })

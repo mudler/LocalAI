@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/mudler/LocalAI/core/services/collections"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -73,6 +74,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
+	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -146,6 +148,8 @@ type Application struct {
 	// The per-person add-on settings are built once: the routes and the chats
 	// read the same store.
 	addonUserSettingsOnce sync.Once
+	modelSearchOnce       sync.Once
+	modelSearchHost       *modelsearch.Host
 	addonUserSettings     usersettings.Store
 	addonUserSettingsErr  error
 
@@ -181,6 +185,8 @@ type Application struct {
 	// The list settings of the Sandbox network, each with its last valid
 	// value; see studioEgressSettings.
 	studioEgressListsOnce sync.Once
+	studioAuditOnce       sync.Once
+	studioAudit           hostexec.AuditStore // the audit of the commands, see studioHostExecAudit
 	studioEgressPorts     *lastGood[[]int]
 	studioEgressExtra     *lastGood[[]string]
 	studioEgressAllowed   *lastGood[[]egress.AllowedHost]
@@ -802,6 +808,15 @@ func (a *Application) Shutdown() error {
 				err = closeErr
 			}
 		}
+		// Last, so traces of work that ended during shutdown still persist.
+		// The trace consumers are process-wide and write after the request
+		// returns; without this a write lands in DataPath after Shutdown and
+		// races whoever removes the directory next. Release before closing,
+		// so no store is reopened under DataPath in between.
+		if a.applicationConfig != nil && a.applicationConfig.DataPath != "" {
+			trace.ReleaseBackendTracePersistence(a.applicationConfig.DataPath)
+			tracepersist.CloseUnder(a.applicationConfig.DataPath)
+		}
 	})
 	return err
 }
@@ -885,6 +900,7 @@ func (a *Application) start() (startErr error) {
 	assistantClient.SingleUser = !a.AuthActive()
 	// The chats start after the assistant, so the shared folder tools
 	// look the service up at each call.
+	assistantClient.ModelSearch = a.ModelSearch
 	assistantClient.SharedFolders = func() *sharedfolders.Service {
 		if svc := a.StudioService(); svc != nil {
 			return svc.SharedFolders()
@@ -906,6 +922,12 @@ func (a *Application) start() (startErr error) {
 	}
 	if a.backendLibrary != nil {
 		assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
+	}
+	assistantClient.UpdatesChecker = func() localaiInproc.BackendUpdatesSource {
+		if a.upgradeChecker == nil {
+			return nil
+		}
+		return a.upgradeChecker
 	}
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
@@ -1069,7 +1091,7 @@ func (a *Application) startAddons() error {
 		}
 		host := c.Host
 		if host == (contract.HostCompatibility{}) {
-			host = contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: runtime.GOOS, Arch: runtime.GOARCH}
+			host = contract.HostCompatibility{Host: contract.HostVersion, API: contract.HostAPIVersion, Protocol: contract.HostProtocolVersion, SDK: contract.HostSDKVersion, DataFormat: contract.HostDataFormatVersion, FeatureLevel: contract.HostFeatureLevel, OS: runtime.GOOS, Arch: runtime.GOARCH}
 		}
 		cat = catalog.Catalog{Sources: sources, TargetOS: host.OS, TargetArch: host.Arch}
 		installer = &packages.Installer{Root: filepath.Join(c.Root, "packages"), Catalog: cat, Host: host}

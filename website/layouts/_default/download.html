@@ -1,0 +1,39 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="kicker">Download</p>
+  <h1>Pick how you <span class="hl">install</span>.</h1>
+  <p class="lede">LocalAI is one binary or one container. Choose what fits your machine.</p>
+</div></header>
+<section><div class="shell duo top-start">
+  <div>
+    <h2 class="sec-h">Install methods</h2>
+    <ul class="list">
+      <li><b>Script</b> for Linux, and for macOS on Apple Silicon. It fetches the latest release binary.</li>
+      <li><b>Container</b>: Docker or Podman, with the <code>localai/localai</code> image.</li>
+      <li><b>macOS app</b> as a DMG. See the <a href="{{ .Site.Params.docsURL }}start/install/macos/">macOS guide</a>.</li>
+      <li><b>Kubernetes</b> with a Helm chart or a manifest.</li>
+      <li><b>Build from source</b> as described in the <a href="{{ .Site.Params.docsURL }}contributing/build-from-source/">build guide</a>.</li>
+    </ul>
+    <p class="fine"><a href="{{ .Site.Params.github }}/releases">All releases on GitHub</a></p>
+  </div>
+  <div>{{ partial "install.html" . }}</div>
+</div></section>
+<section class="band-inset"><div class="shell">
+  <h2 class="sec-h">Hardware</h2>
+  <div class="tablewrap"><table class="table">
+    <thead><tr><th>Hardware</th><th>What to know</th></tr></thead>
+    <tbody>
+      <tr><td>CPU</td><td>Works without a GPU.</td></tr>
+      <tr><td>NVIDIA</td><td>CUDA images and backends.</td></tr>
+      <tr><td>AMD</td><td>ROCm images and backends.</td></tr>
+      <tr><td>Intel GPU</td><td>SYCL and oneAPI.</td></tr>
+      <tr><td>Vulkan</td><td>Documented in the GPU guide.</td></tr>
+      <tr><td>Apple silicon</td><td>Metal, with the macOS app or binary.</td></tr>
+      <tr><td>NVIDIA Jetson</td><td>Documented in the container guide.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="fine"><a href="{{ .Site.Params.docsURL }}models/gpu-acceleration/">Read the GPU guide</a></p>
+</div></section>
+</main>
+{{ end }}

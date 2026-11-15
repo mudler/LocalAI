@@ -52,6 +52,24 @@ func (c *HomeCommand) UnmarshalJSON(b []byte) error {
 type ExecutionProvider struct {
 	Tools      []string `json:"tools"`
 	StatusTool string   `json:"statusTool"`
+	// Jobs names the tool that runs background jobs for the host's job tool
+	// (feature level 6). Nil: the provider cannot run background jobs, and the
+	// host says so instead of starting one anywhere else.
+	Jobs *ExecutionJobs `json:"jobs,omitempty"`
+}
+
+// ExecutionJobs binds the background jobs of an execution provider to one
+// action tool of the add-on. The tool is for the host alone (uiOnly): no
+// model sees it, and the host calls it with JobArgs from its own job tool.
+type ExecutionJobs struct {
+	Tool string `json:"tool"`
+}
+
+// IsExecutionJobsTool reports the declaration shape of the jobs tool: a
+// declared action tool that is page-only, shadows nothing and is not an
+// administrator tool. It grants nothing.
+func IsExecutionJobsTool(c Capabilities, d ToolDefinition) bool {
+	return slices.Contains(c.Tools, d.Name) && !slices.Contains(c.AdminTools, d.Name) && d.Kind == ToolKindAction && d.UIOnly && d.Shadows == ""
 }
 
 // HostOperations declares requests, never host grants. Omission preserves
@@ -138,6 +156,15 @@ func validateExtensions(c Capabilities) error {
 		}
 		if !ExecutionStatusAcceptsEmptyArguments(d) {
 			return fmt.Errorf("execution status must accept empty arguments")
+		}
+		if j := p.Jobs; j != nil {
+			if !ValidName(j.Tool) || slices.Contains(p.Tools, j.Tool) || j.Tool == p.StatusTool {
+				return fmt.Errorf("invalid execution jobs binding")
+			}
+			d, ok := defs[j.Tool]
+			if !ok || !IsExecutionJobsTool(c, d) {
+				return fmt.Errorf("execution jobs must bind a declared page-only action tool")
+			}
 		}
 	}
 	if ops := c.HostOperations; ops != nil {

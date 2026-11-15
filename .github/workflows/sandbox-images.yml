@@ -1,16 +1,20 @@
 ---
 name: 'sandbox guest image'
 
-# Builds the guest image of the Sandbox add-on for linux/amd64 and linux/arm64
-# (addons/sandbox/images/guest/Dockerfile) and pushes it to the project
-# registry, the one the other image jobs use (quay.io/go-skynet). The release
-# of the add-on stamps the digest into the executable:
+# Builds the guest images of the Sandbox add-on for linux/amd64 and
+# linux/arm64 (addons/sandbox/images/guest/Dockerfile) and pushes them to the
+# project registry, the one the other image jobs use (quay.io/go-skynet). There
+# is one image for each sandbox profile: the targets base and media of
+# the Dockerfile. The release of the add-on stamps the digests into the
+# executable:
 #
-#   SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest> sh scripts/addons/package.sh ...
+#   SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest> \
+#   SANDBOX_GUEST_IMAGE_MEDIA=<repository>@sha256:<digest> \
+#     sh scripts/addons/package.sh ...
 #
-# This workflow outputs that value as "image" (and the bare "digest"), so a
-# caller workflow can run it with `uses:` and pass the output to the package
-# legs of the sandbox add-on.
+# This workflow outputs these values as "image" (the base image; also the bare
+# "digest") and "image_media", so a caller workflow can run it
+# with `uses:` and pass the outputs to the package legs of the sandbox add-on.
 #
 # Event policy:
 #   pull_request          build both architectures, push nothing, no secrets
@@ -20,9 +24,16 @@ name: 'sandbox guest image'
 #                         sha-<short sha>, except for a pull request and for a
 #                         push to a branch other than master, which push nothing
 #
-# The repository is quay.io/go-skynet/sandbox-guest unless the repository
-# variable SANDBOX_GUEST_REPOSITORY names another one. The repository must
-# allow anonymous pulls: the add-on pulls the image on the host that runs it.
+# The repository of the base image is quay.io/go-skynet/sandbox-guest unless
+# the repository variable SANDBOX_GUEST_REPOSITORY names another one. The media
+# image goes to the same repository with the tag media-sha-<sha>; the base
+# image keeps sha-<sha>. The references by digest all
+# name the one repository. The digest comes from the registry, not from the
+# build step: the registry can store the index under another digest than the
+# one the build action reports, and only the stored one can be pulled. So the
+# workflow reads the digest of each pushed tag back and checks that the
+# reference by digest resolves. The repository must allow anonymous pulls: the
+# add-on pulls an image on the host that runs it.
 
 on:
   workflow_call:
@@ -33,6 +44,9 @@ on:
       digest:
         description: 'Digest of the guest image index'
         value: ${{ jobs.build.outputs.digest }}
+      image_media:
+        description: 'Reference of the media guest image by digest'
+        value: ${{ jobs.build.outputs.image_media }}
   workflow_dispatch:
   push:
     branches: [master]
@@ -58,10 +72,11 @@ jobs:
   build:
     name: build and push the guest image
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 300
     outputs:
       image: ${{ steps.ref.outputs.image }}
-      digest: ${{ steps.build.outputs.digest }}
+      digest: ${{ steps.resolve.outputs.digest }}
+      image_media: ${{ steps.ref.outputs.image_media }}
     env:
       REPOSITORY: ${{ vars.SANDBOX_GUEST_REPOSITORY || 'quay.io/go-skynet/sandbox-guest' }}
       # A caller's push to a branch other than master publishes nothing
@@ -86,12 +101,15 @@ jobs:
           registry: quay.io
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-      - name: Build
+      # Each target is one build. The kernel and the agent stages are shared,
+      # so the layer cache makes the second build short for them.
+      - name: Build base
         id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./addons/sandbox/images/guest/Dockerfile
+          target: base
           platforms: linux/amd64,linux/arm64
           # No attestation manifests: the add-on reads the index and picks the
           # manifest of its own architecture.
@@ -101,20 +119,92 @@ jobs:
           cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
           tags: ${{ env.REPOSITORY }}:sha-${{ github.sha }}
           push: ${{ env.PUSH == 'true' }}
-      - name: Name the image by digest
+      - name: Build media
+        id: build_media
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./addons/sandbox/images/guest/Dockerfile
+          target: media
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest
+          cache-to: ${{ env.PUSH == 'true' && 'type=registry,ref=quay.io/go-skynet/ci-cache:cache-sandbox-guest,mode=max,ignore-error=true' || '' }}
+          tags: ${{ env.REPOSITORY }}:media-sha-${{ github.sha }}
+          push: ${{ env.PUSH == 'true' }}
+      # The digest that the build action reports is the one of the index as it
+      # was built. A registry can re-serialize the index and serve it under
+      # another digest (quay.io does), and the reported one then gives a
+      # "manifest unknown" error. So read the digest back from the registry
+      # by the tag that was just pushed.
+      - name: Resolve the digests from the registry
+        id: resolve
+        if: env.PUSH == 'true'
+        env:
+          TAG: sha-${{ github.sha }}
+          TAG_MEDIA: media-sha-${{ github.sha }}
+        run: |
+          set -eu
+          digest=$(docker buildx imagetools inspect "${REPOSITORY}:${TAG}" --format '{{.Manifest.Digest}}')
+          digest_media=$(docker buildx imagetools inspect "${REPOSITORY}:${TAG_MEDIA}" --format '{{.Manifest.Digest}}')
+          for d in "$digest" "$digest_media"; do
+            case "$d" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "the registry gave no image digest: '$d'" >&2; exit 1 ;;
+            esac
+          done
+          echo "${REPOSITORY}:${TAG} is ${digest}"
+          echo "${REPOSITORY}:${TAG_MEDIA} is ${digest_media}"
+          {
+            echo "digest=${digest}"
+            echo "digest_media=${digest_media}"
+          } >> "$GITHUB_OUTPUT"
+      # The release names one digest for each profile. Each must be an index
+      # with an image for every architecture a host runs: linux/amd64 for
+      # Linux on Intel and AMD, and linux/arm64 for Linux on Arm and for a Mac
+      # with Apple silicon, which runs a linux/arm64 guest. A push that lacks
+      # one would break that host on its first sandbox.
+      - name: Check the architectures of the images
+        if: env.PUSH == 'true'
+        env:
+          DIGEST: ${{ steps.resolve.outputs.digest }}
+          DIGEST_MEDIA: ${{ steps.resolve.outputs.digest_media }}
+        run: |
+          set -eu
+          for d in "$DIGEST" "$DIGEST_MEDIA"; do
+            platforms=$(docker buildx imagetools inspect "${REPOSITORY}@${d}" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+            echo "${REPOSITORY}@${d}: ${platforms}"
+            for want in linux/amd64 linux/arm64; do
+              case " ${platforms}" in
+              *" ${want} "*) ;;
+              *) echo "the image ${REPOSITORY}@${d} has no ${want} manifest" >&2; exit 1 ;;
+              esac
+            done
+          done
+      - name: Name the images by digest
         id: ref
         if: env.PUSH == 'true'
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ steps.resolve.outputs.digest }}
+          DIGEST_MEDIA: ${{ steps.resolve.outputs.digest_media }}
         run: |
           set -eu
-          case "$DIGEST" in
-          sha256:????????????????????????????????????????????????????????????????) ;;
-          *) echo "the build returned no image digest: '$DIGEST'" >&2; exit 1 ;;
-          esac
-          echo "image=${REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          for d in "$DIGEST" "$DIGEST_MEDIA"; do
+            case "$d" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "no image digest was resolved: '$d'" >&2; exit 1 ;;
+            esac
+            # The reference that the release stamps must be pullable.
+            docker buildx imagetools inspect "${REPOSITORY}@${d}" > /dev/null
+          done
           {
-            echo '### Sandbox guest image'
+            echo "image=${REPOSITORY}@${DIGEST}"
+            echo "image_media=${REPOSITORY}@${DIGEST_MEDIA}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo '### Sandbox guest images'
             echo
             echo "SANDBOX_GUEST_IMAGE=${REPOSITORY}@${DIGEST}"
+            echo "SANDBOX_GUEST_IMAGE_MEDIA=${REPOSITORY}@${DIGEST_MEDIA}"
           } >> "$GITHUB_STEP_SUMMARY"

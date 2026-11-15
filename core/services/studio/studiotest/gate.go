@@ -40,7 +40,9 @@ func NewGateHarness() *GateHarness {
 	return &GateHarness{Gate: make(chan struct{}, 64)}
 }
 
-// Sent returns the texts of the turns, in order.
+// Sent returns the texts of the turns, in order, without the sentences of the
+// note that the host adds on its own (the work folder, the held back tools and
+// the missing trigger tools).
 func (g *GateHarness) Sent() []string {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -96,7 +98,7 @@ func (s *gateSession) Send(ctx context.Context, text string) error {
 	defer cancel()
 	g := s.g
 	g.mu.Lock()
-	g.sent = append(g.sent, text)
+	g.sent = append(g.sent, withoutHostNotes(text))
 	n := g.Requests
 	g.mu.Unlock()
 	if n == 0 {

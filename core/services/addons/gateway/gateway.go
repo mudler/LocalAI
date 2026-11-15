@@ -80,6 +80,10 @@ type Gateway struct {
 	// the blanket approval). Only the owner holds it: a frontend leaves it
 	// nil and forwards, and never answers from its own flags or files.
 	HostGrantsOwner *HostGrantsOwner
+	// OAuthOwner serves the OAuth logins of connections and the OAuth
+	// clients of add-ons. Only the owner holds it, since only the owner reads
+	// the descriptors; a frontend leaves it nil and forwards.
+	OAuthOwner OAuthService
 	// ModelsProbe returns the probe the owner wrote into its models path, or
 	// false when it has none. Frontends leave it nil.
 	ModelsProbe func() (modelsprobe.Probe, bool)

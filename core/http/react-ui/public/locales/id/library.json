@@ -110,5 +110,11 @@
     "reads": "Agen ini membaca koleksi bernama {{name}}.",
     "exists": "Agen ini membaca koleksi bernama {{name}}. Anda dapat mengisi dan mencarinya di Pengetahuan.",
     "created": "Agen ini membaca koleksi bernama {{name}}. Koleksi dibuat saat Anda menyimpan."
+  },
+  "rail": {
+    "compact": "Baris ringkas",
+    "clear": "Hapus filter",
+    "more": "Tampilkan {{count}} lagi",
+    "loading": "Memuat"
   }
 }

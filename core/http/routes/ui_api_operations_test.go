@@ -549,6 +549,34 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		Expect(found["taskType"]).To(Equal("deletion"))
 	})
 
+	It("reports a running backend upgrade as an upgrade, not an install", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+
+		jobID := "job-upgrade-running"
+		opcache.SetBackend("llama-cpp", jobID)
+		galleryService.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 jobID,
+			GalleryElementName: "llama-cpp",
+			Upgrade:            true,
+		})
+		Eventually(func() *galleryop.OpStatus {
+			return galleryService.GetStatus(jobID)
+		}, "2s", "10ms").ShouldNot(BeNil())
+
+		// The worker's later writes do not repeat the flag. Admission owns it.
+		galleryService.UpdateStatus(jobID, &galleryop.OpStatus{Message: "upgrading llama-cpp", Progress: 30, Cancellable: true})
+
+		found := operationByJobID(appCfg, galleryService, opcache, jobID)
+		Expect(found).ToNot(BeNil(), "a running upgrade must be listed")
+		Expect(found["taskType"]).To(Equal("upgrade"))
+		Expect(found["isDeletion"]).To(BeFalse())
+		Expect(found["isBackend"]).To(BeTrue())
+	})
+
 	It("still reports a failed removal as a deletion", func() {
 		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())

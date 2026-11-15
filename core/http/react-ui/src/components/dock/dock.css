@@ -1,0 +1,386 @@
+/* The dock: pages beside a chat, in tabs (mock m01). It is a column at the
+   right of the chat page, a sibling of the conversation: the thread, the
+   header and the composer narrow for it, and it covers none of them. Its width
+   is --pd-w, set by the dock (320 px to 60% of the window). On a phone it is a
+   bottom sheet (mock m01b). Colours, radii and type come from the kit roles. */
+
+.pd-dock {
+  --pd-bar-h: 52px;
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: var(--pd-w, 452px);
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--dk-edge);
+  background: var(--dk-canvas);
+  color: var(--dk-text);
+}
+.pd-dock[data-dragging] { user-select: none; }
+/* While the edge is dragged the frame must not take the pointer. */
+.pd-dock[data-dragging] .pd-frame { pointer-events: none; }
+
+/* ── The edge: a separator to resize the dock ── */
+
+.pd-edge {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.pd-edge__grip {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 3px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: var(--dk-radius-pill);
+  background: var(--dk-control-edge);
+  transition: background var(--dk-dur-1) var(--dk-ease-out);
+}
+.pd-edge:hover .pd-edge__grip,
+.pd-edge:focus-visible .pd-edge__grip,
+.pd-dock[data-dragging] .pd-edge__grip { background: var(--dk-accent); }
+.pd-edge:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: -2px; }
+
+/* ── Tabs and the actions of the bar ── */
+
+.pd-bar {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--dk-space-2);
+  min-height: var(--pd-bar-h);
+  padding: 0 var(--dk-space-2) 0 var(--dk-space-3);
+  border-bottom: 1px solid var(--dk-edge);
+}
+.pd-tabs {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--dk-space-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pd-tab {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 180px;
+  height: 38px;
+  margin-bottom: -1px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--dk-radius-2) var(--dk-radius-2) 0 0;
+  color: var(--dk-muted);
+}
+.pd-tab[data-active] {
+  border-color: var(--dk-edge);
+  background: var(--dk-card);
+  color: var(--dk-text);
+}
+.pd-tab__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--dk-space-1) 0 var(--dk-space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--dk-text-13);
+  font-weight: var(--dk-weight-semibold);
+  cursor: pointer;
+}
+.pd-tab__icon { flex: none; width: 14px; height: 14px; }
+.pd-tab__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-tab__x {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-right: var(--dk-space-1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--dk-radius-1);
+  background: transparent;
+  color: var(--dk-muted);
+  cursor: pointer;
+}
+.pd-tab__x:hover { background: var(--dk-hover); color: var(--dk-text); }
+.pd-tab__btn:focus-visible,
+.pd-tab__x:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: -2px; }
+.pd-add { flex: none; align-self: center; }
+.pd-bar__acts { flex: none; display: inline-flex; align-items: center; gap: var(--dk-space-1); align-self: center; }
+
+/* ── The strip: where the page comes from, and how to change it ── */
+
+.pd-strip {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-2) var(--dk-space-3);
+  border-bottom: 1px solid var(--dk-edge);
+  background: var(--dk-card);
+  font-size: var(--dk-text-12);
+}
+.pd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-1);
+  max-width: 100%;
+  padding: 2px var(--dk-space-2);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-pill);
+  color: var(--dk-muted);
+  font-weight: var(--dk-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pd-pill--accent { border-color: var(--dk-accent); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.pd-strip__ask {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-1);
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--dk-accent-text);
+  font: inherit;
+  font-weight: var(--dk-weight-semibold);
+  cursor: pointer;
+}
+.pd-strip__ask:hover { text-decoration: underline; }
+.pd-strip__askicon { transform: rotate(45deg); }
+
+/* ── The page ── */
+
+.pd-body {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.pd-body--pick { overflow-y: auto; }
+.pd-stage { flex: 1; min-height: 0; display: flex; }
+.pd-stage .pg-frame.pd-frame {
+  display: block;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--dk-canvas);
+}
+.pd-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-5);
+  color: var(--dk-muted);
+  font-size: var(--dk-text-13);
+  text-align: center;
+}
+.pd-state__icon { width: 20px; height: 20px; }
+
+/* A message the page asks to send, and a link it asks to open: they lie over
+   the top of the frame, so the frame never moves under the pointer. */
+.pd-asks {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: var(--dk-z-sticky);
+  display: flex;
+  flex-direction: column;
+  max-height: 60%;
+  overflow-y: auto;
+  padding-bottom: var(--dk-space-2);
+}
+.pd-ask {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dk-space-2);
+  margin: var(--dk-space-2) var(--dk-space-3) 0;
+  padding: var(--dk-space-2) var(--dk-space-3);
+  border: 1px solid var(--dk-accent);
+  border-radius: var(--dk-radius-2);
+  background: linear-gradient(var(--dk-accent-wash), var(--dk-accent-wash)), var(--dk-card);
+  box-shadow: var(--dk-shadow-float);
+  font-size: var(--dk-text-13);
+}
+.pd-ask__label { color: var(--dk-muted); }
+.pd-ask__text { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; color: var(--dk-text); }
+.pd-ask__acts { display: inline-flex; gap: var(--dk-space-2); }
+.pd-ask__error { flex: 1 1 100%; color: var(--dk-error-text); }
+
+/* ── The picker of an empty dock and of + ── */
+
+.pd-pick { padding: var(--dk-space-4); }
+.pd-pick__head { margin: 0 0 var(--dk-space-3); font-size: var(--dk-text-15); font-weight: var(--dk-weight-semibold); }
+.pd-pick__group { margin: var(--dk-space-4) 0 var(--dk-space-2); color: var(--dk-muted); font-size: var(--dk-text-12); font-weight: var(--dk-weight-semibold); }
+.pd-pick__none { margin: 0; color: var(--dk-muted); font-size: var(--dk-text-13); }
+.pd-pick__list { display: flex; flex-direction: column; gap: var(--dk-space-1); margin: 0; padding: 0; list-style: none; }
+.pd-pick__row {
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-3);
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--dk-space-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--dk-text-13);
+  text-align: left;
+  cursor: pointer;
+}
+.pd-pick__row:hover { background: var(--dk-hover); }
+.pd-pick__row[aria-current] { border-color: var(--dk-accent); }
+.pd-pick__row:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.pd-pick__icon { flex: none; width: 16px; height: 16px; color: var(--dk-accent-text); }
+.pd-pick__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--dk-weight-semibold); }
+.pd-pick__meta { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dk-muted); }
+
+/* ── Footer ── */
+
+.pd-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  min-height: 32px;
+  padding: 0 var(--dk-space-3);
+  border-top: 1px solid var(--dk-edge);
+  color: var(--dk-muted);
+  font-size: var(--dk-text-12);
+}
+.pd-foot__live, .pd-foot__sandbox { display: inline-flex; align-items: center; gap: var(--dk-space-2); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-foot__dot { flex: none; width: 7px; height: 7px; border-radius: var(--dk-radius-pill); background: var(--dk-ok); }
+
+/* ── The Dock button of the chat header ── */
+
+.pd-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  height: 34px;
+  margin-right: var(--dk-space-1);
+  padding: 0 var(--dk-space-2) 0 var(--dk-space-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-2);
+  background: transparent;
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--dk-text-13);
+  font-weight: var(--dk-weight-semibold);
+  cursor: pointer;
+}
+.pd-toggle:hover { background: var(--dk-hover); }
+.pd-toggle[aria-pressed="true"] { border-color: var(--dk-accent); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.pd-toggle:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.pd-toggle__icon { width: 16px; height: 16px; }
+.pd-toggle__count {
+  min-width: 18px;
+  padding: 0 var(--dk-space-1);
+  border-radius: var(--dk-radius-pill);
+  background: var(--dk-hover);
+  color: var(--dk-muted);
+  font-size: var(--dk-text-12);
+  font-weight: var(--dk-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: center;
+  transition: opacity var(--dk-dur-1) var(--dk-ease-out), transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.pd-toggle[aria-pressed="true"] .pd-toggle__count { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+@starting-style {
+  .pd-toggle__count { opacity: 0; transform: translateY(4px); }
+}
+.pd-toggle__kbd {
+  padding: 1px var(--dk-space-1);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-1);
+  color: var(--dk-muted);
+  font-family: var(--dk-font-mono);
+  font-size: var(--dk-text-12);
+  font-weight: var(--dk-weight-regular);
+  white-space: nowrap;
+}
+/* With the dock open the header is narrower: the button keeps its name and
+   the shortcut stays in its tooltip. */
+.cx-page:has(> .pd-dock:not(.pd-dock--sheet)) :is(.pd-toggle__kbd, .cx-hist__kbd) { display: none; }
+
+/* In a window under 1280 px the dock leaves the thread about 450 px: the two
+   buttons of the header drop their names, as on a phone, so the chat keeps
+   its own. */
+@media (min-width: 640px) and (max-width: 1279px) {
+  .cx-page:has(> .pd-dock:not(.pd-dock--sheet)) .pd-toggle { position: relative; padding: 0 var(--dk-space-2); }
+  .cx-page:has(> .pd-dock:not(.pd-dock--sheet)) .pd-toggle__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
+/* ── Phone: a bottom sheet ── */
+
+.pd-dock--sheet {
+  --pd-sheet-h: 72dvh;
+  position: fixed;
+  z-index: var(--dk-z-dialog);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: min(var(--pd-sheet-h), calc(100dvh - var(--pd-top, 56px)));
+  border-left: 0;
+  border-top: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-4) var(--dk-radius-4) 0 0;
+  box-shadow: var(--dk-shadow-float);
+}
+/* Full screen stops under the chat header (--pd-top): the sheet never
+   covers it. */
+.pd-dock--sheet[data-full] { --pd-sheet-h: 100dvh; }
+.pd-dock--sheet .pd-bar { --pd-bar-h: 44px; }
+.pd-handle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+.pd-handle__bar { width: 40px; height: 4px; border-radius: var(--dk-radius-pill); background: var(--dk-control-edge); }
+.pd-handle:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: -2px; }
+@media (max-width: 639px) {
+  .pd-toggle__kbd { display: none; }
+  /* The header of a phone keeps the chat's name: Files and Dock show their
+     icon and, for Files, the count. The name stays for screen readers. */
+  .pd-toggle { position: relative; padding: 0 var(--dk-space-2); }
+  .pd-toggle__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .pd-tab { max-width: 140px; }
+}

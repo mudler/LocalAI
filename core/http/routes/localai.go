@@ -5,6 +5,7 @@ import (
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery/remotemodel"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -83,18 +84,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
-		// Import model page
-		router.GET("/import-model", func(c echo.Context) error {
-			return c.Render(200, "views/model-editor", map[string]any{
-				"Title":                  "LocalAI - Import Model",
-				"BaseURL":                middleware.BaseURL(c),
-				"Version":                internal.PrintableVersion(),
-				"DisableRuntimeSettings": appConfig.DisableRuntimeSettings,
-			})
-		}, adminMiddleware)
-
-		// Edit model page
-		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig), adminMiddleware)
+		// The old server-rendered import and edit pages are gone. Both URLs
+		// redirect to the React routes so bookmarks still work.
+		router.GET("/import-model", ImportModelRedirect, adminMiddleware)
+		router.GET("/models/edit/:name", EditModelRedirect, adminMiddleware)
 		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig, galleryService, cl)
 		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint(), adminMiddleware)
 		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint(), adminMiddleware)
@@ -132,12 +125,29 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
 		router.GET("/backends/upgrades", backendGalleryEndpointService.GetUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
+		// Read model and a check that waits. The checker is nil-safe, so a
+		// server without one answers with disabled sources.
+		router.GET("/backends/updates", localai.BackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
+		router.POST("/backends/updates/check", localai.CheckBackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
 		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		// Custom model import endpoint
 		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
 
 		// URI model import endpoint
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
+
+		// Search of remote providers for models to import. Admin only, like
+		// the import it feeds: the server makes the outbound requests.
+		router.GET("/api/models/search", localai.ModelSearchEndpoint(app.ModelSearch(), cl), adminMiddleware)
+		// The sources that can be searched and which of them a person has on.
+		// An add-on can provide a source; the choice is per person.
+		router.GET("/api/models/search/sources", localai.ModelSearchSourcesEndpoint(app.ModelSearch()), adminMiddleware)
+		router.PUT("/api/models/search/sources", localai.ModelSearchSetSourcesEndpoint(app.ModelSearch()), adminMiddleware)
+		// What one search result offers, and what it would need in memory.
+		// The two make the upstream calls of a repository listing and a
+		// GGUF header read; both are cached and rate limited per process.
+		router.GET("/api/models/remote/files", localai.RemoteModelFilesEndpoint(remotemodel.Shared(), cl), adminMiddleware)
+		router.GET("/api/models/remote/estimate", localai.RemoteModelEstimateEndpoint(remotemodel.Shared()), adminMiddleware)
 
 		// Custom model edit endpoint
 		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)

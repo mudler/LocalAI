@@ -52,7 +52,13 @@ func (a *Application) startStudioTriggers(svc *studio.Service) {
 	if st == nil {
 		return
 	}
-	opts := studio.TriggerOptions{Store: st, Retention: a.triggerRunRetention()}
+	cfg := a.applicationConfig
+	opts := studio.TriggerOptions{Store: st, Retention: a.triggerRunRetention(), Limits: func() studio.TriggerLimits {
+		return studio.TriggerLimits{
+			RunLimit: cfg.EffectiveChatsTriggerRunLimit(), MaxPerUser: cfg.EffectiveChatsTriggerMaxPerUser(),
+			MaxDailyCap: cfg.EffectiveChatsTriggerMaxDailyCap(),
+		}
+	}}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsTriggers, "Triggers")
 	}

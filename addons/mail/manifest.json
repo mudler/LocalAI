@@ -21,6 +21,7 @@
     "min": 1,
     "max": 1
   },
+  "featureLevel": 5,
   "capabilities": {
     "tools": [
       "list-folders",
@@ -257,7 +258,7 @@
       },
       {
         "name": "send-message",
-        "description": "Send a plain text email from the mailbox. Everyone in to and cc will read it and it cannot be taken back: never include secrets, passwords or private details that the recipients should not have. To reply, give inReplyTo and references from get-message. The send waits for the person to confirm; do not say it was sent until the result says so.",
+        "description": "Send a plain text email from the mailbox. Everyone in to and cc will read it and it cannot be taken back: never include secrets, passwords or private details that the recipients should not have. To reply, give inReplyTo and references from get-message. The send may wait for the person to confirm; do not say it was sent until the result says so.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -320,8 +321,7 @@
             "body"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       },
       {
         "name": "save-draft",
@@ -388,8 +388,7 @@
             "body"
           ],
           "additionalProperties": false
-        },
-        "approval": "always"
+        }
       }
     ],
     "credentials": [
@@ -409,7 +408,7 @@
           "description": "Let your agents read the mailbox you connect over IMAP, and send or draft mail over SMTP if you allow it.",
           "senderHint": "Not used: this connection does not listen for mail",
           "delivery": "pull",
-          "agentOptional": true,
+          "toolOnly": true,
           "page": "apps",
           "permissions": [
             "tools.write"

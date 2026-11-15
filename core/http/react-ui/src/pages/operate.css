@@ -397,7 +397,7 @@
 .bk-status__note { display: inline-flex; align-items: center; gap: 6px; }
 /* An update is a decision, so its line is amber; it is a line, not a banner. */
 .bk-updates { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-left: auto; }
-.bk-updates__text { display: inline-flex; align-items: center; gap: 6px; color: var(--dk-warn-text); font-weight: 500; }
+.bk-updates__text { display: inline-flex; align-items: center; gap: 6px; color: var(--dk-accent-text); font-weight: 500; }
 
 /* The filter menu: a popover under its button, a bottom sheet on a phone. */
 .bk-filter-pop.popover { min-width: 260px; max-height: min(520px, 75vh); }
@@ -434,7 +434,7 @@
 .bk-acts { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--dk-space-2); }
 .bk-state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--dk-text-13); font-weight: var(--dk-weight-semibold); white-space: nowrap; }
 .bk-state--ok { color: var(--dk-ok-text); }
-.bk-state--warn { color: var(--dk-warn-text); }
+.bk-state--update { color: var(--dk-accent-text); }
 .bk-state--error { color: var(--dk-error-text); }
 .bk-state--muted { color: var(--dk-muted); font-weight: 400; }
 .bk-state--busy { color: var(--dk-text); }

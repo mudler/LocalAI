@@ -14,10 +14,12 @@ import (
 	"io"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/egresspolicy"
+	"github.com/mudler/LocalAI/pkg/sandboxpolicy"
 )
 
 const SchemaVersion = 1
@@ -48,7 +50,15 @@ type Policy struct {
 	// A document written before this key existed has none; MarshalJSON always
 	// writes it, so a reader never has to guess whether it is absent.
 	ConnectorFilesCeiling int64 `json:"connector_files_ceiling_bytes,omitempty"`
+	// SandboxProfiles is the policy of the sandbox profiles of a commands
+	// add-on: the default profile, who may use each, the memory and disk
+	// quota and the pins to the previous image. The zero value is the open
+	// default (everyone may use every profile); MarshalJSON always writes it.
+	SandboxProfiles sandboxpolicy.Policy `json:"sandbox_profiles,omitempty"`
 }
+
+// SandboxPolicy is the sandbox profile policy in effect.
+func (p Policy) SandboxPolicy() sandboxpolicy.Policy { return p.SandboxProfiles }
 
 // MinFilesCeiling is the smallest host ceiling an owner can set.
 const MinFilesCeiling int64 = 1024
@@ -68,11 +78,25 @@ func (p Policy) MarshalJSON() ([]byte, error) {
 	if p.ToolProviders == nil {
 		p.ToolProviders = map[string]string{}
 	}
+	sp := p.SandboxPolicy().Normalized()
 	return json.Marshal(struct {
 		plain
-		// Shadows the omitempty field of plain: the key is always written.
-		ConnectorFilesCeiling int64 `json:"connector_files_ceiling_bytes"`
-	}{plain(p), p.ConnectorFilesCeiling})
+		// Shadow the omitempty fields of plain: the keys are always written,
+		// the sandbox policy with every one of its keys, so a reader sees the
+		// whole shape.
+		ConnectorFilesCeiling int64               `json:"connector_files_ceiling_bytes"`
+		SandboxProfiles       sandboxProfilesWire `json:"sandbox_profiles"`
+	}{plain(p), p.ConnectorFilesCeiling, sandboxProfilesWire{sp.Default, sp.Access, sp.MemoryMiB, sp.DiskMiB, sp.PinPrevious}})
+}
+
+// sandboxProfilesWire is the sandbox profile policy as it is written: every
+// key, with an empty value when the policy has none.
+type sandboxProfilesWire struct {
+	Default     string                          `json:"default"`
+	Access      map[string]sandboxpolicy.Access `json:"access"`
+	MemoryMiB   int                             `json:"memory_mib"`
+	DiskMiB     int                             `json:"disk_mib"`
+	PinPrevious []string                        `json:"pin_previous"`
 }
 
 // Patch changes only present keys. An empty string clears a string field;
@@ -90,6 +114,10 @@ type Patch struct {
 	// ConnectorFilesCeiling changes the host ceiling of connector files; zero
 	// clears it to the default.
 	ConnectorFilesCeiling *int64 `json:"connector_files_ceiling_bytes,omitempty"`
+	// SandboxProfiles replaces the whole sandbox profile policy. It is kept
+	// raw here so that the shape check sees its keys; apply parses it with
+	// sandboxpolicy.Parse, which refuses unknown fields and bad values.
+	SandboxProfiles json.RawMessage `json:"sandbox_profiles,omitempty"`
 	// EgressPrivateConfirm carries the typed phrase that turning on
 	// chats_egress_allow_private requires. The owner checks it, so a direct
 	// call cannot skip what the page asks for. It is never stored.
@@ -201,11 +229,17 @@ func jsonShape(d *json.Decoder, t reflect.Type) error {
 			}
 			return nil
 		case '[':
+			// A list is read for the raw patch fields, and for the lists of
+			// the sandbox profile policy (a slice of strings).
+			elem := t
 			if !raw {
-				return ErrInvalid
+				if t.Kind() != reflect.Slice {
+					return ErrInvalid
+				}
+				elem = t.Elem()
 			}
 			for d.More() {
-				if err := jsonShape(d, t); err != nil {
+				if err := jsonShape(d, elem); err != nil {
 					return err
 				}
 			}
@@ -249,6 +283,8 @@ type Snapshot struct {
 
 func clone(s Snapshot) Snapshot {
 	s.Policy.ToolProviders = maps.Clone(s.Policy.ToolProviders)
+	s.Policy.SandboxProfiles.Access = maps.Clone(s.Policy.SandboxProfiles.Access)
+	s.Policy.SandboxProfiles.PinPrevious = slices.Clone(s.Policy.SandboxProfiles.PinPrevious)
 	return s
 }
 
@@ -276,6 +312,9 @@ func validate(p Policy) error {
 	}
 	if c := p.ConnectorFilesCeiling; c != 0 && (c < MinFilesCeiling || c > contract.MaxDeclaredFileBytes) {
 		return fmt.Errorf("%w: connector_files_ceiling_bytes must be 0 or %d to %d", ErrInvalid, MinFilesCeiling, contract.MaxDeclaredFileBytes)
+	}
+	if err := p.SandboxProfiles.Validate(); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
 	if len(p.ToolProviders) > 128 {
 		return ErrInvalid
@@ -313,6 +352,13 @@ func apply(s Snapshot, p Patch) (Snapshot, error) {
 	}
 	if p.ConnectorFilesCeiling != nil {
 		s.Policy.ConnectorFilesCeiling = *p.ConnectorFilesCeiling
+	}
+	if len(p.SandboxProfiles) > 0 {
+		sp, err := sandboxpolicy.Parse(p.SandboxProfiles)
+		if err != nil {
+			return Snapshot{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		}
+		s.Policy.SandboxProfiles = sp.Normalized()
 	}
 	if s.Policy.ToolProviders == nil {
 		s.Policy.ToolProviders = map[string]string{}

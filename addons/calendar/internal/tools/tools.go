@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/calendar/internal/store"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // Tool names. They are the entries of capabilities.tools in the manifest.

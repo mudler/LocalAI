@@ -57,6 +57,33 @@ func (s *Service) Add(ctx context.Context, n Notification) (Notification, error)
 	return n, nil
 }
 
+// Upsert stores a keyed notification by the rules of Decide. Only a created or
+// revived row is announced: clients hear it as a new notification and the OnAdd
+// hooks run once. An edit in place, and the removal of a set that became empty,
+// only tell the clients of the principal to read the list again; an unchanged
+// row does nothing. The returned notification is the row as stored.
+func (s *Service) Upsert(ctx context.Context, n Notification, mode UpsertMode) (Notification, UpsertResult, error) {
+	n = Clean(n)
+	n.Created, n.Read = s.clock().UTC(), false
+	got, res, err := s.st.Upsert(ctx, n, mode)
+	if err != nil {
+		return Notification{}, "", err
+	}
+	switch {
+	case res.Announced():
+		s.fan.Publish(got.Principal, got)
+		for _, h := range s.hooks {
+			h(got)
+		}
+	case res == ResultUpdated || res == ResultRemoved:
+		// A hidden row is on nobody's screen.
+		if !got.Hidden {
+			_ = s.changed(got.Principal, nil)
+		}
+	}
+	return got, res, nil
+}
+
 // Subscribe returns the live notifications of a principal.
 func (s *Service) Subscribe(principal string) (<-chan Notification, func()) {
 	return s.fan.Subscribe(principal)
@@ -73,7 +100,7 @@ func (s *Service) List(ctx context.Context, principal string, unreadOnly bool, l
 	cutoff := s.clock().Add(-MaxAge)
 	kept := all[:0]
 	for _, n := range all {
-		if !n.Created.Before(cutoff) {
+		if n.Sticky() || !n.Created.Before(cutoff) {
 			kept = append(kept, n)
 		}
 	}

@@ -570,7 +570,10 @@
       "off": "It reads and saves no notes, and the right to remember things is off. Nothing is saved until you save.",
       "reads": "The right to remember things is off, so it reads notes but cannot save any. Nothing is saved until you save.",
       "saves": "The right to remember things is on. Nothing is saved until you save."
-    }
+    },
+    "sandboxProfile": "Sandbox profile",
+    "sandboxProfileDefault": "Default",
+    "sandboxProfileHelp": "Used by unattended runs and as the starting profile of its chats."
   },
   "status": {
     "title": "Status",
@@ -740,7 +743,8 @@
       "agent": "Agent",
       "cap": "Most runs a day",
       "watches": "Watches the folder {{folder}}",
-      "acts": "Permissions"
+      "acts": "Permissions",
+      "runLimit": "Time limit"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -777,7 +781,8 @@
         "cap": "Up to {{count}} runs a day",
         "capDefault": "Default limit",
         "acts_one": "May use {{count}} kind of action",
-        "acts_other": "May use {{count}} kinds of action"
+        "acts_other": "May use {{count}} kinds of action",
+        "runLimit": "{{limit}} a run at most"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -804,7 +809,9 @@
       "promptRequired": "Write what the trigger should do",
       "noAgent": "No agent",
       "capHint": "The most chats this trigger may start in one day. Empty uses the default.",
-      "watchNoFiles": "This agent has No files, so a run of this trigger is told that a file arrived but cannot open it. Give the agent file access in its editor, or choose another agent."
+      "watchNoFiles": "This agent has No files, so a run of this trigger is told that a file arrived but cannot open it. Give the agent file access in its editor, or choose another agent.",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default"
     },
     "actionFailed": "The action failed: {{message}}",
     "subtitle": "Start an agent on a schedule or when a file arrives. Every run is a chat you can open."

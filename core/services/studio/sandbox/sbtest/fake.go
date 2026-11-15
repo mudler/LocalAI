@@ -150,7 +150,7 @@ func (s *fakeSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	cmd := exec.Command(c.Args[0], c.Args[1:]...) // #nosec G204 -- test fake: it runs the command of the spec
 	cmd.Dir = filepath.Join(s.work(), filepath.FromSlash(rel))
 	cmd.Env = append(os.Environ(), "HOME="+s.home()) //nolint:forbidigo // the fake runs host commands with the host environment
-	cmd.Env = append(cmd.Env, c.Env...)
+	cmd.Env = append(cmd.Env, sandbox.MapWorkEnv(c.Env, s.work())...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = c.Stdin, c.Stdout, c.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 200 * time.Millisecond

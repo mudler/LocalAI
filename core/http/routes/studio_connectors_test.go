@@ -262,11 +262,15 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("reply_mode", "stream"), HaveKeyWithValue("conversation", "window"),
 			HaveKeyWithValue("window_minutes", BeNumerically("==", 45)), HaveKeyWithValue("send_files", false)))
 		// An update without send_files keeps it.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Modes bot", "agent_id": ag, "reply_mode": "reasoning", "conversation": "thread"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("reply_mode", "reasoning"), "the reasoning mode is accepted")
 		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Modes bot", "agent_id": ag, "reply_mode": "off", "conversation": "thread"})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("reply_mode", "off"), HaveKeyWithValue("conversation", "thread"), HaveKeyWithValue("send_files", false), Not(HaveKey("window_minutes"))))
 		for _, bad := range []map[string]any{
 			{"reply_mode": "shout"},
+			{"reply_mode": "Reasoning"},
 			{"conversation": "forever"},
 			{"conversation": "window"},
 			{"conversation": "window", "window_minutes": 20000},
@@ -303,6 +307,34 @@ var _ = Describe("Chats connectors endpoints", func() {
 			rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Language bot", "agent_id": ag, "reply_language": bad})
 			Expect(rec.Code).To(Equal(http.StatusBadRequest), "%q: %s", bad, rec.Body.String())
 		}
+	})
+	It("stores the media kinds a binding accepts, keeps them when absent, and refuses an unknown kind", func() {
+		ag := agent("alice", "Media", "test-model")
+		rec := create("alice", map[string]any{"name": "Media bot", "token": specToken, "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", BeEmpty()), "the default: every kind")
+		id := decodeJSON(rec)["id"].(string)
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot", "agent_id": ag, "inbound_media": []string{"voice"}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil)
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", ConsistOf("voice")))
+		// An update without the field keeps it: a client that does not know it
+		// cannot open the binding to photos by saving it.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot 2", "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", ConsistOf("voice")))
+		for _, bad := range [][]string{{"sticker"}, {"Voice"}, {"voice", "voice"}, {""}} {
+			rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot", "agent_id": ag, "inbound_media": bad})
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), "%v: %s", bad, rec.Body.String())
+		}
+		rec = create("alice", map[string]any{"name": "Bad", "token": specToken, "agent_id": ag, "inbound_media": []string{"photo", "fax"}})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		// An empty list accepts every kind again.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Media bot", "agent_id": ag, "inbound_media": []string{}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", BeEmpty()))
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil)
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("inbound_media", BeEmpty()))
 	})
 
 	It("checks a new token with the platform and refuses one that the platform refuses", func() {

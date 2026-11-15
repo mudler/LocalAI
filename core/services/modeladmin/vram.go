@@ -28,6 +28,12 @@ type VRAMResponse struct {
 	vram.EstimateResult
 	ContextNote     string `json:"context_note,omitempty"`
 	ModelMaxContext uint64 `json:"model_max_context,omitempty"`
+	// ExpertCount is the number of experts of a mixture-of-experts model, read
+	// from the GGUF metadata. Absent for a dense model or when it is unknown.
+	ExpertCount uint32 `json:"expert_count,omitempty"`
+	// BlockCount is the number of layers of the model, read from the GGUF
+	// metadata. Absent when it is unknown.
+	BlockCount uint32 `json:"block_count,omitempty"`
 }
 
 // EstimateVRAM computes a VRAM estimate for an installed model. It mirrors
@@ -68,7 +74,9 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		if cfg.ContextSize != nil {
 			ctxLen = uint32(*cfg.ContextSize)
 		} else {
-			ctxLen = 8192
+			// The window an unset context_size loads with, which depends on
+			// whether the model serves chats (see AutoContextTarget).
+			ctxLen = uint32(cfg.AutoContextTarget(""))
 			contextDefaulted = true
 		}
 	}
@@ -86,6 +94,15 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 		return nil, fmt.Errorf("vram estimate: %w", err)
 	}
 
+	// A model never loads with more than it was trained for when the window
+	// is automatic, so the estimate must not assume more either.
+	if contextDefaulted && multi.ModelMaxContext > 0 && uint64(ctxLen) > multi.ModelMaxContext {
+		ctxLen = uint32(multi.ModelMaxContext)
+		if multi, err = vram.EstimateMultiContext(subCtx, files, []uint32{ctxLen}, opts, vram.DefaultCachedSizeResolver(), vram.DefaultCachedGGUFReader()); err != nil {
+			return nil, fmt.Errorf("vram estimate: %w", err)
+		}
+	}
+
 	at := multi.Estimates[fmt.Sprint(ctxLen)]
 	resp := &VRAMResponse{
 		EstimateResult: vram.EstimateResult{
@@ -96,12 +113,14 @@ func EstimateVRAM(ctx context.Context, req VRAMRequest, cl *config.ModelConfigLo
 			VRAMDisplay:   at.VRAMDisplay,
 		},
 		ModelMaxContext: multi.ModelMaxContext,
+		ExpertCount:     multi.ExpertCount,
+		BlockCount:      multi.BlockCount,
 	}
 
 	if contextDefaulted && multi.ModelMaxContext > 0 {
 		resp.ContextNote = fmt.Sprintf(
-			"Estimate used default context_size=8192. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
-			multi.ModelMaxContext,
+			"Estimate used default context_size=%d. The model's trained maximum context is %d; VRAM usage will be higher at larger context sizes.",
+			ctxLen, multi.ModelMaxContext,
 		)
 	}
 	return resp, nil

@@ -77,6 +77,21 @@ func isOfficialAddonURL(url string) bool {
 // library that LocalAI itself ships: the master index or the index of a release.
 func IsOfficialAddonURL(url string) bool { return isOfficialAddonURL(url) }
 
+// IsOfficialPackage reports whether an installed package came from the
+// official add-on library with its signature checked: the receipt names the
+// official library at an address it has used, and the package was verified
+// with sigstore.
+func IsOfficialPackage(sourceID, sourceURL, verification string) bool {
+	return sourceID == OfficialLibraryID && verification == "sha256+sigstore" && isOfficialAddonURL(sourceURL)
+}
+
+// IsOfficialSource reports whether a library is the official add-on library:
+// it has the official ID and an address that the shipped library has used. The
+// ID alone is not enough, since an administrator names libraries freely.
+func IsOfficialSource(id, url string) bool {
+	return id == OfficialLibraryID && isOfficialAddonURL(url)
+}
+
 const (
 	// OfficialBackendLibraryID is the source ID of the backend library.
 	OfficialBackendLibraryID = "official-backends"

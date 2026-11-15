@@ -60,7 +60,7 @@ run_go() {
     shift
     report="$cache/logs/updates-$name.json"
     rm -f "$report"
-    go test -count=1 -p 2 -tags auth "$@" -ginkgo.json-report="$report" >"$cache/logs/updates-$name.log" 2>&1 || { tail -40 "$cache/logs/updates-$name.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp "$@" -ginkgo.json-report="$report" >"$cache/logs/updates-$name.log" 2>&1 || { tail -40 "$cache/logs/updates-$name.log" >&2; exit 1; }
     go_cases "$report"
 }
 run_go checker ./core/services/addons/updates

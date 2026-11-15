@@ -1,0 +1,9 @@
+Qwen/Qwen3-0.6B                                        1.5 GB    6 seeds  magnet:?xt=urn:btih:7158ba0f294cdd7da7f4d4f7a496c6162a63a622&tr=udp%3A%2F%2Ftracker.example%3A6969%2Fannounce&ws=https%3A%2F%2Fexample.org%2Fws%2F
+this line is garbage
+Qwen/Qwen3-14B   30 GB   2 seeds   magnet:?xt=urn:btih:ffbfa2798581f0bfeed14d913ddf75815a7fce31
+Qwen/NoMagnet   30 GB   2 seeds   http://example.org/x
+NoSlash 1 GB 1 seeds magnet:?xt=urn:btih:aaaa
+Qwen/Bad   x GB   y seeds   magnet:?xt=urn:btih:aaaa
+
+org/one-seed   512 MB   1 seed   magnet:?xt=urn:btih:bbbb
+org/third   2.5 GiB   0 seeds   magnet:?xt=urn:btih:cccc

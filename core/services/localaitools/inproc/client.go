@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -18,8 +20,10 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
+	"github.com/mudler/LocalAI/core/gallery/remotemodel"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
@@ -36,6 +40,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -60,6 +65,10 @@ type Client struct {
 	// BackendLibrary backs install_library_backend. nil when the add-on
 	// library is off; the tool then reports it is not enabled.
 	BackendLibrary LibraryBackendInstaller
+	// UpdatesChecker returns the backend update checker, or nil when there is
+	// none. It is read at each call because the checker starts after the
+	// client is built.
+	UpdatesChecker func() BackendUpdatesSource
 
 	// FallbackUser is the identity of a call whose context carries no user
 	// (see localaitools.WithUser), and only when SingleUser is set. With
@@ -130,6 +139,12 @@ type Client struct {
 	// results. Nil: the home folder of the acting user in the chats' workspace.
 	Files localaitools.FileStore
 
+	// ModelSearch is the search host: the shared Searcher with the add-on
+	// sources and the enabled set of each person. It is read at each call,
+	// because the add-on gateway starts after the assistant. Nil: the shared
+	// Searcher with the built-in source only.
+	ModelSearch func() *modelsearch.Host
+
 	modelAdmin *modeladmin.ConfigService
 }
 
@@ -157,6 +172,76 @@ func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, c
 var _ localaitools.LocalAIClient = (*Client)(nil)
 
 // ---- Models / gallery (read) ----
+
+// SearchModels uses the process-wide search host, the one behind
+// GET /api/models/search, so both share one cache and one set of sources. With
+// no providers named it searches the enabled set of the acting user, so a
+// source that an add-on provides reaches the assistant with no change here.
+// What a source returns is data from outside: the tool wraps it as untrusted.
+func (c *Client) SearchModels(ctx context.Context, req localaitools.ModelSearchRequest) (*localaitools.ModelSearchResponse, error) {
+	h := c.searchHost()
+	user := ""
+	if u := c.actingUser(ctx); u != nil {
+		user = u.ID
+	}
+	names := modelsearch.ParseNames(req.Providers)
+	visible := h.Visible(ctx, user)
+	for _, n := range names {
+		if !slices.Contains(visible, n) {
+			return nil, fmt.Errorf("unknown provider %q; available: %s", n, strings.Join(visible, ", "))
+		}
+	}
+	resp := h.Search(ctx, user, modelsearch.Query{Text: req.Query, Limit: req.Limit, Format: req.Format, Sort: req.Sort}, names)
+	remotemodel.EnrichSearch(&resp, c.installedIndex())
+	return &resp, nil
+}
+
+func (c *Client) searchHost() *modelsearch.Host {
+	if c.ModelSearch != nil {
+		if h := c.ModelSearch(); h != nil {
+			return h
+		}
+	}
+	return modelsearch.NewHost(modelsearch.Shared(), nil, nil)
+}
+
+func (c *Client) installedIndex() *remotemodel.InstalledIndex {
+	if c.ConfigLoader == nil {
+		return remotemodel.NewInstalledIndex(nil)
+	}
+	return remotemodel.NewInstalledIndex(c.ConfigLoader.GetAllModelsConfigs())
+}
+
+// InspectRemoteModel uses the process-wide Inspector, the one behind
+// GET /api/models/remote/files and /estimate, so both share one cache and
+// one upstream budget.
+func (c *Client) InspectRemoteModel(ctx context.Context, req localaitools.RemoteModelRequest) (*localaitools.RemoteModelInfo, error) {
+	in := remotemodel.Shared()
+	files, err := in.Files(ctx, req.URI)
+	if err != nil {
+		return nil, err
+	}
+	info := &localaitools.RemoteModelInfo{RepoFiles: remotemodel.PreviewFiles(files, c.installedIndex(), "")}
+	if req.Estimate || req.File != "" {
+		contexts := []uint32{config.DefaultEstimateContextSize}
+		if strings.TrimSpace(req.Contexts) != "" {
+			contexts = contexts[:0]
+			for _, f := range strings.Split(req.Contexts, ",") {
+				n, err := strconv.ParseUint(strings.TrimSpace(f), 10, 32)
+				if err != nil || n < 128 || n > 4<<20 || len(contexts) >= 8 {
+					return nil, fmt.Errorf("contexts must be at most 8 comma separated sizes between 128 and 4194304")
+				}
+				contexts = append(contexts, uint32(n))
+			}
+		}
+		est, err := in.Estimate(ctx, req.URI, req.File, contexts)
+		if err != nil {
+			return nil, err
+		}
+		info.Estimate = est
+	}
+	return info, nil
+}
 
 func (c *Client) GallerySearch(_ context.Context, q localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	galleries := c.AppConfig.Galleries
@@ -287,8 +372,15 @@ func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportMode
 	// Today only `backend` is meaningful; future fields can be added without
 	// changing the MCP DTO.
 	var prefs json.RawMessage
-	if req.BackendPreference != "" {
-		raw, err := json.Marshal(map[string]string{"backend": req.BackendPreference})
+	if req.BackendPreference != "" || req.Quantization != "" {
+		pm := map[string]string{}
+		if req.BackendPreference != "" {
+			pm["backend"] = req.BackendPreference
+		}
+		if req.Quantization != "" {
+			pm["quantizations"] = req.Quantization
+		}
+		raw, err := json.Marshal(pm)
 		if err != nil {
 			return nil, fmt.Errorf("marshal preferences: %w", err)
 		}
@@ -531,6 +623,42 @@ func (c *Client) ListBackendLibraryUpdates(ctx context.Context) ([]localaitools.
 	return c.BackendLibrary.Updates(ctx)
 }
 
+// BackendUpdatesSource is the checker that serves the update read model. It is
+// the one the REST routes use.
+type BackendUpdatesSource interface {
+	UpdatesSnapshot(ctx context.Context) backendupdates.Snapshot
+	CheckNow(ctx context.Context) backendupdates.Snapshot
+}
+
+// updatesSource returns the checker, or a nil-safe disabled answer when the
+// instance has none (installs off, no backend gallery).
+func (c *Client) updatesSource() BackendUpdatesSource {
+	if c.UpdatesChecker == nil {
+		return nil
+	}
+	return c.UpdatesChecker()
+}
+
+func (c *Client) BackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error) {
+	src := c.updatesSource()
+	if src == nil {
+		return nil, errBackendUpdatesOff
+	}
+	snap := src.UpdatesSnapshot(ctx)
+	return &snap, nil
+}
+
+func (c *Client) CheckBackendUpdates(ctx context.Context) (*backendupdates.Snapshot, error) {
+	src := c.updatesSource()
+	if src == nil {
+		return nil, errBackendUpdatesOff
+	}
+	snap := src.CheckNow(ctx)
+	return &snap, nil
+}
+
+var errBackendUpdatesOff = errors.New("backend updates are not checked on this instance")
+
 func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
 	if req.SourceID == "" || req.Name == "" || req.Version == "" {
 		return nil, errors.New("source_id, name and version are required")
@@ -768,13 +896,11 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 
 // ---- Branding ----
 
-// brandingAssetURL returns the same URL shape the public REST endpoint
-// would emit so MCP and HTTP clients see identical wire output.
-func brandingAssetURL(kind, file, defaultURL string) string {
-	if file != "" {
-		return "/branding/asset/" + kind
-	}
-	return defaultURL
+// brandingAssetURL returns the same URL the public REST endpoint would
+// emit (including the cache-busting version) so MCP and HTTP clients see
+// identical wire output.
+func brandingAssetURL(cfg *config.ApplicationConfig, kind, file, defaultURL string) string {
+	return cfg.BrandingAssetURL(kind, file, defaultURL)
 }
 
 func (c *Client) currentBranding() *localaitools.Branding {
@@ -782,9 +908,9 @@ func (c *Client) currentBranding() *localaitools.Branding {
 	return &localaitools.Branding{
 		InstanceName:      b.InstanceName,
 		InstanceTagline:   b.InstanceTagline,
-		LogoURL:           brandingAssetURL("logo", b.LogoFile, "/static/logo.png"),
-		LogoHorizontalURL: brandingAssetURL("logo_horizontal", b.LogoHorizontalFile, "/static/logo_horizontal.png"),
-		FaviconURL:        brandingAssetURL("favicon", b.FaviconFile, "/favicon.svg"),
+		LogoURL:           brandingAssetURL(c.AppConfig, "logo", b.LogoFile, "/static/logo.png"),
+		LogoHorizontalURL: brandingAssetURL(c.AppConfig, "logo_horizontal", b.LogoHorizontalFile, "/static/logo_horizontal.png"),
+		FaviconURL:        brandingAssetURL(c.AppConfig, "favicon", b.FaviconFile, "/favicon.svg"),
 	}
 }
 

@@ -96,6 +96,13 @@ type ModelConfig struct {
 	// top-level fields so existing aliases keep behaving as pure redirects.
 	Profile ProfileConfig `yaml:"profile,omitempty" json:"profile,omitempty"`
 
+	// VisionAlias is only valid on an alias. When a request to the alias
+	// carries image input and the alias target cannot accept images, the
+	// request is served by this model instead, with the same profile overlay.
+	// It lets a text-only model back an alias without failing image requests.
+	// The model must exist and must not be an alias.
+	VisionAlias string `yaml:"vision_alias,omitempty" json:"vision_alias,omitempty"`
+
 	// Failover makes this config a failover chain over other models. Like an
 	// alias it has no backend of its own.
 	Failover *FailoverConfig `yaml:"failover,omitempty" json:"failover,omitempty"`
@@ -178,7 +185,7 @@ type ModelConfig struct {
 
 	// ConcurrencyGroups declares per-node mutual-exclusion groups: the model
 	// cannot be loaded alongside another model that shares any group name.
-	// See docs/content/advanced/vram-management.md for usage.
+	// See docs/content/models/vram-management.md for usage.
 	ConcurrencyGroups []string `yaml:"concurrency_groups,omitempty" json:"concurrency_groups,omitempty"`
 
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
@@ -1806,7 +1813,11 @@ type LLMConfig struct {
 	TrimSpace       []string `yaml:"trimspace,omitempty" json:"trimspace,omitempty"`
 	TrimSuffix      []string `yaml:"trimsuffix,omitempty" json:"trimsuffix,omitempty"`
 
-	ContextSize          *int             `yaml:"context_size,omitempty" json:"context_size,omitempty"`
+	ContextSize *int `yaml:"context_size,omitempty" json:"context_size,omitempty"`
+	// ContextAutoSized is set when ContextSize was chosen from the GGUF
+	// metadata and the detected memory, not by the operator, the model editor
+	// or the global default. It is runtime state and is never written.
+	ContextAutoSized     bool             `yaml:"-" json:"-"`
 	NUMA                 bool             `yaml:"numa,omitempty" json:"numa,omitempty"`
 	LoraAdapter          string           `yaml:"lora_adapter,omitempty" json:"lora_adapter,omitempty"`
 	LoraBase             string           `yaml:"lora_base,omitempty" json:"lora_base,omitempty"`
@@ -2074,6 +2085,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if debug {
 		cfg.Debug = &trueV
+	}
+
+	// A context_size of 0 means "not set", the same as leaving the key out.
+	// Editors and templates write 0 as a placeholder; kept as an explicit value
+	// it would skip the GGUF-based sizing below and pin the window to the
+	// fallback. A negative value is a different request (full trained context)
+	// and is left alone for the GGUF hook to resolve.
+	if cfg.ContextSize != nil && *cfg.ContextSize == 0 {
+		cfg.ContextSize = nil
 	}
 
 	// If a context size was provided via LoadOptions, apply it before hooks so they
@@ -2441,6 +2461,9 @@ func (c *ModelConfig) validateProfileFields() error {
 		default:
 			return fmt.Errorf("%s: unknown value %q (allowed: %q)", key, value, ClientToolsDrop)
 		}
+	}
+	if c.VisionAlias != "" && !c.IsAlias() {
+		return fmt.Errorf("vision_alias is only valid on an alias config (model %q has no alias)", c.Name)
 	}
 	if c.Profile.IsZero() {
 		return nil

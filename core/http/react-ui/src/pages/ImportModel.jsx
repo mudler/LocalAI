@@ -18,6 +18,7 @@ import { classifyImportJob } from '../utils/importJob'
 import Icon from '../components/Icon'
 import ToolSteps from '../components/tools/ToolSteps'
 import Checks from '../components/tools/Checks'
+import { newPoll, pollStep, canStart, isTerminal } from '../utils/jobPolling'
 import '../components/tools/tools.css'
 import './import.css'
 
@@ -202,7 +203,7 @@ export default function ImportModel() {
   const pollRef = useRef(null)
 
   useEffect(() => {
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); pollRef.current = null }
   }, [])
 
   useEffect(() => {
@@ -288,31 +289,57 @@ export default function ImportModel() {
   const startJobPolling = useCallback((jobId) => {
     if (pollRef.current) clearInterval(pollRef.current)
     transferRateRef.current.retain([jobId])
-    pollRef.current = setInterval(async () => {
+    // The poll runs as the state machine in utils/jobPolling.js: it skips a
+    // tick while a request is in flight and ends after repeated failures or
+    // a long silence, so the form never stays locked on a dead endpoint.
+    let poll = newPoll(Date.now())
+    let lastError = ''
+    const advance = (event) => {
+      const before = poll
+      poll = pollStep(poll, { ...event, now: Date.now() })
+      return before
+    }
+    let timer = null
+    // A newer poll replaces this one: its late responses must not touch state.
+    const current = () => pollRef.current === timer
+    const stop = () => {
+      transferRateRef.current.reset(jobId)
+      clearInterval(timer)
+      if (current()) pollRef.current = null
+    }
+    const finish = () => {
+      stop()
+      setIsSubmitting(false)
+      setJob(null)
+    }
+    const giveUp = () => {
+      finish()
+      addToast(t('toasts.importFailed', { message: lastError || 'lost contact with the server' }), 'error')
+    }
+    const tick = async () => {
+      const before = advance({ type: 'tick' })
+      if (poll.phase === 'gave-up') { giveUp(); return }
+      if (!canStart(before, poll)) return
       try {
         const data = await modelsApi.getJobStatus(jobId)
+        if (isTerminal(poll) || !current()) return
         // Failure is classified before completion: a failed or cancelled
         // job also sets `processed`. Shared with the model editor.
         const status = classifyImportJob(data)
         if (status.state === 'failed') {
-          transferRateRef.current.reset(jobId)
-          clearInterval(pollRef.current)
-          pollRef.current = null
-          setIsSubmitting(false)
-          setJob(null)
+          advance({ type: 'failed' })
+          finish()
           addToast(t('toasts.importFailed', { message: status.message }), 'error')
           return
         }
         if (status.state === 'done') {
-          transferRateRef.current.reset(jobId)
-          clearInterval(pollRef.current)
-          pollRef.current = null
-          setIsSubmitting(false)
-          setJob(null)
+          advance({ type: 'done' })
+          finish()
           setDone({ name: status.name })
           addToast(t('toasts.imported'), 'success')
           return
         }
+        advance({ type: 'ok' })
         // Keep the whole status. /api/operations carries the same job (the
         // import endpoint registers it in the opcache) but drops it the moment
         // it finishes, which is indistinguishable from a cancel — so terminal
@@ -322,9 +349,15 @@ export default function ImportModel() {
         const metrics = transferRateRef.current.sample(jobId, currentBytes, totalBytes)
         setJob({ ...data, currentBytes, totalBytes, ...metrics })
       } catch (err) {
+        if (isTerminal(poll) || !current()) return
         console.error('Error polling job status:', err)
+        lastError = err?.message || lastError
+        advance({ type: 'error' })
+        if (poll.phase === 'gave-up') giveUp()
       }
-    }, 1000)
+    }
+    timer = setInterval(tick, 1000)
+    pollRef.current = timer
   }, [addToast, t])
 
   const handleImport = useCallback(async (overrideBackend) => {

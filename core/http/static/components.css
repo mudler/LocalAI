@@ -6,8 +6,8 @@
    ============================================ */
 .grid-pattern {
   background-image: 
-    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--dk-accent) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--dk-accent) 6%, transparent) 1px, transparent 1px);
   background-size: 20px 20px;
   background-position: 0 0, 0 0;
 }
@@ -15,8 +15,8 @@
 @media (max-width: 640px) {
   .grid-pattern {
     background-image: 
-      linear-gradient(rgba(56, 189, 248, 0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(56, 189, 248, 0.02) 1px, transparent 1px);
+      linear-gradient(color-mix(in srgb, var(--dk-accent) 4%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--dk-accent) 4%, transparent) 1px, transparent 1px);
   }
 }
 
@@ -226,7 +226,7 @@ select:disabled {
 input.input-error,
 textarea.input-error {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dk-error) 25%, transparent);
 }
 
 .input-error:focus {
@@ -339,7 +339,7 @@ textarea.input-success {
 
 .badge-gradient {
   background: var(--gradient-primary);
-  color: #FFFFFF;
+  color: var(--dk-on-accent);
   border: none;
 }
 
@@ -632,7 +632,7 @@ textarea.input-success {
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--dk-scrim);
   z-index: 35;
   opacity: 0;
   visibility: hidden;

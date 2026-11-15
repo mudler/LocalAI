@@ -128,7 +128,11 @@
     "failed": "Falhou",
     "updateAvailable": "Atualização disponível",
     "ready": "Pronto",
-    "noRunsYet": "Nenhuma execução"
+    "noRunsYet": "Nenhuma execução",
+    "updating": "Atualizando",
+    "heldForApproval": "Aguardando aprovação",
+    "cannotUpdate": "Não pode atualizar",
+    "differsFromCluster": "Difere do cluster"
   },
   "share": {
     "title": "Compartilhar \"{{name}}\"",

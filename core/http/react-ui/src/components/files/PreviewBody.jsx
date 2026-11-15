@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Skeleton from '../Skeleton'
@@ -12,8 +12,14 @@ import { renderMarkdown } from '../../utils/markdown'
 import { PAGE_CSP } from '../../utils/pagesBridge'
 import { withHead } from '../../utils/chatApps'
 import { SERVER_VIEWS, TEXT_VIEWS, languageOf, viewOf } from '../../utils/previewPane'
+import { OFFICE_SIZE_CAP, officePlan, officeState } from '../../utils/officePreview'
 import hljs from '../../utils/hljs'
+import TableView from './TableView'
 import './preview.css'
+
+// The drawing of Word, Excel and PowerPoint files is its own chunk, fetched
+// when the first such file is opened.
+const OfficeView = lazy(() => import('./OfficeView'))
 
 // The most of a text file the preview reads. A longer file shows its start.
 export const TEXT_LIMIT = 1024 * 1024
@@ -60,11 +66,27 @@ export default function PreviewBody({ item }) {
   const ext = item.type === 'file' ? extensionOf(item.name) : ''
   // An add-on that handles the extension draws the preview instead.
   const addon = useSlotContributions('files.preview', item.type === 'file' && !!ext, ext || undefined)
-  const data = useItemData(item, addon.length > 0 ? 'none' : view)
+  // A Word, Excel or PowerPoint file is drawn from its own bytes. When that
+  // fails or the file is too large, the server's text view takes over.
+  const plan = useMemo(() => officePlan(item), [item])
+  const [office, setOffice] = useState({ key: '', reason: '' })
+  const officeKey = `${item.path}:${item.size}`
+  const { failed, drawn: canDraw } = officeState(plan, office, officeKey)
+  const drawn = canDraw && addon.length === 0
+  const data = useItemData(item, addon.length > 0 || drawn ? 'none' : view)
   if (item.type === 'file' && ext && addon.length > 0) {
     return (
       <div className="pv pv--addon" data-testid="preview-addon">
         <AddonSlot slot="files.preview" context={{ path: item.path, name: item.name, extension: ext }} />
+      </div>
+    )
+  }
+  if (drawn) {
+    return (
+      <div className={`pv pv--${view} pv--office`} data-testid="preview-body" data-view={view} data-office={plan.kind}>
+        <Suspense fallback={<PreviewSkeleton view="table" label={t('preview.loading', { name: item.name })} />}>
+          <OfficeView item={item} kind={plan.kind} t={t} onFallback={(reason) => setOffice({ key: officeKey, reason })} />
+        </Suspense>
       </div>
     )
   }
@@ -105,6 +127,11 @@ export default function PreviewBody({ item }) {
   })()
   return (
     <div className={`pv pv--${view}`} data-testid="preview-body" data-view={view}>
+      {failed && plan.kind && (
+        <p className="pv__note pv__note--top" data-testid="preview-office-note">
+          <Icon name="info" /> {failed === 'tooLarge' ? t('preview.officeTooLarge', { size: fileSize(OFFICE_SIZE_CAP) }) : t('preview.officeFailed')}
+        </p>
+      )}
       {body}
       {cut && <p className="pv__note">{t('preview.textCut', { size: fileSize(TEXT_LIMIT) })}</p>}
     </div>
@@ -143,81 +170,6 @@ export function UnknownCard({ item, t, note }) {
         <a className="btn btn-secondary btn-sm" href={filesApi.contentUrl(item.path)} download={item.name}>
           <Icon name="download" /> {t('download')}
         </a>
-      )}
-    </div>
-  )
-}
-
-const columnName = (i) => {
-  let s = ''
-  for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s
-  return s
-}
-
-// A spreadsheet: a tab per sheet, the first row as a sticky header, row
-// numbers, and what was left out.
-function TableView({ data, item, t }) {
-  const sheets = data?.sheets || []
-  const [at, setAt] = useState(0)
-  const sheet = sheets[Math.min(at, sheets.length - 1)]
-  const onKey = (e) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
-    e.preventDefault()
-    const next = (at + (e.key === 'ArrowRight' ? 1 : -1) + sheets.length) % sheets.length
-    setAt(next)
-    e.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus()
-  }
-  if (!sheet) return <p className="pv__note">{t('preview.sheetEmpty')}</p>
-  const width = Math.max(0, ...sheet.rows.map(r => r.length))
-  const cols = Array.from({ length: width }, (_, i) => i)
-  const [head, ...rest] = sheet.rows
-  const more = sheet.total_rows > sheet.rows.length || sheet.total_cols > width
-  return (
-    <div className="pv-table" data-testid="preview-table">
-      {sheets.length > 1 && (
-        <div className="pv-tabs" role="tablist" aria-label={t('preview.sheets')} onKeyDown={onKey}>
-          {sheets.map((s, i) => (
-            <button
-              key={`${i}-${s.name}`} type="button" role="tab" className="pv-tab"
-              id={`pv-tab-${i}`} aria-controls="pv-sheet" aria-selected={i === at} tabIndex={i === at ? 0 : -1}
-              onClick={() => setAt(i)} data-testid="preview-sheet-tab"
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-      )}
-      <div
-        className="pv-table__scroll" id="pv-sheet" tabIndex={0}
-        role={sheets.length > 1 ? 'tabpanel' : 'region'}
-        aria-labelledby={sheets.length > 1 ? `pv-tab-${at}` : undefined}
-        aria-label={sheets.length > 1 ? undefined : t('preview.sheetLabel', { name: sheet.name })}
-      >
-        {sheet.rows.length === 0 ? <p className="pv__note">{t('preview.sheetEmpty')}</p> : (
-          <table className="pv-grid">
-            <thead>
-              <tr>
-                <th scope="col" className="pv-grid__n" aria-label={t('preview.row')}>1</th>
-                {cols.map(c => <th key={c} scope="col" title={columnName(c)}>{head[c] ?? ''}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {rest.map((r, i) => (
-                <tr key={i}>
-                  <th scope="row" className="pv-grid__n">{i + 2}</th>
-                  {cols.map(c => <td key={c}>{r[c] ?? ''}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-      {more && (
-        <p className="pv__note" data-testid="preview-table-more">
-          {t('preview.showingRows', { rows: sheet.rows.length, total: sheet.total_rows })}
-          {sheet.total_cols > width && ` ${t('preview.showingCols', { cols: width, total: sheet.total_cols })}`}{' '}
-          {item.type === 'file' && <a href={filesApi.contentUrl(item.path)} download={item.name}>{t('preview.downloadRest')}</a>}
-        </p>
       )}
     </div>
   )

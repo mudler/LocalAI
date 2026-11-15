@@ -167,7 +167,7 @@ var _ = Describe("Edit Model test", func() {
 			Expect(filepath.Join(tempDir, "new.yaml")).NotTo(BeAnExistingFile())
 		})
 
-		It("should edit a model", func() {
+		It("should create a model from the import endpoint", func() {
 			systemState, err := system.GetSystemState(
 				system.WithModelPath(filepath.Join(tempDir)),
 			)
@@ -181,10 +181,7 @@ var _ = Describe("Edit Model test", func() {
 
 			// Define Echo app and register all routes upfront
 			app := echo.New()
-			// Set up a simple renderer for the test
-			app.Renderer = &testRenderer{}
 			app.POST("/import-model", ImportModelEndpoint(modelConfigLoader, nil, applicationConfig, nil))
-			app.GET("/edit-model/:name", GetEditModelPage(modelConfigLoader, applicationConfig))
 
 			requestBody := bytes.NewBufferString(`{"name": "foo", "backend": "foo", "model": "foo"}`)
 
@@ -196,17 +193,6 @@ var _ = Describe("Edit Model test", func() {
 			body, err := io.ReadAll(rec.Body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(body)).To(ContainSubstring("Model configuration created successfully"))
-			Expect(rec.Code).To(Equal(http.StatusOK))
-
-			req = httptest.NewRequest("GET", "/edit-model/foo", nil)
-			rec = httptest.NewRecorder()
-			app.ServeHTTP(rec, req)
-
-			body, err = io.ReadAll(rec.Body)
-			Expect(err).ToNot(HaveOccurred())
-			// The response contains the model configuration with backend field
-			Expect(string(body)).To(ContainSubstring(`"backend":"foo"`))
-			Expect(string(body)).To(ContainSubstring(`"name":"foo"`))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 		})
 

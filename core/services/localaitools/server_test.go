@@ -73,6 +73,8 @@ func resultText(res *mcp.CallToolResult) string {
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.
 var expectedReadOnlyCatalog = sortedStrings(
 	ToolGallerySearch,
+	ToolSearchModels,
+	ToolInspectRemoteModel,
 	ToolGetBranding,
 	ToolGetJobStatus,
 	ToolGetMiddlewareStatus,
@@ -87,6 +89,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListBackendLibraryUpdates,
+	ToolBackendUpdates,
 	ToolListNodes,
 	ToolListScheduling,
 	ToolGetScheduling,
@@ -101,12 +104,12 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListFailoverChains,
 	// The read-only flavour keeps the client tools that only analyse or list.
 	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
-	ToolVoice, ToolFace, ToolVoiceProfile,
+	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels,
 )
 
 // clientWriterTools are the client tools the read-only flavour leaves out: they
 // write files or make new content.
-var clientWriterTools = []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound}
+var clientWriterTools = []string{ToolGenerateImage, ToolSpeak, ToolEmbed, ToolGenerateVideo, ToolGenerateSound, ToolUpscaleImage, ToolTransformAudio}
 
 // expectedFullCatalog derives from the read-only catalog plus the canonical
 // mutating list used by the safety-prompt coverage test. Registering a new
@@ -144,11 +147,17 @@ var _ = Describe("Tool dispatch", func() {
 
 	cases := []dispatchCase{
 		{ToolGallerySearch, GallerySearchQuery{Query: "qwen"}, "GallerySearch"},
+		{ToolSearchModels, ModelSearchRequest{Query: "qwen"}, "SearchModels"},
+		{ToolSearchModels, ModelSearchRequest{Sort: "latest"}, "SearchModels"},
+		{ToolInspectRemoteModel, RemoteModelRequest{URI: "huggingface://a/b"}, "InspectRemoteModel"},
 		{ToolListInstalledModels, map[string]any{"capability": "chat"}, "ListInstalledModels"},
+		{ToolListModels, ListModelsRequest{Capability: "image"}, "ListModels"},
 		{ToolListGalleries, struct{}{}, "ListGalleries"},
 		{ToolListBackends, struct{}{}, "ListBackends"},
 		{ToolListKnownBackends, struct{}{}, "ListKnownBackends"},
 		{ToolListBackendLibraryUpdates, struct{}{}, "ListBackendLibraryUpdates"},
+		{ToolBackendUpdates, map[string]any{"action": "list"}, "BackendUpdates"},
+		{ToolBackendUpdates, map[string]any{"action": "check"}, "CheckBackendUpdates"},
 		{ToolSystemInfo, struct{}{}, "SystemInfo"},
 		{ToolListNodes, struct{}{}, "ListNodes"},
 		{ToolListScheduling, struct{}{}, "ListScheduling"},
@@ -195,6 +204,8 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolRerank, RerankRequest{Query: "q", Documents: []string{"d"}}, "Rerank"},
 		{ToolGenerateVideo, GenerateVideoRequest{Prompt: "waves"}, "GenerateVideo"},
 		{ToolGenerateSound, GenerateSoundRequest{Text: "rain"}, "GenerateSound"},
+		{ToolUpscaleImage, UpscaleImageRequest{Image: "a.png", Scale: 4}, "UpscaleImage"},
+		{ToolTransformAudio, TransformAudioRequest{Audio: "a.wav"}, "TransformAudio"},
 		{ToolVoice, VoiceToolInput{Action: "verify", Audio: "a.wav", Audio2: "b.wav"}, "VerifyVoice"},
 		{ToolVoice, VoiceToolInput{Action: "identify", Audio: "a.wav"}, "IdentifyVoice"},
 		{ToolFace, FaceToolInput{Action: "verify", Image: "a.png", Image2: "b.png"}, "VerifyFace"},
@@ -296,6 +307,7 @@ var _ = Describe("Argument validation", func() {
 		{"create_shared_folder requires a name", ToolCreateSharedFolder, CreateSharedFolderRequest{Name: " "}, "name is required"},
 		{"set_shared_folder_member rejects an unknown mode", ToolSetSharedFolderMember, SetSharedFolderMemberRequest{ID: 3, Member: "marta", Mode: "owner"}, "mode must be read or write"},
 		{"remove_shared_folder_member requires a member", ToolRemoveSharedFolderMember, RemoveSharedFolderMemberRequest{ID: 3}, "id and member are required"},
+		{"search_models needs a query unless sort is latest", ToolSearchModels, ModelSearchRequest{Sort: "likes"}, "query is required unless sort is latest"},
 		{"restore_shared_folder requires the rev", ToolRestoreSharedFolder, RestoreSharedFolderRequest{}, "rev is required"},
 	}
 

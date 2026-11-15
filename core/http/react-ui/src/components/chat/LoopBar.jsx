@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Button from '../ui/Button'
-import { chipLoops, isWait, loopEvery, loopSummary, pendingLoops, shortId, waitView } from '../../utils/chatLoops'
+import { barItems, groupView, isWait, jobView, loopEvery, loopSummary, pendingLoops, shortId, splitJobs, waitView } from '../../utils/chatLoops'
 
 function clock(iso) {
   if (!iso) return ''
@@ -142,19 +142,131 @@ function WaitChip({ loop, chatId, chat }) {
   )
 }
 
+// Many waits at once: one chip says how many wait and when the next deadline
+// is; it opens to the card of each wait, each with its own Stop. Stop all ends
+// the waits of the group only. It starts closed, because the person did not
+// ask for any of them to be this wide.
+function WaitGroup({ waits, chatId, chat }) {
+  const { t } = useTranslation('chats')
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const now = useNow(true)
+  const v = groupView(t, waits, now)
+  const bodyId = `wait-group-${chatId}`
+  const stopAll = async () => {
+    setBusy(true)
+    try {
+      for (const w of waits) await chat.stopLoop(chatId, w.id)
+    } finally { setBusy(false) }
+  }
+  return (
+    <div className="cx-wait-group" data-testid="wait-group" data-open={open || undefined} data-count={v.count}>
+      <div className="cx-wait cx-wait--run cx-wait-group__head">
+        <button type="button" className="cx-wait-group__toggle" aria-expanded={open} aria-controls={open ? bodyId : undefined}
+          aria-label={t(open ? 'loops.wait.group.collapse' : 'loops.wait.group.expand')}
+          onClick={() => setOpen(o => !o)} data-testid="wait-group-toggle">
+          <Icon name="hourglass" className="cx-wait__icon" />
+          <b data-testid="wait-group-title">{t('loops.wait.group.title', { count: v.count })}</b>
+          <ul className="cx-wait__facts cx-wait-group__facts">
+            {v.facts.map(f => <li key={f.key} className={`cx-wait__fact cx-wait__fact--${f.key}`} data-testid={`wait-group-${f.key}`}>{f.text}</li>)}
+          </ul>
+          <Icon name="chevron-right" className="cx-wait-group__chev" />
+        </button>
+        <button type="button" className="cx-link cx-link--danger" disabled={busy} onClick={stopAll} data-testid="wait-group-stop-all">
+          {t('loops.wait.group.stopAll')}
+        </button>
+      </div>
+      {open && (
+        <div className="cx-wait-group__body" id={bodyId} data-testid="wait-group-body">
+          {waits.map(l => <WaitChip key={l.id} loop={l} chatId={chatId} chat={chat} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// One background job above the message box: the label the model gave, how it
+// stands in words (running, exited with a code, stopped, lost, stalled), where
+// it runs and for how long. Never the command. A running job has Stop, which
+// sends term to it and ends it as "stopped".
+function JobChip({ job, chatId, chat }) {
+  const { t } = useTranslation('chats')
+  const now = useNow(true)
+  const [busy, setBusy] = useState(false)
+  const v = jobView(t, job, now)
+  const stop = async () => {
+    setBusy(true)
+    try { await chat.stopJob(chatId, job.id) } finally { setBusy(false) }
+  }
+  return (
+    <div className={`cx-wait cx-job cx-wait--${v.tone}`} role="group" aria-label={`${v.title} ${v.status}`}
+      data-testid="job-chip" data-kind={v.kind} data-job={job.id}>
+      <div className="cx-wait__head">
+        <Icon name={v.icon} className="cx-wait__icon" />
+        <span className="cx-wait__title" role="status">
+          <b data-testid="job-title">{v.title}</b>
+          <span className="cx-wait__reason" data-testid="job-status">{v.status}</span>
+        </span>
+        {v.live && (
+          <span className="cx-wait__acts">
+            <button type="button" className="cx-link cx-link--danger" disabled={busy || job.state === 'ending'} onClick={stop} data-testid="job-stop">
+              {t('loops.job.stop')}
+            </button>
+          </span>
+        )}
+      </div>
+      <ul className="cx-wait__facts" aria-label={t('loops.job.details')}>
+        <li className="cx-wait__fact cx-job__id" data-testid="job-id"><code>{job.id}</code></li>
+        {v.facts.map(f => <li key={f.key} className={`cx-wait__fact cx-wait__fact--${f.key}`} data-testid={`job-${f.key}`}>{f.text}</li>)}
+      </ul>
+    </div>
+  )
+}
+
+// The finished jobs fold into one line, closed: they are history, kept by the
+// server for a short time, and must not push the message box down.
+function JobsDone({ jobs, chatId, chat }) {
+  const { t } = useTranslation('chats')
+  const [open, setOpen] = useState(false)
+  const bodyId = `jobs-done-${chatId}`
+  return (
+    <div className="cx-wait-group" data-testid="jobs-done" data-open={open || undefined} data-count={jobs.length}>
+      <div className="cx-wait cx-wait--idle cx-wait-group__head">
+        <button type="button" className="cx-wait-group__toggle" aria-expanded={open} aria-controls={open ? bodyId : undefined}
+          onClick={() => setOpen(o => !o)} data-testid="jobs-done-toggle">
+          <Icon name="terminal" className="cx-wait__icon" />
+          <b>{t('loops.job.done', { count: jobs.length })}</b>
+          <Icon name="chevron-right" className="cx-wait-group__chev" />
+        </button>
+      </div>
+      {open && (
+        <div className="cx-wait-group__body" id={bodyId} data-testid="jobs-done-body">
+          {jobs.map(j => <JobChip key={j.id} job={j} chatId={chatId} chat={chat} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // LoopBar shows the loops of the open chat over the message box: a card for a
-// loop that waits for a yes, and a chip for each other one.
-export default function LoopBar({ loops, chatId, chat }) {
+// loop that waits for a yes, and a chip for each other one, then the jobs.
+export default function LoopBar({ loops, jobs = [], chatId, chat }) {
   const { t } = useTranslation('chats')
   const pending = pendingLoops(loops)
-  const chips = chipLoops(loops)
-  if (!chatId || (pending.length === 0 && chips.length === 0)) return null
+  const items = barItems(loops)
+  const { live, done } = splitJobs(jobs)
+  if (!chatId || (pending.length === 0 && items.length === 0 && live.length === 0 && done.length === 0)) return null
   return (
     <section className="cx-loops" aria-label={t('loops.region')} data-testid="loop-bar">
       {pending.map(l => <LoopConfirm key={l.id} loop={l} chatId={chatId} chat={chat} />)}
-      {chips.map(l => (isWait(l)
-        ? <WaitChip key={l.id} loop={l} chatId={chatId} chat={chat} />
-        : <LoopChip key={l.id} loop={l} chatId={chatId} chat={chat} />))}
+      {items.map(i => {
+        if (i.kind === 'group') return <WaitGroup key="wait-group" waits={i.waits} chatId={chatId} chat={chat} />
+        return i.kind === 'wait'
+          ? <WaitChip key={i.loop.id} loop={i.loop} chatId={chatId} chat={chat} />
+          : <LoopChip key={i.loop.id} loop={i.loop} chatId={chatId} chat={chat} />
+      })}
+      {live.map(j => <JobChip key={j.id} job={j} chatId={chatId} chat={chat} />)}
+      {done.length > 0 && <JobsDone jobs={done} chatId={chatId} chat={chat} />}
     </section>
   )
 }

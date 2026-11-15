@@ -69,4 +69,4 @@ if [ -z "$local_check" ]; then
     }
 fi
 SANDBOX_SMOKE_PACKAGE=$dest SANDBOX_SMOKE_REQUIRE=$require \
-    go test -tags auth -count=1 -v -run TestActionE2E ./tests/addons/actione2e/ -ginkgo.focus 'Packaged Sandbox smoke' -ginkgo.fail-on-empty
+    go test -tags auth,nosqlite,purego_utp -count=1 -v -run TestActionE2E ./tests/addons/actione2e/ -ginkgo.focus 'Packaged Sandbox smoke' -ginkgo.fail-on-empty

@@ -68,7 +68,7 @@ func (u *UI) UnmarshalJSON(b []byte) error {
 }
 
 func (p *ExecutionProvider) UnmarshalJSON(b []byte) error {
-	if _, err := exactObjectFields(b, DefaultLimits().ManifestBytes, "tools", "statusTool"); err != nil {
+	if _, err := exactObjectFields(b, DefaultLimits().ManifestBytes, "tools", "statusTool", "jobs"); err != nil {
 		return err
 	}
 	type wire ExecutionProvider
@@ -77,6 +77,19 @@ func (p *ExecutionProvider) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*p = ExecutionProvider(v)
+	return nil
+}
+
+func (j *ExecutionJobs) UnmarshalJSON(b []byte) error {
+	if _, err := exactObjectFields(b, DefaultLimits().ManifestBytes, "tool"); err != nil {
+		return err
+	}
+	type wire ExecutionJobs
+	var v wire
+	if err := strictJSON(b, &v, DefaultLimits().ManifestBytes); err != nil {
+		return err
+	}
+	*j = ExecutionJobs(v)
 	return nil
 }
 

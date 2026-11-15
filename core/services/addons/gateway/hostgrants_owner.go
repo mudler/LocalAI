@@ -17,6 +17,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/addons/zipformat"
+	"github.com/mudler/LocalAI/pkg/randtoken"
+	"github.com/mudler/LocalAI/pkg/xslices"
 )
 
 // nonceLife is how long a preview nonce stays valid.
@@ -103,7 +105,7 @@ func (s *nonceStore) purge() {
 }
 
 func (s *nonceStore) issue(bind string) (string, time.Time, error) {
-	n, err := randomHex(16)
+	n, err := randtoken.Hex(16)
 	if err != nil {
 		return "", time.Time{}, ErrUnavailable
 	}
@@ -343,8 +345,8 @@ func (o *HostGrantsOwner) addonView(doc hostgrants.Snapshot, in InstalledAccess)
 	for _, g := range entry.Ops {
 		grant[g.Name] = g
 	}
-	v := HostGrantsAddon{ID: in.AddonID, Title: in.Title, Version: in.Version, State: in.State, PendingUpgrade: in.PendingUpgrade, SourceID: in.SourceID, NewOptional: nonNil(sorted(in.NewOptional)),
-		Requested: HostRequested{Required: nonNil(sorted(in.Required)), Optional: nonNil(sorted(in.Optional))},
+	v := HostGrantsAddon{ID: in.AddonID, Title: in.Title, Version: in.Version, State: in.State, PendingUpgrade: in.PendingUpgrade, SourceID: in.SourceID, NewOptional: xslices.NonNil(sorted(in.NewOptional)),
+		Requested: HostRequested{Required: xslices.NonNil(sorted(in.Required)), Optional: xslices.NonNil(sorted(in.Optional))},
 		Ops:       []HostOpView{}, NoLongerRequested: []HostOpView{}}
 	view := func(op string) HostOpView {
 		d := o.cfg.Floor.Decide(doc, c, in.AddonID, op)
@@ -386,13 +388,6 @@ func sorted(in []string) []string {
 	out := slices.Clone(in)
 	sort.Strings(out)
 	return out
-}
-
-func nonNil(in []string) []string {
-	if in == nil {
-		return []string{}
-	}
-	return in
 }
 
 func (o *HostGrantsOwner) read(ctx context.Context) (HostGrantsView, error) {
@@ -472,8 +467,8 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 	}
 	hint := doc.Hints[rel.AddonID]
 	v := HostGrantsPreviewView{AddonID: rel.AddonID, Title: rel.Title, Digest: rel.Digest, Version: rel.Version, Installed: rel.Installed,
-		Official: rel.Official, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: nonNil(plan.BlockedRequired), Added: []string{},
-		Requested: HostRequested{Required: nonNil(sorted(rel.Required)), Optional: nonNil(sorted(rel.Optional))}}
+		Official: rel.Official, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: xslices.NonNil(plan.BlockedRequired), Added: []string{},
+		Requested: HostRequested{Required: xslices.NonNil(sorted(rel.Required)), Optional: xslices.NonNil(sorted(rel.Optional))}}
 	v.Locked, v.LockedReason = o.cfg.Locked, o.lockedReason()
 	before := unique(installed.Required, installed.Optional)
 	for _, op := range declared {

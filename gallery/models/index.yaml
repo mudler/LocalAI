@@ -6629,7 +6629,7 @@
     files:
       - filename: ds4flash.gguf
         uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-        sha256: 23fb9636d30d84d36ed10fbd42b311e55b2fe3f42ea13ee2fb650dd950091793
+        sha256: e7cf422041ae85182ae697110899467a259406d56726c9d096d476529b432ae2
     overrides:
       backend: ds4
       function:
@@ -7455,8 +7455,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/Qwen3.8-27B-UD-Q4_K_M/Qwen3.8-27B-UD-Q4_K_M.gguf
-        sha256: 322e194ff79741c7baa497c240f677f54b201b0efab44ca8e50f122b39123482
         uri: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_M.gguf
+        sha256: 1bce504dfecd84153666928a41d8a66706f0158d3a317bc5196b72819d7dc529
       - filename: llama-cpp/mmproj/Qwen3.8-27B-UD-Q4_K_M/mmproj-F16.gguf
         sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
         uri: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/mmproj-F16.gguf
@@ -10364,8 +10364,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q4_K_XL.gguf
-        sha256: d1ad2472a147caa1111bae5ec710331dc50692d62ebbdb3fbc54d421c4e209bc
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/Dirk-Qwen3.8-27B-UD-Q4_K_XL.gguf
+        sha256: 711530303357f26d02539354f44bf60685045607d065ca78e83b84e112dd25be
       - filename: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
         sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/mmproj-F16.gguf
@@ -10432,8 +10432,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q8_K_XL.gguf
-        sha256: be2f08a260021fb471f91f2c5a52aa4afe143688e8b412beb5a36cad2d47c4cd
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/Dirk-Qwen3.8-27B-UD-Q8_K_XL.gguf
+        sha256: 98312534b556f750c636b638d2bfe498a2f305609f7b6ab53e5edb9abff9f964
       - filename: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
         sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
         uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/mmproj-F16.gguf
@@ -13691,8 +13691,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
-        sha256: d48801f2b01fe34280cbdc27e6fdad2a12ca2b28b1ec0d5bd344bff77ac7440b
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
+        sha256: 83278fd1ea9923edb45cf6d373a8aa6475fb1f855795e085b9e6252bc53f24fa
       - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
         sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
@@ -13750,8 +13750,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
-        sha256: ebf721ae2297242c254befdc6ac413240668c349f85b16c588d0b1ba2ecb085e
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
+        sha256: a13a71ecfd00779fa3e0071674da61afbdffd42050f22173f4142989975573ba
       - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
         sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
@@ -13809,8 +13809,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
-        sha256: bc3006e14a0b44837beb4577afce13c7016de1e2d163b0bfdb181f93e981e34f
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
+        sha256: 8384abe448e6159b1d43249be9c51f68fe5771e962bb39e3ee89ad1215385310
       - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
         sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
         uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
@@ -14300,8 +14300,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
-        sha256: c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747
         uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
+        sha256: d15d4b6de55f662ac40e867702d31afe738d032fa06b829b2b1a21a49d4a48ee
       - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
         sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
         uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
@@ -14374,11 +14374,11 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
-        sha256: c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747
         uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
+        sha256: d15d4b6de55f662ac40e867702d31afe738d032fa06b829b2b1a21a49d4a48ee
       - filename: llama-cpp/models/qwen3.8-27b/mtp-Qwen3.8-27B-Q4_0.gguf
-        sha256: c5be331f82fb61f5304adfa00ccd60c6743c8ce52255d66fa863446231d49ba4
         uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mtp-Qwen3.8-27B-Q4_0.gguf
+        sha256: 98a72f16e648f77e15b3dcfc7828702e2211f05b95777cb27dc85cb87e621db4
       - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
         sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
         uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
@@ -14515,8 +14515,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q8_0.gguf
-        sha256: aab65c67ef0dad127960efef9247f1832bca105faa1c7a052cc039b223cf86a1
         uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q8_0.gguf
+        sha256: 6bc9e7220d8400574fd62df25f04a961cb5cbb0d766cf0118c21c36c0059c35a
       - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
         sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
         uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
@@ -19144,7 +19144,7 @@
         uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19309,7 +19309,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19370,7 +19370,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19427,7 +19427,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19487,7 +19487,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -19546,7 +19546,7 @@
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P.gguf
       - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
         uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-        sha256: b327d147da02d09fcb93af1c92600a9ab5d545504f36c2af51148f53281f8621
+        sha256: ccab14fb79b1865b4014447f4aa559d28ec0780c429a0cf2b8e1d5d6cb785a60
     overrides:
       backend: llama-cpp
       function:
@@ -26289,8 +26289,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Lythri-7B-A4B-Q8_0.gguf
-        sha256: 782502990660f5b803c241051bd6e54ad4c3b93567253e75216bbbcff68248d3
         uri: https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF/resolve/5db66fbe37add5806e13908a45c3d23759ebc788/Lythri-7B-A4B-Q8_0.gguf
+        sha256: 9a1ad7c7b99547431516140d3d57475024703a5070c9597449c0a4459c976aae
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -28914,8 +28914,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: gemma-4-E2B-it-Q8_0.gguf
-        sha256: 996d08777aadc6bfd3c7375ef70ba25a0f55240075860754fdb18d6d860aa63a
         uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/gemma-4-E2B-it-Q8_0.gguf
+        sha256: c36d5e6be0d91124d8b995f5ad4e1ab0d307f6d95cdd08308820350dbd96ad15
       - filename: mmproj-gemma-4-E2B-it-bf16.gguf
         sha256: e42083b71a9e31e0f722171d551f6d92b101544001c4dde040306a8f2160fe8c
         uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/mmproj-gemma-4-E2B-it-bf16.gguf
@@ -33942,1646 +33942,6 @@
       template:
         use_tokenizer_template: true
 - kind: model
-  id: minimax-h3-fl2va-unpruned-q4
-  name: minimax-h3-fl2va-unpruned-q4
-  version: 0.0.0-gallery.86b56dc1ddd7
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    unpruned. Format: Q4_K_M.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the original time-embedder DiT (~19.9 GB).
-
-    Render status: verified render (end to end on the vllm.cpp model page).
-    Q3_K_M of the same DiT is verified BAD and is not offered.
-
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
-        sha256: 5e8fa6e960d5fbd547390ceec63fcead275435d8f3bd2466a8a2cbd8c2e361e3
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/MiniMax-H3-FL2VA-Q4_K_M.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
-- kind: model
-  id: minimax-h3-fl2va-q4
-  name: minimax-h3-fl2va-q4
-  version: 0.0.0-gallery.9c069fd1ae89
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    unpruned. Format: Q4_K_M.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the original time-embedder DiT (~19.9 GB).
-
-    Render status: verified render (end to end on the vllm.cpp model page).
-    Q3_K_M of the same DiT is verified BAD and is not offered.
-
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
-        sha256: 5e8fa6e960d5fbd547390ceec63fcead275435d8f3bd2466a8a2cbd8c2e361e3
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/MiniMax-H3-FL2VA-Q4_K_M.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
-- kind: model
-  id: minimax-h3-ref2va-unpruned-q4
-  name: minimax-h3-ref2va-unpruned-q4
-  version: 0.0.0-gallery.560bfde8d2bb
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    unpruned. Format: Q4_K_M.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the original time-embedder DiT (~19.9 GB).
-
-    Render status: verified render (end to end on the vllm.cpp model page).
-    Do NOT use the NVFP4 Ref2VA weights: they render a multicolour patch grid.
-    Q3_K_M of the same DiT is verified BAD and is not offered.
-
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/MiniMax-H3-REF2VA-Q4_K_M.gguf
-        sha256: 17925612821ea3037ffaf5f7f9789f5460e87025385bd45e9ec6c7d536684d56
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/MiniMax-H3-REF2VA-Q4_K_M.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/MiniMax-H3-REF2VA-Q4_K_M.gguf
-- kind: model
-  id: minimax-h3-ref2va-q4
-  name: minimax-h3-ref2va-q4
-  version: 0.0.0-gallery.35340ebac8e5
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    unpruned. Format: Q4_K_M.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the original time-embedder DiT (~19.9 GB).
-
-    Render status: verified render (end to end on the vllm.cpp model page).
-    Do NOT use the NVFP4 Ref2VA weights: they render a multicolour patch grid.
-    Q3_K_M of the same DiT is verified BAD and is not offered.
-
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/MiniMax-H3-REF2VA-Q4_K_M.gguf
-        sha256: 17925612821ea3037ffaf5f7f9789f5460e87025385bd45e9ec6c7d536684d56
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/MiniMax-H3-REF2VA-Q4_K_M.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/MiniMax-H3-REF2VA-Q4_K_M.gguf
-- kind: model
-  id: minimax-h3-fl2va-pruned-q8
-  name: minimax-h3-fl2va-pruned-q8
-  version: 0.0.0-gallery.54e435e03618
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    pruned. Format: Q8_0.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~21.4 GB).
-
-    Render status: loads and renders (vllm.cpp model page, pruned Q8_0 A/B).
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_fl2va_pruned-Q8_0.gguf
-        sha256: 1c77759fd30e4b41dd4fb341d684518177f544428c6186fd9f5fd96f8ebf55d4
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q8_0.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_fl2va_pruned-Q8_0.gguf
-- kind: model
-  id: minimax-h3-fl2va-pruned-q6
-  name: minimax-h3-fl2va-pruned-q6
-  version: 0.0.0-gallery.425d1b522f67
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    pruned. Format: Q6_K.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~16.6 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q6_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_fl2va_pruned-Q6_K.gguf
-        sha256: cf9453a5654833fbf4e432d71ae53ad2f58ff8f735aa64d4770f1e182c0a5868
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q6_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_fl2va_pruned-Q6_K.gguf
-- kind: model
-  id: minimax-h3-fl2va-pruned-q5
-  name: minimax-h3-fl2va-pruned-q5
-  version: 0.0.0-gallery.26213b470be4
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    pruned. Format: Q5_0.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~13.9 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q5_0 file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_fl2va_pruned-Q5_0.gguf
-        sha256: e7e7d16af6fe7cbb832441ce8b517155fa32c7ba03d8d1aab086ea64e82104dc
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q5_0.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_fl2va_pruned-Q5_0.gguf
-- kind: model
-  id: minimax-h3-fl2va-pruned-q4
-  name: minimax-h3-fl2va-pruned-q4
-  version: 0.0.0-gallery.f2e231385632
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    pruned. Format: Q4_K.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~11.4 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q4_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_fl2va_pruned-Q4_K.gguf
-        sha256: dd948e08ad0ba3c71bd42f368e283dd82e790f5122a63b276e22a3e0283d0c10
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q4_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_fl2va_pruned-Q4_K.gguf
-- kind: model
-  id: minimax-h3-fl2va-pruned-q3
-  name: minimax-h3-fl2va-pruned-q3
-  version: 0.0.0-gallery.22b3008dc217
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    pruned. Format: Q3_K.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~8.8 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q3_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_fl2va_pruned-Q3_K.gguf
-        sha256: 2c3cadbcc87ce2ed550b9be1e3b099198ba31a33a83f051411254c5149f6f59f
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q3_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_fl2va_pruned-Q3_K.gguf
-- kind: model
-  id: minimax-h3-fl2va-pruned-q2
-  name: minimax-h3-fl2va-pruned-q2
-  version: 0.0.0-gallery.b6937533b94f
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    pruned. Format: Q2_K.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~6.7 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q2_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_fl2va_pruned-Q2_K.gguf
-        sha256: 696866a3c98ea0bb7e96b8a273aafb7c588ca8e6fb669303956eb270cedb68aa
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q2_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_fl2va_pruned-Q2_K.gguf
-- kind: model
-  id: minimax-h3-ref2va-pruned-q8
-  name: minimax-h3-ref2va-pruned-q8
-  version: 0.0.0-gallery.9bdae33f96b5
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    pruned. Format: Q8_0.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~21.4 GB).
-
-    Render status: loads and renders (vllm.cpp model page, pruned Q8_0 A/B).
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_ref2va_pruned-Q8_0.gguf
-        sha256: 60f8a47434ec9a925f0aea41d9e0db9cb78ebc46791b7488d621dbd6905e5d89
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q8_0.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_ref2va_pruned-Q8_0.gguf
-- kind: model
-  id: minimax-h3-ref2va-pruned-q6
-  name: minimax-h3-ref2va-pruned-q6
-  version: 0.0.0-gallery.8ab505c72731
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    pruned. Format: Q6_K.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~16.6 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q6_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_ref2va_pruned-Q6_K.gguf
-        sha256: 4a7a3b9103844ceec6d1d47c9c099f896770130201ea41d9f5d53bbbf274d0d4
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q6_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_ref2va_pruned-Q6_K.gguf
-- kind: model
-  id: minimax-h3-ref2va-pruned-q5
-  name: minimax-h3-ref2va-pruned-q5
-  version: 0.0.0-gallery.0486d6e15733
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    pruned. Format: Q5_0.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~13.9 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q5_0 file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_ref2va_pruned-Q5_0.gguf
-        sha256: b91ca85cecff15371d4dadcb10c98fa0735e3e493fdd9534bef1ed764b1f5fa5
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q5_0.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_ref2va_pruned-Q5_0.gguf
-- kind: model
-  id: minimax-h3-ref2va-pruned-q4
-  name: minimax-h3-ref2va-pruned-q4
-  version: 0.0.0-gallery.635e15c7d6ae
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    pruned. Format: Q4_K.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~11.4 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q4_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_ref2va_pruned-Q4_K.gguf
-        sha256: 2fa5840021cf6967843eaeefde9aaa277e540de02986d5ee3d5b0e6a7a8c9dec
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q4_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_ref2va_pruned-Q4_K.gguf
-- kind: model
-  id: minimax-h3-ref2va-pruned-q3
-  name: minimax-h3-ref2va-pruned-q3
-  version: 0.0.0-gallery.55511b966641
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    pruned. Format: Q3_K.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~8.7 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q3_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_ref2va_pruned-Q3_K.gguf
-        sha256: 1e93dbb3b88177c2ea459bcc86bed45c98e60dd39447306ce65680b590045559
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q3_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_ref2va_pruned-Q3_K.gguf
-- kind: model
-  id: minimax-h3-ref2va-pruned-q2
-  name: minimax-h3-ref2va-pruned-q2
-  version: 0.0.0-gallery.44e1e66934c7
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
-    pruned. Format: Q2_K.
-
-    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~6.7 GB).
-
-    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q2_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
-    The vllm.cpp page records its renders with the DiT expanded to bf16. This
-    entry does not expand it and keeps the quantised weights resident, so a
-    render in that mode is not covered by the page.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_ref2va_pruned-Q2_K.gguf
-        sha256: 12089d0a9935b3616c19e430a2e9e0e14e4b391f773363a167619ad245c1ab6f
-        uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q2_K.gguf
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-        - video
-        - audio
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:ref2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_ref2va_pruned-Q2_K.gguf
-- kind: model
-  id: minimax-h3-fl2va-pruned-nvfp4
-  name: minimax-h3-fl2va-pruned-nvfp4
-  version: 0.0.0-gallery.555e712c48f4
-  description: |
-    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
-    Ask for speech in the prompt and the model lip-syncs it.
-
-    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
-    pruned. Format: NVFP4.
-
-    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~12.5 GB).
-
-    Render status: loads, not rendered (vllm.cpp model page: NVFP4 exists and loads, pruned
-    and unpruned). The quantised weights stay resident; nothing here expands them.
-
-
-    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
-    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames
-    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
-    step at that canvas on a 20-SM device. Muxing the finished frames needs
-    ffmpeg on the host.
-  license: other
-  urls:
-    - https://huggingface.co/MiniMaxAI/MiniMax-H3
-    - https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4
-    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://github.com/mudler/vllm.cpp
-  tags:
-    - text-to-video
-    - image-to-video
-    - video-generation
-    - audio-video-generation
-    - minimax-h3
-    - vllm-cpp
-    - cuda
-    - gpu
-    - dgx-spark
-    - nvfp4
-  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
-  channel: gallery
-  policy:
-    requireSignature: false
-  schemaVersion: 1
-  model:
-    url: github:mudler/LocalAI/gallery/virtual.yaml@master
-    files:
-      - filename: minimax-h3/minimax_h3_fl2va_pruned_nvfp4.safetensors
-        sha256: 72fa9269ce551fb63ff42a32d9b46d0c122e84b4b2c511e22fa698287b088f70
-        uri: huggingface://lilcheaty/MiniMax-H3-NVFP4/minimax_h3_fl2va_pruned_nvfp4.safetensors
-      - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
-        uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-      - filename: minimax-h3/video_vae.safetensors
-        sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
-      - filename: minimax-h3/audio_vae.safetensors
-        sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
-      - filename: minimax-h3/video_vae_config.json
-        sha256: ""
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
-      - filename: minimax-h3/audio_vae_config.json
-        sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
-      - filename: minimax-h3/tokenizer.json
-        sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
-        uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-    overrides:
-      backend: vllm-cpp
-      cuda: true
-      known_input_modalities:
-        - text
-        - image
-      known_output_modalities:
-        - video
-      known_usecases:
-        - video
-      options:
-        - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
-        - video_tokenizer:minimax-h3/tokenizer.json
-        - video_vae:minimax-h3/video_vae.safetensors
-        - video_vae_config:minimax-h3/video_vae_config.json
-        - audio_vae:minimax-h3/audio_vae.safetensors
-        - audio_vae_config:minimax-h3/audio_vae_config.json
-        - video_partition:fl2va
-        - video_device:cuda
-        - video_width:1344
-        - video_height:768
-        - video_num_frames:124
-      parameters:
-        model: minimax-h3/minimax_h3_fl2va_pruned_nvfp4.safetensors
-- kind: model
   id: minimax-h3-fl2va-unpruned-q4-ggml
   name: minimax-h3-fl2va-unpruned-q4-ggml
   version: 0.0.0-gallery.14e3941ea2b3
@@ -36826,6 +35186,9 @@
       known_usecases:
         - tts
       name: moss-tts-cpp-v1_5-q8_0
+      options:
+        - codec:moss-audio-tokenizer-v2-f32.gguf
+        - tokenizer:moss-tokenizer-v1_5.gguf
       parameters:
         model: moss-tts-cpp-v1_5-q8_0/moss-tts-local-v1_5-q8_0.gguf
     variants:
@@ -36872,6 +35235,9 @@
       known_usecases:
         - tts
       name: moss-tts-cpp-v1_5-f16
+      options:
+        - codec:moss-audio-tokenizer-v2-f32.gguf
+        - tokenizer:moss-tokenizer-v1_5.gguf
       parameters:
         model: moss-tts-cpp-v1_5-f16/moss-tts-local-v1_5-f16.gguf
     variants: []
@@ -49290,8 +47656,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q4_K_M.gguf
-        sha256: f18f594747e5317ab490cff9c06339c9cfb89acbe2f02ebc48a4e167bc23576d
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q4_K_M.gguf
+        sha256: 588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -49337,8 +47703,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q5_K_M.gguf
-        sha256: 9e513c61e42e83a1aa271957eab2b06b15335f6f12756465c739da1ea3192bc5
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q5_K_M.gguf
+        sha256: ff7cf8926c8565b8d9e2ebfef8a5dd4cc8a2f34dc8b3c5b3eaa55fdc9e8b0a01
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -49380,8 +47746,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q6_K.gguf
-        sha256: 495b1e7567d976e178f076cea3f774f9a6d6c60d606cedfbdc73cb392b4f08ce
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q6_K.gguf
+        sha256: ec9b0f9e041e7ca52a93cb2b7d98a439ac8bc70d0247cd33c03a9ae755e6a593
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -49423,8 +47789,8 @@
     url: github:mudler/LocalAI/gallery/qwen3.yaml@master
     files:
       - filename: llama-cpp/models/minicpm-v-4_7-1b/MiniCPM-V-4_7-1B-Q8_0.gguf
-        sha256: 32322779352e9c6e7b9748ecbf62c9b8a6570bb8630fa4dddb9d0394528ea7fa
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/MiniCPM-V-4_7-1B-Q8_0.gguf
+        sha256: 2b83d8dfcd664c4dd9b9cfbe8dbd160782f2c6c362ca773758edc2dbc31420d7
       - filename: llama-cpp/models/minicpm-v-4_7-1b/mmproj-model-f16.gguf
         sha256: fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900
         uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf/resolve/59cd286146b6ce70f818508ccf512e11438d8957/mmproj-model-f16.gguf
@@ -80952,6 +79318,86 @@
       parameters:
         model: parakeet-cpp/redux-q8_0.gguf
 - kind: model
+  id: parakeet-cpp-fluid-speech-pro
+  name: parakeet-cpp-fluid-speech-pro
+  version: 0.0.0-gallery.af88fab9fcf9
+  description: |
+    Fluid Speech Pro, Q8_0: a 0.63B FastConformer-TDT speech recognition model by FluidVoice, built on NVIDIA Parakeet TDT 0.6B v3. It covers 25 European languages with automatic language detection, and writes punctuation and capital letters. Q8_0 quantized file, about 940 MB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The GGUF files leave out the
+    model's clean mode and its small extra block, so noisy audio may come out slightly worse than with the full model.
+    License CC-BY-4.0: credit "Fluid Speech Pro by FluidVoice".
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - fluid-speech
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+        sha256: 1b9c613fe3b058895885105e696c203a1a0b47c37eace80d18b51e20dcdc5ffd
+        uri: huggingface://FluidVoice-Labs/fluid-speech-pro-gguf/fluid-speech-pro-q8_0.gguf
+    overrides:
+      backend: parakeet-cpp
+      known_usecases:
+        - transcript
+      name: parakeet-cpp-fluid-speech-pro
+      parameters:
+        model: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+- kind: model
+  id: parakeet-cpp-fluid-speech-pro-f32
+  name: parakeet-cpp-fluid-speech-pro-f32
+  version: 0.0.0-gallery.3a4ed979e86a
+  description: |
+    Fluid Speech Pro, F32: the same model as the Q8_0 file, at full precision (about 2.5 GB). It covers 25 European languages with automatic language detection, and writes punctuation and capital letters.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The GGUF files leave out the
+    model's clean mode and its small extra block, so noisy audio may come out slightly worse than with the full model.
+    License CC-BY-4.0: credit "Fluid Speech Pro by FluidVoice".
+  license: cc-by-4.0
+  urls:
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf
+    - https://github.com/mudler/parakeet.cpp
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - fluid-speech
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: parakeet-cpp/fluid-speech-pro-f32.gguf
+        sha256: ae4602d018c358c67a8e00839c7928357e72a548ac85282d3ed23e2945fcc450
+        uri: huggingface://FluidVoice-Labs/fluid-speech-pro-gguf/fluid-speech-pro-f32.gguf
+    overrides:
+      backend: parakeet-cpp
+      known_usecases:
+        - transcript
+      name: parakeet-cpp-fluid-speech-pro-f32
+      parameters:
+        model: parakeet-cpp/fluid-speech-pro-f32.gguf
+- kind: model
   id: parakeet-cpp-silero-vad-f16
   name: parakeet-cpp-silero-vad-f16
   version: 0.0.0-gallery.194ad1659d6d
@@ -95899,10 +94345,10 @@
     files:
       - filename: llama-cpp/models/clef/Clef-Q4_K_M.gguf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q4_K_M.gguf
-        sha256: 06a819954debafc9664ac6bf3898818185d21d7efe36d0f01009d9958bf6e1fd
+        sha256: bd9b8ae24c5752a2bb5e2733d5168340d5f04457e02b8bf0d1bc9285ec3d4f61
       - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
-        sha256: 744ad2db24c336fc9120dd5ba06344c0601b9efd365fe96be01ce5c4e6ab64cf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/mmproj-Clef-Q8_0.gguf
+        sha256: 0d901ea999ae122ba0afeb4a3f4c4ac9a90baa07f1d120df9c350082db1190a8
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -95941,10 +94387,10 @@
     files:
       - filename: llama-cpp/models/clef/Clef-Q8_0.gguf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q8_0.gguf
-        sha256: 728801f58fcebb35e60bb2ac0cf63fc33e3137b07581da132c1f0f5c5e2149fe
+        sha256: 07c6410af7011e0e56873a3b0b3f4ad9e31fb176f0ca80d6fd1525fe6f036548
       - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
-        sha256: 744ad2db24c336fc9120dd5ba06344c0601b9efd365fe96be01ce5c4e6ab64cf
         uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/mmproj-Clef-Q8_0.gguf
+        sha256: 0d901ea999ae122ba0afeb4a3f4c4ac9a90baa07f1d120df9c350082db1190a8
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -95975,8 +94421,8 @@
     size: 3.01GB
     files:
       - filename: lev-Q4_K_M.gguf
-        sha256: bff94af408cc9ea616dd2543abf77afacefeec27d32d635ebe0ed0eb7ccd7efe
         uri: https://huggingface.co/ggml-org/lev-GGUF/resolve/3e9286a79ae857b4e1de051c92fab6dc574581ce/lev-Q4_K_M.gguf
+        sha256: 3f61b27c00a098dbc79ed099cca3985cbe0b63d17ac7fedebf2dca1d84f7f3a8
     overrides:
       backend: llama-cpp
       context_size: 2048
@@ -96012,10 +94458,10 @@
     files:
       - filename: llama-cpp/models/clef-flash/Clef-Flash-Q4_K_M.gguf
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q4_K_M.gguf
-        sha256: eef2968c238a80d49d340430f22410ea3db9934ad1c6fdb233a503cbf9a9b54e
+        sha256: fd3e90605e8103307dca37cb5a8cdb036267e2fe3cb2d908d80a8ceb9ec0638c
       - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
-        sha256: 9dd8bc279f57d33b0697d4d0fe900fe751a24c9e3d30ab90969d4714ffc0722d
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/mmproj-Clef-Flash-Q8_0.gguf
+        sha256: 3fbc646617c56c35ba48e06f0fbe8693a83bde49eb31e2a3bf59ba0a308c9e25
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -96054,10 +94500,10 @@
     files:
       - filename: llama-cpp/models/clef-flash/Clef-Flash-Q8_0.gguf
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q8_0.gguf
-        sha256: 25f801e2a27610b0ccc0cb1558d7eda3d7a304e34e2c4a04e3079357ff7d906e
+        sha256: d7c352faf1bdd9ea24d0b9347e8eb1eb4bbadeff6c02383bf750215a74f2f1f1
       - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
-        sha256: 9dd8bc279f57d33b0697d4d0fe900fe751a24c9e3d30ab90969d4714ffc0722d
         uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/mmproj-Clef-Flash-Q8_0.gguf
+        sha256: 3fbc646617c56c35ba48e06f0fbe8693a83bde49eb31e2a3bf59ba0a308c9e25
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -96170,8 +94616,8 @@
     size: 19.61GB
     files:
       - filename: OpenJev-Q4_K_M.gguf
-        sha256: 43b8d9cb89851f27c9d6bed8f073f917327bec05471da462eea77cbf896aa891
         uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/OpenJev-Q4_K_M.gguf
+        sha256: 38b512277edaeec6cd251d146bff6d97bc328fa9db19755401d6e9ab1ccbcba5
       - filename: mmproj-OpenJev-Q8_0.gguf
         sha256: e372cdbf59fdd6bd2504cb64c988b31c7a42ac406a8f711df4b7a7acd9216f1e
         uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/mmproj-OpenJev-Q8_0.gguf
@@ -96335,8 +94781,8 @@
         sha256: 2ebba0ff1e63c1ac3fadd4e83efcea189f47f33ec72c91877af94de6ebe30590
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q4_K_M.gguf
       - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-        sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+        sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96507,8 +94953,8 @@
         sha256: 0b3b4aa0e367c620756de4f9db77fc18f94fbeb256db208281cbb84c48e2a101
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q8_0.gguf
       - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-        sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
         uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+        sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96560,8 +95006,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
-        sha256: e8f021ecce45785609a39fb7473c1efd7ec7d85d9953c9a829d30e5c27eaf40e
         uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
+        sha256: 9b8f0f2a602dd160cb841da273ee33ecb8ca5386d4bd46f59fbb20191d0303f7
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96614,8 +95060,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
-        sha256: 6de8144b7b992edd8e18934442a18b3c3207a6886580026aa8d35d4ecb5827d4
         uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
+        sha256: f55f86ac8f456807834b5f97f8f25c9c057b59ae7741bc546be10c2068416bd6
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -96665,8 +95111,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
-        sha256: 063bdad0adcf2c76c33ef252564c97a8b47ab2ff6d004047d36b082f9fc768d7
         uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
+        sha256: 524dbaa84e79279977f62978a12f4d97c76e30a2c3976f7f21ed78e73e4b837e
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -97845,8 +96291,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
-        sha256: 0ce585403ce20cb0a77e2636cd4aeb9b1a48b88487c6b0dbce11e71ac12a6193
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
+        sha256: 2dfc33220a03e3e1d6c688d0cce1ffe035a83175fdcb1811b626615e3081933a
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -97898,8 +96344,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
-        sha256: 41226a5023819696db229d4ab99cb2bce3a56da6929a8250de5fbeaa6afa2fef
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
+        sha256: 1bde57941aa20696c85198fda62948db97eb66a67d9360a7e57e421cba3ae264
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -97947,8 +96393,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q5_K_M.gguf
-        sha256: 678d816f40ab723bb01bdcc95487ecd763e61098a91c012009203cf431f626dd
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q5_K_M.gguf
+        sha256: c6aeee219c352ea6b66dcb0c2c6904ceb5b21464c8bec549fab0894555e73c99
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -97996,8 +96442,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
-        sha256: f97e3d712613f0f2d97e7590511f524800ade57d70e5a5c8d6bc3452b2231183
         uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+        sha256: 4a7f4d1695f458e5e80425782e4c4e9958cc2007db94b670146f70a7f66e9807
     overrides:
       backend: llama-cpp
       chat_template_kwargs:
@@ -98339,8 +96785,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Sharp-MiniCPM5-2B-Q4_K_S.gguf
-        sha256: 3b28cb65323bb877543b30eb5980af5876c56b4ab5982d07d21f0e037c8d7d7f
         uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q4_K_S.gguf
+        sha256: f30598a08c4d7ee5b9397a5f97ec3b14846332a0b5d07471674505b464b9d1a9
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -98387,8 +96833,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Sharp-MiniCPM5-2B-Q6_K_XL.gguf
-        sha256: 0722928b41fae86210ee2a78f1ba49c6eb682cd4d65ae5433d976e255ff336ca
         uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q6_K_XL.gguf
+        sha256: f67c038e7f1fbfb54ffa4bc5e1197cd2748700580cd1d1fd076e5998ac923ef4
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -98432,8 +96878,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: Sharp-MiniCPM5-2B-Q8_K_M.gguf
-        sha256: 0eb54d5eef75449c19fa6831c048ca6da82f65bace7efee704453cbe87a73622
         uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q8_K_M.gguf
+        sha256: d2e70bd38c72f6bd3c0277509150f18d8658f65e9b2a37cd977c311a914f7684
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -99594,8 +98040,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q4_K_M.gguf
-        sha256: 8a7e0f48af1feea9a107e17e2c03e8ad8d0c397c47a5dae4a73b3d92e3533377
         uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q4_K_M.gguf
+        sha256: 7a3edb4edbcf960f8282faa2b5f71ccd26e2a6bdbf1b4889179ff173cd13e161
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -100484,8 +98930,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: humanizer-12b-Q4_K_M.gguf
-        sha256: 2229574dec5178629575ee4a153dfee7d9e924ab997d0ad9d2ac622b67e44834
         uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q4_K_M.gguf
+        sha256: 5f0fd4bf39401e58c1d4b4a3eda3fc42f64cb9f28d7cd80bcfccca568b215a2f
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -100540,8 +98986,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: humanizer-12b-Q6_K.gguf
-        sha256: c98f03bb9e71456181f99b0e1d3391e07ce1afc357f9db4c33d6d379b8dd9f0d
         uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q6_K.gguf
+        sha256: bc2259fabf2a03de6894bdca0c65092608e52fefe48ba6b624a51c82c1e522c5
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -100590,8 +99036,8 @@
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
       - filename: humanizer-12b-Q8_0.gguf
-        sha256: 8d7a457b56de6530eaaf0151ccfa7550a4b20dab979737e259da9c63e960e0b0
         uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q8_0.gguf
+        sha256: 74d0e61d62c1c9d472002b9175cc71b9e725d5b5a4236383d89b04bdc29f05b9
     overrides:
       backend: llama-cpp
       context_size: 8192

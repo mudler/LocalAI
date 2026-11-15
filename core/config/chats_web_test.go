@@ -116,4 +116,21 @@ var _ = Describe("the chats' web tool settings", func() {
 		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsIndexMaxTextBytes: &tiny})
 		Expect(o.ChatsIndexMaxTextBytes).To(Equal(1<<20), "a cap out of range is not taken")
 	})
+
+	It("limits Extract to 1 GiB and 20000 entries, with 7z and RAR off, until an administrator changes them", func() {
+		o := &config.ApplicationConfig{}
+		rs := o.ToRuntimeSettings()
+		Expect(rs.ChatsExtractMaxBytes).To(HaveValue(Equal(int64(1 << 30))))
+		Expect(rs.ChatsExtractMaxEntries).To(HaveValue(Equal(20000)))
+		Expect(rs.ChatsExtractSevenZipRar).To(HaveValue(BeFalse()))
+		bytes, entries, on := int64(8<<20), 50, true
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsExtractMaxBytes: &bytes, ChatsExtractMaxEntries: &entries, ChatsExtractSevenZipRar: &on})
+		Expect(o.EffectiveChatsExtractMaxBytes()).To(Equal(int64(8 << 20)))
+		Expect(o.EffectiveChatsExtractMaxEntries()).To(Equal(50))
+		Expect(o.ChatsExtractSevenZipRar).To(BeTrue())
+		tiny, huge := int64(10), 5000000
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsExtractMaxBytes: &tiny, ChatsExtractMaxEntries: &huge})
+		Expect(o.EffectiveChatsExtractMaxBytes()).To(Equal(int64(8<<20)), "a value out of range is not taken")
+		Expect(o.EffectiveChatsExtractMaxEntries()).To(Equal(50))
+	})
 })

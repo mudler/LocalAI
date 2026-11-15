@@ -1,6 +1,8 @@
 package wstest
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -200,6 +202,137 @@ func describePurge(newStore NewStore) {
 			Expect(MustRead(s, AdminActor, "/shared/a.txt")).To(Equal("a"))
 		})
 	})
+	Describe("PruneVersions", func() {
+		// writes is the number of write operations the history of p holds.
+		writes := func(s workspace.Store, p string) []workspace.ChangeSet {
+			GinkgoHelper()
+			hist, err := s.History(Ctx(), AdminActor, workspace.HistoryQuery{Path: p, Limit: 1000})
+			Expect(err).ToNot(HaveOccurred())
+			var out []workspace.ChangeSet
+			for _, cs := range hist {
+				for _, op := range cs.Ops {
+					if op.Kind == workspace.OpWrite {
+						out = append(out, cs)
+						break
+					}
+				}
+			}
+			return out
+		}
+		prune := func(s workspace.Store, p string, keep int) int {
+			GinkgoHelper()
+			n, err := purger(s).PruneVersions(Ctx(), AdminActor, p, keep)
+			Expect(err).ToNot(HaveOccurred())
+			return n
+		}
+
+		It("keeps the newest versions of a file that was overwritten many times", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "v0")
+			for i := 1; i <= 10; i++ {
+				MustPut(s, AdminActor, "/a.txt", fmt.Sprintf("v%d", i))
+			}
+			Expect(writes(s, "/a.txt")).To(HaveLen(10))
+			Expect(prune(s, "/a.txt", 3)).To(Equal(7))
+			Expect(writes(s, "/a.txt")).To(HaveLen(3))
+			Expect(MustRead(s, AdminActor, "/a.txt")).To(Equal("v10"))
+			Expect(prune(s, "/a.txt", 3)).To(BeZero(), "a second prune finds nothing")
+			// The file is still writable and the history still grows.
+			MustPut(s, AdminActor, "/a.txt", "v11")
+			Expect(writes(s, "/a.txt")).To(HaveLen(4))
+		})
+
+		It("keeps the undo of every version it keeps", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "v0")
+			for i := 1; i <= 6; i++ {
+				MustPut(s, AdminActor, "/a.txt", fmt.Sprintf("v%d", i))
+			}
+			Expect(prune(s, "/a.txt", 2)).To(Equal(4))
+			kept := writes(s, "/a.txt") // newest first
+			Expect(kept).To(HaveLen(2))
+			mustUndo(s, kept[0].Rev)
+			Expect(MustRead(s, AdminActor, "/a.txt")).To(Equal("v5"))
+			mustUndo(s, kept[1].Rev)
+			Expect(MustRead(s, AdminActor, "/a.txt")).To(Equal("v4"))
+			// A pruned version is gone for good.
+			_, _, err := s.Undo(Ctx(), AdminActor, kept[1].Rev-1, workspace.UndoOptions{})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("touches no other file", func() {
+			s := newStore()
+			for i := 0; i < 5; i++ {
+				MustPut(s, AdminActor, "/a.txt", fmt.Sprintf("a%d", i))
+				MustPut(s, AdminActor, "/b.txt", fmt.Sprintf("b%d", i))
+			}
+			Expect(prune(s, "/a.txt", 1)).To(Equal(3))
+			Expect(writes(s, "/a.txt")).To(HaveLen(1))
+			Expect(writes(s, "/b.txt")).To(HaveLen(4))
+			Expect(MustRead(s, AdminActor, "/b.txt")).To(Equal("b4"))
+		})
+
+		It("keeps a write that shares its change set with another file", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "a0")
+			MustPut(s, AdminActor, "/b.txt", "b0")
+			both := commit(s, AdminActor, func(tx workspace.Tx) error {
+				if err := putIn(tx, "/a.txt", "a1"); err != nil {
+					return err
+				}
+				return putIn(tx, "/b.txt", "b1")
+			})
+			MustPut(s, AdminActor, "/a.txt", "a2")
+			MustPut(s, AdminActor, "/a.txt", "a3")
+			Expect(prune(s, "/a.txt", 1)).To(Equal(1))
+			// The shared change set still undoes both files.
+			Expect(MustRead(s, AdminActor, "/a.txt")).To(Equal("a3"))
+			Expect(MustRead(s, AdminActor, "/b.txt")).To(Equal("b1"))
+			_, _, err := s.Undo(Ctx(), AdminActor, both.Rev, workspace.UndoOptions{SkipConflicts: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(MustRead(s, AdminActor, "/b.txt")).To(Equal("b0"))
+		})
+
+		It("changes nothing for a write of identical content", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "same")
+			for i := 0; i < 5; i++ {
+				MustPut(s, AdminActor, "/a.txt", "same")
+			}
+			Expect(writes(s, "/a.txt")).To(BeEmpty(), "an identical write adds no version")
+			Expect(prune(s, "/a.txt", 1)).To(BeZero())
+			Expect(MustRead(s, AdminActor, "/a.txt")).To(Equal("same"))
+		})
+
+		It("is a no-op for a missing path, a folder and a file with fewer versions", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/d/a.txt", "a0")
+			MustPut(s, AdminActor, "/d/a.txt", "a1")
+			Expect(prune(s, "/nope.txt", 1)).To(BeZero())
+			Expect(prune(s, "/d", 1)).To(BeZero())
+			Expect(prune(s, "/d/a.txt", 5)).To(BeZero())
+			Expect(writes(s, "/d/a.txt")).To(HaveLen(1))
+			Expect(MustRead(s, AdminActor, "/d/a.txt")).To(Equal("a1"))
+		})
+
+		It("refuses a keep below one", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "a0")
+			_, err := purger(s).PruneVersions(Ctx(), AdminActor, "/a.txt", 0)
+			Expect(err).To(MatchError(workspace.ErrInvalid))
+		})
+
+		It("needs write access to the file", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/shared/a.txt", "a0")
+			MustPut(s, AdminActor, "/shared/a.txt", "a1")
+			MustPut(s, AdminActor, "/shared/a.txt", "a2")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			_, err := purger(s).PruneVersions(Ctx(), Alice, "/shared/a.txt", 1)
+			Expect(err).To(HaveOccurred())
+			Expect(writes(s, "/shared/a.txt")).To(HaveLen(2))
+		})
+	})
 }
 
 // RunPurgeBlobs registers specs on the bytes a purge frees. newStore opens a
@@ -240,6 +373,32 @@ func RunPurgeBlobs(newStore func() (workspace.Store, blob.Store)) {
 			Expect(exists(blobs, v2.Blob)).To(BeFalse())
 			Expect(exists(blobs, v1.Blob)).To(BeTrue(), "b.txt lost its bytes")
 			Expect(MustRead(s, AdminActor, "/b.txt")).To(Equal("version one"))
+		})
+		It("removes the bytes of the versions that a prune drops, and no others", func() {
+			s, blobs := newStore()
+			var vs []workspace.Node
+			for i := 0; i < 8; i++ {
+				vs = append(vs, MustPut(s, AdminActor, "/a.txt", fmt.Sprintf("version %d", i)))
+			}
+			other := MustPut(s, AdminActor, "/b.txt", "version 1") // shares the bytes of v1
+			n, err := purger(s).PruneVersions(Ctx(), AdminActor, "/a.txt", 2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(5))
+			// The create row keeps v0. The kept writes refer to v5..v7. The
+			// bytes of v2..v4 go, and v1 stays because b.txt uses it.
+			for i, v := range vs {
+				switch {
+				case i == 0, i >= 5: // the create, and the kept writes with the live file
+					Expect(exists(blobs, v.Blob)).To(BeTrue(), "version %d", i)
+				case i == 1:
+					Expect(exists(blobs, v.Blob)).To(BeTrue(), "b.txt shares version 1")
+				default:
+					Expect(exists(blobs, v.Blob)).To(BeFalse(), "version %d is still stored", i)
+				}
+			}
+			Expect(MustRead(s, AdminActor, "/b.txt")).To(Equal("version 1"))
+			Expect(other.Blob).To(Equal(vs[1].Blob))
+			Expect(MustRead(s, AdminActor, "/a.txt")).To(Equal("version 7"))
 		})
 	})
 }

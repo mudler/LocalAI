@@ -25,6 +25,10 @@ on:
         required: false
         default: '1'
         type: string
+# nosqlite and purego_utp: pkg/downloader needs them when cgo is on (see CONTRIBUTING.md, "Build tags").
+env:
+  GOFLAGS: -tags=nosqlite,purego_utp
+
 jobs:
   gallery-agent:
     if: github.repository == 'mudler/LocalAI'

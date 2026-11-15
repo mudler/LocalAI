@@ -95,6 +95,8 @@ func New(o Options) (*Backend, error) {
 			_ = os.RemoveAll(d)
 		}
 	}
+	// So are the process groups of the jobs it left running.
+	reapGroups(filepath.Join(filepath.Clean(o.Root), "jobgroups"))
 	return &Backend{root: filepath.Clean(o.Root), log: o.Log, held: map[string]*hostSandbox{}}, nil
 }
 
@@ -268,7 +270,8 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	cmd := exec.Command(prog, noLogin(c.Args)[1:]...) // #nosec G204 -- the host backend runs the command of the user by design
 	cmd.Dir = filepath.Join(s.work(), filepath.FromSlash(rel))
 	// A fixed environment: nothing of the add-on's own reaches the command.
-	cmd.Env = append([]string{"PATH=" + commandPath, "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, c.Env...)
+	// $WORK is a guest path; here the guest root is the work copy.
+	cmd.Env = append([]string{"PATH=" + commandPath, "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, sandbox.MapWorkEnv(c.Env, s.work())...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = c.Stdin, c.Stdout, c.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 200 * time.Millisecond
@@ -279,8 +282,18 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	s.mu.Lock()
 	s.procs = append(s.procs, p)
 	s.mu.Unlock()
+	pgid := cmd.Process.Pid
+	if c.Job {
+		s.b.recordGroup(pgid)
+	}
 	go func() {
 		p.err = cmd.Wait()
+		if c.Job {
+			// What the command left running in its group must not outlive
+			// it: nothing else would signal the group again.
+			_ = syscall.Kill(-pgid, syscall.SIGKILL)
+			s.b.forgetGroup(pgid)
+		}
 		close(p.done)
 	}()
 	go func() {
@@ -500,6 +513,7 @@ func (s *hostSandbox) Destroy(ctx context.Context) error {
 	for _, p := range procs {
 		p.markGone()
 		_ = syscall.Kill(-p.cmd.Process.Pid, syscall.SIGKILL)
+		s.b.forgetGroup(p.cmd.Process.Pid)
 	}
 	return os.RemoveAll(s.dir)
 }

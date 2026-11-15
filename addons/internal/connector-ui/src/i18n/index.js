@@ -18,3 +18,10 @@ export const connectorLocales = { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-B
 export function registerConnectorLocales() {
   registerLocales({ connector: connectorLocales })
 }
+
+// registerAddonLocales registers the words of one add-on page under its
+// namespace. byLanguage maps a language code to the parsed bundle; a key a
+// language lacks reads in English.
+export function registerAddonLocales(ns, byLanguage) {
+  registerLocales({ [ns]: byLanguage })
+}

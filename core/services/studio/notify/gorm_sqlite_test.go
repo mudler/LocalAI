@@ -23,11 +23,13 @@ func openSQLite(path string) *gorm.DB {
 
 var _ = Describe("GORM on SQLite", func() {
 	Describe("the notification store contract", func() {
-		notifytest.Run(func() notify.Store {
+		lite := func() notify.Store {
 			s, err := notify.NewGORM(openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db")))
 			Expect(err).NotTo(HaveOccurred())
 			return s
-		})
+		}
+		notifytest.Run(lite)
+		notifytest.RunKeyed(lite)
 	})
 
 	It("keeps notifications across a reopen", func() {

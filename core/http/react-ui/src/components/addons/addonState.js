@@ -350,6 +350,16 @@ export function loadLastKnown(storage, actor, maxAgeMs = 24 * 3600 * 1000, now =
   }
 }
 
+// Whether the dialog warns that an add-on does not come from the official
+// library. An add-on runs as trusted code on this server whatever its source,
+// so the warning is the default: it is dropped only when the host stamped the
+// entry official and the preview of the owner does not say otherwise (the
+// preview also checks the signature). A host that sends neither answer warns.
+export function untrustedSource(entry, preview) {
+  if (preview && preview.official === false) return true
+  return !entry || entry.official !== true
+}
+
 // ---- Icons, groups and categories ---------------------------------------------
 
 // The category of an add-on, for the groups of the installed list and the

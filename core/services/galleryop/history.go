@@ -30,6 +30,10 @@ type OpRecord struct {
 	FinishedAt time.Time `json:"finishedAt"`
 }
 
+// TaskUpgrade is the task type of a backend upgrade, in a record and in the
+// /api/operations payload. The others are "installation" and "deletion".
+const TaskUpgrade = "upgrade"
+
 // Outcome values.
 const (
 	OutcomeCompleted = "completed"
@@ -46,6 +50,7 @@ const (
 // once, not silently default to "install" in whichever one was missed.
 func IsDeleteOpType(opType string) bool  { return strings.HasSuffix(opType, "_delete") }
 func IsBackendOpType(opType string) bool { return strings.HasPrefix(opType, "backend_") }
+func IsUpgradeOpType(opType string) bool { return strings.HasSuffix(opType, "_upgrade") }
 
 // recordFromStore maps a persisted gallery operation onto the record shape the
 // Activity page consumes, so the store-backed and ring-backed reads of the same
@@ -78,6 +83,8 @@ func recordFromStore(op distributed.GalleryOperationRecord) OpRecord {
 	}
 	if IsDeleteOpType(op.OpType) {
 		rec.TaskType = "deletion"
+	} else if IsUpgradeOpType(op.OpType) {
+		rec.TaskType = TaskUpgrade
 	}
 
 	// ListTerminal only returns these three statuses, and they are the same

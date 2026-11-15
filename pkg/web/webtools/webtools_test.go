@@ -185,3 +185,51 @@ var _ = Describe("definitions", func() {
 		}
 	})
 })
+
+func TestUnwrap(t *testing.T) {
+	g := NewWithT(t)
+	fetch := func(ct, body string, cut bool) string {
+		resp := page(ct, body)
+		resp.Truncated = cut
+		out, err := webtools.Tools{Fetch: &fakeFetch{resp: resp}}.WebFetch(context.Background(), json.RawMessage(`{"url":"https://example.com/a"}`))
+		g.Expect(err).NotTo(HaveOccurred())
+		return out
+	}
+
+	// A JSON body survives the wrapper as valid JSON.
+	body := `{"items":[{"status":"done"}],"n":1}`
+	p, ok := webtools.Unwrap(fetch("application/json", body, false))
+	g.Expect(ok).To(BeTrue())
+	g.Expect(p.Body).To(Equal(body))
+	g.Expect(json.Valid([]byte(p.Body))).To(BeTrue())
+	g.Expect(p.Cut).To(BeFalse())
+
+	// A title line is not part of the body.
+	html := "<html><head><title>T</title></head><body><p>hello</p></body></html>"
+	p, ok = webtools.Unwrap(fetch("text/html", html, false))
+	g.Expect(ok).To(BeTrue())
+	g.Expect(p.Body).To(Equal("hello"))
+
+	// An empty page has an empty body.
+	p, ok = webtools.Unwrap(fetch("text/plain", "", false))
+	g.Expect(ok).To(BeTrue())
+	g.Expect(p.Body).To(BeEmpty())
+
+	// A download cut is reported and kept as a note.
+	p, ok = webtools.Unwrap(fetch("application/json", `{"a":`, true))
+	g.Expect(ok).To(BeTrue())
+	g.Expect(p.Cut).To(BeTrue())
+	g.Expect(p.Body).To(Equal(`{"a":`))
+	g.Expect(p.Note).To(ContainSubstring("download cut"))
+
+	// A body cut at max_chars is reported.
+	out, err := webtools.Tools{Fetch: &fakeFetch{resp: page("text/plain", strings.Repeat("x", 500))}}.WebFetch(context.Background(), json.RawMessage(`{"url":"https://example.com/a","max_chars":100}`))
+	g.Expect(err).NotTo(HaveOccurred())
+	p, ok = webtools.Unwrap(out)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(p.Cut).To(BeTrue())
+
+	// Text that is not a web_fetch result is refused, not guessed at.
+	_, ok = webtools.Unwrap("hello")
+	g.Expect(ok).To(BeFalse())
+}

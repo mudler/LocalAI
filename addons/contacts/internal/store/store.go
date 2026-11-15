@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/mudler/LocalAI/pkg/xslices"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -101,8 +102,8 @@ func scan(r scanner) (Contact, error) {
 }
 
 func (s *Store) put(ctx context.Context, owner string, c Contact, replace bool) error {
-	phones, _ := json.Marshal(nonNil(c.Phones))
-	emails, _ := json.Marshal(nonNil(c.Emails))
+	phones, _ := json.Marshal(xslices.NonNil(c.Phones))
+	emails, _ := json.Marshal(xslices.NonNil(c.Emails))
 	verb := "INSERT"
 	if replace {
 		verb = "INSERT OR REPLACE"
@@ -110,13 +111,6 @@ func (s *Store) put(ctx context.Context, owner string, c Contact, replace bool) 
 	_, err := s.db.ExecContext(ctx, verb+` INTO contacts(owner, `+cols+`) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
 		owner, c.ID, c.Name, c.Org, string(phones), string(emails), c.Birthday, c.Address, c.Notes, c.Created, c.Updated)
 	return err
-}
-
-func nonNil(e []Entry) []Entry {
-	if e == nil {
-		return []Entry{}
-	}
-	return e
 }
 
 func apply(c *Contact, in Input) {

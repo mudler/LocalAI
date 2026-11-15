@@ -202,3 +202,97 @@ var _ = Describe("connectors media", func() {
 		Expect(strings.Count(sent[0], "escape")).To(BeZero(), "the chat got %q", sent)
 	})
 })
+
+// countedMedia is the Telegram add-on, counting the calls of the op media:
+// the reads of the files that a message names.
+type countedMedia struct {
+	inner contract.ConnectorRuntime
+	n     *atomic.Int32
+}
+
+func (c countedMedia) Connector(ctx context.Context, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	if req.Op == contract.ConnectorOpMedia {
+		c.n.Add(1)
+	}
+	return c.inner.Connector(ctx, req)
+}
+
+// limitedRig is mediaRig with a binding that accepts only the media kinds
+// inbound (nil: the field is absent). It counts the reads of files.
+func limitedRig(m *media.Service, answer string, inbound *[]string) (*connRig, *scriptedBot, *atomic.Int32) {
+	sh, bot := newShared(), newScriptedBot()
+	sh.deps = func(d *studio.Deps) {
+		d.Media = m
+		d.Modalities = func(string) studio.Modalities { return studio.Modalities{Vision: true} }
+	}
+	api := &transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()}
+	tg := studiobot.Telegram(api)
+	var reads atomic.Int32
+	withHost := tg.WithHost
+	tg.WithHost = func(h testhost.Host) contract.ConnectorRuntime { return countedMedia{inner: withHost(h), n: &reads} }
+	r := newConnRigWith(sh, connStore(), studiobot.NewTransport(tg), connSay(answer), nil)
+	r.bot = bot
+	r.bind(studio.ConnectorInput{Allow: []string{"11"}, InboundMedia: inbound})
+	return r, bot, &reads
+}
+
+var _ = Describe("connectors inbound media", func() {
+	voiceOnly := &[]string{contract.ConnectorMediaVoice}
+
+	It("a photo or a document to a binding that accepts only voice is never read: one sentence, and the caption still goes", func() {
+		for _, tc := range []struct {
+			extra map[string]any
+			word  string
+		}{
+			{photoOf("p1"), "photos"},
+			{map[string]any{"document": map[string]any{"file_id": "d1", "file_name": "tax.pdf"}}, "files"},
+		} {
+			r, bot, reads := limitedRig(nil, "ok", voiceOnly)
+			bot.media["p1"] = botMedia{Path: "photos/file_1.png", Data: pngBytes}
+			bot.media["d1"] = botMedia{Path: "documents/file_1.pdf", Data: []byte("%PDF-1.4 receipt")}
+			tc.extra["caption"] = "what does this say?"
+			bot.message(1, 11, tc.extra)
+			waitFor("the sentence and the answer", func() bool { return len(bot.answers()) == 2 })
+			Expect(bot.answers()[0]).To(Equal("This bot does not accept "+tc.word+"."), "answers %q", bot.answers())
+			Expect(bot.answers()[1]).To(Equal("ok"))
+			Expect(reads.Load()).To(BeZero(), "the file was read")
+			c := onlyChat(r)
+			Expect(r.h.Sent(c.ID)).To(Equal([]string{"what does this say?"}))
+			Expect(chatFiles(r.svc, alice, c.ID)).To(BeEmpty(), "the file reached the chat")
+		}
+	})
+
+	It("a photo without a caption to such a binding gets the sentence and starts no turn", func() {
+		r, bot, reads := limitedRig(nil, "never", voiceOnly)
+		bot.media["p1"] = botMedia{Path: "photos/file_1.png", Data: pngBytes}
+		bot.message(1, 11, photoOf("p1"))
+		waitFor("the sentence", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("This bot does not accept photos."))
+		time.Sleep(100 * time.Millisecond)
+		Expect(bot.answers()).To(HaveLen(1))
+		Expect(reads.Load()).To(BeZero())
+		noChats(r)
+	})
+
+	It("a voice message to a binding that accepts voice is read and transcribed", func() {
+		m, calls := transcriber("whisper", "buy milk", http.StatusOK)
+		r, bot, reads := limitedRig(m, "Noted.", voiceOnly)
+		bot.media["v1"] = botMedia{Path: "voice/file_1.oga", Data: oggVoice}
+		bot.message(1, 11, map[string]any{"voice": map[string]any{"file_id": "v1", "duration": 2}})
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("Noted."))
+		Expect(reads.Load()).To(Equal(int32(1)))
+		Expect(calls.Load()).To(Equal(int32(1)))
+		Expect(r.h.Sent(onlyChat(r).ID)).To(Equal([]string{"[Voice message, transcribed]\nbuy milk"}))
+	})
+
+	It("a binding without the field reads photos as before", func() {
+		r, bot, reads := limitedRig(nil, "A cat.", nil)
+		bot.media["p1"] = botMedia{Path: "photos/file_1.png", Data: pngBytes}
+		bot.message(1, 11, photoOf("p1"))
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("A cat."))
+		Expect(reads.Load()).To(Equal(int32(1)))
+		Expect(chatFiles(r.svc, alice, onlyChat(r).ID)).To(HaveLen(1))
+	})
+})

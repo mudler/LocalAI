@@ -706,6 +706,13 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTTS},
 		Description:      "Magpie TTS C++ - NVIDIA Magpie TTS Multilingual 357M with 5 baked voices and 9+ languages (magpie-tts.cpp / GGML)",
 	},
+	"moss-tts-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodTTS, MethodTTSStream},
+		PossibleUsecases: []string{UsecaseTTS},
+		DefaultUsecases:  []string{UsecaseTTS},
+		VoiceCloning:     referenceVoiceCloning(),
+		Description:      "MOSS TTS C++ - MOSS-TTS-Local v1.5 text-to-speech with streaming and reference-audio voice cloning (moss-tts.cpp / GGML)",
+	},
 	"faster-qwen3-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},

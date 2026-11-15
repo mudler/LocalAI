@@ -64,9 +64,9 @@ trap 'exit 143' HUP INT TERM
 
 # The binaries are built here, never taken from an earlier build: the server
 # embeds the UI build and every other part of the fixture.
-go build -p 2 -tags auth -o "$work/ui-test-server" ./tests/e2e-ui
-go build -p 2 -tags auth -o "$work/fixture-addon" ./tests/addons/fixture/cmd
-go build -p 2 -tags auth -o "$work/foundation-cluster" ./tests/addons/foundation/cmd/foundation-cluster
+go build -p 2 -tags auth,nosqlite,purego_utp -o "$work/ui-test-server" ./tests/e2e-ui
+go build -p 2 -tags auth,nosqlite,purego_utp -o "$work/fixture-addon" ./tests/addons/fixture/cmd
+go build -p 2 -tags auth,nosqlite,purego_utp -o "$work/foundation-cluster" ./tests/addons/foundation/cmd/foundation-cluster
 
 # One case line per spec of a Ginkgo report. $2 prefixes the case.
 report_cases() {
@@ -85,7 +85,7 @@ PY
 go_report="$cache/logs/foundation-go.json"
 rm -f "$go_report"
 FOUNDATION_SERVER="$work/ui-test-server" FOUNDATION_FIXTURE="$work/fixture-addon" FOUNDATION_MOCK="$root/tests/e2e/mock-backend/mock-backend" \
-    go test -count=1 -p 2 -tags auth -timeout 20m ./tests/addons/foundation -ginkgo.json-report="$go_report" >"$cache/logs/foundation-go.log" 2>&1 || {
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp -timeout 20m ./tests/addons/foundation -ginkgo.json-report="$go_report" >"$cache/logs/foundation-go.log" 2>&1 || {
         # Name the failed specs for the runner, then show the end of the log.
         report_cases "$go_report" 'go: ' 2>/dev/null | grep -v '"status": "passed"\|"status": "skipped"' || true
         tail -60 "$cache/logs/foundation-go.log" >&2
@@ -105,7 +105,7 @@ regression() {
     base="$cache/logs/foundation-regression-$(printf %s "$pkg" | tr '/.' '--')"
     rm -f "$base.json" "$base.main.json" "$base.isolated.json" "$base.plan.json"
     if [ -z "$isolate" ]; then
-        FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth -timeout 15m "$pkg" -ginkgo.json-report="$base.json" >"$base.log" 2>&1 || { tail -40 "$base.log" >&2; exit 1; }
+        FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth,nosqlite,purego_utp -timeout 15m "$pkg" -ginkgo.json-report="$base.json" >"$base.log" 2>&1 || { tail -40 "$base.log" >&2; exit 1; }
         python3 -I - "$base.json" "" "$label" <<'PY'
 import json, sys
 specs = platform = failed = 0
@@ -131,9 +131,9 @@ PY
     # runs alone, once, and the rest of the package runs without it. A dry run
     # fixes the inventory: the two runs must account for every spec exactly
     # once, the isolated run for exactly one.
-    FIXTURES="$root/tests/fixtures" go test -count=1 -tags auth "$pkg" -ginkgo.dry-run -ginkgo.json-report="$base.plan.json" >"$base.plan.log" 2>&1 || { tail -40 "$base.plan.log" >&2; exit 1; }
-    FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth -timeout 15m "$pkg" -ginkgo.skip="$isolate" -ginkgo.json-report="$base.main.json" >"$base.main.log" 2>&1 || { tail -40 "$base.main.log" >&2; exit 1; }
-    FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth -timeout 15m "$pkg" -ginkgo.focus="$isolate" -ginkgo.json-report="$base.isolated.json" >"$base.isolated.log" 2>&1 || { tail -40 "$base.isolated.log" >&2; exit 1; }
+    FIXTURES="$root/tests/fixtures" go test -count=1 -tags auth,nosqlite,purego_utp "$pkg" -ginkgo.dry-run -ginkgo.json-report="$base.plan.json" >"$base.plan.log" 2>&1 || { tail -40 "$base.plan.log" >&2; exit 1; }
+    FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth,nosqlite,purego_utp -timeout 15m "$pkg" -ginkgo.skip="$isolate" -ginkgo.json-report="$base.main.json" >"$base.main.log" 2>&1 || { tail -40 "$base.main.log" >&2; exit 1; }
+    FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth,nosqlite,purego_utp -timeout 15m "$pkg" -ginkgo.focus="$isolate" -ginkgo.json-report="$base.isolated.json" >"$base.isolated.log" 2>&1 || { tail -40 "$base.isolated.log" >&2; exit 1; }
     python3 -I - "$base" "$isolate" "$label" <<'PY'
 import json, sys
 base, isolate, label = sys.argv[1:4]

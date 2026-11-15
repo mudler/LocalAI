@@ -9,14 +9,14 @@ const POLL_MS = 60_000
 // minute, when any card answers one (CHANGES_EVENT) and on refresh(). A server
 // that keeps no proposals (files off, chats off) answers 404 or 409: the count
 // then stays zero and the hook stops asking.
-export function usePendingChanges() {
+export function usePendingChanges({ enabled = true } = {}) {
   const [items, setItems] = useState([])
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState(null)
   const offRef = useRef(false)
 
   const refresh = useCallback(async () => {
-    if (offRef.current) return
+    if (offRef.current || !enabled) return
     try {
       const list = await chatChangesApi.list('pending')
       setItems(Array.isArray(list) ? list : [])
@@ -27,9 +27,10 @@ export function usePendingChanges() {
       setError(e)
       setStatus('error')
     }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
+    if (!enabled) return undefined
     refresh()
     const timer = setInterval(refresh, POLL_MS)
     const onShow = () => { if (document.visibilityState === 'visible') refresh() }
@@ -40,7 +41,7 @@ export function usePendingChanges() {
       window.removeEventListener(CHANGES_EVENT, refresh)
       document.removeEventListener('visibilitychange', onShow)
     }
-  }, [refresh])
+  }, [refresh, enabled])
 
   return { items, count: items.length, status, error, refresh }
 }

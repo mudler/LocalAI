@@ -1,0 +1,270 @@
+{
+  "title": "更新",
+  "supporting": "有较新版本的后端、库后端和插件。",
+  "loading": "正在加载更新",
+  "adminOnly": {
+    "title": "更新仅限管理员",
+    "body": "请管理员查看此服务器上哪些内容已过期。"
+  },
+  "loadError": {
+    "title": "无法加载更新列表。"
+  },
+  "strip": {
+    "label": "更新摘要",
+    "checking": "正在检查更新...",
+    "checkNow": "立即检查",
+    "checkedJustNow": "刚刚检查过",
+    "ready": "{{count}} 项就绪",
+    "updating": "{{count}} 项更新中",
+    "needs_one": "{{count}} 项需要你处理",
+    "needs_other": "{{count}} 项需要你处理",
+    "lastCheck": "上次检查 {{when}}",
+    "headline": {
+      "loading": "正在加载更新",
+      "loadError": "无法加载更新列表",
+      "updates_one": "有 {{count}} 项可用更新",
+      "updates_other": "有 {{count}} 项可用更新",
+      "current": "全部已是最新",
+      "never": "还没有运行过检查",
+      "couldNot": "无法检查更新",
+      "noneButFailed": "未发现更新,但以下来源检查失败:{{sources}}",
+      "noneButNever": "未发现更新,但以下来源尚未检查:{{sources}}",
+      "unavailable": "此服务器无法检查更新"
+    }
+  },
+  "when": {
+    "justNow": "刚刚"
+  },
+  "source": {
+    "label": "更新来源",
+    "name": {
+      "gallery": "后端库",
+      "library": "后端资料库",
+      "addons": "插件"
+    },
+    "checked": "{{when}}已检查",
+    "ok": "已检查",
+    "never": "尚未检查",
+    "loading": "读取中",
+    "unavailable": "此服务器不可用",
+    "unavailableWhy": "不可用:{{reason}}",
+    "failed": "检查失败:{{error}}",
+    "addonsUnreadable": "无法读取插件"
+  },
+  "auto": {
+    "backends": "自动更新后端:",
+    "addons": "自动更新插件:",
+    "on": "开",
+    "off": "关",
+    "settings": "设置"
+  },
+  "disabled": {
+    "title": "此服务器已关闭后端更新。",
+    "body": "下面列出了这些后端,但这里无法更新它们。服务器配置已关闭后端安装。"
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "后端库检查失败,因此可能有未显示的后端更新。",
+      "library": "资料库检查失败,因此可能有未显示的库后端更新。",
+      "addons": "插件检查失败,因此可能有未显示的插件更新。"
+    },
+    "lastGood": "下面的列表来自上一次成功的检查({{when}})。原因:{{error}}。",
+    "noGood": "还没有成功的检查。原因:{{error}}。",
+    "again": "再次检查"
+  },
+  "filter": {
+    "label": "筛选更新",
+    "all": "全部",
+    "ready": "就绪",
+    "needs-you": "需要你处理",
+    "updating": "更新中",
+    "current": "已是最新",
+    "none": "没有符合此筛选的项目。"
+  },
+  "group": {
+    "needs": "需要你处理",
+    "updating": "更新中",
+    "ready": "可更新",
+    "current_one": "{{count}} 项已是最新",
+    "current_other": "{{count}} 项已是最新",
+    "selectAll": "选择全部就绪项",
+    "selectNone": "全不选",
+    "show": "显示",
+    "hide": "隐藏"
+  },
+  "row": {
+    "tag": {
+      "gallery": "后端",
+      "library": "库后端",
+      "addon": "插件"
+    },
+    "origin": {
+      "gallery": "后端库",
+      "library": "资料库:{{id}}",
+      "libraryUnnamed": "资料库"
+    },
+    "signed": "已签名",
+    "versions": "{{from}} 到 {{to}}",
+    "nodes_one": "{{count}} 个节点",
+    "nodes_other": "{{count}} 个节点",
+    "drift_one": "{{count}} 个不同",
+    "drift_other": "{{count}} 个不同",
+    "old": "来自较早的检查",
+    "select": "选择 {{name}}",
+    "update": "更新",
+    "updateNamed": "更新 {{name}}",
+    "check": "检查",
+    "checkNamed": "检查 {{name}} 是否有更新",
+    "retry": "重试",
+    "retryNamed": "重试 {{name}}",
+    "review": "审阅",
+    "reviewNamed": "审阅 {{name}} 的更新",
+    "cancel": "取消",
+    "cancelNamed": "取消 {{name}} 的更新",
+    "progress": "{{name}} 的更新进度",
+    "failed": "更新失败:{{message}}",
+    "failedWhy": "更新失败:{{message}}",
+    "noReason": "未给出原因",
+    "startFailed": "更新无法开始:{{message}}",
+    "unchanged": "更新已结束,但版本没有变化。",
+    "unconfirmed": "更新已结束,但没有任何检查能确认它。",
+    "held": "等待批准。{{version}} 请求了你尚未批准的访问权限(新增 {{count}} 项)。",
+    "blocked": {
+      "installsDisabled": "此服务器已关闭后端更新。",
+      "incompatible": "{{version}} 版本无法在此主机上运行。",
+      "integrity": "资料库列出的已安装版本内容不同。没有做任何更改。"
+    },
+    "updatingPhase": "更新中:{{phase}}",
+    "updatingPlain": "更新中",
+    "addonConfirm": "需要你在此浏览器中确认",
+    "nodesAction": "节点",
+    "nodesNamed": "显示 {{name}} 的节点",
+    "needsConfirm": "{{name}} 运行在节点上，需要先经过你的确认。请使用该行的更新。"
+  },
+  "bulk": {
+    "start": "更新 {{count}} 项就绪",
+    "running": "正在更新第 {{current}} 项,共 {{total}} 项",
+    "summary": "已更新 {{done}} 项,失败 {{failed}} 项,跳过 {{skipped}} 项",
+    "details": "详情",
+    "retryFailed": "重试失败项({{count}})",
+    "dismiss": "关闭"
+  },
+  "check": {
+    "result_one": "检查完成:{{count}} 项更新。",
+    "result_other": "检查完成:{{count}} 项更新。",
+    "failedSources_one": "{{count}} 个来源失败。",
+    "failedSources_other": "{{count}} 个来源失败。",
+    "throttled": "刚才已运行过一次检查。这是它的结果。"
+  },
+  "live": {
+    "updated": "{{name}} 已更新。",
+    "failed": "{{name}} 未能更新。"
+  },
+  "empty": {
+    "title": "暂时没有可更新的内容",
+    "body": "安装后端或插件后,它们的更新会显示在这里。",
+    "backends": "打开后端",
+    "addons": "打开应用"
+  },
+  "dialog": {
+    "title": "更新就绪项",
+    "intro": "选择要更新的内容。每一项单独依次更新,只有新的检查不再列出它时才算完成。一项失败不会影响其他项。",
+    "selection": "选择要更新的内容",
+    "selectAll": "全选",
+    "selectNone": "全不选",
+    "item": "更新 {{name}}",
+    "versions": "{{from}} 到 {{to}}",
+    "blocked": "无法开始",
+    "start": "更新所选",
+    "starting": "更新中...",
+    "retry": "重试失败项({{count}})",
+    "again": "重新选择",
+    "close": "关闭",
+    "closeRunning": "关闭(继续运行)",
+    "runningNote": "关闭此窗口不会停止更新。",
+    "progress": "正在更新第 {{current}} 项,共 {{total}} 项",
+    "summary": "已更新 {{done}} 项,失败 {{failed}} 项,跳过 {{skipped}} 项",
+    "empty": "没有可更新的内容。",
+    "selectedCount_one": "已选 {{count}} 项",
+    "selectedCount_other": "已选 {{count}} 项"
+  },
+  "item": {
+    "queued": "排队中",
+    "upgrading": "更新中",
+    "done": "已更新",
+    "failed": "失败",
+    "skipped": "已跳过"
+  },
+  "node": {
+    "breadcrumb": "面包屑导航",
+    "reload": "重试",
+    "noneTitle": "{{name}} 没有需要更新的节点",
+    "noneBody": "此后端在任何节点上都没有列出的更新。它可能在各处都是最新的，或刚刚更新过。",
+    "back": "返回更新",
+    "supporting_one": "版本 {{version}} 可用。{{nodes}}已安装，其中 {{count}} 个需要更新。",
+    "supporting_other": "版本 {{version}} 可用。{{nodes}}已安装，其中 {{count}} 个需要更新。",
+    "supportingDrift_one": "各节点的构建不一致。{{nodes}}中有 {{count}} 个与集群不同。",
+    "supportingDrift_other": "各节点的构建不一致。{{nodes}}中有 {{count}} 个与集群不同。",
+    "warning": "更新会停止每个节点上使用此后端的模型。有请求需要时，模型会再次启动。",
+    "driftNote": "与集群不同的节点不一定落后，也可能更新。更新会把它调整到图库提供的版本。",
+    "tableLabel": "有 {{name}} 的节点",
+    "col": {
+      "node": "节点",
+      "installed": "已安装",
+      "models": "使用它的运行中模型",
+      "state": "状态",
+      "action": "操作"
+    },
+    "noneRecorded": "无记录",
+    "state": {
+      "current": "已是最新",
+      "unreachable": "无法访问"
+    },
+    "updateN_one": "更新 {{count}} 个节点",
+    "updateN_other": "更新 {{count}} 个节点",
+    "updateNamed": "更新 {{name}}",
+    "models_one": "{{count}} 个模型",
+    "models_other": "{{count}} 个模型",
+    "nodes_one": "{{count}} 个节点",
+    "nodes_other": "{{count}} 个节点",
+    "stops": "停止 {{models}}",
+    "title_one": "在 {{count}} 个节点上更新 {{backend}}？",
+    "title_other": "在 {{count}} 个节点上更新 {{backend}}？",
+    "titleMany_one": "在{{nodes}}上更新 {{count}} 个后端？",
+    "titleMany_other": "在{{nodes}}上更新 {{count}} 个后端？",
+    "runningTitle": "正在更新节点",
+    "doneTitle": "更新已结束",
+    "intro": "每个节点会停止使用 {{backend}} 的模型，安装新版本，并在有请求需要时再次启动模型。无法在此撤销。",
+    "introMany": "每个节点会停止使用这些后端的模型，安装新版本，并在有请求需要时再次启动模型。无法在此撤销。",
+    "stopKnown_one": "将停止 {{count}} 个模型。",
+    "stopKnown_other": "将停止 {{count}} 个模型。",
+    "stopPartial_one": "记录显示将停止 {{count}} 个模型。其他节点没有记录到模型，但记录可能有遗漏，因此可能有更多模型停止。",
+    "stopPartial_other": "记录显示将停止 {{count}} 个模型。其他节点没有记录到模型，但记录可能有遗漏，因此可能有更多模型停止。",
+    "stopNone": "这些节点上没有记录到已加载的模型。记录并不完整，因此使用此后端的模型仍可能停止。",
+    "sequence": "节点依次更新。此窗口会在每个结果出来时显示。",
+    "confirmStop_one": "更新 {{count}} 个节点并停止 {{models}}",
+    "confirmStop_other": "更新 {{count}} 个节点并停止 {{models}}",
+    "confirmStopAtLeast_one": "更新 {{count}} 个节点并至少停止 {{models}}",
+    "confirmStopAtLeast_other": "更新 {{count}} 个节点并至少停止 {{models}}",
+    "confirmPlain_one": "更新 {{count}} 个节点",
+    "confirmPlain_other": "更新 {{count}} 个节点",
+    "cancel": "取消",
+    "stop": "此节点之后停止",
+    "listLabel": "要更新的节点",
+    "titleAll_one": "开始 {{count}} 项更新？",
+    "titleAll_other": "开始 {{count}} 项更新？",
+    "confirmPlus_one": "{{label}}，另加 {{count}} 项",
+    "confirmPlus_other": "{{label}}，另加 {{count}} 项",
+    "othersTitle": "确认后同时开始",
+    "othersLabel": "要开始的其他更新",
+    "othersIntro": "这些不在节点上运行。确认后会依次开始。附加组件在备份和迁移其数据期间会停止。如果新版本无法启动，当前版本会继续运行。",
+    "otherKind": {
+      "addon": "附加组件",
+      "library": "库后端",
+      "gallery": "后端"
+    },
+    "otherOrigin": "库 {{library}}",
+    "otherOriginChannel": "库 {{library}}，渠道 {{channel}}",
+    "runningNote": "停止会阻止尚未开始的节点开始。"
+  }
+}

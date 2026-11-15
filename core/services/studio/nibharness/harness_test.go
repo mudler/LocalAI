@@ -379,6 +379,7 @@ var _ = Describe("the nib harness", func() {
 		{"wait_for", `{"tool":"list_downloads","until":"json_equals","field":"a.b","equals":"done","then":"tell me","interval_seconds":30,"timeout_seconds":600}`,
 			`"field":"a.b"`},
 		{"wait_for", `{"url":"https://example.org/x","then":"tell me"}`, `"url":"https://example.org/x"`},
+		{"wait_for", `{"script":"test -f /tmp/ready","until":"exit_zero","then":"tell me"}`, `"script":"test -f /tmp/ready"`},
 		{"wait_agents", `{"ids":["a"],"mode":"any_failed_or_all","timeout_seconds":20}`, `"timeout":"20s"`},
 	} {
 		It("runs the host "+tc.name+" through nib's tool: "+tc.want, func() {

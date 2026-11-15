@@ -176,6 +176,11 @@
     if (ev.resync || ev.paths.indexOf(FILE) >= 0) load()
   })
 
+  // In the page area of Home, the area follows the height of the page.
+  if (localai.page.mode === 'area' && typeof ResizeObserver === 'function') {
+    new ResizeObserver(function () { localai.page.resize() }).observe(document.body)
+  }
+
   render()
   load()
 })()

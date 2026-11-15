@@ -18,7 +18,7 @@
 //            compares with the built-in default, not with the startup value.
 //   apply    'live'    the save handler applies it at once
 //                      (core/http/endpoints/localai/settings.go)
-//             'restart' the setting is read at start (docs/content/features/
+//             'restart' the setting is read at start (docs/content/administration/
 //                      runtime-settings.md, the page's own hint)
 //             none      the code does not say, so the page says nothing
 //   note     what applying does, only where the handler says it
@@ -26,7 +26,7 @@
 export const GROUPS = [
   { id: 'memory', label: 'Models in memory', hint: 'When models stop, what gets evicted, GPU budget', icon: 'memory' },
   { id: 'speed', label: 'Speed and defaults', hint: 'Threads, context window, downloads', icon: 'gauge' },
-  { id: 'backends', label: 'Backends and galleries', hint: 'Upgrades, gallery sources, start-up loading', icon: 'boxes' },
+  { id: 'backends', label: 'Backends and galleries', hint: 'Updates, gallery sources, start-up loading', icon: 'boxes' },
   { id: 'access', label: 'Access and security', hint: 'Cross-origin rules, CSRF, legacy API keys', icon: 'shield' },
   { id: 'debug', label: 'Debugging and traces', hint: 'Verbose logs, request traces, backend output', icon: 'bug' },
   { id: 'agents', label: 'Chats and collections', hint: 'Chat media models, collections, stored responses', icon: 'robot' },
@@ -109,21 +109,21 @@ export const FIELDS = [
   { key: 'threads', group: 'speed', was: 'performance', kind: 'int', label: 'Default threads',
     desc: 'CPU threads for inference. 0 means auto-detect.', placeholder: '0', min: 0 },
   { key: 'context_size', group: 'speed', was: 'performance', kind: 'int', label: 'Default context size',
-    desc: 'Context window size for models that do not set their own.', placeholder: '2048', min: 0 },
+    desc: 'Context window size for models that do not set their own. Leave it empty for automatic: LocalAI picks the window from the model and the memory of this machine.', placeholder: 'Automatic', min: 0 },
   { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
     desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
   { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',
-    desc: 'Backend installs, upgrades and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
+    desc: 'Backend installs, updates and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
   { key: 'f16', group: 'speed', was: 'performance', kind: 'bool', label: 'F16 precision',
     desc: 'Use 16-bit floating point for reduced memory use.', default: false },
 
   // ---- Backends and galleries ----------------------------------------------
   { key: 'official_libraries', group: 'backends', was: 'backends', kind: 'bool', label: 'Use official libraries',
     desc: 'Read the default library sources of add-ons, backends and models. Off hides them from search and from the model and backend lists; they stay on the Libraries tab, shown as off, and come back when this is on. Libraries you added are not affected.', default: true },
-  { key: 'auto_upgrade_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Upgrade backends automatically',
-    desc: 'Upgrade backends when a new version is found.', default: false },
-  { key: 'auto_upgrade_addons', group: 'backends', was: 'backends', kind: 'bool', label: 'Upgrade add-ons automatically',
-    desc: 'Upgrade installed add-ons when their library lists a newer version. Each upgrade runs the same checks as an upgrade you start by hand, including the backup.', default: false },
+  { key: 'auto_upgrade_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Update backends automatically',
+    desc: 'Update backends when a new version is found.', default: false },
+  { key: 'auto_upgrade_addons', group: 'backends', was: 'backends', kind: 'bool', label: 'Update add-ons automatically',
+    desc: 'Update installed add-ons when their library lists a newer version. Each update runs the same checks as an update you start by hand, including the backup.', default: false },
   { key: 'prefer_development_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Prefer development backends',
     desc: 'Show development backend versions first in the backends gallery.', default: false },
   { key: 'autoload_galleries', group: 'backends', was: 'galleries', kind: 'bool', label: 'Load and pre-warm galleries on boot',
@@ -221,7 +221,7 @@ export const FIELDS = [
     desc: 'Offer the chats of administrators the LocalAI admin tools, which manage this server: models, backends, settings and the state. Each chat, or saved agent, must switch the group on; a sub-agent and a run that starts by itself never has it.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
   { key: 'chats_tool_search', group: 'tools', was: 'chats', kind: 'select', options: ['auto', 'on', 'off'], label: 'Load LocalAI tools on demand',
-    desc: 'The LocalAI client and admin tool groups are large, and their schemas are sent to the model on every turn. auto: the chat sends three small tools (tool_search, tool_describe and tool_call) in their place when the schemas would take a tenth or more of the model\'s context window. on: always. off: never, the tools are always sent in full. The model finds and runs the tools with the same permissions as before.',
+    desc: 'The LocalAI client and admin tool groups are large, and their schemas are sent to the model on every turn. auto: the chat sends three small tools (tool_search, tool_describe and tool_call) in their place when the schemas would take a tenth or more of the model\'s context window. on: always, and the tools of the user\'s MCP connectors load on demand too. off: never, the tools are always sent in full. The model finds and runs the tools with the same permissions as before.',
     default: 'auto', fallback: 'auto', emptyIsDefault: true, apply: 'live' },
   // The Tools tab draws this switch on the list_agents row.
   { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
@@ -239,6 +239,15 @@ export const FIELDS = [
   { key: 'chats_index_max_text_bytes', group: 'tools', was: 'chats', kind: 'int', label: 'Text kept per document',
     desc: 'The most text kept for one document, from 65536 to 16777216 bytes. Text past it is not searched; reading the document in a chat still reads past it.',
     default: 2097152, fallback: 2097152, emptyIsDefault: true, min: 65536, max: 16777216, unit: 'bytes', apply: 'live' },
+  { key: 'chats_extract_max_bytes', group: 'tools', was: 'chats', kind: 'int', label: 'Extract: most bytes per archive',
+    desc: 'The most data one archive may expand to when a user chooses Extract here on the Files page, counted on the bytes that are really read. From 1048576 to 68719476736 bytes. An archive over the limit is refused and nothing is written.',
+    default: 1073741824, fallback: 1073741824, emptyIsDefault: true, min: 1048576, max: 68719476736, unit: 'bytes', apply: 'live' },
+  { key: 'chats_extract_max_entries', group: 'tools', was: 'chats', kind: 'int', label: 'Extract: most entries per archive',
+    desc: 'The most files and folders one archive may have when a user chooses Extract here on the Files page, from 1 to 1000000. An archive over the limit is refused and nothing is written.',
+    default: 20000, fallback: 20000, emptyIsDefault: true, min: 1, max: 1000000, apply: 'live' },
+  { key: 'chats_extract_7z_rar', group: 'tools', was: 'chats', kind: 'bool', label: 'Extract: allow 7z and RAR',
+    desc: 'Let Extract here on the Files page open 7z and RAR archives. Their readers run inside the LocalAI server and cannot limit their own memory: a crafted file can make the server run out of memory. Turn this on only when you trust the users who can upload files. ZIP and TAR archives are always allowed.',
+    default: false, fallback: false, apply: 'live' },
   { key: 'chats_web_searxng_url', group: 'tools', was: 'chats', kind: 'text', label: 'SearXNG instance',
     desc: 'The address of your SearXNG instance (it must allow the JSON format). When it is set and the provider order is empty, web search uses SearXNG alone.',
     placeholder: 'https://searx.example.org', default: '', apply: 'live' },
@@ -301,6 +310,17 @@ export const FIELDS = [
   { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Loop runs per day',
     desc: 'How many loop runs one user may start in a day (UTC), over all their loops. After that the loops wait for the next day.',
     placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
+  // The triggers of the chats (core/config/runtime_settings_registry.go; read
+  // at each use, so live).
+  { key: 'chats_trigger_run_limit', group: 'tools', was: 'chats', kind: 'duration', label: 'Trigger run time limit',
+    desc: 'The longest one run of a trigger may take, for example 15m. A run that takes longer is stopped and fails. From 1m to 24h.',
+    placeholder: '15m', default: '15m', apply: 'live' },
+  { key: 'chats_trigger_max_per_user', group: 'tools', was: 'chats', kind: 'int', label: 'Triggers per user',
+    desc: 'How many triggers one user may have at once (1 to 1000). A user who has more already keeps them but cannot add another.',
+    placeholder: '50', default: 50, min: 1, max: 1000, apply: 'live' },
+  { key: 'chats_trigger_max_daily_cap', group: 'tools', was: 'chats', kind: 'int', label: 'Highest daily limit of a trigger',
+    desc: 'The most runs a day that one trigger may be set to (1 to 1000). A trigger set higher runs at this limit.',
+    placeholder: '1000', default: 1000, min: 1, max: 1000, apply: 'live' },
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
     desc: 'How many days the audit of the network requests of isolated commands and the audit of the commands run on this machine keep a line, from 1 to 365.',
     default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },
@@ -309,6 +329,9 @@ export const FIELDS = [
     default: false, fallback: false, apply: 'live', custom: 'tools' },
   { key: 'shared_pages_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Shared pages',
     desc: 'Let users open the pages of the shared folders they have access to. Each user still allows each page before it runs. Turning it off stops open shared pages at their next action; the files are kept.',
+    default: true, fallback: true, apply: 'live' },
+  { key: 'home_page_area_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Page area on Home',
+    desc: 'Let users show one of their pages below the composer on Home. Turning it off hides the area for everyone and says why there; the Home layouts and the pages are kept.',
     default: true, fallback: true, apply: 'live' },
   { key: 'open_responses_store_ttl', group: 'agents', was: 'responses', kind: 'duration', label: 'Response Store TTL', allowZero: true,
     desc: 'How long stored responses are kept, for example 1h or 30m. 0 means they never expire.', placeholder: '1h', default: '0', apply: 'live' },

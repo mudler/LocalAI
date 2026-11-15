@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -166,6 +167,14 @@ type Chat struct {
 
 	// turnBlock is the TurnTools.Context of the turn that runs. hostMu guards it.
 	turnBlock string
+	// releasedState is the hash of the harness state the chat held when it
+	// released it. mu guards it.
+	releasedState [sha256.Size]byte
+	// filesSeen is the TurnTools.Files the model read last, in front of a
+	// message. It is empty when the model's context holds no list: a new
+	// harness that started without its saved history, a compaction or a
+	// clear. hostMu guards it.
+	filesSeen string
 	// hostMu guards host, the host-side tools of the chat (see applyChatTools).
 	hostMu sync.Mutex
 	host   hostTools
@@ -353,8 +362,18 @@ func (c *Chat) isRunning() bool {
 // harness cannot read, or a missing state in a chat that has a transcript,
 // starts a fresh session with the transcript in the system prompt.
 func (c *Chat) startHarness(ctx context.Context) error {
-	if err := c.primeChatTools(ctx); err != nil {
-		return err
+	return c.startHarnessWith(ctx, true)
+}
+
+// startHarnessWith is startHarness. With prime false the harness starts with
+// the host tools the chat already holds, and the ChatTools hook is not asked:
+// the turn asks it anyway (applyChatTools) and restarts the harness only when
+// the tools changed.
+func (c *Chat) startHarnessWith(ctx context.Context, prime bool) error {
+	if prime {
+		if err := c.primeChatTools(ctx); err != nil {
+			return err
+		}
 	}
 	c.mu.Lock()
 	rec := c.rec
@@ -399,6 +418,8 @@ func (c *Chat) startHarness(ctx context.Context) error {
 		}
 	}
 	if hs == nil {
+		// The new session has no history that names the files.
+		c.forgetFiles()
 		if sum := c.summary(ctx); sum != "" {
 			env.SystemPrompt += "\n\nThe conversation so far, from the transcript:\n" + sum
 		}
@@ -454,10 +475,23 @@ func (c *Chat) reopen(ctx context.Context) error {
 		}
 		// The whole record: another frontend may have run turns since.
 		c.mu.Lock()
+		// Another writer replaced the history (an edit, a clear, a turn on
+		// another frontend): it may not hold the list of files the model read.
+		replaced := sha256.Sum256(rec.HarnessState) != c.releasedState
 		c.rec, c.released, c.turn = rec, false, rec.Turns
 		c.mu.Unlock()
+		if replaced {
+			c.forgetFiles()
+		}
 	}
-	if err := c.startHarness(ctx); err != nil {
+	// A chat that ran a turn holds the host tools of that turn. Its next turn
+	// asks the hook again before the model runs, so the open does not wait on
+	// the hook a second time: the hook lists the tools of every MCP server and
+	// add-on, and the request that opens the chat would wait for all of them.
+	c.hostMu.Lock()
+	primed := c.host.fp != ""
+	c.hostMu.Unlock()
+	if err := c.startHarnessWith(ctx, !primed); err != nil {
 		return err
 	}
 	c.evMu.Lock()
@@ -521,6 +555,8 @@ func (c *Chat) onHarnessEvent(e Event) {
 	case KindCompacted:
 		// Only the token counts travel; the transcript keeps every message.
 		e.Text, e.Tool = "", nil
+		// The summary may have dropped the list of files.
+		c.forgetFiles()
 	case KindPaused:
 		// Only the step limit travels.
 		e.Text, e.Tool, e.Before, e.After = "", nil, 0, 0
@@ -1223,7 +1259,7 @@ func (c *Chat) ensureFolder(ctx context.Context) (string, error) {
 }
 
 // reserveFolder gives the chat the name of its folder, without making the
-// folder, and returns it: the work folder that the prompt names lives in it,
+// folder, and returns it: the work folder that the note of a turn names lives in it,
 // and is made when something is saved there. A name that a folder or another
 // recent chat of the user has is taken.
 func (c *Chat) reserveFolder(ctx context.Context) (string, error) {
@@ -1239,7 +1275,7 @@ func (c *Chat) reserveFolder(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	name, err := uniqueName(FolderName(rec.Created, rec.Title), taken)
+	name, err := uniqueName(FolderName(rec.Created, rec.Title), "-", taken)
 	if err != nil {
 		return "", err
 	}
@@ -1318,38 +1354,41 @@ func EnsureWorkFolder(ctx context.Context, ws workspace.Store, a workspace.Actor
 	return mkdirOnce(ctx, ws, a, HomePath(principal)+workfiles.Folder(chatFolder))
 }
 
-// workFolderBlock names the work folder of the chat for the prompt. It is ""
-// when the chat has no files, or its folder cannot be named this turn, or it
-// has no folder name and reserve is false.
-func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) string {
+// workFolderBlock is the prompt block about the work folder of the chat, and
+// the line of the turn's note that names the folder. Both are "" when the chat
+// has no files, or its folder cannot be named this turn, or it has no folder
+// name and reserve is false.
+func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) (block, note string) {
 	if c.m.o.Workspace == nil {
-		return ""
+		return "", ""
 	}
 	if !reserve {
 		c.mu.Lock()
 		name := c.rec.Folder
 		c.mu.Unlock()
 		if name == "" {
-			return ""
+			return "", ""
 		}
 		return c.workPrompt(name)
 	}
 	name, err := c.reserveFolder(ctx)
 	if err != nil {
 		c.m.log.Warn("session: no work folder this turn", "chat", c.id, "error", err)
-		return ""
+		return "", ""
 	}
 	return c.workPrompt(name)
 }
 
 // workPrompt names the work folder by the chat's view: in a scoped chat the
-// chat folder is its own mount, at /workspace/chat.
-func (c *Chat) workPrompt(name string) string {
+// chat folder is its own mount, at /workspace/chat, and the block names it.
+// Otherwise the folder carries the chat's title, so the note names it and the
+// block stays the same for every chat.
+func (c *Chat) workPrompt(name string) (block, note string) {
 	_, _, view := c.access()
 	if p := NewPlace(view); p.Scoped() {
-		return workfiles.ScopedPrompt(p.PrimaryWritable())
+		return workfiles.ScopedPrompt(p.PrimaryWritable()), ""
 	}
-	return workfiles.Prompt(workfiles.GuestFolder(name))
+	return workfiles.Prompt, workfiles.Note(workfiles.GuestFolder(name))
 }
 
 // SetTitle renames the chat and, when the chat folder exists, the folder. It
@@ -1382,7 +1421,10 @@ func (c *Chat) SetTitle(ctx context.Context, title string) error {
 	c.mu.Lock()
 	old, created := c.rec.Folder, c.rec.Created
 	c.mu.Unlock()
-	if base := FolderName(created, title); old != "" && !strings.EqualFold(base, old) {
+	// A folder made before the ASCII form keeps its name: renaming it would
+	// move files that a chat, a trigger or the user may name by path. Only a
+	// folder in the new form follows the title.
+	if base := FolderName(created, title); old != "" && isSlugFolder(old) && !strings.EqualFold(base, old) {
 		if err := c.renameFolder(ctx, old, base); err != nil {
 			return err
 		}
@@ -1418,7 +1460,7 @@ func (c *Chat) renameFolder(ctx context.Context, old, base string) error {
 	taken, err := c.folderTaken(ctx, old)
 	var name string
 	if err == nil {
-		name, err = uniqueName(base, taken)
+		name, err = uniqueName(base, "-", taken)
 	}
 	if err == nil && name != old {
 		_, err = c.m.o.Workspace.Move(ctx, user, chats+"/"+old, chats+"/"+name)
@@ -1533,6 +1575,7 @@ func (c *Chat) releaseMemory(ctx context.Context) {
 		return
 	}
 	c.mu.Lock()
+	c.releasedState = sha256.Sum256(c.rec.HarnessState)
 	c.rec.HarnessState, c.released = nil, true
 	c.mu.Unlock()
 	c.evMu.Lock()

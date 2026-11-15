@@ -14,12 +14,27 @@ export function writeLastModel(capability, model) {
   try { localStorage.setItem(LAST_MODEL_PREFIX + capability, model) } catch { /* ignore */ }
 }
 
-// The model a new chat starts with, from the user's ui.json (defaultModel). It
-// wins over the last model used; the Appearance settings set it.
-let preferredChatModel = ''
+// The chat choice of the user: defaultChoice for chat, from defaults.json (or
+// the older defaultModel of ui.json), null until the files are read.
+// AppearanceSync sets it; the picker of a new chat reads it (startPick in
+// utils/defaults.js), and the other chat pickers start with its model.
+let chatStart = null
+const startListeners = new Set()
 
-export function setPreferredModel(model) { preferredChatModel = typeof model === 'string' ? model : '' }
+export function setChatStart(choice) {
+  const next = choice && typeof choice === 'object' ? { mode: choice.mode, model: choice.model || '', from: choice.from || '' } : null
+  if (JSON.stringify(next) === JSON.stringify(chatStart)) return
+  chatStart = next
+  for (const fn of startListeners) fn()
+}
+
+export function readChatStart() { return chatStart }
+
+export function subscribeChatStart(fn) {
+  startListeners.add(fn)
+  return () => { startListeners.delete(fn) }
+}
 
 export function readPreferredModel(capability) {
-  return capability === 'FLAG_CHAT' ? preferredChatModel : ''
+  return capability === 'FLAG_CHAT' && chatStart?.mode === 'model' ? chatStart.model : ''
 }

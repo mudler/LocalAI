@@ -28,7 +28,7 @@ export function createSettings(sdk, t) {
             {inUse ? t('sandbox.settings.inUse') : b.usable ? t('sandbox.settings.usable') : t('sandbox.settings.unavailable')}
           </StatusChip>
         )}
-        meta={t(`sandbox.settings.about.${['kvm', 'gvisor', 'host'].includes(b.name) ? b.name : 'other'}`)}
+        meta={t(`sandbox.settings.about.${['kvm', 'gvisor', 'vz', 'host'].includes(b.name) ? b.name : 'other'}`)}
         details={!b.usable && b.reason ? <Code testId="sandbox-backend-reason">{b.reason}</Code> : null}
         detailsLabel={t('sandbox.settings.details')}
       >

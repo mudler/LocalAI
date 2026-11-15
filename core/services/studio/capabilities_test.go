@@ -12,14 +12,16 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
-	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
+// execNote is the fixed note of an add-on that declares no profiles.
+const execNote = "The sandbox has: python3, jq. It has no Node, ImageMagick, ffmpeg or OCR, and apt cannot install anything."
+
 // sandboxExecution is how the Sandbox add-on declares its commands tool.
-var sandboxExecution = &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Sandbox", Note: sandbox.GuestToolsNote}
+var sandboxExecution = &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Sandbox", Note: execNote}
 
 // runAddon is the Sandbox add-on as the broker lists it: bash runs commands.
 func runAddon() []studio.AddonTool {
@@ -111,13 +113,13 @@ var _ = Describe("capabilities", func() {
 		prompt := turnPrompt(svc, h, id)
 
 		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated environment (Sandbox)."))
-		Expect(prompt).To(ContainSubstring(sandbox.GuestToolsNote), "the isolated sandbox lists its programs")
+		Expect(prompt).To(ContainSubstring(execNote), "the isolated sandbox lists its programs")
 		Expect(prompt).To(ContainSubstring("Skill folders are not visible in the isolated environment: load skills with load_skill."))
 		Expect(prompt).NotTo(ContainSubstring("nothing in this chat runs code"))
 		Expect(prompt).To(ContainSubstring("\n- xlsx: "))
 		Expect(prompt).NotTo(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"), "the index names no path")
 		Expect(prompt).NotTo(ContainSubstring("unavailable here"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox", Title: "Sandbox", Note: sandbox.GuestToolsNote}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox", Title: "Sandbox", Note: execNote}))
 	})
 
 	It("warns when commands run on the server with no isolation", func() {
@@ -125,7 +127,7 @@ var _ = Describe("capabilities", func() {
 		svc, h, _ := newCapsChat(isolatedAddons{fakeAddons: fa, mode: "host"}, nil)
 		id := create(svc, alice)
 		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: bash runs commands directly on the server, with no isolation."))
-		Expect(turnPrompt(svc, h, id)).NotTo(ContainSubstring(sandbox.GuestToolsNote), "the host has its own programs, not the guest's")
+		Expect(turnPrompt(svc, h, id)).NotTo(ContainSubstring(execNote), "the host has its own programs, not the guest's")
 		Expect(turnPrompt(svc, h, id)).NotTo(ContainSubstring("Skill folders are not visible"), "only an isolated chat has the hint")
 	})
 

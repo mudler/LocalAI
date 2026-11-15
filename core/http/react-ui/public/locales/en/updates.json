@@ -1,0 +1,270 @@
+{
+  "title": "Updates",
+  "supporting": "Backends, library backends and add-ons that have a newer version.",
+  "loading": "Loading updates",
+  "adminOnly": {
+    "title": "Updates are for administrators",
+    "body": "Ask an administrator to look at what is out of date on this server."
+  },
+  "loadError": {
+    "title": "Could not load the list of updates."
+  },
+  "strip": {
+    "label": "Update summary",
+    "checking": "Checking for updates...",
+    "checkNow": "Check now",
+    "checkedJustNow": "Checked just now",
+    "ready": "{{count}} ready",
+    "updating": "{{count}} updating",
+    "needs_one": "{{count}} needs you",
+    "needs_other": "{{count}} need you",
+    "lastCheck": "Last check {{when}}",
+    "headline": {
+      "loading": "Loading updates",
+      "loadError": "Could not load the list of updates",
+      "updates_one": "{{count}} update available",
+      "updates_other": "{{count}} updates available",
+      "current": "Everything is up to date",
+      "never": "No check has run yet",
+      "couldNot": "Could not check for updates",
+      "noneButFailed": "No updates found, but the check failed for: {{sources}}",
+      "noneButNever": "No updates found, but not checked yet: {{sources}}",
+      "unavailable": "Updates cannot be checked on this server"
+    }
+  },
+  "when": {
+    "justNow": "just now"
+  },
+  "source": {
+    "label": "Where updates come from",
+    "name": {
+      "gallery": "Backend gallery",
+      "library": "Backend library",
+      "addons": "Add-ons"
+    },
+    "checked": "checked {{when}}",
+    "ok": "checked",
+    "never": "not checked yet",
+    "loading": "reading",
+    "unavailable": "not available on this server",
+    "unavailableWhy": "not available: {{reason}}",
+    "failed": "check failed: {{error}}",
+    "addonsUnreadable": "the add-ons could not be read"
+  },
+  "auto": {
+    "backends": "Update backends automatically:",
+    "addons": "Update add-ons automatically:",
+    "on": "on",
+    "off": "off",
+    "settings": "Settings"
+  },
+  "disabled": {
+    "title": "Backend updates are turned off on this server.",
+    "body": "The backends below are listed, but nothing can update them here. The server configuration turned backend installs off."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "The backend gallery check failed, so backends may have updates that are not shown.",
+      "library": "The library check failed, so library backends may have updates that are not shown.",
+      "addons": "The add-on check failed, so add-ons may have updates that are not shown."
+    },
+    "lastGood": "The list below is from the last good check, {{when}}. Reason: {{error}}.",
+    "noGood": "No check has worked yet. Reason: {{error}}.",
+    "again": "Check again"
+  },
+  "filter": {
+    "label": "Filter updates",
+    "all": "All",
+    "ready": "Ready",
+    "needs-you": "Needs you",
+    "updating": "Updating",
+    "current": "Up to date",
+    "none": "Nothing matches this filter."
+  },
+  "group": {
+    "needs": "Needs you",
+    "updating": "Updating",
+    "ready": "Ready to update",
+    "current_one": "{{count}} up to date",
+    "current_other": "{{count}} up to date",
+    "selectAll": "Select all ready",
+    "selectNone": "Select none",
+    "show": "Show",
+    "hide": "Hide"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Library backend",
+      "addon": "Add-on"
+    },
+    "origin": {
+      "gallery": "Backend gallery",
+      "library": "Library: {{id}}",
+      "libraryUnnamed": "Library"
+    },
+    "signed": "signed",
+    "versions": "{{from}} to {{to}}",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "drift_one": "{{count}} differs",
+    "drift_other": "{{count}} differ",
+    "old": "from an earlier check",
+    "select": "Select {{name}}",
+    "update": "Update",
+    "updateNamed": "Update {{name}}",
+    "check": "Check",
+    "checkNamed": "Check {{name}} for an update",
+    "retry": "Retry",
+    "retryNamed": "Retry {{name}}",
+    "review": "Review",
+    "reviewNamed": "Review the update of {{name}}",
+    "cancel": "Cancel",
+    "cancelNamed": "Cancel the update of {{name}}",
+    "progress": "Progress of the update of {{name}}",
+    "failed": "The update failed: {{message}}",
+    "failedWhy": "Update failed: {{message}}",
+    "noReason": "no reason given",
+    "startFailed": "The update could not start: {{message}}",
+    "unchanged": "The update ended but the version did not change.",
+    "unconfirmed": "The update ended, but no check could confirm it.",
+    "held": "Held for approval. {{version}} asks for access that you have not approved ({{count}} new).",
+    "blocked": {
+      "installsDisabled": "Backend updates are turned off on this server.",
+      "incompatible": "Version {{version}} cannot run on this host.",
+      "integrity": "The library lists the installed version with different contents. Nothing was changed."
+    },
+    "updatingPhase": "Updating: {{phase}}",
+    "updatingPlain": "Updating",
+    "addonConfirm": "Needs your confirmation in this browser",
+    "nodesAction": "Nodes",
+    "nodesNamed": "Show the nodes of {{name}}",
+    "needsConfirm": "{{name}} runs on nodes and needs your confirmation first. Use Update on its row."
+  },
+  "bulk": {
+    "start": "Update {{count}} ready",
+    "running": "Updating {{current}} of {{total}}",
+    "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
+    "details": "Details",
+    "retryFailed": "Retry failed ({{count}})",
+    "dismiss": "Dismiss"
+  },
+  "check": {
+    "result_one": "Check finished: {{count}} update.",
+    "result_other": "Check finished: {{count}} updates.",
+    "failedSources_one": "{{count}} source failed.",
+    "failedSources_other": "{{count}} sources failed.",
+    "throttled": "A check ran moments ago. This is its result."
+  },
+  "live": {
+    "updated": "{{name}} was updated.",
+    "failed": "{{name}} was not updated."
+  },
+  "empty": {
+    "title": "Nothing to update yet",
+    "body": "Install a backend or an add-on and its updates show here.",
+    "backends": "Open Backends",
+    "addons": "Open Apps"
+  },
+  "dialog": {
+    "title": "Update ready",
+    "intro": "Choose what to update. Each one is updated on its own, one after another, and counts as done only when a new check no longer lists it. A failure does not stop the others.",
+    "selection": "Select what to update",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "item": "Update {{name}}",
+    "versions": "{{from}} to {{to}}",
+    "blocked": "Cannot start",
+    "start": "Update selected",
+    "starting": "Updating...",
+    "retry": "Retry failed ({{count}})",
+    "again": "New selection",
+    "close": "Close",
+    "closeRunning": "Close (keeps running)",
+    "runningNote": "Closing this window does not stop the updates.",
+    "progress": "Updating {{current}} of {{total}}",
+    "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
+    "empty": "Nothing to update.",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected"
+  },
+  "item": {
+    "queued": "Queued",
+    "upgrading": "Updating",
+    "done": "Updated",
+    "failed": "Failed",
+    "skipped": "Skipped"
+  },
+  "node": {
+    "breadcrumb": "Breadcrumb",
+    "reload": "Try again",
+    "noneTitle": "{{name}} has no node to update",
+    "noneBody": "No update is listed for this backend on any node. It may be up to date everywhere, or it was just updated.",
+    "back": "Back to Updates",
+    "supporting_one": "Version {{version}} is available. {{nodes}} have it installed, and {{count}} of them needs the update.",
+    "supporting_other": "Version {{version}} is available. {{nodes}} have it installed, and {{count}} of them need the update.",
+    "supportingDrift_one": "The nodes do not all have the same build. {{count}} of {{nodes}} differs from the cluster.",
+    "supportingDrift_other": "The nodes do not all have the same build. {{count}} of {{nodes}} differ from the cluster.",
+    "warning": "Updating stops the models that use this backend on each node. A model starts again when a request needs it.",
+    "driftNote": "A node that differs from the cluster is not always behind: it can be newer. Updating puts it on the version the gallery offers.",
+    "tableLabel": "Nodes that have {{name}}",
+    "col": {
+      "node": "Node",
+      "installed": "Installed",
+      "models": "Running models using it",
+      "state": "State",
+      "action": "Action"
+    },
+    "noneRecorded": "None recorded",
+    "state": {
+      "current": "Up to date",
+      "unreachable": "Not reachable"
+    },
+    "updateN_one": "Update {{count}} node",
+    "updateN_other": "Update {{count}} nodes",
+    "updateNamed": "Update {{name}}",
+    "models_one": "{{count}} model",
+    "models_other": "{{count}} models",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "stops": "Stops {{models}}",
+    "title_one": "Update {{backend}} on {{count}} node?",
+    "title_other": "Update {{backend}} on {{count}} nodes?",
+    "titleMany_one": "Update {{count}} backend on {{nodes}}?",
+    "titleMany_other": "Update {{count}} backends on {{nodes}}?",
+    "runningTitle": "Updating nodes",
+    "doneTitle": "Update finished",
+    "intro": "Each node stops the models that use {{backend}}, installs the new version, and starts a model again when a request needs it. This cannot be undone from here.",
+    "introMany": "Each node stops the models that use these backends, installs the new versions, and starts a model again when a request needs it. This cannot be undone from here.",
+    "stopKnown_one": "{{count}} model stops.",
+    "stopKnown_other": "{{count}} models stop.",
+    "stopPartial_one": "{{count}} model is recorded as stopping. On other nodes no model is recorded, and the record can miss one, so more models can stop.",
+    "stopPartial_other": "{{count}} models are recorded as stopping. On other nodes no model is recorded, and the record can miss one, so more models can stop.",
+    "stopNone": "No loaded model is recorded on these nodes. The record is not complete, so a model that uses this backend can still stop.",
+    "sequence": "Nodes update one after another. This window shows each result when it ends.",
+    "confirmStop_one": "Update {{count}} node and stop {{models}}",
+    "confirmStop_other": "Update {{count}} nodes and stop {{models}}",
+    "confirmStopAtLeast_one": "Update {{count}} node and stop at least {{models}}",
+    "confirmStopAtLeast_other": "Update {{count}} nodes and stop at least {{models}}",
+    "confirmPlain_one": "Update {{count}} node",
+    "confirmPlain_other": "Update {{count}} nodes",
+    "cancel": "Cancel",
+    "stop": "Stop after this node",
+    "listLabel": "Nodes to update",
+    "titleAll_one": "Start {{count}} update?",
+    "titleAll_other": "Start {{count}} updates?",
+    "confirmPlus_one": "{{label}}, plus {{count}} more",
+    "confirmPlus_other": "{{label}}, plus {{count}} more",
+    "othersTitle": "Also starts when you confirm",
+    "othersLabel": "Other updates to start",
+    "othersIntro": "These do not run on nodes. They start one after another when you confirm. An add-on stops while its data is backed up and migrated. If the new version does not start, the current one keeps running.",
+    "otherKind": {
+      "addon": "Add-on",
+      "library": "Library backend",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Library {{library}}",
+    "otherOriginChannel": "Library {{library}}, channel {{channel}}",
+    "runningNote": "Stop keeps the nodes that have not started from starting."
+  }
+}

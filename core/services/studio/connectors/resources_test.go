@@ -10,6 +10,16 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 )
 
+// entryOf is the entry a token binding gives for key, without wildcards.
+func entryOf(b connectors.Binding, key string) (connectors.ResourceEntry, error) {
+	return connectors.EntryUsable(b, b.HasTokenCredential(), key, false)
+}
+
+// wildEntry is entryOf for a kind that declares wildcard resources.
+func wildEntry(b connectors.Binding, key string) (connectors.ResourceEntry, error) {
+	return connectors.EntryUsable(b, b.HasTokenCredential(), key, true)
+}
+
 var _ = Describe("the resource list of a binding", func() {
 	valid := func(res ...connectors.ResourceEntry) connectors.Binding {
 		return connectors.Binding{Name: "n", Kind: "k", AgentID: "a", Resources: res}
@@ -48,40 +58,40 @@ var _ = Describe("the resource list of a binding", func() {
 		two := connectors.Binding{ID: "b2", Name: "two", Token: sealed, Resources: connectors.NewResources([]string{"acme/tools", "Acme/Gadgets"})}
 
 		It("matches a resource of the one binding without regard to case", func() {
-			e, err := connectors.Entry(one, "ACME/Widgets")
+			e, err := entryOf(one, "ACME/Widgets")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(e.Key).To(Equal("acme/widgets"))
-			e, err = connectors.Entry(two, "acme/gadgets")
+			e, err = entryOf(two, "acme/gadgets")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(e.ID).To(Equal(connectors.ResourceID("acme/gadgets")))
 		})
 
 		It("never looks at another binding: a key only the other lists is refused with this list", func() {
-			_, err := connectors.Entry(one, "acme/tools")
+			_, err := entryOf(one, "acme/tools")
 			var na *connectors.NotAllowedError
 			Expect(errors.As(err, &na)).To(BeTrue())
 			Expect(na.Allowed).To(Equal([]string{"acme/widgets"}))
-			_, err = connectors.Entry(two, "acme/widgets")
+			_, err = entryOf(two, "acme/widgets")
 			Expect(errors.As(err, &na)).To(BeTrue())
 			Expect(na.Allowed).To(Equal([]string{"Acme/Gadgets", "acme/tools"}))
 		})
 
 		It("refuses every resource of a binding with an empty list", func() {
 			empty := connectors.Binding{ID: "b4", Token: sealed}
-			_, err := connectors.Entry(empty, "acme/widgets")
+			_, err := entryOf(empty, "acme/widgets")
 			var na *connectors.NotAllowedError
 			Expect(errors.As(err, &na)).To(BeTrue())
 			Expect(na.Allowed).To(BeEmpty())
 		})
 
 		It("gives no entry to a call that names no resource", func() {
-			e, err := connectors.Entry(one, "")
+			e, err := entryOf(one, "")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(e).To(Equal(connectors.ResourceEntry{}))
 		})
 
 		It("refuses a binding with no token", func() {
-			_, err := connectors.Entry(connectors.Binding{ID: "b3", Resources: one.Resources}, "acme/widgets")
+			_, err := entryOf(connectors.Binding{ID: "b3", Resources: one.Resources}, "acme/widgets")
 			Expect(err).To(MatchError(connectors.ErrNoCredential))
 		})
 	})
@@ -116,40 +126,40 @@ var _ = Describe("wildcard resources", func() {
 
 	It("keeps the exact match when the kind has no wildcards", func() {
 		b := with("acme/*", "*")
-		_, err := connectors.Entry(b, "acme/widgets")
+		_, err := entryOf(b, "acme/widgets")
 		Expect(err).To(HaveOccurred())
-		e, err := connectors.Entry(b, "ACME/*")
+		e, err := entryOf(b, "ACME/*")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(e.Key).To(Equal("acme/*"))
 	})
 
 	It("gives an entry for the real key when a wildcard covers it", func() {
-		e, err := connectors.EntryFor(with("acme/*"), "Acme/Widgets", true)
+		e, err := wildEntry(with("acme/*"), "Acme/Widgets")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(e.Key).To(Equal("Acme/Widgets"))
 		Expect(e.ID).To(Equal(connectors.ResourceID("acme/widgets")))
-		_, err = connectors.EntryFor(with("acme/*"), "acme-evil/x", true)
+		_, err = wildEntry(with("acme/*"), "acme-evil/x")
 		var na *connectors.NotAllowedError
 		Expect(errors.As(err, &na)).To(BeTrue())
 		Expect(na.Allowed).To(Equal([]string{"acme/*"}))
 	})
 
 	It("asks for the wildcard * only with the entry *", func() {
-		e, err := connectors.EntryFor(with("*"), "*", true)
+		e, err := wildEntry(with("*"), "*")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(e.Key).To(Equal("*"))
-		_, err = connectors.EntryFor(with("acme/*"), "*", true)
+		_, err = wildEntry(with("acme/*"), "*")
 		Expect(err).To(HaveOccurred())
-		_, err = connectors.EntryFor(with("acme/widgets"), "*", true)
+		_, err = wildEntry(with("acme/widgets"), "*")
 		Expect(err).To(HaveOccurred())
-		_, err = connectors.EntryFor(with("acme/*"), "acme/*", true)
+		_, err = wildEntry(with("acme/*"), "acme/*")
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("still needs a token", func() {
 		b := with("*")
 		b.Token = nil
-		_, err := connectors.EntryFor(b, "a/b", true)
+		_, err := wildEntry(b, "a/b")
 		Expect(err).To(MatchError(connectors.ErrNoCredential))
 	})
 

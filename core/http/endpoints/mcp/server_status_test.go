@@ -51,4 +51,41 @@ var _ = Describe("MCP server status discovery", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(requests.Load()).To(BeNumerically(">=", 2), "failed sessions should be retried instead of cached forever")
 	})
+
+	It("keeps the live sessions while it retries a server that failed", func() {
+		live := protectedMCPServer(false, func() string { return "t" })
+		dead := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+		}))
+		DeferCleanup(dead.Close)
+
+		modelName := "partly-unavailable-mcp-status-test"
+		DeferCleanup(func() { CloseMCPSessions(modelName) })
+		remote := config.MCPGenericConfig[config.MCPRemoteServers]{
+			Servers: config.MCPRemoteServers{
+				"live": {URL: live.URL, Token: "t"},
+				"dead": {URL: dead.URL},
+			},
+		}
+		stdio := config.MCPGenericConfig[config.MCPSTDIOServers]{}
+		byName := func(ss []NamedSession) map[string]NamedSession {
+			out := map[string]NamedSession{}
+			for _, s := range ss {
+				out[s.Name] = s
+			}
+			return out
+		}
+
+		first, err := NamedSessionsFromMCPConfig(modelName, remote, stdio, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(byName(first)["live"].Session).NotTo(BeNil())
+		Expect(byName(first)["dead"].Session).To(BeNil())
+
+		second, err := NamedSessionsFromMCPConfig(modelName, remote, stdio, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(byName(second)["live"].Session).To(BeIdenticalTo(byName(first)["live"].Session),
+			"a server that answers keeps its session when another server is down")
+		Expect(byName(second)["dead"].Session).To(BeNil())
+		Expect(byName(second)["dead"].Error).To(ContainSubstring("connection failed"))
+	})
 })

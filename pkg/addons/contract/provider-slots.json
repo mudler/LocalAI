@@ -33,5 +33,27 @@
       "undo": {"type": "enum", "values": ["host", "provider", "none"]}
     },
     "policy": ["confirm-writes", "save-levels", "messaging-trust", "no-background-writes", "prompt-budget", "untrusted-wrap", "audit", "off-precedence", "remote-disclosure"]
+  },
+  {
+    "id": "model-search",
+    "version": 1,
+    "minVersion": 1,
+    "title": "Model search",
+    "description": "Sources that the model search panel and the assistant search for installable models.",
+    "selection": {
+      "scope": "user",
+      "mode": "set",
+      "default": "builtin",
+      "offAllowed": false
+    },
+    "builtin": {
+      "id": "builtin",
+      "title": "Hugging Face",
+      "description": "The Hugging Face model hub. Built in and on by default."
+    },
+    "roles": {
+      "search": {"kinds": ["read"], "required": true}
+    },
+    "policy": ["untrusted-wrap", "audit", "prompt-budget", "search-result-validation"]
   }
 ]

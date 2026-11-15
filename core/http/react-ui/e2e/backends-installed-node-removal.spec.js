@@ -16,7 +16,6 @@ async function setup(page, options = {}) {
   await page.route('**/api/backends?*', route => state.failRefresh
     ? route.fulfill({ status: 500, json: { error: 'catalog unavailable' } })
     : route.fulfill({ json: { backends: [BUILD, SIBLING].map(name => ({ id: name, name, installed: true, isAlias: true, isDevelopment: name === BUILD, nodes: ids.map(id => ({ node_id: id, node_name: id })) })) } }))
-  await page.route('**/api/backends/upgrades', route => route.fulfill({ json: {} }))
   await page.route('**/backends', async route => {
     state.installedCalls++
     if (state.refreshWait && state.deletes.length) await state.refreshWait

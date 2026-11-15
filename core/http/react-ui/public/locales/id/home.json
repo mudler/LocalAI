@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "Pesan...",
-    "attachImage": "Lampirkan gambar",
-    "attachAudio": "Lampirkan audio",
     "attachFile": "Lampirkan file",
+    "dropFiles": "Lepas file untuk dilampirkan",
+    "dropFilesNote": "Lepas file untuk melampirkannya ke pesan.",
     "enterToSend": "Enter untuk mengirim",
     "selectModelFirst": "Pilih model terlebih dahulu",
     "sendMessage": "Kirim pesan",
@@ -82,13 +82,19 @@
       "step2Title": "Instal Model",
       "step2Body": "Klik instal untuk mengunduh dan mengonfigurasinya secara otomatis.",
       "step3Title": "Mulai Mengobrol",
-      "step3Body": "Mengobrol dengan model Anda langsung dari peramban atau gunakan API."
+      "step3Body": "Mengobrol dengan model Anda langsung dari peramban atau gunakan API.",
+      "step4Title": "Siapkan agen Anda",
+      "step4Body": "Buat kunci API, lalu hubungkan agen pemrograman: {{agents}}. Panduan mengisi alamat dan kunci untuk Anda.",
+      "step5Title": "Perluas LocalAI dengan add-on",
+      "step5Body": "Add-on menambah kemampuan baru. Pasang dari pustaka."
     },
     "browseGallery": "Jelajahi Galeri Model",
     "importModel": "Impor Model",
     "docs": "Dokumentasi",
     "noModelsTitle": "Tidak Ada Model yang Tersedia",
-    "noModelsBody": "Belum ada model yang terinstal. Hubungi administrator Anda untuk menyiapkan model agar Anda dapat mulai mengobrol."
+    "noModelsBody": "Belum ada model yang terinstal. Hubungi administrator Anda untuk menyiapkan model agar Anda dapat mulai mengobrol.",
+    "connectAgents": "Hubungkan agen pemrograman",
+    "browseAddons": "Jelajahi add-on"
   },
   "connect": {
     "title": "Satu endpoint, semua API",
@@ -100,7 +106,8 @@
     "copied": "Disalin",
     "browse": "Jelajahi API",
     "hide": "Sembunyikan endpoint",
-    "dismiss": "Abaikan"
+    "dismiss": "Abaikan",
+    "agentsLink": "Hubungkan agen pemrograman: buat kunci API dan salin konfigurasinya"
   },
   "jump": {
     "heading": "Jump back in",
@@ -147,9 +154,49 @@
     "disabled": "nonaktif",
     "pinned": "disematkan",
     "useTyped": "Gunakan \"{{name}}\"",
+    "chooseModel": "Pilih model",
+    "defaultMissing": "Model default Anda {{model}} tidak terpasang. Pilih model.",
     "empty": "Tidak ada model",
     "add": "Tambah model",
     "remove": "Hapus {{name}}",
     "clear": "Kosongkan"
+  },
+  "starters": {
+    "title": "Disarankan untuk mesin Anda",
+    "tier": {
+      "cpu": "CPU saja",
+      "gpu-small": "GPU kecil",
+      "gpu-mid": "GPU menengah",
+      "gpu-large": "GPU besar"
+    },
+    "undetected": "Kami tidak dapat mendeteksi perangkat keras Anda, jadi ini adalah model untuk komputer tanpa GPU.",
+    "cluster": "Disesuaikan dengan mesin terbaik di klaster Anda.",
+    "nothingFits": "Tidak ada model yang disarankan yang muat di mesin ini. Ini yang terkecil; mungkin berjalan lambat atau gagal dimuat.",
+    "facts": {
+      "size": "unduhan {{size}}",
+      "window": "konteks {{window}}",
+      "memory": "sekitar {{memory}} memori"
+    },
+    "fit": {
+      "tight": "Pas-pasan",
+      "does_not_fit": "Tidak muat"
+    },
+    "reasons": {
+      "little_headroom": "Muat, tetapi menyisakan sedikit memori.",
+      "below_chat_minimum": "Jendela konteks akan terlalu kecil untuk obrolan.",
+      "exceeds_memory": "Membutuhkan memori lebih banyak daripada yang dimiliki mesin ini.",
+      "estimate_unavailable": "Penggunaan memorinya tidak dapat diperkirakan.",
+      "hardware_unknown": "Perangkat keras Anda tidak dapat dibaca, sehingga kecocokan tidak diperiksa."
+    },
+    "more": "Model lainnya",
+    "fewer": "Lebih sedikit model",
+    "askAdmin": "Hanya administrator yang dapat memasang model. Minta administrator Anda memasang salah satunya.",
+    "installModel": "Pasang {{model}}",
+    "cpuNote": "GPU tidak terdeteksi. Model ini tetap responsif di prosesor.",
+    "gpuNote": "Dipilih agar muat di kartu grafis Anda dengan ruang untuk obrolan penuh.",
+    "install": "Pasang",
+    "installing": "Memasang",
+    "installStarted": "Memasang {{model}}…",
+    "installFailed": "Pemasangan gagal: {{message}}"
   }
 }

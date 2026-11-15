@@ -206,6 +206,13 @@ type Store interface {
 	// each other's change.
 	UpdateHostConsent(ctx context.Context, principal, chatID string, change func(cur *session.HostConsent) (*session.HostConsent, error)) error
 
+	// UpdateJobs changes the index of the chat's background jobs in one atomic
+	// step: change gets a copy of the stubs and returns the list to keep; an
+	// error from change leaves the chat as it was and is returned. Two nodes
+	// that write the stubs of one chat at once do not lose either change.
+	// UpdateChat leaves the list alone.
+	UpdateJobs(ctx context.Context, principal, chatID string, change func(cur []session.JobStub) ([]session.JobStub, error)) error
+
 	// UpdateEgress changes the network state of a chat (preset, rules, cards,
 	// grants) in one atomic step: change gets the current state and edits it;
 	// an error from change leaves the chat as it was and is returned. Two
@@ -219,6 +226,13 @@ type Store interface {
 	// was and is returned. Two frontends that change the same goal at once do
 	// not lose either change. UpdateChat leaves the goal alone.
 	UpdateGoal(ctx context.Context, principal, chatID string, change func(cur *session.Goal) (*session.Goal, error)) error
+
+	// UpdateDock changes the dock of a chat in one atomic step, as UpdateGoal
+	// does the goal: change gets a copy of the current dock (nil when the
+	// chat has none) and returns the dock to keep (nil clears it). The
+	// assistant and the person can dock a page at once without losing either.
+	// UpdateChat leaves the dock alone.
+	UpdateDock(ctx context.Context, principal, chatID string, change func(cur *session.Dock) (*session.Dock, error)) error
 
 	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
 	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)

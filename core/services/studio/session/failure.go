@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 )
 
 // Codes of a failed turn. The chat page picks its plain-words text by code, so
@@ -137,6 +140,12 @@ func Classify(err error) Failure {
 	case windowFullRe.MatchString(msg):
 		m := windowFullRe.FindStringSubmatch(msg)
 		f.Code = CodeContext
+		if w, err := strconv.Atoi(m[2]); err == nil && w < harnessctx.MinContext {
+			// The window is smaller than what the chat itself sends before the
+			// user types, so a new chat would fail the same way.
+			f.Reason = smallWindowReason(w)
+			break
+		}
 		f.Reason = reasonContextPrefix + " for this conversation: it takes about " + m[1] + " tokens of a " + m[2] + "-token window. Start a new chat, or use a model with a larger context window."
 	case strings.Contains(lower, "tool schema") && (strings.Contains(lower, "invalid") || strings.Contains(lower, "rejected") || strings.Contains(lower, "unsupported")):
 		f.Code = CodeToolSchema
@@ -155,6 +164,14 @@ func Classify(err error) Failure {
 		}
 	}
 	return f
+}
+
+// smallWindowReason is the answer to a window below the chat minimum. It does
+// not say "start a new chat": the fixed part of every request already fills
+// most of such a window, so every turn would fail again.
+func smallWindowReason(window int) string {
+	return fmt.Sprintf("%s for the chat: this model has a window of %d tokens and the chat needs at least %d (%d is better). Pick a model with a larger window, or ask an administrator to raise the context size of this model.",
+		reasonContextPrefix, window, harnessctx.MinContext, harnessctx.RecommendedContext)
 }
 
 func isLoadFailure(lower string) bool {

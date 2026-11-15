@@ -10,10 +10,11 @@
 import { declaresSlot } from './slots.js'
 import { usable } from './registryState.js'
 
-export const HOST_CONTROL_IDS = Object.freeze(['network-policy', 'tool-providers'])
+export const HOST_CONTROL_IDS = Object.freeze(['network-policy', 'tool-providers', 'sandbox-profiles'])
 
 export const NETWORK_POLICY = 'network-policy'
 export const TOOL_PROVIDERS = 'tool-providers'
+export const SANDBOX_PROFILES = 'sandbox-profiles'
 
 // The settings the network-policy control draws on the add-on's Settings tab,
 // in order. The Settings page does not draw the ones the control owns.
@@ -40,10 +41,18 @@ export function controlsOf(app) {
 
 export function hasControl(app, id) { return controlsOf(app).includes(id) }
 
+// Whether the host draws the form that approves an add-on's OAuth login: the
+// apps list names a login (app.oauth) for every add-on whose credential slot
+// is of kind oauth2, whatever its ID. The add-on lists no control for it.
+export function hasOAuthLogin(app) {
+  return Boolean(app && app.oauth && typeof app.oauth === 'object')
+}
+
 // Whether an add-on's details offer a Settings tab: it declares its own
-// settings section, or the host draws a control for it.
+// settings section, the host draws a control for it, or it logs people in
+// with OAuth.
 export function hasAddonSettings(app) {
-  return Boolean(app && (declaresSlot(app, 'settings.sections') || controlsOf(app).length > 0))
+  return Boolean(app && (declaresSlot(app, 'settings.sections') || controlsOf(app).length > 0 || hasOAuthLogin(app)))
 }
 
 // The usable add-ons the host draws a control for, in list order.

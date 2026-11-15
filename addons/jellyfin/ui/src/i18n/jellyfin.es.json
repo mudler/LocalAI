@@ -25,7 +25,6 @@
   "agent": "Agente",
   "agentNone": "Elige un agente",
   "agentCredentialsOnly": "Sin agente (solo credenciales)",
-  "agentOptionalHint": "Opcional. Sin agente, esta conexión solo guarda la clave, el servidor y el modo de escritura para tus chats. No responde a ningún mensaje y no escucha nada.",
   "credentialsOnly": "Solo credenciales",
   "agentNoModel": "{{name}} (necesita un modelo)",
   "test": "Probar",

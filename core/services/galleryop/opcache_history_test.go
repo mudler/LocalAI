@@ -41,6 +41,33 @@ var _ = Describe("OpCache terminal recording", func() {
 		Expect(history[0].FinishedAt).NotTo(BeZero())
 	})
 
+	It("records a completed backend upgrade as an upgrade", func() {
+		cache.SetBackend("llama-cpp", "job-up")
+		svc.UpdateStatus("job-up", &galleryop.OpStatus{Upgrade: true, Message: "queued", Phase: galleryop.PhaseQueued})
+		// A later write from the worker leaves the flag out.
+		svc.UpdateStatus("job-up", &galleryop.OpStatus{Processed: true, Progress: 100, Message: "completed"})
+
+		cache.GetStatus()
+
+		history := cache.History()
+		Expect(history).To(HaveLen(1))
+		Expect(history[0].TaskType).To(Equal(galleryop.TaskUpgrade))
+		Expect(history[0].Outcome).To(Equal("completed"))
+	})
+
+	It("records a cancelled upgrade as cancelled, with the upgrade task type", func() {
+		cache.SetBackend("llama-cpp", "job-up2")
+		svc.UpdateStatus("job-up2", &galleryop.OpStatus{Upgrade: true, Phase: galleryop.PhaseQueued, Cancellable: true})
+		svc.UpdateStatus("job-up2", &galleryop.OpStatus{Processed: true, Cancelled: true})
+
+		cache.GetStatus()
+
+		history := cache.History()
+		Expect(history).To(HaveLen(1))
+		Expect(history[0].Outcome).To(Equal("cancelled"))
+		Expect(history[0].TaskType).To(Equal(galleryop.TaskUpgrade))
+	})
+
 	It("records a failed install only once it is dismissed", func() {
 		cache.SetBackend("sherpa-onnx", "job-2")
 		svc.UpdateStatus("job-2", &galleryop.OpStatus{Processed: true, Error: errors.New("no space left on device")})

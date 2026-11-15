@@ -22,8 +22,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 	"github.com/mudler/LocalAI/addons/web/internal/providers"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // Settings are the saved choices.

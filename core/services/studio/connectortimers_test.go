@@ -55,7 +55,7 @@ var _ = Describe("timers and approval modes in a connector chat", func() {
 		gate.set(studio.CapTriggersPropose, true)
 		gate.set(studio.CapTriggersRun, true)
 		gate.set(studio.CapProposalsConfirm, true)
-		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, Approval: &ap})
+		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, Approval: &ap, ReplyLanguage: englishReplies()})
 		seq = 0
 	}
 	from := func(sender, text string) {
@@ -183,12 +183,12 @@ var _ = Describe("timers and approval modes in a connector chat", func() {
 			}
 		})
 
-		It("still refuses a recurring schedule more often than hourly", func() {
+		It("still refuses a recurring schedule more often than every 5 minutes", func() {
 			setup(connectors.Approval{})
-			args = `{"name":"Fast","prompt":"RUN","when":"*/5 * * * *","time_zone":"UTC"}`
+			args = `{"name":"Fast","prompt":"RUN","when":"*/2 * * * *","time_zone":"UTC"}`
 			say("propose")
 			waitFor("the model's answer", func() bool { return len(r.h.ResultsFor("propose_trigger")) == 1 })
-			Expect(r.h.ResultsFor("propose_trigger")[0].Err).To(MatchError(ContainSubstring("once an hour")))
+			Expect(r.h.ResultsFor("propose_trigger")[0].Err).To(MatchError(ContainSubstring("once every 5 minutes")))
 		})
 
 		It("lapses when its time passes before anybody answers", func() {
@@ -392,6 +392,17 @@ var _ = Describe("timers and approval modes in a connector chat", func() {
 			r.pass()
 			Expect(live()).To(BeEmpty())
 			waitFor("the notice", func() bool { return strings.Contains(last(), "end of its lifetime") })
+		})
+
+		It("holds the time limit of an automatic trigger to the ceiling of the administrator", func() {
+			setup(connectors.Approval{Mode: connectors.ApprovalAuto, MaxLifetimeDays: 7})
+			ask(`{"name":"Long","prompt":"RUN","when":"daily 08:00","time_zone":"UTC","run_limit":"2h"}`)
+			ask(`{"name":"Short","prompt":"RUN","when":"daily 09:00","time_zone":"UTC","run_limit":"5m"}`)
+			got := map[string]time.Duration{}
+			for _, t := range live() {
+				got[t.Name] = t.RunLimit
+			}
+			Expect(got).To(Equal(map[string]time.Duration{"Long": studio.DefaultRunLimit, "Short": 5 * time.Minute}))
 		})
 
 		It("asks for a recurring trigger that runs more often than the owner allows", func() {

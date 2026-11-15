@@ -97,7 +97,9 @@ func (s *Service) approvalsOf(ctx context.Context, b connectors.Binding) []ToolA
 			v, found, err := s.d.UserSetting(ctx, b.Owner, b.AddonID, contract.ApprovalSettingKey(t.Tool))
 			a.Skip = err == nil && found && v == contract.ApprovalSkip
 		}
-		if a.Skip && b.Writes() != connectors.WriteOff {
+		// Allow all (write mode auto) lifts the ceiling of such a tool as
+		// well, whatever the per-tool setting says.
+		if (a.Skip || b.Writes() == connectors.WriteAuto) && b.Writes() != connectors.WriteOff {
 			a.RunsWithoutAsking = []string{"owner", "paired"}
 		}
 		out = append(out, a)

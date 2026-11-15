@@ -18,7 +18,7 @@
     "min": 1,
     "max": 1
   },
-  "featureLevel": 4,
+  "featureLevel": 5,
   "capabilities": {
     "tools": [
       "search-code",
@@ -617,7 +617,7 @@
           "setup": "a fine-grained access token for your repositories",
           "senderHint": "Not used yet: this connection does not listen for mentions",
           "delivery": "pull",
-          "agentOptional": true,
+          "toolOnly": true,
           "wildcardResources": true,
           "options": [
             {

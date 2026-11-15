@@ -11,6 +11,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"golang.org/x/text/unicode/norm"
+
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
@@ -116,24 +118,79 @@ func TitleFrom(text string) string {
 	return ""
 }
 
-// FolderName returns the name of a chat folder: the creation date and the
-// title, for example "2026-10-18 Budget". A "/" in the title becomes "-". The
-// title is cut to the byte budget of a name at a rune boundary.
-func FolderName(created time.Time, title string) string {
-	t := strings.ReplaceAll(CleanTitle(title), "/", "-")
-	if t == "" {
-		t = DefaultTitle
+// folderSuffixRoom is the byte budget kept free for the "-N" that uniqueName
+// may add to a chat folder name.
+const folderSuffixRoom = len("-999")
+
+// asciiFold maps the letters that Unicode decomposition does not reduce to
+// ASCII.
+var asciiFold = strings.NewReplacer("ß", "ss", "æ", "ae", "œ", "oe", "ø", "o", "đ", "d", "ł", "l", "þ", "th", "ð", "d")
+
+// slug turns a title into a name of lowercase ASCII letters and digits
+// joined by single dashes. Accents are dropped (é gives e); a character with
+// no ASCII form, such as a middle dot or a CJK letter, acts as a separator.
+// It returns "" when nothing is left.
+func slug(title string) string {
+	var b strings.Builder
+	dash := false
+	for _, r := range asciiFold.Replace(strings.ToLower(norm.NFD.String(title))) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			if dash && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			dash = false
+			b.WriteRune(r)
+		case unicode.Is(unicode.Mn, r):
+			// A combining accent belongs to the letter before it.
+		default:
+			dash = true
+		}
 	}
-	prefix := created.UTC().Format("2006-01-02") + " "
-	return prefix + strings.TrimRight(fitBytes(t, maxNameBytes-len(prefix)), " ")
+	return b.String()
 }
 
-// uniqueName returns base, or base with " 2", " 3" ... when taken reports it.
-func uniqueName(base string, taken func(name string) (bool, error)) (string, error) {
+// FolderName returns the name of a chat folder: the creation date and an
+// ASCII slug of the title, for example "2026-10-18-budget-q1". The name has
+// no space and no character outside ASCII, so a command that types it out
+// unquoted, or gets it mangled, does not split it into stray folders. An empty
+// slug (a title with no ASCII letter or digit) gives the slug of DefaultTitle.
+// The slug is cut to the byte budget of a name, with room for uniqueName's
+// suffix.
+func FolderName(created time.Time, title string) string {
+	t := slug(CleanTitle(title))
+	if t == "" {
+		t = slug(DefaultTitle)
+	}
+	prefix := created.UTC().Format("2006-01-02") + "-"
+	return prefix + strings.TrimRight(fitBytes(t, maxNameBytes-len(prefix)-folderSuffixRoom), "-")
+}
+
+// isSlugFolder reports whether a chat folder name has the form FolderName
+// makes: a date, a dash and the slug. A folder made before that form (the
+// date, a space and the title) has a space after the date and never matches.
+func isSlugFolder(name string) bool {
+	if len(name) < len("2006-01-02-x") || name[10] != '-' {
+		return false
+	}
+	if _, err := time.Parse("2006-01-02", name[:10]); err != nil {
+		return false
+	}
+	for _, r := range name[11:] {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-') {
+			return false
+		}
+	}
+	return true
+}
+
+// uniqueName returns base, or base with sep and a number, "-2", "-3" ..., when
+// taken reports it.
+func uniqueName(base, sep string, taken func(name string) (bool, error)) (string, error) {
 	for i := 1; i < 1000; i++ {
 		name := base
 		if i > 1 {
-			name = fmt.Sprintf("%s %d", base, i)
+			name = fmt.Sprintf("%s%s%d", base, sep, i)
 		}
 		t, err := taken(name)
 		if err != nil {
@@ -216,7 +273,7 @@ func FolderMountNames(paths []string) []string {
 	out := make([]string, 0, len(paths))
 	for _, p := range paths {
 		base := strings.TrimRight(fitBytes(GuestFolderPrefix+path.Base(p), maxNameBytes-len(" 999")), " ")
-		at, err := uniqueName(base, func(n string) (bool, error) { return used[workspace.FoldName(n)], nil })
+		at, err := uniqueName(base, " ", func(n string) (bool, error) { return used[workspace.FoldName(n)], nil })
 		if err != nil {
 			at = fmt.Sprintf("%s%d", GuestFolderPrefix, len(out)+1)
 		}
@@ -281,7 +338,7 @@ func BuildViewFolders(ctx context.Context, st workspace.Store, a workspace.Actor
 		// Leave room for the " N" suffix that uniqueName may add.
 		base := fitBytes(GuestSharedPrefix+path.Base(p), maxNameBytes-len(" 999"))
 		base = strings.TrimRight(base, " ")
-		at, err := uniqueName(base, func(n string) (bool, error) { return used[workspace.FoldName(n)], nil })
+		at, err := uniqueName(base, " ", func(n string) (bool, error) { return used[workspace.FoldName(n)], nil })
 		if err != nil {
 			return workspace.View{}, err
 		}

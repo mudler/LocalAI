@@ -406,27 +406,45 @@ var _ = Describe("resolveDraftModelPath", func() {
 })
 
 var _ = Describe("validModelPath", func() {
-	It("accepts a .gguf file", func() {
-		dir := GinkgoT().TempDir()
-		p := filepath.Join(dir, "model.gguf")
-		Expect(os.WriteFile(p, []byte("GGUF"), 0o600)).To(Succeed())
-		Expect(validModelPath(p)).To(Succeed())
-	})
-	It("accepts a directory with config.json", func() {
-		dir := GinkgoT().TempDir()
-		Expect(os.WriteFile(filepath.Join(dir, "config.json"), []byte("{}"), 0o600)).To(Succeed())
-		Expect(validModelPath(dir)).To(Succeed())
-	})
-	It("refuses a directory without config.json (greedy-probe rule)", func() {
-		Expect(validModelPath(GinkgoT().TempDir())).NotTo(Succeed())
-	})
-	It("refuses a non-gguf file", func() {
-		dir := GinkgoT().TempDir()
-		p := filepath.Join(dir, "weights.bin")
-		Expect(os.WriteFile(p, []byte("x"), 0o600)).To(Succeed())
-		Expect(validModelPath(p)).NotTo(Succeed())
-	})
-	It("refuses a missing path", func() {
-		Expect(validModelPath("/nonexistent/model.gguf")).NotTo(Succeed())
+	type tc struct {
+		name  string
+		setup func(dir string) string
+		video bool
+		ok    bool
+	}
+	write := func(dir string, names ...string) {
+		for _, n := range names {
+			Expect(os.WriteFile(filepath.Join(dir, n), []byte("x"), 0o600)).To(Succeed())
+		}
+	}
+	cases := []tc{
+		{"gguf file", func(d string) string { write(d, "model.gguf"); return filepath.Join(d, "model.gguf") }, false, true},
+		{"config.json dir", func(d string) string { write(d, "config.json"); return d }, false, true},
+		{"safetensors file, video", func(d string) string { write(d, "dit.safetensors"); return filepath.Join(d, "dit.safetensors") }, true, true},
+		{"shard dir with index, video", func(d string) string { write(d, "model.safetensors.index.json"); return d }, true, true},
+		{"gguf file, video", func(d string) string { write(d, "model.gguf"); return filepath.Join(d, "model.gguf") }, true, true},
+		{"safetensors file, text", func(d string) string { write(d, "dit.safetensors"); return filepath.Join(d, "dit.safetensors") }, false, false},
+		{"shard dir with index, text", func(d string) string { write(d, "model.safetensors.index.json"); return d }, false, false},
+		{"non-gguf file", func(d string) string { write(d, "weights.bin"); return filepath.Join(d, "weights.bin") }, false, false},
+		{"non-model file, video", func(d string) string { write(d, "weights.bin"); return filepath.Join(d, "weights.bin") }, true, false},
+		{"empty dir, text", func(d string) string { return d }, false, false},
+		{"empty dir, video", func(d string) string { return d }, true, false},
+		{"missing path", func(string) string { return "/nonexistent/model.gguf" }, false, false},
+		{"missing path, video", func(string) string { return "/nonexistent/dit.safetensors" }, true, false},
+	}
+	for _, c := range cases {
+		It(c.name, func() {
+			err := validModelPath(c.setup(GinkgoT().TempDir()), c.video)
+			if c.ok {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+		})
+	}
+
+	It("treats a config with video_partition as a video model", func() {
+		lo := parseOptions(&pb.ModelOptions{Options: []string{"video_partition:gpu"}})
+		Expect(lo.video.engaged()).To(BeTrue())
 	})
 })

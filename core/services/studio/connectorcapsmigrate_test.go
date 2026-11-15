@@ -13,7 +13,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-var usualCaps = []string{"files.upload", "memory.write", "proposals.confirm", "talkback.channels", "triggers.propose", "triggers.run"}
+var usualCaps = []string{"files.upload", "loops.wait", "memory.write", "proposals.confirm", "talkback.channels", "triggers.propose", "triggers.run"}
 
 func migrationKinds() []studio.ConnectorKind {
 	perms := []string{"memory.write", "files.upload", "triggers.run"}
@@ -239,5 +239,43 @@ func TestMigrateBindingCapsLogsWithoutSecrets(t *testing.T) {
 		if hasText(out, bad) {
 			t.Fatalf("log has %q:\n%s", bad, out)
 		}
+	}
+}
+
+func TestMigrateLoopsWaitAddsItOnceAndKeepsAnOwnerChoice(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
+	st, _ := connectors.NewJSON("")
+	// A binding that ran the usual-set migration before loops.wait existed, one
+	// the owner narrowed, one with no ceiling, and one that has it already.
+	putBinding(t, st, connectors.Binding{ID: "old", Kind: "chat", Caps: []string{"memory.write", "proposals.confirm"}})
+	putBinding(t, st, connectors.Binding{ID: "narrow", Kind: "chat", Caps: []string{"files.upload"}})
+	putBinding(t, st, connectors.Binding{ID: "none", Kind: "chat"})
+	putBinding(t, st, connectors.Binding{ID: "has", Kind: "chat", Caps: []string{"loops.wait"}})
+	rep, err := studio.MigrateLoopsWait(ctx, st, now, nil)
+	if err != nil || !rep.Ran || rep.Changed != 2 {
+		t.Fatalf("first run: %+v %v", rep, err)
+	}
+	if !slices.Contains(capsOf(t, st, "old"), "loops.wait") || !slices.Contains(capsOf(t, st, "narrow"), "loops.wait") {
+		t.Fatal("an existing binding did not get loops.wait")
+	}
+	if len(capsOf(t, st, "none")) != 0 {
+		t.Fatal("a binding with an empty ceiling must stay empty")
+	}
+	if slices.Contains(capsOf(t, st, "old"), "loops.start") {
+		t.Fatal("loops.start must never come from a migration")
+	}
+	// The owner switches loops.wait off. The migration does not run again.
+	b, _ := st.GetBinding(ctx, "old")
+	b.Caps = []string{"memory.write", "proposals.confirm"}
+	putBinding(t, st, b)
+	for i := range 3 {
+		rep, err = studio.MigrateLoopsWait(ctx, st, now.Add(time.Duration(i+1)*time.Hour), nil)
+		if err != nil || rep.Ran || rep.Changed != 0 {
+			t.Fatalf("run %d: %+v %v", i+2, rep, err)
+		}
+	}
+	if slices.Contains(capsOf(t, st, "old"), "loops.wait") {
+		t.Fatal("the migration turned loops.wait back on after the owner switched it off")
 	}
 }

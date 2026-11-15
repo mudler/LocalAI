@@ -138,7 +138,12 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     await state.memberPage.goto('/app/addons')
     const card = state.memberPage.locator('[data-app="tables"]')
     await expect(card.getByTestId('update-chip')).toBeVisible({ timeout: 25_000 })
-    await expect(card.locator('.ad-tile__state')).toHaveText('Running')
+    // A row has one state chip: the pending mark takes the place of the state
+    // while an update waits, so the running state is read from the list the
+    // page was drawn from, not from the row.
+    await expect(card.locator('.ad-tile__state')).toHaveCount(0)
+    const listed = await pageFetch(state.memberPage, '/api/addons/apps')
+    expect(listed.json.apps.find(a => a.id === 'tables')).toMatchObject({ state: 'running', update: 'update-pending' })
     await shoot(state.memberPage, 'updates-pending-chip-1280', 'update-chip')
     const read = await pageFetch(state.memberPage, '/api/addons/tables/update')
     expect(read.status).toBe(200)
@@ -193,7 +198,7 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     expect((await installed(api)).digest).toBe(state.firstDigest)
 
     await admin.page.getByTestId('update-upgrade').click()
-    await admin.page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await admin.page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
     await expect(admin.page.getByTestId('upgrade-progress')).toBeVisible()
     await shoot(admin.page, 'updates-progress-1280', null, { settle: 0 })
     await expect(admin.page.getByTestId('upgrade-progress')).toBeHidden({ timeout: 90_000 })

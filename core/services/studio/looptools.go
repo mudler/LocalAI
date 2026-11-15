@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 const (
@@ -54,12 +55,15 @@ var errNoLoopRun = errors.New("no run of a self-paced loop goes on in this chat;
 // self-paced loop that is active or running. A chat without a self-paced loop
 // gets start_loop instead, so that the model can arm one itself. The tools are
 // added after every selection of tools and groups, so a chat of a saved agent
-// has them whatever the agent restricts. A connector chat gets none.
+// has them whatever the agent restricts. A connector chat gets each one only
+// when the sender of the turn holds its capability (see loopAllowed).
 func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.ChatRecord) []session.Tool {
 	h := s.loops
-	if h == nil || !modelLoopOrigin(rec.Origin) {
+	if h == nil || !s.loopOriginKnown(rec.Origin) {
 		return nil
 	}
+	connector := rec.Origin == session.OriginConnector
+	canStart, canWait := s.loopAllowed(rec, contract.CapLoopsStart), s.loopAllowed(rec, contract.CapLoopsWait)
 	list, err := h.o.Store.ListChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil
@@ -73,31 +77,86 @@ func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.
 			paced = true
 		}
 	}
-	wait := session.Tool{Name: waitForName, Description: waitForDescription, Schema: json.RawMessage(waitForSchema),
-		Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startWait(ctx, a, raw) }}
+	var out []session.Tool
 	if !paced {
 		if live {
 			// A paused or waiting loop is the person's to resume: it has no
 			// tools, and a second loop would only pile up.
 			return nil
 		}
-		return []session.Tool{{Name: startLoopName, Description: startLoopDescription, Schema: json.RawMessage(startLoopSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startLoop(ctx, a, raw) }}, wait}
+		if canStart {
+			out = append(out, session.Tool{Name: startLoopName, Description: startLoopDescription, Schema: json.RawMessage(startLoopSchema),
+				Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startLoop(ctx, a, raw) }})
+		}
+	} else if !connector || canStart || s.connectorLoopRunning(ctx, a, rec) {
+		// The runs of a loop have no sender, so a loop that a connector chat
+		// already has keeps its two tools: only a sender who held the start
+		// capability could have started it (see begin).
+		out = append(out,
+			session.Tool{Name: scheduleNextName, Description: scheduleNextDescription, Schema: json.RawMessage(scheduleNextSchema),
+				Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.scheduleNext(ctx, a, raw) }},
+			session.Tool{Name: loopDoneName, Description: loopDoneDescription, Schema: json.RawMessage(loopDoneSchema),
+				Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.loopDone(ctx, a, raw) }})
 	}
-	return []session.Tool{
-		{Name: scheduleNextName, Description: scheduleNextDescription, Schema: json.RawMessage(scheduleNextSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.scheduleNext(ctx, a, raw) }},
-		{Name: loopDoneName, Description: loopDoneDescription, Schema: json.RawMessage(loopDoneSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.loopDone(ctx, a, raw) }},
-		wait,
+	if canWait {
+		out = append(out, session.Tool{Name: waitForName, Description: waitForDescription, Schema: json.RawMessage(waitForSchema),
+			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startWait(ctx, a, raw) }})
 	}
+	return out
 }
 
-// modelLoopOrigin says whether the model of a chat with that origin may start
-// a loop. A person's chat, a trigger, a job and a page may: their prompts come
-// from the owner, or from a page that the owner allowed. A connector chat may
-// not, because the sender of its messages can be someone from outside, and a
-// message of theirs must not be able to make the server run work on a timer.
+// loopCapability is the capability that a start by the model needs: a wait
+// needs loops.wait, a loop needs loops.start.
+func loopCapability(by *modelStart) string {
+	if by.watch != nil {
+		return contract.CapLoopsWait
+	}
+	return contract.CapLoopsStart
+}
+
+// connectorLoopRunning says whether a loop run is going on in the chat now.
+// Such a run has no sender and so no grant; the loop was started under one.
+func (s *Service) connectorLoopRunning(ctx context.Context, a workspace.Actor, rec session.ChatRecord) bool {
+	if rec.Origin != session.OriginConnector || s.loops == nil {
+		return false
+	}
+	_, err := s.loops.runningPaced(ctx, a)
+	return err == nil
+}
+
+// loopOriginKnown says whether chats with that origin can have loop tools at
+// all: a person's chat, a trigger, a job, a page, and a connector chat. Which
+// tools a connector chat gets depends on its sender (see loopAllowed).
+func (s *Service) loopOriginKnown(origin string) bool {
+	return origin == session.OriginConnector || modelLoopOrigin(origin)
+}
+
+// loopAllowed says whether the model of the chat may use the loop capability
+// now. A person's chat, a trigger, a job and a page always may. A connector
+// chat may only when the sender of the running turn holds the capability on
+// this binding: loops.wait for the waits, loops.start for loops. The check
+// reads the grant that Authorize built for the turn, so a bot that accepts
+// anyone gives an unpaired sender neither, and a chat with no sender turn
+// (a loop run, an owner typing in Studio) gets neither.
+func (s *Service) loopAllowed(rec session.ChatRecord, capability string) bool {
+	switch {
+	case modelLoopOrigin(rec.Origin):
+		return true
+	case rec.Origin != session.OriginConnector:
+		return false
+	}
+	allow, _ := s.turnAllow(rec.ID)
+	ok, _ := allow(capability)
+	return ok
+}
+
+// modelLoopOrigin says whether the model of a chat with that origin may use
+// the loop tools without a check of a sender. A person's chat, a trigger, a
+// job and a page may: their prompts come from the owner, or from a page that
+// the owner allowed. A connector chat is not in this list, because the sender
+// of its messages can be someone from outside, and a message of theirs must
+// not make the server run work on a timer. loopAllowed decides it for each
+// sender.
 func modelLoopOrigin(origin string) bool {
 	switch origin {
 	case "", session.OriginTrigger, session.OriginJob, session.OriginPage:

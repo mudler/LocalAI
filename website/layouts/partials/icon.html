@@ -1,0 +1,14 @@
+{{- /* Line icons for cards. Usage: partial "icon.html" "office" */ -}}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+{{- if eq . "chat" }}<path d="M4 5h16v11H8l-4 4z"/>
+{{- else if eq . "office" }}<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>
+{{- else if eq . "files" }}<path d="M3 7h6l2 2h10v10H3z"/>
+{{- else if eq . "sandbox" }}<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/>
+{{- else if eq . "team" }}<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"/>
+{{- else if eq . "collections" }}<circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/>
+{{- else if eq . "home" }}<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>
+{{- else if eq . "apps" }}<path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/>
+{{- else if eq . "addons" }}<path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><circle cx="12" cy="12" r="3"/>
+{{- else if eq . "models" }}<path d="M4 7l8-4 8 4-8 4zM4 12l8 4 8-4M4 17l8 4 8-4"/>
+{{- else if eq . "mcp" }}<path d="M9 7V3M15 7V3M7 7h10v5a5 5 0 0 1-10 0zM12 17v4"/>
+{{- end }}</svg>

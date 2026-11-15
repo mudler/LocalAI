@@ -11,6 +11,7 @@ on:
       - 'images/**'
       - '.github/ci/modelslist.go'
       - '.github/ci/gen-redirects.sh'
+      - '.github/ci/check-docs-redirects.sh'
       - '.github/workflows/gh-pages.yml'
   workflow_dispatch:
 
@@ -40,6 +41,7 @@ jobs:
     # fetch their own toolchains, and no step uses sudo, apt, make or unzip.
     runs-on: ${{ github.repository == 'mudler/LocalAI' && 'arc-runner-set' || 'ubuntu-latest' }}
     env:
+      # Keep in sync with .github/workflows/docs-pr.yml.
       HUGO_VERSION: "0.166.0"
     steps:
       - name: Checkout
@@ -98,6 +100,10 @@ jobs:
       # Keeps the pre-split URLs alive; see the script header.
       - name: Generate legacy URL redirects
         run: .github/ci/gen-redirects.sh website/public "${{ steps.pages.outputs.base_url }}/"
+
+      # Stops the deploy when a published docs URL no longer resolves.
+      - name: Check that every published docs URL resolves
+        run: .github/ci/check-docs-redirects.sh docs/public docs/redirects.txt website/public
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

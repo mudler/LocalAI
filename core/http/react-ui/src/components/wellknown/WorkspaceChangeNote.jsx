@@ -50,6 +50,7 @@ const ACTION_TO = {
   account: '/app/account?tab=about',
   turnBackOn: '/app/account?tab=about#help',
   appearance: '/app/account?tab=appearance',
+  defaults: '/app/account?tab=defaults',
   home: '/app',
 }
 

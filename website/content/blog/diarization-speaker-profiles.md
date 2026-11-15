@@ -28,7 +28,7 @@ Recognition can mistake one person for another, especially when people talk over
 
 Ask participants for permission before preparing their voices or naming and remembering them. For the named-transcript workflow in the web interface:
 
-1. Open **Models → Explore** and install the option with diarization, transcription, and speaker recognition. The [setup guide](/docs/features/audio-diarization/) lists the model choices and installation requirements. Wait for installation to finish.
+1. Open **Models → Explore** and install the option with diarization, transcription, and speaker recognition. The [setup guide](/docs/models/capabilities/audio/audio-diarization/) lists the model choices and installation requirements. Wait for installation to finish.
 2. Go to **Studio → Diarization**, select that model, and upload your recording.
 3. Enable **Prepare speakers to remember**, then select **Diarize**. This includes transcript text and prepares speakers for naming.
 4. In **Speakers**, listen to an available **Preview** for the person you want to name. Choose **Name and remember**, enter their name, and select **Remember**. Once saved, the name appears on that person's turns.

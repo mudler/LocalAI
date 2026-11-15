@@ -125,7 +125,7 @@ export function joinTimes(times, tz) {
 export function emptyTrigger() {
   return {
     id: '', name: '', prompt: '', enabled: true, schedule: emptyForm(), zone: browserZone(),
-    folder: '', quiet: '', dailyCap: '', agentId: '', model: '', sourceChatId: '',
+    folder: '', quiet: '', dailyCap: '', runLimit: '', agentId: '', model: '', sourceChatId: '',
     acts: [], writes: '', lock: '',
   }
 }
@@ -134,7 +134,7 @@ export function emptyTrigger() {
 export function triggerForm(tr) {
   return {
     id: tr.id, name: tr.name, prompt: tr.prompt, enabled: tr.enabled, schedule: presetOf(tr), zone: tr.time_zone || browserZone(),
-    folder: tr.folder || '', quiet: tr.quiet_seconds ? String(tr.quiet_seconds) : '', dailyCap: String(tr.daily_cap || ''),
+    folder: tr.folder || '', quiet: tr.quiet_seconds ? String(tr.quiet_seconds) : '', dailyCap: String(tr.daily_cap || ''), runLimit: tr.run_limit || '',
     agentId: tr.agent_id || '', model: tr.model || '', sourceChatId: tr.source_chat_id || '',
     // What a run may do alone. writes (the file its plan names) and lock (why a
     // run is read only whatever is ticked) come from the server and are not sent.
@@ -149,6 +149,8 @@ export function triggerPayload(v) {
   const body = {
     name: v.name.trim(), prompt: v.prompt, kind: file ? 'file' : 'schedule', enabled: v.enabled,
     daily_cap: v.dailyCap ? Number(v.dailyCap) : 0,
+    // Empty is the administrator's default; the server checks the bounds.
+    run_limit: (v.runLimit || '').trim(),
     // Always sent: an edit that leaves acts out keeps them, an empty list takes them away.
     acts: v.acts || [],
     agent_id: v.agentId || undefined, model: v.model || undefined, source_chat_id: v.sourceChatId || undefined,

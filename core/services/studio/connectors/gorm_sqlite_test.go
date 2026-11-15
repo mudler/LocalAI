@@ -48,6 +48,26 @@ var _ = Describe("GORM on SQLite", func() {
 		Expect(second.PutBinding(context.Background(), b)).To(Succeed(), "an insert or update works with the old column left in place")
 	})
 
+	It("adds the OAuth tables and the auth kind to a database of an earlier build, and its bindings still read", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "c.db")
+		first, _ := connectors.NewGORM(openSQLite(path))
+		connectorstest.Seed(first)
+		db := openSQLite(path)
+		for _, q := range []string{"ALTER TABLE studio_connectors DROP COLUMN auth_kind", "DROP TABLE studio_connector_grants", "DROP TABLE studio_oauth_clients", "DROP TABLE studio_oauth_states"} {
+			Expect(db.Exec(q).Error).To(Succeed(), q)
+		}
+		second, err := connectors.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		b, err := second.GetBinding(context.Background(), "seed")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(b.AuthKind).To(BeEmpty())
+		Expect(b.Token).To(Equal([]byte("sealed-bytes-seed")))
+		_, err = entryOf(b, "")
+		Expect(err).NotTo(HaveOccurred(), "an old token binding is still a credential")
+		_, err = second.GetGrant(context.Background(), "seed")
+		Expect(err).To(MatchError(connectors.ErrNotFound))
+	})
+
 	It("survives a reopen", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "c.db")
 		first, _ := connectors.NewGORM(openSQLite(path))

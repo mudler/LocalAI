@@ -54,6 +54,7 @@ test('approvals view: the owner view says asks, runs or idle, from what the host
   assert.equal(approvalState(undefined), 'asks')
   assert.equal(approvalState({ tool: 'send-key', skip: true, runs_without_asking: ['owner', 'paired'] }), 'runs')
   assert.equal(approvalState({ tool: 'send-key', skip: true }), 'idle')
+  assert.equal(approvalState({ tool: 'send-key', skip: false, runs_without_asking: ['owner', 'paired'] }), 'runs', 'Allow all runs a tool whose own setting asks')
   assert.equal(approvalState({ tool: 'send-key', skip: true, runs_without_asking: [] }), 'idle')
 })
 

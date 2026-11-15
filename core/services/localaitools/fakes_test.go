@@ -3,11 +3,13 @@ package localaitools
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
@@ -24,6 +26,8 @@ type fakeClient struct {
 
 	// Per-method overrides. Tests set these.
 	gallerySearch         func(GallerySearchQuery) ([]gallery.Metadata, error)
+	searchModels          func(ModelSearchRequest) (*ModelSearchResponse, error)
+	inspectRemoteModel    func(RemoteModelRequest) (*RemoteModelInfo, error)
 	listInstalledModels   func(Capability) ([]InstalledModel, error)
 	listGalleries         func() ([]config.Gallery, error)
 	getJobStatus          func(string) (*JobStatus, error)
@@ -90,6 +94,22 @@ func (f *fakeClient) recorded() []fakeCall {
 }
 
 var errNotConfigured = errors.New("fakeClient method not configured")
+
+func (f *fakeClient) SearchModels(_ context.Context, req ModelSearchRequest) (*ModelSearchResponse, error) {
+	f.record("SearchModels", req)
+	if f.searchModels != nil {
+		return f.searchModels(req)
+	}
+	return &ModelSearchResponse{}, nil
+}
+
+func (f *fakeClient) InspectRemoteModel(_ context.Context, req RemoteModelRequest) (*RemoteModelInfo, error) {
+	f.record("InspectRemoteModel", req)
+	if f.inspectRemoteModel != nil {
+		return f.inspectRemoteModel(req)
+	}
+	return &RemoteModelInfo{RepoFiles: &modelsearch.RepoFiles{}}, nil
+}
 
 func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]gallery.Metadata, error) {
 	f.record("GallerySearch", q)
@@ -222,6 +242,16 @@ func (f *fakeClient) InstallBackend(_ context.Context, req InstallBackendRequest
 func (f *fakeClient) ListBackendLibraryUpdates(_ context.Context) ([]BackendLibraryUpdate, error) {
 	f.record("ListBackendLibraryUpdates", nil)
 	return []BackendLibraryUpdate{}, nil
+}
+
+func (f *fakeClient) BackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	f.record("BackendUpdates", nil)
+	return &backendupdates.Snapshot{Items: []backendupdates.Item{}}, nil
+}
+
+func (f *fakeClient) CheckBackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	f.record("CheckBackendUpdates", nil)
+	return &backendupdates.Snapshot{Items: []backendupdates.Item{}}, nil
 }
 
 func (f *fakeClient) InstallLibraryBackend(_ context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error) {
