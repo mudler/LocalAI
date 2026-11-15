@@ -187,6 +187,9 @@ jobs:
           limit-access-to-actor: true
 
   tests-apple:
+    # macOS runners are slow and scarce, so pull requests skip this job. It
+    # runs on push to master, on tags and on manual dispatch.
+    if: github.event_name != 'pull_request'
     runs-on: macos-latest
     strategy:
       matrix:
