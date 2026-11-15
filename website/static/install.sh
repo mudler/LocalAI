@@ -214,7 +214,7 @@ if [ -n "$EXPECTED" ] && [ "${LOCALAI_FORCE:-0}" != "1" ] && [ -x "${TARGET_DIR}
 	if [ -n "$CURRENT" ] && [ "$CURRENT" = "$EXPECTED" ]; then
 		step "already at    ${VERSION}, nothing to do"
 		say ""
-		say "Run it with:  ${BIN} run"
+		say "Start it with:  ${BIN}"
 		exit 0
 	fi
 fi
@@ -264,9 +264,9 @@ if ! on_path "$TARGET_DIR"; then
 	say "    export PATH=\"${TARGET_DIR}:\$PATH\""
 fi
 say "  Start the server:"
-say "    ${BIN} run"
-say "  Then open http://localhost:8080 and install the model it recommends."
-say "  To pick a model yourself, name it, for example:"
+say "    ${BIN}"
+say "  Then open http://localhost:8080 and install a model from there."
+say "  To run a model directly, name it, for example:"
 say "    ${BIN} run gemma-4-e2b-it-qat-q4_0"
 say ""
 say "  Backends download themselves the first time a model asks for one."
