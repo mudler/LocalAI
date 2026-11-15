@@ -28,11 +28,12 @@ The development entries in `gallery/addons/index.yaml` are regenerated with `sh 
 
 ## The desktop launcher and the draft release
 
-Every release carries the Electron launcher and its update feed (`latest-linux.yml`, `latest-linux-arm64.yml`, `latest-mac.yml`). Installed launchers read the feed from the newest published release, so a published release without it makes every launcher report an update error. `.github/workflows/launcher-electron-release.yaml` attaches the files and then checks the feed; it never publishes the release.
+Every release carries the desktop launcher and its update feed (`latest-linux.yml`, `latest-linux-arm64.yml`, `latest-mac.yml`). The assets are `LocalAI-Launcher-x86_64.AppImage`, `LocalAI-Launcher-arm64.AppImage` and `LocalAI.dmg`, each with a `.sha256` file, and the macOS zip that the updater applies. The macOS app is signed and notarized: the build fails when a signing secret is missing, so a release never has an unsigned DMG. Installed launchers read the feed from the newest published release, so a published release without it makes every launcher report an update error. `.github/workflows/launcher-electron-release.yaml` attaches the files and then checks the feed; it never publishes the release.
 
 1. Push the tag while the release is still a draft.
 2. Wait until the `launcher-electron` jobs of the tag's release run are green: the upload and `Check the attached feed`.
-3. Publish the release. Do not publish while those jobs are red or still running. A re-run of the tag workflow replaces the launcher files and keeps the version.
+3. Check the macOS app on a real Mac when the release changes the launcher: open `LocalAI.dmg`, copy the app to Applications, and start it. Gatekeeper must not show a warning.
+4. Publish the release. Do not publish while those jobs are red or still running. A re-run of the tag workflow replaces the launcher files and keeps the version.
 
 ## Clip conventions
 

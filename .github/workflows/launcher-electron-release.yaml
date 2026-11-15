@@ -8,6 +8,10 @@
 # Jobs: version (from the tag) -> build and smoke (read-only) -> upload (write,
 # downloads the tested files only, no checkout) -> check the feed (read-only).
 # This workflow never publishes a release. See launcher/README.md.
+#
+# The files it attaches: LocalAI-Launcher-x86_64.AppImage and
+# LocalAI-Launcher-arm64.AppImage, LocalAI.dmg (each with a .sha256 file), the
+# macOS zip the updater applies, blockmaps, and the three feed files.
 name: Launcher (Electron) release
 
 on:
@@ -17,10 +21,6 @@ on:
         description: Release tag, for example v4.2.1 or v4.2.1-rc.1
         type: string
         required: true
-      preview-names:
-        description: Preview file names, while the older launcher ships on the same release
-        type: boolean
-        default: true
     secrets:
       MACOS_CERTIFICATE:
         required: false
@@ -72,8 +72,9 @@ jobs:
       linux-arm64: true
       macos: true
       sign-macos: true
+      # A release is always signed and notarized: a missing secret fails the build.
+      require-signing: true
       feed: true
-      preview-names: ${{ inputs.preview-names }}
       upload: true
       retention-days: 7
     secrets:

@@ -32,7 +32,7 @@ linux:
     - target: AppImage
       arch: [x64, arm64]
   icon: build/icon.png
-  # Written as Categories= of the desktop entry (as the older launcher).
+  # Written as Categories= of the desktop entry.
   category: Development;Utility
   synopsis: Install, start and stop LocalAI
   # Written as Comment= of the desktop entry.
@@ -44,8 +44,8 @@ linux:
   executableArgs: []
   # No spaces: GitHub changes spaces in asset names, and the feed file names
   # the asset. For an AppImage ${arch} is x86_64 or arm64, so the amd64 name is
-  # the name of the older launcher's AppImage and its download links stay valid.
-  # The release workflow overrides it during the preview (see the workflow).
+  # the name that the download links of earlier releases use.
+  # The build workflow adds "dev" for a development build (see the workflow).
   artifactName: LocalAI-Launcher-${arch}.AppImage
   # Electron uses desktopName as the window class / app_id, so the desktop
   # entry and the running window are linked.
@@ -74,8 +74,8 @@ mac:
   artifactName: LocalAI-Launcher-${version}-${arch}-mac.${ext}
 
 dmg:
-  # Same name as the DMG of the older launcher. The release workflows override
-  # it during the preview, when both launchers are attached to one release.
+  # The name of the DMG link that earlier releases used, so that link works.
+  # The build workflow adds "dev" for a development build.
   artifactName: LocalAI.dmg
   title: LocalAI Launcher
 

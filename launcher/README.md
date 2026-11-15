@@ -1,11 +1,10 @@
-# LocalAI Launcher (Electron prototype)
+# LocalAI Launcher (Electron)
 
 A small desktop launcher for LocalAI: install or update the server, start and
 stop it, show its log, and show the server's WebUI in the same window (or in
-the system browser). This
-directory is a prototype of a replacement for the Go/Fyne launcher in
-`cmd/launcher`. It ships as a preview beside the Go launcher; see
-"Packaging and CI" below.
+the system browser). It replaced the earlier Go/Fyne launcher, which was
+removed from the repository. It uses the same data folder (`~/.localai`) and the same
+`launcher.json`. See "Packaging and CI" below.
 
 ## Layout
 
@@ -203,16 +202,19 @@ gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
 | Workflow | Trigger | Permissions | What it does |
 |---|---|---|---|
 | `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; macOS app from the mounted DMG after `codesign`, `spctl` and `stapler` checks), then workflow artifacts. amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-14`. |
-| `launcher-electron-release.yaml` | `workflow_call` from `release.yaml`, every `v*` tag, after GoReleaser | build: read; upload: `contents: write`; check: read | Version from the tag, build with signing, feed files and preview names, upload to the existing release (no checkout, files first, feed files last, `--clobber`), then a check of the attached feed. |
+| `launcher-electron-release.yaml` | `workflow_call` from `release.yaml`, every `v*` tag, after GoReleaser | build: read; upload: `contents: write`; check: read | Version from the tag, build with required signing, feed files, upload to the existing release (no checkout, files first, feed files last, `--clobber`), then a check of the attached feed. |
 | `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | `contents: read` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64` (14 days; pull requests: amd64 only, no secrets, 7 days). Manual run: build and smoke only. |
 
 Signing uses the repository secrets `MACOS_CERTIFICATE` and
 `MACOS_CERTIFICATE_PWD` (as `CSC_LINK` and `CSC_KEY_PASSWORD`) and
 `MACOS_NOTARY_KEY`, `MACOS_NOTARY_KEY_ID`, `MACOS_NOTARY_ISSUER_ID` (written to
 a key file for `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`).
-electron-builder makes its own temporary keychain, so
-`contrib/macos/sign-and-notarize.sh` is not used here; it stays for the Go
-launcher. Without the secrets the macOS build is unsigned and says so.
+electron-builder makes its own temporary keychain. A release build
+(`require-signing: true`) fails when one of the five secrets is missing, so it
+never makes an unsigned release DMG. A development build without the secrets is
+unsigned and says so. A development build also has `dev` in its file names
+(`LocalAI-Launcher-dev-x86_64.AppImage`, `LocalAI-Launcher-dev.dmg`), so it is
+never mistaken for a release file.
 Repository variables: `LAUNCHER_DEV_ARM64=false` (no arm64 on master, for the
 Actions storage quota), `LAUNCHER_DEV_SIGN_MACOS=false` (unsigned dev DMG).
 
@@ -234,11 +236,11 @@ checked, push the tag with the release still a draft and publish it after the
 check job is green. A publish by the workflow token would not start the
 workflows that run on `release: published`.
 
-During the preview the release files have preview names
-(`LocalAI-Launcher-Preview-x86_64.AppImage`, `-arm64.AppImage`,
-`LocalAI-Launcher-Preview.dmg`), because the Go launcher's AppImage and DMG
-have the final names. At the cutover set `preview-names: false` in
-`release.yaml` and remove the Go launcher jobs.
+The release files are `LocalAI-Launcher-x86_64.AppImage`,
+`LocalAI-Launcher-arm64.AppImage`, `LocalAI.dmg` (each with a `.sha256` file),
+the macOS zip `LocalAI-Launcher-<version>-arm64-mac.zip` with its `.sha256`
+file, the blockmaps, and the three feed files. The names of the AppImages and
+the DMG are the names that the download links of earlier releases use.
 
 ### A second update channel later
 
@@ -255,13 +257,12 @@ have the final names. At the cutover set `preview-names: false` in
 
 ### AppImage and DMG changes (account)
 
-The design lists the changes from the Go launcher's packages. State after the
-packaging work:
+State of the packaging work, compared with the earlier Go launcher's packages:
 
 | AppImage | State |
 |---|---|
 | 1. Build tool | Done. electron-builder replaces `build.sh` for this launcher; exact pins of Electron 45.3.2 and electron-builder 26.18.0. The files the builder downloads (Electron zip, AppImage toolset) are not checked a second time by this repository. |
-| 2. Size and dependencies | Done. About 120 MB; the install page states the new requirements. The Go launcher's AppImage README stays for that launcher. |
+| 2. Size and dependencies | Done. About 120 MB; the install page states the new requirements. |
 | 3. FUSE | Done. Documented; `--appimage-extract-and-run` tested on a host without FUSE 2 and used by the CI smoke. |
 | 4. Sandbox | Partly. The fallback stays and is shown. The desktop entry no longer forces `--no-sandbox`. A start with the sandbox on was not seen in a test (the test host restricts user namespaces). The profile attach rule is open. |
 | 5. Environment leakage | Done (lifecycle code); the smoke shows the stripped variables. |
@@ -273,13 +274,13 @@ packaging work:
 
 | DMG | State |
 |---|---|
-| 1. Build tool | Done in the workflow, not run yet. electron-builder signs, notarizes and staples. `sign-and-notarize.sh` stays for the Go launcher. |
+| 1. Build tool | Done in the workflow, not run yet. electron-builder signs, notarizes and staples. |
 | 2. Entitlements | Done. JIT, unsigned executable memory, audio input, camera, and usage strings for the WebUI voice features. Not set any more: the network client and server keys (they apply only in the App Sandbox). Library validation stays on: the server is a separate process. Not tested on a Mac. |
 | 3. Order of staple | Partly. The app is stapled before the DMG is made, and CI checks `codesign`, `spctl` and `stapler validate` on the app from the DMG, but not with the network off. The DMG itself is not notarized. |
 | 4. Updater zip | Done (zip and `latest-mac.yml`). |
 | 5. Architecture | Done. Apple Silicon only. |
 | 6. Dev builds on master | Done. Signed and notarized when the secrets are present; `LAUNCHER_DEV_SIGN_MACOS=false` is the documented fallback. |
-| 7. Shared signing runner | Done. GitHub-hosted `macos-14` (the Go launcher job uses the hosted `macos-latest`), so no lock. |
+| 7. Shared signing runner | Done. GitHub-hosted `macos-14` so no lock. |
 | 8. Version | Done (`scripts/version.mjs`). |
 | 9. Quarantine | Not done. Needs a clean Mac with two macOS versions. |
 

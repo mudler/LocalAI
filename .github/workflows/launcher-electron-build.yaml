@@ -23,15 +23,15 @@ on:
         type: boolean
         default: true
       sign-macos:
-        description: Sign and notarize the macOS app. Without the secrets, the build is unsigned and says so.
+        description: Sign and notarize the macOS app. Without the secrets, the build is unsigned and says so, unless require-signing is set.
+        type: boolean
+        default: false
+      require-signing:
+        description: Release builds. The job fails when a signing or notarization secret is missing, so it never makes an unsigned DMG. Needs sign-macos.
         type: boolean
         default: false
       feed:
         description: Keep the update feed files (latest-*.yml), blockmaps and the macOS zip. Releases only.
-        type: boolean
-        default: false
-      preview-names:
-        description: Give the files the preview names, so they do not replace the files of the older launcher on the same release
         type: boolean
         default: false
       upload:
@@ -116,12 +116,13 @@ jobs:
       - name: Build the AppImage
         working-directory: launcher
         env:
-          PREVIEW: ${{ inputs.preview-names }}
           BUILDER_ARCH: ${{ matrix.builder-arch }}
         run: |
           args=()
-          if [ "$PREVIEW" = true ]; then
-            args+=("-c.linux.artifactName=LocalAI-Launcher-Preview-\${arch}.AppImage")
+          # A development build gets "-dev" in the file name, so it is never
+          # mistaken for the AppImage of a release.
+          if [[ "$LAUNCHER_VERSION" == *-dev.* ]]; then
+            args+=("-c.linux.artifactName=LocalAI-Launcher-dev-\${arch}.AppImage")
           fi
           npm run build
           npx electron-builder --linux AppImage "--$BUILDER_ARCH" --publish never \
@@ -197,20 +198,36 @@ jobs:
         id: signing
         env:
           SIGN: ${{ inputs.sign-macos }}
+          REQUIRE: ${{ inputs.require-signing }}
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
           MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
         run: |
+          if [ "$REQUIRE" = true ] && [ "$SIGN" != true ]; then
+            echo "::error::require-signing needs sign-macos. A release build is always signed."
+            exit 1
+          fi
           if [ "$SIGN" != true ]; then
             echo "Signing is off for this run: the app is not signed or notarized."
             echo "signed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$MACOS_NOTARY_KEY" ]; then
-            # Fallback (forks, or secrets not available): an unsigned build.
-            echo "::warning::Signing was asked for, but the signing secrets are not available. The DMG is not signed or notarized."
+          missing=""
+          [ -n "$MACOS_CERTIFICATE" ] || missing="$missing MACOS_CERTIFICATE"
+          [ -n "$MACOS_CERTIFICATE_PWD" ] || missing="$missing MACOS_CERTIFICATE_PWD"
+          [ -n "$MACOS_NOTARY_KEY" ] || missing="$missing MACOS_NOTARY_KEY"
+          [ -n "$MACOS_NOTARY_KEY_ID" ] || missing="$missing MACOS_NOTARY_KEY_ID"
+          [ -n "$MACOS_NOTARY_ISSUER_ID" ] || missing="$missing MACOS_NOTARY_ISSUER_ID"
+          if [ -n "$missing" ]; then
+            if [ "$REQUIRE" = true ]; then
+              # A release never ships an unsigned DMG. Only the names are printed.
+              echo "::error::Signing is required for this build, but these secrets are missing:$missing"
+              exit 1
+            fi
+            # Fallback for development builds (forks, or secrets not available): an unsigned build.
+            echo "::warning::Signing was asked for, but these secrets are not available:$missing. The DMG is not signed or notarized."
             echo "signed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -222,7 +239,6 @@ jobs:
         working-directory: launcher
         env:
           SIGNED: ${{ steps.signing.outputs.signed }}
-          PREVIEW: ${{ inputs.preview-names }}
           # electron-builder imports the certificate (base64 .p12) into a
           # temporary keychain of its own.
           CSC_LINK: ${{ steps.signing.outputs.signed == 'true' && secrets.MACOS_CERTIFICATE || '' }}
@@ -237,8 +253,8 @@ jobs:
             export CSC_IDENTITY_AUTO_DISCOVERY=false
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_ID APPLE_API_ISSUER
           fi
-          if [ "$PREVIEW" = true ]; then
-            args+=("-c.dmg.artifactName=LocalAI-Launcher-Preview.dmg")
+          if [[ "$LAUNCHER_VERSION" == *-dev.* ]]; then
+            args+=("-c.dmg.artifactName=LocalAI-Launcher-dev.dmg")
           fi
           npm run build
           npx electron-builder --mac dmg zip --arm64 --publish never \

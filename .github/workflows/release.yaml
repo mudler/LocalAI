@@ -41,67 +41,9 @@ jobs:
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
           MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
-  launcher-build-darwin:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Import signing certificate
-        env:
-          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-          MACOS_CI_KEYCHAIN_PWD: ${{ secrets.MACOS_CI_KEYCHAIN_PWD }}
-        run: bash contrib/macos/sign-and-notarize.sh import-cert
-      - name: Build, sign and notarize the DMG
-        env:
-          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
-          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
-          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
-          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
-        run: make release-launcher-darwin
-      - name: Upload DMG to Release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ./dist/LocalAI.dmg
-  launcher-build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Configure apt mirror on runner
-        uses: ./.github/actions/configure-apt-mirror
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Build launcher for Linux
-        run: |
-          sudo apt-get update
-          sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
-          make build-launcher-linux
-      - name: Upload Linux launcher artifacts
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ./local-ai-launcher-linux.tar.xz
-
-  launcher-appimage:
-    needs: goreleaser
-    permissions:
-      contents: write
-    uses: ./.github/workflows/launcher-appimage.yaml
-    with:
-      publish: true
-
-  # The Electron launcher (preview) and its update feed. Every release carries
-  # them: installed launchers read the feed from the newest release.
+  # The desktop launcher (Electron) and its update feed. Every release carries
+  # them: installed launchers read the feed from the newest release. The macOS
+  # app is always signed and notarized: a missing secret fails this job.
   launcher-electron:
     needs: goreleaser
     permissions:
@@ -109,9 +51,6 @@ jobs:
     uses: ./.github/workflows/launcher-electron-release.yaml
     with:
       tag: ${{ github.ref_name }}
-      # Preview file names while the older launcher ships on the same release.
-      # At the cutover: false, and remove the older launcher's jobs above.
-      preview-names: true
     secrets:
       MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
       MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}

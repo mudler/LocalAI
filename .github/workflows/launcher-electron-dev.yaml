@@ -9,7 +9,9 @@
 #   It keeps nothing.
 #
 # The version is <newest vX.Y.Z tag, patch + 1>-dev.<run number>, and a
-# development build never updates itself. See launcher/README.md.
+# development build never updates itself. Its files have "dev" in the name
+# (LocalAI-Launcher-dev-x86_64.AppImage, LocalAI-Launcher-dev.dmg), so they are
+# never mistaken for release files. See launcher/README.md.
 #
 # Repository variables (Settings > Variables), both optional:
 # - LAUNCHER_DEV_ARM64=false: no arm64 AppImage on master pushes. Each package
@@ -107,7 +109,6 @@ jobs:
       macos: false
       sign-macos: false
       feed: false
-      preview-names: false
       upload: true
       retention-days: 7
 
@@ -125,7 +126,6 @@ jobs:
       macos: true
       sign-macos: ${{ vars.LAUNCHER_DEV_SIGN_MACOS != 'false' }}
       feed: false
-      preview-names: false
       upload: true
       retention-days: 14
     secrets:
@@ -149,7 +149,6 @@ jobs:
       macos: true
       sign-macos: ${{ inputs.sign-macos }}
       feed: false
-      preview-names: false
       upload: false
     secrets:
       MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
