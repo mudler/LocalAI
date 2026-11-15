@@ -16,7 +16,7 @@ points:
   - "**Music and sound**: make music and sound effects from a text prompt. See [text to audio](/docs/models/capabilities/audio/text-to-audio/)."
   - "**Speech**: text to speech, [transcription](/docs/models/capabilities/audio/audio-to-text/), voice activity detection and speaker recognition. The [Realtime API](/docs/api/openai-realtime/) takes voice in and gives voice back."
   - "**Search**: [embeddings](/docs/models/capabilities/text/embeddings/) and a [reranker](/docs/models/capabilities/text/reranker/)."
-  - "Use the OpenAI API, or the Anthropic and ElevenLabs formats, with the clients you already have."
+  - "Use the OpenAI API with the clients you already have. LocalAI also answers in the Anthropic format, and text to speech and sound generation accept the ElevenLabs format."
   - "It runs on a CPU, so no GPU is required. NVIDIA, AMD, Intel and Apple GPUs make it faster."
   - "Run it on a laptop, a server, in a container or on Kubernetes. [Distributed mode](/docs/administration/distributed-mode/) spreads models over several machines."
 notes:
