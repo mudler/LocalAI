@@ -6,6 +6,8 @@ on:
 jobs:
   swagger:
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
@@ -27,11 +29,19 @@ jobs:
       - name: Bump swagger 🔧
         run: |
           make protogen-go swagger
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: 'feat(swagger): update swagger'
           title: 'feat(swagger): update swagger'
           branch: "update/swagger"
