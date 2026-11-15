@@ -1,18 +1,18 @@
 ---
-title: "LocalAI 5.0: documents, files and a team, on your own hardware"
+title: "LocalAI 5.0: an AI engine and platform you run anywhere"
 date: 2026-11-15
 draft: true
 author: "Ettore Di Giacinto"
 category: "Release"
-tags: ["release", "office", "files", "sandbox", "team", "pages", "add-ons", "ui"]
-summary: "LocalAI 5.0 can make Word, Excel, PowerPoint and PDF files, keep your files, run Python on them and share folders with your team. It still runs on your own hardware."
+tags: ["release", "multimodal", "projects", "desktop", "office", "files", "sandbox", "team", "pages", "add-ons", "ui"]
+summary: "LocalAI is an open-source AI engine and platform. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing on top of one OpenAI-compatible API for text, images, video, music, speech and search."
 extracss: ["blog.css"]
 placeholders: ["release date", "release tag and release notes link", "PR, commit and contributor counts", "contributor thanks", "screenshots"]
 ---
 
 <!-- TODO owner: this post is a draft (draft: true keeps Hugo from publishing it). Publish it with the 5.0 tag: set the final date, remove `draft: true` and `placeholders`, and resolve every TODO comment below. Nothing in the post claims a number we have not counted. -->
 
-LocalAI 5.0 can do work for you, not only answer questions. From a chat you can make a Word, Excel or PowerPoint file, keep it in your own Files, run Python on it, and share the folder with your team. The server, the models and the files stay on your own hardware.
+LocalAI is an open-source AI engine and platform. It runs open models for text, images, video, music and speech behind one OpenAI-compatible API, on a laptop, a server, in a container or on Kubernetes. You do not need a GPU. 5.0 adds the work around the models: Projects, a desktop app for macOS and Linux, and from a chat you can make a Word, Excel or PowerPoint file, keep it in your own Files, run Python on it, and share the folder with your team. The server, the models and the files stay on your own hardware.
 
 <!-- TODO owner: release date and tag are not decided. The link below assumes the tag is v5.0.0. Check it before publishing. -->
 The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. This post covers what you can do with 5.0 that you could not do with 4.x.
@@ -27,6 +27,29 @@ The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list eve
 </figure>
 
 A coworker in a dinosaur costume has until five o'clock to get a premiere ready, and a llama in sunglasses is in the director's chair. That is the whole plot. We made the film with LocalAI, and the rest of this post is about the parts of 5.0 that the film jokes about.
+
+## One API for every kind of model
+
+LocalAI is not only a chat. The same server serves many kinds of open model, each with its own endpoint:
+
+- **Text and vision**: chat, completions, tool calls, image understanding and object detection. Besides the OpenAI API, LocalAI answers in the Anthropic format (`/v1/messages`).
+- **Images and video**: generate images from a prompt, and video with the `/video` endpoint.
+- **Music and sound**: make music and sound effects from a text prompt with `/v1/sound-generation`.
+- **Speech**: text to speech, transcription, voice activity detection and speaker recognition. The Realtime API takes voice in and gives voice back. Text to speech and sound generation also accept the ElevenLabs format.
+- **Search**: embeddings and a reranker, for retrieval over your own data.
+
+Each model kind needs a backend that serves it. LocalAI downloads the backend the first time a model needs it, and the library has more than 70 of them. There is a CPU build, so no GPU is required. NVIDIA, AMD, Intel and Apple GPUs make it faster. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
+
+## Projects
+
+A project groups chats around one folder in your own files. The folder holds the material of the project, and a `memory/` folder of notes that the chats of the project read. The model can propose a note, and you confirm it before it is saved. A project can set defaults for new chats (skills, add-ons, MCP servers, connectors and collections), you can make an agent from a project, and you can share the project folder with a teammate as read only or read and write. **Projects** is in the sidebar, and the **Project** chip on Home starts a chat in one. A project is a lens for chats, not a security boundary: a chat can still reach the same files through your home folder. Read the [Projects docs](/docs/features/chats-connectors/#projects).
+
+## The desktop app
+
+LocalAI now has a desktop app for macOS and Linux. It installs, updates, starts and stops the LocalAI server on your computer, and shows the web interface in its own window with a status bar for the server. On the first start you choose to run LocalAI on this computer or to connect to a server that runs somewhere else. You can keep several servers and pick a default. It checks for a new server version once a day and never installs one without asking.
+
+<!-- TODO owner: check at the tag that the release has these files: LocalAI.dmg, LocalAI-Launcher-x86_64.AppImage and LocalAI-Launcher-arm64.AppImage, each with a .sha256 file, and that the DMG passes the Gatekeeper check of the release guide. The links below use releases/latest/download. -->
+Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) for a Mac with Apple silicon, or the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) for Linux. The ARM64 AppImage is `LocalAI-Launcher-arm64.AppImage` on the [release page](https://github.com/mudler/LocalAI/releases/latest). The [desktop app guide](/docs/start/install/desktop/) has the first start, update channels and troubleshooting. It reads the same `~/.localai` folder as the older launcher, so your models stay.
 
 ## Make documents from a chat
 
@@ -76,7 +99,7 @@ Chats are now kept by the server. You can keep typing while the model works, the
 
 ## Try it
 
-On Linux or macOS:
+The easiest start is the desktop app above. To install a server, on Linux or macOS:
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
