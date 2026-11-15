@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"crypto/aes"
@@ -21,12 +21,12 @@ func newSealKey() ([]byte, error) {
 }
 
 // sealer seals the upstream keys at rest. The additional data ties a sealed
-// value to its connection, so a copy in another row does not open.
+// value to its remote, so a copy in another row does not open.
 type sealer struct{ aead cipher.AEAD }
 
 func newSealer(key []byte) (*sealer, error) {
 	if len(key) != sealKeySize {
-		return nil, errors.New("connections: the sealing key must be 32 bytes")
+		return nil, errors.New("remotes: the sealing key must be 32 bytes")
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -39,7 +39,7 @@ func newSealer(key []byte) (*sealer, error) {
 	return &sealer{aead: aead}, nil
 }
 
-func sealAAD(id string) string { return "connection|" + id }
+func sealAAD(id string) string { return "remote|" + id }
 
 func (s *sealer) seal(aad string, plain []byte) ([]byte, error) {
 	nonce := make([]byte, s.aead.NonceSize())
@@ -52,7 +52,7 @@ func (s *sealer) seal(aad string, plain []byte) ([]byte, error) {
 func (s *sealer) open(aad string, sealed []byte) ([]byte, error) {
 	n := s.aead.NonceSize()
 	if len(sealed) < n {
-		return nil, errors.New("connections: the sealed value is too short")
+		return nil, errors.New("remotes: the sealed value is too short")
 	}
 	return s.aead.Open(nil, sealed[:n], sealed[n:], []byte(aad))
 }

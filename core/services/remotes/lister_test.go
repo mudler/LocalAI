@@ -1,4 +1,4 @@
-package connections_test
+package remotes_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/connections"
+	"github.com/mudler/LocalAI/core/services/remotes"
 )
 
 const (
@@ -21,8 +21,8 @@ const (
 	testMaxBody = 1 << 20
 )
 
-func list(kind connections.Kind, url, key string) ([]connections.UpstreamModel, string, string) {
-	m, step, msg, _ := connections.ListUpstream(context.Background(), kind, url, key, testTimeout, testMaxBody)
+func list(kind remotes.Kind, url, key string) ([]remotes.UpstreamModel, string, string) {
+	m, step, msg, _ := remotes.ListUpstream(context.Background(), kind, url, key, testTimeout, testMaxBody)
 	return m, step, msg
 }
 
@@ -31,7 +31,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func ids(models []connections.UpstreamModel) []string {
+func ids(models []remotes.UpstreamModel) []string {
 	out := []string{}
 	for _, m := range models {
 		out = append(out, m.ID)
@@ -58,9 +58,9 @@ var _ = Describe("LocalAI lister", func() {
 			}
 		}))
 		defer srv.Close()
-		models, step, _ := list(connections.KindLocalAI, srv.URL+"/v1/", "sk-test-key")
+		models, step, _ := list(remotes.KindLocalAI, srv.URL+"/v1/", "sk-test-key")
 		Expect(step).To(BeEmpty())
-		Expect(models).To(Equal([]connections.UpstreamModel{
+		Expect(models).To(Equal([]remotes.UpstreamModel{
 			{ID: "bge", Usecases: []string{"embeddings"}},
 			{ID: "nocaps", Usecases: []string{"chat"}},
 			{ID: "qwen", Usecases: []string{"chat", "vision"}},
@@ -81,9 +81,9 @@ var _ = Describe("LocalAI lister", func() {
 				w.WriteHeader(status)
 			}))
 			defer srv.Close()
-			models, step, _ := list(connections.KindLocalAI, srv.URL, "")
+			models, step, _ := list(remotes.KindLocalAI, srv.URL, "")
 			Expect(step).To(BeEmpty())
-			Expect(models).To(Equal([]connections.UpstreamModel{{ID: "a", Usecases: []string{"chat"}}, {ID: "b", Usecases: []string{"chat"}}}))
+			Expect(models).To(Equal([]remotes.UpstreamModel{{ID: "a", Usecases: []string{"chat"}}, {ID: "b", Usecases: []string{"chat"}}}))
 		})
 	}
 
@@ -96,7 +96,7 @@ var _ = Describe("LocalAI lister", func() {
 			http.NotFound(w, r)
 		}))
 		defer srv.Close()
-		models, step, _ := list(connections.KindLocalAI, srv.URL+"/ai/v1", "")
+		models, step, _ := list(remotes.KindLocalAI, srv.URL+"/ai/v1", "")
 		Expect(step).To(BeEmpty())
 		Expect(ids(models)).To(Equal([]string{"a"}))
 	})
@@ -117,7 +117,7 @@ var _ = Describe("OpenAI lister", func() {
 			}})
 		}))
 		defer srv.Close()
-		models, step, _ := list(connections.KindOpenAI, srv.URL+"/v1", "sk-test-key")
+		models, step, _ := list(remotes.KindOpenAI, srv.URL+"/v1", "sk-test-key")
 		Expect(step).To(BeEmpty())
 		Expect(ids(models)).To(Equal([]string{"gpt-4o", "o3"}))
 		Expect(models[0].Usecases).To(BeEmpty())
@@ -128,7 +128,7 @@ var _ = Describe("OpenAI lister", func() {
 			writeJSON(w, map[string]any{"data": []map[string]any{{"id": "m"}}})
 		}))
 		defer srv.Close()
-		models, step, _ := list(connections.KindOpenAI, srv.URL+"/v1/chat/completions", "")
+		models, step, _ := list(remotes.KindOpenAI, srv.URL+"/v1/chat/completions", "")
 		Expect(step).To(BeEmpty())
 		Expect(ids(models)).To(Equal([]string{"m"}))
 	})
@@ -137,14 +137,14 @@ var _ = Describe("OpenAI lister", func() {
 			writeJSON(w, map[string]any{"data": []map[string]any{{"id": "whisper-1"}}})
 		}))
 		defer srv.Close()
-		_, step, _ := list(connections.KindOpenAI, srv.URL, "")
-		Expect(step).To(Equal(connections.StepNoModels))
+		_, step, _ := list(remotes.KindOpenAI, srv.URL, "")
+		Expect(step).To(Equal(remotes.StepNoModels))
 	})
 })
 
 var _ = Describe("chat model filter", func() {
 	DescribeTable("ids",
-		func(id string, want bool) { Expect(connections.LooksLikeChatModel(id)).To(Equal(want)) },
+		func(id string, want bool) { Expect(remotes.LooksLikeChatModel(id)).To(Equal(want)) },
 		Entry("chat", "gpt-4.1", true),
 		Entry("org chat", "meta-llama/Llama-3.1-8B-Instruct", true),
 		Entry("embedding", "text-embedding-ada-002", false),
@@ -179,7 +179,7 @@ var _ = Describe("Anthropic lister", func() {
 			writeJSON(w, map[string]any{"data": []map[string]any{{"id": "claude-c"}}, "has_more": false, "last_id": "claude-c"})
 		}))
 		defer srv.Close()
-		models, step, _ := list(connections.KindAnthropic, srv.URL, "sk-ant-test")
+		models, step, _ := list(remotes.KindAnthropic, srv.URL, "sk-ant-test")
 		Expect(step).To(BeEmpty())
 		Expect(ids(models)).To(Equal([]string{"claude-a", "claude-b", "claude-c"}))
 		Expect(atomic.LoadInt32(&pages)).To(Equal(int32(2)))
@@ -191,7 +191,7 @@ var _ = Describe("Anthropic lister", func() {
 			writeJSON(w, map[string]any{"data": []map[string]any{{"id": fmt.Sprintf("m%03d", n)}}, "has_more": true, "last_id": fmt.Sprintf("m%03d", n)})
 		}))
 		defer srv.Close()
-		models, step, _ := list(connections.KindAnthropic, srv.URL, "k")
+		models, step, _ := list(remotes.KindAnthropic, srv.URL, "k")
 		Expect(step).To(BeEmpty())
 		Expect(atomic.LoadInt32(&pages)).To(BeNumerically("<=", 20))
 		Expect(len(models)).To(Equal(int(atomic.LoadInt32(&pages))))
@@ -203,11 +203,11 @@ var _ = Describe("Anthropic lister", func() {
 			writeJSON(w, map[string]any{"data": []map[string]any{{"id": "same"}}, "has_more": true, "last_id": "same"})
 		}))
 		defer srv.Close()
-		_, _, _ = list(connections.KindAnthropic, srv.URL, "k")
+		_, _, _ = list(remotes.KindAnthropic, srv.URL, "k")
 		Expect(atomic.LoadInt32(&pages)).To(BeNumerically("<=", 2))
 	})
 	It("uses the public address when none is given", func() {
-		url, err := connections.EntryUpstreamURL(connections.KindAnthropic, "")
+		url, err := remotes.EntryUpstreamURL(remotes.KindAnthropic, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(url).To(Equal("https://api.anthropic.com/v1/messages"))
 	})
@@ -217,9 +217,9 @@ var _ = Describe("lister failures", func() {
 	It("maps 401 and 403 to auth, for every kind", func() {
 		for _, status := range []int{401, 403} {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) }))
-			for _, k := range []connections.Kind{connections.KindLocalAI, connections.KindOpenAI, connections.KindAnthropic} {
+			for _, k := range []remotes.Kind{remotes.KindLocalAI, remotes.KindOpenAI, remotes.KindAnthropic} {
 				_, step, _ := list(k, srv.URL, "sk-test-key")
-				Expect(step).To(Equal(connections.StepAuth), string(k))
+				Expect(step).To(Equal(remotes.StepAuth), string(k))
 			}
 			srv.Close()
 		}
@@ -227,16 +227,16 @@ var _ = Describe("lister failures", func() {
 	It("maps another status to unreachable", func() {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(502) }))
 		defer srv.Close()
-		_, step, msg := list(connections.KindLocalAI, srv.URL, "")
-		Expect(step).To(Equal(connections.StepUnreachable))
+		_, step, msg := list(remotes.KindLocalAI, srv.URL, "")
+		Expect(step).To(Equal(remotes.StepUnreachable))
 		Expect(msg).To(ContainSubstring("502"))
 	})
 	It("maps a closed port to unreachable", func() {
 		srv := httptest.NewServer(http.NotFoundHandler())
 		url := srv.URL
 		srv.Close()
-		_, step, _ := list(connections.KindLocalAI, url, "")
-		Expect(step).To(Equal(connections.StepUnreachable))
+		_, step, _ := list(remotes.KindLocalAI, url, "")
+		Expect(step).To(Equal(remotes.StepUnreachable))
 	})
 	It("maps a slow server to unreachable", func() {
 		release := make(chan struct{})
@@ -249,8 +249,8 @@ var _ = Describe("lister failures", func() {
 		defer srv.Close()
 		defer close(release)
 		start := time.Now()
-		_, step, msg, _ := connections.ListUpstream(context.Background(), connections.KindLocalAI, srv.URL, "", 150*time.Millisecond, testMaxBody)
-		Expect(step).To(Equal(connections.StepUnreachable))
+		_, step, msg, _ := remotes.ListUpstream(context.Background(), remotes.KindLocalAI, srv.URL, "", 150*time.Millisecond, testMaxBody)
+		Expect(step).To(Equal(remotes.StepUnreachable))
 		Expect(msg).To(ContainSubstring("in time"))
 		Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
 	})
@@ -265,8 +265,8 @@ var _ = Describe("lister failures", func() {
 			http.Redirect(w, r, target.URL+"/v1/models", http.StatusFound)
 		}))
 		defer srv.Close()
-		_, step, msg := list(connections.KindLocalAI, srv.URL, "sk-test-key")
-		Expect(step).To(Equal(connections.StepUnreachable))
+		_, step, msg := list(remotes.KindLocalAI, srv.URL, "sk-test-key")
+		Expect(step).To(Equal(remotes.StepUnreachable))
 		Expect(msg).To(ContainSubstring("redirect"))
 		Expect(leaked.Load()).To(BeFalse())
 	})
@@ -275,15 +275,15 @@ var _ = Describe("lister failures", func() {
 			_, _ = w.Write([]byte(`{"data":[{"id":"` + strings.Repeat("a", 4096) + `"}]}`))
 		}))
 		defer srv.Close()
-		_, step, msg, _ := connections.ListUpstream(context.Background(), connections.KindLocalAI, srv.URL, "", testTimeout, 1024)
-		Expect(step).To(Equal(connections.StepUnreachable))
+		_, step, msg, _ := remotes.ListUpstream(context.Background(), remotes.KindLocalAI, srv.URL, "", testTimeout, 1024)
+		Expect(step).To(Equal(remotes.StepUnreachable))
 		Expect(msg).To(ContainSubstring("too large"))
 	})
 	It("reports an answer that is not JSON", func() {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("<html>")) }))
 		defer srv.Close()
-		_, step, _ := list(connections.KindOpenAI, srv.URL, "")
-		Expect(step).To(Equal(connections.StepUnreachable))
+		_, step, _ := list(remotes.KindOpenAI, srv.URL, "")
+		Expect(step).To(Equal(remotes.StepUnreachable))
 	})
 	It("reaches a private address", func() {
 		// httptest listens on loopback, which is a private address.
@@ -291,13 +291,13 @@ var _ = Describe("lister failures", func() {
 			writeJSON(w, map[string]any{"data": []map[string]any{{"id": "a"}}})
 		}))
 		defer srv.Close()
-		models, step, _ := list(connections.KindOpenAI, srv.URL, "")
+		models, step, _ := list(remotes.KindOpenAI, srv.URL, "")
 		Expect(step).To(BeEmpty())
 		Expect(models).To(HaveLen(1))
 	})
 	It("refuses the cloud metadata address", func() {
-		_, step, _ := list(connections.KindLocalAI, "http://169.254.169.254", "")
-		Expect(step).To(Equal(connections.StepInvalidURL))
+		_, step, _ := list(remotes.KindLocalAI, "http://169.254.169.254", "")
+		Expect(step).To(Equal(remotes.StepInvalidURL))
 	})
 	It("never puts the key in a message", func() {
 		for _, h := range []http.HandlerFunc{
@@ -309,7 +309,7 @@ var _ = Describe("lister failures", func() {
 			func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(r.Header.Get("x-api-key"))) },
 		} {
 			srv := httptest.NewServer(h)
-			for _, k := range []connections.Kind{connections.KindLocalAI, connections.KindOpenAI, connections.KindAnthropic} {
+			for _, k := range []remotes.Kind{remotes.KindLocalAI, remotes.KindOpenAI, remotes.KindAnthropic} {
 				_, _, msg := list(k, srv.URL, "sk-SECRET-key-value")
 				Expect(msg).NotTo(ContainSubstring("SECRET"))
 			}
@@ -320,38 +320,38 @@ var _ = Describe("lister failures", func() {
 
 var _ = Describe("address rules", func() {
 	DescribeTable("invalid",
-		func(kind connections.Kind, raw string) {
+		func(kind remotes.Kind, raw string) {
 			_, step, msg := list(kind, raw, "")
-			Expect(step).To(Equal(connections.StepInvalidURL))
+			Expect(step).To(Equal(remotes.StepInvalidURL))
 			Expect(msg).NotTo(BeEmpty())
 		},
-		Entry("empty", connections.KindLocalAI, ""),
-		Entry("no scheme", connections.KindLocalAI, "remote.example.com"),
-		Entry("ftp", connections.KindOpenAI, "ftp://remote.example.com"),
-		Entry("credentials", connections.KindOpenAI, "https://user:pass@remote.example.com/v1"),
-		Entry("query", connections.KindOpenAI, "https://remote.example.com/v1?key=abc"),
+		Entry("empty", remotes.KindLocalAI, ""),
+		Entry("no scheme", remotes.KindLocalAI, "remote.example.com"),
+		Entry("ftp", remotes.KindOpenAI, "ftp://remote.example.com"),
+		Entry("credentials", remotes.KindOpenAI, "https://user:pass@remote.example.com/v1"),
+		Entry("query", remotes.KindOpenAI, "https://remote.example.com/v1?key=abc"),
 	)
 	DescribeTable("entry upstream url",
-		func(kind connections.Kind, raw, want string) {
-			got, err := connections.EntryUpstreamURL(kind, raw)
+		func(kind remotes.Kind, raw, want string) {
+			got, err := remotes.EntryUpstreamURL(kind, raw)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got).To(Equal(want))
 		},
-		Entry("localai root", connections.KindLocalAI, "https://remote.example.com/v1/", "https://remote.example.com"),
-		Entry("localai prefix", connections.KindLocalAI, "http://10.0.0.2:8080/ai", "http://10.0.0.2:8080/ai"),
-		Entry("openai", connections.KindOpenAI, "https://api.openai.com/v1", "https://api.openai.com/v1/chat/completions"),
-		Entry("openai slash", connections.KindOpenAI, "https://gw.example.com/v1/", "https://gw.example.com/v1/chat/completions"),
-		Entry("anthropic gateway", connections.KindAnthropic, "https://gw.example.com/anthropic/v1", "https://gw.example.com/anthropic/v1/messages"),
+		Entry("localai root", remotes.KindLocalAI, "https://remote.example.com/v1/", "https://remote.example.com"),
+		Entry("localai prefix", remotes.KindLocalAI, "http://10.0.0.2:8080/ai", "http://10.0.0.2:8080/ai"),
+		Entry("openai", remotes.KindOpenAI, "https://api.openai.com/v1", "https://api.openai.com/v1/chat/completions"),
+		Entry("openai slash", remotes.KindOpenAI, "https://gw.example.com/v1/", "https://gw.example.com/v1/chat/completions"),
+		Entry("anthropic gateway", remotes.KindAnthropic, "https://gw.example.com/anthropic/v1", "https://gw.example.com/anthropic/v1/messages"),
 	)
 })
 
 var _ = Describe("usecase mapping", func() {
 	It("keeps valid known_usecases and drops modifiers and reserved ones", func() {
-		Expect(connections.ValidUsecases([]string{"chat", "tools", "thinking", "vision", "decisions", "score", "transcript", "chat", "nonsense", "tts"})).
+		Expect(remotes.ValidUsecases([]string{"chat", "tools", "thinking", "vision", "decisions", "score", "transcript", "chat", "nonsense", "tts"})).
 			To(Equal([]string{"chat", "vision", "transcript", "tts"}))
 	})
 	It("falls back to chat when nothing is valid", func() {
-		Expect(connections.ValidUsecases([]string{"tools"})).To(Equal([]string{"chat"}))
-		Expect(connections.ValidUsecases(nil)).To(Equal([]string{"chat"}))
+		Expect(remotes.ValidUsecases([]string{"tools"})).To(Equal([]string{"chat"}))
+		Expect(remotes.ValidUsecases(nil)).To(Equal([]string{"chat"}))
 	})
 })

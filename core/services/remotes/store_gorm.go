@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// connectionRow is one connection in the shared database. The record without
+// remoteRow is one remote in the shared database. The record without
 // its key is the JSON document; the sealed key has its own column.
-type connectionRow struct {
+type remoteRow struct {
 	ID      string `gorm:"primaryKey;size:64"`
 	NameKey string `gorm:"uniqueIndex;size:255;not null"`
 	Doc     string `gorm:"not null"`
@@ -23,14 +23,14 @@ type connectionRow struct {
 	Updated time.Time
 }
 
-func (connectionRow) TableName() string { return "remote_connections" }
+func (remoteRow) TableName() string { return "remotes" }
 
 type keyRow struct {
 	Name  string `gorm:"primaryKey;size:32"`
 	Value []byte
 }
 
-func (keyRow) TableName() string { return "remote_connection_keys" }
+func (keyRow) TableName() string { return "remote_keys" }
 
 type gormStore struct{ db *gorm.DB }
 
@@ -38,28 +38,28 @@ type gormStore struct{ db *gorm.DB }
 // too) and creates its tables.
 func NewGORMStore(db *gorm.DB) (Store, error) {
 	if db == nil {
-		return nil, errors.New("connections: nil *gorm.DB")
+		return nil, errors.New("remotes: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&connectionRow{}, &keyRow{}); err != nil {
-		return nil, fmt.Errorf("connections: migrate: %w", err)
+	if err := db.AutoMigrate(&remoteRow{}, &keyRow{}); err != nil {
+		return nil, fmt.Errorf("remotes: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
 }
 
-func toRow(r record) (connectionRow, error) {
+func toRow(r record) (remoteRow, error) {
 	sealed := r.Sealed
 	r.Sealed = nil
 	doc, err := json.Marshal(r)
 	if err != nil {
-		return connectionRow{}, err
+		return remoteRow{}, err
 	}
-	return connectionRow{ID: r.ID, NameKey: nameKey(r.Name), Doc: string(doc), Sealed: sealed, Created: r.Created, Updated: time.Now().UTC()}, nil
+	return remoteRow{ID: r.ID, NameKey: nameKey(r.Name), Doc: string(doc), Sealed: sealed, Created: r.Created, Updated: time.Now().UTC()}, nil
 }
 
-func (row connectionRow) record() (record, error) {
+func (row remoteRow) record() (record, error) {
 	var r record
 	if err := json.Unmarshal([]byte(row.Doc), &r); err != nil {
-		return record{}, fmt.Errorf("connections: read row %q: %w", row.ID, err)
+		return record{}, fmt.Errorf("remotes: read row %q: %w", row.ID, err)
 	}
 	r.ID = row.ID
 	r.Sealed = append([]byte(nil), row.Sealed...)
@@ -89,7 +89,7 @@ func (s *gormStore) Create(ctx context.Context, r record) error {
 }
 
 func (s *gormStore) Get(ctx context.Context, id string) (record, error) {
-	var row connectionRow
+	var row remoteRow
 	err := s.db.WithContext(ctx).Where("id = ?", id).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return record{}, ErrNotFound
@@ -101,7 +101,7 @@ func (s *gormStore) Get(ctx context.Context, id string) (record, error) {
 }
 
 func (s *gormStore) List(ctx context.Context) ([]record, error) {
-	var rows []connectionRow
+	var rows []remoteRow
 	if err := s.db.WithContext(ctx).Order("name_key, id").Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -117,12 +117,12 @@ func (s *gormStore) List(ctx context.Context) ([]record, error) {
 }
 
 // Update locks the row for the length of the transaction (FOR UPDATE on
-// PostgreSQL), so two frontends that change one connection run one after the
+// PostgreSQL), so two frontends that change one remote run one after the
 // other.
 func (s *gormStore) Update(ctx context.Context, id string, fn func(*record) error) (record, error) {
 	var out record
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var row connectionRow
+		var row remoteRow
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Take(&row).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrNotFound
@@ -157,7 +157,7 @@ func (s *gormStore) Update(ctx context.Context, id string, fn func(*record) erro
 }
 
 func (s *gormStore) Delete(ctx context.Context, id string) error {
-	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&connectionRow{})
+	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&remoteRow{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -189,7 +189,7 @@ func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, erro
 	}
 	got, ok, err := read()
 	if err != nil || !ok {
-		return nil, fmt.Errorf("connections: the sealing key was not stored (%v)", err)
+		return nil, fmt.Errorf("remotes: the sealing key was not stored (%v)", err)
 	}
 	return got, nil
 }

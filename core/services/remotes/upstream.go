@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"context"
@@ -35,7 +35,7 @@ func upstreamErr(step, format string, args ...any) error {
 	return &upstreamError{Step: step, Message: fmt.Sprintf(format, args...)}
 }
 
-// statusForStep maps a failed step to the status of a connection.
+// statusForStep maps a failed step to the status of a remote.
 func statusForStep(step string) Status {
 	if step == StepAuth {
 		return StatusAuthFailed

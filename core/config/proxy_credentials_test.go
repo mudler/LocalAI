@@ -43,28 +43,28 @@ var _ = Describe("Proxy credential logging", func() {
 	})
 })
 
-var _ = Describe("Proxy connection", func() {
+var _ = Describe("Proxy remote", func() {
 	It("round-trips through YAML without a credential", func() {
 		var c ModelConfig
-		Expect(yaml.Unmarshal([]byte("name: m\nbackend: localai-proxy\nproxy:\n  upstream_url: https://remote.example.com\n  connection: conn-1\n"), &c)).To(Succeed())
-		Expect(c.Proxy.Connection).To(Equal("conn-1"))
+		Expect(yaml.Unmarshal([]byte("name: m\nbackend: localai-proxy\nproxy:\n  upstream_url: https://remote.example.com\n  remote: conn-1\n"), &c)).To(Succeed())
+		Expect(c.Proxy.Remote).To(Equal("conn-1"))
 		out, err := yaml.Marshal(c)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(string(out)).To(ContainSubstring("connection: conn-1"))
+		Expect(string(out)).To(ContainSubstring("remote: conn-1"))
 		Expect(string(out)).NotTo(ContainSubstring("api_key"))
 	})
 	for name, p := range map[string]ProxyConfig{
-		"api_key":      {Connection: "c", APIKey: "k"},
-		"api_key_env":  {Connection: "c", APIKeyEnv: "E"},
-		"api_key_file": {Connection: "c", APIKeyFile: "/f"},
+		"api_key":      {Remote: "c", APIKey: "k"},
+		"api_key_env":  {Remote: "c", APIKeyEnv: "E"},
+		"api_key_file": {Remote: "c", APIKeyFile: "/f"},
 	} {
-		It("rejects a connection combined with "+name, func() {
+		It("rejects a remote combined with "+name, func() {
 			err := p.validateCredentialSources()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("connection"))
+			Expect(err.Error()).To(ContainSubstring("remote"))
 		})
 	}
-	It("accepts a connection alone", func() {
-		Expect(ProxyConfig{Connection: "c"}.validateCredentialSources()).To(Succeed())
+	It("accepts a remote alone", func() {
+		Expect(ProxyConfig{Remote: "c"}.validateCredentialSources()).To(Succeed())
 	})
 })

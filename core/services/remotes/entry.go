@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"crypto/sha256"
@@ -43,9 +43,9 @@ func sanitizeName(id string) string {
 	return s
 }
 
-// connectionSlug is the prefix an entry name gets when the plain name is
+// remoteSlug is the prefix an entry name gets when the plain name is
 // taken.
-func connectionSlug(name string) string {
+func remoteSlug(name string) string {
 	s := strings.ToLower(sanitizeName(name))
 	if s == "" {
 		return "remote"
@@ -54,9 +54,9 @@ func connectionSlug(name string) string {
 }
 
 // chooseEntryName picks the name of the entry for an upstream id: the
-// sanitised id when it is free, else "<connection-slug>-<id>". ok is false
+// sanitised id when it is free, else "<remote-slug>-<id>". ok is false
 // when the id has no usable characters or both names are taken. A name that is
-// free was neither a model config nor claimed by any connection.
+// free was neither a model config nor claimed by any remote.
 func chooseEntryName(id, slug string, taken func(string) bool) (name string, ok bool) {
 	plain := sanitizeName(id)
 	if plain == "" {
@@ -77,7 +77,7 @@ type entryProxy struct {
 	UpstreamModel string `yaml:"upstream_model"`
 	Mode          string `yaml:"mode,omitempty"`
 	Provider      string `yaml:"provider,omitempty"`
-	Connection    string `yaml:"connection"`
+	Remote        string `yaml:"remote"`
 }
 
 type entryFile struct {
@@ -87,18 +87,18 @@ type entryFile struct {
 	Proxy         entryProxy `yaml:"proxy"`
 }
 
-const entryHeader = "# Created from a remote connection. You can edit it: a refresh never rewrites this file.\n"
+const entryHeader = "# Created from a remote. You can edit it: a refresh never rewrites this file.\n"
 
-// buildEntry returns the YAML of an entry. The file holds the connection id
+// buildEntry returns the YAML of an entry. The file holds the remote id
 // and no key. The cloud kinds are chat only and use the passthrough mode of
 // the cloud-proxy backend, as the cloud proxy documentation shows.
-func buildEntry(t target, name, connectionID string, m UpstreamModel) ([]byte, error) {
+func buildEntry(t target, name, remoteID string, m UpstreamModel) ([]byte, error) {
 	f := entryFile{
 		Name: name,
 		Proxy: entryProxy{
 			UpstreamURL:   t.entryUpstreamURL(),
 			UpstreamModel: m.ID, // always set: an empty value would send the config name
-			Connection:    connectionID,
+			Remote:        remoteID,
 		},
 	}
 	switch t.kind {

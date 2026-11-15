@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// ownedEntry is one model config that a connection owns.
+// ownedEntry is one model config that a remote owns.
 type ownedEntry struct {
 	// Name is the model config name.
 	Name string `json:"name"`
@@ -18,7 +18,7 @@ type ownedEntry struct {
 	Hash string `json:"hash,omitempty"`
 }
 
-// record is what a store keeps for one connection. It is never sent over
+// record is what a store keeps for one remote. It is never sent over
 // HTTP: Sealed is the key, encrypted.
 type record struct {
 	ID          string          `json:"id"`
@@ -49,8 +49,8 @@ func (r record) clone() record {
 }
 
 // view returns the public form of the record.
-func (r record) view() Connection {
-	c := Connection{
+func (r record) view() Remote {
+	c := Remote{
 		ID: r.ID, Name: r.Name, Kind: r.Kind, URL: r.URL,
 		KeySet: len(r.Sealed) > 0, Status: r.Status, LastError: r.LastError,
 		Entries:     make([]string, 0, len(r.Owned)),
@@ -78,7 +78,7 @@ func (r record) view() Connection {
 
 func nameKey(name string) string { return strings.ToLower(strings.TrimSpace(name)) }
 
-// Store keeps the connection records. A store holds no cache: every call
+// Store keeps the remote records. A store holds no cache: every call
 // reads the shared state, so any frontend sees what another wrote.
 type Store interface {
 	// Create adds a record. It fails with ErrConflict when the id or the

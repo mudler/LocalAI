@@ -154,21 +154,21 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// List model aliases endpoint
 		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
 
-		// Remote connections: a saved address and key of another LocalAI or an
+		// Remotes: a saved address and key of another LocalAI or an
 		// OpenAI-compatible or Anthropic endpoint, whose models become entries
 		// here. Admin only, and gated with the other model management routes
 		// because adopting a model writes a model config. The provider is read
 		// for every request: the service is built after the routes exist and
 		// is nil when its store could not be opened.
-		connectionsFn := localai.ConnectionsProvider(app.Connections)
-		router.POST("/api/connections/test", localai.CheckConnectionEndpoint(connectionsFn), adminMiddleware)
-		router.POST("/api/connections", localai.CreateConnectionEndpoint(connectionsFn), adminMiddleware)
-		router.GET("/api/connections", localai.ListConnectionsEndpoint(connectionsFn), adminMiddleware)
-		router.GET("/api/connections/:id", localai.GetConnectionEndpoint(connectionsFn), adminMiddleware)
-		router.PATCH("/api/connections/:id", localai.UpdateConnectionEndpoint(connectionsFn), adminMiddleware)
-		router.DELETE("/api/connections/:id", localai.DeleteConnectionEndpoint(connectionsFn), adminMiddleware)
-		router.POST("/api/connections/:id/refresh", localai.RefreshConnectionEndpoint(connectionsFn), adminMiddleware)
-		router.POST("/api/connections/:id/adopt", localai.AdoptConnectionModelsEndpoint(connectionsFn), adminMiddleware)
+		remotesFn := localai.RemotesProvider(app.Remotes)
+		router.POST("/api/remotes/test", localai.CheckRemoteEndpoint(remotesFn), adminMiddleware)
+		router.POST("/api/remotes", localai.CreateRemoteEndpoint(remotesFn), adminMiddleware)
+		router.GET("/api/remotes", localai.ListRemotesEndpoint(remotesFn), adminMiddleware)
+		router.GET("/api/remotes/:id", localai.GetRemoteEndpoint(remotesFn), adminMiddleware)
+		router.PATCH("/api/remotes/:id", localai.UpdateRemoteEndpoint(remotesFn), adminMiddleware)
+		router.DELETE("/api/remotes/:id", localai.DeleteRemoteEndpoint(remotesFn), adminMiddleware)
+		router.POST("/api/remotes/:id/refresh", localai.RefreshRemoteEndpoint(remotesFn), adminMiddleware)
+		router.POST("/api/remotes/:id/adopt", localai.AdoptRemoteModelsEndpoint(remotesFn), adminMiddleware)
 
 		// Toggle model enable/disable endpoint
 		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)

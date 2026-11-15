@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"context"
@@ -70,28 +70,28 @@ type service struct {
 	sealer *sealer
 }
 
-// New returns the Service. The service keeps no connection state in memory:
+// New returns the Service. The service keeps no remote state in memory:
 // every call reads the store, so every frontend of a cluster agrees.
 func New(o Options) (Service, error) { return newService(o) }
 
 func newService(o Options) (*service, error) {
 	if o.Store == nil || o.Admin == nil || o.Configs == nil {
-		return nil, errors.New("connections: Store, Admin and Configs are required")
+		return nil, errors.New("remotes: Store, Admin and Configs are required")
 	}
 	return &service{o: o, fetch: newFetcher(), now: func() time.Time { return time.Now().UTC() }, newID: uuid.NewString}, nil
 }
 
 // --- validation -----------------------------------------------------------
 
-const maxConnectionNameLen = 80
+const maxRemoteNameLen = 80
 
 func cleanName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", invalid("Enter a name for the connection.")
+		return "", invalid("Enter a name for the remote.")
 	}
-	if len([]rune(name)) > maxConnectionNameLen {
-		return "", invalid(fmt.Sprintf("The name can have at most %d characters.", maxConnectionNameLen))
+	if len([]rune(name)) > maxRemoteNameLen {
+		return "", invalid(fmt.Sprintf("The name can have at most %d characters.", maxRemoteNameLen))
 	}
 	if strings.IndexFunc(name, unicode.IsControl) >= 0 {
 		return "", invalid("The name must not contain control characters.")
@@ -134,7 +134,7 @@ func (s *service) getSealer(ctx context.Context) (*sealer, error) {
 	}
 	k, err := s.o.Store.EnsureKey(ctx, newSealKey)
 	if err != nil {
-		return nil, fmt.Errorf("connections: sealing key: %w", err)
+		return nil, fmt.Errorf("remotes: sealing key: %w", err)
 	}
 	sl, err := newSealer(k)
 	if err != nil {
@@ -165,7 +165,7 @@ func (s *service) openKey(ctx context.Context, r record) (string, error) {
 	}
 	plain, err := sl.open(sealAAD(r.ID), r.Sealed)
 	if err != nil {
-		return "", errors.New("connections: the stored key cannot be opened")
+		return "", errors.New("remotes: the stored key cannot be opened")
 	}
 	return string(plain), nil
 }
@@ -200,22 +200,22 @@ func (s *service) Test(ctx context.Context, kind Kind, url, apiKey string) (Test
 
 // --- reads ----------------------------------------------------------------
 
-func (s *service) List(ctx context.Context) ([]Connection, error) {
+func (s *service) List(ctx context.Context) ([]Remote, error) {
 	recs, err := s.o.Store.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]Connection, 0, len(recs))
+	out := make([]Remote, 0, len(recs))
 	for _, r := range recs {
 		out = append(out, r.view())
 	}
 	return out, nil
 }
 
-func (s *service) Get(ctx context.Context, id string) (Connection, error) {
+func (s *service) Get(ctx context.Context, id string) (Remote, error) {
 	r, err := s.o.Store.Get(ctx, id)
 	if err != nil {
-		return Connection{}, err
+		return Remote{}, err
 	}
 	return r.view(), nil
 }
@@ -266,12 +266,12 @@ func (s *service) Create(ctx context.Context, r CreateRequest) (Result, error) {
 		}
 	}
 	// One refresh records the status and the models not adopted. A remote
-	// that fails is recorded, not returned: the connection exists.
+	// that fails is recorded, not returned: the remote exists.
 	conn, err := s.Refresh(ctx, id)
 	if err != nil {
 		return res, err
 	}
-	res.Connection = conn
+	res.Remote = conn
 	return res, nil
 }
 
@@ -289,12 +289,12 @@ func (s *service) Adopt(ctx context.Context, id string, models []UpstreamModel) 
 	if err != nil {
 		return res, err
 	}
-	res.Connection = conn
+	res.Remote = conn
 	return res, nil
 }
 
 // takenNames returns a function that says whether a model name is in use: as
-// a model config here, or as an entry of any connection.
+// a model config here, or as an entry of any remote.
 func (s *service) takenNames(ctx context.Context) (func(string) bool, error) {
 	all, err := s.o.Store.List(ctx)
 	if err != nil {
@@ -322,14 +322,14 @@ func (s *service) adopt(ctx context.Context, id string, models []UpstreamModel) 
 	}
 	t, err := parseTarget(rec.Kind, rec.URL, "")
 	if err != nil {
-		return Result{}, invalid("The address of the connection is not valid. Change it first.")
+		return Result{}, invalid("The address of the remote is not valid. Change it first.")
 	}
 	taken, err := s.takenNames(ctx)
 	if err != nil {
 		return Result{}, err
 	}
 	res := Result{Created: []string{}, Skipped: []Skip{}}
-	slug := connectionSlug(rec.Name)
+	slug := remoteSlug(rec.Name)
 	adopted := map[string]bool{}
 	for _, o := range rec.Owned {
 		adopted[o.UpstreamID] = true
@@ -361,7 +361,7 @@ func (s *service) adopt(ctx context.Context, id string, models []UpstreamModel) 
 		if err != nil {
 			res.Skipped = append(res.Skipped, Skip{ID: m.ID, Reason: skipReason(err)})
 			if !errors.Is(err, modeladmin.ErrConflict) && !errors.Is(err, modeladmin.ErrInvalidConfig) {
-				xlog.Warn("connections: could not write an entry", "connection", id, "model", name, "error", err)
+				xlog.Warn("remotes: could not write an entry", "remote", id, "model", name, "error", err)
 			}
 			continue
 		}
@@ -372,7 +372,7 @@ func (s *service) adopt(ctx context.Context, id string, models []UpstreamModel) 
 			r.New = slices.DeleteFunc(r.New, func(n UpstreamModel) bool { return n.ID == m.ID })
 			return nil
 		}); err != nil {
-			return res, fmt.Errorf("connections: the entry %q was written but could not be recorded: %w", name, err)
+			return res, fmt.Errorf("remotes: the entry %q was written but could not be recorded: %w", name, err)
 		}
 		res.Created = append(res.Created, name)
 		adopted[m.ID] = true
@@ -409,7 +409,7 @@ func (s *service) unload(names ...string) {
 	}
 	for _, n := range names {
 		if err := s.o.Unloader.ShutdownModel(n); err != nil {
-			xlog.Debug("connections: model was not stopped", "model", n, "error", err)
+			xlog.Debug("remotes: model was not stopped", "model", n, "error", err)
 		}
 	}
 }
@@ -417,7 +417,7 @@ func (s *service) unload(names ...string) {
 // --- Refresh --------------------------------------------------------------
 
 // entryGone says whether the model of an owned entry is neither loaded nor on
-// disk, so the bookkeeping for it can go. A model whose connection was
+// disk, so the bookkeeping for it can go. A model whose remote was
 // removed by hand is not gone, so a later delete does not touch it either.
 func (s *service) entryGone(name string) bool {
 	if s.o.ModelsPath == "" {
@@ -434,10 +434,10 @@ func (s *service) entryGone(name string) bool {
 	return true
 }
 
-func (s *service) Refresh(ctx context.Context, id string) (Connection, error) {
+func (s *service) Refresh(ctx context.Context, id string) (Remote, error) {
 	rec, err := s.o.Store.Get(ctx, id)
 	if err != nil {
-		return Connection{}, err
+		return Remote{}, err
 	}
 	var (
 		models  []UpstreamModel
@@ -474,17 +474,17 @@ func (s *service) Refresh(ctx context.Context, id string) (Connection, error) {
 		return nil
 	})
 	if err != nil {
-		return Connection{}, err
+		return Remote{}, err
 	}
 	return out.view(), nil
 }
 
 // --- Update ---------------------------------------------------------------
 
-func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Connection, error) {
+func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Remote, error) {
 	old, err := s.o.Store.Get(ctx, id)
 	if err != nil {
-		return Connection{}, err
+		return Remote{}, err
 	}
 	var (
 		newName, newURL string
@@ -493,21 +493,21 @@ func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Con
 	)
 	if req.Name != nil {
 		if newName, err = cleanName(*req.Name); err != nil {
-			return Connection{}, err
+			return Remote{}, err
 		}
 	}
 	if req.URL != nil {
 		if newURL, err = cleanURL(old.Kind, *req.URL); err != nil {
-			return Connection{}, err
+			return Remote{}, err
 		}
 	}
 	if req.APIKey != nil {
 		key, err := cleanKey(old.Kind, *req.APIKey)
 		if err != nil {
-			return Connection{}, err
+			return Remote{}, err
 		}
 		if newSealed, err = s.sealKey(ctx, id, key); err != nil {
-			return Connection{}, err
+			return Remote{}, err
 		}
 		keyChanged = true
 	}
@@ -527,9 +527,9 @@ func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Con
 	})
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
-			return Connection{}, fmt.Errorf("%w: %q", ErrConflict, newName)
+			return Remote{}, fmt.Errorf("%w: %q", ErrConflict, newName)
 		}
-		return Connection{}, err
+		return Remote{}, err
 	}
 	var errs []error
 	if urlChanged {
@@ -542,7 +542,7 @@ func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Con
 	}
 	conn := out.view()
 	if len(errs) > 0 {
-		return conn, fmt.Errorf("connections: the connection was saved but some entries could not be updated: %w", errors.Join(errs...))
+		return conn, fmt.Errorf("remotes: the remote was saved but some entries could not be updated: %w", errors.Join(errs...))
 	}
 	return conn, nil
 }
@@ -555,7 +555,7 @@ func entryNames(r record) []string {
 	return names
 }
 
-// patchEntryURLs sets proxy.upstream_url on the entries of a connection whose
+// patchEntryURLs sets proxy.upstream_url on the entries of a remote whose
 // address changed. An entry whose value a person changed to something else is
 // left alone.
 func (s *service) patchEntryURLs(ctx context.Context, old, cur record) []error {
@@ -568,7 +568,7 @@ func (s *service) patchEntryURLs(ctx context.Context, old, cur record) []error {
 	var errs []error
 	for _, o := range cur.Owned {
 		cfg, ok := s.o.Configs.GetModelConfig(o.Name)
-		if !ok || cfg.Proxy.Connection != cur.ID || cfg.Proxy.UpstreamURL != oldURL {
+		if !ok || cfg.Proxy.Remote != cur.ID || cfg.Proxy.UpstreamURL != oldURL {
 			continue
 		}
 		unedited := s.unedited(ctx, o)
@@ -622,7 +622,7 @@ func (s *service) Delete(ctx context.Context, id string, removeEntries bool) err
 		switch {
 		case !ok:
 			// Nothing to do for a model that is already gone.
-		case cfg.Proxy.Connection != id:
+		case cfg.Proxy.Remote != id:
 			// A person detached it. It is theirs now.
 		case removeEntries:
 			res, err := s.o.Admin.DeleteConfig(ctx, o.Name)
@@ -650,13 +650,13 @@ func (s *service) Delete(ctx context.Context, id string, removeEntries bool) err
 		}
 	}
 	if len(errs) > 0 {
-		// The connection stays, so a retry can finish the rest.
-		return fmt.Errorf("connections: not every entry could be handled: %w", errors.Join(errs...))
+		// The remote stays, so a retry can finish the rest.
+		return fmt.Errorf("remotes: not every entry could be handled: %w", errors.Join(errs...))
 	}
 	return s.o.Store.Delete(ctx, id)
 }
 
-// detach removes proxy.connection from an entry file. The key is not copied
+// detach removes proxy.remote from an entry file. The key is not copied
 // into it: the model then calls the remote without a key.
 func (s *service) detach(ctx context.Context, name string) error {
 	v, err := s.o.Admin.GetConfig(ctx, name)
@@ -668,7 +668,7 @@ func (s *service) detach(ctx context.Context, name string) error {
 		return fmt.Errorf("read the entry: %w", err)
 	}
 	if proxy, ok := doc["proxy"].(map[string]any); ok {
-		delete(proxy, "connection")
+		delete(proxy, "remote")
 	}
 	body, err := yaml.Marshal(doc)
 	if err != nil {
@@ -684,13 +684,13 @@ func (s *service) detach(ctx context.Context, name string) error {
 
 // --- startup refresh ------------------------------------------------------
 
-// RefreshAll refreshes every connection once and returns how many could not
+// RefreshAll refreshes every remote once and returns how many could not
 // be refreshed because the store failed. A remote that fails is not counted:
 // its status records it.
 func RefreshAll(ctx context.Context, svc Service) (failed int) {
 	all, err := svc.List(ctx)
 	if err != nil {
-		xlog.Warn("connections: could not list connections for the refresh", "error", err)
+		xlog.Warn("remotes: could not list remotes for the refresh", "error", err)
 		return 1
 	}
 	for _, c := range all {
@@ -698,7 +698,7 @@ func RefreshAll(ctx context.Context, svc Service) (failed int) {
 			return failed
 		}
 		if _, err := svc.Refresh(ctx, c.ID); err != nil && !errors.Is(err, ErrNotFound) {
-			xlog.Warn("connections: refresh failed", "connection", c.Name, "error", err)
+			xlog.Warn("remotes: refresh failed", "remote", c.Name, "error", err)
 			failed++
 		}
 	}

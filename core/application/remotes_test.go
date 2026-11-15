@@ -8,13 +8,13 @@ import (
 	"net/http/httptest"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services/connections"
+	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("remote connections wiring", func() {
+var _ = Describe("remotes wiring", func() {
 	const key = "sk-test-wiring-key"
 
 	newApp := func(ctx context.Context, models, data string) *Application {
@@ -51,29 +51,29 @@ var _ = Describe("remote connections wiring", func() {
 
 		ctx1, cancel1 := context.WithCancel(context.Background())
 		app := newApp(ctx1, models, data)
-		svc := app.Connections()
+		svc := app.Remotes()
 		Expect(svc).NotTo(BeNil())
-		res, err := svc.Create(context.Background(), connections.CreateRequest{
-			Kind: connections.KindLocalAI, Name: "Remote", URL: remote.URL, APIKey: key,
-			Models: []connections.UpstreamModel{{ID: "one", Usecases: []string{"chat"}}},
+		res, err := svc.Create(context.Background(), remotes.CreateRequest{
+			Kind: remotes.KindLocalAI, Name: "Remote", URL: remote.URL, APIKey: key,
+			Models: []remotes.UpstreamModel{{ID: "one", Usecases: []string{"chat"}}},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Created).To(Equal([]string{"one"}))
 		cfg, ok := app.ModelConfigLoader().GetModelConfig("one")
 		Expect(ok).To(BeTrue(), "the new model is visible without a restart")
-		Expect(cfg.Proxy.Connection).To(Equal(res.Connection.ID))
-		got, err := config.ResolveProxyConnectionKey(context.Background(), res.Connection.ID)
+		Expect(cfg.Proxy.Remote).To(Equal(res.Remote.ID))
+		got, err := config.ResolveProxyRemoteKey(context.Background(), res.Remote.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(Equal(key))
 
-		// A restart on the same directories: the connection is still there
+		// A restart on the same directories: the remote is still there
 		// and the startup refresh finds the model that appeared meanwhile.
 		cancel1()
 		Expect(app.Shutdown()).To(Succeed())
 		listed = []string{"one", "two"}
 		app2 := newApp(context.Background(), models, data)
 		Eventually(func() []string {
-			c, err := app2.Connections().Get(context.Background(), res.Connection.ID)
+			c, err := app2.Remotes().Get(context.Background(), res.Remote.ID)
 			Expect(err).NotTo(HaveOccurred())
 			var ids []string
 			for _, m := range c.New {

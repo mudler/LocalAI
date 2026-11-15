@@ -1,8 +1,8 @@
-package connections
+package remotes
 
 import "sort"
 
-// modelDiff is what a listing says against what a connection owns.
+// modelDiff is what a listing says against what a remote owns.
 type modelDiff struct {
 	// New are upstream models that are not an entry yet.
 	New []UpstreamModel
@@ -12,7 +12,7 @@ type modelDiff struct {
 	Kept []string
 }
 
-// diffModels compares the models a remote lists with the entries a connection
+// diffModels compares the models a remote lists with the entries a remote
 // owns. It only reports: nothing is deleted or rewritten because of it. The
 // result is sorted, so the same input always gives the same output.
 func diffModels(upstream []UpstreamModel, owned []ownedEntry) modelDiff {

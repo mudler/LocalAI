@@ -6,11 +6,11 @@ import (
 	"sync/atomic"
 )
 
-// ProxyKeyResolver returns the upstream key of a remote connection. The
-// connections service implements it. It lives here so the backend package can
+// ProxyKeyResolver returns the upstream key of a remote. The
+// remotes service implements it. It lives here so the backend package can
 // resolve a key without importing the service.
 type ProxyKeyResolver interface {
-	ResolveKey(ctx context.Context, connectionID string) (string, error)
+	ResolveKey(ctx context.Context, remoteID string) (string, error)
 }
 
 type proxyKeyResolverBox struct{ r ProxyKeyResolver }
@@ -27,17 +27,17 @@ func SetProxyKeyResolver(r ProxyKeyResolver) {
 	proxyKeyResolver.Store(&proxyKeyResolverBox{r: r})
 }
 
-// ResolveProxyConnectionKey returns the key of a connection. The error never
+// ResolveProxyRemoteKey returns the key of a remote. The error never
 // holds the key and does not say why the lookup failed beyond what the
 // resolver reports, so a log line is safe.
-func ResolveProxyConnectionKey(ctx context.Context, connectionID string) (string, error) {
+func ResolveProxyRemoteKey(ctx context.Context, remoteID string) (string, error) {
 	box := proxyKeyResolver.Load()
 	if box == nil {
-		return "", fmt.Errorf("proxy connection %q: key unavailable", connectionID)
+		return "", fmt.Errorf("proxy remote %q: key unavailable", remoteID)
 	}
-	key, err := box.r.ResolveKey(ctx, connectionID)
+	key, err := box.r.ResolveKey(ctx, remoteID)
 	if err != nil {
-		return "", fmt.Errorf("proxy connection %q: key unavailable: %w", connectionID, err)
+		return "", fmt.Errorf("proxy remote %q: key unavailable: %w", remoteID, err)
 	}
 	return key, nil
 }

@@ -495,24 +495,24 @@ func (f fakeKeyResolver) ResolveKey(_ context.Context, id string) (string, error
 	return k, nil
 }
 
-var _ = Describe("proxy connection key", func() {
+var _ = Describe("proxy remote key", func() {
 	AfterEach(func() { config.SetProxyKeyResolver(nil) })
 
-	connectionConfig := func(connection string) config.ModelConfig {
+	remoteConfig := func(remote string) config.ModelConfig {
 		threads := 1
 		return config.ModelConfig{
 			Name: "remote-model", Backend: model.LocalAIProxyBackend, Threads: &threads,
-			Proxy: config.ProxyConfig{UpstreamURL: "https://remote.example.com", Connection: connection},
+			Proxy: config.ProxyConfig{UpstreamURL: "https://remote.example.com", Remote: remote},
 		}
 	}
 	finalize := func(cfg config.ModelConfig) (*pb.ModelOptions, error) {
 		opts := grpcModelOpts(cfg, "/models")
-		return opts, applyProxyConnectionKey(context.Background(), cfg.Proxy.Connection, opts)
+		return opts, applyProxyRemoteKey(context.Background(), cfg.Proxy.Remote, opts)
 	}
 
 	It("sets the key from the resolver and leaves key file and env empty", func() {
 		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "fake-key"})
-		opts, err := finalize(connectionConfig("c1"))
+		opts, err := finalize(remoteConfig("c1"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
 		Expect(opts.Proxy.ApiKeyFile).To(BeEmpty())
@@ -520,20 +520,20 @@ var _ = Describe("proxy connection key", func() {
 	})
 	It("does not put the key in the options built before the load", func() {
 		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "fake-key"})
-		Expect(grpcModelOpts(connectionConfig("c1"), "/models").Proxy.ApiKey).To(BeEmpty())
+		Expect(grpcModelOpts(remoteConfig("c1"), "/models").Proxy.ApiKey).To(BeEmpty())
 	})
 	It("fails with a clear error when no resolver is set", func() {
-		_, err := finalize(connectionConfig("c1"))
-		Expect(err).To(MatchError(ContainSubstring(`proxy connection "c1": key unavailable`)))
+		_, err := finalize(remoteConfig("c1"))
+		Expect(err).To(MatchError(ContainSubstring(`proxy remote "c1": key unavailable`)))
 	})
-	It("fails when the connection is missing", func() {
+	It("fails when the remote is missing", func() {
 		config.SetProxyKeyResolver(fakeKeyResolver{})
-		_, err := finalize(connectionConfig("gone"))
-		Expect(err).To(MatchError(ContainSubstring(`proxy connection "gone": key unavailable`)))
+		_, err := finalize(remoteConfig("gone"))
+		Expect(err).To(MatchError(ContainSubstring(`proxy remote "gone": key unavailable`)))
 	})
-	It("keeps a plain key and ignores the resolver for models without a connection", func() {
+	It("keeps a plain key and ignores the resolver for models without a remote", func() {
 		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "other"})
-		cfg := connectionConfig("")
+		cfg := remoteConfig("")
 		cfg.Proxy.APIKey = "plain"
 		opts := grpcModelOpts(cfg, "/models")
 		Expect(opts.Proxy.ApiKey).To(Equal("plain"))

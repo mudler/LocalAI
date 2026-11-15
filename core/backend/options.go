@@ -226,12 +226,12 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 
 	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
-	if c.IsRemoteProxy() && c.Proxy.Connection != "" {
+	if c.IsRemoteProxy() && c.Proxy.Remote != "" {
 		// The key is fetched on a real load only, not on every request, and
 		// never sits in the options that other code may log.
-		connection := c.Proxy.Connection
+		remote := c.Proxy.Remote
 		defOpts = append(defOpts, model.WithLoadGRPCOptionsFinalizer(func(ctx context.Context, o *pb.ModelOptions) error {
-			return applyProxyConnectionKey(ctx, connection, o)
+			return applyProxyRemoteKey(ctx, remote, o)
 		}))
 	}
 
@@ -595,14 +595,14 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	return opts
 }
 
-// applyProxyConnectionKey sets the upstream key of a remote connection in the
+// applyProxyRemoteKey sets the upstream key of a remote in the
 // load options. In distributed mode the backend runs on a worker that cannot
-// read the connection store, so the frontend passes the key itself.
-func applyProxyConnectionKey(ctx context.Context, connection string, o *pb.ModelOptions) error {
+// read the remote store, so the frontend passes the key itself.
+func applyProxyRemoteKey(ctx context.Context, remote string, o *pb.ModelOptions) error {
 	if o.Proxy == nil {
 		return nil
 	}
-	key, err := config.ResolveProxyConnectionKey(ctx, connection)
+	key, err := config.ResolveProxyRemoteKey(ctx, remote)
 	if err != nil {
 		return err
 	}

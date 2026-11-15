@@ -1,4 +1,4 @@
-package connections_test
+package remotes_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestConnections(t *testing.T) {
+func TestRemotes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Connections test suite")
+	RunSpecs(t, "Remotes test suite")
 }

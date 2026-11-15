@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	jsonFileName = "connections.json"
-	jsonKeyName  = "connections.key"
+	jsonFileName = "remotes.json"
+	jsonKeyName  = "remotes.key"
 )
 
 // jsonStore keeps the records in one file (mode 0600, rewritten atomically)
@@ -35,8 +35,8 @@ type jsonStore struct {
 }
 
 type jsonFile struct {
-	Version     int               `json:"version"`
-	Connections map[string]record `json:"connections"`
+	Version int               `json:"version"`
+	Remotes map[string]record `json:"remotes"`
 }
 
 // NewJSONStore returns a Store that keeps its data in dir. With an empty dir
@@ -48,7 +48,7 @@ func NewJSONStore(dir string) (Store, error) {
 		return s, nil
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("connections: create store directory: %w", err)
+		return nil, fmt.Errorf("remotes: create store directory: %w", err)
 	}
 	s.path = filepath.Join(dir, jsonFileName)
 	s.keyPath = filepath.Join(dir, jsonKeyName)
@@ -67,21 +67,21 @@ func (s *jsonStore) load() (map[string]record, error) {
 		return map[string]record{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("connections: read store: %w", err)
+		return nil, fmt.Errorf("remotes: read store: %w", err)
 	}
 	var f jsonFile
 	if err := json.Unmarshal(raw, &f); err != nil {
 		aside := fmt.Sprintf("%s.corrupt-%d", s.path, s.now().Unix())
 		if rerr := os.Rename(s.path, aside); rerr != nil {
-			return nil, fmt.Errorf("connections: the store file is damaged and could not be moved aside: %w", rerr)
+			return nil, fmt.Errorf("remotes: the store file is damaged and could not be moved aside: %w", rerr)
 		}
-		xlog.Error("The connections file is damaged; it was moved aside and the list starts empty", "moved_to", aside)
+		xlog.Error("The remotes file is damaged; it was moved aside and the list starts empty", "moved_to", aside)
 		return map[string]record{}, nil
 	}
-	if f.Connections == nil {
-		f.Connections = map[string]record{}
+	if f.Remotes == nil {
+		f.Remotes = map[string]record{}
 	}
-	return f.Connections, nil
+	return f.Remotes, nil
 }
 
 func (s *jsonStore) save(m map[string]record) error {
@@ -89,7 +89,7 @@ func (s *jsonStore) save(m map[string]record) error {
 		s.mem = m
 		return nil
 	}
-	return atomicfile.WriteJSON(s.path, jsonFile{Version: 1, Connections: m}, 0o600)
+	return atomicfile.WriteJSON(s.path, jsonFile{Version: 1, Remotes: m}, 0o600)
 }
 
 func nameTaken(m map[string]record, name, exceptID string) bool {
@@ -209,11 +209,11 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 	switch {
 	case err == nil:
 		if st.Mode().Perm()&0o077 != 0 {
-			return nil, errors.New("connections: the key file can be read by others; run chmod 600 on it")
+			return nil, errors.New("remotes: the key file can be read by others; run chmod 600 on it")
 		}
 		k, err := os.ReadFile(s.keyPath)
 		if err != nil || len(k) != sealKeySize {
-			return nil, fmt.Errorf("connections: the key file is not a %d-byte key (%v)", sealKeySize, err)
+			return nil, fmt.Errorf("remotes: the key file is not a %d-byte key (%v)", sealKeySize, err)
 		}
 		return k, nil
 	case !errors.Is(err, os.ErrNotExist):
@@ -224,7 +224,7 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 		return nil, err
 	}
 	if err := atomicfile.Write(s.keyPath, k, 0o600); err != nil {
-		return nil, fmt.Errorf("connections: write the key file: %w", err)
+		return nil, fmt.Errorf("remotes: write the key file: %w", err)
 	}
 	return k, nil
 }

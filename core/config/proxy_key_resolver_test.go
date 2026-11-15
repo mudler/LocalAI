@@ -19,24 +19,24 @@ var _ = Describe("ProxyKeyResolver", func() {
 	AfterEach(func() { SetProxyKeyResolver(nil) })
 
 	It("fails when none is set", func() {
-		_, err := ResolveProxyConnectionKey(context.Background(), "c1")
-		Expect(err).To(MatchError(`proxy connection "c1": key unavailable`))
+		_, err := ResolveProxyRemoteKey(context.Background(), "c1")
+		Expect(err).To(MatchError(`proxy remote "c1": key unavailable`))
 	})
 	It("returns the key", func() {
 		SetProxyKeyResolver(stubResolver{key: "k"})
-		Expect(ResolveProxyConnectionKey(context.Background(), "c1")).To(Equal("k"))
+		Expect(ResolveProxyRemoteKey(context.Background(), "c1")).To(Equal("k"))
 	})
 	It("wraps the resolver error", func() {
 		cause := errors.New("missing")
 		SetProxyKeyResolver(stubResolver{err: cause})
-		_, err := ResolveProxyConnectionKey(context.Background(), "c1")
+		_, err := ResolveProxyRemoteKey(context.Background(), "c1")
 		Expect(err).To(MatchError(cause))
 		Expect(err.Error()).To(ContainSubstring("key unavailable"))
 	})
 	It("can be removed again", func() {
 		SetProxyKeyResolver(stubResolver{key: "k"})
 		SetProxyKeyResolver(nil)
-		_, err := ResolveProxyConnectionKey(context.Background(), "c1")
+		_, err := ResolveProxyRemoteKey(context.Background(), "c1")
 		Expect(err).To(HaveOccurred())
 	})
 })

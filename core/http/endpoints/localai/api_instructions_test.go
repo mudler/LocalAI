@@ -91,7 +91,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 				"voice-library",
 				"3d",
 				"failover",
-				"connections",
+				"remotes",
 				"decisions",
 				"motion",
 				"agent-jobs",

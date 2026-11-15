@@ -108,7 +108,7 @@ func (f *fakeLocalAIUpstream) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// connAPI calls the remote connection routes of the test server.
+// connAPI calls the remote routes of the test server.
 func connAPI(method, path string, body any) (int, []byte) {
 	var rd io.Reader
 	if body != nil {
@@ -139,9 +139,9 @@ type connView struct {
 }
 
 type connResult struct {
-	Connection connView `json:"connection"`
-	Created    []string `json:"created"`
-	Skipped    []struct {
+	Remote  connView `json:"remote"`
+	Created []string `json:"created"`
+	Skipped []struct {
 		ID     string `json:"id"`
 		Reason string `json:"reason"`
 	} `json:"skipped"`
@@ -175,7 +175,7 @@ func chatOnce(model string) (int, string) {
 	return resp.StatusCode, string(b)
 }
 
-var _ = Describe("remote connections", Label("connections"), Ordered, func() {
+var _ = Describe("remotes", Label("remotes"), Ordered, func() {
 	const (
 		keyOne = "key-one-e2e"
 		keyTwo = "key-two-e2e"
@@ -192,7 +192,7 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 		}
 	})
 
-	Describe("a localai connection", Ordered, func() {
+	Describe("a localai remote", Ordered, func() {
 		var (
 			up     *fakeLocalAIUpstream
 			connID string
@@ -203,25 +203,25 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 		})
 
 		It("tests the remote and lists its models without saving anything", func() {
-			code, body := connAPI(http.MethodPost, "/api/connections/test", map[string]any{"kind": "localai", "url": up.URL(), "api_key": keyOne})
+			code, body := connAPI(http.MethodPost, "/api/remotes/test", map[string]any{"kind": "localai", "url": up.URL(), "api_key": keyOne})
 			Expect(code).To(Equal(http.StatusOK), string(body))
 			Expect(string(body)).To(ContainSubstring(`"ok":true`))
 			Expect(string(body)).To(ContainSubstring(upstreamID))
 
-			code, body = connAPI(http.MethodGet, "/api/connections", nil)
+			code, body = connAPI(http.MethodGet, "/api/remotes", nil)
 			Expect(code).To(Equal(http.StatusOK))
 			Expect(string(body)).To(MatchJSON(`{"data":[]}`))
 		})
 
 		It("reports a wrong key as a failed test, not an error", func() {
-			code, body := connAPI(http.MethodPost, "/api/connections/test", map[string]any{"kind": "localai", "url": up.URL(), "api_key": "wrong"})
+			code, body := connAPI(http.MethodPost, "/api/remotes/test", map[string]any{"kind": "localai", "url": up.URL(), "api_key": "wrong"})
 			Expect(code).To(Equal(http.StatusOK), string(body))
 			Expect(string(body)).To(ContainSubstring(`"ok":false`))
 			Expect(string(body)).To(ContainSubstring(`"step":"auth"`))
 		})
 
-		It("creates the connection and the entry of the adopted model", func() {
-			code, body := connAPI(http.MethodPost, "/api/connections", map[string]any{
+		It("creates the remote and the entry of the adopted model", func() {
+			code, body := connAPI(http.MethodPost, "/api/remotes", map[string]any{
 				"kind": "localai", "name": "e2e-remote", "url": up.URL(), "api_key": keyOne,
 				"models": []map[string]any{{"id": upstreamID, "usecases": []string{"chat"}}},
 			})
@@ -231,8 +231,8 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 			Expect(json.Unmarshal(body, &res)).To(Succeed())
 			Expect(res.Created).To(Equal([]string{entryName}))
 			Expect(res.Skipped).To(BeEmpty())
-			Expect(res.Connection.KeySet).To(BeTrue())
-			connID = res.Connection.ID
+			Expect(res.Remote.KeySet).To(BeTrue())
+			connID = res.Remote.ID
 			Expect(connID).NotTo(BeEmpty())
 
 			Eventually(listedModels, 10*time.Second, 200*time.Millisecond).Should(ContainElement(entryName))
@@ -241,11 +241,11 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 		It("keeps the key out of the entry file", func() {
 			data, err := os.ReadFile(filepath.Join(modelsPath, entryName+".yaml"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(data)).To(ContainSubstring("connection: " + connID))
+			Expect(string(data)).To(ContainSubstring("remote: " + connID))
 			Expect(string(data)).NotTo(ContainSubstring(keyOne))
 		})
 
-		It("answers a chat request with the connection's key and the upstream model name", func() {
+		It("answers a chat request with the remote's key and the upstream model name", func() {
 			code, body := chatOnce(entryName)
 			Expect(code).To(Equal(http.StatusOK), body)
 			Expect(chatContent(body)).To(Equal("hello from the fake localai"))
@@ -269,14 +269,14 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 			}
 			Expect(entry).NotTo(BeNil())
 			Expect(entry).To(HaveKeyWithValue("remote", true))
-			Expect(entry).To(HaveKeyWithValue("connection", connID))
+			Expect(entry).To(HaveKeyWithValue("remote_id", connID))
 			Expect(entry).To(HaveKeyWithValue("upstream_state", "ok"))
 			Expect(entry).To(HaveKey("backend"))
 		})
 
 		It("shows a new upstream model after a refresh and adopts it", func() {
 			up.SetModels(upstreamID, newUpstreamID)
-			code, body := connAPI(http.MethodPost, "/api/connections/"+connID+"/refresh", nil)
+			code, body := connAPI(http.MethodPost, "/api/remotes/"+connID+"/refresh", nil)
 			Expect(code).To(Equal(http.StatusOK), string(body))
 			var view connView
 			Expect(json.Unmarshal(body, &view)).To(Succeed())
@@ -288,7 +288,7 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 			Expect(ids).To(ConsistOf(newUpstreamID))
 			Expect(listedModels()).NotTo(ContainElement(newUpstreamID))
 
-			code, body = connAPI(http.MethodPost, "/api/connections/"+connID+"/adopt", map[string]any{
+			code, body = connAPI(http.MethodPost, "/api/remotes/"+connID+"/adopt", map[string]any{
 				"models": []map[string]any{{"id": newUpstreamID, "usecases": []string{"chat"}}},
 			})
 			Expect(code).To(Equal(http.StatusOK), string(body))
@@ -302,7 +302,7 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 			up.ExpectKey(keyTwo)
 			// The old key no longer works upstream, so the loaded entry
 			// would fail if the new key did not reach it.
-			code, body := connAPI(http.MethodPatch, "/api/connections/"+connID, map[string]any{"api_key": keyTwo})
+			code, body := connAPI(http.MethodPatch, "/api/remotes/"+connID, map[string]any{"api_key": keyTwo})
 			Expect(code).To(Equal(http.StatusOK), string(body))
 			Expect(string(body)).NotTo(ContainSubstring(keyTwo))
 
@@ -318,7 +318,7 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 
 		It("marks an entry unavailable when the upstream stops listing it", func() {
 			up.SetModels(upstreamID)
-			code, body := connAPI(http.MethodPost, "/api/connections/"+connID+"/refresh", nil)
+			code, body := connAPI(http.MethodPost, "/api/remotes/"+connID+"/refresh", nil)
 			Expect(code).To(Equal(http.StatusOK), string(body))
 			var view connView
 			Expect(json.Unmarshal(body, &view)).To(Succeed())
@@ -338,24 +338,24 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 		})
 
 		It("refuses an entries value other than keep or remove", func() {
-			code, _ := connAPI(http.MethodDelete, "/api/connections/"+connID+"?entries=everything", nil)
+			code, _ := connAPI(http.MethodDelete, "/api/remotes/"+connID+"?entries=everything", nil)
 			Expect(code).To(Equal(http.StatusBadRequest))
 		})
 
 		It("removes the entries with entries=remove", func() {
-			code, body := connAPI(http.MethodDelete, "/api/connections/"+connID+"?entries=remove", nil)
+			code, body := connAPI(http.MethodDelete, "/api/remotes/"+connID+"?entries=remove", nil)
 			Expect(code).To(Equal(http.StatusNoContent), string(body))
 			Eventually(listedModels, 10*time.Second, 200*time.Millisecond).ShouldNot(ContainElements(entryName))
 			Expect(listedModels()).NotTo(ContainElement(newUpstreamID))
 			_, err := os.Stat(filepath.Join(modelsPath, entryName+".yaml"))
 			Expect(os.IsNotExist(err)).To(BeTrue())
 
-			code, _ = connAPI(http.MethodGet, "/api/connections/"+connID, nil)
+			code, _ = connAPI(http.MethodGet, "/api/remotes/"+connID, nil)
 			Expect(code).To(Equal(http.StatusNotFound))
 		})
 	})
 
-	Describe("an openai connection", Ordered, func() {
+	Describe("an openai remote", Ordered, func() {
 		const cloudKey = "cloud-key-e2e"
 		var (
 			up     *fakeOpenAIUpstreamServer
@@ -367,8 +367,8 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 			DeferCleanup(up.Close)
 		})
 
-		It("creates the connection and answers chat through the cloud proxy", func() {
-			code, body := connAPI(http.MethodPost, "/api/connections", map[string]any{
+		It("creates the remote and answers chat through the cloud proxy", func() {
+			code, body := connAPI(http.MethodPost, "/api/remotes", map[string]any{
 				"kind": "openai", "name": "e2e-cloud", "url": up.URL() + "/v1", "api_key": cloudKey,
 				"models": []map[string]any{{"id": "fake-gpt"}},
 			})
@@ -377,7 +377,7 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 			var res connResult
 			Expect(json.Unmarshal(body, &res)).To(Succeed())
 			Expect(res.Created).To(Equal([]string{"fake-gpt"}))
-			connID = res.Connection.ID
+			connID = res.Remote.ID
 			Eventually(listedModels, 10*time.Second, 200*time.Millisecond).Should(ContainElement("fake-gpt"))
 
 			code, reply := chatOnce("fake-gpt")
@@ -390,12 +390,12 @@ var _ = Describe("remote connections", Label("connections"), Ordered, func() {
 		})
 
 		It("keeps the entries as plain models with entries=keep", func() {
-			code, body := connAPI(http.MethodDelete, "/api/connections/"+connID, nil)
+			code, body := connAPI(http.MethodDelete, "/api/remotes/"+connID, nil)
 			Expect(code).To(Equal(http.StatusNoContent), string(body))
 			Expect(listedModels()).To(ContainElement("fake-gpt"))
 			data, err := os.ReadFile(filepath.Join(modelsPath, "fake-gpt.yaml"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(data)).NotTo(ContainSubstring("connection:"))
+			Expect(string(data)).NotTo(ContainSubstring("remote:"))
 			Expect(string(data)).NotTo(ContainSubstring(cloudKey))
 			Expect(strings.Contains(string(data), "fake-gpt")).To(BeTrue())
 			// Leave no model behind for the other specs.

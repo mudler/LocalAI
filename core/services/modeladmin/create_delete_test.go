@@ -11,7 +11,7 @@ import (
 )
 
 var _ = Describe("CreateConfig and DeleteConfig", func() {
-	const body = "name: remote-one\nbackend: localai-proxy\nknown_usecases: [chat]\nproxy:\n  upstream_url: https://remote.example.com\n  connection: c1\n"
+	const body = "name: remote-one\nbackend: localai-proxy\nknown_usecases: [chat]\nproxy:\n  upstream_url: https://remote.example.com\n  remote: c1\n"
 
 	It("creates a model that the loader sees at once and tells the lifecycle", func() {
 		svc, dir := newTestService()
@@ -24,7 +24,7 @@ var _ = Describe("CreateConfig and DeleteConfig", func() {
 		Expect(filepath.Join(dir, "remote-one.yaml")).To(BeARegularFile())
 		cfg, ok := svc.Loader.GetModelConfig("remote-one")
 		Expect(ok).To(BeTrue())
-		Expect(cfg.Proxy.Connection).To(Equal("c1"))
+		Expect(cfg.Proxy.Remote).To(Equal("c1"))
 		Expect(lc.calls).To(HaveLen(1))
 	})
 	It("refuses a name that exists", func() {
@@ -36,7 +36,7 @@ var _ = Describe("CreateConfig and DeleteConfig", func() {
 	})
 	It("refuses an invalid config and leaves no file", func() {
 		svc, dir := newTestService()
-		bad := "name: x\nbackend: localai-proxy\nproxy:\n  connection: c\n  api_key: k\n"
+		bad := "name: x\nbackend: localai-proxy\nproxy:\n  remote: c\n  api_key: k\n"
 		_, err := svc.CreateConfig(context.Background(), []byte(bad))
 		Expect(errors.Is(err, ErrInvalidConfig)).To(BeTrue())
 		Expect(filepath.Join(dir, "x.yaml")).NotTo(BeAnExistingFile())

@@ -14,8 +14,8 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/routes"
-	"github.com/mudler/LocalAI/core/services/connections"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -23,24 +23,24 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// listStub is a connections.Service that only lists. The other methods panic
+// listStub is a remotes.Service that only lists. The other methods panic
 // through the nil embedded interface, so a spec fails if the payload code
 // calls anything else.
 type listStub struct {
-	connections.Service
-	list  []connections.Connection
+	remotes.Service
+	list  []remotes.Remote
 	err   error
 	calls atomic.Int32
 }
 
-func (s *listStub) List(context.Context) ([]connections.Connection, error) {
+func (s *listStub) List(context.Context) ([]remotes.Remote, error) {
 	s.calls.Add(1)
 	return s.list, s.err
 }
 
-// capabilitiesRaw is capabilitiesOf with a connections service and the
+// capabilitiesRaw is capabilitiesOf with a remotes service and the
 // untouched JSON objects of the answer.
-func capabilitiesRaw(svc connections.Service, models map[string]string) []map[string]any {
+func capabilitiesRaw(svc remotes.Service, models map[string]string) []map[string]any {
 	dir := GinkgoT().TempDir()
 	st, err := system.GetSystemState(system.WithModelPath(dir))
 	Expect(err).ToNot(HaveOccurred())
@@ -56,7 +56,7 @@ func capabilitiesRaw(svc connections.Service, models map[string]string) []map[st
 	gs := galleryop.NewGalleryService(ac, ml)
 	a := &application.Application{}
 	if svc != nil {
-		a.SetConnections(svc)
+		a.SetRemotes(svc)
 	}
 	e := echo.New()
 	routes.RegisterUIAPIRoutes(e, cl, ml, ac, gs, galleryop.NewOpCache(gs), a, func(next echo.HandlerFunc) echo.HandlerFunc { return next })
@@ -80,15 +80,15 @@ func byID(data []map[string]any) map[string]map[string]any {
 
 var _ = Describe("UI model capabilities of remote models", func() {
 	remoteModels := map[string]string{
-		"up":      "backend: localai-proxy\nknown_usecases: [chat]\nproxy:\n  upstream_url: https://example.com\n  connection: c1\n",
-		"gone":    "backend: localai-proxy\nknown_usecases: [chat]\nproxy:\n  upstream_url: https://example.com\n  connection: c1\n",
-		"cloud":   "backend: cloud-proxy\nproxy:\n  upstream_url: https://example.com/v1/chat/completions\n  connection: c2\n",
+		"up":      "backend: localai-proxy\nknown_usecases: [chat]\nproxy:\n  upstream_url: https://example.com\n  remote: c1\n",
+		"gone":    "backend: localai-proxy\nknown_usecases: [chat]\nproxy:\n  upstream_url: https://example.com\n  remote: c1\n",
+		"cloud":   "backend: cloud-proxy\nproxy:\n  upstream_url: https://example.com/v1/chat/completions\n  remote: c2\n",
 		"manual":  "backend: cloud-proxy\nproxy:\n  upstream_url: https://example.com/v1/chat/completions\n",
 		"local-a": "backend: llama-cpp\nknown_usecases: [chat]\n",
 	}
 
-	It("reports remote, connection and upstream_state from one list call", func() {
-		svc := &listStub{list: []connections.Connection{
+	It("reports remote, remote_id and upstream_state from one list call", func() {
+		svc := &listStub{list: []remotes.Remote{
 			{ID: "c1", Entries: []string{"up", "gone"}, Unavailable: []string{"gone"}},
 			{ID: "c2", Entries: []string{"cloud"}, Unavailable: []string{}},
 		}}
@@ -96,26 +96,26 @@ var _ = Describe("UI model capabilities of remote models", func() {
 		Expect(svc.calls.Load()).To(BeEquivalentTo(1))
 
 		Expect(got["up"]).To(HaveKeyWithValue("remote", true))
-		Expect(got["up"]).To(HaveKeyWithValue("connection", "c1"))
+		Expect(got["up"]).To(HaveKeyWithValue("remote_id", "c1"))
 		Expect(got["up"]).To(HaveKeyWithValue("upstream_state", "ok"))
 
 		Expect(got["gone"]).To(HaveKeyWithValue("upstream_state", "unavailable"))
-		Expect(got["gone"]).To(HaveKeyWithValue("connection", "c1"))
+		Expect(got["gone"]).To(HaveKeyWithValue("remote_id", "c1"))
 
-		Expect(got["cloud"]).To(HaveKeyWithValue("connection", "c2"))
+		Expect(got["cloud"]).To(HaveKeyWithValue("remote_id", "c2"))
 		Expect(got["cloud"]).To(HaveKeyWithValue("upstream_state", "ok"))
 
-		// A remote entry that no connection owns: remote, no connection.
+		// A remote entry that no remote owns: remote is true, there is no remote_id.
 		Expect(got["manual"]).To(HaveKeyWithValue("remote", true))
-		Expect(got["manual"]).NotTo(HaveKey("connection"))
+		Expect(got["manual"]).NotTo(HaveKey("remote_id"))
 		Expect(got["manual"]).To(HaveKeyWithValue("upstream_state", "ok"))
 	})
 
 	It("keeps a local model as it was, with remote false", func() {
-		svc := &listStub{list: []connections.Connection{{ID: "c1", Unavailable: []string{"local-a"}}}}
+		svc := &listStub{list: []remotes.Remote{{ID: "c1", Unavailable: []string{"local-a"}}}}
 		got := byID(capabilitiesRaw(svc, remoteModels))["local-a"]
 		Expect(got).To(HaveKeyWithValue("remote", false))
-		Expect(got).NotTo(HaveKey("connection"))
+		Expect(got).NotTo(HaveKey("remote_id"))
 		Expect(got).NotTo(HaveKey("upstream_state"))
 		// The existing shape is unchanged: only "remote" is new.
 		delete(got, "remote")
@@ -126,13 +126,13 @@ var _ = Describe("UI model capabilities of remote models", func() {
 		Expect(got).To(HaveKey("pinned"))
 	})
 
-	It("does not list connections when no model is remote", func() {
+	It("does not list remotes when no model is remote", func() {
 		svc := &listStub{}
 		capabilitiesRaw(svc, map[string]string{"local-a": remoteModels["local-a"]})
 		Expect(svc.calls.Load()).To(BeZero())
 	})
 
-	It("still reports remote without the service, and no connection state", func() {
+	It("still reports remote without the service, and no remote state", func() {
 		got := byID(capabilitiesRaw(nil, remoteModels))
 		Expect(got["up"]).To(HaveKeyWithValue("remote", true))
 		Expect(got["up"]).To(HaveKeyWithValue("upstream_state", "ok"))

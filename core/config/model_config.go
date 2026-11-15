@@ -324,11 +324,11 @@ type ProxyConfig struct {
 	// No effect for passthrough mode or non-Anthropic providers.
 	CachePrompt bool `yaml:"cache_prompt,omitempty" json:"cache_prompt,omitempty"`
 
-	// Connection is the id of a remote connection that owns this model.
-	// The key comes from the connection store when the model loads, so the
+	// Remote is the id of a remote that owns this model.
+	// The key comes from the remote store when the model loads, so the
 	// config holds no credential. Mutually exclusive with APIKey, APIKeyEnv
 	// and APIKeyFile.
-	Connection string `yaml:"connection,omitempty" json:"connection,omitempty"`
+	Remote string `yaml:"remote,omitempty" json:"remote,omitempty"`
 }
 
 // Proxy mode names. Validate() normalises an empty Mode to
@@ -366,8 +366,8 @@ func (p ProxyConfig) validateCredentialSources() error {
 	if sources > 1 {
 		return fmt.Errorf("proxy: api_key, api_key_env and api_key_file are mutually exclusive")
 	}
-	if sources > 0 && p.Connection != "" {
-		return fmt.Errorf("proxy: connection cannot be combined with api_key, api_key_env or api_key_file; the key comes from the connection")
+	if sources > 0 && p.Remote != "" {
+		return fmt.Errorf("proxy: remote cannot be combined with api_key, api_key_env or api_key_file; the key comes from the remote")
 	}
 	return nil
 }

@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"context"
@@ -58,17 +58,17 @@ type ModelDiff = modelDiff
 
 var (
 	SanitizeName    = sanitizeName
-	ConnectionSlug  = connectionSlug
+	RemoteSlug      = remoteSlug
 	ChooseEntryName = chooseEntryName
 	ModelDiffOf     = diffModels
 	HashBytes       = hashBytes
 )
 
 // BuildEntry returns the YAML of an entry for a remote.
-func BuildEntry(kind Kind, rawURL, name, connectionID string, m UpstreamModel) ([]byte, error) {
+func BuildEntry(kind Kind, rawURL, name, remoteID string, m UpstreamModel) ([]byte, error) {
 	t, err := parseTarget(kind, rawURL, "")
 	if err != nil {
 		return nil, err
 	}
-	return buildEntry(t, name, connectionID, m)
+	return buildEntry(t, name, remoteID, m)
 }

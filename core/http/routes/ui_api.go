@@ -866,18 +866,18 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			AliasOf    string `json:"alias_of,omitempty"`
 			AliasError string `json:"alias_error,omitempty"`
 			// Remote is true when a remote backend serves the model: a
-			// proxy to another LocalAI or to a cloud endpoint. Connection
-			// is the id of the remote connection that owns the entry, when
+			// proxy to another LocalAI or to a cloud endpoint. RemoteID
+			// is the id of the remote that owns the entry, when
 			// there is one. UpstreamState is "unavailable" when the remote
 			// no longer lists the model, "ok" for any other remote entry,
 			// and absent for a local model.
 			Remote        bool   `json:"remote"`
-			Connection    string `json:"connection,omitempty"`
+			RemoteID      string `json:"remote_id,omitempty"`
 			UpstreamState string `json:"upstream_state,omitempty"`
 		}
 
 		// One lookup per request, and none when no model is remote. Without the service (its store could not
-		// be opened) there is no connection state to report.
+		// be opened) there is no remote state to report.
 		unavailable := map[string]bool{}
 		anyRemote := false
 		for i := range modelConfigs {
@@ -886,7 +886,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				break
 			}
 		}
-		if svc := applicationInstance.Connections(); anyRemote && svc != nil {
+		if svc := applicationInstance.Remotes(); anyRemote && svc != nil {
 			if conns, err := svc.List(c.Request().Context()); err == nil {
 				for _, conn := range conns {
 					for _, name := range conn.Unavailable {
@@ -894,7 +894,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 					}
 				}
 			} else {
-				xlog.Warn("Remote connections could not be listed for the capabilities payload", "error", err)
+				xlog.Warn("Remotes could not be listed for the capabilities payload", "error", err)
 			}
 		}
 
@@ -947,7 +947,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			entry.ThreeDOperations = effective.ThreeDOperations()
 			entry.Backend = effective.Backend
 			if entry.Remote = config.IsRemoteBackend(effective.Backend); entry.Remote {
-				entry.Connection = effective.Proxy.Connection
+				entry.RemoteID = effective.Proxy.Remote
 				entry.UpstreamState = "ok"
 				if unavailable[effective.Name] {
 					entry.UpstreamState = "unavailable"

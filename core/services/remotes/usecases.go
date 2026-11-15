@@ -1,4 +1,4 @@
-package connections
+package remotes
 
 import (
 	"slices"

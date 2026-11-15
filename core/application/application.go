@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"github.com/mudler/LocalAI/core/services/collections"
-	"github.com/mudler/LocalAI/core/services/connections"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"io"
 	"math/rand/v2"
@@ -239,7 +239,7 @@ type Application struct {
 	routerCorpus      *corpus.Manager
 	admissionLimiter  *admission.Limiter
 	failoverManager   *failover.Manager
-	connections       connections.Service
+	remotes           remotes.Service
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
 	p2pMutex          sync.Mutex
