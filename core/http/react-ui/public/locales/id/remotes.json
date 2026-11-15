@@ -30,7 +30,9 @@
       "unreachable": "Server tidak dapat dijangkau. Periksa alamatnya dan pastikan server lain berjalan serta dapat dijangkau dari server ini.",
       "auth": "Penyedia menolak kunci itu. Periksa lalu coba lagi.",
       "no_models": "Koneksi berfungsi, tetapi tidak ada model yang dapat ditambahkan.",
-      "other": "Pengujian gagal."
+      "other": "Pengujian gagal.",
+      "authLocalai": "Server LocalAI lain menolak kunci. Gunakan kunci yang dapat menampilkan daftar modelnya, atau kosongkan kunci jika server tidak memerlukannya.",
+      "unsupported": "Server ini tidak dapat menghubungkan remote."
     }
   },
   "choose": {
@@ -48,8 +50,10 @@
     "error": {
       "nameTaken": "Sudah ada remote dengan nama ini. Pilih nama lain.",
       "invalid": "Server tidak menerima data ini: {{message}}",
-      "other": "Terjadi kesalahan: {{message}}"
-    }
+      "other": "Terjadi kesalahan: {{message}}",
+      "unsupported": "Server ini tidak dapat menghubungkan remote."
+    },
+    "tooMany": "Pilih paling banyak {{max}} model sekaligus. Tambahkan sisanya nanti."
   },
   "usecase": {
     "chat": "Obrolan",
@@ -58,7 +62,26 @@
     "embeddings": "Embedding",
     "image": "Gambar",
     "video": "Video",
-    "rerank": "Rerank"
+    "rerank": "Rerank",
+    "completion": "Penyelesaian teks",
+    "edit": "Edit",
+    "vision": "Visi",
+    "tokenize": "Tokenisasi",
+    "upscale": "Upscale",
+    "3d": "3D",
+    "3d_animation": "Animasi 3D",
+    "motion": "Gerakan",
+    "sound_generation": "Pembuatan suara",
+    "detection": "Deteksi",
+    "depth": "Kedalaman",
+    "forecast": "Prakiraan",
+    "vad": "Aktivitas suara",
+    "audio_transform": "Transformasi audio",
+    "diarization": "Diarisasi",
+    "sound_classification": "Klasifikasi suara",
+    "realtime_audio": "Audio waktu nyata",
+    "face_recognition": "Pengenalan wajah",
+    "speaker_recognition": "Pengenalan pembicara"
   },
   "sheet": {
     "open": "Hubungkan remote"
@@ -69,7 +92,8 @@
       "ok": "Terhubung · diperbarui {{when}}",
       "never": "Belum diperbarui",
       "auth_failed": "Kunci ditolak",
-      "unreachable": "Tidak terjangkau"
+      "unreachable": "Tidak terjangkau",
+      "noUsable": "Terhubung · tidak ada model yang dapat digunakan"
     },
     "refresh": "Segarkan",
     "edit": "Ubah",
@@ -91,7 +115,11 @@
     "models_other": "{{count}} model dari remote ini",
     "gone": "{{count}} tidak lagi terdaftar",
     "gone_other": "{{count}} tidak lagi terdaftar",
-    "view": "Lihat di Terpasang"
+    "view": "Lihat di Terpasang",
+    "noUsableTitle": "Tidak ada model yang dapat digunakan.",
+    "noUsableText": "Remote merespons, tetapi tidak mencantumkan model yang dapat digunakan server ini.",
+    "refreshWarn": "{{name}} disegarkan, tetapi tidak ada model yang dapat digunakan.",
+    "authTextLocalai": "Gunakan kunci yang dapat menampilkan daftar model server itu, lalu hubungkan lagi."
   },
   "empty": {
     "title": "Belum ada remote yang terhubung",
@@ -111,7 +139,8 @@
     "keyNotSet": "Belum ada kunci yang diatur.",
     "keyRestart": "Kunci baru memulai ulang model yang sedang dimuat.",
     "saved": "{{name}} disimpan.",
-    "savedKey": "{{name}} disimpan. Model yang dimuat dimulai ulang dengan kunci baru."
+    "savedKey": "{{name}} disimpan. Model yang dimuat dimulai ulang dengan kunci baru.",
+    "savedWarn": "{{name}} disimpan, tetapi masih ada masalah. Buka remote untuk melihatnya."
   },
   "remove": {
     "button": "Hapus remote",
@@ -126,5 +155,31 @@
     "confirm": "Hapus remote",
     "doneKeep": "{{name}} dihapus. Model-nya tetap ada.",
     "doneAll": "{{name}} dan model-nya dihapus."
+  },
+  "result": {
+    "added": "{{count}} model ditambahkan.",
+    "added_other": "{{count}} model ditambahkan.",
+    "partialTitle": "Remote sudah disimpan, tetapi beberapa model tidak ditambahkan.",
+    "skippedTitle": "Beberapa model tidak ditambahkan.",
+    "adoptHint": "Adopsi model yang belum ada. Ini tidak membuat remote lagi.",
+    "adopt": "Adopsi model",
+    "continue": "Lanjutkan"
+  },
+  "skipped": {
+    "summary": "{{count}} model tidak ditambahkan",
+    "summary_other": "{{count}} model tidak ditambahkan",
+    "reason": {
+      "listedTwice": "Terdaftar dua kali",
+      "alreadyAdopted": "Sudah ditambahkan",
+      "noFreeName": "Tidak ada nama model yang bebas",
+      "nameExists": "Sudah ada model dengan nama itu",
+      "invalid": "Nama atau pengaturan model tidak valid",
+      "buildFailed": "Model tidak dapat disiapkan",
+      "writeFailed": "Model tidak dapat disimpan"
+    }
+  },
+  "unsupported": {
+    "title": "Remote tidak tersedia",
+    "body": "Server ini berjalan tanpa galeri model, sehingga tidak dapat menghubungkan remote."
   }
 }

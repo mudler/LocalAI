@@ -212,6 +212,8 @@
     "step2Title": "Pilih model",
     "step2Body": "Setiap model yang Anda pilih menjadi model di sini.",
     "done": "{{name}} terhubung. {{count}} model ditambahkan.",
-    "done_other": "{{name}} terhubung. {{count}} model ditambahkan."
+    "done_other": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "skipped": "{{count}} model tidak ditambahkan:",
+    "skipped_other": "{{count}} model tidak ditambahkan:"
   }
 }

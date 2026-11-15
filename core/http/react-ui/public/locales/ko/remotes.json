@@ -30,7 +30,9 @@
       "unreachable": "서버에 연결할 수 없습니다. 주소를 확인하고, 다른 서버가 실행 중이며 이 서버에서 접근할 수 있는지 확인하세요.",
       "auth": "제공자가 키를 거부했습니다. 키를 확인한 뒤 다시 시도하세요.",
       "no_models": "연결은 되지만 추가할 수 있는 모델이 없습니다.",
-      "other": "테스트에 실패했습니다."
+      "other": "테스트에 실패했습니다.",
+      "authLocalai": "다른 LocalAI 서버가 키를 거부했습니다. 모델 목록을 볼 수 있는 키를 사용하거나, 서버에 키가 필요 없으면 비워 두세요.",
+      "unsupported": "이 서버는 원격을 연결할 수 없습니다."
     }
   },
   "choose": {
@@ -48,8 +50,10 @@
     "error": {
       "nameTaken": "같은 이름의 원격이 이미 있습니다. 다른 이름을 입력하세요.",
       "invalid": "서버가 이 정보를 받아들이지 않았습니다: {{message}}",
-      "other": "문제가 발생했습니다: {{message}}"
-    }
+      "other": "문제가 발생했습니다: {{message}}",
+      "unsupported": "이 서버는 원격을 연결할 수 없습니다."
+    },
+    "tooMany": "한 번에 모델을 최대 {{max}}개까지 선택하세요. 나머지는 나중에 추가하세요."
   },
   "usecase": {
     "chat": "채팅",
@@ -58,7 +62,26 @@
     "embeddings": "임베딩",
     "image": "이미지",
     "video": "비디오",
-    "rerank": "리랭크"
+    "rerank": "리랭크",
+    "completion": "완성",
+    "edit": "편집",
+    "vision": "비전",
+    "tokenize": "토큰화",
+    "upscale": "업스케일",
+    "3d": "3D",
+    "3d_animation": "3D 애니메이션",
+    "motion": "모션",
+    "sound_generation": "사운드 생성",
+    "detection": "탐지",
+    "depth": "깊이",
+    "forecast": "예측",
+    "vad": "음성 활동",
+    "audio_transform": "오디오 변환",
+    "diarization": "화자 분리",
+    "sound_classification": "소리 분류",
+    "realtime_audio": "실시간 오디오",
+    "face_recognition": "얼굴 인식",
+    "speaker_recognition": "화자 인식"
   },
   "sheet": {
     "open": "원격 연결"
@@ -69,7 +92,8 @@
       "ok": "연결됨 · {{when}} 새로 고침",
       "never": "아직 새로 고치지 않음",
       "auth_failed": "키가 거부됨",
-      "unreachable": "연결할 수 없음"
+      "unreachable": "연결할 수 없음",
+      "noUsable": "연결됨 · 사용할 수 있는 모델 없음"
     },
     "refresh": "새로 고침",
     "edit": "편집",
@@ -91,7 +115,11 @@
     "models_other": "이 원격의 모델 {{count}}개",
     "gone": "{{count}}개는 더 이상 목록에 없음",
     "gone_other": "{{count}}개는 더 이상 목록에 없음",
-    "view": "설치됨에서 보기"
+    "view": "설치됨에서 보기",
+    "noUsableTitle": "사용할 수 있는 모델이 없습니다.",
+    "noUsableText": "원격이 응답했지만, 이 서버에서 사용할 수 있는 모델이 없습니다.",
+    "refreshWarn": "{{name}}을(를) 새로 고쳤지만 사용할 수 있는 모델이 없습니다.",
+    "authTextLocalai": "해당 서버의 모델 목록을 볼 수 있는 키를 사용한 뒤 다시 연결하세요."
   },
   "empty": {
     "title": "연결된 원격이 없습니다",
@@ -111,7 +139,8 @@
     "keyNotSet": "설정된 키가 없습니다.",
     "keyRestart": "새 키를 넣으면 로드된 모델이 다시 시작됩니다.",
     "saved": "{{name}}을(를) 저장했습니다.",
-    "savedKey": "{{name}}을(를) 저장했습니다. 로드된 모델이 새 키로 다시 시작됩니다."
+    "savedKey": "{{name}}을(를) 저장했습니다. 로드된 모델이 새 키로 다시 시작됩니다.",
+    "savedWarn": "{{name}}을(를) 저장했지만 아직 문제가 있습니다. 원격을 열어 확인하세요."
   },
   "remove": {
     "button": "원격 제거",
@@ -126,5 +155,31 @@
     "confirm": "원격 제거",
     "doneKeep": "{{name}}을(를) 제거했습니다. 모델은 그대로 남습니다.",
     "doneAll": "{{name}}과(와) 그 모델을 제거했습니다."
+  },
+  "result": {
+    "added": "모델 {{count}}개를 추가했습니다.",
+    "added_other": "모델 {{count}}개를 추가했습니다.",
+    "partialTitle": "원격은 저장되었지만 일부 모델은 추가되지 않았습니다.",
+    "skippedTitle": "일부 모델은 추가되지 않았습니다.",
+    "adoptHint": "빠진 모델을 가져오세요. 원격을 다시 만들지는 않습니다.",
+    "adopt": "모델 가져오기",
+    "continue": "계속"
+  },
+  "skipped": {
+    "summary": "추가되지 않은 모델 {{count}}개",
+    "summary_other": "추가되지 않은 모델 {{count}}개",
+    "reason": {
+      "listedTwice": "두 번 나열됨",
+      "alreadyAdopted": "이미 추가됨",
+      "noFreeName": "사용 가능한 모델 이름이 없음",
+      "nameExists": "같은 이름의 모델이 있음",
+      "invalid": "모델 이름 또는 설정이 올바르지 않음",
+      "buildFailed": "모델을 준비하지 못함",
+      "writeFailed": "모델을 저장하지 못함"
+    }
+  },
+  "unsupported": {
+    "title": "원격을 사용할 수 없습니다",
+    "body": "이 서버는 모델 갤러리 없이 실행 중이어서 원격을 연결할 수 없습니다."
   }
 }

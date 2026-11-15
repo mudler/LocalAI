@@ -335,6 +335,8 @@
     "step2Title": "Choose models",
     "step2Body": "Each model you pick becomes a model here.",
     "done": "Connected {{name}}. Added {{count}} model.",
-    "done_other": "Connected {{name}}. Added {{count}} models."
+    "done_other": "Connected {{name}}. Added {{count}} models.",
+    "skipped": "{{count}} model was not added:",
+    "skipped_other": "{{count}} models were not added:"
   }
 }

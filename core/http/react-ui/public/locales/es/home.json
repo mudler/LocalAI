@@ -212,6 +212,8 @@
     "step2Title": "Elige modelos",
     "step2Body": "Cada modelo que elijas se convierte en un modelo aquí.",
     "done": "{{name}} conectado. Se añadió {{count}} modelo.",
-    "done_other": "{{name}} conectado. Se añadieron {{count}} modelos."
+    "done_other": "{{name}} conectado. Se añadieron {{count}} modelos.",
+    "skipped": "{{count}} modelo no se añadió:",
+    "skipped_other": "{{count}} modelos no se añadieron:"
   }
 }

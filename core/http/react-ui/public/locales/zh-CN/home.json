@@ -212,6 +212,8 @@
     "step2Title": "选择模型",
     "step2Body": "你选的每个模型都会成为这里的一个模型。",
     "done": "已连接 {{name}}，添加了 {{count}} 个模型。",
-    "done_other": "已连接 {{name}}，添加了 {{count}} 个模型。"
+    "done_other": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "skipped": "{{count}} 个模型未添加：",
+    "skipped_other": "{{count}} 个模型未添加："
   }
 }

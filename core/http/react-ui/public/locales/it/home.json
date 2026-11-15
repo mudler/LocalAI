@@ -212,6 +212,8 @@
     "step2Title": "Scegli i modelli",
     "step2Body": "Ogni modello scelto diventa un modello qui.",
     "done": "{{name}} connesso. Aggiunto {{count}} modello.",
-    "done_other": "{{name}} connesso. Aggiunti {{count}} modelli."
+    "done_other": "{{name}} connesso. Aggiunti {{count}} modelli.",
+    "skipped": "{{count}} modello non è stato aggiunto:",
+    "skipped_other": "{{count}} modelli non sono stati aggiunti:"
   }
 }

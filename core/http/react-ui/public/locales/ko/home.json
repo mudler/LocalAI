@@ -212,6 +212,8 @@
     "step2Title": "모델 선택",
     "step2Body": "선택한 모델은 여기에서 하나의 모델이 됩니다.",
     "done": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
-    "done_other": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다."
+    "done_other": "{{name}}에 연결했습니다. 모델 {{count}}개를 추가했습니다.",
+    "skipped": "모델 {{count}}개가 추가되지 않았습니다:",
+    "skipped_other": "모델 {{count}}개가 추가되지 않았습니다:"
   }
 }

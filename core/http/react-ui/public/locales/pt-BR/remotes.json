@@ -30,7 +30,9 @@
       "unreachable": "Não foi possível alcançar o servidor. Confira o endereço e se o outro servidor está em execução e acessível a partir deste servidor.",
       "auth": "O provedor recusou a chave. Confira e tente de novo.",
       "no_models": "A conexão funciona, mas não lista modelos para adicionar.",
-      "other": "O teste falhou."
+      "other": "O teste falhou.",
+      "authLocalai": "O outro servidor LocalAI recusou a chave. Use uma chave que possa listar os modelos dele ou deixe o campo vazio se o servidor não exigir chave.",
+      "unsupported": "Este servidor não pode conectar remotos."
     }
   },
   "choose": {
@@ -48,8 +50,10 @@
     "error": {
       "nameTaken": "Já existe um remoto com esse nome. Escolha outro nome.",
       "invalid": "O servidor não aceitou esses dados: {{message}}",
-      "other": "Algo deu errado: {{message}}"
-    }
+      "other": "Algo deu errado: {{message}}",
+      "unsupported": "Este servidor não pode conectar remotos."
+    },
+    "tooMany": "Selecione no máximo {{max}} modelos por vez. Adicione o restante depois."
   },
   "usecase": {
     "chat": "Chat",
@@ -58,7 +62,26 @@
     "embeddings": "Embeddings",
     "image": "Imagem",
     "video": "Vídeo",
-    "rerank": "Rerank"
+    "rerank": "Rerank",
+    "completion": "Completar",
+    "edit": "Edição",
+    "vision": "Visão",
+    "tokenize": "Tokenização",
+    "upscale": "Ampliação",
+    "3d": "3D",
+    "3d_animation": "Animação 3D",
+    "motion": "Movimento",
+    "sound_generation": "Geração de som",
+    "detection": "Detecção",
+    "depth": "Profundidade",
+    "forecast": "Previsão",
+    "vad": "Atividade de voz",
+    "audio_transform": "Transformação de áudio",
+    "diarization": "Diarização",
+    "sound_classification": "Classificação de sons",
+    "realtime_audio": "Áudio em tempo real",
+    "face_recognition": "Reconhecimento facial",
+    "speaker_recognition": "Reconhecimento de falante"
   },
   "sheet": {
     "open": "Conectar um remoto"
@@ -69,7 +92,8 @@
       "ok": "Conectado · atualizado {{when}}",
       "never": "Ainda não atualizado",
       "auth_failed": "Chave recusada",
-      "unreachable": "Inacessível"
+      "unreachable": "Inacessível",
+      "noUsable": "Conectado · nenhum modelo utilizável"
     },
     "refresh": "Atualizar",
     "edit": "Editar",
@@ -91,7 +115,11 @@
     "models_other": "{{count}} modelos deste remoto",
     "gone": "{{count}} não listado mais",
     "gone_other": "{{count}} não listados mais",
-    "view": "Ver em Instalados"
+    "view": "Ver em Instalados",
+    "noUsableTitle": "Nenhum modelo utilizável.",
+    "noUsableText": "O remoto respondeu, mas não lista modelos que este servidor possa usar.",
+    "refreshWarn": "{{name}} atualizado, mas não tem modelos utilizáveis.",
+    "authTextLocalai": "Use uma chave que possa listar os modelos desse servidor e conecte de novo."
   },
   "empty": {
     "title": "Nenhum remoto conectado",
@@ -111,7 +139,8 @@
     "keyNotSet": "Nenhuma chave definida.",
     "keyRestart": "Uma nova chave reinicia os modelos carregados.",
     "saved": "{{name}} salvo.",
-    "savedKey": "{{name}} salvo. Os modelos carregados reiniciam com a nova chave."
+    "savedKey": "{{name}} salvo. Os modelos carregados reiniciam com a nova chave.",
+    "savedWarn": "{{name}} salvo, mas ainda há um problema. Abra o remoto para ver."
   },
   "remove": {
     "button": "Remover remoto",
@@ -126,5 +155,31 @@
     "confirm": "Remover remoto",
     "doneKeep": "{{name}} removido. Os modelos dele continuam.",
     "doneAll": "{{name}} e os modelos dele removidos."
+  },
+  "result": {
+    "added": "{{count}} modelo adicionado.",
+    "added_other": "{{count}} modelos adicionados.",
+    "partialTitle": "O remoto foi salvo, mas alguns modelos não foram adicionados.",
+    "skippedTitle": "Alguns modelos não foram adicionados.",
+    "adoptHint": "Adote os modelos que faltam. Isso não cria o remoto de novo.",
+    "adopt": "Adotar modelos",
+    "continue": "Continuar"
+  },
+  "skipped": {
+    "summary": "{{count}} modelo não adicionado",
+    "summary_other": "{{count}} modelos não adicionados",
+    "reason": {
+      "listedTwice": "Listado duas vezes",
+      "alreadyAdopted": "Já adicionado",
+      "noFreeName": "Nenhum nome de modelo livre",
+      "nameExists": "Já existe um modelo com esse nome",
+      "invalid": "O nome ou as configurações do modelo não são válidos",
+      "buildFailed": "Não foi possível preparar o modelo",
+      "writeFailed": "Não foi possível salvar o modelo"
+    }
+  },
+  "unsupported": {
+    "title": "Os remotos não estão disponíveis",
+    "body": "Este servidor roda sem a galeria de modelos, então não pode conectar remotos."
   }
 }
