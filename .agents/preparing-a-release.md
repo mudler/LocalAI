@@ -26,6 +26,14 @@ What happens, and what to check:
 
 The development entries in `gallery/addons/index.yaml` are regenerated with `sh scripts/addons/catalog.sh --channel development --repository quay.io/go-skynet/local-ai-addons --out gallery/addons/index.yaml`; they do not need a change per release.
 
+## The desktop launcher and the draft release
+
+Every release carries the Electron launcher and its update feed (`latest-linux.yml`, `latest-linux-arm64.yml`, `latest-mac.yml`). Installed launchers read the feed from the newest published release, so a published release without it makes every launcher report an update error. `.github/workflows/launcher-electron-release.yaml` attaches the files and then checks the feed; it never publishes the release.
+
+1. Push the tag while the release is still a draft.
+2. Wait until the `launcher-electron` jobs of the tag's release run are green: the upload and `Check the attached feed`.
+3. Publish the release. Do not publish while those jobs are red or still running. A re-run of the tag workflow replaces the launcher files and keeps the version.
+
 ## Clip conventions
 
 - MP4, H.264, no audio track unless the feature is about audio. Keep them short (10 to 30 seconds) and loopable.
@@ -36,6 +44,6 @@ The development entries in `gallery/addons/index.yaml` are regenerated with `sh 
 
 ## Order of work
 
-Label the PRs, generate and edit the release notes, cut the draft release, record the clips while the branch is still fresh in your head, then write the post against the notes and the clips. Publishing the release and merging the post should happen on the same day.
+Label the PRs, generate and edit the release notes, cut the draft release (push the tag while it is a draft, and publish only after the launcher feed check is green), record the clips while the branch is still fresh in your head, then write the post against the notes and the clips. Publishing the release and merging the post should happen on the same day.
 
 The `creating-localai-releases` skill drives steps 1 to 3 and captures the React UI screenshots that go into the notes.

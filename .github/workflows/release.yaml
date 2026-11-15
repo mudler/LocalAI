@@ -99,3 +99,22 @@ jobs:
     uses: ./.github/workflows/launcher-appimage.yaml
     with:
       publish: true
+
+  # The Electron launcher (preview) and its update feed. Every release carries
+  # them: installed launchers read the feed from the newest release.
+  launcher-electron:
+    needs: goreleaser
+    permissions:
+      contents: write
+    uses: ./.github/workflows/launcher-electron-release.yaml
+    with:
+      tag: ${{ github.ref_name }}
+      # Preview file names while the older launcher ships on the same release.
+      # At the cutover: false, and remove the older launcher's jobs above.
+      preview-names: true
+    secrets:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+      MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+      MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}

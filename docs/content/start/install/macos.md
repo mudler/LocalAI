@@ -50,6 +50,44 @@ spctl --assess --type open --context context:primary-signature -v /Applications/
 codesign --verify --deep --strict --verbose=2 /Applications/LocalAI.app
 ```
 
+## New launcher (preview)
+
+A new launcher is in preview. Its window shows the LocalAI WebUI, with a small
+status bar at the bottom. Releases carry both launchers during the preview.
+Download `LocalAI-Launcher-Preview.dmg` from
+[GitHub Releases](https://github.com/mudler/LocalAI/releases). It is for Apple
+Silicon (M1 and later) only, as before. Open the DMG and drag
+**LocalAI Launcher** to Applications. The app is signed and notarized.
+
+When the preview ends, the new launcher replaces the older one and takes the
+name `LocalAI.dmg`.
+
+**Microphone and camera.** The WebUI has voice features. When you start one,
+macOS asks once for access to the microphone (or the camera). If you never use
+these features, macOS never asks. The launcher allows access only for the
+LocalAI server that it shows.
+
+**Updates.** The new launcher updates itself from GitHub Releases. It tells you
+when an update is ready. Select **Restart to update** to install it. It offers
+stable releases only. To get release candidates too, turn on **Also offer
+release candidates** in Settings, under Updates. The older
+launcher cannot update itself to the new one: download the new launcher once.
+It uses the same `~/.localai/` folder and the same settings.
+
+### Development builds for testers
+
+Each change to the launcher on the `master` branch makes a development DMG.
+It is a GitHub Actions artifact, so you must sign in to GitHub to download it.
+It is kept for 14 days. See
+[Development builds for testers]({{% relref "/start/install/linux" %}}#development-builds-for-testers)
+for the commands, and use the artifact `localai-launcher-dev-macos-arm64`.
+
+A development DMG is normally signed and notarized. If it is not (the
+maintainers can turn signing off for development builds), macOS stops the first
+start. Open **System Settings > Privacy & Security**, and select **Open Anyway**
+next to the message about LocalAI Launcher. A development build never updates
+itself.
+
 ## Next Steps
 
 After installing LocalAI, you can:
