@@ -7,6 +7,21 @@ export const FALLBACK_ICON = 'circle'
 // Every outline icon id of the kit set (the brand marks are not in it).
 export const ICON_IDS = new Set(Object.keys(ICONS))
 
+// The `dangerouslySetInnerHTML` value of each drawing, made once. React sets
+// the markup again whenever the prop is a new object, even for equal text, so
+// a fresh `{ __html }` on each render would replace the shapes of every icon
+// on every render of its page. A press that starts on a shape then ends on a
+// node that is gone, and the browser sends no click.
+const MARKUP = new Map()
+const markup = (id) => {
+  let value = MARKUP.get(id)
+  if (!value) {
+    value = { __html: ICONS[id] }
+    MARKUP.set(id, value)
+  }
+  return value
+}
+
 export const hasIcon = (name) => ICON_IDS.has(name) || Object.hasOwn(BRAND_GLYPHS, name)
 
 // One icon from the kit's outline set, drawn inline: it needs no sprite in the
@@ -48,7 +63,7 @@ export default function Icon({ name, size, className, title, spin = false, style
           stroke="currentColor"
           strokeLinecap="round"
           strokeLinejoin="round"
-          dangerouslySetInnerHTML={{ __html: ICONS[id] }}
+          dangerouslySetInnerHTML={markup(id)}
         />
       )}
     </svg>
