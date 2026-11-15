@@ -1,8 +1,8 @@
 ---
 title: "Connectors"
 weight: 11
-card: "Message an agent from Slack, Telegram or Discord."
-headline: 'Text it from your <span class="hl">phone</span>.'
+card: "Message an agent from a chat app."
+headline: 'Message an agent from a <span class="hl">chat app</span>.'
 lede: "Connect an agent to the chat apps you already use. Add-ons do the connecting."
 docs: "/docs/features/chats-connectors/"
 dev: true
@@ -11,7 +11,7 @@ illus: "apps"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
 demo: ""
 points:
-  - "Slack, Telegram and Discord connect through add-ons."
+  - "Chat apps connect through add-ons. The add-on catalogue lists them."
   - "A connection is bound to exactly one agent."
   - "The agent answers from your Files. It uses a collection only when you name it."
   - "Bots can send files back, up to five per turn."
