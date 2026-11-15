@@ -57,16 +57,16 @@ local-ai models install llama-3.2-1b-instruct:q4_k_m
 local-ai run llama-3.2-1b-instruct:q4_k_m
 ```
 
-To run models available in the LocalAI gallery, you can use the model name as the URI. For example, to run LocalAI with the Qwen3 4B model, execute:
+To run models available in the LocalAI gallery, you can use the model name as the URI. For example, to run LocalAI with the Gemma 4 E2B model, execute:
 
 ```bash
-local-ai run qwen3-4b
+local-ai run gemma-4-e2b-it-qat-q4_0
 ```
 
 To install only the model, use:
 
 ```bash
-local-ai models install qwen3-4b
+local-ai models install gemma-4-e2b-it-qat-q4_0
 ```
 
 Note: The galleries available in LocalAI can be customized to point to a different URL or a local directory. For more information on how to setup your own gallery, see the [Gallery Documentation]({{% relref "/models" %}}).

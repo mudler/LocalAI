@@ -989,12 +989,12 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
    }' 
 ```
 
-An example that installs `qwen3-4b` from the LocalAI gallery:
+An example that installs `gemma-4-e2b-it-qat-q4_0` from the LocalAI gallery:
 
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "id": "localai@qwen3-4b"
+     "id": "localai@gemma-4-e2b-it-qat-q4_0"
    }'
 ```
 
@@ -1082,7 +1082,7 @@ For example, to install a model as `gpt-3.5-turbo`:
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-      "id": "localai@qwen3-4b",
+      "id": "localai@gemma-4-e2b-it-qat-q4_0",
       "name": "gpt-3.5-turbo"
    }' 
 ```

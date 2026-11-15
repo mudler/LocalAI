@@ -31,10 +31,11 @@ curl -sSL https://localai.io/install.sh | sh
 
 ### Run a first model
 
-LocalAI downloads the model and picks the engine for your machine. See the [quickstart]({{% relref "/start/quickstart" %}}).
+Start the server, open the web interface and accept the model it recommends. LocalAI downloads the model and picks the engine for your machine. See the [quickstart]({{% relref "/start/quickstart" %}}).
 
 ```bash
-local-ai run qwen3-4b
+local-ai run
+# open http://localhost:8080 and install the model it recommends
 ```
 
 </div>

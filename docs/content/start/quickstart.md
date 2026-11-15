@@ -17,11 +17,12 @@ LocalAI is an open-source AI engine and platform. It speaks the OpenAI and Anthr
 
 ## Install and start LocalAI
 
-On Linux, or on a Mac with Apple Silicon, run the install script, then start LocalAI with a model:
+On Linux, or on a Mac with Apple Silicon, run the install script, then start LocalAI:
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run qwen3-4b
+local-ai run
+# open http://localhost:8080 and install the model it recommends
 ```
 
 On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
@@ -32,7 +33,7 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 
 On Linux or a Mac you can also download the [desktop app]({{% relref "/start/install/desktop" %}}): a DMG for macOS or an AppImage for Linux. It installs and starts the server for you. For all install methods, see the [install guide]({{% relref "/start/install" %}}).
 
-You should see the log line `LocalAI is started and running` with the address `:8080`. The first run of `local-ai run qwen3-4b` downloads the model, so it takes longer.
+You should see the log line `LocalAI is started and running` with the address `:8080`. The server starts with no model. Open `http://localhost:8080`: on a fresh install the first-run guide recommends a model for your hardware and downloads it when you agree. To choose a model yourself, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small model that runs on a CPU. The first run of a model takes longer, because it downloads the model.
 
 For GPU acceleration in a container, use the image that matches your hardware:
 
@@ -60,8 +61,8 @@ Open **http://localhost:8080** in your browser. The web interface lets you:
 
 To get your first chat working:
 
-1. Open **Models → Explore** and search for `qwen3-4b`. If you did not start LocalAI with `local-ai run qwen3-4b`, click **Install** on the `qwen3-4b` entry and wait for the download to finish. `qwen3-4b` is a small Qwen3 model for CPU. It also supports tool calling, so you can use it again in [Build your first agent]({{% relref "/start/first-agent" %}}).
-2. Open **Chats**, select `qwen3-4b` from the model list, type a message and send it.
+1. On a fresh install, accept the model that the first-run guide recommends. Or open **Models → Explore**, search for `gemma-4-e2b-it-qat-q4_0` and click **Install**. It is a small Google Gemma 4 model that runs on a CPU and reads images. Wait for the download to finish. You can use it again in [Build your first agent]({{% relref "/start/first-agent" %}}).
+2. Open **Chats**, select the model from the model list, type a message and send it.
 
 You should see a reply within a few seconds. On a CPU, the first reply can take longer while the model loads.
 
@@ -74,7 +75,7 @@ local history; **Cancel** discards the draft.
 When starting LocalAI (either via Docker or via CLI) you can specify as argument a list of models to install automatically before starting the API, for example:
 
 ```bash
-local-ai run qwen3-4b
+local-ai run gemma-4-e2b-it-qat-q4_0
 local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 local-ai run ollama://gemma:2b
 local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
@@ -102,7 +103,7 @@ LocalAI exposes an OpenAI-compatible API. You can use it with any OpenAI SDK or 
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3-4b",
+    "model": "gemma-4-e2b-it-qat-q4_0",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -117,7 +118,7 @@ LocalAI also supports the **Anthropic Messages API**, the **Open Responses API**
 
 An agent is a saved set of instructions and tool grants. It is part of LocalAI. You need no extra install.
 
-1. Install a model that supports tool calling, such as `qwen3-4b`.
+1. Install a model that supports tool calling, such as the one the first-run guide recommends.
 2. Open **Agents** in the sidebar and choose **New agent**.
 3. Give it a name and instructions, then choose **Create agent**.
 4. Choose **Chat** on the agent's row.

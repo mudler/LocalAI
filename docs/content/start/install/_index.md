@@ -52,10 +52,11 @@ The script downloads the release binary for your machine, checks it against the 
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run qwen3-4b
+local-ai run
+# open http://localhost:8080 and install the model it recommends
 ```
 
-The API and the web interface are then at `http://localhost:8080`.
+The server starts with no model. Open `http://localhost:8080`: on a fresh install, the first-run guide recommends a model for your hardware and installs it when you agree. To choose a model yourself, name it. For example, this small model runs on a CPU: `local-ai run gemma-4-e2b-it-qat-q4_0`.
 
 You can set these environment variables before the command:
 
