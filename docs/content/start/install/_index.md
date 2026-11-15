@@ -26,7 +26,15 @@ The desktop app can also connect to a LocalAI server that runs somewhere else. S
 
 ## Path A: desktop app
 
-Download the launcher from the [releases page](https://github.com/mudler/LocalAI/releases). Use `LocalAI-Launcher-x86_64.AppImage` or `LocalAI-Launcher-arm64.AppImage` on Linux, or `LocalAI.dmg` on a Mac with Apple Silicon. See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
+Download the app for your system:
+
+| System | File |
+|---|---|
+| macOS (Apple Silicon) | [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) |
+| Linux, x86-64 | [`LocalAI-Launcher-x86_64.AppImage`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) |
+| Linux, ARM64 | `LocalAI-Launcher-arm64.AppImage` on the [latest release](https://github.com/mudler/LocalAI/releases/latest) |
+
+Each file has a `.sha256` file next to it. See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
 
 ## Path B: server
 

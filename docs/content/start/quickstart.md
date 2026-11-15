@@ -13,7 +13,7 @@ devbuild = "install"
 
 
 
-LocalAI is an open source server that speaks the OpenAI and Anthropic APIs. It runs on your hardware. This page takes you from nothing to a first chat reply.
+LocalAI is an open-source AI engine and platform. It speaks the OpenAI and Anthropic APIs, and it serves text, vision, image, video, music, speech and embedding models. It runs on your hardware, and it does not need a GPU. This page takes you from nothing to a first chat reply.
 
 ## Install and start LocalAI
 
@@ -30,7 +30,7 @@ On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-On Linux or a Mac you can also use the [desktop app]({{% relref "/start/install/desktop" %}}). For all install methods, see the [install guide]({{% relref "/start/install" %}}).
+On Linux or a Mac you can also download the [desktop app]({{% relref "/start/install/desktop" %}}): a DMG for macOS or an AppImage for Linux. It installs and starts the server for you. For all install methods, see the [install guide]({{% relref "/start/install" %}}).
 
 You should see the log line `LocalAI is started and running` with the address `:8080`. The first run of `local-ai run qwen3-4b` downloads the model, so it takes longer.
 

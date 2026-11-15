@@ -2,12 +2,12 @@
 disableToc = true
 title = "Your own AI, on your own hardware"
 linkTitle = "LocalAI docs"
-description = "Documentation for LocalAI: install it, run a first model, build an agent, and run it for a team."
+description = "Documentation for LocalAI, an open-source AI engine and platform: install it, run models of every kind behind an OpenAI-compatible API, build agents, and run it for a team."
 type = "home"
 keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox", "office", "agents"]
 +++
 
-<p class="lai-lede">Ready to work for you. Install LocalAI, run a first model, then give an agent your files. Pages that need an add-on or an administrator switch say so.</p>
+<p class="lai-lede">LocalAI is an open-source AI engine and platform. It runs open models for text, images, video, music and speech behind one OpenAI-compatible API, on a laptop, a server or Kubernetes. No GPU is required. Install it, run a first model, then build agents on your own files.</p>
 
 ## Start in three steps
 
@@ -18,7 +18,7 @@ keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox
 
 ### Install
 
-Use the script on Linux, or on a Mac with Apple Silicon. Other ways: a container, the macOS app, Kubernetes. See the [install guide]({{% relref "/start/install" %}}).
+Use the script on Linux, or on a Mac with Apple Silicon. Other ways: a container, Kubernetes, or the [desktop app]({{% relref "/start/install/desktop" %}}) for macOS (DMG) and Linux (AppImage). See the [install guide]({{% relref "/start/install" %}}).
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
@@ -58,6 +58,9 @@ http://localhost:8080
 <p class="lai-legend"><span class="lai-tag lai-tag-built">Built in</span> is part of LocalAI. <span class="lai-tag lai-tag-addon">Add-on</span> comes from the add-on library, and an administrator installs it. <span class="lai-tag lai-tag-admin">Admin on</span> is built in, but on a server with accounts an administrator must switch it on. With authentication off, you are the administrator.</p>
 
 <div class="lai-feats">
+<a class="lai-feat" href="{{% relref "/models/capabilities" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l8-4 8 4-8 4zM4 12l8 4 8-4M4 17l8 4 8-4"/></svg></span><span class="lai-ft"><b>Every kind of model</b><span>Text, vision, images, video, music, speech, embeddings and reranking.</span></span><span class="lai-tag lai-tag-built">Built in</span></a>
+<a class="lai-feat" href="{{% relref "/features/chats-and-agents/projects" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/><path d="M12 12v4M10 14h4"/></svg></span><span class="lai-ft"><b>Projects</b><span>Chats, files, notes and agents for one piece of work.</span></span><span class="lai-tag lai-tag-built">Built in</span></a>
+<a class="lai-feat" href="{{% relref "/start/install/desktop" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="lai-ft"><b>Desktop app</b><span>Install and run LocalAI from a window on macOS and Linux.</span></span><span class="lai-tag lai-tag-built">Built in</span></a>
 <a class="lai-feat" href="{{% relref "/features/chats-and-agents/chats" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg></span><span class="lai-ft"><b>Chats</b><span>Talk to a model. Files, sub-agents and tools work in the same chat.</span></span><span class="lai-tag lai-tag-built">Built in</span></a>
 <a class="lai-feat" href="{{% relref "/features/chats-and-agents/chats-agents" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 4v4M9 13h.01M15 13h.01"/></svg></span><span class="lai-ft"><b>Saved agents</b><span>Instructions, tool grants, triggers and an inbox.</span></span><span class="lai-tag lai-tag-admin">Admin on</span></a>
 <a class="lai-feat" href="{{% relref "/features/files-and-documents/files" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/></svg></span><span class="lai-ft"><b>Files and sharing</b><span>Folders, shares, Trash and History with Undo.</span></span><span class="lai-tag lai-tag-built">Built in</span></a>
