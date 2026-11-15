@@ -13,7 +13,7 @@ devbuild = "install"
 
 
 
-LocalAI is an open-source AI engine and platform. It speaks the OpenAI and Anthropic APIs, and it serves text, vision, image, video, music, speech and embedding models. It runs on your hardware, and it does not need a GPU. This page takes you from nothing to a first chat reply.
+LocalAI is one open-source server. It speaks the OpenAI and Anthropic APIs, and it serves text, vision, image, video, music, speech and embedding models. It runs on your hardware, and the engine does not need a GPU. This page takes you from nothing to a first chat reply.
 
 ## Install and start LocalAI
 
@@ -31,7 +31,7 @@ On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-On Linux or a Mac you can also download the [desktop app]({{% relref "/start/install/desktop" %}}): a DMG for macOS or an AppImage for Linux. It installs and starts the server for you. For all install methods, see the [install guide]({{% relref "/start/install" %}}).
+The [desktop app]({{% relref "/start/install/desktop" %}}) for macOS and Linux comes with the next release. It installs and starts the server for you. Test builds are on the dev-master pre-release. For all install methods, see the [install guide]({{% relref "/start/install" %}}).
 
 You should see the log line `LocalAI is started and running` with the address `:8080`. The script installs the `local-ai` program and does not start it. The command `local-ai` starts the server, with no model. Open `http://localhost:8080`: on a fresh install the first-run guide recommends a model for your hardware and downloads it when you agree. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model that runs on a CPU (a download of about 4.3 GB). The first run of a model takes longer, because it downloads the model.
 

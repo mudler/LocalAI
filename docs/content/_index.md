@@ -2,12 +2,12 @@
 disableToc = true
 title = "Your own AI, on your own hardware"
 linkTitle = "LocalAI docs"
-description = "Documentation for LocalAI, an open-source AI engine and platform: install it, run models of every kind behind an OpenAI-compatible API, build agents, and run it for a team."
+description = "Documentation for LocalAI: install it, run models of every kind behind an OpenAI-compatible API, build agents, and run it for a team."
 type = "home"
 keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox", "office", "agents"]
 +++
 
-<p class="lai-lede">LocalAI is an open-source AI engine and platform. It runs open models for text, images, video, music and speech behind one OpenAI-compatible API, on a laptop, a server or Kubernetes. No GPU is required. Install it, run a first model, then build agents on your own files.</p>
+<p class="lai-lede">LocalAI is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team, on hardware you own. Install it, open the web interface, install a model, then build agents on your own files.</p>
 
 ## Start in three steps
 
@@ -18,7 +18,7 @@ keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox
 
 ### Install
 
-Use the script on Linux, or on a Mac with Apple Silicon. Other ways: a container, Kubernetes, or the [desktop app]({{% relref "/start/install/desktop" %}}) for macOS (DMG) and Linux (AppImage). See the [install guide]({{% relref "/start/install" %}}).
+Use the script on Linux, or on a Mac with Apple Silicon. Other ways: a container, Kubernetes, or the [desktop app]({{% relref "/start/install/desktop" %}}), which comes with the next release. See the [install guide]({{% relref "/start/install" %}}).
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
