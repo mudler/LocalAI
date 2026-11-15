@@ -168,14 +168,16 @@ jobs:
             gh release create "${RELEASE_TAG}" --verify-tag --prerelease --latest=false \
               --title "${title}" --notes-file notes.md
           fi
-      # Delete the old assets first, then upload the new ones, as one unit that
-      # is retried. The files already passed the build, so a retry only repeats
-      # the transfer.
+      # Delete the old server assets first, then upload the new ones, as one
+      # unit that is retried. The files already passed the build, so a retry
+      # only repeats the transfer. Only local-ai-master-* names are deleted:
+      # launcher-electron-dev.yaml attaches its own files to this release.
       - name: Replace the assets
         run: |
           set -euo pipefail
           replace() {
             gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' |
+              { grep '^local-ai-master-' || true; } |
               while read -r asset; do
                 gh release delete-asset "${RELEASE_TAG}" "${asset}" --yes
               done

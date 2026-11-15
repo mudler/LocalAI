@@ -119,7 +119,7 @@ When you leave the Development channel with **Back to Stable**, the launcher kee
 
 ## Development builds for testers
 
-Each change to the launcher on the `master` branch makes development builds. They are GitHub Actions artifacts, not release files, so you must sign in to GitHub to download them. Each one contains the AppImage or the DMG and its `.sha256` file. The file names have `dev` in them, for example `LocalAI-Launcher-dev-x86_64.AppImage` and `LocalAI-Launcher-dev.dmg`, so you can tell them from release files. Master builds are kept for 14 days and pull request builds for 7 days. Pull requests have only the x86-64 AppImage. With the GitHub CLI (run `gh auth login` first):
+Each change to the launcher on the `master` branch makes development builds. When the builds pass, the AppImages (x86-64 and ARM64) and the DMG are attached to the rolling [`dev-master` pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master), next to the server binaries. Each new build replaces the files of the last one. The builds are also kept as GitHub Actions artifacts, which you can download after you sign in to GitHub. Each artifact contains the AppImage or the DMG and its `.sha256` file. The file names have `dev` in them, for example `LocalAI-Launcher-dev-x86_64.AppImage` and `LocalAI-Launcher-dev.dmg`, so you can tell them from release files. The release files stay until the next master build replaces them. Artifacts of master builds are kept for 14 days and artifacts of pull request builds for 7 days. Pull requests have only the x86-64 AppImage. With the GitHub CLI (run `gh auth login` first):
 
 ```bash
 # The last runs on master
