@@ -2107,7 +2107,7 @@ An administrator's chat that has the **LocalAI admin** group also lists one skil
 `localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
 see [Make LocalAI yours]({{% relref "/features/chats-and-agents/make-localai-yours" %}}).
 `localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "/features/pages-and-home/pages" %}}).
-`assemble-media` is for the sandbox. It has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. It can also make a simple video from frames drawn with Python or SVG. It carries a hint for the `media` sandbox profile.
+`assemble-media` is for the sandbox. It has tested `ffmpeg`, `sox` and ImageMagick recipes to join, trim, mix, subtitle and inspect generated pieces, and to make frames and inpainting masks for the next generation. It can also make a simple video from frames drawn with Python or SVG: a title card, a slideshow with a slow zoom, a chart that draws itself or text that fades in. It carries a hint for the `media` sandbox profile.
 `media-prompting` teaches the model how to prompt the image, video, music and speech models: a loop of pick, read the card, generate, inspect and change one thing, the anatomy of a prompt for each kind, what steps, guidance, size and seed do, and what to refuse. It has one card per model family in its `cards/` folder (Qwen-Image, MiniMax-H3, YuE2 and Qwen3-TTS), which the model reads when it uses that family. To add a family, add a card and a row in the table of `SKILL.md`.
 
 ### Import and export skills

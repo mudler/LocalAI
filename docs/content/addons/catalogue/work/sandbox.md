@@ -48,7 +48,7 @@ When a command asks for a host that the chat does not allow but the limit allows
 
 ## What is installed
 
-The `base` profile has Python with pandas, matplotlib, openpyxl, python-docx, python-pptx, pypdf and Pillow, and tools such as jq, ripgrep, sqlite3, zip, git and curl. The `media` profile adds ffmpeg, sox and ImageMagick. The `video` profile adds a Rust toolchain and a video renderer. You pick the profile in the Tools menu, unless an administrator limits the choice. Programs cannot be installed with `apt`. See [Sandbox profiles]({{% relref "/addons/contract-reference#sandbox-profiles" %}}).
+The `base` profile has Python with pandas, matplotlib, openpyxl, python-docx, python-pptx, pypdf and Pillow, and tools such as jq, ripgrep, sqlite3, zip, git and curl. The `media` profile adds ffmpeg, sox and ImageMagick. With the `media` profile, the built-in `assemble-media` skill can join, trim and subtitle clips and make simple animated video (title cards, slideshows, charts) as MP4. You pick the profile in the Tools menu, unless an administrator limits the choice. Programs cannot be installed with `apt`. See [Sandbox profiles]({{% relref "/addons/contract-reference#sandbox-profiles" %}}).
 
 Example: ask "Make a bar chart of the numbers in sales.csv and save it as a PNG". The model reads the file, runs a Python script, and saves the image in your files.
 

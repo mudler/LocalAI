@@ -7,6 +7,10 @@ aliases = ["/features/longcat-video/", "/features/video-generation/"]
 
 LocalAI can generate videos from text prompts and optional image or audio conditioning via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion` (including MiniMax-H3, which generates video **and** audio together), `vllm-omni`, `mlx-video` on Apple Silicon, and the dedicated `longcat-video` backend.
 
+## Animated video from the assistant
+
+A video model is not the only way to make a video. With the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) add-on, the assistant can build simple video itself. The built-in `assemble-media` skill has tested recipes that use `ffmpeg`, `sox`, ImageMagick and Python with Pillow and matplotlib in the `media` sandbox profile. It can make a title card with a fade, a slideshow with a slow zoom and a crossfade, a chart that draws itself, and text that fades in, and it saves the result as MP4. It can also join, trim, mix and subtitle clips that a video model made. The sandbox has no network, so it works only with files you already have or that the generation tools made. An administrator installs the Sandbox add-on. See [Built-in skills]({{% relref "/features/chats-and-agents/chats#skills" %}}).
+
 ## MLX-Video on Apple Silicon
 
 Install the native Metal backend, then configure an LTX-2 repository:
