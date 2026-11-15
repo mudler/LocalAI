@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"context"
+	"io"
 	"net"
 	"time"
 
@@ -37,6 +38,17 @@ func SetHandshakeTimeout(d time.Duration) (restore func()) {
 
 // RequestThrough sends a request over streams that open returns, as
 // PeerPool.Request does over the peer link.
-func RequestThrough(ctx context.Context, open func(context.Context, string) (net.Conn, error), target, subject string, data []byte, maxBytes int) ([]byte, error) {
-	return request(ctx, open, target, subject, data, maxBytes)
+func RequestThrough(ctx context.Context, open func(context.Context, string) (net.Conn, error), target, subject string, data []byte, maxBytes int, openWithin time.Duration) ([]byte, error) {
+	return request(ctx, open, target, subject, data, maxBytes, openWithin)
+}
+
+// ReadBody exposes the read of a request or reply body to the specs.
+func ReadBody(r io.Reader, maxBytes int) ([]byte, error) { return readBody(r, maxBytes) }
+
+// SetLimits changes how many requests the replica serves at once, for each
+// peer and in all.
+func (r *Replies) SetLimits(perPeer, total int) {
+	r.slotsMu.Lock()
+	defer r.slotsMu.Unlock()
+	r.perPeer, r.total = perPeer, total
 }

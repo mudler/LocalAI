@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/binary"
@@ -33,14 +34,28 @@ import (
 // ErrRequestUnsupported, and no handler ran.
 const relayLaneReply = "reply"
 
+// A malformed request frame has no code of its own: the relay refuses it with
+// its relay code for a bad request, which the caller reads as
+// ErrRequestUnsupported, a request that ran nothing.
 const (
-	rrAccepted        = "reply-ok"
-	rrCodeNotOwner    = "reply-not-owner"
-	rrCodeNoResponder = "reply-no-responder"
-	rrCodeTooLarge    = "reply-too-large"
-	rrCodeBadRequest  = "reply-bad-request"
-	rrCodeFailed      = "reply-failed"
-	relayCodePrefix   = "relay-"
+	rrAccepted          = "reply-ok"
+	rrCodeNotOwner      = "reply-not-owner"
+	rrCodeNoResponder   = "reply-no-responder"
+	rrCodeTooLarge      = "reply-too-large"
+	rrCodeBusy          = "reply-busy"
+	rrCodeFailed        = "reply-failed"
+	rrCodeReplyTooLarge = "reply-answer-too-large"
+	relayCodePrefix     = "relay-"
+)
+
+// The number of requests that a replica serves at once, for one peer link and
+// in all. A request holds its slot from before its body is read until its reply
+// is written, so the slots also bound the memory that peers can make it hold.
+// The handlers that a replica serves (the chat start, the replay, the job asks)
+// are short, and a request above the bound is refused as one that ran nothing.
+const (
+	defaultRepliesPerPeer = 64
+	defaultRepliesTotal   = 256
 )
 
 // The ways a request can fail. NotStarted tells the ones that prove that no
@@ -61,15 +76,22 @@ var (
 	// ErrHandlerFailed means that the handler ran and gave no reply. Its work
 	// may be done.
 	ErrHandlerFailed = errors.New("tunnel: the handler on the replica gave no reply")
-	// ErrPayloadTooLarge means that a request or a reply is above the bound of
-	// the replicas.
-	ErrPayloadTooLarge = errors.New("tunnel: the request or the reply is above the bound")
+	// ErrPayloadTooLarge means that a request is above the bound of the
+	// replicas, and it was not sent or not served. A reply above the bound is
+	// ErrReplyTooLarge.
+	ErrPayloadTooLarge = errors.New("tunnel: the request is above the bound")
+	// ErrReplyTooLarge means that the handler ran and its reply is above the
+	// bound. It always comes with ErrHandlerFailed, wherever the handler ran.
+	ErrReplyTooLarge = errors.New("tunnel: the reply of the handler is above the bound")
+	// ErrReplicaBusy means that the replica serves as many requests as it may,
+	// for the peer link or in all, and refused this one before it ran anything.
+	ErrReplicaBusy = errors.New("tunnel: the replica serves too many requests")
 )
 
 // NotStarted reports whether err, an error of a request, proves that no handler
 // ran. Only such a failure lets a caller send the same request elsewhere.
 func NotStarted(err error) bool {
-	for _, s := range []error{ErrRequestNotSent, ErrNoResponder, ErrRequestUnsupported, ErrNotOwner, ErrRelayRequestInvalid} {
+	for _, s := range []error{ErrRequestNotSent, ErrNoResponder, ErrRequestUnsupported, ErrNotOwner, ErrReplicaBusy} {
 		if errors.Is(err, s) {
 			return true
 		}
@@ -93,12 +115,42 @@ type Replies struct {
 
 	mu       sync.Mutex
 	handlers map[string][]*ReplyHandler
+
+	// slotsMu guards the requests in service, by peer and in all.
+	slotsMu        sync.Mutex
+	perPeer, total int
+	serving        map[string]int
+	servingAll     int
 }
 
 // NewReplies returns the handlers of the replica self. A request or a reply
 // above maxBytes is refused.
 func NewReplies(self string, maxBytes int) *Replies {
-	return &Replies{self: self, max: maxBytes, bodyTimeout: relayHeaderTimeout, handlers: map[string][]*ReplyHandler{}}
+	return &Replies{
+		self: self, max: maxBytes, bodyTimeout: relayHeaderTimeout, handlers: map[string][]*ReplyHandler{},
+		perPeer: defaultRepliesPerPeer, total: defaultRepliesTotal, serving: map[string]int{},
+	}
+}
+
+// acquire takes a slot for a request of peerID, or reports that there is none.
+func (r *Replies) acquire(peerID string) bool {
+	r.slotsMu.Lock()
+	defer r.slotsMu.Unlock()
+	if r.servingAll >= r.total || r.serving[peerID] >= r.perPeer {
+		return false
+	}
+	r.servingAll++
+	r.serving[peerID]++
+	return true
+}
+
+func (r *Replies) release(peerID string) {
+	r.slotsMu.Lock()
+	defer r.slotsMu.Unlock()
+	r.servingAll--
+	if r.serving[peerID]--; r.serving[peerID] <= 0 {
+		delete(r.serving, peerID)
+	}
 }
 
 // Handle serves subject with h until remove is called. A subject can have more
@@ -152,7 +204,7 @@ func (r *Replies) Dispatch(ctx context.Context, subject string, data []byte) ([]
 		return nil, err
 	}
 	if len(out) > r.max {
-		return nil, fmt.Errorf("%w: %w: a reply of %d bytes", ErrHandlerFailed, ErrPayloadTooLarge, len(out))
+		return nil, replyTooLarge(len(out), r.max)
 	}
 	return out, nil
 }
@@ -199,6 +251,13 @@ func (r *Replies) serve(peerID string, stream net.Conn, target, subject string, 
 		r.refuse(peerID, stream, rrCodeNotOwner, "this replica is "+r.self)
 		return
 	}
+	// Before the body: a peer that opens many streams must not make this
+	// replica hold a body for each.
+	if !r.acquire(peerID) {
+		r.refuse(peerID, stream, rrCodeBusy, "this replica serves too many requests")
+		return
+	}
+	defer r.release(peerID)
 	if err := stream.SetReadDeadline(time.Now().Add(r.bodyTimeout)); err != nil {
 		return
 	}
@@ -236,7 +295,7 @@ func (r *Replies) serve(peerID string, stream net.Conn, target, subject string, 
 	case err != nil:
 		r.refuse(peerID, stream, rrCodeFailed, err.Error())
 	case len(out) > r.max:
-		r.refuse(peerID, stream, rrCodeFailed, fmt.Sprintf("a reply of %d bytes is above the bound of %d", len(out), r.max))
+		r.refuse(peerID, stream, rrCodeReplyTooLarge, fmt.Sprintf("a reply of %d bytes, the bound is %d", len(out), r.max))
 	default:
 		msg, ferr := appendFrame(nil, rrAccepted)
 		if ferr == nil {
@@ -262,11 +321,16 @@ const defaultReplyBudget = time.Minute
 // Request sends one request to the replica target over the peer link and
 // returns its reply. The deadline of ctx is the budget that the replica gets,
 // and the end of ctx closes the stream, which cancels the handler.
-func (p *PeerPool) Request(ctx context.Context, target, subject string, data []byte, maxBytes int) ([]byte, error) {
-	return request(ctx, p.Open, target, subject, data, maxBytes)
+//
+// openWithin, when it is above zero, bounds the open of the stream, which can
+// include the dial of the peer link. A caller that tries several replicas gives
+// each its share, so that one that does not answer leaves time for the others.
+// An open that runs out of its share is a request that was not sent.
+func (p *PeerPool) Request(ctx context.Context, target, subject string, data []byte, maxBytes int, openWithin time.Duration) ([]byte, error) {
+	return request(ctx, p.Open, target, subject, data, maxBytes, openWithin)
 }
 
-func request(ctx context.Context, open func(context.Context, string) (net.Conn, error), target, subject string, data []byte, maxBytes int) ([]byte, error) {
+func request(ctx context.Context, open func(context.Context, string) (net.Conn, error), target, subject string, data []byte, maxBytes int, openWithin time.Duration) ([]byte, error) {
 	if len(data) > maxBytes {
 		return nil, fmt.Errorf("%w: %w: a request of %d bytes, the bound is %d", ErrRequestNotSent, ErrPayloadTooLarge, len(data), maxBytes)
 	}
@@ -283,7 +347,7 @@ func request(ctx context.Context, open func(context.Context, string) (net.Conn, 
 	}
 	msg = appendBody(msg, data)
 
-	st, err := open(ctx, target)
+	st, err := openBounded(ctx, open, target, openWithin)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRequestNotSent, err)
 	}
@@ -310,10 +374,39 @@ func request(ctx context.Context, open func(context.Context, string) (net.Conn, 
 		return nil, replyRefusal(status)
 	}
 	out, err := readBody(st, maxBytes)
+	if errors.Is(err, ErrPayloadTooLarge) {
+		// The handler ran: what is too large is its reply.
+		return nil, replyTooLarge(-1, maxBytes)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrReplyLost, causeOf(ctx, err))
 	}
 	return out, nil
+}
+
+// openBounded opens the stream within openWithin, when it is above zero. The
+// bound covers the open alone: the stream that it returns lives on the context
+// of the caller.
+func openBounded(ctx context.Context, open func(context.Context, string) (net.Conn, error), target string, openWithin time.Duration) (net.Conn, error) {
+	if openWithin <= 0 {
+		return open(ctx, target)
+	}
+	octx, cancel := context.WithTimeout(ctx, openWithin)
+	defer cancel()
+	st, err := open(octx, target)
+	if err != nil && ctx.Err() == nil && octx.Err() != nil {
+		return nil, fmt.Errorf("opening a stream to %s took longer than its share of %s: %w", target, openWithin, err)
+	}
+	return st, err
+}
+
+// replyTooLarge is the error of a handler that ran and gave a reply above the
+// bound. size is negative when it is not known.
+func replyTooLarge(size, maxBytes int) error {
+	if size < 0 {
+		return fmt.Errorf("%w: %w: the bound is %d", ErrHandlerFailed, ErrReplyTooLarge, maxBytes)
+	}
+	return fmt.Errorf("%w: %w: a reply of %d bytes, the bound is %d", ErrHandlerFailed, ErrReplyTooLarge, size, maxBytes)
 }
 
 // causeOf prefers the end of the caller's context over the error of the stream
@@ -338,10 +431,12 @@ func replyRefusal(status string) error {
 		return fmt.Errorf("%w: %s", ErrNoResponder, text)
 	case rrCodeTooLarge:
 		return fmt.Errorf("%w: %w: %s", ErrRequestNotSent, ErrPayloadTooLarge, text)
-	case rrCodeBadRequest:
-		return fmt.Errorf("%w: %s", ErrRelayRequestInvalid, text)
+	case rrCodeBusy:
+		return fmt.Errorf("%w: %s", ErrReplicaBusy, text)
 	case rrCodeFailed:
 		return fmt.Errorf("%w: %s", ErrHandlerFailed, text)
+	case rrCodeReplyTooLarge:
+		return fmt.Errorf("%w: %w: %s", ErrHandlerFailed, ErrReplyTooLarge, text)
 	}
 	if strings.HasPrefix(code, relayCodePrefix) {
 		return fmt.Errorf("%w: %s %s", ErrRequestUnsupported, code, text)
@@ -391,16 +486,26 @@ func readBody(r io.Reader, maxBytes int) ([]byte, error) {
 	if _, err := io.ReadFull(r, size[:]); err != nil {
 		return nil, err
 	}
-	n := binary.BigEndian.Uint32(size[:])
-	if uint64(n) > uint64(maxBytes) {
+	n := int64(binary.BigEndian.Uint32(size[:]))
+	if n > int64(maxBytes) {
 		return nil, fmt.Errorf("%w: %d bytes, the bound is %d", ErrPayloadTooLarge, n, maxBytes)
 	}
-	body := make([]byte, n)
-	if _, err := io.ReadFull(r, body); err != nil {
+	// The buffer grows with the bytes that arrive and not with the size that the
+	// peer declared: a peer that declares the bound and sends nothing makes this
+	// side hold nothing.
+	var body bytes.Buffer
+	body.Grow(int(min(n, bodyFirstChunk)))
+	if _, err := io.CopyN(&body, r, n); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = io.ErrUnexpectedEOF
+		}
 		return nil, err
 	}
-	return body, nil
+	return body.Bytes(), nil
 }
+
+// bodyFirstChunk is the room that a body gets before its bytes arrive.
+const bodyFirstChunk = 64 << 10
 
 func oneLine(s string) string {
 	return strings.Map(func(r rune) rune {
