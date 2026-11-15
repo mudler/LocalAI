@@ -179,8 +179,8 @@ jobs:
           count=0
           for f in ./*; do
             case "${f#./}" in
-              LocalAI-Launcher-dev[-.]*.AppImage|LocalAI-Launcher-dev[-.]*.dmg) count=$((count + 1)) ;;
-              LocalAI-Launcher-dev[-.]*.AppImage.sha256|LocalAI-Launcher-dev[-.]*.dmg.sha256) ;;
+              LocalAI-Launcher-dev[-.]*AppImage|LocalAI-Launcher-dev[-.]*dmg) count=$((count + 1)) ;;
+              LocalAI-Launcher-dev[-.]*AppImage.sha256|LocalAI-Launcher-dev[-.]*dmg.sha256) ;;
               *) echo "unexpected file in the launcher artifacts: ${f}" >&2; exit 1 ;;
             esac
           done
