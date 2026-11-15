@@ -1,18 +1,20 @@
 ---
-title: "LocalAI 5.0: an AI engine and platform you run anywhere"
+title: "LocalAI 5.0: hand it over, and take it back"
 date: 2026-11-15
 draft: true
 author: "Ettore Di Giacinto"
 category: "Release"
 tags: ["release", "multimodal", "projects", "desktop", "office", "files", "sandbox", "team", "pages", "add-ons", "ui"]
-summary: "LocalAI is an open-source AI engine and platform. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing on top of one OpenAI-compatible API for text, images, video, music, speech and search."
+summary: "LocalAI is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing."
 extracss: ["blog.css"]
 placeholders: ["release date", "release tag and release notes link", "PR, commit and contributor counts", "contributor thanks", "screenshots"]
 ---
 
 <!-- TODO owner: this post is a draft (draft: true keeps Hugo from publishing it). Publish it with the 5.0 tag: set the final date, remove `draft: true` and `placeholders`, and resolve every TODO comment below. Nothing in the post claims a number we have not counted. -->
 
-LocalAI is an open-source AI engine and platform. It runs open models for text, images, video, music and speech behind one OpenAI-compatible API, on a laptop, a server, in a container or on Kubernetes. You do not need a GPU. 5.0 adds the work around the models: Projects, a desktop app for macOS and Linux, and from a chat you can make a Word, Excel or PowerPoint file, keep it in your own Files, run Python on it, and share the folder with your team. The server, the models and the files stay on your own hardware.
+Hand it over, and take it back. That is the idea of LocalAI 5.0. You give a chore to your own AI, on your own hardware, and the result comes back as a file that you own. Ask for a one-page summary of the notes in a folder, and the chat reads the notes and saves a Word file in your Files.
+
+LocalAI is more than a chat app. It is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team, on hardware you own. It runs on a laptop, a server, in a container or on Kubernetes. The engine runs on a CPU, so it does not need a GPU. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing on top.
 
 <!-- TODO owner: release date and tag are not decided. The link below assumes the tag is v5.0.0. Check it before publishing. -->
 The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. This post covers what you can do with 5.0 that you could not do with 4.x.
@@ -39,7 +41,7 @@ LocalAI is not only a chat. The same server serves many kinds of open model, eac
 - **Speech**: text to speech, transcription, voice activity detection and speaker recognition. The Realtime API takes voice in and gives voice back. Text to speech and sound generation also accept the ElevenLabs format.
 - **Search**: embeddings and a reranker, for retrieval over your own data.
 
-Each model kind needs a backend that serves it. LocalAI downloads the backend the first time a model needs it, and the library has more than 80 of them. There is a CPU build, so no GPU is required. NVIDIA, AMD, Intel and Apple GPUs make it faster. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
+Each model kind needs a backend that serves it. LocalAI downloads the backend the first time a model needs it, and the library has more than 80 of them. There is a CPU build, so the engine does not need a GPU. NVIDIA, AMD, Intel and Apple GPUs make it faster. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
 
 ## Projects
 
@@ -78,13 +80,13 @@ Sharing is never a tool. A model, an agent or an add-on cannot share a folder or
 
 ## Pages and Home
 
-Ask the assistant to "make me a task board", and it writes a small HTML page that keeps its data in your files. The page runs in a sandboxed frame with no network access. Pin it to the sidebar, or put it on Home as a tile. A Home widget can show a list from a file, and a trigger you confirm can rewrite that file every morning.
+Ask the assistant to "make me a task board", and it writes a small HTML page that keeps its data in your files. The page runs in a sandboxed frame with no network access. A Home widget can show a list from a file, and a trigger you confirm can rewrite that file every morning.
 
 For ordinary users on a server with accounts, Pages are off until an administrator switches them on. The same is true for saved agents, triggers and connectors. Each scheduled run is a normal chat turn, so it uses model tokens.
 
 ## Add-ons
 
-An add-on is a separate program that gives LocalAI new tools. An administrator installs it from the library, and its tools show up in the chat's Tools menu, where you can switch them off for a chat. The library has Tables, for typed databases that a chat can read and change, and Telegram, Slack and Discord add-ons that let people talk to a saved agent from those apps. There are more, and you can build your own.
+An add-on is a separate program that gives LocalAI new tools. An administrator installs it from the library, and its tools show up in the chat's Tools menu, where you can switch them off for a chat. The library has Tables, for typed databases that a chat can read and change, and chat-app add-ons, such as Slack and Discord, that let people talk to a saved agent from those apps. There are more, and you can build your own.
 
 One thing to know before you install: an add-on is trusted code. It runs as the operating system user that runs LocalAI. Only the Sandbox isolates what it runs. A bot answers nobody until you add allowed senders.
 
@@ -114,7 +116,7 @@ Or with a container:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-Open `http://localhost:8080`. For your first document, install the Simple Office add-on from **Add-ons** and ask a chat for a Word file. With authentication off you are the administrator and can do all of it. You do not need a GPU, but a small model on a CPU is slow to load and slow to answer.
+Open `http://localhost:8080`. For your first document, install the Simple Office add-on from **Add-ons** and ask a chat for a Word file. With authentication off you are the administrator and can do all of it. The engine does not need a GPU, but a small model on a CPU is slow to load and slow to answer.
 
 ## Known limits
 
