@@ -158,7 +158,6 @@ export const remotesApi = {
   test: (body) => postJSON(API_CONFIG.endpoints.remotesTest, body),
   create: (body) => postJSON(API_CONFIG.endpoints.remotes, body),
   list: () => fetchJSON(API_CONFIG.endpoints.remotes),
-  get: (id) => fetchJSON(API_CONFIG.endpoints.remote(id)),
   update: (id, body) => fetchJSON(API_CONFIG.endpoints.remote(id), { method: 'PATCH', body: JSON.stringify(body) }),
   // entries: 'remove' deletes the models of the remote, 'keep' detaches them.
   remove: (id, entries) => fetchJSON(buildUrl(API_CONFIG.endpoints.remote(id), { entries }), { method: 'DELETE' }),

@@ -1,22 +1,33 @@
 import { useCallback, useEffect, useState } from 'react'
 import { remotesApi } from '../utils/api'
+import { isMissingRoute } from '../utils/remotes'
 
 // The remotes of this server, for an administrator. `enabled: false` skips
 // the request (the list is admin only, and nothing else needs it).
-// refetch keeps the old list on screen while it loads again.
+// refetch keeps the old list on screen while it loads again. `unsupported` is
+// true when this server has no remote routes (it answers 404, or something that
+// is not the list): the page then hides its entry points or explains it.
 export function useRemotes({ enabled = true } = {}) {
   const [remotes, setRemotes] = useState([])
   const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState(null)
+  const [unsupported, setUnsupported] = useState(false)
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
     try {
       const data = await remotesApi.list()
-      setRemotes(Array.isArray(data?.data) ? data.data : [])
+      if (!Array.isArray(data?.data)) {
+        // Not the list: a server without the routes can answer with its page.
+        setUnsupported(true)
+        setRemotes([])
+      } else {
+        setUnsupported(false)
+        setRemotes(data.data)
+      }
       setError(null)
     } catch (err) {
-      setError(err.message || 'Failed')
+      if (isMissingRoute(err)) { setUnsupported(true); setError(null) } else setError(err.message || 'Failed')
     } finally {
       if (!silent) setLoading(false)
     }
@@ -35,5 +46,5 @@ export function useRemotes({ enabled = true } = {}) {
       : [...list, remote]))
   }, [])
 
-  return { remotes, loading, error, refetch, replace }
+  return { remotes, loading, error, unsupported, refetch, replace }
 }
