@@ -43,7 +43,7 @@ local-ai run qwen3-4b
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ```
 
-**macOS app**: download [LocalAI.dmg](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg). The DMG is signed with an Apple Developer ID and notarized.
+**Desktop app** (preview): the launcher installs and updates the server for you, on Linux (AppImage) and macOS (DMG). Download it from the [releases page](https://github.com/mudler/LocalAI/releases) and see the [desktop app guide](https://localai.io/docs/start/install/desktop/).
 
 The script, the app and the latest container image give version 4.12.1. The add-ons, Office, Sandbox and team features described below need a development build or a newer release.
 
