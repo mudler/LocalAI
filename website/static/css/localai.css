@@ -179,7 +179,7 @@ section { padding: clamp(3rem, 6.5vw, 5rem) 0; }
 
 /* "Everything in 5.0" cards */
 .grid5 h2 { margin-bottom: .6rem; }
-.cards { display: grid; gap: .9rem; grid-template-columns: repeat(5, 1fr); margin-top: 2rem; }
+.cards { display: grid; gap: .9rem; grid-template-columns: repeat(3, 1fr); margin-top: 2rem; }
 @media (max-width: 1100px) { .cards { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 700px) { .cards { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 420px) { .cards { grid-template-columns: 1fr; } }
@@ -306,3 +306,10 @@ html.rv-on .rv { transition: opacity .3s ease, transform .3s ease; }
 .film figcaption { margin-top: .6rem; font-size: .95rem; line-height: 1.5; color: var(--dk-muted); }
 .film figcaption b { color: var(--dk-text); }
 .film__t { white-space: nowrap; }
+.dl__shot { margin: 1rem 0 0; max-width: 520px; }
+.api .term { max-width: 100%; }
+.api .term pre { white-space: pre; }
+.api .term pre b { font-weight: 500; color: var(--term-accent); }
+.api .term .p { display: inline-block; width: 1.4em; opacity: .7; }
+.api .links { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+.api .fine { margin-top: .8rem; }

@@ -8,10 +8,12 @@ docs: "/docs/start/install/desktop/"
 dev: true
 icon: "desktop"
 illus: "chat"
+shot: "launcher-home"
+alt: "The LocalAI desktop app on first start. It shows the model that it recommends for this machine, with an Install button."
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
 demo: ""
 points:
-  - "Download a DMG for a Mac with Apple silicon, or an AppImage for Linux (x86-64 and ARM64)."
+  - "The release carries a DMG for a Mac with Apple silicon, and an AppImage for Linux (x86-64 and ARM64)."
   - "On the first start, choose to run LocalAI on this computer or to connect to a server that runs somewhere else."
   - "A status bar shows the state of the server. Pages for logs and settings are one click away."
   - "Keep several servers and pick a default. The app opens the default one at start."

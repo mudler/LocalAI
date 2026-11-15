@@ -9,8 +9,7 @@
   <div class="shell duo">
     <div>
       <h1>Your own AI, on your own hardware.</h1>
-      <p class="hero__line">Ready to <span class="hl">work</span> for you.</p>
-      <p class="lede">LocalAI is an open-source AI engine and platform. It runs open models for text, images, video, music and speech behind an OpenAI-compatible API, on a laptop, a server or Kubernetes. No GPU required. Chat, agents, files and Office documents come on top.</p>
+      <p class="lede">LocalAI is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team, on hardware you own.</p>
       <div class="acts">
         <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
         <a class="btn btn--o" href="#whats-new">See what is new</a>
@@ -31,8 +30,34 @@
   </div>
 </section>
 
+<section class="api band-inset" id="api">
+  <div class="shell duo duo--wide">
+    <div class="rv">
+      <p class="kicker">One API</p>
+      <h2>Change the <span class="hl">base URL</span>. Keep your client.</h2>
+      <p class="lede">Any OpenAI client works. The same server also does speech, images, video and music.</p>
+      <p class="links"><a href="{{ .Site.Params.docsURL }}start/try-it-out/">Try the API &rarr;</a><a href="{{ .Site.Params.docsURL }}api/">API docs &rarr;</a></p>
+    </div>
+    <div class="rv">
+      <div class="term"><div class="term__b"><span>python</span><button class="cpy" type="button" data-copy="from openai import OpenAI&#10;client = OpenAI(base_url=&quot;http://localhost:8080/v1&quot;, api_key=&quot;none&quot;)&#10;chat = client.chat.completions.create(model=&quot;gemma-4-e2b-it-qat-q4_0&quot;, messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;}])&#10;print(chat.choices[0].message.content)&#10;text = client.audio.transcriptions.create(model=&quot;whisper-1&quot;, file=open(&quot;meeting.mp3&quot;, &quot;rb&quot;)).text&#10;print(text)" aria-label="Copy the code">copy</button></div>
+<pre><span class="p">1</span> from openai import OpenAI
+<span class="p">2</span> client = OpenAI(
+<span class="p">&nbsp;</span>     <b>base_url="http://localhost:8080/v1"</b>,
+<span class="p">&nbsp;</span>     api_key="none")
+<span class="p">3</span> chat = client.chat.completions.create(
+<span class="p">&nbsp;</span>     model="gemma-4-e2b-it-qat-q4_0",
+<span class="p">&nbsp;</span>     messages=[{"role": "user", "content": "Hello"}])
+<span class="p">4</span> print(chat.choices[0].message.content)
+<span class="p">5</span> text = client.audio.transcriptions.create(
+<span class="p">&nbsp;</span>     model="whisper-1", file=open("meeting.mp3", "rb")).text
+<span class="p">6</span> print(text)</pre></div>
+      <p class="fine">The model names are models you installed. Transcription needs a speech model, such as one that you name <code>whisper-1</code>.</p>
+    </div>
+  </div>
+</section>
+
 {{ range $i, $f := hugo.Data.home.sections }}
-<section class="feat{{ if eq (mod $i 2) 0 }} band-inset{{ end }}" id="{{ $f.id }}"{{ if eq $i 0 }} aria-labelledby="h-{{ $f.id }}"{{ end }}>
+<section class="feat{{ if eq (mod $i 2) 1 }} band-inset{{ end }}" id="{{ $f.id }}"{{ if eq $i 0 }} aria-labelledby="h-{{ $f.id }}"{{ end }}>
   <div class="shell duo duo--wide{{ if eq (mod $i 2) 1 }} flip{{ end }}">
     <div class="rv">
       <p class="kicker">{{ $f.kicker }}</p>
@@ -42,7 +67,7 @@
       {{ with $f.need }}<p class="need">{{ . }}</p>{{ end }}
       <p class="links">{{ range $f.links }}<a href="{{ if hasPrefix .href "/" }}{{ .href }}{{ else }}{{ .href | relURL }}{{ end }}">{{ .t }} &rarr;</a>{{ end }}</p>
     </div>
-    <div class="rv">{{ partial "demo-slot.html" (dict "kind" $f.illus "demo" $f.demo "alt" (printf "%s: a short demo" $f.kicker)) }}</div>
+    <div class="rv">{{ partial "demo-slot.html" (dict "kind" $f.illus "shot" $f.shot "demo" $f.demo "alt" (or $f.alt (printf "%s: a short demo" $f.kicker))) }}</div>
   </div>
 </section>
 {{ end }}
@@ -64,7 +89,7 @@
     <div class="rv">
       <p class="kicker">Get started</p>
       <h2>Install in a <span class="hl">minute</span>.</h2>
-      <p class="lede">Download the desktop app, or install a server with a script, Docker or Kubernetes. Backends download the first time a model needs one.</p>
+      <p class="lede">Install a server with a script, Docker or Kubernetes, or use the desktop app. Backends download the first time a model needs one.</p>
       {{ partial "download-app.html" . }}
       <div class="acts"><a class="btn btn--o" href="{{ "get-started/" | relURL }}">Get started</a><a class="btn btn--o" href="{{ "download/" | relURL }}">All downloads</a></div>
     </div>
