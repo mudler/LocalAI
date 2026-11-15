@@ -32,7 +32,8 @@ export default function RemoteConnectStep({ remote }) {
   }
 
   return (
-    <form className="remotes-form" onSubmit={submit} noValidate data-testid="remote-connect-step">
+    <form className="remotes-form" onSubmit={submit} noValidate data-locked={remote.locked || undefined} data-testid="remote-connect-step">
+      <fieldset className="remotes-fields" disabled={remote.locked}>
       <div className="dk-field">
         <span className="dk-label" id={`${uid}-kind`}>{t('connect.kind')}</span>
         <Segmented mode="radio" labelledBy={`${uid}-kind`} options={kindOptions} value={kind} onChange={remote.setKind} testId="remote-kind" itemTestId="remote-kind-" />
@@ -90,14 +91,18 @@ export default function RemoteConnectStep({ remote }) {
           {phase === 'testing' ? t('connect.testing') : t('connect.test')}
         </Button>
       </div>
+      </fieldset>
 
       <div className="remotes-result" ref={resultRef} tabIndex={-1} aria-live="polite" data-testid="remote-result">
         {phase === 'ok' && (
           <Callout tone="ok" role="status" testId="remote-ok">{t('connect.ok', { count: models.length })}</Callout>
         )}
+        {phase === 'ok' && remote.notice && (
+          <Callout tone="warn" testId="remote-notice">{remote.notice}</Callout>
+        )}
         {phase === 'failed' && failure && (
           <Callout tone="error" role="alert" title={t('connect.failTitle')} testId="remote-fail" data-step={failure.step}>
-            {t(`connect.fail.${failure.step}`)}
+            {t(`connect.fail.${failure.step === 'auth' && kind === 'localai' ? 'authLocalai' : failure.step}`)}
             {failure.message && <span className="remotes-detail"> {failure.message}</span>}
           </Callout>
         )}

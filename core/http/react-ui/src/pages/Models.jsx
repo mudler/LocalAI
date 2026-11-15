@@ -42,6 +42,7 @@ import SideSheet from '../components/SideSheet'
 import ConnectRemote, { doneMessageParts } from '../components/remotes/ConnectRemote'
 import RemotesView from '../components/remotes/RemotesView'
 import { useRemotes } from '../hooks/useRemotes'
+import { idsText } from '../utils/remotes'
 import { useAuth } from '../context/AuthContext'
 import KindLibraries from '../components/catalog/KindLibraries'
 // eslint-disable-next-line no-unused-vars
@@ -999,7 +1000,9 @@ export default function Models() {
   const afterConnect = (result) => {
     const { name, created, skipped } = doneMessageParts(result)
     addToast(t('remotes.toastDone', { name, count: created }), 'success')
-    if (skipped > 0) addToast(t('remotes.toastSkipped', { count: skipped }), 'warning')
+    // A toast has no room for a list: the count and the first ids. The reasons
+    // are in the Remotes tab.
+    if (skipped.length > 0) addToast(`${t('remotes.toastSkipped', { count: skipped.length })} ${idsText(skipped)}`, 'warning')
     setConnectOpen(false)
     setRefreshToken(n => n + 1)
     remotesState.refetch()
@@ -1029,7 +1032,7 @@ export default function Models() {
       <Button icon="upload" onClick={() => navigate('/app/import-model')}>
         {t('actions.importModel')}
       </Button>
-      {isAdmin && (
+      {isAdmin && !remotesState.unsupported && (
         <Button icon="plug" onClick={() => setConnectOpen(true)} data-testid="models-connect-remote">
           {t('remotes.connectButton')}
         </Button>
@@ -1048,7 +1051,7 @@ export default function Models() {
           searchParams={searchParams}
           installedCount={statsLoaded ? stats.installed : 0}
           remotesCount={remotesState.remotes.length}
-          showRemotes={isAdmin}
+          showRemotes={isAdmin && !remotesState.unsupported}
           t={t}
         />
         {count}

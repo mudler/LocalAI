@@ -10,6 +10,7 @@ import Segmented from '../ui/Segmented'
 import RemoteConnectStep from '../remotes/RemoteConnectStep'
 import RemoteChooseStep from '../remotes/RemoteChooseStep'
 import { useRemoteConnect } from '../remotes/useRemoteConnect'
+import { useRemotes } from '../../hooks/useRemotes'
 
 // The guide that prints a coding agent's config, under API keys in Account.
 export const AGENTS_GUIDE_PATH = '/app/account?tab=keys'
@@ -39,13 +40,16 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
   const [where, setWhere] = useState('local')
   const whereId = useId()
   const remote = useRemoteConnect({ onDone: onRemoteDone })
-  const remoteMode = isAdmin && where === 'remote'
+  // A server without the remote routes offers no such choice.
+  const { unsupported } = useRemotes({ enabled: isAdmin })
+  const canRemote = isAdmin && !unsupported
+  const remoteMode = canRemote && where === 'remote'
   const { features, featuresLoaded } = useHubAuth()
   const showAgents = authEnabled
   const showAddons = featuresLoaded && features.addons !== false && hasFeature('addons')
   return (
     <ol className="home-guide" aria-label={t('wizard.guideLabel')} data-testid="home-first-run">
-      {isAdmin && (
+      {canRemote && (
         <li className="home-where" role="presentation" data-testid="home-where">
           <div className="home-step__main">
             <b id={whereId}>{t('remoteSetup.where.title')}</b>

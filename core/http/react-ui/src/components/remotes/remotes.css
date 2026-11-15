@@ -104,3 +104,13 @@
   .remotes-model__uses { justify-content: flex-start; }
   .remotes-card__actions { width: 100%; }
 }
+
+/* Models a create, an adopt or a refresh left out: a count that opens. */
+.remotes-skipped { min-width: 0; }
+.remotes-skipped__summary { cursor: pointer; color: var(--dk-warn-text); font-size: var(--fs-small); font-weight: var(--font-weight-semibold); }
+.remotes-skipped__summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.remotes-skipped__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.remotes-skipped__item { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-1) var(--sp-3); }
+.remotes-outcome { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.remotes-form[data-locked="true"] { opacity: 0.7; }
+.remotes-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); }

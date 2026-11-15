@@ -1,6 +1,7 @@
 import RemoteConnectStep from './RemoteConnectStep'
 import RemoteChooseStep from './RemoteChooseStep'
 import { useRemoteConnect } from './useRemoteConnect'
+import { resultParts } from '../../utils/remotes'
 
 // Both steps stacked, for a sheet. The first run places the two steps apart
 // and uses useRemoteConnect itself.
@@ -14,8 +15,9 @@ export default function ConnectRemote({ onDone }) {
   )
 }
 
+// What the toasts after a connect say: the name, how many models were added
+// and the models left out.
 export function doneMessageParts(result) {
-  const created = Array.isArray(result?.created) ? result.created.length : 0
-  const skipped = Array.isArray(result?.skipped) ? result.skipped.length : 0
-  return { name: result?.remote?.name || '', created, skipped }
+  const { created, skipped } = resultParts(result)
+  return { name: result?.remote?.name || '', created: created.length, skipped }
 }
