@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "Mensagem...",
-    "attachImage": "Anexar imagem",
-    "attachAudio": "Anexar áudio",
     "attachFile": "Anexar arquivo",
+    "dropFiles": "Solte os arquivos para anexar",
+    "dropFilesNote": "Solte os arquivos para anexá-los à mensagem.",
     "enterToSend": "Enter para enviar",
     "selectModelFirst": "Selecione um modelo primeiro",
     "sendMessage": "Enviar mensagem",
@@ -82,28 +82,57 @@
       "step2Title": "Instale um Modelo",
       "step2Body": "Clique em instalar para baixar e configurá-lo automaticamente.",
       "step3Title": "Comece a Conversar",
-      "step3Body": "Converse com seu modelo direto do navegador ou use a API."
+      "step3Body": "Converse com seu modelo direto do navegador ou use a API.",
+      "step4Title": "Conecte seus agentes",
+      "step4Body": "Crie uma chave de API e conecte um agente de programação: {{agents}}. O guia preenche o endereço e a chave para você.",
+      "step5Title": "Estenda o LocalAI com um add-on",
+      "step5Body": "Os add-ons trazem novos recursos. Instale-os pela biblioteca."
     },
     "browseGallery": "Explorar Galeria de Modelos",
     "importModel": "Importar Modelo",
     "docs": "Documentação",
     "noModelsTitle": "Nenhum Modelo Disponível",
-    "noModelsBody": "Ainda não há modelos instalados. Peça ao administrador para configurar modelos para você poder começar a conversar."
+    "noModelsBody": "Ainda não há modelos instalados. Peça ao administrador para configurar modelos para você poder começar a conversar.",
+    "connectAgents": "Conectar um agente de programação",
+    "browseAddons": "Explorar add-ons"
   },
   "starters": {
-    "title": "Recomendados para o seu hardware",
+    "title": "Recomendado para a sua máquina",
     "tier": {
-      "cpu": "Somente CPU",
-      "gpu-small": "GPU",
-      "gpu-mid": "GPU",
-      "gpu-large": "GPU"
+      "cpu": "Só CPU",
+      "gpu-small": "GPU pequena",
+      "gpu-mid": "GPU intermediária",
+      "gpu-large": "GPU grande"
     },
-    "cpuNote": "Nenhuma GPU detectada — estes modelos pequenos permanecem responsivos na CPU.",
-    "gpuNote": "Selecionados para caber na sua VRAM disponível com espaço para o contexto.",
+    "cpuNote": "Nenhuma GPU detectada. Estes modelos continuam ágeis em um processador.",
+    "gpuNote": "Escolhidos para caber na sua placa de vídeo com espaço para um chat completo.",
     "install": "Instalar",
     "installing": "Instalando",
     "installStarted": "Instalando {{model}}…",
-    "installFailed": "Falha na instalação: {{message}}"
+    "installFailed": "Falha na instalação: {{message}}",
+    "undetected": "Não foi possível detectar o seu hardware, então estes são os modelos para um computador sem GPU.",
+    "cluster": "Dimensionado para a melhor máquina do seu cluster.",
+    "nothingFits": "Nenhum dos modelos recomendados cabe nesta máquina. Este é o menor; pode ficar lento ou não carregar.",
+    "facts": {
+      "size": "{{size}} para baixar",
+      "window": "{{window}} de contexto",
+      "memory": "cerca de {{memory}} de memória"
+    },
+    "fit": {
+      "tight": "Apertado",
+      "does_not_fit": "Não cabe"
+    },
+    "reasons": {
+      "little_headroom": "Cabe, mas deixa pouca memória livre.",
+      "below_chat_minimum": "A janela de contexto seria pequena demais para o chat.",
+      "exceeds_memory": "Precisa de mais memória do que esta máquina tem.",
+      "estimate_unavailable": "Não foi possível estimar o uso de memória.",
+      "hardware_unknown": "Não foi possível ler o seu hardware, então o encaixe não é verificado."
+    },
+    "more": "Mais modelos",
+    "fewer": "Menos modelos",
+    "askAdmin": "Só um administrador pode instalar modelos. Peça ao seu que instale um destes.",
+    "installModel": "Instalar {{model}}"
   },
   "connect": {
     "title": "Um endpoint, toda API",
@@ -115,7 +144,8 @@
     "copied": "Copiado",
     "browse": "Explorar a API",
     "hide": "Ocultar endpoints",
-    "dismiss": "Dispensar"
+    "dismiss": "Dispensar",
+    "agentsLink": "Conectar um agente de programação: crie uma chave de API e copie a configuração"
   },
   "jump": {
     "heading": "Continue de onde parou",
@@ -162,6 +192,8 @@
     "disabled": "desativado",
     "pinned": "fixado",
     "useTyped": "Usar \"{{name}}\"",
+    "chooseModel": "Escolha um modelo",
+    "defaultMissing": "Seu modelo padrão {{model}} não está instalado. Escolha um modelo.",
     "empty": "Nenhum modelo disponível",
     "add": "Adicionar um modelo",
     "remove": "Remover {{name}}",

@@ -1,0 +1,123 @@
+{
+  "name": "Name",
+  "agent": "Agent",
+  "agentNone": "Agent wählen",
+  "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
+  "credentialsOnly": "Nur Zugangsdaten",
+  "agentNoModel": "{{name}} (braucht ein Modell)",
+  "test": "Test",
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "editButton": "Bearbeiten",
+  "delete": "Löschen",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Läuft nicht: {{reason}}.",
+  "title": "SSH",
+  "intro": "Lassen Sie Ihre Chats und Agenten per SSH Befehle auf einem entfernten Rechner ausführen. Standardmäßig bestätigen Sie jeden Befehl und sehen vorher den Host und den genauen Text.",
+  "limits": "Ein Befehl kann alles ändern oder löschen, was der Anmeldebenutzer berühren darf. Nutzen Sie einen eigenen Benutzer mit nur den nötigen Rechten. Im Modus \"Läuft sofort\" bestätigt niemand einen Befehl vor dem Start. Das Add-on führt einen Befehl nach dem anderen aus, ohne Terminal und ohne Eingabe.",
+  "new": "Neue SSH-Verbindung",
+  "edit": "SSH-Verbindung bearbeiten",
+  "host": "Host",
+  "hostHelp": "Name oder Adresse des Rechners, mit Port, wenn er nicht 22 ist: server.example.com oder 10.0.0.5:2222. Eine Verbindung ist ein Host. Jeder andere Host wird abgelehnt.",
+  "hostShape": "Das ist kein Host. Schreiben Sie einen Namen oder eine Adresse, optional mit Port.",
+  "user": "Benutzername auf dem Host",
+  "userHelp": "Der Benutzer, unter dem die Befehle laufen. Mit einem eigenen Benutzer können Sie den Zugang später entziehen, ohne Ihren eigenen anzutasten.",
+  "userShape": "Ein Benutzername besteht nur aus Buchstaben, Ziffern und . _ -",
+  "login": {
+    "label": "Anmelden mit",
+    "hint": "Das Geheimnis wird verschlüsselt gespeichert und nie wieder angezeigt.",
+    "password": "Passwort",
+    "key": "Privater Schlüssel"
+  },
+  "passwd": "Passwort",
+  "passwdHelp": "Das Passwort dieses Benutzers. Es wird zusammen mit dem Benutzernamen als user:password gespeichert.",
+  "key": "Privater Schlüssel",
+  "keyHelp": "Fügen Sie einen nur für LocalAI erzeugten Schlüssel im PEM- oder OpenSSH-Format ein, ohne Passphrase. Tragen Sie seinen öffentlichen Teil in authorized_keys auf dem Host ein.",
+  "credSaved": "Gespeichert. Zum Ersetzen eintippen.",
+  "secretAgain": "Sie haben Benutzer oder Host geändert. Geben Sie das Geheimnis erneut ein.",
+  "userMissing": "Geben Sie zuerst den Benutzernamen ein.",
+  "keyShape": "Das ist kein privater Schlüssel. Er beginnt mit -----BEGIN.",
+  "keyPassphrase": "Ein Schlüssel mit Passphrase wird nicht unterstützt. Nutzen Sie einen ohne.",
+  "credControl": "Das Passwort enthält keine Steuerzeichen.",
+  "credLong": "Das Geheimnis ist zu lang.",
+  "hostKey": {
+    "label": "Host-Schlüssel",
+    "hint": "Beim ersten Mal liest das Add-on den Schlüssel, den der Host vorzeigt. Vergleichen Sie den Fingerabdruck mit dem, den der Rechner zeigt, und vertrauen Sie ihm dann. Ein anderer Schlüssel wird später abgelehnt.",
+    "check": "Host-Schlüssel prüfen",
+    "checking": "Prüfe...",
+    "trust": "Ich habe diesen Fingerabdruck verglichen und vertraue diesem Host.",
+    "needed": "Prüfen Sie den Host-Schlüssel vor dem Speichern.",
+    "unreachable": "Der Host ist nicht erreichbar.",
+    "failed": "Der Host-Schlüssel konnte nicht gelesen werden."
+  },
+  "testOk": "Die Anmeldung ist gespeichert.",
+  "checkFailed": "Gespeichert. Die Prüfung der Anmeldung ist fehlgeschlagen: {{reason}}",
+  "checkSeveral": "Die Prüfung läuft, wenn Sie eine SSH-Verbindung haben, da sie von dieser Seite aus nicht erkennen kann, welche Sie meinen. Aktivieren Sie im Chat die Verbindungen im Werkzeugmenü.",
+  "empty": "Noch keine SSH-Verbindungen.",
+  "noHost": "Kein Host: Diese Verbindung erreicht nichts.",
+  "hostOf": "Host: {{host}}",
+  "confirmDelete": {
+    "title": "{{name}} löschen?",
+    "message": "Ihre Chats erreichen diesen Host nicht mehr, und das gespeicherte Geheimnis wird gelöscht. Zum erneuten Einrichten müssen Sie es erneut eingeben.",
+    "confirm": "Löschen"
+  },
+  "check": {
+    "title": "Prüfung von {{name}}",
+    "running": "Prüfe den Host...",
+    "at": "Geprüft um {{time}}",
+    "ok": "Verbunden als {{user}}. {{system}}.",
+    "refused": "Der Host hat die Anmeldung abgelehnt. Prüfen Sie Benutzer, Passwort oder Schlüssel.",
+    "changed": "Der Host-Schlüssel hat sich geändert. Es wurde nichts gesendet. Bearbeiten Sie die Verbindung, um den neuen Schlüssel zu prüfen und ihm zu vertrauen.",
+    "nopin": "Kein Host-Schlüssel festgelegt. Bearbeiten Sie die Verbindung und prüfen Sie den Host-Schlüssel.",
+    "unreachable": "Der Host ist nicht erreichbar. Prüfen Sie Host und Port.",
+    "busy": "Auf dieser Verbindung läuft noch ein anderer Befehl.",
+    "failed": "Die Prüfung wurde nicht abgeschlossen. Versuchen Sie es gleich noch einmal."
+  },
+  "setup": {
+    "title": "So richten Sie es ein",
+    "step1": "Legen Sie auf dem Host einen Benutzer nur für LocalAI an, mit nur den nötigen Rechten.",
+    "step2": "Erzeugen Sie ein Schlüsselpaar dafür oder wählen Sie ein Passwort. Tragen Sie den öffentlichen Schlüssel in die authorized_keys dieses Benutzers ein.",
+    "step3": "Geben Sie hier Host und Benutzer ein, klicken Sie auf Host-Schlüssel prüfen und vergleichen Sie den Fingerabdruck.",
+    "step4": "Lassen Sie den Modus auf Fragt zuerst, bis Sie die Grenzen auf dieser Seite gelesen haben.",
+    "fingerprint": "Den Fingerabdruck des Hosts zeigt: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
+  },
+  "writeMode": {
+    "label": "Was der Agent auf diesem Host darf",
+    "hint": "Die Verbindung zu prüfen ist immer erlaubt. Ein Befehl braucht einen anderen Modus als Aus.",
+    "off": "Aus",
+    "propose": "Fragt zuerst",
+    "auto": "Läuft sofort",
+    "line": {
+      "off": "Kein Befehl läuft.",
+      "propose": "Jeder Befehl wartet auf Ihr OK.",
+      "auto": "Befehle laufen ohne OK."
+    },
+    "note": {
+      "off": "Befehle sind aus: Diese Verbindung prüft nur die Anmeldung.",
+      "propose": "Jeder Befehl wartet mit Host und genauem Text in Ihren Freigaben, bis Sie ihn bestätigen.",
+      "auto": "Befehle laufen sofort ohne Bestätigung. Wählen Sie das nur für einen Host und Benutzer, bei denen ein falscher Befehl keinen Schaden anrichtet."
+    },
+    "row": {
+      "off": "Aus",
+      "propose": "Fragt zuerst",
+      "auto": "Läuft sofort"
+    }
+  },
+  "approval": {
+    "title": "Befehl auf {{host}} ausführen",
+    "physical": "Das läuft auf einem echten Rechner, sobald Sie bestätigen.",
+    "host": "Host",
+    "user": "Benutzer",
+    "command": "Befehl",
+    "lines": "{{count}} Zeile(n)",
+    "timeout": "Zeitlimit",
+    "seconds": "{{count}} Sekunden",
+    "hostKey": "Host-Schlüssel",
+    "as": "Als",
+    "asOne": "Die Verbindung {{name}}",
+    "asFirst": "Die erste Verbindung, die diesen Host listet",
+    "asUnknown": "Eine SSH-Verbindung für diesen Host",
+    "what": "Was passiert",
+    "effect": "Der genaue Befehl oben läuft einmal, ohne Terminal und ohne Eingabe. Seine Ausgabe geht zurück in den Chat."
+  }
+}

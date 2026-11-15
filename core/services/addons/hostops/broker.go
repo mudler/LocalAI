@@ -45,6 +45,10 @@ type Call struct {
 	ChatID, ChatPrincipal string
 	Actor                 contract.Actor
 	Arguments             json.RawMessage
+	// Lease is set when only a job lease keeps the request live: the call
+	// comes from a background job after the turn that started it ended, so
+	// no person can be asked anything (see InFlight.Lease).
+	Lease bool
 }
 
 type Handler func(ctx context.Context, call Call) (json.RawMessage, error)
@@ -266,9 +270,13 @@ func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, g
 			b.serveInbound(w, r, spec, addonID, req)
 			return
 		}
-		env, binding, live := b.inflight.LookupBound(addonID, req.OperationID)
+		env, binding, leased, live := b.inflight.LookupLive(addonID, req.OperationID)
 		if !live {
 			refuse(w, http.StatusForbidden, contract.HostNoLiveOperation, "no live request")
+			return
+		}
+		if leased && !LeaseOps[req.Op] {
+			refuse(w, http.StatusForbidden, contract.HostScope, "not allowed for a background job")
 			return
 		}
 		if !scopeAllows(env.Authority.Scope, spec.Scope) {
@@ -281,6 +289,16 @@ func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, g
 			return
 		}
 		actor := env.Authority.Actor
+		// A call that a paired client made reaches the operations of
+		// ClientCallOps and nothing else, whatever the add-on holds: the client
+		// is not the owner. The list is of exact names, not a prefix, so an
+		// operation that is added under client. later is closed to a client
+		// call until it is named there.
+		if strings.HasPrefix(actor.CredentialID, contract.ClientCredentialPrefix) && !ClientCallOps[req.Op] {
+			xlog.Info("add-on host operation refused", "addon", addonID, "op", req.Op, "reason", "not an operation of a client call")
+			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
+			return
+		}
 		if b.has == nil || (actor.Mode != "local-owner" && !b.has(actor.UserID, spec.Feature)) {
 			refuse(w, http.StatusForbidden, contract.HostFeature, "feature not granted")
 			return
@@ -299,7 +317,7 @@ func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, g
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		call := Call{AddonID: addonID, OperationID: req.OperationID, ResourceID: env.Request.ResourceID, Scope: env.Authority.Scope,
-			ChatID: binding.ChatID, ChatPrincipal: binding.Principal, Actor: actor, Arguments: args}
+			ChatID: binding.ChatID, ChatPrincipal: binding.Principal, Actor: actor, Arguments: args, Lease: leased}
 		result, err := b.run(ctx, spec, call)
 		if err != nil {
 			status, code, msg := http.StatusServiceUnavailable, contract.HostUnavailable, "operation unavailable"

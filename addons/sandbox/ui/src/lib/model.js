@@ -1,6 +1,10 @@
 // What the settings section draws, made from the answer of the status tool.
 // Only an administrator gets the settings: the status tool says who asked.
-const OPTIONS = ['auto', 'gvisor', 'kvm', 'off', 'host']
+const OPTIONS = ['auto', 'gvisor', 'kvm', 'vz', 'off', 'host']
+
+// vz runs on a Mac only. Another host does not list it, unless it is the saved
+// choice: an administrator whose saved choice fails still reads why.
+const macOnly = (name, usable, setting) => name !== 'vz' || usable || setting === 'vz'
 
 const text = (v) => (typeof v === 'string' ? v : '')
 
@@ -19,17 +23,18 @@ export const GVISOR_DOCS = 'https://localai.io/features/addons/#the-sandbox-in-t
 
 export function settingsModel(status) {
   if (!status || typeof status !== 'object' || status.ok !== true || status.admin !== true) return { hidden: true }
-  const backends = (Array.isArray(status.backends) ? status.backends : [])
-    .filter(b => b && typeof b === 'object')
-    .map(b => ({ name: text(b.name), usable: b.usable === true, reason: text(b.reason), namespaceHint: b.usable !== true && b.name === 'gvisor' && namespaceFailure(b.reason) }))
   const setting = OPTIONS.includes(status.setting) ? status.setting : 'auto'
+  const backends = (Array.isArray(status.backends) ? status.backends : [])
+    .filter(b => b && typeof b === 'object' && macOnly(text(b.name), b.usable === true, setting))
+    .map(b => ({ name: text(b.name), usable: b.usable === true, reason: text(b.reason), namespaceHint: b.usable !== true && b.name === 'gvisor' && namespaceFailure(b.reason) }))
+  const showVz = backends.some(b => b.name === 'vz')
   const hostNotice = status.hostNotice === true
   return {
     hidden: false,
     setting,
     active: text(status.active),
     canRun: status.canRun === true,
-    options: OPTIONS.map(value => ({ value })),
+    options: OPTIONS.filter(value => value !== 'vz' || showVz).map(value => ({ value })),
     backends,
     hostNotice,
     hostConfirmed: status.hostConfirmed === true,
@@ -49,7 +54,7 @@ export function pageStatus(status) {
   if (!status || typeof status !== 'object' || status.ok !== true) return { state: 'unknown', backend: '', reasons: [] }
   const backend = text(status.active)
   const reasons = status.admin === true && Array.isArray(status.backends)
-    ? status.backends.filter(b => b && typeof b === 'object' && b.usable !== true && text(b.reason)).map(b => ({ name: text(b.name), reason: text(b.reason) }))
+    ? status.backends.filter(b => b && typeof b === 'object' && b.usable !== true && text(b.reason) && macOnly(text(b.name), false, status.setting)).map(b => ({ name: text(b.name), reason: text(b.reason) }))
     : []
   if (status.canRun !== true) return { state: 'cannot', backend: '', reasons }
   if (status.hostNotice === true || backend === 'host') return { state: 'host', backend, reasons }

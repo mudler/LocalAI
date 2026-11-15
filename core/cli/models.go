@@ -30,6 +30,8 @@ type ModelsCMDFlags struct {
 	HFToken          string `env:"HF_TOKEN" hidden:""`
 
 	ArtifactDownloadConcurrency int `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
+
+	TorrentFlags `embed:""`
 }
 
 type ModelsList struct {
@@ -79,6 +81,9 @@ func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 }
 
 func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
+	if err := mi.TorrentFlags.Apply(); err != nil {
+		return err
+	}
 	systemState, err := system.GetSystemState(
 		system.WithModelPath(mi.ModelsPath),
 		system.WithBackendPath(mi.BackendsPath),

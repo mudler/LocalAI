@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
 
-// Kinds of a credential slot. Only the token exists in this version; a kind
-// the host does not know is refused at install.
+// Kinds of a credential slot: a token the person gives the host, or an OAuth
+// 2.0 login the host runs (see CredentialKindOAuth2). A kind the host does not
+// know is refused at install.
 const CredentialKindToken = "token"
 
 // Bounds of the credentials of a manifest and of a request.
@@ -39,8 +44,11 @@ type CredentialSlot struct {
 	ID string `json:"id"`
 	// Title is the name the person sees, such as "Access token".
 	Title string `json:"title"`
-	// Kind is CredentialKindToken.
+	// Kind is CredentialKindToken or CredentialKindOAuth2.
 	Kind string `json:"kind"`
+	// OAuth says how the host logs the person in. It is required for kind
+	// oauth2 and refused for any other kind.
+	OAuth *OAuthDescriptor `json:"oauth,omitempty"`
 	// ResourceArgument is the name of the string argument that holds the
 	// external resource key. A tool whose schema declares it must require it,
 	// and a call is refused when the key is not on the list. A tool without it
@@ -77,8 +85,16 @@ func validateCredentials(c Capabilities) error {
 	}
 	seen := map[string]bool{}
 	for _, s := range c.Credentials {
-		if !namespace.MatchString(s.ID) || seen[s.ID] || s.Kind != CredentialKindToken || !plainText(s.Title, 80) {
+		if !namespace.MatchString(s.ID) || seen[s.ID] || (s.Kind != CredentialKindToken && s.Kind != CredentialKindOAuth2) || !plainText(s.Title, 80) {
 			return fmt.Errorf("invalid credential slot")
+		}
+		if (s.Kind == CredentialKindOAuth2) != (s.OAuth != nil) {
+			return fmt.Errorf("invalid credential slot: oauth belongs to kind %s and to it alone", CredentialKindOAuth2)
+		}
+		if s.OAuth != nil {
+			if err := s.OAuth.Validate(); err != nil {
+				return err
+			}
 		}
 		seen[s.ID] = true
 		if s.ResourceArgument != "" && !toolPropertyName.MatchString(s.ResourceArgument) {
@@ -235,4 +251,26 @@ func (e *ErrRateLimited) Error() string {
 }
 
 // Seconds is the wait, kept between 1 and MaxRetryAfter.
-func (e *ErrRateLimited) Seconds() int { return min(max(e.RetryAfter, 1), MaxRetryAfter) }
+func (e *ErrRateLimited) Seconds() int { return clampRetryAfter(e.RetryAfter) }
+
+// RateLimitedAfter is an ErrRateLimited for a wait of n seconds, kept between
+// 1 and MaxRetryAfter.
+func RateLimitedAfter(n int) *ErrRateLimited {
+	return &ErrRateLimited{RetryAfter: clampRetryAfter(n)}
+}
+
+// ParseRetryAfter reads the value of a Retry-After header, which is a number
+// of seconds or an HTTP date, and keeps it between 1 and MaxRetryAfter. A
+// missing or unreadable value gives def.
+func ParseRetryAfter(value string, def int) int {
+	value = strings.TrimSpace(value)
+	if n, err := strconv.Atoi(value); err == nil {
+		return clampRetryAfter(n)
+	}
+	if t, err := http.ParseTime(value); err == nil {
+		return clampRetryAfter(int(time.Until(t).Seconds()) + 1)
+	}
+	return def
+}
+
+func clampRetryAfter(n int) int { return min(max(n, 1), MaxRetryAfter) }

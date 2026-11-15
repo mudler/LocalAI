@@ -255,20 +255,34 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 	var err error
 	var modelConfig gallery.ModelConfig
 
-	hf := hfapi.NewClient()
-
-	hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
-	hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
-	hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
-
-	hfDetails, err := hf.GetModelDetails(hfrepoID)
-	if err != nil {
-		// maybe not a HF repository
-		// TODO: maybe we can check if the URI is a valid HF repository
-		xlog.Debug("Failed to get model details, maybe not a HF repository", "uri", uri, "hfrepoID", hfrepoID)
+	var hfDetails *hfapi.ModelDetails
+	if ref, ok := pirateFaceImportRef(uri); ok {
+		// A Pirate Face page URL or pirateface:// shorthand. The index lists
+		// the files; the config downloads them over BitTorrent.
+		if ref.Path == "" {
+			uri = string(ref.URI())
+		}
+		hfDetails, err = pirateFaceModelDetails(ref)
+		if err != nil {
+			xlog.Debug("Failed to list Pirate Face model", "uri", uri, "error", err)
+			hfDetails = nil
+		}
 	} else {
-		xlog.Debug("Got model details", "uri", uri)
-		xlog.Debug("Model details", "details", hfDetails)
+		hf := hfapi.NewClient()
+
+		hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
+		hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
+		hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
+
+		hfDetails, err = hf.GetModelDetails(hfrepoID)
+		if err != nil {
+			// maybe not a HF repository
+			// TODO: maybe we can check if the URI is a valid HF repository
+			xlog.Debug("Failed to get model details, maybe not a HF repository", "uri", uri, "hfrepoID", hfrepoID)
+		} else {
+			xlog.Debug("Got model details", "uri", uri)
+			xlog.Debug("Model details", "details", hfDetails)
+		}
 	}
 
 	// handle local config files ("/my-model.yaml" or "file://my-model.yaml")
@@ -316,7 +330,20 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		Preferences: preferences,
 	}
 
+	modelConfig, _, err = matchImporters(details)
+	return modelConfig, err
+}
+
+// matchImporters runs the importer registry on details that are already
+// gathered. It does no network access of its own and never enqueues anything,
+// so it is the dry run behind DiscoverModelConfig and PreviewImport. The
+// importer's name is returned with the config; it is empty when none matched.
+func matchImporters(details Details) (gallery.ModelConfig, string, error) {
+	var modelConfig gallery.ModelConfig
+	var err error
+	hfDetails := details.HuggingFace
 	importerMatched := false
+	matched := ""
 	for _, importer := range defaultImporters {
 		if importer.Match(details) {
 			importerMatched = true
@@ -326,8 +353,9 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 			}
 			modelConfig, err = AttachPrimaryArtifact(modelConfig, details)
 			if err != nil {
-				return gallery.ModelConfig{}, fmt.Errorf("attach managed artifact: %w", err)
+				return gallery.ModelConfig{}, "", fmt.Errorf("attach managed artifact: %w", err)
 			}
+			matched = importer.Name()
 			break
 		}
 	}
@@ -337,15 +365,15 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		// caller knows to pass preferences.backend rather than silently guess.
 		if hfDetails != nil && hfDetails.PipelineTag != "" {
 			if modality, known := ambiguousModalities[hfDetails.PipelineTag]; known {
-				return gallery.ModelConfig{}, &AmbiguousImportError{
+				return gallery.ModelConfig{}, "", &AmbiguousImportError{
 					Modality:    modality,
 					Candidates:  CandidatesForModality(modality),
-					URI:         uri,
+					URI:         details.URI,
 					PipelineTag: hfDetails.PipelineTag,
 				}
 			}
 		}
-		return gallery.ModelConfig{}, fmt.Errorf("no importer matched for %s", uri)
+		return gallery.ModelConfig{}, "", fmt.Errorf("no importer matched for %s", details.URI)
 	}
-	return modelConfig, nil
+	return modelConfig, matched, nil
 }

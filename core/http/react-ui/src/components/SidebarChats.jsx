@@ -6,6 +6,7 @@ import { useAutomatedChats, useRecentChats } from '../hooks/useRecentChats'
 import { attention } from '../utils/originChats'
 import { allChatsDestination } from '../utils/navigationModel'
 import { preloadRoute } from '../router'
+import { useUiString } from './wellknown/Identity'
 
 // How many chats the sidebar lists. All chats has the rest.
 export const RECENT_CHATS = 8
@@ -26,7 +27,10 @@ export default function SidebarChats({ onClose, collapsed }) {
   // on a tab of their own); the entry only says when one needs the person.
   const automated = useAutomatedChats(true, pathname)
   const { waiting, running } = attention(automated.chats, automated.needsYou)
-  const allLabel = t(allChatsDestination.labelKey)
+  // The user's own text for these entries (ui.json strings).
+  const uiString = useUiString()
+  const allLabel = uiString('nav.allChats', t(allChatsDestination.labelKey))
+  const newChat = uiString('nav.newChat', t('newChat'))
   const badge = waiting > 0
     ? t('automatedWaiting', { count: waiting })
     : running > 0 ? t('automatedRunning', { count: running }) : ''
@@ -35,13 +39,13 @@ export default function SidebarChats({ onClose, collapsed }) {
   return (
     <div className="sidebar-section sidebar-chats" role="group" aria-labelledby="sidebar-chats-title" data-testid="sidebar-chats">
       <div className="sidebar-chats__head">
-        <span id="sidebar-chats-title" className="sidebar-section-title">{t('recentChats')}</span>
+        <span id="sidebar-chats-title" className="sidebar-section-title">{uiString('nav.recentChats', t('recentChats'))}</span>
         <button
           type="button"
           className="sidebar-chats__new"
           onClick={() => { navigate('/app'); onClose?.() }}
-          aria-label={t('newChat')}
-          title={t('newChat')}
+          aria-label={newChat}
+          title={newChat}
           data-testid="sidebar-new-chat"
         >
           <Icon name="plus" aria-hidden="true" />

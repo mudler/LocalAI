@@ -122,7 +122,13 @@
     "sourceTitle": "Quelltext von „{{title}}“",
     "sourceLines_one": "{{count}} Zeile",
     "sourceLines_other": "{{count}} Zeilen",
-    "sourceNote": "Der Quelltext wird als Text gezeigt. Nichts davon läuft hier."
+    "sourceNote": "Der Quelltext wird als Text gezeigt. Nichts davon läuft hier.",
+    "embed": {
+      "desc": "Du hast erlaubt, diese Seite zu öffnen. Auf der Startseite, in einem Slot und im Dock läuft sie, sobald der Bildschirm erscheint, ohne Klick. Dafür braucht sie eine eigene Zustimmung.",
+      "item": "Auf der Startseite, in den Slots der App und im Dock laufen",
+      "note": "Sie startet, sobald der Bildschirm erscheint, ohne Klick. Eine Änderung durch die Autorin oder den Autor fragt erneut.",
+      "allow": "Auf der Startseite, in Slots und im Dock erlauben"
+    }
   },
   "frame": {
     "filesFailed": "Dateien neben dieser Seite wurden nicht geladen: {{files}}. Die Browserkonsole nennt den Grund.",
@@ -134,5 +140,47 @@
     "open": "{{site}} öffnen",
     "cancel": "Abbrechen",
     "lookalike": "Diese Adresse nutzt Buchstaben anderer Alphabete und liest sich als {{display}}. Sie kann eine andere Website nachahmen: Prüfen Sie sie vor dem Öffnen."
+  },
+  "view": {
+    "startPage": "Startseite",
+    "makeStart": "Als meine erste angeheftete Seite festlegen",
+    "startAlone": "Es ist deine einzige angeheftete Seite.",
+    "startFailed": "Die Startseite konnte nicht gespeichert werden: {{message}}"
+  },
+  "dock": {
+    "button": "Dock",
+    "buttonTitle": "Dock ein- oder ausblenden (Strg+\\)",
+    "region": "Seiten neben dem Chat",
+    "tabs": "Angedockte Seiten",
+    "closeTab": "{{title}} schließen",
+    "add": "Eine weitere Seite im Dock öffnen",
+    "hide": "Dock ausblenden",
+    "hideKeys": "Dock ausblenden (Strg+\\)",
+    "openFull": "{{title}} als ganze Seite öffnen",
+    "by": {
+      "assistant": "Seite vom Assistenten",
+      "you": "Seite von dir"
+    },
+    "shared": "Geteilt: {{folder}}",
+    "askPrompt": "Ändere die Seite {{title}} in pages/{{name}}/ so, dass ",
+    "live": "Live: wird bei Dateiänderungen aktualisiert",
+    "liveShort": "Live",
+    "sandboxed": "Isoliert, kein Netzwerk",
+    "resize": "Breite des Docks",
+    "resizeHint": "Ziehe den Rand oder nutze die Pfeiltasten. Doppelklick oder Enter setzt die Breite zurück.",
+    "fullScreen": "Dock im Vollbild zeigen",
+    "halfScreen": "Dock auf halbe Höhe setzen",
+    "sheetHint": "Griff nach oben ziehen für Vollbild, nach unten zum Schließen",
+    "pickTitle": "Eine Seite im Dock öffnen",
+    "pickEmpty": "Du hast noch keine Seiten. Bitte den Assistenten, eine zu erstellen.",
+    "missing": "Die Seite {{name}} gibt es nicht mehr, oder du kannst sie gerade nicht lesen.",
+    "off": "Ein Administrator hat geteilte Seiten ausgeschaltet.",
+    "error": "Die Seite konnte nicht geladen werden.",
+    "allowText": "Diese Seite stammt aus einem geteilten Ordner. Sie läuft hier erst, wenn du sie erlaubst.",
+    "allow": "Prüfen und erlauben",
+    "run": "Hier ausführen",
+    "sendLabel": "Die Seite möchte diese Nachricht an diesen Chat senden:",
+    "saveFailed": "Das Dock wurde nicht gespeichert: {{message}}",
+    "openInDock": "Im Dock öffnen"
   }
 }

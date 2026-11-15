@@ -2,7 +2,7 @@
 import KindLibraries from '../components/catalog/KindLibraries'
 import { rowInSource } from '../components/catalog/catalogState'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { backendsApi, modelsApi, nodesApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
@@ -10,6 +10,9 @@ import { FEATURE_BACKEND_INSTALL } from '../utils/capabilities'
 import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
+import { useUpdates } from '../contexts/UpdatesContext'
+import { galleryUpdateMap } from '../utils/updates'
+import { isClusterRow } from '../utils/nodeUpdates'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
 import { backendState, libraryOrigin, opForBackend, shortDigest, sortInstalled, versionLabel } from '../utils/backendRows'
 import { addonsApi } from '../utils/addonsClient'
@@ -29,9 +32,8 @@ import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
 import Icon from '../components/Icon'
 import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
-import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
 import { UpdateBadge } from '../components/upgrade/UpgradeBits'
-import { useBulkUpgrade } from '../hooks/useBulkUpgrade'
+import { newGate, startFetch, requestRefresh, finishFetch } from '../utils/refreshGate'
 import './operate.css'
 
 const CATALOG_FILTERS = [
@@ -65,6 +67,8 @@ const ITEMS_PER_PAGE = 60
 export default function Backends() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('operate')
+  const { t: tu } = useTranslation('updates')
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'catalog'
   const { operations, cancelOperation } = useOperations()
@@ -122,13 +126,11 @@ export default function Backends() {
     return () => { mounted.current = false; inventoryRequests.current = {} }
   }, [])
   const [models, setModels] = useState([])
-  const [upgrades, setUpgrades] = useState({})
   // Newer builds of library backends, by name, and the library updates the
   // administrator started from this page: name -> { job } while one runs.
   const [libUpdates, setLibUpdates] = useState({})
   const [libWork, setLibWork] = useState({})
   const [libReload, setLibReload] = useState(0)
-  const [checking, setChecking] = useState(false)
   const [preferDevLoaded, setPreferDevLoaded] = useState(false)
   const [preferDev, setPreferDev] = useState(false)
   const [pending, setPending] = useState(() => new Set())
@@ -194,12 +196,21 @@ export default function Backends() {
     setSearch(query)
   }, [activeView, query])
 
+  // Reads of the catalog can overlap (the debounced one, a refresh after an
+  // install). The gate applies only the newest response and remembers a
+  // refresh that was asked for while one was running.
+  const gate = useRef(newGate())
+  const fetchBackendsRef = useRef(null)
   const fetchBackends = useCallback(async () => {
+    const started = startFetch(gate.current)
+    gate.current = started.gate
+    let applies = true
     try {
       setLoading(true)
       const params = { page: 1, items: 9999, sort: sortBy, order: sortOrder }
       if (activeView === 'catalog' && search) params.term = search
       const data = await backendsApi.list(params)
+      if (started.token !== gate.current.latest) { applies = false; return true }
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
       setAllBackends(list)
       setLoadError(null)
@@ -210,15 +221,22 @@ export default function Backends() {
       }
       return true
     } catch (err) {
+      if (started.token !== gate.current.latest) { applies = false; return false }
       // A failed read replaces the list with the error; it never looks empty.
       setLoadError(err)
       return false
     } finally {
-      loadedOnce.current = true
-      setCatalogReady(true)
-      setLoading(false)
+      const ended = finishFetch(gate.current, started.token)
+      gate.current = ended.gate
+      if (applies) {
+        loadedOnce.current = true
+        setCatalogReady(true)
+      }
+      if (ended.idle) setLoading(false)
+      if (ended.rerun) fetchBackendsRef.current?.()
     }
   }, [activeView, search, sortBy, sortOrder, preferDevLoaded])
+  fetchBackendsRef.current = fetchBackends
 
   const debouncedFetch = useDebouncedCallback(fetchBackends)
   useEffect(() => { debouncedFetch() }, [debouncedFetch, fetchBackends])
@@ -251,9 +269,10 @@ export default function Backends() {
   // Install and delete change what is installed, so the lists are read again
   // whenever the set of operations changes.
   useEffect(() => {
-    if (!loading) fetchBackends()
+    const ask = requestRefresh(gate.current)
+    gate.current = ask.gate
+    if (ask.runNow) fetchBackends()
     fetchInstalled()
-    backendsApi.checkUpgrades().then(data => setUpgrades(data || {})).catch(() => {})
     modelsApi.listCapabilities().then(data => setModels(Array.isArray(data?.data) ? data.data : [])).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operations.length])
@@ -274,25 +293,12 @@ export default function Backends() {
     () => new Map(allBackends.map(b => [b.name || b.id, b])),
     [allBackends],
   )
+  // The backends with a newer build come from the shell's UpdatesProvider, the
+  // one reader of that fact. Updating is done on the Updates page.
+  const updates = useUpdates()
+  const updateRows = updates && updates.rows
+  const upgrades = useMemo(() => galleryUpdateMap(updateRows), [updateRows])
   const updateNames = Object.keys(upgrades)
-  // "Update all": each backend is updated on its own, one after another, and a
-  // failure does not stop the rest. The run lives here so closing the dialog
-  // keeps it going.
-  const bulkItems = useMemo(() => updateNames.map(name => ({
-    id: name, name, from: upgrades[name].installed_version || '', to: upgrades[name].available_version || '', startable: true,
-  })), [upgrades]) // eslint-disable-line react-hooks/exhaustive-deps
-  const bulk = useBulkUpgrade({
-    items: bulkItems,
-    runOne: async (item) => {
-      try {
-        await backendsApi.upgrade(item.id)
-        return { ok: true }
-      } catch (err) {
-        return { ok: false, message: t('backends.updateAllFailed', { name: item.name, message: err.message }) }
-      }
-    },
-  })
-  const upgradingAll = bulk.running
   const installedCount = installed.length
   const recommended = activeView === 'catalog' && !search && !catalogFilter && installedOnce.current && installedCount === 0
     ? recommendedBackend(allBackends)
@@ -398,7 +404,7 @@ export default function Backends() {
   }
   const rowConflict = (name) => {
     const state = backendState({ installed: true, op: opForBackend(operations, name) })
-    return pending.has(name) || upgradingAll || ['installing', 'queued', 'removing'].includes(state.kind)
+    return pending.has(name) || ['installing', 'queued', 'removing'].includes(state.kind)
   }
   // Async confirmation must use current operation state, not the dialog's closure.
   const currentRowConflict = useRef(rowConflict)
@@ -501,9 +507,16 @@ export default function Backends() {
       .map(n => n.id)
   }
 
-  // An Upgrade button opens the "Update all" dialog with only its backend
-  // checked; it starts nothing by itself.
-  const handleUpgrade = (name) => bulk.show([name])
+  // A backend that nodes report is updated node by node, with a confirmation,
+  // on its own page; any other goes through the list of the Updates page. Both
+  // only open the page: nothing starts from here.
+  const reviewPath = (name) => {
+    const row = (updateRows || []).find(r => r.kind === 'gallery' && r.name === name)
+    return isClusterRow(row) ? `/app/updates/backend/${encodeURIComponent(name)}` : '/app/updates?filter=ready'
+  }
+  const reviewUpdate = (name) => (
+    <Button size="sm" to={reviewPath(name)} aria-label={tu('row.reviewNamed', { name })} data-testid="backend-review-update">{tu('row.review')}</Button>
+  )
 
   // Installs the newer build the library lists. It is the administrator's own
   // action; nothing here runs on its own. The host pins the image by the digest
@@ -540,20 +553,6 @@ export default function Backends() {
       setError(name, t('backends.reinstallFailed', { message: err.message }))
     } finally {
       markPending(name, false)
-    }
-  }
-
-  const handleCheck = async () => {
-    setChecking(true)
-    try {
-      const data = await backendsApi.forceCheckUpgrades()
-      const found = data && typeof data === 'object' ? Object.keys(data).length : 0
-      setUpgrades(data || {})
-      addToast(found > 0 ? t('backends.checkFound', { count: found }) : t('backends.checkNone'), 'info')
-    } catch (err) {
-      addToast(t('backends.checkFailed', { message: err.message }), 'error')
-    } finally {
-      setChecking(false)
     }
   }
 
@@ -757,7 +756,7 @@ export default function Backends() {
     } else if (b.installed) {
       action = (
         <>
-          {upgrade && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={() => handleUpgrade(name)} aria-label={t('backends.updateLabel', { name })}>{t('backends.update')}</button>}
+          {upgrade && reviewUpdate(name)}
           {catalogMenu}
         </>
       )
@@ -904,11 +903,7 @@ export default function Backends() {
     } else {
       action = (
         <>
-          {upgrade && (
-            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={() => handleUpgrade(name)} aria-label={t('backends.updateLabel', { name })}>
-              {t('backends.update')}
-            </button>
-          )}
+          {upgrade && reviewUpdate(name)}
           {!upgrade && libraryUpdate && (
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="backend-library-update" disabled={busy} onClick={() => handleLibraryUpdate(name)} aria-label={t('backends.updateLabel', { name })}>
               {t('backends.update')}
@@ -1061,7 +1056,7 @@ export default function Backends() {
   // returns focus to it when it closes.
   const moreItems = [
     ...(installEnabled ? [
-      { key: 'check', icon: 'refresh', label: t('backends.check'), disabled: checking, onClick: handleCheck },
+      { key: 'check', icon: 'arrow-up', label: tu('title'), onClick: () => navigate('/app/updates') },
       { key: 'url', icon: 'plus', label: t('backends.installFromUrl'), onClick: (trigger) => { trigger?.focus(); setShowManualInstall(true) } },
       { divider: true },
     ] : []),
@@ -1074,7 +1069,7 @@ export default function Backends() {
   const showCount = listReady
   const shownCount = activeView === 'installed' ? installedVisible.length : catalogList.length
   const totalCount = activeView === 'installed' ? installed.length : allBackends.length
-  const showUpdates = installEnabled && (updateNames.length > 0 || Boolean(bulk.run))
+  const showUpdates = installEnabled && updateNames.length > 0
 
   // The way out of a filtered list that shows nothing, in both views. Every
   // filter goes, the library one too: it is what the empty state names when
@@ -1159,7 +1154,7 @@ export default function Backends() {
           </span>
         </div>
 
-        {(showCount || activeFilters.length > 0 || checking || showUpdates) && (
+        {(showCount || activeFilters.length > 0 || showUpdates) && (
           <div className="bk-status">
             {showCount && (
               <span className="bk-count" aria-live="polite" data-testid="backends-count">
@@ -1185,11 +1180,6 @@ export default function Backends() {
                 ))}
               </ul>
             )}
-            {checking && (
-              <span className="bk-status__note" role="status">
-                <Icon name="spinner" spin /> {t('backends.checking')}
-              </span>
-            )}
             {showUpdates && (
               <span className="bk-updates" data-testid="backends-updates">
                 {updateNames.length > 0 && (
@@ -1197,12 +1187,7 @@ export default function Backends() {
                     <Icon name="arrow-up" /> {t('backends.updatesAvailable', { count: updateNames.length })}
                   </span>
                 )}
-                <BulkUpgradeTrigger
-                  bulk={bulk}
-                  className="dk-btn dk-btn--ghost dk-btn--sm"
-                  quiet
-                  labels={{ trigger: t('backends.reviewUpdates') }}
-                />
+                <Button variant="ghost" size="sm" to="/app/updates?filter=ready" data-testid="backends-review-updates">{t('backends.reviewUpdates')}</Button>
               </span>
             )}
           </div>
@@ -1336,7 +1321,6 @@ export default function Backends() {
         </>
       )}
 
-      <BulkUpgradeDialog bulk={bulk} labels={{ title: t('backends.updateAllTitle'), intro: t('backends.updateAllIntro'), action: t('backends.updateSelected') }} />
       <ConfirmDialog
         open={!!confirmDialog}
         title={confirmDialog?.title}

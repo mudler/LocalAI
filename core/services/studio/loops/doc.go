@@ -9,6 +9,6 @@
 // NewJSON and NewGORM implement it.
 //
 // A loop is different from a trigger: a trigger starts a new chat on a
-// schedule (at most once an hour), a loop repeats a prompt inside the chat
+// schedule (at most once every 5 minutes), a loop repeats a prompt inside the chat
 // where it was started, as often as every minute.
 package loops

@@ -1,0 +1,123 @@
+{
+  "name": "Nome",
+  "agent": "Agente",
+  "agentNone": "Escolha um agente",
+  "agentCredentialsOnly": "Sem agente (só credenciais)",
+  "credentialsOnly": "Só credenciais",
+  "agentNoModel": "{{name}} (precisa de um modelo)",
+  "test": "Testar",
+  "save": "Salvar",
+  "cancel": "Cancelar",
+  "editButton": "Editar",
+  "delete": "Excluir",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Não está rodando: {{reason}}.",
+  "title": "SSH",
+  "intro": "Deixe seus chats e agentes executarem comandos em uma máquina remota por SSH. Por padrão você confirma cada comando e vê antes o host e o texto exato.",
+  "limits": "Um comando pode alterar ou apagar tudo o que o usuário de login pode tocar. Use um usuário dedicado, só com as permissões necessárias. No modo \"Executa na hora\" ninguém confirma um comando antes de ele rodar. O add-on executa um comando por vez, sem terminal e sem entrada.",
+  "new": "Nova conexão SSH",
+  "edit": "Editar conexão SSH",
+  "host": "Host",
+  "hostHelp": "O nome ou o endereço da máquina, com a porta se não for a 22: server.example.com ou 10.0.0.5:2222. Uma conexão é um host. Qualquer outro host é recusado.",
+  "hostShape": "Isto não é um host. Escreva um nome ou um endereço, com porta opcional.",
+  "user": "Nome de usuário no host",
+  "userHelp": "O usuário com o qual os comandos rodam. Um usuário dedicado permite retirar o acesso depois sem mexer no seu.",
+  "userShape": "Um nome de usuário tem só letras, dígitos e . _ -",
+  "login": {
+    "label": "Entrar com",
+    "hint": "O segredo é guardado cifrado e nunca mais é mostrado.",
+    "password": "Senha",
+    "key": "Chave privada"
+  },
+  "passwd": "Senha",
+  "passwdHelp": "A senha desse usuário. Ela é salva junto com o nome de usuário como user:password.",
+  "key": "Chave privada",
+  "keyHelp": "Cole uma chave criada só para o LocalAI, em formato PEM ou OpenSSH, sem senha de proteção. Adicione a parte pública a authorized_keys no host.",
+  "credSaved": "Salvo. Digite para substituir.",
+  "secretAgain": "Você mudou o usuário ou o host. Digite o segredo de novo.",
+  "userMissing": "Digite primeiro o nome de usuário.",
+  "keyShape": "Isto não é uma chave privada. Ela começa com -----BEGIN.",
+  "keyPassphrase": "Uma chave com senha de proteção não é aceita. Use uma sem ela.",
+  "credControl": "A senha não tem caracteres de controle.",
+  "credLong": "O segredo é longo demais.",
+  "hostKey": {
+    "label": "Chave do host",
+    "hint": "Na primeira vez, o add-on lê a chave que o host apresenta. Compare a impressão digital com a que a máquina mostra e confie nela. Depois, uma chave diferente é recusada.",
+    "check": "Verificar chave do host",
+    "checking": "Verificando...",
+    "trust": "Comparei esta impressão digital e confio neste host.",
+    "needed": "Verifique a chave do host antes de salvar.",
+    "unreachable": "Não foi possível alcançar o host.",
+    "failed": "Não foi possível ler a chave do host."
+  },
+  "testOk": "O login está salvo.",
+  "checkFailed": "Salvo. A verificação do login falhou: {{reason}}",
+  "checkSeveral": "A verificação roda quando você tem uma única conexão SSH, porque desta página não dá para saber qual você quer. Em um chat, ative as conexões no menu Ferramentas.",
+  "empty": "Ainda não há conexões SSH.",
+  "noHost": "Sem host: esta conexão não alcança nada.",
+  "hostOf": "Host: {{host}}",
+  "confirmDelete": {
+    "title": "Excluir {{name}}?",
+    "message": "Seus chats não alcançam mais este host e o segredo salvo é excluído. Para configurar de novo você precisa digitá-lo outra vez.",
+    "confirm": "Excluir"
+  },
+  "check": {
+    "title": "Verificação de {{name}}",
+    "running": "Verificando o host...",
+    "at": "Verificado às {{time}}",
+    "ok": "Conectado como {{user}}. {{system}}.",
+    "refused": "O host recusou o login. Verifique o usuário, a senha ou a chave.",
+    "changed": "A chave do host mudou. Nada foi enviado. Edite a conexão para verificar e confiar na nova chave.",
+    "nopin": "Nenhuma chave de host fixada. Edite a conexão e verifique a chave do host.",
+    "unreachable": "Não foi possível alcançar o host. Verifique o host e a porta.",
+    "busy": "Outro comando ainda está rodando nesta conexão.",
+    "failed": "A verificação não terminou. Tente de novo daqui a pouco."
+  },
+  "setup": {
+    "title": "Como configurar",
+    "step1": "Crie no host um usuário só para o LocalAI, com apenas as permissões necessárias.",
+    "step2": "Crie um par de chaves para ele, ou escolha uma senha. Adicione a chave pública ao authorized_keys desse usuário.",
+    "step3": "Escreva aqui o host e o usuário, clique em Verificar chave do host e compare a impressão digital.",
+    "step4": "Deixe o modo em Pergunta antes até ler os limites desta página.",
+    "fingerprint": "A impressão digital do host aparece com: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
+  },
+  "writeMode": {
+    "label": "O que o agente pode fazer neste host",
+    "hint": "Verificar a conexão é sempre permitido. Executar um comando exige um modo diferente de Desligado.",
+    "off": "Desligado",
+    "propose": "Pergunta antes",
+    "auto": "Executa na hora",
+    "line": {
+      "off": "Nenhum comando roda.",
+      "propose": "Cada comando espera o seu OK.",
+      "auto": "Os comandos rodam sem OK."
+    },
+    "note": {
+      "off": "Os comandos estão desligados: esta conexão só verifica o login.",
+      "propose": "Cada comando espera nas suas aprovações, com o host e o texto exato, até você confirmar.",
+      "auto": "Os comandos rodam na hora, sem confirmação. Escolha isto só para um host e um usuário em que um comando errado não cause dano."
+    },
+    "row": {
+      "off": "Desligado",
+      "propose": "Pergunta antes",
+      "auto": "Executa na hora"
+    }
+  },
+  "approval": {
+    "title": "Executar um comando em {{host}}",
+    "physical": "Isto roda em uma máquina real assim que você confirmar.",
+    "host": "Host",
+    "user": "Usuário",
+    "command": "Comando",
+    "lines": "{{count}} linha(s)",
+    "timeout": "Limite de tempo",
+    "seconds": "{{count}} segundos",
+    "hostKey": "Chave do host",
+    "as": "Como",
+    "asOne": "A conexão {{name}}",
+    "asFirst": "A primeira conexão que lista este host",
+    "asUnknown": "Uma conexão SSH para este host",
+    "what": "O que acontece",
+    "effect": "O comando exato acima roda uma vez, sem terminal e sem entrada. A saída volta para o chat."
+  }
+}

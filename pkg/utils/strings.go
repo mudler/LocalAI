@@ -2,6 +2,7 @@ package utils
 
 import (
 	"math/rand/v2"
+	"unicode/utf8"
 )
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -24,4 +25,20 @@ func Unique(arr []string) []string {
 		}
 	}
 	return result
+}
+
+// TruncateUTF8 cuts s to at most n bytes without splitting a character, so the
+// result is still valid UTF-8 when s was.
+func TruncateUTF8(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	if len(s) <= n {
+		return s
+	}
+	cut := n
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }

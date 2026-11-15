@@ -51,11 +51,24 @@ type PagesWidget struct {
 	Size string `json:"size"`
 	// Title is the tile's title when it should differ from the page's.
 	Title string `json:"title,omitempty"`
+	// Compact is set when the page has a layout for a slot, a strip about
+	// 40 px high (ui.json slots). Without it a slot shows a button that opens
+	// the page.
+	Compact *PagesCompact `json:"compact,omitempty"`
+}
+
+// PagesCompact is the compact tile of a page in a slot.
+type PagesCompact struct {
+	// Width is the width of the tile in CSS pixels, 72 to 220.
+	Width int `json:"width"`
 }
 
 // PagesList is the user's pages, sorted by name.
 type PagesList struct {
 	Pages []PagesPage `json:"pages"`
+	// PageAreaEnabled is false when an administrator turned the page area of
+	// Home off: a pageArea of home.json is then ignored.
+	PageAreaEnabled bool `json:"page_area_enabled"`
 }
 
 // PagesSource is a page with the text of its index.html.
@@ -147,6 +160,9 @@ type PagesConsent struct {
 	Size      int64      `json:"size,omitempty"`
 	MetaSize  int64      `json:"meta_size,omitempty"`
 	Lines     int        `json:"lines,omitempty"`
+	// Embed is true when you also allowed this version to run on Home and in
+	// the slots of the app (ui.json slots), where it starts without a click.
+	Embed bool `json:"embed,omitempty"`
 }
 
 // PagesSharedSource is a shared page with the text of its index.html, its
@@ -163,6 +179,9 @@ type PagesSharedSource struct {
 type PagesConsentRequest struct {
 	Hash string `json:"hash"`
 	Once bool   `json:"once,omitempty"`
+	// Embed also allows the version on Home and in the slots of the app. It
+	// is a lasting consent: it cannot go with once.
+	Embed bool `json:"embed,omitempty"`
 }
 
 // PagesConsentResponse is the consent you gave. A visit (kind once) has a
@@ -173,4 +192,25 @@ type PagesConsentResponse struct {
 	Hash    string     `json:"hash"`
 	Token   string     `json:"token,omitempty"`
 	Expires *time.Time `json:"expires,omitempty"`
+	Embed   bool       `json:"embed,omitempty"`
+}
+
+// PagesErrorRequest is a runtime error that the frame of a page caught, which
+// the UI of the page's owner reports. The server cuts the texts, drops the
+// browser's own noise and counts repeats of the same error.
+type PagesErrorRequest struct {
+	Message string `json:"message"`
+	Stack   string `json:"stack,omitempty"`
+	// File is the script file of the page that threw; empty for index.html.
+	File string `json:"file,omitempty"`
+	// Line and Column are 0 when the browser gave none.
+	Line   int `json:"line,omitempty"`
+	Column int `json:"column,omitempty"`
+	// Count is how many times the frame saw this error since its last report.
+	Count int `json:"count,omitempty"`
+}
+
+// PagesErrorResponse says whether the error was kept.
+type PagesErrorResponse struct {
+	Recorded bool `json:"recorded"`
 }

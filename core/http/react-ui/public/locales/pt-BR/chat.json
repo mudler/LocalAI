@@ -95,7 +95,8 @@
     "copied": "Copiado para a área de transferência",
     "copyFailed": "Não foi possível copiar para a área de transferência",
     "chatCopied": "Chat copiado para a área de transferência",
-    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}."
+    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}.",
+    "windowSet": "A janela de contexto de {{model}} agora é de {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",
@@ -248,7 +249,8 @@
     "group": {
       "context": "Contexto",
       "skills": "Skills e agentes",
-      "help": "Ajuda"
+      "help": "Ajuda",
+      "yours": "Seus"
     },
     "models": {
       "label": "Modelos",
@@ -301,7 +303,9 @@
       "builtin": "embutida",
       "addon": "complemento",
       "shared": "compartilhada",
-      "yours": "sua"
+      "yours": "sua",
+      "prompt": "prompt",
+      "tool": "ferramenta"
     },
     "collides": "só com /skill",
     "errors": {
@@ -327,7 +331,9 @@
     "effort": {
       "label": "Esforço de raciocínio",
       "desc": "Escolha o quanto o modelo pensa"
-    }
+    },
+    "userTool": "Use a ferramenta {{tool}}.",
+    "unavailable": "ferramenta indisponível"
   },
   "shortcuts": {
     "onMessage": "Numa mensagem: copiar, editar, regenerar",
@@ -335,8 +341,8 @@
   },
   "files": {
     "title": "Arquivos deste chat",
-    "chip": "Arquivos",
-    "chipTitle": "Arquivos deste chat: o que você anexou e o que o assistente criou ou alterou",
+    "button": "Arquivos",
+    "buttonTitle": "Arquivos deste chat: o que você anexou e o que o assistente criou ou alterou",
     "close": "Fechar arquivos",
     "emptyTitle": "Ainda não há arquivos neste chat",
     "emptyBody": "Solte arquivos aqui para anexá-los à sua próxima mensagem. Arquivos que o assistente criar ou alterar também aparecem aqui.",
@@ -352,6 +358,9 @@
     "changedTag": "Editado",
     "changedTitle": "O assistente alterou este arquivo",
     "download": "Baixar {{name}}",
+    "downloadAll": "Baixar todos os arquivos como ZIP",
+    "zipName": "arquivos-do-chat.zip",
+    "zipError": "Não foi possível baixar os arquivos como ZIP.",
     "error": "Não foi possível ler os arquivos deste chat.",
     "workingNote": "Scripts, dados e logs que o assistente criou no caminho. Ficam na pasta de trabalho deste chat."
   },
@@ -777,5 +786,137 @@
     "chip": "Esforço",
     "title": "Esforço de raciocínio deste chat",
     "note": "Vale a partir do próximo turno. Nenhum pede ao modelo que não pense."
+  },
+  "setup": {
+    "chip": "Perfil",
+    "title": "Inicie novos chats a partir de um perfil salvo",
+    "edited": "editado",
+    "menuTitle": "Perfis",
+    "empty": "Ainda não há perfis. Salve como perfil o modelo, as ferramentas e o esforço que você usa.",
+    "active": "Em uso",
+    "noneOff": "Ferramentas padrão",
+    "toolsOff_one": "{{count}} desligada",
+    "toolsOff_many": "{{count}} desligadas",
+    "toolsOff_other": "{{count}} desligadas",
+    "effort": "Esforço {{level}}",
+    "saveAs": "Salvar perfil atual como…",
+    "manage": "Gerenciar perfis",
+    "agentReason": "Um agente salvo decide o modelo e as ferramentas deste chat.",
+    "modelMissing": "O modelo “{{model}}” deste perfil não está instalado. O modelo atual continua.",
+    "line": {
+      "noTools": "Sem ferramentas",
+      "toolCount_one": "{{count}} ferramenta",
+      "toolCount_many": "{{count}} de ferramentas",
+      "toolCount_other": "{{count}} ferramentas"
+    },
+    "update": "Atualizar “{{name}}”",
+    "saveNew": "Salvar como novo…",
+    "reset": "Redefinir",
+    "nameLabel": "Nome do perfil",
+    "namePlaceholder": "Dê um nome a este perfil",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "limit": "Você pode ter até 50 perfis.",
+    "defaultName": "Meu padrão",
+    "savedToast": "Perfil deste chat salvo como “{{name}}”. Os novos chats começam por ele.",
+    "rename": "Renomear",
+    "manageTitle": "Gerenciar perfis",
+    "manageNote": "O perfil padrão é aquele com que os novos chats começam. Ele segue o perfil com que você enviou sua última mensagem.",
+    "manageEmpty": "Ainda não há perfis.",
+    "done": "Concluído",
+    "default": "Padrão",
+    "makeDefault": "Tornar padrão",
+    "moveUp": "Mover {{name}} para cima",
+    "moveDown": "Mover {{name}} para baixo",
+    "renameLabel": "Nome do perfil",
+    "remove": "Excluir",
+    "removeConfirm": "Excluir “{{name}}”?",
+    "removeYes": "Excluir",
+    "noModel": "Sem modelo"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Fale com este chat sem usar as mãos",
+    "mode": "Padrão",
+    "waiting": "Aguardando a resposta",
+    "reason": {
+      "insecure": {
+        "short": "Requer HTTPS ou localhost",
+        "detail": "Seu navegador só libera o microfone por HTTPS, localhost ou 127.0.0.1. Abra esta página por um desses endereços para usar o Live."
+      },
+      "no-mic": {
+        "short": "Nenhum microfone disponível",
+        "detail": "Este navegador não oferece um microfone para esta página. Tente outro navegador para usar o Live."
+      }
+    },
+    "state": {
+      "off": "Desligado",
+      "starting": "Aguardando a permissão do navegador",
+      "listening": "Ouvindo",
+      "hearing": "Ouvindo você",
+      "transcribing": "Transcrevendo",
+      "thinking": "Pensando",
+      "speaking": "Falando",
+      "blocked": "A voz está esperando por você",
+      "paused": "Pausado",
+      "error": "O Live precisa de atenção"
+    },
+    "mute": "Silenciar",
+    "unmute": "Ativar som",
+    "stop": "Parar",
+    "typeInstead": "Digitar em vez disso",
+    "end": "Encerrar o Live",
+    "retry": "Tentar novamente",
+    "play": "Reproduzir",
+    "blocked": "Seu navegador bloqueou a voz. Pressione Reproduzir para ouvir a resposta.",
+    "hidden": "O Live fica pausado enquanto esta aba está em segundo plano. Ele continua quando você voltar.",
+    "error": {
+      "denied": "O acesso ao microfone foi bloqueado. Permita o microfone para este site no navegador e pressione Tentar novamente. Você também pode digitar em vez disso.",
+      "unavailable": "Não foi possível abrir o microfone. Verifique se ele está conectado e não está sendo usado por outro app, e pressione Tentar novamente.",
+      "transcribe": "Não foi possível transformar sua fala em texto. Verifique o modelo de transcrição e pressione Tentar novamente.",
+      "send": "Não foi possível enviar sua mensagem ao chat. Pressione Tentar novamente para voltar a ouvir.",
+      "turn": "Não foi possível ler a resposta do chat, então ela não foi falada. Pressione Tentar novamente para voltar a ouvir.",
+      "speech": "Não foi possível reproduzir a voz da resposta. Verifique o modelo de voz e pressione Tentar novamente.",
+      "generic": "O Live não conseguiu continuar."
+    },
+    "setup": {
+      "title": "Configurar o Live",
+      "description": "O Live precisa de um modelo para transformar sua fala em texto e de outro para falar. Os dois rodam nesta instância do LocalAI.",
+      "part": {
+        "stt": "Fala para texto",
+        "tts": "Voz"
+      },
+      "hint": {
+        "stt": "Transforma o que você diz em texto.",
+        "tts": "Lê a resposta em voz alta."
+      },
+      "install": "Instalar",
+      "installing": "Instalando",
+      "installLabel": "Instalar {{model}}",
+      "retryLabel": "Tentar instalar {{model}} novamente",
+      "installed": "Instalado",
+      "progress": "Progresso da instalação de {{model}}",
+      "failed": "A instalação de {{model}} falhou.",
+      "failedGeneric": "Não foi possível iniciar a instalação.",
+      "adminTitle": "Um administrador precisa instalar estes modelos.",
+      "adminNote": "Peça a um administrador desta instância que instale os modelos acima. O Live funciona quando os dois estão instalados.",
+      "working": "Instalando {{models}}",
+      "ready": "Os dois modelos estão instalados. O Live está pronto.",
+      "start": "Iniciar o Live",
+      "close": "Fechar",
+      "notShown": "Instalado, mas o modelo não apareceu. Tente novamente ou recarregue a página."
+    }
+  },
+  "readAloud": {
+    "read": "Ler em voz alta",
+    "stop": "Parar de ler",
+    "ask": "O seu modelo de texto para fala padrão está em \"perguntar a cada vez\". Escolha um modelo em Padrões para ler em voz alta.",
+    "none": "Nenhum modelo de texto para fala está instalado.",
+    "missing": "O seu modelo de texto para fala padrão não está instalado. Escolha outro em Padrões.",
+    "failed": "Não foi possível ler isto em voz alta.",
+    "omitted": {
+      "code": "Bloco de código omitido.",
+      "table": "Tabela omitida."
+    }
   }
 }

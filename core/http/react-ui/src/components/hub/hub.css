@@ -190,3 +190,17 @@
   .hub-bar .dk-hubtabs { margin-right: calc(-1 * var(--page-gutter)); }
   .hub-subnav { margin-top: var(--sp-4); }
 }
+
+/* The count on the Updates tab: the accent wash of the shell badges, red when
+   an update failed. The text is the number, so colour is never the only cue. */
+.hub-updates-count {
+  background: var(--color-primary-light);
+  color: var(--dk-accent-text);
+  font-weight: var(--dk-weight-semibold);
+}
+.hub-updates-count[data-level="error"] {
+  background: var(--color-error-light);
+  color: var(--dk-error-text);
+}
+.dk-hubtab[aria-current="page"] .hub-updates-count { background: var(--color-primary-light); }
+.dk-hubtab[aria-current="page"] .hub-updates-count[data-level="error"] { background: var(--color-error-light); }

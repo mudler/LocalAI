@@ -127,7 +127,11 @@
     "failed": "失败",
     "updateAvailable": "有可用更新",
     "ready": "就绪",
-    "noRunsYet": "尚无运行"
+    "noRunsYet": "尚无运行",
+    "updating": "更新中",
+    "heldForApproval": "等待批准",
+    "cannotUpdate": "无法更新",
+    "differsFromCluster": "与集群不同"
   },
   "share": {
     "title": "共享“{{name}}”",

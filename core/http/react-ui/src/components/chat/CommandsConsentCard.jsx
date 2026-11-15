@@ -72,6 +72,7 @@ export default function CommandsConsentCard({ consent }) {
     >
       <p>{t('tools.consent.body')}</p>
       <pre className="cmd-consent__command" data-testid="chat-host-consent-command">{consent.command}</pre>
+      {consent.job && <p className="cmd-consent__hint" data-testid="chat-host-consent-job">{t('tools.consent.job')}</p>}
       {isAdmin
         ? <p className="cmd-consent__hint">{t('tools.consent.alwaysHint')}</p>
         : <p className="cmd-consent__hint" data-testid="chat-host-consent-ask">{t('tools.consent.askAdmin')}</p>}

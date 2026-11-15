@@ -311,6 +311,7 @@ func resultError(c echo.Context, e error) error {
 		{gateway.ErrOperationConflict, 409, "operation_conflict", "The operation ID was used for another request; nothing was applied. Repeat the change under a new operation ID"},
 		{gateway.ErrInvalidRequest, 400, "invalid_request", "The request cannot be carried out as given"},
 		{gateway.ErrQuotaReached, 403, "quota_reached", "The resource limit is reached"},
+		{managerpkg.ErrOperationNotFound, 404, "operation_not_found", "The add-on operation is not known to this server. Read the add-on version to see its state"},
 		{gateway.ErrNotSelected, 404, "not_selected", "No resource is selected for the conversation"},
 		{gateway.ErrSearchLimited, 429, "rate_limited", "Too many searches for people; wait a moment and search again"},
 	} {

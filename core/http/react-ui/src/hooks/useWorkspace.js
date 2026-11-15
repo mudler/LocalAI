@@ -122,6 +122,9 @@ export function useWorkspace(initialPath = '/') {
 
   const mkdir = useCallback((name) => act(() => filesApi.mkdir(joinPath(pathRef.current, name))), [act])
   const rename = useCallback((entry, name) => act(() => filesApi.move(entry.path, joinPath(parentOf(entry.path), name))), [act])
+  // extract unpacks an archive into a new folder next to it. It returns the
+  // answer of the server, or null when it failed (the error shows).
+  const extract = useCallback((entry) => act(() => filesApi.extract(entry.path)), [act])
   const remove = useCallback((entry) => act(() => filesApi.remove(entry.path)), [act])
 
   // move sends entries into the folder dest. It returns the revision of each
@@ -189,7 +192,7 @@ export function useWorkspace(initialPath = '/') {
 
   return {
     path, entries, loading, loaded, loadError, maxFileSize, error, off, trash, trashTotals, purged, history, hits, indexing, limited, busy,
-    open, refresh, loadHistory, touch, mkdir, rename, remove, move, removeMany, undoRevs, restore, purge, emptyTrash, search,
+    open, refresh, loadHistory, touch, mkdir, rename, extract, remove, move, removeMany, undoRevs, restore, purge, emptyTrash, search,
     clearPurged: () => setPurged(null),
     clearError: () => setError(''), clearSearch: () => setHits(null),
   }

@@ -53,13 +53,15 @@ type Handlers struct {
 	trust  *pages.Trust
 	// previews keeps the recent file previews of this frontend.
 	previews *previewCache
+	// oauth wires the OAuth routes of the connections to the add-on owner.
+	oauth OAuthConfig
 }
 
 // New returns the handlers. A nil models skips the model check.
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	h := &Handlers{svc: svc, models: models, previews: newPreviewCache()}
 	if svc != nil {
-		h.pages = pages.New(svc.Files())
+		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()))
 		store := svc.PageConsents()
 		if store == nil {
 			store, _ = pages.NewJSONConsents("")
@@ -155,6 +157,8 @@ var chatRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrGoalNotAllowed, studiosvc.ErrGoalReached),
 	verbatim(http.StatusNotFound, typeNotFound, "", studiosvc.ErrNoGoal),
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrGoalText),
+	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", session.ErrInvalidDock),
+	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrDockNotAllowed),
 }
 
 // failFor maps a service error to a response.
@@ -189,7 +193,14 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
 		WillResume: info.WillResume, ResumeAttempts: info.ResumeAttempts,
 		Settings: settingsJSON(rec.Settings),
+		Dock:     dockJSON(rec.Dock),
 	}
+}
+
+// harnessJSON is the window check of a chat as the API reports it.
+func harnessJSON(v studiosvc.Harness) *schema.ChatsHarness {
+	return &schema.ChatsHarness{OK: v.OK, Window: v.Window, Minimum: v.Minimum, Recommended: v.Recommended,
+		CanFix: v.CanFix, Admin: v.Admin, Source: v.Source}
 }
 
 func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord) (schema.ChatsConversation, error) {
@@ -272,6 +283,7 @@ func (h *Handlers) Create(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	out.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	return c.JSON(http.StatusCreated, out)
 }
 
@@ -330,6 +342,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	conv.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	pend, err := h.svc.Pending(c.Request().Context(), user, id)
 	if err != nil {
 		return failFor(c, err)
@@ -343,7 +356,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	// The card waits only while the turn that asked holds the chat; a card a
 	// dead frontend left, also under a later turn, is not shown.
 	if hc := h.svc.HostConsent(c.Request().Context(), user, rec, info); hc != nil {
-		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command}
+		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command, Job: hc.Job}
 	}
 	out.Loops = []schema.ChatsLoop{}
 	if host := h.svc.Loops(); host != nil {
@@ -353,6 +366,7 @@ func (h *Handlers) Get(c echo.Context) error {
 		}
 		out.Loops = loopsJSON(list)
 	}
+	out.Jobs = h.jobsOf(c, user, id)
 	return c.JSON(http.StatusOK, out)
 }
 

@@ -1,21 +1,19 @@
-
 +++
 disableToc = false
 title = "LocalAI binaries"
-weight = 26
+weight = 30
+description = "Download LocalAI binaries and the macOS app."
+keywords = ["binaries","download","macos","linux"]
+devbuild = "install"
 +++
 
 LocalAI binaries are available for both Linux and MacOS platforms and can be executed directly from your command line. These binaries are continuously updated and hosted on [our GitHub Releases page](https://github.com/mudler/LocalAI/releases). This method also supports Windows users via the Windows Subsystem for Linux (WSL).
 
-### macOS Download
+## macOS Download
 
 You can download the DMG and install the application:
 
-<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg">
-  <img src="https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download LocalAI for macOS"/>
-</a> 
-
-> Note: the DMGs are not signed by Apple as quarantined. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
+[Download LocalAI.dmg](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg). The DMG is signed with an Apple Developer ID and notarized.
 
 Otherwise, use the following one-liner command in your terminal to download and run LocalAI on Linux or MacOS:
 
@@ -32,10 +30,10 @@ Otherwise, here are the links to the binaries:
 | MacOS (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |
 
 
-{{% notice icon="⚡" context="warning" %}}
+{{% callout style="warning" icon="bolt" %}}
 Binaries do have limited support compared to container images:
 
 - Python-based backends are not shipped with binaries (e.g. `diffusers` or `transformers`)
 - MacOS binaries and Linux-arm64 do not ship TTS nor `stablediffusion-cpp` backends
 - Linux binaries do not ship `stablediffusion-cpp` backend
- {{% /notice %}}
+ {{% /callout %}}

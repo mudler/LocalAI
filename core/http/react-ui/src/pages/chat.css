@@ -37,7 +37,7 @@
   scrollbar-color: var(--dk-control-edge) transparent;
 }
 .cx-thread {
-  max-width: 760px;
+  max-width: var(--cx-width, 760px);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -61,6 +61,15 @@
 @media (prefers-reduced-motion: no-preference) {
   .cx-msg { animation: homeRise var(--dur-base) var(--ease-out) both; }
 }
+/* A message of yours that the server has not confirmed yet is a little
+   fainter. It is the same element when the confirmation comes, so only the
+   opacity moves. One that was not sent fades out and the text goes back to the
+   box. The fill of the rise holds the message's own opacity, so the state
+   shows on its children. */
+.cx-msg[data-sending] > *,
+.cx-msg[data-failed] { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), height var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out), margin-top var(--dur-base) var(--ease-out); }
+.cx-msg[data-sending] > * { opacity: .6; }
+.cx-msg[data-failed] { animation: none; opacity: 0; transform: translateY(4px); pointer-events: none; }
 
 /* The reader's turn: a flat block on the card surface. */
 .cx-bubble {
@@ -82,7 +91,7 @@
 .cx-who--tool > .lai-icon { width: 15px; height: 15px; flex: none; }
 .cx-row { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .cx-prose {
-  max-width: 720px;
+  max-width: var(--cx-prose-width, 720px);
   font-size: 16px;
   line-height: 1.7;
   overflow-wrap: anywhere;
@@ -163,7 +172,7 @@
 /* Code blocks: language, Copy, Canvas. */
 .cx-page .code-block {
   margin: 0;
-  max-width: 720px;
+  max-width: var(--cx-prose-width, 720px);
   border: 0;
   border-radius: var(--dk-radius-2);
   background: var(--dk-inset);
@@ -271,7 +280,7 @@
    Motion: a fold body and a new step fade in from 4 px below; a finished
    step's spinner gives way to a check that scales in; the time fades in.
    Transform and opacity only; @starting-style, so no keyframes. */
-.cx-fold { max-width: 720px; }
+.cx-fold { max-width: var(--cx-prose-width, 720px); }
 .cx-fold__head {
   display: inline-flex;
   align-items: center;
@@ -617,7 +626,7 @@ button.cx-step__head:hover,
 
 /* ---- The dock: the Home command bar under the thread ------------------------ */
 .cx-dock { flex: none; padding: 6px 24px 10px; }
-.cx-dock__in { max-width: 760px; margin: 0 auto; position: relative; }
+.cx-dock__in { max-width: var(--cx-width, 760px); margin: 0 auto; position: relative; }
 .cx-dock .home-cmd__top { flex-wrap: wrap; }
 .cx-dock .home-textarea { min-height: 52px; max-height: 220px; }
 /* The dock sits at the bottom of the page, so its menus open upward. */
@@ -1109,7 +1118,7 @@ button.cx-step__head:hover,
   align-items: center;
   gap: 8px;
   width: calc(100% - 48px);
-  max-width: 760px;
+  max-width: var(--cx-width, 760px);
   margin: 0 auto 6px;
   padding: 6px 6px 6px 12px;
   border-radius: var(--dk-radius-2);
@@ -1169,10 +1178,10 @@ button.cx-step__head:hover,
 .cx-conv[data-empty] .home-menu,
 .cx-conv[data-empty] .chat-mcp-dropdown-menu { top: calc(100% + 6px); bottom: auto; }
 .cx-conv[data-empty] .dk-cmdlist.home-slash { top: calc(100% + 6px); bottom: auto; }
-.cx-empty { max-width: 760px; margin: 0 auto; display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; }
+.cx-empty { max-width: var(--cx-width, 760px); margin: 0 auto; display: flex; align-items: baseline; flex-wrap: wrap; gap: 14px; }
 .cx-empty h1 { margin: 0; font-family: var(--font-sans); font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1.2; }
 .cx-empty__name { color: var(--dk-muted); font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
-.cx-under { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 24px 40px; }
+.cx-under { max-width: var(--cx-width, 760px); width: 100%; margin: 0 auto; padding: 0 24px 40px; }
 .cx-empty__text { margin: 0 0 12px; color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .cx-starters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
 .cx-starters__label { margin-right: 4px; color: var(--dk-muted); font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
@@ -1203,6 +1212,12 @@ button.cx-step__head:hover,
   box-shadow: inset 0 0 0 1px var(--dk-edge);
 }
 .cx-nomodel h2 { margin: 0; font-family: var(--font-sans); font-size: 15px; font-weight: 650; letter-spacing: 0; }
+.cx-nomodel__head { display: flex; align-items: center; gap: var(--sp-4); }
+.cx-nomodel__head > div { min-width: 0; }
+.cx-nomodel__head p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: var(--fs-small); }
+@media (max-width: 480px) {
+  .cx-nomodel__mascot { display: none; }
+}
 .cx-nomodel > p { margin: 4px 0 12px; color: var(--color-text-secondary); font-size: 14px; }
 .cx-nomodel .home-starters { margin-top: 0; }
 .cx-nomodel__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
@@ -1444,8 +1459,29 @@ button.cx-step__head:hover,
 .cx-wait__facts { display: flex; flex-wrap: wrap; gap: 0 var(--sp-4); margin: 0; padding: 0 0 0 calc(1em + var(--sp-2)); list-style: none; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 .cx-wait__fact { min-width: 0; overflow-wrap: anywhere; }
 .cx-wait__fact--error { flex: 1 1 100%; color: var(--dk-error-text); }
+/* A background job: the card of a wait, with its id in the code font. */
+.cx-job__id code { font-family: var(--font-mono); font-size: inherit; color: var(--dk-muted); }
 @media (max-width: 640px) {
   .cx-wait__facts { flex-direction: column; }
+  /* A job has short facts: they wrap in rows, so four jobs do not fill a phone. */
+  .cx-job .cx-wait__facts { flex-direction: row; column-gap: var(--sp-3); }
+}
+/* Three or more waits that still wait fold into one chip that opens to the
+   cards. The head is a wait card with a toggle and Stop all side by side. */
+.cx-wait-group { display: flex; flex-direction: column; gap: var(--sp-1); }
+.cx-wait-group__head { flex-direction: row; align-items: center; gap: var(--sp-3); }
+.cx-wait-group__toggle {
+  display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); min-width: 0;
+  padding: 0; border: 0; background: none; color: var(--dk-text); font: inherit; text-align: left; cursor: pointer;
+}
+.cx-wait-group__toggle .cx-wait__icon { margin-top: 0; }
+.cx-wait-group__facts { flex: 1 1 auto; padding: 0; }
+.cx-wait-group__head .cx-link { flex: none; white-space: nowrap; }
+.cx-wait-group__chev { flex: none; margin-left: auto; color: var(--dk-muted); transition: transform var(--dur-fast, 120ms) ease; }
+.cx-wait-group[data-open] .cx-wait-group__chev { transform: rotate(90deg); }
+.cx-wait-group__body { display: flex; flex-direction: column; gap: var(--sp-1); padding-left: var(--sp-3); }
+@media (max-width: 640px) {
+  .cx-wait-group__facts { flex-direction: column; }
 }
 /* The answer to /loop list. */
 .cx-loop-list {
@@ -2098,3 +2134,37 @@ html[data-handoff='fade']::view-transition-new(root) {
 .cx-hostnote__label { color: var(--color-text-secondary); font-weight: 600; }
 .cx-hostnote__text, .cx-hostnote__more { min-width: 0; overflow-wrap: anywhere; }
 .cx-hostnote__count { font-variant-numeric: tabular-nums; }
+
+/* A background of ui.json (chatBackground) sits under the whole chat view. The
+   thread, which is long text, also gets a panel in the page colour, so the
+   messages, code blocks and tool cards read the same over a busy picture as on
+   the plain page, in the light and the dark theme. The veil of the layer
+   (overlay) sets how much of the picture shows around and through it. */
+.cx-conv:has(> .bg-layer) { isolation: isolate; }
+.cx-conv:has(> .bg-layer) .cx-thread {
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--dk-canvas) 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+/* The shortcuts, the message box and the status line under the thread get the
+   same panel, so their text reads over a picture too. */
+.cx-conv:has(> .bg-layer) .cx-dock__in {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--dk-canvas) 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* The assistant of persona.json: its name before the model in a reply, and
+   its picture, headline and greeting in an empty chat. */
+.cx-who b.cx-who__name { font-family: var(--font-sans); }
+.cx-who__model { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-muted); }
+.cx-empty--identity { align-items: center; }
+.cx-empty__sub { flex-basis: 100%; margin: 0; color: var(--color-text-secondary); font-size: var(--fs-body); line-height: var(--lh-body); }
+.cx-greeting { flex-basis: 100%; display: flex; align-items: flex-start; gap: var(--sp-3); margin-top: var(--sp-2); }
+.cx-greeting .wk-avatar { margin-top: 2px; }
+.cx-greeting b { display: block; font-size: var(--fs-small); color: var(--dk-text); }
+.cx-greeting p { margin: 2px 0 0; font-family: var(--cx-font, var(--font-sans)); font-size: var(--fs-lead); line-height: 1.6; color: var(--dk-text); }

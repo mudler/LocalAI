@@ -82,9 +82,12 @@ func childWhere(ctx context.Context, q querier, where string, args ...any) (node
 	return n, true, nil
 }
 
-// childByName finds a live child by its exact name.
+// childByName finds a live child by its exact name. The folded name is part
+// of the query because the live-name index is on it: with the exact name only,
+// the database reads every child of the folder for each lookup, so a commit of
+// n files in one folder costs n squared reads.
 func childByName(ctx context.Context, q querier, parent int64, name string) (nodeRow, bool, error) {
-	return childWhere(ctx, q, `parent_id = ? AND name = ? AND deleted = 0`, parent, name)
+	return childWhere(ctx, q, `parent_id = ? AND name_fold = ? AND name = ? AND deleted = 0`, parent, foldName(name), name)
 }
 
 // childByFold finds a live child whose name folds to the same value as name.

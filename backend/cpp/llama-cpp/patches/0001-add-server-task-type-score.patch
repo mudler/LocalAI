@@ -408,7 +408,7 @@ index 9377e3c..b0a0bf9 100644
 +                              slot.prompt.n_tokens() <  slot.task->n_score_prompt - 1))) {
 +                            bool have_ckpt = false;
 +                            for (const auto & ckpt : slot.prompt.checkpoints) {
-+                                have_ckpt |= ckpt.n_tokens == slot.prompt.n_tokens();
++                                have_ckpt |= ckpt->n_tokens == slot.prompt.n_tokens();
 +                            }
 +                            if (!have_ckpt) {
 +                                break;
@@ -455,7 +455,7 @@ index 9377e3c..b0a0bf9 100644
                              slot.prompt.checkpoints.empty() ||
 -                            is_last_user_message || near_prompt_end ||
 +                            is_last_user_message || near_prompt_end || is_score_boundary ||
-                             n_tokens_start > slot.prompt.checkpoints.back().n_tokens + params_base.checkpoint_min_step);
+                             n_tokens_start > slot.prompt.checkpoints.back()->n_tokens + params_base.checkpoint_min_step);
                      SLT_DBG(slot, "main/do_checkpoint = %s, pos_min = %d, pos_max = %d\n", do_checkpoint ? "yes" : "no", pos_min, pos_max);
  
 @@ -4823,6 +5139,13 @@ private:

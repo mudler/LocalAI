@@ -10,7 +10,8 @@
     "viewDetails": "Visualizza dettagli",
     "resetCollection": "Reimposta raccolta",
     "deleteCollection": "Elimina raccolta",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "save": "Salva"
   },
   "sections": {
     "yourCollections": "Le tue raccolte",
@@ -47,7 +48,12 @@
     "noneShared": "Nessuna fonte web."
   },
   "entries": {
-    "loadFailed": "Impossibile caricare i file."
+    "loadFailed": "Impossibile caricare i file.",
+    "filter": "Filtra i file",
+    "countAll_one": "{{count}} file",
+    "countAll_other": "{{count}} file",
+    "countOf": "{{shown}} di {{total}} file",
+    "noMatch": "Nessun file corrisponde."
   },
   "starting": {
     "title": "La conoscenza si sta avviando.",
@@ -83,5 +89,25 @@
     },
     "noteViewer": "Puoi cercarla e leggerne i file.",
     "noteEditor": "Puoi cercarla e aggiungere o rimuovere file."
+  },
+  "create": {
+    "title": "Nuova raccolta",
+    "hint": "Dalle un nome che riconoscerai. Aggiungerai file e pagine web una volta creata."
+  },
+  "sort": {
+    "label": "Ordina le raccolte",
+    "name": "Nome, dalla A alla Z",
+    "name-desc": "Nome, dalla Z alla A",
+    "used": "Più usate",
+    "unused": "Non usate per prime"
+  },
+  "list": {
+    "countAll_one": "{{count}} raccolta",
+    "countAll_other": "{{count}} raccolte",
+    "countOf": "{{shown}} di {{total}} raccolte",
+    "menu": "Azioni per {{name}}"
+  },
+  "menu": {
+    "try": "Prova una domanda"
   }
 }

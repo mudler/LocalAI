@@ -50,6 +50,58 @@ var _ = Describe("a wait in the loops list", func() {
 		}
 	})
 
+	It("names a job by its id and label, in words that never carry a command", func() {
+		l := base()
+		l.Watch.Tool, l.Watch.Args = "", nil
+		l.Watch.Job, l.Watch.JobLabel, l.Watch.Node = "job-ab12cd", "build", "node-a"
+		l.Watch.Mode = loops.UntilStall
+		l.Watch.Idle = 10 * time.Minute
+		l.Prompt = "Wait for " + l.Watch.Describe()
+		out := loopJSON(l)
+		Expect(out.Watch.SourceKind).To(Equal("job"))
+		Expect(out.Watch.Source).To(Equal(`job-ab12cd "build"`))
+		Expect(out.Watch.Mode).To(Equal("stall"))
+		Expect(out.Watch.Condition).To(Equal("the job writes no output for 10m"))
+		Expect(out.Prompt).To(Equal("Wait for job job-ab12cd to go quiet for 10m"))
+		l.Watch.Mode = loops.UntilExit
+		Expect(loopJSON(l).Watch.Condition).To(Equal("the job exits"))
+	})
+
+	It("names a wait on a sub-agent as a sub-agent, not as a job", func() {
+		l := base()
+		l.Watch.Tool, l.Watch.Args = "", nil
+		l.Watch.Job, l.Watch.Agent = "agent-9ab2", true
+		l.Watch.Mode = loops.UntilStall
+		l.Watch.Idle = time.Minute
+		out := loopJSON(l)
+		Expect(out.Watch.SourceKind).To(Equal("agent"))
+		Expect(out.Watch.Source).To(Equal("agent-9ab2"))
+		Expect(out.Watch.Condition).To(Equal("the sub-agent makes no progress for 1m"))
+		l.Watch.Mode = loops.UntilExit
+		Expect(loopJSON(l).Watch.Condition).To(Equal("the sub-agent finishes"))
+	})
+
+	It("names a script by its kind and never shows its command", func() {
+		l := base()
+		l.Prompt = "Wait for " + (&loops.Watch{Script: "x", Mode: loops.UntilExitZero}).Describe()
+		l.Watch.Tool, l.Watch.Args = "", nil
+		l.Watch.Script = "curl -H 'Authorization: Bearer s3cret' https://internal.example/health"
+		l.Watch.Mode = loops.UntilExitZero
+		l.Watch.Errors, l.Watch.LastErr = 1, "the command did not finish in time"
+		out := loopJSON(l)
+		Expect(out.Watch.SourceKind).To(Equal("script"))
+		Expect(out.Watch.Source).To(Equal("a script"))
+		Expect(out.Watch.Condition).To(Equal("the script exits with status 0"))
+		Expect(out.Prompt).To(Equal("Wait for the script to exit with status 0"))
+		raw, err := json.Marshal(out)
+		Expect(err).NotTo(HaveOccurred())
+		for _, leak := range []string{"s3cret", "curl", "internal.example", "Authorization"} {
+			Expect(string(raw)).NotTo(ContainSubstring(leak))
+		}
+		l.Watch.Mode = loops.UntilChange
+		Expect(loopJSON(l).Watch.Condition).To(Equal("the output changes"))
+	})
+
 	It("cuts URLs in the last error to host and path", func() {
 		l := base()
 		l.Watch.Errors, l.Watch.LastErr, l.Watch.Outcome = 2, `Get "https://status.example.com/api?token=abc123": connection refused`, loops.OutcomeError

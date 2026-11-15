@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -57,7 +58,24 @@ func (f *fakeLLM) last() map[string]any {
 	return reqs[len(reqs)-1]
 }
 
-// userTexts returns the text of each user message of a request.
+// workFolderNote matches the sentence of a turn's note that names the chat's
+// work folder (workfiles.Note), with the shell hint after it; the folder name
+// may hold a quote, so the match ends at the folder's own name.
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\.(?: ` + regexp.QuoteMeta(workfiles.ShellHint) + `)? ?`)
+
+// withoutWorkFolderNote removes that sentence, and the empty note around it,
+// so a spec keys on the words of the person.
+func withoutWorkFolderNote(text string) string {
+	if !workFolderNote.MatchString(text) {
+		return text
+	}
+	text = workFolderNote.ReplaceAllString(text, "")
+	text = strings.Replace(text, "(System note: )\n\n", "", 1)
+	return strings.Replace(text, " )\n\n", ")\n\n", 1)
+}
+
+// userTexts returns the text of each user message of a request, without the
+// host's work-folder note.
 func userTexts(req map[string]any) []string {
 	var out []string
 	for _, m := range req["messages"].([]any) {
@@ -67,11 +85,11 @@ func userTexts(req map[string]any) []string {
 		}
 		switch c := msg["content"].(type) {
 		case string:
-			out = append(out, c)
+			out = append(out, withoutWorkFolderNote(c))
 		case []any:
 			for _, part := range c {
 				if p := part.(map[string]any); p["type"] == "text" {
-					out = append(out, p["text"].(string))
+					out = append(out, withoutWorkFolderNote(p["text"].(string)))
 				}
 			}
 		}
@@ -195,7 +213,7 @@ var _ = Describe("Chats per-chat settings", func() {
 	It("stores the settings on the chat and applies them to the next turn", func() {
 		id := s.create("alice")
 		rec := s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"settings": map[string]any{
-			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 8192,
+			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 16384,
 		}})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)["settings"]).To(HaveKeyWithValue("top_k", BeNumerically("==", 7)))

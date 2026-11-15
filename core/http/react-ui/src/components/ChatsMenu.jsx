@@ -53,6 +53,21 @@ const ChatsMenu = forwardRef(function ChatsMenu({
     returnFocusRef.current = null
   }, [open])
 
+  // The dialog is modal, so Escape closes it wherever the focus is. Opened with
+  // a click or a shortcut, the focus stays on the opener until the list takes
+  // it, and a key pressed in that gap must not be lost. Keys the dialog already
+  // handled (it stops them or prevents the default) are not handled twice.
+  useEffect(() => {
+    if (!open) return undefined
+    const onDocKeyDown = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return
+      e.preventDefault()
+      close()
+    }
+    document.addEventListener('keydown', onDocKeyDown)
+    return () => document.removeEventListener('keydown', onDocKeyDown)
+  }, [open, close])
+
   // Tab stays inside the dialog.
   const onKeyDown = (e) => {
     if (e.key === 'Escape') {

@@ -51,8 +51,10 @@ func RunBackendSuite(newBackend NewBackend) {
 type skipper interface{ skips(feature string) bool }
 
 // Skipper is implemented by a backend that cannot do part of the suite, and
-// says which part. A backend with an isolation to prove must not implement it
-// for that part.
+// says which part: "tty", "network" or "suspend-processes" (a suspend that
+// keeps the running processes; the backend still suspends and resumes the
+// files). A backend with an isolation to prove must not implement it for that
+// part.
 type Skipper interface{ Skips(feature string) bool }
 
 func need(b sandbox.Backend, feature string) {

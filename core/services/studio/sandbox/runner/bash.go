@@ -32,9 +32,15 @@ const GuestRoot = sandbox.DefaultDir
 // them.
 const GuestHome = GuestRoot + "/home"
 
+// QuoteRule tells the model how to name paths in a command. A work folder is
+// named after the chat's title, which can hold spaces and non-ASCII
+// characters, and a name typed out by hand gets mangled or split by the shell.
+const QuoteRule = "Use $WORK or relative paths instead of typing absolute paths. Quote every path with double quotes. " +
+	"Never type out a name with spaces or non-ASCII characters; take it from ls or a glob."
+
 // WhereNote tells the model where a call starts and what is kept.
-const WhereNote = "It starts in " + GuestHome + ", the user's home: the same files as the file tools, so a relative path such as report.docx is " + GuestHome + "/report.docx. " +
-	"What a command writes under " + GuestHome + " (or a writable " + GuestRoot + "/shared-<name>) is saved to the user's files; anything else, such as /tmp or " + GuestRoot + " itself, is lost."
+const WhereNote = "The shell starts in $WORK, this chat's work folder (the user's home when the chat has none yet), inside the user's files: the same files as the file tools see under " + GuestHome + ". " +
+	QuoteRule + " What a command writes under " + GuestHome + " (or a writable " + GuestRoot + "/shared-<name>) is saved to the user's files; anything else, such as /tmp or " + GuestRoot + " itself, is lost."
 
 // ErrInvalid marks an argument the tool refuses.
 var ErrInvalid = errors.New("invalid argument")
@@ -68,8 +74,23 @@ type BashOptions struct {
 	// Done, when set, is told about every call that ran a command, for an
 	// audit. The request of the call is in ctx (RequestFrom).
 	Done func(ctx context.Context, r BashResult)
-	// Dir is the folder a call starts in. Empty: GuestHome.
+	// Dir is the folder a call starts in when the chat has no work folder.
+	// Empty: GuestHome.
 	Dir string
+	// WorkDir returns the guest path of the chat's work folder for a call.
+	// It is asked at every call, so a chat that got its folder, or a title
+	// that changed it, applies from the next call. Nil: the work folder the
+	// host put in the call's request (Request.Call.WorkDir). An empty answer
+	// means the chat has no folder yet and the call starts in Dir with no
+	// $WORK.
+	WorkDir func(ctx context.Context) string
+}
+
+// WorkDirOf is the default of BashOptions.WorkDir: the work folder in the
+// request of the call that ctx belongs to.
+func WorkDirOf(ctx context.Context) string {
+	r, _ := RequestFrom(ctx)
+	return r.Call.WorkDir
 }
 
 // BashResult is what one bash call did.
@@ -89,6 +110,9 @@ func Bash(acquire Acquire, o BashOptions) Tool {
 	maxSec := int(o.MaxTimeout / time.Second)
 	if o.Dir == "" {
 		o.Dir = GuestHome
+	}
+	if o.WorkDir == nil {
+		o.WorkDir = WorkDirOf
 	}
 	if o.Description == "" {
 		o.Description = fmt.Sprintf("Run a shell script with bash. %s Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most %d).", WhereNote, maxSec)
@@ -142,7 +166,10 @@ func bash(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessage, o BashOp
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	start := time.Now()
-	out, code, err := sandbox.RunCappedIn(tctx, sb, []string{"bash", "-lc", a.Command}, o.Dir, nil, MaxOutput)
+	// The work folder is made before the call (the host ensures it); with
+	// none, the shell starts in the home as it did before work folders.
+	dir, env := sandbox.WorkStart(o.WorkDir(ctx), o.Dir)
+	out, code, err := sandbox.RunCappedEnv(tctx, sb, []string{"bash", "-lc", a.Command}, dir, env, nil, MaxOutput)
 	if o.Done != nil {
 		res := BashResult{Command: a.Command, Exit: code, Duration: time.Since(start), TimedOut: errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil}
 		if err != nil {

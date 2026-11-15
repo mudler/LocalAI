@@ -47,8 +47,9 @@ export async function settleOperation(api, { operationId, addonId, signal, waits
       if (isFinalPhase(status.phase)) return { outcome: status.phase, phase: status.phase }
     } catch (e) {
       if (e && e.name === 'AbortError') throw e
-      // A denial is final; anything else is a lost read and is tried again.
-      if (e instanceof AddonsError && (e.kind === 'denied' || e.kind === 'auth')) throw e
+      // A denial is final, and so is an operation the owner does not know;
+      // anything else is a lost read and is tried again.
+      if (e instanceof AddonsError && (e.kind === 'denied' || e.kind === 'auth' || e.kind === 'operation_not_found')) throw e
       down = isUnavailable(e) ? down + 1 : 0
     }
     if (i < waits.length) {

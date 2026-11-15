@@ -227,12 +227,29 @@ var _ = Describe("provider slots", func() {
 			Expect(p.Properties).To(HaveKeyWithValue("remote", true))
 		})
 
-		It("lists every slot of the host", func() {
+		It("lists every pick-one slot of the host and leaves the set slots to their own route", func() {
 			all, err := svc.ProviderSlots(ctx, "alice")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(all).To(HaveLen(len(contract.ProviderSlots())))
+			pickOne := 0
+			for _, d := range contract.ProviderSlots() {
+				if !d.IsSet() {
+					pickOne++
+				}
+			}
+			Expect(all).To(HaveLen(pickOne))
+			for _, v := range all {
+				Expect(v.ID).NotTo(Equal(contract.SlotModelSearch))
+			}
 			_, err = svc.ProviderSlot(ctx, "alice", "calendar")
 			Expect(err).To(MatchError(ErrUnknownSlot))
+		})
+
+		It("does not take a pick for a set slot, and never serves one provider for it", func() {
+			_, err := svc.ProviderSlot(ctx, "alice", contract.SlotModelSearch)
+			Expect(err).To(MatchError(ErrUnknownSlot))
+			_, err = svc.SelectProvider(ctx, "alice", contract.SlotModelSearch, contract.ProviderBuiltin)
+			Expect(err).To(MatchError(ErrUnknownSlot))
+			Expect(svc.ResolveProvider(ctx, "alice", contract.SlotModelSearch).Addon()).To(BeEmpty())
 		})
 	})
 

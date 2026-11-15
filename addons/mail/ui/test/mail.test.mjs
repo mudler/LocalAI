@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addressProblem, checkItems, connectionProblem, fieldProblems, defaultName, emptyMail, extraBody, extraForm, extraValid, followName, foldersProblem, hostProblem, mailSecret, parseFolders, portAfterSecurity, portProblem, writeModeOf } from '../src/settings.js'
+import { addressProblem, checkItems, connectionProblem, fieldProblems, defaultName, emptyMail, extraBody, extraForm, extraValid, followName, foldersProblem, hostProblem, mailSecret, parseFolders, portAfterSecurity, portProblem, writeModeOf, WRITE_MODES } from '../src/settings.js'
 import { proposalView } from '../src/proposal.js'
 import { canSave, connectorPayload, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/mail.en.json' with { type: 'json' }
@@ -93,6 +93,21 @@ test('mail: the address rides in the list, the secret in the token, and a saved 
   assert.equal(extraValid(filled({ mail_pass: '' })), false)
 })
 
+test('mail: Allow all is offered, kept on save and read back, and never the default', () => {
+  assert.deepEqual(WRITE_MODES, ['off', 'propose', 'auto'], 'auto is offered')
+  assert.equal(writeModeOf('auto'), 'auto')
+  assert.equal(writeModeOf('x'), 'off')
+  assert.equal(writeModeOf(undefined), 'off')
+  assert.equal(emptyMail().write_mode, 'off', 'a new connection starts read only')
+  assert.equal(extraForm({}).write_mode, 'off')
+  assert.equal(extraBody({ mail_address: 'ann@example.com', write_mode: 'auto' }).write_mode, 'auto', 'choosing Allow all is sent')
+  const reloaded = extraForm({ id: 'b1', resources: ['ann@example.com'], write_mode: 'auto' })
+  assert.equal(reloaded.write_mode, 'auto', 'a saved auto shows as Allow all after a reload')
+  assert.equal(extraForm({ id: 'b1', resources: ['ann@example.com'], write_mode: 'propose' }).write_mode, 'propose')
+  assert.equal(t('writeMode.auto'), 'Allow all')
+  assert.match(t('writeMode.note.auto'), /cannot be taken back/)
+})
+
 test('mail: the name follows the address until the person types one', () => {
   assert.equal(followName('', '', 'ann@example.com'), 'Mail: ann@example.com')
   assert.equal(followName('Mail: ann@example.com', 'ann@example.com', 'bob@example.com'), 'Mail: bob@example.com')
@@ -128,4 +143,17 @@ test('mail: every wrong field is reported at once, so one error never hides anot
   assert.deepEqual(Object.keys(p).sort(), ['imapHost', 'pass', 'smtpPort'])
   assert.deepEqual(fieldProblems({ ...filled({ mail_pass: '' }), replace: false }), {})
   assert.deepEqual(fieldProblems(filled()), {})
+})
+
+test('mail: Allow all has words in every language the add-on ships', async () => {
+  const { readFileSync } = await import('node:fs')
+  for (const loc of ['en','it','es','de','fr','zh-CN','id','ko','pt-BR']) {
+    const w = JSON.parse(readFileSync(new URL(`../src/i18n/mail.${loc}.json`, import.meta.url), 'utf8')).writeMode
+    for (const path of [['auto'], ['line', 'auto'], ['note', 'auto'], ['row', 'auto']]) {
+      const v = path.reduce((o, k) => o?.[k], w)
+      assert.equal(typeof v, 'string', `${loc}: writeMode.${path.join('.')}`)
+      assert.ok(v.length > 0)
+    }
+    assert.notEqual(w.row.auto, w.row.propose, `${loc}: Allow all must not read as Asks you first`)
+  }
 })

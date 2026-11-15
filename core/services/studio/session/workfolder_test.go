@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -88,6 +89,13 @@ func (r *workRig) open(p, id string) *session.Chat {
 	return c
 }
 
+// lastSent is the text the model got for the last turn.
+func (r *workRig) lastSent() string {
+	sent := r.h.Sent()
+	Expect(sent).NotTo(BeEmpty())
+	return sent[len(sent)-1]
+}
+
 // lastPrompt is the prompt block of the last harness start.
 func (r *workRig) lastPrompt() string {
 	starts := r.h.Starts()
@@ -98,7 +106,7 @@ func (r *workRig) lastPrompt() string {
 var _ = Describe("the work folder of a chat", func() {
 	for name, mk := range workStores {
 		Context("on the "+name+" workspace store", func() {
-			It("names the work folder in the prompt and makes it only when it is used", func() {
+			It("names the work folder in the note and makes it only when it is used", func() {
 				ctx := context.Background()
 				r := newWorkRig(withHome(mk(), "alice"))
 				c := r.open("alice", "c1")
@@ -109,7 +117,9 @@ var _ = Describe("the work folder of a chat", func() {
 				Expect(rec.Folder).NotTo(BeEmpty(), "the chat took no folder name")
 				guest := workfiles.GuestFolder(rec.Folder)
 				Expect(r.lastPrompt()).To(HavePrefix("Base block."))
-				Expect(r.lastPrompt()).To(ContainSubstring(guest))
+				Expect(r.lastPrompt()).To(ContainSubstring(workfiles.Prompt))
+				Expect(r.lastPrompt()).NotTo(ContainSubstring(guest), "the prompt names the folder, so it differs between chats")
+				Expect(r.lastSent()).To(HavePrefix("(System note: " + workfiles.Note(guest)))
 
 				// Nothing is made until something is saved there.
 				user := workspace.Actor{Principal: "alice"}
@@ -153,6 +163,7 @@ var _ = Describe("the work folder of a chat", func() {
 				Expect(a.Folder).NotTo(BeEmpty())
 				Expect(b.Folder).NotTo(BeEmpty())
 				Expect(strings.EqualFold(a.Folder, b.Folder)).To(BeFalse(), "both chats hold %q", a.Folder)
+				Expect(b.Folder).To(Equal(a.Folder+"-2"), "the second chat gets a dash and a number, not a space")
 			})
 
 			It("renames a folder name that has no folder yet", func() {
@@ -163,9 +174,73 @@ var _ = Describe("the work folder of a chat", func() {
 				Expect(c.SetTitle(ctx, "Second title")).To(Succeed())
 				rec, err := r.store.GetChat(ctx, "alice", "c1")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(rec.Folder).To(HaveSuffix("Second title"))
+				Expect(rec.Folder).To(HaveSuffix("-second-title"))
+				starts := len(r.h.Starts())
 				turn(c, session.Message{Text: "again"})
-				Expect(r.lastPrompt()).To(ContainSubstring(workfiles.GuestFolder(rec.Folder)))
+				Expect(r.lastSent()).To(ContainSubstring(workfiles.Note(workfiles.GuestFolder(rec.Folder))))
+				Expect(r.h.Starts()).To(HaveLen(starts), "the new folder name restarted the harness")
+			})
+
+			It("keeps a folder made in the old style when the title changes", func() {
+				ctx := context.Background()
+				r := newWorkRig(withHome(mk(), "alice"))
+				old := "2026-10-18 Old title"
+				Expect(r.store.CreateChat(ctx, session.ChatRecord{ID: "c1", Principal: "alice", Title: "Old title", Folder: old,
+					Created: time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC), Updated: time.Now()})).To(Succeed())
+				user := workspace.Actor{Principal: "alice"}
+				Expect(r.ws.Mkdir(ctx, user, session.ChatsPath("alice")+"/"+old)).Error().NotTo(HaveOccurred())
+				c := r.open("alice", "c1")
+				Expect(c.SetTitle(ctx, "New title")).To(Succeed())
+				rec, err := r.store.GetChat(ctx, "alice", "c1")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rec.Title).To(Equal("New title"))
+				Expect(rec.Folder).To(Equal(old), "a folder in the old style was renamed")
+				_, err = r.ws.Stat(ctx, user, session.ChatsPath("alice")+"/"+old)
+				Expect(err).NotTo(HaveOccurred(), "the old folder is gone")
+			})
+
+			It("gives chats with different titles the same prompt and names each folder in its note", func() {
+				ctx := context.Background()
+				r := newWorkRig(withHome(mk(), "alice"))
+				turn(r.open("alice", "c1"), session.Message{Text: "Budget review"})
+				first, firstSent := r.lastPrompt(), r.lastSent()
+				turn(r.open("alice", "c2"), session.Message{Text: "Holiday plans"})
+				second, secondSent := r.lastPrompt(), r.lastSent()
+
+				// A backend reuses its cached prompt only when the system
+				// prompt (and the tools after it) is the same, byte for byte.
+				Expect(second).To(Equal(first))
+				for id, sent := range map[string]string{"c1": firstSent, "c2": secondSent} {
+					rec, err := r.store.GetChat(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(rec.Folder).NotTo(BeEmpty())
+					Expect(sent).To(ContainSubstring(workfiles.Note(workfiles.GuestFolder(rec.Folder))), id)
+				}
+				Expect(firstSent).NotTo(ContainSubstring("Holiday plans"))
+				Expect(secondSent).NotTo(ContainSubstring("Budget review"))
+			})
+
+			It("keeps the folder in the note when the product's note is at its limit", func() {
+				ctx := context.Background()
+				ws := withHome(mk(), "alice")
+				h := &sessiontest.FakeHarness{Turns: [][]sessiontest.Step{{{Say: "ok"}}}}
+				st := sessiontest.NewMemoryStore()
+				o := session.Options{Store: st, Workspace: ws, Harness: h, StateDir: GinkgoT().TempDir()}
+				long := strings.Repeat("connector notes ", 60)
+				o.ChatTools = func(context.Context, session.Access) (session.TurnTools, error) {
+					return session.TurnTools{Prompt: "Base block.", Note: long, WorkFolder: true}, nil
+				}
+				m, err := session.New(o)
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(func() { _ = m.Close(context.Background()) })
+				c, err := openAs(m, ctx, workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
+				Expect(err).NotTo(HaveOccurred())
+				turn(c, session.Message{Text: "Long note"})
+				rec, err := st.GetChat(ctx, "alice", "c1")
+				Expect(err).NotTo(HaveOccurred())
+				sent := h.Sent()
+				Expect(sent).To(HaveLen(1))
+				Expect(sent[0]).To(HavePrefix("(System note: " + workfiles.Note(workfiles.GuestFolder(rec.Folder)) + " connector notes"))
 			})
 		})
 	}
@@ -180,6 +255,9 @@ var _ = Describe("the work folder of a chat", func() {
 		Expect(rec.Folder).To(BeEmpty())
 		for _, s := range r.h.Starts() {
 			Expect(s.TurnPrompt).NotTo(ContainSubstring("work folder"))
+		}
+		for _, s := range r.h.Sent() {
+			Expect(s).NotTo(ContainSubstring("work folder"))
 		}
 	})
 

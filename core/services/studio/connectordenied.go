@@ -24,6 +24,12 @@ const (
 // tool". It is empty for a chat that no connector started, and when nothing was
 // held back for a missing right.
 func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
+	return deniedToolsNoteReserve(rec, built, 0)
+}
+
+// deniedToolsNoteReserve is deniedToolsNote that leaves reserve characters of
+// the 400 for a line that goes before it in the note of the turn.
+func deniedToolsNoteReserve(rec session.ChatRecord, built []builtins.Built, reserve int) string {
 	if rec.Origin != session.OriginConnector {
 		return ""
 	}
@@ -52,7 +58,7 @@ func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
 	var kept []string
 	used := 0
 	for _, why := range reasons {
-		if used+len(why)+1 > deniedNoteBudget {
+		if used+len(why)+1 > deniedNoteBudget-reserve {
 			break
 		}
 		kept = append(kept, why)

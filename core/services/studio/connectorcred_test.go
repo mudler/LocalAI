@@ -166,7 +166,8 @@ var _ = Describe("the default resource of a connection", func() {
 		Expect(err).To(MatchError(connectors.ErrNoConnection))
 		_, err = r.conns.DefaultCredentialFor(ctx, "mallory", "telegram", b.ID)
 		Expect(err).To(MatchError(connectors.ErrNoCredential))
-		_, err = connectors.OnlyEntry(connectors.Binding{Resources: connectors.NewResources([]string{"http://ha.local:8123"})})
+		noToken := connectors.Binding{Resources: connectors.NewResources([]string{"http://ha.local:8123"})}
+		_, err = connectors.OnlyEntryUsable(noToken, noToken.HasTokenCredential())
 		Expect(err).To(MatchError(connectors.ErrNoCredential))
 	})
 })

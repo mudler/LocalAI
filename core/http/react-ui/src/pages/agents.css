@@ -394,7 +394,7 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
   border: 1px solid var(--dk-edge);
   border-radius: var(--r-lg);
   background: var(--dk-card);
-  box-shadow: 0 1px 0 var(--dk-edge), 0 8px 16px -12px rgba(0, 0, 0, .35);
+  box-shadow: 0 1px 0 var(--dk-edge), 0 8px 16px -12px rgb(var(--dk-shadow-tint) / .35);
 }
 .aed-bar__who { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .aed-avatar {

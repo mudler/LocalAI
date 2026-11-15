@@ -9,8 +9,13 @@ export const API_CONFIG = {
 
     // Models gallery
     models: '/api/models',
+    modelsSearch: '/api/models/search',
+    modelsSearchSources: '/api/models/search/sources',
+    modelsRemoteFiles: '/api/models/remote/files',
+    modelsRemoteEstimate: '/api/models/remote/estimate',
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
+    modelsRecommended: '/api/models/recommended',
     modelEstimate: (id) => `/api/models/estimate/${id}`,
     modelVariants: (id) => `/api/models/variants/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,
@@ -27,8 +32,8 @@ export const API_CONFIG = {
     installExternalBackend: '/api/backends/install-external',
     backendJob: (uid) => `/api/backends/job/${uid}`,
     deleteInstalledBackend: (name) => `/api/backends/system/delete/${name}`,
-    backendsUpgrades: '/api/backends/upgrades',
-    backendsUpgradesCheck: '/api/backends/upgrades/check',
+    backendUpdates: '/api/backends/updates',
+    backendUpdatesCheck: '/api/backends/updates/check',
     upgradeBackend: (name) => `/api/backends/upgrade/${name}`,
 
     // Resources
@@ -66,6 +71,7 @@ export const API_CONFIG = {
     chatStop: (id) => `/api/chats/${encodeURIComponent(id)}/stop`,
     chatGoal: (id) => `/api/chats/${encodeURIComponent(id)}/goal`,
     chatGoalResume: (id) => `/api/chats/${encodeURIComponent(id)}/goal/resume`,
+    chatDock: (id) => `/api/chats/${encodeURIComponent(id)}/dock`,
     chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
     files: '/api/chats/files',
     filesContent: '/api/chats/files/content',
@@ -73,6 +79,7 @@ export const API_CONFIG = {
     filesFolders: '/api/chats/files/folders',
     filesMove: '/api/chats/files/move',
     filesTrash: '/api/chats/files/trash',
+    filesExtract: '/api/chats/files/extract',
     filesUndo: '/api/chats/files/undo',
     filesHistory: '/api/chats/files/history',
     filesSearch: '/api/chats/files/search',

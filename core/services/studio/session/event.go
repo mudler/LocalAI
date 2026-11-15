@@ -76,6 +76,9 @@ const (
 	// cleared, paused, resumed, reached or blocked, or it counted a turn.
 	// Text is the state ("" when cleared). Read the chat again.
 	KindGoal EventKind = "goal"
+	// KindDock says that the chat's dock changed: a page was opened in it,
+	// here, in another tab or by the assistant. Read the chat again.
+	KindDock EventKind = "dock"
 	// KindResync says that the stream cannot give what the client missed: the
 	// resume point is too old, of another run, or not known to this server.
 	// Read the transcript again. ID is the newest event the server knows of in

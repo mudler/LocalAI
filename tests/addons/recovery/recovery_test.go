@@ -468,7 +468,7 @@ var _ = Describe("Add-on data recovery over the real owner", func() {
 			}
 			Expect(ins.raw).To(ContainSubstring(want), want)
 		}
-		docs, err := os.ReadFile("../../../docs/content/features/addons.md")
+		docs, err := os.ReadFile("../../../docs/content/addons/contract-reference.md")
 		Expect(err).NotTo(HaveOccurred())
 		for _, want := range []string{"needs-recovery", "sole recovery copy", "retained data", "ownership mapping", "migration.json"} {
 			Expect(strings.ToLower(string(docs))).To(ContainSubstring(strings.ToLower(want)), want)

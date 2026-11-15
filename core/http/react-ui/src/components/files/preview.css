@@ -219,3 +219,23 @@
 .pv-card__note { margin: 0; color: var(--color-text-muted); font-size: var(--fs-meta); }
 .pv-card .btn { margin-top: var(--sp-2); }
 .pv__error { margin: 0; }
+
+/* A Word, Excel or PowerPoint file drawn from its own bytes (OfficeView.jsx). */
+.pv-office { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.pv-office__bar { display: flex; justify-content: flex-end; }
+.pv-office__stage { min-width: 0; }
+.pv-office__stage--wait { height: 0; overflow: hidden; visibility: hidden; }
+.pv-frame--docx { height: 480px; min-height: 0; background: var(--dk-inset); }
+.pv-grid td.pv-grid__num { text-align: right; }
+.pv-deck { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pv-deck__stage {
+  border-radius: var(--r-sm);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  overflow: hidden;
+}
+.pv-deck__stage:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* The renderer gives the canvas a size in pixels; the pane wants it to follow its width. */
+.pv-deck__canvas { display: block; width: 100% !important; height: auto !important; }
+.pv-deck__nav { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); }
+.pv-deck__count { color: var(--color-text-secondary); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }

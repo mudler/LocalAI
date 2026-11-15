@@ -187,7 +187,7 @@ func (s *jsonStore) GetJob(_ context.Context, owner, id string) (Job, error) {
 	return j.clone(), nil
 }
 
-func (s *jsonStore) jobsWhere(keep func(Job) bool, limit int) []Job {
+func (s *jsonStore) jobsWhere(keep func(Job) bool, limit int, oldestFirst bool) []Job {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := []Job{}
@@ -198,9 +198,9 @@ func (s *jsonStore) jobsWhere(keep func(Job) bool, limit int) []Job {
 	}
 	sort.Slice(out, func(i, k int) bool {
 		if !out[i].Created.Equal(out[k].Created) {
-			return out[i].Created.After(out[k].Created)
+			return out[i].Created.After(out[k].Created) != oldestFirst
 		}
-		return out[i].ID > out[k].ID
+		return (out[i].ID > out[k].ID) != oldestFirst
 	})
 	if limit > 0 && len(out) > limit {
 		out = out[:limit]
@@ -208,12 +208,32 @@ func (s *jsonStore) jobsWhere(keep func(Job) bool, limit int) []Job {
 	return out
 }
 
+func jobMatches(owner string, f Filter) func(Job) bool {
+	return func(j Job) bool {
+		return j.Owner == owner && (f.TaskID == "" || j.TaskID == f.TaskID) && (f.ClientID == "" || j.ClientID == f.ClientID) &&
+			(!f.Active || j.Ended.IsZero()) && (!f.Finished || !j.Ended.IsZero())
+	}
+}
+
 func (s *jsonStore) ListJobs(_ context.Context, owner string, f Filter) ([]Job, error) {
-	return s.jobsWhere(func(j Job) bool { return j.Owner == owner && (f.TaskID == "" || j.TaskID == f.TaskID) }, f.Limit), nil
+	return s.jobsWhere(jobMatches(owner, f), f.Limit, f.OldestFirst), nil
+}
+
+func (s *jsonStore) CountJobs(_ context.Context, owner string, f Filter) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	keep := jobMatches(owner, f)
+	n := 0
+	for _, j := range s.jobs {
+		if keep(j) {
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (s *jsonStore) AllJobs(context.Context) ([]Job, error) {
-	return s.jobsWhere(func(Job) bool { return true }, 0), nil
+	return s.jobsWhere(func(Job) bool { return true }, 0, false), nil
 }
 
 func (s *jsonStore) DeleteJob(_ context.Context, owner, id string) error {

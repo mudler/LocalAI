@@ -35,7 +35,9 @@ const isAddonAsset = (url) => /\/api\/addons\/[^/]+\/assets\//.test(url)
 // The drawer draws a tile for the add-on; its start and stop controls are in
 // the card of the detail sheet (/app/addons?detail=ID).
 const card = (page) => page.locator(`[data-testid="addon-tile"][data-app="${ID}"]`)
-const sheetCard = (page) => page.getByTestId('addon-detail').locator(`[data-app="${ID}"]`)
+// The pane carries data-app on its title and on its body, so it is found by
+// the add-on it shows; its header holds the state chip.
+const sheetCard = (page) => page.getByTestId('addon-detail').filter({ has: page.locator(`[data-app="${ID}"]`) })
 // The state as the sheet's header shows it. The Details area repeats the
 // observed state under Health, so a bare role query would match both.
 const sheetState = (page, name) => sheetCard(page).locator('.ad-pane__meta').getByRole('img', { name: `State: ${name}` })

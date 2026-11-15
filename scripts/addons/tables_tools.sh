@@ -52,7 +52,7 @@ run_go() {
     shift
     report="$cache/logs/tables-tools-$name.json"
     rm -f "$report"
-    go test -count=1 -p 2 -tags auth "$@" -ginkgo.json-report="$report" >"$cache/logs/tables-tools-$name.log" 2>&1 || { tail -40 "$cache/logs/tables-tools-$name.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp "$@" -ginkgo.json-report="$report" >"$cache/logs/tables-tools-$name.log" 2>&1 || { tail -40 "$cache/logs/tables-tools-$name.log" >&2; exit 1; }
     go_cases "$report"
 }
 run_go adapter ./core/services/addons/tools

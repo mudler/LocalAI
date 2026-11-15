@@ -9,6 +9,8 @@ package localaitools
 const (
 	// Read-only tools.
 	ToolGallerySearch             = "gallery_search"
+	ToolSearchModels              = "search_models"
+	ToolInspectRemoteModel        = "inspect_remote_model"
 	ToolListInstalledModels       = "list_installed_models"
 	ToolListGalleries             = "list_galleries"
 	ToolGetJobStatus              = "get_job_status"
@@ -16,6 +18,7 @@ const (
 	ToolListBackends              = "list_backends"
 	ToolListKnownBackends         = "list_known_backends"
 	ToolListBackendLibraryUpdates = "list_backend_library_updates"
+	ToolBackendUpdates            = "backend_updates"
 	ToolSystemInfo                = "system_info"
 	ToolListNodes                 = "list_nodes"
 	ToolListScheduling            = "list_scheduling"

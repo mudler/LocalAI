@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "让你的智能体读取你列出的 Drive 文件夹中的文件。如果你允许，它们还可以在其中创建和修改文本文件。",
+  "limits": "选择“使用 Google 连接”即可添加连接并登录你的 Google 账号。本页设置每个连接的文件夹和写入模式。只有你在聊天中提出要求时，智能体才会在 Drive 中工作。",
+  "edit": "编辑 Google Drive 连接",
+  "name": "名称",
+  "folders": "智能体可以使用的文件夹",
+  "foldersHelp": "每行一个文件夹 ID 或文件夹地址。已列出 {{count}} 个。文件夹包含其中的所有内容。其他任何文件都会被拒绝。",
+  "foldersShape": "“{{entry}}”不是文件夹 ID。请从浏览器中文件夹的地址里复制 /folders/ 之后的部分。",
+  "foldersMany": "最多 50 个文件夹。",
+  "allFolders": {
+    "label": "所有文件夹（我的云端硬盘和共享云端硬盘）",
+    "hint": "智能体可以读取你的 Google 登录能看到的所有文件，包括我的云端硬盘和共享云端硬盘。关闭后，它只使用列表中的文件夹。",
+    "warning": "这会让智能体读取你的 Google 登录能访问的所有文件，而不只是某个文件夹中的文件。下面的写入模式仍然有效，每次更改仍需等待你确认。",
+    "confirm": "我明白：允许所有文件夹",
+    "row": "所有文件夹（我的云端硬盘和共享云端硬盘）"
+  },
+  "agent": "智能体",
+  "agentNone": "选择智能体",
+  "agentCredentialsOnly": "没有智能体（仅凭据）",
+  "agentOptionalHint": "可选。没有智能体时，此连接只保存登录信息、文件夹列表和供你的聊天使用的写入模式。它不回复消息，也不监听任何内容。",
+  "credentialsOnly": "仅凭据",
+  "agentNoModel": "{{name}}（需要模型）",
+  "test": "测试",
+  "testOk": "已作为 {{bot}} 连接。",
+  "checkFailed": "已保存。检查失败：{{reason}}",
+  "save": "保存",
+  "cancel": "取消",
+  "editButton": "编辑",
+  "delete": "删除",
+  "empty": "还没有 Google Drive 连接。选择“使用 Google 连接”即可添加。",
+  "connect": "使用 Google 连接",
+  "defaultName": "Google Drive",
+  "noFolders": "没有列出文件夹：智能体什么也读不到。",
+  "foldersOf": "{{count}} 个文件夹：{{list}}",
+  "agentOf": "智能体：{{name}}",
+  "inactive": "未运行：{{reason}}。",
+  "confirmDelete": {
+    "title": "删除 {{name}}？",
+    "message": "智能体将无法再访问这些文件夹。LocalAI 会请求 Google 撤销登录，然后忘记它。",
+    "confirm": "删除"
+  },
+  "setup": {
+    "title": "如何选择文件夹",
+    "step1": "在浏览器中打开 Google Drive 里的文件夹。地址以 /folders/ 和文件夹 ID 结尾。",
+    "step2": "复制整个地址或只复制 ID，粘贴到列表中。用 root 表示“我的云端硬盘”的顶层。",
+    "step3": "下面的写入模式还需要你在连接时允许的可选权限。没有它，智能体只能读取。"
+  },
+  "writeMode": {
+    "label": "智能体可以在 Drive 中更改什么",
+    "hint": "创建文本文件、替换文件的文本、重命名或移动文件，以及把文件移到回收站。它从不共享文件，也不会永久删除文件。",
+    "off": "只读",
+    "propose": "先问你",
+    "auto": "全部允许",
+    "line": {
+      "off": "它不能更改 Drive 中的任何内容。",
+      "propose": "每项更改都要等你确认。",
+      "auto": "你的聊天会立即进行更改。"
+    },
+    "note": {
+      "off": "写入权限已关闭：此连接只读取。",
+      "propose": "每项更改都会在你的审批中等待，直到你确认。它还需要你在连接时允许的可选写入权限。",
+      "auto": "你的聊天会立即进行每项更改，不会询问，LocalAI 无法撤销。你不在场时的运行仍然要等待你的确认。"
+    },
+    "row": {
+      "off": "只读",
+      "propose": "先问你",
+      "auto": "全部允许"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "创建文件",
+      "update-file": "更改文件",
+      "move-file": "移动文件",
+      "trash-file": "把文件移到回收站"
+    },
+    "file": "文件",
+    "name": "名称",
+    "newName": "新名称",
+    "in": "所在文件夹",
+    "allowedFolder": "你允许的文件夹",
+    "moveTo": "移动到",
+    "type": "类型",
+    "text": "将保存的文本（{{bytes}} 字节）",
+    "cut": "这里显示的文本已被截断。完整文本共 {{bytes}} 字节，会被保存。",
+    "trashNote": "文件会进入回收站。你可以从那里恢复。",
+    "replaceNote": "新文本会替换文件的全部文本。"
+  }
+}

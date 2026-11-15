@@ -58,6 +58,7 @@ func ggufFileToMeta(f *gguf.GGUFFile) *GGUFMeta {
 		HeadCount:            uint32(arch.AttentionHeadCount),
 		HeadCountKV:          uint32(arch.AttentionHeadCountKV),
 		MaximumContextLength: arch.MaximumContextLength,
+		ExpertCount:          arch.ExpertCount,
 	}
 	if meta.HeadCountKV == 0 {
 		meta.HeadCountKV = meta.HeadCount

@@ -4,6 +4,7 @@
 package routes_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -88,6 +89,7 @@ var _ = Describe("Chats files endpoints", func() {
 		Entry("trash", http.MethodGet, "/api/chats/files/trash"),
 		Entry("empty the trash", http.MethodDelete, "/api/chats/files/trash"),
 		Entry("purge one trash entry", http.MethodDelete, "/api/chats/files/trash/3"),
+		Entry("extract", http.MethodPost, "/api/chats/files/extract"),
 		Entry("undo", http.MethodPost, "/api/chats/files/undo"),
 		Entry("history", http.MethodGet, "/api/chats/files/history"),
 		Entry("search", http.MethodGet, "/api/chats/files/search?q=a"),
@@ -203,6 +205,38 @@ var _ = Describe("Chats files endpoints", func() {
 		Expect(rec.Code).NotTo(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/files/trash", nil))["entries"].([]any)).To(HaveLen(1))
 		Expect(s.names("alice", "/")).NotTo(ContainElement("secret.txt"))
+	})
+
+	It("extracts an archive into a new folder, undoes it whole, and refuses a path that leaves the folder", func() {
+		zipOf := func(names ...string) string {
+			var b bytes.Buffer
+			w := zip.NewWriter(&b)
+			for _, n := range names {
+				f, _ := w.Create(n)
+				_, _ = f.Write([]byte("data " + n))
+			}
+			_ = w.Close()
+			return b.String()
+		}
+		Expect(s.putFile("alice", "/pack.zip", zipOf("a.txt", "d/b.txt")).Code).To(Equal(http.StatusOK))
+		rec := s.do("alice", http.MethodPost, "/api/chats/files/extract", map[string]any{"path": "/pack.zip"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		body := decodeJSON(rec)
+		Expect(body).To(HaveKeyWithValue("dest", "/pack"))
+		Expect(body).To(HaveKeyWithValue("files", BeNumerically("==", 2)))
+		Expect(s.names("alice", "/pack")).To(ConsistOf("a.txt", "d"))
+
+		rec = s.do("alice", http.MethodPost, "/api/chats/files/undo", map[string]any{"rev": body["rev"]})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(s.names("alice", "/")).NotTo(ContainElement("pack"))
+
+		Expect(s.putFile("alice", "/evil.zip", zipOf("../x.txt")).Code).To(Equal(http.StatusOK))
+		rec = s.do("alice", http.MethodPost, "/api/chats/files/extract", map[string]any{"path": "/evil.zip"})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(s.names("alice", "/")).NotTo(ContainElement("evil"))
+
+		Expect(s.do("alice", http.MethodPost, "/api/chats/files/extract", map[string]any{"path": "/missing.zip"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("bob", http.MethodPost, "/api/chats/files/extract", map[string]any{"path": "/pack.zip"}).Code).To(Equal(http.StatusNotFound))
 	})
 
 	It("keeps both files when a second upload does not start from the first", func() {

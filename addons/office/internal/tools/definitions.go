@@ -100,10 +100,11 @@ func Definitions() []contract.ToolDefinition {
 			object(obj{"path": pathProp(".xlsx"), "csv": str("The csv content."), "title": str("Optional title metadata; does not add a heading."),
 				"sheet": str("The sheet name. Optional; defaults to Sheet1."),
 			}, "path", "csv")),
-		def(ToolCreatePptx, act, "Create a PowerPoint file from slides, each with a title and bullet lines. A slide without bullets is a title slide. If the path is taken, the old file stays and the new one is saved next to it.",
+		def(ToolCreatePptx, act, "Create a PowerPoint file from slides, each with a title and bullet lines. A slide without bullets is a title slide. Give template to use the design of a .pptx or .potx file of the user: its masters, layouts, theme colors and fonts; its own slides are not copied. If the path is taken, the old file stays and the new one is saved next to it.",
 			object(obj{
-				"path":  pathProp(".pptx"),
-				"title": str("The deck title. Optional."),
+				"path":     pathProp(".pptx"),
+				"title":    str("The deck title. Optional."),
+				"template": str("A .pptx or .potx file in the user's files, such as /templates/brand.potx, whose design the deck uses. Optional; without it the deck uses the built-in design."),
 				"slides": list(object(obj{
 					"title":   str("The slide title."),
 					"bullets": list(obj{"type": "string"}, "The bullet lines.", 30),

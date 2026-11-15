@@ -45,9 +45,16 @@ export const isVoiceProfile = (p) => p?.kind === 'voice_profile'
 export function voiceProfileFields(p) {
   try {
     const c = JSON.parse(p?.content || '{}')
+    // Further clips of the same voice are listed with the first, so the person
+    // sees every file that would be cloned.
+    const extra = Array.isArray(c.extra_clips) ? c.extra_clips : []
+    const audio = [String(c.audio || ''), ...extra.map((e) => String(e?.audio || ''))].filter(Boolean).join(', ')
+    const transcript = extra.length === 0
+      ? String(c.transcript || '')
+      : [c.transcript, ...extra.map((e) => e?.transcript)].map((t, i) => `${i + 1}. ${String(t || '')}`).join(' ')
     return {
-      name: String(c.name || ''), audio: String(c.audio || ''), transcript: String(c.transcript || ''), language: String(c.language || ''),
-      clip: voiceClipText(c),
+      name: String(c.name || ''), audio, transcript, language: String(c.language || ''),
+      clip: voiceClipText(c, extra.length + 1),
     }
   } catch {
     return { name: '', audio: '', transcript: '', language: '', clip: '' }
@@ -58,10 +65,12 @@ export function voiceProfileFields(p) {
 // size, the duration and the first 8 hex characters of the SHA-256. The server
 // refuses the confirmation when the file no longer matches. An empty string for
 // a proposal that has no pin.
-export function voiceClipText(c) {
+// For several clips the size and the duration are the totals, and the hash
+// covers them all in order.
+export function voiceClipText(c, clips = 1) {
   const sha = String(c?.audio_sha256 || '')
   if (!sha) return ''
-  const parts = [byteText(Number(c.audio_bytes))]
+  const parts = clips > 1 ? [`${clips} clips`, byteText(Number(c.audio_bytes))] : [byteText(Number(c.audio_bytes))]
   const ms = Number(c.audio_ms)
   if (Number.isFinite(ms) && ms > 0) parts.push(`${(ms / 1000).toFixed(1)} s`)
   parts.push(`SHA-256 ${sha.slice(0, 8)}`)

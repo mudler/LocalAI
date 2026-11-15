@@ -7,7 +7,8 @@ const (
 	// ToolSearchAuto defers the groups when their tool schemas take a tenth
 	// or more of the model's context window.
 	ToolSearchAuto = "auto"
-	// ToolSearchOn always defers the groups.
+	// ToolSearchOn always defers the groups, and the tools of the user's MCP
+	// connectors with them.
 	ToolSearchOn = "on"
 	// ToolSearchOff never defers them.
 	ToolSearchOff = "off"

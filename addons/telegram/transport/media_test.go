@@ -63,6 +63,11 @@ var _ = Describe("the files of messages", func() {
 		Expect(ups[2].Media).To(Equal([]string{"audio:a1"}))
 		Expect(ups[3].Media).To(Equal([]string{"video_note:n1"}))
 		Expect(ups[4].Media).To(Equal([]string{"document:d1"}), "the name of the sender goes nowhere")
+		// Each file names its kind, so the host can refuse one unread.
+		for i, k := range []string{contract.ConnectorMediaPhoto, contract.ConnectorMediaVoice, contract.ConnectorMediaAudio, contract.ConnectorMediaVideoNote, contract.ConnectorMediaDocument} {
+			Expect(ups[i].MediaKinds).To(Equal([]string{k}), "update %d", i)
+		}
+		Expect(ups[5].MediaKinds).To(BeEmpty())
 		Expect(ups[5].Media).To(BeEmpty())
 		Expect(ups[5].Unsupported).To(BeTrue(), "a sticker")
 		Expect(ups[6].Media).To(BeEmpty(), "a file ID that is not one")
@@ -103,6 +108,9 @@ var _ = Describe("the files of messages", func() {
 		Expect(ups[0].MessageID).To(Equal("10"))
 		Expect(ups[0].Cursor).To(Equal(int64(10 + contract.MaxConnectorMedia - 1)))
 		Expect(ups[1].Media).To(HaveLen(2), "the rest of the album")
+		Expect(ups[0].MediaKinds).To(HaveLen(contract.MaxConnectorMedia), "a kind for each file of the album")
+		Expect(ups[1].MediaKinds).To(Equal([]string{"photo", "photo"}))
+		Expect(ups[2].MediaKinds).To(BeEmpty())
 		Expect(ups[2].Text).To(Equal("and this"))
 		Expect(out.NextOffset).To(Equal(int64(31)))
 		Expect(len(f.called("getUpdates"))).To(BeNumerically("<=", 1), "the album ends with a text: no wait")
@@ -121,6 +129,7 @@ var _ = Describe("the files of messages", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ups).To(HaveLen(1))
 		Expect(ups[0].Media).To(Equal([]string{"photo:b0", "photo:b1"}))
+		Expect(ups[0].MediaKinds).To(Equal([]string{"photo", "photo"}))
 		Expect(ups[0].Text).To(Equal("two photos"))
 		Expect(ups[0].Cursor).To(Equal(int64(41)))
 		calls := f.called("getUpdates")

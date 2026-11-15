@@ -200,7 +200,6 @@
     "draining": "Node set to draining",
     "removed": "Node removed",
     "unloaded": "Model \"{{name}}\" unloaded",
-    "upgrading": "Upgrading \"{{name}}\" on this node…",
     "backendDeleted": "Backend \"{{name}}\" deleted",
     "loadFailed": "Failed to load node: {{message}}"
   },
@@ -281,7 +280,6 @@
     "installed": "Installed",
     "system": "system",
     "gallery": "gallery",
-    "upgradeBackend": "Upgrade backend",
     "deleteBackend": "Delete backend…",
     "logsSub": "Logs open per replica, with the output of its backend process.",
     "noLogs": "Nothing is loaded here, so there are no process logs.",

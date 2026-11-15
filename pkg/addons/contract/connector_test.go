@@ -48,6 +48,22 @@ var _ = Describe("the connector capability", func() {
 		raw, _ = json.Marshal(m.Capabilities.Connector)
 		Expect(string(raw)).NotTo(ContainSubstring("agentOptional"))
 	})
+	It("accepts toolOnly at feature level 5, implies agentOptional and keeps it through a JSON round trip", func() {
+		k := &m.Capabilities.Connector.Kinds[0]
+		k.ToolOnly = true
+		m.FeatureLevel = 4
+		Expect(ValidateManifest(m, host())).To(MatchError(ContainSubstring("must declare featureLevel 5")))
+		m.FeatureLevel = 5
+		Expect(ValidateManifest(m, host())).To(Succeed())
+		Expect(k.AgentOptional).To(BeFalse())
+		Expect(k.NoAgentAllowed()).To(BeTrue())
+		raw, err := json.Marshal(m.Capabilities.Connector)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"toolOnly":true`))
+		old := host()
+		old.FeatureLevel = 4
+		Expect(ValidateManifest(m, old)).NotTo(Succeed())
+	})
 	It("lets an add-on declare nothing but the connector", func() {
 		m.Capabilities.UI = nil
 		m.Capabilities.Connector.Kinds[0].Page = ""

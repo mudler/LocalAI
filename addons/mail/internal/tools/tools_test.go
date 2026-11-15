@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/mail/internal/account"
 	"github.com/mudler/LocalAI/addons/mail/internal/dial"
 	"github.com/mudler/LocalAI/addons/mail/internal/tools"
 	"github.com/mudler/LocalAI/addons/mail/mailtest"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -110,7 +110,7 @@ var _ = Describe("the manifest", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err := contract.ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		h := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 2, DataFormat: 1, OS: "linux", Arch: "amd64"}
+		h := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 2, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: "linux", Arch: "amd64"}
 		Expect(contract.ValidateManifest(m, h)).To(Succeed())
 		Expect(m.Capabilities.Tools).To(ConsistOf(tools.Declared()))
 		Expect(len(m.Capabilities.ToolDefinitions)).To(BeNumerically("<=", contract.MaxToolDefinitions))
@@ -118,7 +118,7 @@ var _ = Describe("the manifest", func() {
 			switch d.Kind {
 			case contract.ToolKindWrite:
 				Expect(tools.WriteTools()).To(ContainElement(d.Name))
-				Expect(d.Approval).To(Equal(contract.ApprovalAlways), d.Name)
+				Expect(d.Approval).To(BeEmpty(), d.Name+": a write waits in propose mode and runs in Allow all, so no approval ceiling")
 			case contract.ToolKindRead:
 				if !d.UIOnly {
 					Expect(d.Description).To(ContainSubstring("text written by others"), d.Name)

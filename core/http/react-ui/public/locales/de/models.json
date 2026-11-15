@@ -65,6 +65,8 @@
     "installing": "Installation läuft",
     "installStarted": "{{model}} wird installiert…",
     "installFailed": "Installation fehlgeschlagen: {{message}}",
+    "window": "{{window}} Kontext",
+    "memory": "ca. {{memory}} Speicher",
     "dismiss": "Empfehlungen ausblenden",
     "summary": "{{n}} Modelle vorgeschlagen",
     "bestFit": "Best fit",
@@ -290,6 +292,106 @@
         "title": "Noch keine Failover-Ketten",
         "text": "Fügen Sie eine Failover-Kette hinzu, um fehlerhafte Ziele automatisch zu umgehen.",
         "cta": "Failover-Kette erstellen"
+      }
+    }
+  },
+  "placement": {
+    "moe": {
+      "title": "Experts (MoE)",
+      "keepOn": "Keep experts on",
+      "modes": {
+        "gpu": "GPU",
+        "some": "Some layers on CPU",
+        "all": "All on CPU"
+      },
+      "autoHint": "Auto-fit may move experts to system memory by itself. An explicit choice here overrides it.",
+      "layers": "Layers with experts on the CPU",
+      "sliderValue": "Experts of the first {{count}} of {{total}} layers on the CPU",
+      "sliderShort": "{{count}} of {{total}}",
+      "noSlider": "The layer count of this model is not reported, so there is no slider. Enter a number of layers.",
+      "cache": "Expert cache",
+      "cacheOff": "Off",
+      "cacheMib": "Expert cache in MiB",
+      "cachePlaceholder": "MiB",
+      "cacheHint": "A cache on the GPU for experts held in system memory. It takes GPU memory. A cache that is too small thrashes. Experimental.",
+      "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
+      "estimateNote": "The estimate does not include expert placement."
+    }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "sourcesButton": "Quellen",
+    "sourcesTitle": "Suchquellen",
+    "sourcesClose": "Schließen",
+    "sourcesHelp": "Wähle, welche Quellen die Modellsuche abfragt. Hugging Face ist eingebaut. Weitere Quellen kommen von Add-ons.",
+    "sourcesError": "Die Auswahl konnte nicht gespeichert werden. Versuche es erneut.",
+    "sourceBuiltin": "Eingebaut",
+    "sourceAddon": "Von einem Add-on",
+    "sourceNotInstalled": "Add-on nicht installiert",
+    "missingHint": "{{sources}} ist eingeschaltet, aber das Add-on ist nicht installiert.",
+    "missingInstall": "Add-on installieren",
+    "noSources": "Keine Quelle ist eingeschaltet, daher wird nichts durchsucht.",
+    "dropped_one": "{{count}} Ergebnis übersprungen",
+    "dropped_other": "{{count}} Ergebnisse übersprungen",
+    "heading": "Von {{source}}",
+    "latestHeading": "Neueste auf {{source}}",
+    "placeholder": "{{source}} durchsuchen",
+    "resultCount_one": "{{count}} Ergebnis",
+    "resultCount_other": "{{count}} Ergebnisse",
+    "downloads": "Downloads",
+    "seeds_one": "{{count}} Seed",
+    "seeds_other": "{{count}} Seeds",
+    "gated": "Gesperrt",
+    "ggufOnly": "Nur GGUF",
+    "hint": {
+      "title": "{{source}} durchsuchen",
+      "text": "Gib im Suchfeld einen Modellnamen ein. Die Ergebnisse kommen live von der Quelle, nicht aus deinen Bibliotheken."
+    },
+    "failed": {
+      "title": "{{source}} hat nicht geantwortet",
+      "text": "Die Suche ist fehlgeschlagen. Versuche es gleich noch einmal.",
+      "stale": "Das sind die letzten Ergebnisse. {{message}}"
+    },
+    "none": {
+      "title": "Auf {{source}} nichts gefunden",
+      "text": "Versuche einen anderen Namen.",
+      "gguf": "Im GGUF-Format wurde nichts gefunden. Schalte „Nur GGUF“ aus, um die Suche zu erweitern.",
+      "fits": "Alle Ergebnisse sind zu groß für diesen Rechner. Schalte den Filter „Passt“ aus, um sie zu sehen."
+    },
+    "loadMore": "Mehr laden",
+    "noLatest": "{{source}} listet keine neuesten Modelle auf. Suche nach einem Namen, um die Modelle zu sehen.",
+    "chooseBuild": "Variante {{variant}} wählen",
+    "recommended": "Empfohlen",
+    "fits": "Passt",
+    "spill": "Läuft teils auf der CPU",
+    "over": "Zu groß",
+    "installed": "{{model}} ist installiert.",
+    "ambiguous": "Mehrere Backends könnten dieses Modell ausführen. Wähle über „Modell importieren“ eines aus.",
+    "gatedTitle": "Der Zugriff ist beschränkt.",
+    "gatedBody": "Dieses Repository braucht eine Freigabe auf Hugging Face, daher kann LocalAI es von hier aus nicht installieren.",
+    "gatedP2p": "Dieses Modell ist auf Hugging Face gesperrt. Der Torrent braucht kein Token, aber die Lizenzbedingungen des Modells gelten weiterhin.",
+    "gatedHfInstall": "Auf Hugging Face gesperrt: Es braucht eine Freigabe und kann von hier aus nicht installiert werden.",
+    "sizesUnknown": "Keine Dateigrößen gefunden. Hugging Face führt dieses Repository nicht, daher lässt sich die Passung nicht schätzen.",
+    "importError": "Kein Backend passt zu diesen Dateien.",
+    "importErrorBody": "Die Installation kann trotzdem fehlschlagen. Wähle über „Modell importieren“ ein Backend.",
+    "approximate": "Ungefähre Passung. Der Modell-Header konnte nicht gelesen werden, daher ist der Speicher die Dateigröße plus ein Richtwert für den Kontext.",
+    "noEstimate": "Es ist keine Größe bekannt, daher gibt es für dieses Modell keine Schätzung.",
+    "files": {
+      "failed": {
+        "title": "Dateiliste konnte nicht gelesen werden",
+        "body": "Die Quelle hat nicht geantwortet. Versuche es erneut."
+      },
+      "rateLimited": {
+        "title": "Die Quelle bittet, langsamer zu machen",
+        "body": "Zu viele Anfragen. Warte eine Minute und versuche es erneut."
+      },
+      "notFound": {
+        "title": "Repository nicht gefunden",
+        "body": "Es ist privat, entfernt oder auf dieser Quelle nicht gelistet."
       }
     }
   }

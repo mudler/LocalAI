@@ -1,0 +1,152 @@
+/* The Activity tab of the notification inbox (ActivityTab.jsx): operations that
+   need a decision, that run, and that just finished. Rows are one grid, about
+   60 px high, and every line truncates, so a long name or a long detail never
+   makes the panel taller or a phone sheet wrap. Tokens only. The ring is in
+   inbox-entry.css because the entry and the bell draw it too. */
+
+.nx-ops { padding-bottom: var(--sp-1); }
+.nx-ops .nx-day--error { color: var(--dk-error-text); }
+.nx-day__n { margin-left: var(--sp-1); font-variant-numeric: tabular-nums; }
+
+.nx-op {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--sp-3);
+  min-height: 60px;
+  padding: var(--sp-2) var(--sp-4);
+  transition: background-color var(--dk-dur-slow, var(--dur-slow)) var(--ease-out);
+}
+.nx-op + .nx-op { border-top: 1px solid var(--color-border-subtle); }
+.nx-op:hover { background: var(--dk-hover); }
+
+.nx-op__tile { position: relative; }
+.nx-op__tile .ops-ring--tile { position: absolute; inset: 0; width: 100%; height: 100%; }
+.nx-op__tile .lai-icon { position: relative; width: 14px; height: 14px; }
+
+.nx-op__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nx-op__head { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.nx-op__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dk-text);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nx-op__pct {
+  flex: none;
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+}
+.nx-op__detail,
+.nx-op__reason {
+  overflow: hidden;
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.nx-op__track {
+  display: block;
+  height: 3px;
+  margin-top: var(--sp-1);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--dk-inset);
+}
+.nx-op__fill {
+  display: block;
+  width: var(--op-w, 0%);
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--dk-accent);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+.nx-op__act { margin-right: calc(var(--sp-2) * -1); color: var(--color-text-secondary); }
+
+/* A queued operation has not started: quiet, no ring, no bar. */
+.nx-op.is-queued .nx-tile { background: var(--dk-inset); color: var(--dk-muted); }
+.nx-op.is-queued .nx-op__title { color: var(--color-text-secondary); font-weight: var(--font-weight-regular); }
+
+/* A failure: tinted until it is dismissed. The reason takes two lines, since it
+   is the part a person has to read. */
+.nx-op--failed { background: var(--dk-error-wash); }
+.nx-op--failed:hover { background: var(--dk-error-wash); }
+.nx-op--failed .nx-op__reason {
+  display: -webkit-box;
+  color: var(--color-text-primary);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.nx-op__acts { display: flex; align-items: center; gap: var(--sp-1); margin-right: calc(var(--sp-2) * -1); }
+
+/* Recent: one short line each. */
+.nx-op--recent { min-height: 40px; padding-block: var(--sp-1); }
+.nx-op--recent .nx-op__text { min-width: 0; }
+.nx-op--recent .nx-op__title { color: var(--color-text-secondary); font-weight: var(--font-weight-regular); }
+/* Two classes: inbox.css, which loads after this file, sets the tile to 32 px. */
+.nx-op .nx-tile--sm { width: 24px; height: 24px; margin-left: var(--sp-1); }
+.nx-op .nx-tile--sm .lai-icon { width: 14px; height: 14px; }
+.nx-op__when { flex: none; color: var(--dk-muted); font-size: var(--fs-meta); white-space: nowrap; }
+
+.nx-seeall {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--sp-2);
+  padding: var(--sp-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+.nx-seeall .dk-btn { color: var(--color-text-secondary); }
+.nx-seeall .dk-btn:hover { color: var(--dk-text); }
+
+/* The tab bar: primary navigation of the panel. Labels start on the gutter
+   (the first tab has no side padding, so it lines up with the title above),
+   the active one carries an accent underline that sits on the head's border. */
+.nx-tabs { display: flex; gap: var(--sp-5); margin-bottom: -1px; }
+.nx-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-h);
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--dk-muted);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.nx-tab[aria-selected="true"] { border-bottom-color: var(--dk-accent); color: var(--dk-text); }
+.nx-tab:hover { color: var(--dk-text); }
+.nx-tab:not([aria-selected="true"]):hover { border-bottom-color: var(--dk-edge); }
+.nx-tab:focus-visible { outline: none; border-radius: var(--r-sm); box-shadow: var(--focus-ring); }
+.nx-tab__n {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--dk-accent-wash);
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: center;
+}
+.nx-tab__n--failed { background: var(--dk-error-wash); color: var(--dk-error-text); }
+
+@media (max-width: 639px) {
+  .nx-tab { min-height: 44px; }
+  .nx-op { min-height: 64px; }
+  .nx-op--recent { min-height: 44px; }
+  .nx-op__acts .dk-btn, .nx-op__act, .nx-seeall .dk-btn { min-height: 44px; }
+}

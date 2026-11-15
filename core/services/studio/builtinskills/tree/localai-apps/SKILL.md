@@ -22,7 +22,7 @@ LocalAI has its own app format: a Page. It is one HTML file in the user's home t
 
 If the user asked explicitly for Python, Node or another language, do that and skip this skill.
 
-A script, test data or a draft that you make on the way goes in the chat's work folder that the prompt names (`/workspace/home/Chats/<chat>/work/`); the page folder holds only the page and its data.
+A script, test data or a draft that you make on the way goes in the chat's work folder, `"$WORK"` in the shell (the file tools take the path the note names); the page folder holds only the page and its data.
 
 ## What a Page is
 
@@ -53,7 +53,7 @@ The page runs in a frame with no network and no access to LocalAI or other files
 - `localai.on('files.changed', fn)` calls `fn({paths})` when a file of the folder changes, and `fn({paths: [], resync: true})` when it cannot tell what: read again. It returns a function that removes the listener. Your own writes come back too.
 - `localai.chat.send(text)` offers a message to the user, who must press Send. Use it for "Ask the assistant" buttons, never as a way to run the assistant on its own.
 - `localai.on('visibility', fn)` calls `fn({visible})` when the page goes out of sight (hidden tab, or its tile on Home scrolled away) and back. Stop timers while `visible` is false.
-- `localai.page` is `{name, title, mode, size}`: `mode` is `page`, or `widget` in a tile on Home, where `size` is `small`, `medium` or `large`.
+- `localai.page` is `{name, title, mode, size}`: `mode` is `page` (full view and dock), `area` (Home page area) or `widget` in a tile, where `size` is `compact`, `small`, `medium` or `large`. `localai.on('mode', fn)` calls `fn({mode, size})` when the tile changes size; the page is not reloaded.
 
 The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`. Define colours as CSS variables and override them under `:root[data-theme="dark"]`.
 
@@ -66,9 +66,19 @@ The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`. Define 
 - Show a short "Saved" or "Not saved: ..." status.
 - Write the whole data file at once, never half of it.
 
+## When a page does not work
+
+When the user says a page does not work or looks wrong, call `page_errors` with the name of the page first. It gives the errors that the page's script threw since the page last changed: the message, the line and how often. Fix that error before you rewrite anything. A syntax error or a call before its setup (a variable used before it is made) is the usual cause.
+
+`page_errors` shows only errors that a script throws. A page that throws nothing but looks wrong has no error to read, so ask the user what they see. An empty answer also means the user did not open the page since the last change, so ask them to open it.
+
+After you fix the page, the old errors are gone. Ask the user to open the page again before you call `page_errors` once more.
+
 ## On Home
 
-A page can also be a tile on Home. Add `"widget": {"size": "small"}` to `page.json` (`small`: one line or a number; `medium`: a short list; `large`: a table or a chart; an optional `"title"` for the tile). In a tile the same page runs with `localai.page.mode === 'widget'` and `<html data-mode="widget" data-size="...">`. Give it a compact layout: the few facts that matter, no inputs, no scroll. Do not shrink the full page. The tile has its own bar with the title and an "Open page" link, so leave out the page's header. `chat.send` does not work in a tile.
+A page can also be a tile on Home. Add `"widget": {"size": "small"}` to `page.json` (`small`: one line or a number; `medium`: a short list; `large`: a table or a chart; an optional `"title"` for the tile). In a tile the same page runs with `localai.page.mode === 'widget'` and `<html data-mode="widget" data-size="...">`. Give it a compact layout: the few facts that matter, no inputs, no scroll. Do not shrink the full page. The tile has its own bar with the title and an "Open page" link, so leave out the page's header. `chat.send` does not work in a tile. A page in the Home page area (`pageArea` of `home.json`) gets `mode === 'area'`, full width, no size, 240 px high. To fit its content (160 px to about 60% of the window, then it scrolls), call `localai.page.resize()` (or `resize(px)`) when the content changes, for example from a `ResizeObserver` on `document.body`.
+
+A slot (chat header, sidebar foot, composer bar) is a strip about 40 px high. Add `"compact": true` to the widget block (or `{"width": 160}`, 72 to 220 px) and draw one short line for `data-size="compact"`: a value and a word. A click opens it as a card at its `size`, then back to `compact`; follow `<html data-size>` in CSS. Without `compact` a slot shows a button that opens the page. A tile that keeps the CPU busy (3 s of work in 10 s) or stops answering for 5 s is stopped.
 
 A news ticker that is a list in its own view and one rotating line on Home:
 
@@ -228,6 +238,8 @@ Seed `books.json` only if the user gave you data: `{"books": [{"id": "b1", "titl
 ## After you write it
 
 Tell the user in one or two lines: the Page is called "<title>" and is under **Pages** in the sidebar, that they can pin it there, and what it cannot do. To change it later, they can open it and use **Ask the assistant to change this**.
+
+Call `open_page` with the name to show the page in the dock beside this chat. It asks the user nothing and works only for their own pages.
 
 Say what a Page cannot do when it matters for the request: it has no server process, no packages and no network. For work that must happen by itself, offer a trigger (never say one is on until the user confirms its card). For outside data, offer to fetch it with your web tools into a data file. If the idea needs a real program and commands run in this chat, offer the Sandbox.
 

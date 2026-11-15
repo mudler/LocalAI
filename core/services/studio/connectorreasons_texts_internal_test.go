@@ -18,7 +18,7 @@ import (
 // capability phrase cannot slip in a noun where a verb belongs.
 var _ = Describe("the texts of a refusal", func() {
 	// verbs a capability action may start with: a new action needs a new entry.
-	actionVerbs := []string{"confirm", "save", "receive", "set", "run", "write", "start", "change", "publish"}
+	actionVerbs := []string{"confirm", "save", "receive", "set", "run", "write", "start", "change", "publish", "wait"}
 	names := append(contract.ConnectorCapabilityNames(), "")
 	internal := regexp.MustCompile(`[a-z]+\.[a-z_]+|_|https?:|\d+\.\d+\.\d+|[{}%]|(?i:triggers?\.|localai_|bash)`)
 	const (

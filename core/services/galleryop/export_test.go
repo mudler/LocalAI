@@ -9,3 +9,9 @@ package galleryop
 func (m *OpCache) ApplyEndForTest(jobID string) {
 	m.applyEnd(OpCacheEvent{JobID: jobID})
 }
+
+// MergeStatusForTest applies a peer's status the way the wildcard NATS
+// subscriber does.
+func (g *GalleryService) MergeStatusForTest(opID string, op *OpStatus) {
+	g.mergeStatus(opID, op)
+}

@@ -68,6 +68,16 @@ var _ = Describe("a credentials-only connector binding", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(grant.Secret).To(Equal(botToken))
 		})
+		It("saves with the default trigger approval that a form sends", func() {
+			newRig(true)
+			in := credOnly(studio.ConnectorInput{Resources: []string{"acme/widgets"}})
+			in.Approval = &connectors.Approval{Mode: connectors.ApprovalAsk}
+			got, err := r.conns.CreateConnector(ctx, alice, in)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.CredentialsOnly()).To(BeTrue())
+			_, err = r.conns.UpdateConnector(ctx, alice, got.ID, in)
+			Expect(err).NotTo(HaveOccurred())
+		})
 		DescribeTable("needs an agent for what only an agent can use",
 			func(mod func(*studio.ConnectorInput), words string) {
 				newRig(true)
@@ -85,6 +95,9 @@ var _ = Describe("a credentials-only connector binding", func() {
 				in.Channels = []connectors.Channel{{ID: "C1", Approved: true}}
 			}, "the talk-back channels"),
 			Entry("permissions", func(in *studio.ConnectorInput) { in.Caps = []string{contract.CapMemoryWrite} }, "permissions"),
+			Entry("trigger approval without asking", func(in *studio.ConnectorInput) {
+				in.Approval = &connectors.Approval{Mode: connectors.ApprovalAuto}
+			}, "trigger approval needs an agent"),
 		)
 		It("cannot be switched on, and an agent can be added later", func() {
 			newRig(true)

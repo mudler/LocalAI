@@ -26,12 +26,13 @@ export function toolStart(live, tool) {
 export const liveCardWanted = (tool) => Boolean(tool && tool.ok && tool.app && tool.seq > 0)
 
 // Puts the card that asks to run a command on this machine on the latest
-// running bash call. The answer goes to chatId.
+// running bash or job call. The answer goes to chatId. The card of a job start
+// says that the approval also covers the input of the job.
 export function consentAsk(live, chatId, id, command) {
   const tools = [...live.tools]
   for (let i = tools.length - 1; i >= 0; i--) {
-    if (tools[i].state === 'running' && tools[i].name === 'bash') {
-      tools[i] = { ...tools[i], consent: { chatId, id, command: command || '' } }
+    if (tools[i].state === 'running' && (tools[i].name === 'bash' || tools[i].name === 'job')) {
+      tools[i] = { ...tools[i], consent: { chatId, id, command: command || '', job: tools[i].name === 'job' } }
       return { ...live, tools }
     }
   }

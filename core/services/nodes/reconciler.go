@@ -1205,10 +1205,21 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 		Order("replica_index DESC, last_used ASC").
 		Find(&idleModels)
 
+	// Keep at least one idle loaded replica. When no loaded replica is idle,
+	// allReplicasBusy triggers a scale-up, so removing the last idle replica
+	// would be undone on the next tick by loading the model again. Count the
+	// idle replicas of all loaded ones, not only the candidates past the
+	// delay, and remove a candidate only while more than one idle replica
+	// remains.
+	var idleLoaded int64
+	currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
+		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", cfg.Target(), "loaded").
+		Count(&idleLoaded)
+
 	toRemove := current - floor
 	removed := 0
 	for _, nm := range idleModels {
-		if removed >= toRemove {
+		if removed >= toRemove || idleLoaded <= 1 {
 			break
 		}
 		// Remove this specific replica row from registry (sibling replicas of
@@ -1223,6 +1234,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 		}
 		xlog.Info("Reconciler: scaled down idle replica", "model", cfg.Target(), "node", nm.NodeID, "replica", nm.ReplicaIndex)
 		removed++
+		idleLoaded--
 	}
 }
 

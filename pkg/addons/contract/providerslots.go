@@ -38,6 +38,18 @@ const (
 	ProviderOff = "off"
 )
 
+// The selection modes of a slot.
+const (
+	// SelectionOne: the person picks one provider (the default).
+	SelectionOne = "one"
+	// SelectionSet: the person enables a set of providers. The stored choice
+	// is a list of provider IDs.
+	SelectionSet = "set"
+)
+
+// IsSet reports whether the slot takes a set of providers.
+func (s ProviderSlot) IsSet() bool { return s.Selection.Mode == SelectionSet }
+
 // The value types of a provider property.
 const (
 	PropertyBool = "bool"
@@ -81,6 +93,9 @@ type ProviderSelection struct {
 	// Default is ProviderBuiltin.
 	Default    string `json:"default"`
 	OffAllowed bool   `json:"offAllowed"`
+	// Mode is SelectionOne (the default: one provider) or SelectionSet (the
+	// person enables any number of providers, and none is a valid choice).
+	Mode string `json:"mode,omitempty"`
 	// OffMeans is the sentence the UI shows for Off.
 	OffMeans string `json:"offMeans,omitempty"`
 }
@@ -209,6 +224,17 @@ func validateProviderSlots(slots []ProviderSlot) error {
 		}
 		if s.Selection.Scope != "user" || s.Selection.Default != ProviderBuiltin && !(s.Selection.Default == ProviderOff && s.Selection.OffAllowed) {
 			return fmt.Errorf("slot %s: invalid selection", s.ID)
+		}
+		switch s.Selection.Mode {
+		case "", SelectionOne:
+		case SelectionSet:
+			// An empty set already means nothing is used, so a set slot has
+			// no off value, and its default is the built-in provider.
+			if s.Selection.OffAllowed || s.Selection.Default != ProviderBuiltin {
+				return fmt.Errorf("slot %s: a set slot has no off value and defaults to the built-in provider", s.ID)
+			}
+		default:
+			return fmt.Errorf("slot %s: invalid selection mode", s.ID)
 		}
 		if s.Selection.OffMeans != "" && !plainText(s.Selection.OffMeans, MaxDescriptionChars) {
 			return fmt.Errorf("slot %s: invalid off text", s.ID)

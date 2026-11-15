@@ -568,6 +568,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		r.Selection = ""
 		r.SourceID = src.ID
 		r.SourceURL = src.URL
+		r.Official = IsOfficialSource(src.ID, src.URL)
 		r.AllowLoopbackHTTP = src.AllowLoopbackHTTP
 		r.Policy = src.Policy
 		key := releaseKey(*r)

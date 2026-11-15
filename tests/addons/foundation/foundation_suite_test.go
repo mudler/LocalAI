@@ -40,7 +40,7 @@ var _ = BeforeSuite(func() {
 			return p
 		}
 		target := filepath.Join(scratch, out)
-		cmd := exec.Command("go", "build", "-p", "2", "-tags", "auth", "-o", target, pkg)
+		cmd := exec.Command("go", "build", "-p", "2", "-tags", "auth,nosqlite,purego_utp", "-o", target, pkg)
 		cmd.Dir = repoRoot
 		b, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), string(b))

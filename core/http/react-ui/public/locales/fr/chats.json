@@ -62,16 +62,17 @@
       "remoteNote": "{{model}} est un service distant : ce que lit une exécution quitte ce serveur.",
       "stopWidget": "Mettez-le en pause depuis le widget, ou supprimez-le dans Déclencheurs",
       "stop": "Désactivez-le ou supprimez-le dans Déclencheurs",
-      "actsLabel": "Permissions"
+      "actsLabel": "Permissions",
+      "limitLabel": "Durée maximale",
+      "limitClamped": "{{limit}}, ramené à {{ceiling}} par l'administrateur"
     }
   },
   "mcpPage": {
     "title": "Connecteurs MCP",
     "supporting": "Connectez des serveurs MCP pour donner plus d'outils à vos chats et à vos agents, comme la recherche ou vos propres API.",
-    "family": "Les bots pour Telegram ou Slack sont des <go>connecteurs de messagerie</go>.",
     "related": "Voir aussi",
     "chats": "Chats",
-    "add": "Ajouter un connecteur",
+    "add": "Nouveau connecteur",
     "learn": "Comment fonctionne MCP",
     "loading": "Chargement de vos connecteurs",
     "loadFailed": "Impossible de charger vos connecteurs.",
@@ -169,7 +170,7 @@
       "encrypted": "Enregistré chiffré sur le serveur. Jamais réaffiché."
     },
     "sheet": {
-      "addTitle": "Ajouter un connecteur",
+      "addTitle": "Nouveau connecteur",
       "editTitle": "Modifier {{name}}",
       "addDesc": "Connectez un serveur MCP. Vous le testez avant que les chats l'utilisent.",
       "editDesc": "Les secrets enregistrés restent, sauf si vous les remplacez ou les supprimez.",
@@ -272,6 +273,77 @@
     "loadFailed": "Impossible de charger vos connecteurs.",
     "waitingTitle": "En attente de leur module",
     "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé.",
+    "oauth": {
+      "connected": "Connecté",
+      "connectedAs": "Connecté en tant que {{account}}",
+      "access": "Accès : {{scopes}}",
+      "expires": "Expire {{time}}",
+      "disconnect": "Déconnecter",
+      "disconnecting": "Déconnexion…",
+      "disconnectTitle": "Déconnecter {{name}} ?",
+      "disconnectText": "LocalAI demande au service de révoquer cette connexion, puis l'oublie. Les outils qui utilisent cette connexion cessent de fonctionner jusqu'à ce que vous vous reconnectiez.",
+      "disconnected": "{{name}} est déconnecté. Le service a révoqué la connexion.",
+      "disconnectedNotTold": "{{name}} est déconnecté ici, mais le service n'a pas confirmé la révocation de la connexion. Retirez aussi l'accès dans votre compte sur le service.",
+      "notConnected": "Pas encore connecté.",
+      "connect": "Connecter",
+      "alsoAllow": "Autoriser aussi :",
+      "reconnectTitle": "Reconnectez-vous.",
+      "reconnect": "Reconnecter",
+      "reason": {
+        "revoked": "Le service a mis fin à la connexion, ou l'accès a été révoqué.",
+        "client_rejected": "Le service n'accepte plus le client de ce serveur. Un administrateur devra peut-être le mettre à jour.",
+        "refused": "Le service a refusé de renouveler la connexion.",
+        "needs_approval": "La connexion de ce module a changé et doit être approuvée à nouveau.",
+        "credential_rejected": "Le service a refusé l'accès, même après un renouvellement.",
+        "expired": "La connexion a expiré et ne peut pas être renouvelée.",
+        "write_failed": "La connexion renouvelée n'a pas pu être enregistrée.",
+        "unreadable": "La connexion enregistrée n'a pas pu être lue.",
+        "unknown": "La connexion ne fonctionne plus.",
+        "scopes_missing": "Le service n'accorde plus tout l'accès dont ce module a besoin. Reconnectez-vous et autorisez-le.",
+        "endpoint_changed": "Le module envoie maintenant les connexions à une autre adresse du service, donc cette connexion ne peut pas le suivre. Reconnectez-vous.",
+        "token_too_large": "Le service a renouvelé la connexion avec un jeton d'accès plus grand que ce que LocalAI peut utiliser (4096 octets)."
+      },
+      "approvalUser": "Un administrateur doit d'abord approuver ce module.",
+      "approvalUserChanged": "La connexion de ce module a changé. Un administrateur doit l'approuver à nouveau.",
+      "approvalAdmin": "Personne ne peut se connecter tant que vous n'avez pas approuvé la connexion de ce module.",
+      "approvalAdminChanged": "La connexion de ce module a changé depuis son approbation. Vérifiez-la et approuvez-la à nouveau.",
+      "review": "Vérifier et approuver",
+      "returned": {
+        "ok": "Connecté. La connexion fonctionne maintenant.",
+        "denied": "Vous avez refusé sur le service. Rien n'a changé.",
+        "error": {
+          "invalid_state": "La connexion n'a pas pu aboutir : elle a expiré, ou une autre connexion a démarré dans ce navigateur. Reconnectez-vous.",
+          "provider_error": "Le service a signalé une erreur. Réessayez plus tard.",
+          "exchange_failed": "Le service n'a pas terminé la connexion. Reconnectez-vous.",
+          "scopes_missing": "Le service n'a pas accordé tout l'accès dont ce module a besoin. Reconnectez-vous et autorisez-le.",
+          "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
+          "unknown": "La connexion n'a pas pu aboutir. Reconnectez-vous.",
+          "token_too_large": "Le service a émis un jeton d'accès plus grand que ce que LocalAI peut utiliser (4096 octets), donc la connexion n'a pas été enregistrée. Un administrateur devra peut-être changer la façon dont le service émet les jetons pour ce client."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique et ne peut donc pas vous envoyer vers le service. Demandez à un administrateur de définir l'URL de base externe du serveur.",
+        "needsApproval": "Un administrateur doit d'abord approuver ce module.",
+        "approvalStale": "La connexion de ce module a changé. Rechargez la page.",
+        "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
+        "tooManyLogins": "Trop de connexions ont été lancées. Terminez celle de l'autre onglet, ou attendez quelques minutes et réessayez."
+      },
+      "add": {
+        "open": "Nouvelle connexion",
+        "title": "Nouvelle connexion {{name}}",
+        "name": "Nom",
+        "hint": "Un nom que vous reconnaissez, comme Travail ou Personnel. Après l'ajout, sélectionnez Connecter pour vous connecter à votre compte.",
+        "cancel": "Annuler",
+        "submit": "Ajouter",
+        "failed": "La connexion n'a pas pu être ajoutée. Réessayez.",
+        "added": "{{name}} est ajoutée. Sélectionnez Connecter pour vous connecter à votre compte.",
+        "empty": "Aucune connexion pour l'instant. Ajoutez-en une, puis connectez votre compte.",
+        "manage": "Modifier les connexions"
+      },
+      "login": {
+        "hint": "Un nom que vous reconnaissez, comme Travail ou Perso. Vous irez ensuite sur le service pour vous connecter."
+      }
+    },
     "duplicate": {
       "text": "Ce bot est aussi connecté sous le nom {{name}}. Les deux connexions répondront au même message.",
       "turnOff": "Désactiver celle-ci",
@@ -296,7 +368,13 @@
       "text": "D'autres personnes vous permettent d'utiliser ces connexions dans vos conversations et vos agents. Seul leur propriétaire peut les modifier.",
       "on": "À l'écoute",
       "off": "Désactivée"
-    }
+    },
+    "title": "Connexions",
+    "introAccounts": "Des comptes que vous connectez une fois pour que vos chats et vos agents les utilisent comme outils. Chaque compte vient d’un module.",
+    "noAddonAccounts": "Aucun module de comptes n’est installé.",
+    "noAddonAccountsHint": "Un module de comptes relie un service à vos chats et à vos agents. Installez-en un depuis la galerie de modules pour ajouter une connexion.",
+    "noAddonMessaging": "Aucun module de messagerie n’est installé.",
+    "noAddonMessagingHint": "Un module de messagerie transporte les messages d’une plateforme de discussion. Installez-en un depuis la galerie de modules pour ajouter une liaison."
   },
   "tools": {
     "commands": {
@@ -338,6 +416,7 @@
       "deny": "Ne pas exécuter",
       "alwaysHint": "« Toujours sur cette instance » laisse les chats de tous les utilisateurs exécuter des commandes ici sans demander (Paramètres > Outils).",
       "askAdmin": "Seul un administrateur peut autoriser des commandes sur cette machine. Demandez à l'un d'eux, ou exécutez la commande vous-même.",
+      "job": "Ceci lance un job en arrière-plan. Il continue après cet appel, et l'autoriser autorise aussi les entrées que le modèle lui écrit ensuite, sans redemander.",
       "expired": "Sans réponse : le tour qui l'a demandé est terminé, la commande n'a donc pas été exécutée."
     },
     "provider": {
@@ -420,11 +499,14 @@
       "sole": "C'est votre seule connexion, elle est donc utilisée.",
       "choose": "Choisissez au moins une connexion pour utiliser ces outils",
       "none": "Pas encore de connexion",
-      "create": "Ajouter une connexion",
+      "create": "Nouvelle connexion",
       "byAgent": "L'agent de ce chat fixe les connexions. Modifiez-les sur l'agent.",
       "agentLabel": "Connexions pour les chats de cet agent",
       "agentHelp": "Les chats de cet agent ne peuvent utiliser que ces connexions et ne peuvent pas les changer.",
-      "perChatHelp": "Aucune choisie : chaque chat choisit les siennes."
+      "perChatHelp": "Aucune choisie : chaque chat choisit les siennes.",
+      "reconnectNeeded": "À reconnecter : {{names}}",
+      "ownerReconnectNeeded": "Le propriétaire doit reconnecter : {{names}}",
+      "reconnect": "Reconnecter"
     },
     "optionNeeds": "Activez « {{name}} » pour l'utiliser.",
     "connectionMissing": "{{name}} ne l'autorise pas encore.",
@@ -569,6 +651,7 @@
     "allowedHostsOff": "Ils s’appliquent quand le réseau est activé.",
     "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur.",
     "limitNote": "Réseau de cette conversation. L’administrateur fixe le maximum qu’une conversation peut atteindre.",
+    "draftNote": "La conversation démarre avec ce réglage. L’administrateur fixe le maximum qu’une conversation peut atteindre, et cette limite s’applique.",
     "asksAbove": "Cette conversation demande {{choice}} ; la limite de l’administrateur est {{limit}}.",
     "unverified": "L’application de la politique réseau n’est pas vérifiée pour le fournisseur réel. Ces paramètres ne s’appliquent pas à ses commandes.",
     "configuredPolicy": "Politique réseau configurée : {{preset}} (non appliquée)."
@@ -627,7 +710,74 @@
     "arrivedMany_other": "{{count}} nouvelles notifications",
     "proposalsWaiting_one": "{{count}} modification vous attend",
     "proposalsWaiting_other": "{{count}} modifications vous attendent",
-    "proposalsBody": "Un modèle a proposé une modification. Rien n'est enregistré avant votre réponse."
+    "proposalsBody": "Un modèle a proposé une modification. Rien n'est enregistré avant votre réponse.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} mise à jour de backend disponible",
+        "title_other": "{{count}} mises à jour de backend disponibles",
+        "more": "{{items}} et {{count}} de plus"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Modules complémentaires"
+        },
+        "title": "{{family}} : {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} mis à jour automatiquement",
+        "updated_other": "{{count}} mis à jour automatiquement",
+        "failed_one": "{{count}} en échec",
+        "failed_other": "{{count}} en échec",
+        "held_one": "{{count}} attend une approbation",
+        "held_other": "{{count}} attendent une approbation",
+        "bodyUpdated": "Mis à jour : {{items}}.",
+        "bodyFailed": "En échec : {{items}}.",
+        "bodyHeld": "En attente de votre approbation : {{items}}.",
+        "more": "{{items}} et {{count}} de plus"
+      },
+      "checkFailed": {
+        "title": "La vérification des mises à jour a échoué",
+        "body": "Vérification impossible : {{sources}}. Les deux dernières vérifications automatiques ont échoué, donc des mises à jour peuvent manquer dans la liste.",
+        "source": {
+          "gallery": "galerie de backends",
+          "library": "bibliothèque de backends",
+          "addons": "modules complémentaires"
+        }
+      }
+    },
+    "tabs": {
+      "label": "Notifications et activité",
+      "notifications": "Notifications",
+      "activity": "Activité"
+    },
+    "ops": {
+      "needsAttention": "À traiter",
+      "inProgress": "En cours",
+      "seeAll": "Voir toute l'activité",
+      "waiting": "En attente",
+      "node": "Nœud {{current}} sur {{total}}",
+      "emptyTitle": "Rien en cours",
+      "emptyBody": "Les installations, mises à jour et suppressions apparaissent ici pendant leur exécution, et un jour après.",
+      "title": {
+        "installing": "Installation de {{name}}",
+        "upgrading": "Mise à jour de {{name}}",
+        "removing": "Suppression de {{name}}",
+        "staging": "Transfert de {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Impossible d'installer {{name}}",
+        "upgrading": "Impossible de mettre à jour {{name}}",
+        "removing": "Impossible de supprimer {{name}}",
+        "staging": "Impossible de transférer {{name}}"
+      },
+      "recent": {
+        "title": "Récents",
+        "installed": "{{name}} installé",
+        "upgraded": "{{name}} mis à jour",
+        "removed": "{{name}} supprimé",
+        "staged": "{{name}} transféré"
+      }
+    }
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",
@@ -669,7 +819,8 @@
       "acts": "Ce qu'une exécution peut faire",
       "delivery": "Où vont les réponses",
       "agent": "Agent",
-      "model": "Modèle"
+      "model": "Modèle",
+      "run_limit": "Durée maximale"
     },
     "receipt": {
       "update": "Modifié :",
@@ -788,14 +939,18 @@
       "lastError": "Dernière erreur : {{message}}",
       "sources": {
         "tool": "outil {{name}}",
-        "url": "{{name}}"
+        "url": "{{name}}",
+        "script": "un script",
+        "job": "{{name}}",
+        "agent": "sous-agent {{name}}"
       },
       "end": {
         "met": "Terminé : la condition est remplie",
         "failing_one": "Arrêtée : la source a échoué {{count}} fois de suite",
         "failing_other": "Arrêtée : la source a échoué {{count}} fois de suite",
         "timedOut": "Délai dépassé, la condition n'a pas été remplie",
-        "stopped": "Attente arrêtée"
+        "stopped": "Attente arrêtée",
+        "jobGone": "Arrêtée : le job a disparu avec son nœud"
       },
       "waking": {
         "met": "La condition est remplie. Le modèle est sollicité pour la suite.",
@@ -814,6 +969,57 @@
         "source_failing": "source en échec",
         "timed_out": "délai dépassé",
         "stopped": "arrêtée"
+      },
+      "group": {
+        "collapse": "Masquer les attentes",
+        "deadline": "Prochaine échéance {{time}} ({{when}})",
+        "expand": "Afficher les attentes",
+        "lastCheck": "Dernière vérification {{ago}}",
+        "paused_one": "{{count}} en pause",
+        "paused_other": "{{count}} en pause",
+        "stopAll": "Tout arrêter",
+        "title_one": "{{count}} attente",
+        "title_other": "{{count}} attentes"
+      }
+    },
+    "job": {
+      "stop": "Arrêter",
+      "details": "Détails du job",
+      "done_one": "{{count}} job terminé",
+      "done_other": "{{count}} jobs terminés",
+      "runTime": "en cours depuis {{span}}",
+      "ranFor": "a duré {{span}}",
+      "lastOutput": "dernière sortie il y a {{ago}}",
+      "endedAgo": "terminé il y a {{ago}}",
+      "byAgent": "lancé par un sous-agent",
+      "where": {
+        "machine": "sur cette machine",
+        "sandbox": "en isolation"
+      },
+      "status": {
+        "starting": "Démarrage",
+        "running": "En cours",
+        "ending": "Arrêt en cours",
+        "stalled": "En cours, aucune sortie depuis {{span}}",
+        "lost": "Perdu : son nœud a disparu",
+        "notStarted": "Impossible à démarrer",
+        "killed": "Tué (kill)",
+        "stopped": "Arrêté par vous",
+        "ended": "Terminé",
+        "exitedOk": "Terminé, statut 0",
+        "exitedCode": "Terminé avec le statut {{code}}",
+        "exitedUnknown": "Terminé, statut inconnu"
+      },
+      "end": {
+        "lifetime": "Terminé : limite de durée atteinte",
+        "chat_deleted": "Terminé : la conversation a été supprimée",
+        "shell_off": "Terminé : les commandes ont été désactivées",
+        "group_off": "Terminé : les outils de commande ont été désactivés pour cette conversation",
+        "fenced": "Terminé : cette conversation ne peut plus exécuter de commandes",
+        "sandbox_remade": "Terminé : son environnement a été recréé",
+        "agent_ended": "Terminé : son sous-agent a fini",
+        "shutdown": "Terminé : le serveur s'est arrêté",
+        "start_failed": "Impossible à démarrer"
       }
     }
   },
@@ -1212,5 +1418,89 @@
   "subAgents": {
     "waiting": "En attente de : {{what}}",
     "looping": "En boucle"
+  },
+  "connectionsTabs": {
+    "label": "Sections des connexions",
+    "accounts": "Comptes",
+    "messaging": "Messagerie",
+    "mcp": "Serveurs MCP"
+  },
+  "triggersPage": {
+    "runLimit": "Durée maximale d'une exécution"
+  },
+  "sandboxProfile": {
+    "label": "Profil de sandbox",
+    "tools": "Programmes : {{tools}}",
+    "notAllowed": "Votre administrateur ne vous a pas donné ce profil",
+    "absent": "Cette version n'a pas d'image pour ce profil",
+    "unavailable": "{{title}} n'est pas disponible : {{reason}}.",
+    "draft": "La nouvelle conversation démarre dans {{title}}. Choisissez un profil ici, ou changez-le plus tard dans la conversation.",
+    "source": {
+      "chat": "Cette conversation utilise {{title}}, à votre choix.",
+      "agent": "Cette conversation utilise {{title}}, défini par son agent.",
+      "default": "Cette conversation utilise {{title}}, le profil par défaut."
+    },
+    "switchWarning": "Le changement redémarre la sandbox. Vos fichiers restent. Les processus en cours et les paquets installés sont perdus.",
+    "switchTo": "Passer à {{title}}",
+    "cancel": "Annuler",
+    "preparing": "Préparation de l'image {{title}}, {{percent}} %",
+    "failed": "L'image {{title}} n'a pas pu être préparée : {{error}}",
+    "fallback": "{{title}} n'a pas pu être utilisé, les commandes s'exécutent donc dans {{base}}.",
+    "newerImage": "Une image plus récente est disponible. Elle s'applique au redémarrage de la sandbox.",
+    "notAllowedError": "Vous ne pouvez pas utiliser ce profil.",
+    "unknownError": "Ce profil n'existe pas.",
+    "saveError": "Le profil n'a pas pu être changé.",
+    "admin": {
+      "title": "Profils de sandbox",
+      "intro": "Un profil est un environnement avec ses propres programmes. Tout le monde peut utiliser chaque profil tant que vous n'en limitez pas un.",
+      "default": "Profil par défaut",
+      "defaultBase": "Base",
+      "profiles": "Profils",
+      "limits": "{{cpus}} CPU, {{memory}} Mio de mémoire, {{disk}} Mio de disque",
+      "baseAlways": "Tous les utilisateurs peuvent utiliser Base. C'est le profil utilisé quand un autre ne peut pas l'être.",
+      "who": "Qui peut l'utiliser",
+      "everyone": "Tout le monde",
+      "restricted": "Seulement les rôles et utilisateurs ci-dessous",
+      "role": {
+        "admin": "Administrateurs",
+        "user": "Utilisateurs ordinaires"
+      },
+      "users": "Utilisateurs nommés",
+      "usersPlaceholder": "Noms séparés par des virgules",
+      "pin": "Figer sur l'image précédente",
+      "noPrevious": "Il n'y a pas encore d'image précédente",
+      "memory": "Limite de mémoire d'une sandbox, en Mio",
+      "disk": "Limite de disque d'une sandbox, en Mio",
+      "noLimit": "Aucune limite",
+      "quotaHelp": "Une limite abaisse celle d'un profil et ne la relève jamais. Laissez un champ vide pour ne pas limiter.",
+      "badQuota": "Utilisez un nombre entier de Mio, ou laissez le champ vide.",
+      "reload": "Recharger",
+      "ownerError": "Les paramètres du propriétaire sont indisponibles ou ont changé : {{message}}",
+      "save": "Enregistrer",
+      "loadError": "Les profils de sandbox n'ont pas pu être lus."
+    }
+  },
+  "harness": {
+    "title": "La fenêtre de contexte de ce modèle est trop petite pour le chat",
+    "admin": {
+      "reason": "Elle fait {{window}} jetons et le chat en demande au moins {{minimum}} ; {{recommended}} est mieux.",
+      "checking": "Vérification que {{target}} jetons tiennent dans la mémoire de cette machine…",
+      "fits": "{{target}} jetons tiennent dans la mémoire de cette machine (environ {{need}}).",
+      "fitsLess": "{{recommended}} jetons ne tiennent pas dans la mémoire de cette machine. {{target}} tiennent (environ {{need}}).",
+      "unknown": "La mémoire nécessaire n'a pas pu être estimée.",
+      "none": "Même {{minimum}} jetons ne tiennent pas dans la mémoire de cette machine. Choisissez un modèle plus petit.",
+      "fix": "Fixer la fenêtre à {{target}}"
+    },
+    "user": {
+      "reason": "Elle fait {{window}} jetons et le chat en demande au moins {{minimum}}.",
+      "switch": "Passez ce chat à un modèle installé dont la fenêtre est plus grande.",
+      "askAdmin": "Aucun modèle installé que vous pouvez utiliser n'a une fenêtre assez grande. Demandez à un administrateur de l'agrandir ou d'installer un autre modèle.",
+      "use": "Utiliser {{model}} ({{window}} jetons)"
+    },
+    "chat": {
+      "title": "La taille de contexte de ce chat est trop petite",
+      "reason": "Le réglage de ce chat est de {{window}} jetons et le chat en demande au moins {{minimum}}.",
+      "fix": "Utiliser la fenêtre du modèle"
+    }
   }
 }

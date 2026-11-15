@@ -206,6 +206,24 @@ var _ = Describe("Chats shared pages endpoints", func() {
 		write("/shared/team/pages/standup/page.json", `{"title":"Team standup","widget":{"size":"large","title":"Standup"}}`)
 		p := get("alice")["page"].(map[string]any)
 		Expect(p["widget"]).To(Equal(map[string]any{"size": "large", "title": "Standup"}))
+		write("/shared/team/pages/standup/page.json", `{"widget":{"size":"small","compact":{"width":150}}}`)
+		p = get("alice")["page"].(map[string]any)
+		Expect(p["widget"]).To(Equal(map[string]any{"size": "small", "compact": map[string]any{"width": float64(150)}}))
+	})
+
+	It("a consent for Home and the slots is asked apart, and cannot be a visit", func() {
+		hash := get("alice")["page"].(map[string]any)["hash"].(string)
+		Expect(s.do("alice", http.MethodPut, base+"/consent", map[string]any{"hash": hash}).Code).To(Equal(http.StatusOK))
+		Expect(get("alice")["consent"]).NotTo(HaveKey("embed"), "opening a page does not allow it on Home")
+		Expect(s.do("alice", http.MethodPut, base+"/consent", map[string]any{"hash": hash, "embed": true, "once": true}).Code).To(Equal(http.StatusBadRequest))
+		rec := s.do("alice", http.MethodPut, base+"/consent", map[string]any{"hash": hash, "embed": true})
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("embed", true))
+		Expect(get("alice")["consent"]).To(HaveKeyWithValue("embed", true))
+		write("/shared/team/pages/standup/index.html", "<p>standup v9</p>\n")
+		c := get("alice")["consent"].(map[string]any)
+		Expect(c).To(HaveKeyWithValue("state", "changed"))
+		Expect(c).NotTo(HaveKey("embed"), "a change asks again")
 	})
 
 	It("a shared page writes with the viewer's own grant", func() {

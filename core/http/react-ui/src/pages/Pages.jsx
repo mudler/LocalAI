@@ -6,6 +6,7 @@ import Icon from '../components/Icon'
 import PageHeader from '../components/PageHeader'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { Button } from '../components/ui'
 import { filesApi, pagesApi } from '../utils/api'
 import { pageIndexPath } from '../utils/pages'
 import { DOCS_MAKE_YOURS } from '../utils/discovery'
@@ -30,6 +31,7 @@ function PageRow({ page, pinned, onPin, onDelete, onRename, age, t }) {
   const author = page.author === 'assistant' ? 'assistant' : 'you'
   const open = `/app/pages/${encodeURIComponent(page.name)}`
   const ask = () => navigate('/app/chats', { state: { draft: t('view.askPrompt', { name: page.name }) } })
+  const dock = () => navigate('/app/chats', { state: { dock: { name: page.name, folder: 0 } } })
   const saveName = async (e) => {
     e.preventDefault()
     if (name === page.name) { setRenaming(false); return }
@@ -72,6 +74,7 @@ function PageRow({ page, pinned, onPin, onDelete, onRename, age, t }) {
         <ActionMenu
           ariaLabel={t('card.menu', { title: page.title })}
           items={[
+            { key: 'dock', icon: 'columns', label: t('dock.openInDock'), onClick: dock },
             { key: 'ask', icon: 'sparkles', label: t('card.ask'), onClick: ask },
             { key: 'files', icon: 'folder', label: t('card.files'), onClick: () => navigate(`/app/files?path=${encodeURIComponent(`/pages/${page.name}`)}`) },
             { key: 'rename', icon: 'pencil', label: t('card.rename'), onClick: () => setRenaming(true) },
@@ -94,6 +97,7 @@ const BADGE = {
 // allowed it. A page that is not allowed (or changed since) only offers
 // Review; nothing in it runs from this screen.
 function SharedRow({ page, enabled, age, t }) {
+  const navigate = useNavigate()
   const b = BADGE[page.consent] || BADGE.none
   const allowed = page.consent === 'allowed'
   const author = page.author_name || page.author_id
@@ -121,6 +125,10 @@ function SharedRow({ page, enabled, age, t }) {
           <Link className={`btn btn-sm ${allowed ? 'btn-primary' : 'btn-secondary'}`} to={sharedPagePath(page)} data-testid="shared-open">
             {allowed ? t('card.open') : t('shared.review')}
           </Link>
+          <Button
+            variant="ghost" size="sm" icon="columns" aria-label={t('dock.openInDock')} title={t('dock.openInDock')}
+            onClick={() => navigate('/app/chats', { state: { dock: { name: page.name, folder: page.folder_id } } })} data-testid="shared-dock"
+          />
         </div>
       )}
     </li>

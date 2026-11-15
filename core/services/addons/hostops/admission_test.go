@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 
@@ -21,6 +22,10 @@ type admissionInbox struct{}
 func (admissionInbox) Ingest(context.Context, string, contract.ConnectorInbound) error {
 	panic("admission parity must not invoke handlers")
 }
+
+type admissionClientJobs struct{ ClientJobHost }
+type admissionClientLister struct{ ClientLister }
+type admissionGrants struct{ ClientGrantSource }
 
 func registeredBuiltinOperations() []string {
 	b := New(NewInFlight(), nil, contract.DefaultLimits())
@@ -38,6 +43,9 @@ func registeredBuiltinOperations() []string {
 	Expect(RegisterEgress(b, &fakeEgress{})).To(Succeed())
 	Expect(RegisterConnector(b, admissionInbox{})).To(Succeed())
 	Expect(RegisterConnectorTransfer(b, NewTransfers(nil))).To(Succeed())
+	Expect(RegisterClientJobs(b, admissionClientJobs{})).To(Succeed())
+	Expect(RegisterClientList(b, admissionClientLister{})).To(Succeed())
+	Expect(RegisterClientFolders(b, &ClientFolderHost{Files: files.New(&admissionWorkspaceStore{}), Grants: admissionGrants{}})).To(Succeed())
 	// Each registration error is checked above, so a duplicate cannot be hidden
 	// by the broker's map. Ops includes dynamic progress/stop and inbound specs.
 	return b.Ops()
@@ -57,6 +65,35 @@ var _ = Describe("Host operation request admission", func() {
 			}
 		}
 		Expect(supported).To(ConsistOf(registered), "startup admission must match the case-sensitive runtime registry")
+	})
+	It("lists the client job operations as supported, so a manifest that requests them is admitted", func() {
+		ops := []string{"client.jobs.start", "client.jobs.get", "client.jobs.cancel"}
+		Expect(SupportedOperations()).To(ContainElements(ops))
+		s := Requests(&contract.HostOperations{Required: ops}, SupportedOperations(), nil)
+		Expect(s.MissingRequired).To(ConsistOf(ops), "requested and supported, not yet granted")
+		Expect(Requests(&contract.HostOperations{Required: ops}, SupportedOperations(), []string{"client.jobs."}).Granted).To(ConsistOf(ops))
+	})
+	It("lists client.list as supported with a description, so a manifest that requests it is admitted", func() {
+		Expect(SupportedOperations()).To(ContainElement("client.list"))
+		_, text, risk, ok := DescribeOperation("client.list")
+		Expect(ok).To(BeTrue())
+		Expect(text).NotTo(BeEmpty())
+		Expect(risk).To(Equal(RiskRead))
+		ops := &contract.HostOperations{Required: []string{"client.list"}}
+		Expect(Requests(ops, SupportedOperations(), []string{"client."}).Granted).To(ConsistOf("client.list"))
+		Expect(Requests(ops, SupportedOperations(), []string{"client.jobs."}).MissingRequired).To(ConsistOf("client.list"))
+	})
+	It("lists the client folder operations as supported with descriptions", func() {
+		ops := []string{"client.workspace.list", "client.workspace.read", "client.workspace.write"}
+		Expect(SupportedOperations()).To(ContainElements(ops))
+		for _, op := range ops {
+			_, text, _, ok := DescribeOperation(op)
+			Expect(ok).To(BeTrue(), op)
+			Expect(text).NotTo(BeEmpty(), op)
+		}
+		_, _, risk, _ := DescribeOperation("client.workspace.write")
+		Expect(risk).To(Equal(RiskChangesData))
+		Expect(Requests(&contract.HostOperations{Required: ops}, SupportedOperations(), []string{"client.workspace."}).Granted).To(ConsistOf(ops))
 	})
 	It("detects missing extra duplicate and case-changed operations with the parity oracle", func() {
 		registered := registeredBuiltinOperations()

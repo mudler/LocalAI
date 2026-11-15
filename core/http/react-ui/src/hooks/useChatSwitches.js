@@ -4,7 +4,7 @@ import { connectorRef, toolsCounts } from '../utils/chatMCP'
 import { offWith, withOn } from '../utils/chatSwitchRows'
 import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 import { commandsState, noticeIdentity } from '../utils/chatCommands'
-import { applyChoices, draftListSwitches, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
+import { addonRowsCurrent, applyChoices, choicesFromTools, draftListSwitches, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
@@ -29,7 +29,11 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const draftModel = draft?.model || ''
   const draftAgent = draft?.agentId || ''
   const choicesRef = useRef(emptyChoices())
-  const choose = useCallback((kind, key, value) => { choicesRef.current = withChoice(choicesRef.current, kind, key, value) }, [])
+  // The changes made by hand since the last applyDraftTools: a caller that
+  // loaded a setup reads it to know whether the person edited the draft while
+  // the lists were still being read.
+  const editsRef = useRef(0)
+  const choose = useCallback((kind, key, value) => { editsRef.current++; choicesRef.current = withChoice(choicesRef.current, kind, key, value) }, [])
   const [addons, setAddons] = useState([])
   // Whether the chat can run commands, from the same list (see utils/chatCommands.js).
   const commandEpoch = useRef(0)
@@ -53,6 +57,12 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   // A change of the add-ons or of the skills can bring a built-in skill back,
   // so the list is read again after one.
   const [skillsRev, setSkillsRev] = useState(0)
+  // Counts the setups loaded into the draft: the draft lists are read again.
+  const [draftRev, setDraftRev] = useState(0)
+  // The revision each draft list was last answered for (an error counts as an
+  // answer), so a caller that loaded a setup knows when the lists show it.
+  const [answered, setAnswered] = useState({ tools: 0, addons: 0, skills: 0 })
+  const mark = (kind, rev) => setAnswered((a) => (a[kind] >= rev ? a : { ...a, [kind]: rev }))
   // Counts the changes after which what the chat can run changed: the network
   // controls of the chat (its egress view) are read again.
   const [commandsRev, setCommandsRev] = useState(0)
@@ -68,13 +78,26 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     setSkillsError('')
     if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null); setSkills([]); setReplaced([]); return undefined }
     let live = true
+    const rev = draftRev
     const epoch = ++commandEpoch.current
     setCommands(noCommands)
     // A draft list keeps the choices made so far for the rows it still has.
     const chosen = (lists) => (draftOn ? applyChoices(lists, choicesRef.current, connectorRef) : lists)
     ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current)) : chatAddonsApi.list(chatId))
-      .then((res) => { if (live && epoch === commandEpoch.current) { setAddons(chosen({ addons: res.addons || [] }).addons); setCommands(commandsOf(res)) } })
-      .catch(() => { if (live && epoch === commandEpoch.current) { setAddons([]); setCommands(noCommands) } })
+      .then((res) => {
+        if (!live) return
+        // A draft shows these rows even when a later switch asked for the
+        // commands state again; an existing chat keeps the rows of its own
+        // switch (see addonRowsCurrent).
+        if (addonRowsCurrent({ draft: draftOn, epoch, current: commandEpoch.current })) setAddons(chosen({ addons: res.addons || [] }).addons)
+        if (epoch === commandEpoch.current) setCommands(commandsOf(res))
+      })
+      .catch(() => {
+        if (!live) return
+        if (addonRowsCurrent({ draft: draftOn, epoch, current: commandEpoch.current })) setAddons([])
+        if (epoch === commandEpoch.current) setCommands(noCommands)
+      })
+      .finally(() => { if (live) mark('addons', rev) })
     ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
       .then((res) => {
         if (!live) return
@@ -86,12 +109,14 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         setMemory(res.memory || null)
       })
       .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null) } })
+      .finally(() => { if (live) mark('tools', rev) })
     return () => { live = false }
-  }, [chatId, filesOn, draftOn, draftModel, draftAgent, actorSession])
+  }, [chatId, filesOn, draftOn, draftModel, draftAgent, actorSession, draftRev])
 
   useEffect(() => {
-    if ((!chatId && !draftOn) || !filesOn) { setSkills([]); setReplaced([]); return undefined }
+    if ((!chatId && !draftOn) || !filesOn) { setSkills([]); setReplaced([]); mark('skills', skillsRev); return undefined }
     let live = true
+    const rev = skillsRev
     // Only the skill that wins has a switch: one that another overrides cannot
     // be used anyway. A built-in skill an add-on replaces is shown apart. The
     // list without a chat is the skills with their default switches.
@@ -103,6 +128,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         setReplaced(picked.replaced)
       })
       .catch(() => { if (live) { setSkills([]); setReplaced([]) } })
+      .finally(() => { if (live) mark('skills', rev) })
     return () => { live = false }
   }, [chatId, filesOn, skillsRev, draftOn])
 
@@ -312,8 +338,22 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   // A chat was created with the draft: the next draft starts from the defaults.
   const resetDraft = useCallback(() => { choicesRef.current = emptyChoices() }, [])
 
+  // Loads the tools of a setup (see choicesFromTools) as the choices of the
+  // draft. The lists are read again, so choices of the setup before do not stay.
+  const applyDraftTools = useCallback((tools) => {
+    if (!draftOn) return
+    choicesRef.current = choicesFromTools(tools)
+    editsRef.current = 0
+    setDraftRev((n) => n + 1)
+    setSkillsRev((n) => n + 1)
+    refreshDraftCommands()
+  }, [draftOn, refreshDraftCommands])
+
   return {
-    draftSwitches, resetDraft, draft: draftOn, commandsRev,
+    draftSwitches, resetDraft, applyDraftTools, draft: draftOn, commandsRev,
+    editsSinceApply: () => editsRef.current,
+    // The draft lists have answered the last applyDraftTools (see answered).
+    listsReady: answered.tools >= draftRev && answered.addons >= draftRev && answered.skills >= skillsRev,
     addons, builtins, fallbacks, memory, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnections,

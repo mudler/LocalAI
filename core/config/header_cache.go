@@ -20,7 +20,7 @@ import (
 
 // headerCacheFileName is the one cache file every frontend uses, in the data
 // path. Frontends that share the data volume share this file: see the
-// shared-by-file mode in docs/content/advanced/model-configuration.md.
+// shared-by-file mode in docs/content/models/model-configuration.md.
 const headerCacheFileName = "header-cache.json"
 
 // headerCacheMaxFileBytes refuses to read a cache file larger than this. The

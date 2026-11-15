@@ -1011,7 +1011,7 @@ type AccessDraft struct {
 }
 
 // ErrBadSender means a preview asked for a kind of sender that does not exist.
-var ErrBadSender = fmt.Errorf("%w: sender must be listed, paired, channel_member, channel_acts, anyone or role:<id>", connectors.ErrInvalid)
+var ErrBadSender error = &connectors.InvalidError{Reason: "sender must be listed, paired, channel_member, channel_acts, anyone or role:<id>"}
 
 // NewConnectionID is the id under which a preview describes a connection that
 // is not saved yet.
@@ -1027,11 +1027,11 @@ func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d Acces
 		if d.Kind == "" {
 			return AccessView{}, connectorBad("a connection that is not saved needs a kind")
 		}
-		addon, err := c.resolveAddon(ctx, d.Kind)
+		k, err := c.resolveAddon(ctx, d.Kind)
 		if err != nil {
 			return AccessView{}, err
 		}
-		b = connectors.Binding{ID: NewConnectionID, Owner: principal(user), Kind: d.Kind, AddonID: addon}
+		b = connectors.Binding{ID: NewConnectionID, Owner: principal(user), Kind: d.Kind, AddonID: k.AddonID}
 	} else {
 		var err error
 		if b, err = c.owned(ctx, user, id); err != nil {

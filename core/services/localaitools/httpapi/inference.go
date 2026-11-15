@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 )
 
 // inference returns the shared client-tool code, wired to this remote server:
@@ -16,10 +17,51 @@ import (
 // folder on this machine, and data URLs).
 func (c *Client) inference() *localaitools.Inference {
 	return &localaitools.Inference{
-		Do:     c.doInference,
-		Models: c,
-		Files:  c.Files,
+		Do:       c.doInference,
+		Models:   c,
+		Files:    c.Files,
+		Defaults: c.userDefault,
 	}
+}
+
+// userDefault reads defaults.json (and ui.json for the chat key) of the user
+// that the API key belongs to. A server that does not answer leaves the default
+// unset: a tool works without defaults.
+func (c *Client) userDefault(ctx context.Context, key string) wellknown.Default {
+	read := func(name string) map[string]any {
+		var resp struct {
+			Data map[string]any `json:"data"`
+		}
+		if err := c.do(ctx, http.MethodGet, routeWellKnown+name, nil, &resp); err != nil {
+			return nil
+		}
+		return resp.Data
+	}
+	var ui map[string]any
+	if key == "chat" {
+		ui = read("ui")
+	}
+	return wellknown.DefaultFor(read("defaults"), ui, key)
+}
+
+// HasModel implements localaitools.ModelChecker with the capability list of the
+// remote server: the model is listed and not disabled.
+func (c *Client) HasModel(ctx context.Context, name string) (bool, error) {
+	var resp struct {
+		Data []struct {
+			ID       string `json:"id"`
+			Disabled bool   `json:"disabled"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeModelsCapabilities, nil, &resp); err != nil {
+		return true, err
+	}
+	for _, m := range resp.Data {
+		if m.ID == name {
+			return !m.Disabled, nil
+		}
+	}
+	return false, nil
 }
 
 // doInference sends a request built by the shared code to the remote server.
@@ -90,6 +132,10 @@ func (c *Client) FirstModel(ctx context.Context, use config.ModelConfigUsecase) 
 
 // ---- Client (inference) ----
 
+func (c *Client) ListModels(ctx context.Context, req localaitools.ListModelsRequest) (*localaitools.ModelList, error) {
+	return c.inference().ListModels(ctx, req)
+}
+
 func (c *Client) GenerateImage(ctx context.Context, req localaitools.GenerateImageRequest) (*localaitools.ImageResult, error) {
 	return c.inference().GenerateImage(ctx, req)
 }
@@ -128,6 +174,14 @@ func (c *Client) GenerateVideo(ctx context.Context, req localaitools.GenerateVid
 
 func (c *Client) GenerateSound(ctx context.Context, req localaitools.GenerateSoundRequest) (*localaitools.AudioResult, error) {
 	return c.inference().GenerateSound(ctx, req)
+}
+
+func (c *Client) UpscaleImage(ctx context.Context, req localaitools.UpscaleImageRequest) (*localaitools.ImageResult, error) {
+	return c.inference().UpscaleImage(ctx, req)
+}
+
+func (c *Client) TransformAudio(ctx context.Context, req localaitools.TransformAudioRequest) (*localaitools.TransformAudioResult, error) {
+	return c.inference().TransformAudio(ctx, req)
 }
 
 func (c *Client) VerifyVoice(ctx context.Context, req localaitools.VoiceVerifyRequest) (*localaitools.VerifyResult, error) {

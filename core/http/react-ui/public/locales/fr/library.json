@@ -110,5 +110,11 @@
     "reads": "Cet agent lit la collection nommée {{name}}.",
     "exists": "Cet agent lit la collection nommée {{name}}. Vous pouvez la remplir et la rechercher dans Connaissances.",
     "created": "Cet agent lit la collection nommée {{name}}. Elle est créée à l'enregistrement."
+  },
+  "rail": {
+    "compact": "Lignes compactes",
+    "clear": "Effacer les filtres",
+    "more": "Afficher {{count}} de plus",
+    "loading": "Chargement"
   }
 }

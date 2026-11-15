@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -249,6 +250,29 @@ func GetSource(c echo.Context) string {
 	return s
 }
 
+// routeFeatureLookups splits the registry into two maps keyed "METHOD:pattern":
+// the feature a user needs and the client feature a client key needs. A client
+// row of a shared feature does not gate users. A client row of any other
+// client feature gates users too when the route has no user row, so a user
+// session cannot use a route that belongs to client keys.
+func routeFeatureLookups(registry []RouteFeature) (user, client map[string]string) {
+	user, client = map[string]string{}, map[string]string{}
+	for _, rf := range registry {
+		key := rf.Method + ":" + rf.Pattern
+		if IsClientFeature(rf.Feature) {
+			client[key] = rf.Feature
+		} else {
+			user[key] = rf.Feature
+		}
+	}
+	for key, f := range client {
+		if _, has := user[key]; !has && !slices.Contains(sharedClientFeatures, f) {
+			user[key] = f
+		}
+	}
+	return user, client
+}
+
 // RequireRouteFeature returns a global middleware that checks the user has access
 // to the feature required by the matched route. It uses the RouteFeatureRegistry
 // to look up the required feature for each route pattern + HTTP method.
@@ -257,11 +281,7 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 	if db == nil {
 		return NoopMiddleware()
 	}
-	// Pre-build lookup map: "METHOD:pattern" -> feature
-	lookup := map[string]string{}
-	for _, rf := range RouteFeatureRegistry {
-		lookup[rf.Method+":"+rf.Pattern] = rf.Feature
-	}
+	lookup, clientLookup := routeFeatureLookups(RouteFeatureRegistry)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			path := c.Path() // Echo route pattern (e.g. "/v1/engines/:model/completions")
@@ -269,6 +289,32 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 			feature := lookup[method+":"+path]
 			if feature == "" {
 				feature = lookup["*:"+path]
+			}
+			clientFeature := clientLookup[method+":"+path]
+			if clientFeature == "" {
+				clientFeature = clientLookup["*:"+path]
+			}
+			// A client key is deny by default: it passes only a registered route
+			// whose feature is in its allow-list. An unregistered route, a user
+			// feature and a feature the key does not hold are all refused.
+			// A public route ignores the credential, so a client that still sends
+			// its key can pair again and a probe can read the health routes.
+			// OPTIONS is the exception: it is public so that a browser preflight,
+			// which carries no credential, reaches the CORS middleware. A request
+			// that does carry a client key is no preflight, and a route that a
+			// later change registers for every method (Any) would otherwise
+			// answer it. It takes the same deny-by-default path as any other.
+			if ck := ClientKey(c); ck != nil && (method == http.MethodOptions || !isPublicRoute(method, c.Request().URL.Path)) {
+				if clientFeature == "" || !ck.ClientAllows(clientFeature) {
+					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: "this credential cannot use this route",
+							Code:    http.StatusForbidden,
+							Type:    "authorization_error",
+						},
+					})
+				}
+				return next(c)
 			}
 			if feature == "" {
 				return next(c) // no restriction for this route
@@ -330,6 +376,11 @@ func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
 				return next(c)
 			}
 			if user.Role == RoleAdmin {
+				return next(c)
+			}
+			// Client routes name no model, and the body of a client request is
+			// read once, with a limit, by the client proxy.
+			if ClientKey(c) != nil {
 				return next(c)
 			}
 
@@ -418,6 +469,11 @@ func RequireQuota(db *gorm.DB) echo.MiddlewareFunc {
 	// should count toward quota. Mirrors RequireRouteFeature's approach.
 	inferenceRoutes := map[string]bool{}
 	for _, rf := range RouteFeatureRegistry {
+		// A row of a shared client feature adds a way in for a client key; it
+		// is not a modality of a user (GET /v1/models has no user row).
+		if slices.Contains(sharedClientFeatures, rf.Feature) {
+			continue
+		}
 		inferenceRoutes[rf.Method+":"+rf.Pattern] = true
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -433,7 +489,7 @@ func RequireQuota(db *gorm.DB) echo.MiddlewareFunc {
 			if user == nil {
 				return next(c)
 			}
-			if user.Role == RoleAdmin {
+			if user.Role == RoleAdmin || ClientKey(c) != nil {
 				return next(c)
 			}
 
@@ -498,39 +554,52 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 		}
 
 		// b2. Named API key
-		if key, err := ValidateAPIKey(db, token, hmacSecret); err == nil {
+		if key, err := ValidateCredentialKey(db, token, hmacSecret); err == nil {
 			c.Set(contextKeyHeaderAuthenticated, true)
 			c.Set(contextKeyTicketCredential, ticketCredential{"Authorization", authHeader})
 			c.Set(contextKeySource, UsageSourceAPIKey)
 			c.Set(contextKeyAPIKey, key)
-			return &key.User
+			return keyUser(key)
 		}
 	}
 
 	// c. x-api-key / xi-api-key -> named API key
 	for _, header := range []string{"x-api-key", "xi-api-key"} {
 		if k := c.Request().Header.Get(header); k != "" {
-			if apiKey, err := ValidateAPIKey(db, k, hmacSecret); err == nil {
+			if apiKey, err := ValidateCredentialKey(db, k, hmacSecret); err == nil {
 				c.Set(contextKeyHeaderAuthenticated, true)
 				c.Set(contextKeyTicketCredential, ticketCredential{header, k})
 				c.Set(contextKeySource, UsageSourceAPIKey)
 				c.Set(contextKeyAPIKey, apiKey)
-				return &apiKey.User
+				return keyUser(apiKey)
 			}
 		}
 	}
 
 	// d. token cookie -> named API key
 	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
-		if key, err := ValidateAPIKey(db, cookie.Value, hmacSecret); err == nil {
+		if key, err := ValidateCredentialKey(db, cookie.Value, hmacSecret); err == nil {
 			c.Set(contextKeySource, UsageSourceAPIKey)
 			c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
 			c.Set(contextKeyAPIKey, key)
-			return &key.User
+			return keyUser(key)
 		}
 	}
 
 	return nil
+}
+
+// keyUser returns the identity a key authenticates as. A user key is its
+// owner. A client key is the owner's record with the role of an ordinary user,
+// whatever the owner is, so that no admin check passes for a client even if a
+// route forgot its client gate.
+func keyUser(k *UserAPIKey) *User {
+	if !k.IsClientKey() {
+		return &k.User
+	}
+	u := k.User
+	u.Role = RoleUser
+	return &u
 }
 
 // extractKey extracts an API key from headers, falling back to the token cookie.

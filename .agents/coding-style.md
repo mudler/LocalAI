@@ -76,10 +76,10 @@ This is enforced by `forbidigo` (see `.golangci.yml`): `http.DefaultClient` and 
 The project documentation is located in `docs/content`. When adding new features or changing existing functionality, it is crucial to update the documentation to reflect these changes. This helps users understand how to use the new capabilities and ensures the documentation stays relevant.
 
 - **Docs-with-code rule**: When you change user-facing behavior (API endpoints, CLI flags, config keys, or features), update the corresponding page under `docs/content/` in the SAME change, not as a follow-up. A user-facing change without a matching docs update is incomplete. The PR template carries a checklist item for this.
-- **Feature Documentation**: If you add a new feature (like a new backend or API endpoint), create a new markdown file in `docs/content/features/` explaining what it is, how to configure it, and how to use it.
+- **Feature Documentation**: If you add a new feature (like a new backend or API endpoint), create a new markdown file explaining what it is, how to configure it, and how to use it. Put it where the reader looks for it: `docs/content/features/` for a task you do in LocalAI, `docs/content/models/capabilities/` for what a kind of model does, `docs/content/models/engines/` for a backend with its own page, and `docs/content/addons/catalogue/` for an add-on. Add the page to the front door of its section.
 - **Configuration**: If you modify configuration options, update the relevant sections in `docs/content/`.
 - **Examples**: providing concrete examples (like YAML configuration blocks) is highly encouraged to help users get started quickly.
-- **Shortcodes**: Use `{{% notice note %}}`, `{{% notice tip %}}`, or `{{% notice warning %}}` for callout boxes. Do **not** use `{{% alert %}}` — that shortcode does not exist in this project's Hugo theme and will break the docs build.
+- **Shortcodes**: Use `{{% callout style="note" %}}`, `{{% callout style="tip" %}}`, `{{% callout style="warning" %}}` or `{{% callout style="info" %}}` for callout boxes, and close them with `{{% /callout %}}`. The `notice` shortcode is deprecated in the Relearn theme and prints a build warning. Give each `tab` a `title=` (the `name=` parameter is deprecated). Write `{{% relref "..." %}}` with `%`, not `<`. Do **not** use `{{% alert %}}`: that shortcode does not exist in this project's Hugo theme and breaks the docs build.
 
 ## React UI styling
 
@@ -159,6 +159,22 @@ It flags a checkbox without `dk-check`, an import of `Toggle`, `dk-sheet` in
 JSX, a CSS width on a sheet or pane, and the legacy `btn` class. Existing
 violations sit in `ui-kit-baseline.txt` and may only go down. Do not add a
 line to it to make a check pass.
+
+A second ratchet keeps literal colours out of pages. Colour comes from the
+theme roles (`--dk-*`, and the `--color-*` names in `src/theme.css`), never
+from a hex value or an `rgb()` in a page:
+
+```sh
+cd core/http/react-ui
+npm run lint:colours          # fails on a new literal colour, or on a baseline line that is gone
+npm run lint:colours:report   # counts per file
+npm run lint:colours:write    # refresh colour-baseline.txt after you fixed some
+```
+
+Use `var(--dk-accent)` and the other roles, or `color-mix(in srgb, var(--dk-text) 20%, transparent)`
+for a tint. The palette files, the vendored kit and the third-party vendor
+colours in `src/utils/format.js` are exempt. Do not add a line to
+`colour-baseline.txt` to make a check pass.
 
 Before you finish UI work, run `npm run lint:ui-kit` and attach screenshots at
 1280 px and 390 px wide, in light and dark.

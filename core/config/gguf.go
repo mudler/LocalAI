@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -117,8 +118,13 @@ func guessGGUFFromFile(cfg *ModelConfig, f ggufHeader, defaultCtx int) {
 		}
 		trainedMax := f.TrainedContext
 		if trainedMax > 0 {
-			cSize := autoContextSize(f.footprintAt, trainedMax)
+			cSize := autoContextSize(f.footprintAt, f.ramFootprintAt, trainedMax, cfg.AutoContextTarget(f.Architecture))
 			cfg.ContextSize = &cSize
+			cfg.ContextAutoSized = true
+			if cfg.ServesChat(f.Architecture) && cSize < harnessctx.MinContext {
+				xlog.Warn("[gguf] auto context is below what the chat agent needs; set context_size or use a smaller model",
+					"model", f.Name, "context", cSize, "minimum", harnessctx.MinContext)
+			}
 		} else {
 			defaultCtx = DefaultContextSize
 			cfg.ContextSize = &defaultCtx

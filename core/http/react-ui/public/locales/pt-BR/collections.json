@@ -10,7 +10,8 @@
     "viewDetails": "Ver detalhes",
     "resetCollection": "Redefinir coleção",
     "deleteCollection": "Excluir coleção",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "save": "Salvar"
   },
   "sections": {
     "yourCollections": "Suas Coleções",
@@ -47,7 +48,12 @@
     "noneShared": "Nenhuma fonte web."
   },
   "entries": {
-    "loadFailed": "Não foi possível carregar os arquivos."
+    "loadFailed": "Não foi possível carregar os arquivos.",
+    "filter": "Filtrar arquivos",
+    "countAll_one": "{{count}} arquivo",
+    "countAll_other": "{{count}} arquivos",
+    "countOf": "{{shown}} de {{total}} arquivos",
+    "noMatch": "Nenhum arquivo corresponde."
   },
   "starting": {
     "title": "O conhecimento está iniciando.",
@@ -83,5 +89,25 @@
     },
     "noteViewer": "Você pode pesquisá-la e ler os arquivos.",
     "noteEditor": "Você pode pesquisá-la e adicionar ou remover arquivos."
+  },
+  "create": {
+    "title": "Nova coleção",
+    "hint": "Dê um nome que você reconheça. Você adiciona arquivos e páginas web depois que ela existir."
+  },
+  "sort": {
+    "label": "Ordenar coleções",
+    "name": "Nome, de A a Z",
+    "name-desc": "Nome, de Z a A",
+    "used": "Mais usadas",
+    "unused": "Não usadas primeiro"
+  },
+  "list": {
+    "countAll_one": "{{count}} coleção",
+    "countAll_other": "{{count}} coleções",
+    "countOf": "{{shown}} de {{total}} coleções",
+    "menu": "Ações de {{name}}"
+  },
+  "menu": {
+    "try": "Testar uma pergunta"
   }
 }

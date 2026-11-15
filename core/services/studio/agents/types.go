@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Errors. An agent that does not exist, or belongs to another principal, is
@@ -95,6 +96,11 @@ type Agent struct {
 	// by the administrator's ceiling. Empty is off. A run never asks a
 	// person: a host outside the preset is blocked.
 	Network string
+	// SandboxProfile is the sandbox profile of the agent's unattended runs and
+	// the starting profile of its chats. Empty: the administrator's default.
+	// A profile the add-on does not have, or the user may not use, falls back
+	// at run time.
+	SandboxProfile string
 	// Folders are the folders the agent works in, at most MaxFolders, in the
 	// order the person gave them. Each is kept by workspace node so a rename
 	// or a move of the folder is followed. No folder means the agent works on
@@ -267,6 +273,9 @@ func Validate(a Agent) error {
 	case "", "off", "registries", "all":
 	default:
 		return bad("the network must be off, registries or all")
+	}
+	if a.SandboxProfile != "" && !contract.ValidProfileID(a.SandboxProfile) {
+		return bad("the sandbox profile is not a profile ID")
 	}
 	if len(a.Connections) > MaxListEntries {
 		return bad("connections has more than %d entries", MaxListEntries)

@@ -98,6 +98,20 @@ var RouteFeatureRegistry = []RouteFeature{
 }
 ```
 
+A route may have a second row with a **client feature** (`client_self`,
+`client_addons`, `client_inference`). A user passes the row of its user feature, and
+the key of a paired client passes the row of a feature in its list; a route with no
+client row is refused to every client key. The rows of `client_inference` are a
+frozen list (spec "freezes the routes of client_inference" in
+`core/http/auth/features_client_test.go`): do not add a route to it unless a client
+should reach it, and add it to the spec in the same change. A client route needs a
+model name in the request. The check that decides is `auth.CheckClientModel`, which
+`setModelAndConfig` (and the realtime handshake) calls with the name the handler
+resolved, so a route that resolves its model in another place must call it there;
+`RequireClientModels` is only the cheap early check and the installer of the gate. A
+route without the gate refuses a client key. Test a client route with the real
+binder, not with a stub handler (`core/http/middleware/client_models_test.go`).
+
 ## Adding a new feature
 
 When you need a new toggleable feature (not just a new endpoint under an existing feature):
@@ -356,9 +370,9 @@ React pages that want to filter the ModelSelector by capability import this symb
 
 ### 4. `docs/content/` (user-facing documentation)
 
-A new capability deserves its own page under `docs/content/features/`, plus cross-links from related features. See the pattern used by `face-recognition.md` / `object-detection.md`.
+A new capability deserves its own page under `docs/content/models/capabilities/` (text, audio or vision), plus cross-links from related features. See the pattern used by `face-recognition.md` / `object-detection.md`.
 
-Announcing it is the release's job, not this page's: the capability gets covered in the release blog post under `website/content/blog/`. See [preparing-a-release.md](preparing-a-release.md). `docs/content/whats-new.md` is only a pointer at the blog and GitHub Releases, so there is nothing to add there.
+Announcing it is the release's job, not this page's: the capability gets covered in the release blog post under `website/content/blog/`. See [preparing-a-release.md](preparing-a-release.md). `docs/content/start/whats-new.md` is only a pointer at the blog and GitHub Releases, so there is nothing to add there.
 
 ## Path protection rules
 
@@ -388,7 +402,7 @@ When adding a new endpoint:
 - [ ] Swagger block on the handler: `@Summary`, `@Tags`, `@Param`, `@Success`, `@Router`
 - [ ] If new capability area (new swagger tag): entry in `instructionDefs` in `core/http/endpoints/localai/api_instructions.go` + test count bumped in `api_instructions_test.go`
 - [ ] If new `FLAG_*` usecase flag: matching `CAP_*` symbol exported from `core/http/react-ui/src/utils/capabilities.js`
-- [ ] `docs/content/features/<feature>.md` created; cross-links from related feature pages; capability covered in the release blog post (see [preparing-a-release.md](preparing-a-release.md))
+- [ ] `docs/content/models/capabilities/<group>/<feature>.md` created; cross-links from related feature pages; capability covered in the release blog post (see [preparing-a-release.md](preparing-a-release.md))
 
 **Quality**
 - [ ] Error responses use `schema.ErrorResponse` format (or `echo.NewHTTPError` with a mapped gRPC status — see the `mapBackendError` helper in `core/http/endpoints/localai/images.go`)

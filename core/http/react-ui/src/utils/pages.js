@@ -75,6 +75,21 @@ export function withPin(ui, name, pinned) {
   return { ...base, pinnedPages: next }
 }
 
+// The start page is the first pinned page: the one with its own screen and the
+// "Start page" badge. startOf is its name, or '' with no pin.
+export const startOf = (pins) => (pins.length ? pins[0] : '')
+
+// ui.json with name the first pinned page (on), or moved behind the others
+// (off, so the next pin becomes the start page). A page that is not pinned yet
+// is pinned by turning it on. The other entries keep their order and every
+// other key stays as it was.
+export function withStart(ui, name, on) {
+  const base = ui && typeof ui === 'object' && !Array.isArray(ui) ? ui : {}
+  const rest = pinsOf(base).filter(n => n !== name)
+  if (on) return { ...base, pinnedPages: [name, ...rest].slice(0, MAX_PINS) }
+  return { ...base, pinnedPages: pinsOf(base).includes(name) ? [...rest, name] : rest }
+}
+
 // The pinned pages that exist, in pin order.
 export function pinnedPages(pages, pins) {
   const byName = new Map((pages || []).map(p => [p.name, p]))

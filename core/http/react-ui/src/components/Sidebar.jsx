@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import ThemeToggle from './ThemeToggle'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
-import { useBranding } from '../contexts/BrandingContext'
+import { useBranding, DEFAULT_BRANDING } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { hubs, operateHub, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
@@ -12,8 +12,10 @@ import { topDestinations } from '../utils/destinations'
 import { primaryActive, primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
+import { useUpdates } from '../contexts/UpdatesContext'
 import Icon from './Icon'
 import './sidebar.css'
+import { NavInboxEntry } from './inbox/InboxTriggers'
 import AppsPinnedLinks from './AppsPinnedLinks'
 import PagesPinnedLinks from './PagesPinnedLinks'
 import SidebarChats from './SidebarChats'
@@ -21,6 +23,11 @@ import { usePages } from '../hooks/usePages'
 import { useSharedPages } from '../hooks/useSharedPages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import { useNewLabel } from './wellknown/useNewLabel'
+import SidebarNavLink from './SidebarNavLinks'
+import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
+import { sections as navSections, entryLabel } from '../utils/nav'
+import { useUiString } from './wellknown/Identity'
+import WorkspaceSlot from './slots/WorkspaceSlot'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -43,9 +50,9 @@ const sections = [
   { id: 'workspace', titleKey: 'sections.workspace', hubs: true },
 ]
 
-function NavItem({ item, onClose, collapsed, active, badge }) {
+function NavItem({ item, onClose, collapsed, active, badge, label: ownLabel }) {
   const { t } = useTranslation('nav')
-  const label = t(item.labelKey)
+  const label = ownLabel || t(item.labelKey)
   // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
   // before the synthetic click on mobile; mouseenter/focus cover desktop and
   // keyboard. The underlying import() is memoised so multiple triggers are free.
@@ -87,24 +94,25 @@ function saveSectionState(state) {
   try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(state)) } catch (_) { /* ignore */ }
 }
 
-export default function Sidebar({ isOpen, onClose }) {
+// features is the answer of /api/features, read once by App (the inbox needs it
+// too); null until it arrived.
+export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   const { t } = useTranslation('nav')
-  const [features, setFeatures] = useState({})
+  // The user's own text for a few entries (ui.json strings).
+  const uiString = useUiString()
+  const features = featuresProp || {}
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
   const { operations } = useOperations()
+  const updates = useUpdates()
   const { builtin } = useNavigation()
   const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
   const closeBtnRef = useRef(null)
-
-  useEffect(() => {
-    fetch(apiUrl('/api/features')).then(r => r.json()).then(setFeatures).catch(() => {})
-  }, [])
 
   // Stay in sync with external collapse dispatches (e.g. the chat
   // page's focus mode). The collapse-toggle button still owns the
@@ -195,6 +203,15 @@ export default function Sidebar({ isOpen, onClose }) {
   const pagesNew = useNewLabel('pages', { enabled: hasPages, visiting: location.pathname.startsWith('/app/pages') })
   const navAuth = { isAdmin, hasFeature, hasBuiltin, features, hasPages }
   const primary = visiblePrimary(primaryDestinations, navAuth)
+  // nav.json: the order, names and hidden entries the user chose. With no file
+  // (or an empty list) the sidebar below is the default one, as before.
+  const { items: navItems } = useNavConfig(!legacy)
+  const customNav = !legacy && navItems.length > 0
+  const navLinks = useNavLinks(navItems, { pagesOn, enabled: customNav })
+  const topEntries = [...visibleTopItems.filter(i => i.path === '/app'), ...primary]
+  const navSectionList = customNav
+    ? navSections(navItems, { available: new Set(topEntries.map(i => i.id)), linkStatus: navLinks.status })
+    : null
 
   // One badge, on the always-visible sidebar entry. The Operate tab bar only
   // exists while the user is on an Operate route, so badging a tab instead
@@ -214,10 +231,23 @@ export default function Sidebar({ isOpen, onClose }) {
     return hubs.filter(hub => hub.id !== operateHub.id).flatMap(hub => hubEntry(hub) ?? [])
   }
   const adminItem = hubEntry(operateHub)
-  const operateBadge = activeOps > 0 ? (
-    <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
-      {failedOps > 0 ? failedOps : activeOps}
+  // One badge on the Operate entry. Precedence: failed operations (red), then
+  // the updates that need a person (accent, red when one failed), then the
+  // operations that are running. The shell-level UpdatesProvider counts them.
+  const updateBadge = updates && updates.enabled ? updates.badge : null
+  const operateBadge = failedOps > 0 ? (
+    <span className="nav-badge nav-badge--error">{failedOps}</span>
+  ) : updateBadge && updateBadge.count > 0 ? (
+    <span
+      className={`nav-badge${updateBadge.failed ? ' nav-badge--error' : ''}`}
+      title={t('updatesBadge', { count: updateBadge.count })}
+      data-testid="operate-updates-badge"
+    >
+      <span aria-hidden="true">{updateBadge.count}</span>
+      <span className="sr-only">{t('updatesBadge', { count: updateBadge.count })}</span>
     </span>
+  ) : activeOps > 0 ? (
+    <span className="nav-badge">{activeOps}</span>
   ) : null
 
   return (
@@ -232,10 +262,17 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Logo */}
         <div className="sidebar-header">
           <a href="./" className="sidebar-logo-link">
-            <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />
+            {branding.logoHorizontalUrl === DEFAULT_BRANDING.logoHorizontalUrl ? (
+              <>
+                <img src={apiUrl(branding.logoUrl)} alt="" className="sidebar-logo-img sidebar-logo-img--tile" />
+                <span className="sidebar-wordmark">{branding.instanceName}</span>
+              </>
+            ) : (
+              <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />
+            )}
           </a>
           <a href="./" className="sidebar-logo-icon" title={branding.instanceName}>
-            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="sidebar-logo-icon-img" />
+            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="sidebar-logo-icon-img" data-brand-default={branding.logoUrl === DEFAULT_BRANDING.logoUrl ? '' : undefined} />
           </a>
           <button
             ref={closeBtnRef}
@@ -250,11 +287,13 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Navigation */}
         <nav className="sidebar-nav">
           {/* Top-level items */}
-          <div className="sidebar-section">
-            {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
+          {/* One entry of the primary layout, as the default order and nav.json draw it. */}
+          {(() => {
+            const renderTop = (item, label) => (
               <Fragment key={item.path}>
                 <NavItem
                   item={item} onClose={onClose} collapsed={collapsed}
+                  label={entryLabel(item.path === '/app' ? 'home' : item.id, label, key => uiString(key, ''))}
                   active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)}
                   badge={item.pagesEntry && pagesNew && !collapsed ? <span className="nav-new" data-testid="nav-pages-new">{t('new')}</span> : undefined}
                 />
@@ -263,8 +302,32 @@ export default function Sidebar({ isOpen, onClose }) {
                 {/* Pinned pages, in pin order, under the Pages entry. */}
                 {item.pagesEntry && !collapsed && <PagesPinnedLinks pages={pages} onClose={onClose} />}
               </Fragment>
-            ))}
-          </div>
+            )
+            if (!navSectionList) {
+              return (
+                <div className="sidebar-section">
+                  {(legacy ? visibleTopItems : topEntries).map(item => renderTop(item))}
+                </div>
+              )
+            }
+            const byId = new Map(topEntries.map(i => [i.id, i]))
+            return navSectionList.map(sec => (
+              <div
+                key={sec.key} className="sidebar-section" data-testid="nav-section"
+                {...(sec.group ? { role: 'group', 'aria-label': sec.group } : {})}
+              >
+                {sec.group && <div className="sidebar-section-title" data-testid="nav-group">{sec.group}</div>}
+                {sec.entries.map(e => e.kind === 'builtin'
+                  ? renderTop(byId.get(e.id), e.label)
+                  : (
+                    <SidebarNavLink
+                      key={e.key} item={e.item} collapsed={collapsed} onClose={onClose}
+                      label={navLinks.title(e.item)} icon={navLinks.icon(e.item)}
+                    />
+                  ))}
+              </div>
+            ))
+          })()}
 
           {/* Recent chats, New chat and All chats. */}
           {!legacy && hasFeature('chats') && features.chats !== false && (
@@ -309,6 +372,10 @@ export default function Sidebar({ isOpen, onClose }) {
 
         </nav>
 
+        {/* Notifications: pinned above Administration. It shows for an
+            administrator and for anyone who has items (InboxContext). */}
+        <NavInboxEntry collapsed={collapsed} onOpen={onClose} />
+
         {/* Administration: pinned above the footer so it stays in reach when the list scrolls. */}
         {adminItem && (
           <nav className="sidebar-nav sidebar-nav--pinned" aria-label={t('sections.operate')}>
@@ -321,6 +388,10 @@ export default function Sidebar({ isOpen, onClose }) {
             />
           </nav>
         )}
+
+        {/* The sidebarFooter slot of ui.json: page tiles and tool buttons.
+            A collapsed sidebar has no room for them. */}
+        {!collapsed && <WorkspaceSlot name="sidebarFooter" />}
 
         {/* Footer */}
         <div className="sidebar-footer">

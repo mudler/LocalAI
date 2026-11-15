@@ -4,12 +4,9 @@
 .pk-help details[open] { padding: var(--dk-space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); }
 .pk-help details > p { margin: var(--dk-space-2) 0; }
 
-.pk-mode-block { display: flex; flex-direction: column; gap: var(--dk-space-3); }
 .pk-modecard { display: flex; flex-direction: column; gap: 2px; }
 .pk-modecard__title { font-weight: var(--font-weight-semibold); }
 .pk-modecard__line { color: var(--color-text-muted); font-size: var(--fs-small); }
-.pk-note { margin-top: var(--dk-space-1); }
-.pk-mode-block .cn-cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
 .pk-chip { display: inline-block; font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
 .pk-chip--off { color: var(--dk-ok-text, var(--color-text-secondary)); background: var(--dk-ok-wash, var(--color-bg-secondary)); }

@@ -123,6 +123,12 @@ type Release struct {
 	Selection string `json:"selection,omitempty"`
 	SourceID  string `json:"sourceId,omitempty"`
 	SourceURL string `json:"sourceUrl,omitempty"`
+	// Official is stamped with the source, never trusted from remote metadata:
+	// true only when the entry comes from the official library at one of the
+	// addresses LocalAI ships. A library an administrator named "official" at
+	// another address does not qualify. It is the library half of the test; the
+	// receipt of an installed package adds the signature.
+	Official bool `json:"official"`
 	// ID is the identifier of the entry for every kind, the same field the
 	// shared envelope uses. For a backend it is the backend name, which is also
 	// its directory name.

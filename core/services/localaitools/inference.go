@@ -12,12 +12,15 @@ import (
 	_ "image/jpeg" //
 	_ "image/png"  //
 	"io"
+	"math"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"path"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -66,7 +69,7 @@ func (e *StatusError) Error() string {
 	case http.StatusTooManyRequests:
 		return fmt.Sprintf("the server refused the %s request: the quota is used up or the server is busy (429)", e.Capability)
 	case http.StatusNotFound:
-		return fmt.Sprintf("the server does not know the model %q for %s (404). Check the name with list_installed_models.", e.Model, e.Capability)
+		return fmt.Sprintf("the server does not know the model %q for %s (404). Check the name with list_models.", e.Model, e.Capability)
 	}
 	msg := fmt.Sprintf("%s failed with status %d", e.Capability, e.Status)
 	if e.Detail != "" {
@@ -90,6 +93,8 @@ type Inference struct {
 	Vision func(ctx context.Context) (model string, guess bool)
 	// Files reads input files and stores results.
 	Files FileStore
+	// Defaults reads the user's defaults.json. Nil: no defaults.
+	Defaults DefaultReader
 }
 
 // gate takes one of the heavy-call places of the acting user. Without
@@ -113,21 +118,18 @@ func (i *Inference) files(ctx context.Context) (FileStore, error) {
 	return i.Files, nil
 }
 
+// pick names the model a tool uses. See choose for the order of the rules.
 func (i *Inference) pick(ctx context.Context, given string, spec ClientToolSpec) (string, error) {
-	if given = strings.TrimSpace(given); given != "" {
-		return given, nil
-	}
-	if i == nil || i.Models == nil {
-		return "", errors.New("cannot choose a model here: name one with the model argument")
-	}
-	m, err := i.Models.FirstModel(ctx, spec.Flag)
-	if err != nil {
-		return "", err
-	}
-	if m == "" {
-		return "", &NoModelError{Capability: spec.Capability}
-	}
-	return m, nil
+	p, err := i.choose(ctx, given, spec)
+	return p.Model, err
+}
+
+// pickNote is pick for a tool that tells the person which default it used: the
+// note is a sentence for the result, empty when the model was named or picked
+// without a default.
+func (i *Inference) pickNote(ctx context.Context, given string, spec ClientToolSpec) (model, note string, err error) {
+	p, err := i.choose(ctx, given, spec)
+	return p.Model, p.Note, err
 }
 
 func (i *Inference) read(ctx context.Context, ref string, max int64, what string) (File, error) {
@@ -333,7 +335,10 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	if err := checkSteps(req.Steps); err != nil {
 		return nil, err
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	if len(req.RefImages) > maxRefImages {
+		return nil, fmt.Errorf("ref_images: at most %d images", maxRefImages)
+	}
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -343,6 +348,29 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	}
 	defer release()
 	body := map[string]any{"model": model, "prompt": req.Prompt, "n": n, "response_format": "b64_json"}
+	// The handler decodes "file" and "ref_images" as plain base64, not as
+	// data URLs, so the bytes go in as they are.
+	if req.Image != "" {
+		img, err := i.readImage(ctx, req.Image, "image")
+		if err != nil {
+			return nil, err
+		}
+		body["file"] = base64.StdEncoding.EncodeToString(img.Data)
+	}
+	var refList []string
+	for k, ref := range req.RefImages {
+		img, err := i.readImage(ctx, ref, fmt.Sprintf("ref_images[%d]", k))
+		if err != nil {
+			return nil, err
+		}
+		refList = append(refList, base64.StdEncoding.EncodeToString(img.Data))
+	}
+	if len(refList) > 0 {
+		body["ref_images"] = refList
+	}
+	if req.Seed != nil {
+		body["seed"] = *req.Seed
+	}
 	if req.Size != "" {
 		body["size"] = req.Size
 	}
@@ -364,7 +392,7 @@ func (i *Inference) GenerateImage(ctx context.Context, req GenerateImageRequest)
 	if err := json.Unmarshal(data, &out); err != nil || len(out.Data) == 0 {
 		return nil, errors.New("the model returned no image")
 	}
-	res := &ImageResult{Model: model}
+	res := &ImageResult{Model: model, ModelNote: note}
 	for _, it := range out.Data {
 		raw, err := base64.StdEncoding.DecodeString(it.B64JSON)
 		if err != nil || len(raw) == 0 {
@@ -401,7 +429,7 @@ func (i *Inference) EditImage(ctx context.Context, req EditImageRequest) (*Image
 	if err != nil {
 		return nil, err
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +471,7 @@ func (i *Inference) EditImage(ctx context.Context, req EditImageRequest) (*Image
 	if err != nil {
 		return nil, err
 	}
-	return &ImageResult{Model: model, Images: []OutputFile{f}}, nil
+	return &ImageResult{Model: model, ModelNote: note, Images: []OutputFile{f}}, nil
 }
 
 // fetchResult returns the bytes of an item of an OpenAI-style answer: the
@@ -478,7 +506,10 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	if req.Speed != nil && (*req.Speed < 0.25 || *req.Speed > 4) {
 		return nil, errors.New("speed must be from 0.25 to 4.0")
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	if req.SampleRate != 0 && (req.SampleRate < minSampleRate || req.SampleRate > maxSampleRate) {
+		return nil, fmt.Errorf("sample_rate must be from %d to %d", minSampleRate, maxSampleRate)
+	}
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -503,6 +534,9 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	if req.Instructions != "" {
 		body["instructions"] = req.Instructions
 	}
+	if req.SampleRate > 0 {
+		body["sample_rate"] = req.SampleRate
+	}
 	data, hdr, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {
 		var se *StatusError
@@ -516,7 +550,7 @@ func (i *Inference) Speak(ctx context.Context, req SpeakRequest) (*AudioResult, 
 	if err != nil {
 		return nil, err
 	}
-	return &AudioResult{Model: model, Audio: f}, nil
+	return &AudioResult{Model: model, ModelNote: note, Audio: f}, nil
 }
 
 // audioMIME returns the media type of an audio answer.
@@ -539,7 +573,7 @@ func (i *Inference) TranscribeAudio(ctx context.Context, req TranscribeAudioRequ
 	if err != nil {
 		return nil, err
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +602,7 @@ func (i *Inference) TranscribeAudio(ctx context.Context, req TranscribeAudioRequ
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, errors.New("the model gave no transcript")
 	}
-	return &TranscriptResult{Model: model, Text: strings.TrimSpace(out.Text), Language: out.Language, Duration: out.Duration}, nil
+	return &TranscriptResult{Model: model, ModelNote: note, Text: strings.TrimSpace(out.Text), Language: out.Language, Duration: out.Duration}, nil
 }
 
 // DescribeImage asks a vision model about an image, as a chat completion with
@@ -579,15 +613,23 @@ func (i *Inference) DescribeImage(ctx context.Context, req DescribeImageRequest)
 	if err != nil {
 		return nil, err
 	}
-	model, guess := strings.TrimSpace(req.Model), false
+	model, guess, note := strings.TrimSpace(req.Model), false, ""
 	if model == "" {
-		if i != nil && i.Vision != nil {
+		picked, found, err := i.fromDefault(ctx, spec)
+		switch {
+		case err != nil:
+			return nil, err
+		case found:
+			model, note = picked.Model, picked.Note
+		case i != nil && i.Vision != nil:
 			model, guess = i.Vision(ctx)
 			if model == "" {
 				return nil, &NoModelError{Capability: spec.Capability}
 			}
-		} else if model, err = i.pick(ctx, "", spec); err != nil {
-			return nil, err
+		default:
+			if model, err = i.pick(ctx, "", spec); err != nil {
+				return nil, err
+			}
 		}
 	}
 	question := req.Question
@@ -619,7 +661,7 @@ func (i *Inference) DescribeImage(ctx context.Context, req DescribeImageRequest)
 	if err := json.Unmarshal(data, &out); err != nil || len(out.Choices) == 0 {
 		return nil, errors.New("the model gave no description")
 	}
-	return &DescribeImageResult{Model: model, Description: strings.TrimSpace(out.Choices[0].Message.Content)}, nil
+	return &DescribeImageResult{Model: model, ModelNote: note, Description: strings.TrimSpace(out.Choices[0].Message.Content)}, nil
 }
 
 // Embed turns texts into vectors (POST /v1/embeddings). The vectors are
@@ -632,7 +674,7 @@ func (i *Inference) Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, 
 	if err := checkTexts("input", req.Input, maxEmbedInputs); err != nil {
 		return nil, err
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -662,12 +704,18 @@ func (i *Inference) Embed(ctx context.Context, req EmbedRequest) (*EmbedResult, 
 	if err != nil {
 		return nil, err
 	}
-	return &EmbedResult{Model: model, Count: len(vectors), Dimensions: len(vectors[0]), Vectors: f, Preview: preview}, nil
+	return &EmbedResult{Model: model, ModelNote: note, Count: len(vectors), Dimensions: len(vectors[0]), Vectors: f, Preview: preview}, nil
 }
 
 // Detect finds objects in an image (POST /v1/detection).
 func (i *Inference) Detect(ctx context.Context, req DetectRequest) (*DetectResult, error) {
 	spec := clientSpec(ToolDetect)
+	if err := checkPromptNumbers("points", req.Points, 3, true); err != nil {
+		return nil, err
+	}
+	if err := checkPromptNumbers("boxes", req.Boxes, 4, false); err != nil {
+		return nil, err
+	}
 	img, err := i.readImage(ctx, req.Image, "image")
 	if err != nil {
 		return nil, err
@@ -682,6 +730,12 @@ func (i *Inference) Detect(ctx context.Context, req DetectRequest) (*DetectResul
 	}
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
+	}
+	if len(req.Points) > 0 {
+		body["points"] = req.Points
+	}
+	if len(req.Boxes) > 0 {
+		body["boxes"] = req.Boxes
 	}
 	data, _, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {
@@ -716,7 +770,7 @@ func (i *Inference) Rerank(ctx context.Context, req RerankRequest) (*RerankResul
 	if req.TopN < 0 || req.TopN > maxRerankDocs {
 		return nil, fmt.Errorf("top_n must be from 1 to %d", maxRerankDocs)
 	}
-	model, err := i.pick(ctx, req.Model, spec)
+	model, note, err := i.pickNote(ctx, req.Model, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -740,14 +794,56 @@ func (i *Inference) Rerank(ctx context.Context, req RerankRequest) (*RerankResul
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, errors.New("the model returned no ranking")
 	}
-	res := &RerankResult{Model: model, Results: []RerankItem{}}
+	res := &RerankResult{Model: model, ModelNote: note, Results: []RerankItem{}}
 	for _, r := range out.Results {
 		res.Results = append(res.Results, RerankItem{Index: r.Index, Score: r.Score, Text: r.Document.Text})
 	}
 	return res, nil
 }
 
-// GenerateVideo makes a video from a prompt (POST /video).
+// videoMedia reads the media of one generate_video call and counts their
+// bytes, so the whole call stays under maxVideoInputs.
+type videoMedia struct {
+	i     *Inference
+	ctx   context.Context
+	total int64
+}
+
+// ref reads one file as a data URL, the form the video route stages.
+func (v *videoMedia) ref(ref, what string, audio bool) (string, error) {
+	var (
+		f   File
+		err error
+	)
+	if audio {
+		f, err = v.i.readAudio(v.ctx, ref, what)
+	} else {
+		f, err = v.i.readImage(v.ctx, ref, what)
+	}
+	if err != nil {
+		return "", err
+	}
+	if v.total += int64(len(f.Data)); v.total > maxVideoInputs {
+		return "", fmt.Errorf("%s: the media of this call weigh more than %d bytes together. Send fewer or smaller files", what, maxVideoInputs)
+	}
+	return dataURL(f), nil
+}
+
+func (v *videoMedia) list(refs []string, what string, audio bool) ([]string, error) {
+	out := make([]string, 0, len(refs))
+	for k, r := range refs {
+		u, err := v.ref(r, fmt.Sprintf("%s[%d]", what, k), audio)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, nil
+}
+
+// GenerateVideo makes a video from a prompt (POST /video). The route reads
+// width, height, num_frames, fps, seed, cfg_scale and step; it ignores the
+// size and seconds of the OpenAI video API, so they are converted here.
 func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest) (*VideoResult, error) {
 	spec := clientSpec(ToolGenerateVideo)
 	if strings.TrimSpace(req.Prompt) == "" {
@@ -756,35 +852,110 @@ func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest)
 	if err := checkVideoLength(req.Seconds, req.FPS); err != nil {
 		return nil, err
 	}
+	if err := checkSteps(req.Steps); err != nil {
+		return nil, err
+	}
+	width, height, err := videoGeometry(req.Size)
+	if err != nil {
+		return nil, err
+	}
+	fps, frames := videoFrames(req.Seconds, req.FPS)
+	if req.Seed != nil && (*req.Seed < math.MinInt32 || *req.Seed > math.MaxInt32) {
+		return nil, errors.New("seed must fit in 32 bits")
+	}
+	if req.CFGScale != nil && (*req.CFGScale < 0 || *req.CFGScale > 100) {
+		return nil, errors.New("cfg_scale must be from 0 to 100")
+	}
+	if len(req.RefImages) > maxVideoRefs || len(req.RefVideos) > maxVideoRefs || len(req.RefAudios) > maxVideoRefs {
+		return nil, fmt.Errorf("at most %d ref_images, ref_videos and ref_audios each", maxVideoRefs)
+	}
+	if (len(req.RefImages)+len(req.RefVideos)+len(req.RefAudios) > 0) && (req.StartImage != "" || req.EndImage != "") {
+		// The schema of the route says so; the backends enforce it.
+		return nil, errors.New("ref_images, ref_videos and ref_audios cannot be used with start_image or end_image")
+	}
+	for k, rv := range req.RefVideos {
+		if len(rv.Frames) == 0 || len(rv.Frames) > maxVideoFrames {
+			return nil, fmt.Errorf("ref_videos[%d].frames: from 1 to %d images", k, maxVideoFrames)
+		}
+		if rv.FPS < 0 || rv.FPS > maxFPS {
+			return nil, fmt.Errorf("ref_videos[%d].fps must be from 1 to %d", k, maxFPS)
+		}
+	}
+	model, note, err := i.pickNote(ctx, req.Model, spec)
+	if err != nil {
+		return nil, err
+	}
 	release, err := i.gate(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer release()
-	body := map[string]any{"prompt": req.Prompt, "response_format": "b64_json"}
-	if req.StartImage != "" {
-		img, err := i.readImage(ctx, req.StartImage, "start_image")
+	body := map[string]any{"model": model, "prompt": req.Prompt, "response_format": "b64_json"}
+	media := &videoMedia{i: i, ctx: ctx}
+	for _, one := range []struct {
+		field, ref string
+		audio      bool
+	}{{"start_image", req.StartImage, false}, {"end_image", req.EndImage, false}, {"audio", req.Audio, true}} {
+		if one.ref == "" {
+			continue
+		}
+		u, err := media.ref(one.ref, one.field, one.audio)
 		if err != nil {
 			return nil, err
 		}
-		body["start_image"] = dataURL(img)
+		body[one.field] = u
 	}
-	model, err := i.pick(ctx, req.Model, spec)
-	if err != nil {
-		return nil, err
+	if len(req.RefImages) > 0 {
+		if body["ref_images"], err = media.list(req.RefImages, "ref_images", false); err != nil {
+			return nil, err
+		}
 	}
-	body["model"] = model
-	if req.Size != "" {
-		body["size"] = req.Size
+	if len(req.RefAudios) > 0 {
+		if body["ref_audios"], err = media.list(req.RefAudios, "ref_audios", true); err != nil {
+			return nil, err
+		}
 	}
-	if req.Seconds != "" {
-		body["seconds"] = req.Seconds
+	if len(req.RefVideos) > 0 {
+		videos := make([]map[string]any, 0, len(req.RefVideos))
+		for k, rv := range req.RefVideos {
+			name := fmt.Sprintf("ref_videos[%d]", k)
+			fr, err := media.list(rv.Frames, name+".frames", false)
+			if err != nil {
+				return nil, err
+			}
+			entry := map[string]any{"frames": fr}
+			if rv.FPS > 0 {
+				entry["fps"] = rv.FPS
+			}
+			if rv.Audio != "" {
+				if entry["audio"], err = media.ref(rv.Audio, name+".audio", true); err != nil {
+					return nil, err
+				}
+			}
+			videos = append(videos, entry)
+		}
+		body["ref_videos"] = videos
 	}
-	if req.FPS > 0 {
-		body["fps"] = req.FPS
+	if width > 0 {
+		body["width"], body["height"] = width, height
+	}
+	if frames > 0 {
+		body["num_frames"] = frames
+	}
+	if fps > 0 {
+		body["fps"] = fps
 	}
 	if req.NegativePrompt != "" {
 		body["negative_prompt"] = req.NegativePrompt
+	}
+	if req.Seed != nil {
+		body["seed"] = *req.Seed
+	}
+	if req.CFGScale != nil {
+		body["cfg_scale"] = *req.CFGScale
+	}
+	if req.Steps > 0 {
+		body["step"] = req.Steps
 	}
 	data, _, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {
@@ -807,7 +978,7 @@ func (i *Inference) GenerateVideo(ctx context.Context, req GenerateVideoRequest)
 	if err != nil {
 		return nil, err
 	}
-	return &VideoResult{Model: model, Video: f}, nil
+	return &VideoResult{Model: model, ModelNote: note, Video: f}, nil
 }
 
 // GenerateSound makes a sound or a piece of music (POST /v1/sound-generation).
@@ -818,6 +989,12 @@ func (i *Inference) GenerateSound(ctx context.Context, req GenerateSoundRequest)
 	}
 	if err := checkSoundLength(req.Duration); err != nil {
 		return nil, err
+	}
+	if req.BPM != nil && (*req.BPM < 30 || *req.BPM > 300) {
+		return nil, errors.New("bpm must be from 30 to 300")
+	}
+	if req.PromptInfluence != nil && (*req.PromptInfluence < 0 || *req.PromptInfluence > 2) {
+		return nil, errors.New("prompt_influence must be from 0 to 2")
 	}
 	model, err := i.pick(ctx, req.Model, spec)
 	if err != nil {
@@ -837,6 +1014,26 @@ func (i *Inference) GenerateSound(ctx context.Context, req GenerateSoundRequest)
 	}
 	if req.Instrumental != nil {
 		body["instrumental"] = *req.Instrumental
+	}
+	for k, v := range map[string]string{
+		"caption": req.Caption, "keyscale": req.Keyscale, "timesignature": req.Timesignature,
+		"language": req.Language, "vocal_language": req.VocalLanguage, "expansion_model": strings.TrimSpace(req.ExpansionModel),
+	} {
+		if v != "" {
+			body[k] = v
+		}
+	}
+	if req.BPM != nil {
+		body["bpm"] = *req.BPM
+	}
+	if req.Think != nil {
+		body["think"] = *req.Think
+	}
+	if req.DoSample != nil {
+		body["do_sample"] = *req.DoSample
+	}
+	if req.PromptInfluence != nil {
+		body["prompt_influence"] = *req.PromptInfluence
 	}
 	data, hdr, err := i.postJSON(ctx, spec, model, body)
 	if err != nil {
@@ -874,6 +1071,9 @@ func (i *Inference) VerifyVoice(ctx context.Context, req VoiceVerifyRequest) (*V
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
 	}
+	if req.AntiSpoofing {
+		body["anti_spoofing"] = true
+	}
 	return i.verify(ctx, spec, model, body)
 }
 
@@ -899,6 +1099,9 @@ func (i *Inference) VerifyFace(ctx context.Context, req VerifyFaceRequest) (*Ver
 	body := map[string]any{"model": model, "img1": d1, "img2": d2}
 	if req.Threshold > 0 {
 		body["threshold"] = req.Threshold
+	}
+	if req.AntiSpoofing {
+		body["anti_spoofing"] = true
 	}
 	return i.verify(ctx, spec, model, body)
 }
@@ -969,4 +1172,173 @@ func (i *Inference) identify(ctx context.Context, spec ClientToolSpec, model str
 		out.Matches = []Match{}
 	}
 	return &out, nil
+}
+
+// maxListedModels is the default and the largest page of list_models: the
+// tool result costs tokens on every call.
+const maxListedModels = 60
+
+// maxModelDescription bounds the description of a listed model, in bytes.
+const maxModelDescription = 120
+
+// capabilityAliases maps the words a caller may use to the capability names
+// of GET /v1/models/capabilities.
+var capabilityAliases = map[string]string{
+	"speech": "tts", "text-to-speech": "tts", "text_to_speech": "tts",
+	"transcription": "transcript", "stt": "transcript", "asr": "transcript",
+	"sound": "sound_generation", "music": "sound_generation", "sound-generation": "sound_generation",
+	"embedding": "embeddings", "embed": "embeddings",
+	"image_generation": "image", "images": "image",
+	"video_generation": "video",
+	"audio-transform":  "audio_transform", "audio_transformation": "audio_transform", "denoise": "audio_transform", "separation": "audio_transform",
+	"upscaling": "upscale", "upscaler": "upscale", "image_upscale": "upscale", "image-upscale": "upscale", "super-resolution": "upscale",
+}
+
+// NormalizeCapability returns the capability name of the API for a word a
+// caller gave: lower case, with the common synonyms mapped.
+func NormalizeCapability(c string) string {
+	c = strings.ToLower(strings.TrimSpace(c))
+	if a, ok := capabilityAliases[c]; ok {
+		return a
+	}
+	return c
+}
+
+// ListModels lists the models the acting user may use (GET
+// /v1/models/capabilities). The route applies the user's model allow-list and
+// returns no paths or settings, so the same code serves every user; both
+// clients use it, as the other client tools.
+func (i *Inference) ListModels(ctx context.Context, req ListModelsRequest) (*ModelList, error) {
+	spec := clientSpec(ToolListModels)
+	if i == nil || i.Do == nil {
+		return nil, errors.New("inference is not available on this server")
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, PlaceholderHost+spec.Route, nil)
+	if err != nil {
+		return nil, err
+	}
+	data, _, err := i.roundTrip(httpReq, spec, "")
+	if err != nil {
+		return nil, err
+	}
+	var in struct {
+		Data []struct {
+			ID           string   `json:"id"`
+			Capabilities []string `json:"capabilities"`
+			Description  string   `json:"description"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(data, &in); err != nil {
+		return nil, errors.New("the server returned no model list")
+	}
+	want := NormalizeCapability(req.Capability)
+	query := strings.ToLower(strings.TrimSpace(req.Query))
+	if req.Offset < 0 {
+		return nil, errors.New("offset must not be negative")
+	}
+	if req.Limit < 0 {
+		return nil, errors.New("limit must not be negative")
+	}
+	limit := req.Limit
+	if limit == 0 || limit > maxListedModels {
+		limit = maxListedModels
+	}
+	matched := []ModelInfo{}
+	for _, m := range in.Data {
+		if want != "" && !slices.Contains(m.Capabilities, want) {
+			continue
+		}
+		desc := strings.Join(strings.Fields(m.Description), " ")
+		if query != "" && !strings.Contains(strings.ToLower(m.ID), query) && !strings.Contains(strings.ToLower(desc), query) {
+			continue
+		}
+		if len(desc) > maxModelDescription {
+			desc = strings.ToValidUTF8(desc[:maxModelDescription], "") + "..."
+		}
+		matched = append(matched, ModelInfo{Name: m.ID, Capabilities: m.Capabilities, Description: desc})
+	}
+	// Case-insensitive, so "Qwen-Image" and "qwen-image" sit together; the
+	// exact name breaks ties and keeps the order the same on every call.
+	sort.SliceStable(matched, func(a, b int) bool {
+		la, lb := strings.ToLower(matched[a].Name), strings.ToLower(matched[b].Name)
+		if la != lb {
+			return la < lb
+		}
+		return matched[a].Name < matched[b].Name
+	})
+	total := len(matched)
+	start := min(req.Offset, total)
+	end := min(start+limit, total)
+	out := &ModelList{Models: matched[start:end], Total: total, Offset: req.Offset, Returned: end - start, More: total - end}
+	switch {
+	case total == 0 && want != "" && query != "":
+		out.Hint = fmt.Sprintf("no model with capability %q matches query %q. Call list_models without query or capability to see more.", want, req.Query)
+	case total == 0 && want != "":
+		out.Hint = fmt.Sprintf("no model with capability %q is available to this account. Call list_models without capability to see them all.", want)
+	case total == 0 && query != "":
+		out.Hint = fmt.Sprintf("no model matches query %q. Call list_models without query to see them all.", req.Query)
+	case total == 0:
+		out.Hint = "no model is available to this account. Tell the person; an administrator can install or allow one."
+	case req.Offset >= total:
+		out.Hint = fmt.Sprintf("offset %d is past the end: %d models match. Call list_models again with offset=0, or a smaller offset.", req.Offset, total)
+	case out.More > 0:
+		out.Hint = fmt.Sprintf("showing %d-%d of %d; call list_models again with offset=%d to continue, or pass capability or query to narrow.", start+1, end, total, end)
+	}
+	return out, nil
+}
+
+// UpscaleImage enlarges an image with an upscaler model (POST
+// /v1/images/upscale). The route takes a multipart form and answers with the
+// URL of the new image, which is fetched and stored like any other result.
+func (i *Inference) UpscaleImage(ctx context.Context, req UpscaleImageRequest) (*ImageResult, error) {
+	spec := clientSpec(ToolUpscaleImage)
+	if req.Scale < 1 || req.Scale > maxUpscaleScale {
+		return nil, fmt.Errorf("scale must be an integer from 1 to %d", maxUpscaleScale)
+	}
+	img, err := i.readImage(ctx, req.Image, "image")
+	if err != nil {
+		return nil, err
+	}
+	model, err := i.pick(ctx, req.Model, spec)
+	if err != nil {
+		return nil, err
+	}
+	release, err := i.gate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	m := newMultipart()
+	m.field("model", model)
+	m.field("scale", strconv.Itoa(req.Scale))
+	if err := m.file("image", img, "image.png"); err != nil {
+		return nil, err
+	}
+	img.Data = nil
+	body, ct, err := m.finish()
+	if err != nil {
+		return nil, err
+	}
+	data, _, err := i.send(ctx, spec, model, spec.Route, ct, body)
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Data []struct {
+			URL     string `json:"url"`
+			B64JSON string `json:"b64_json"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil || len(out.Data) == 0 {
+		return nil, errors.New("the model returned no image")
+	}
+	raw, err := i.fetchResult(ctx, spec, model, out.Data[0].URL, out.Data[0].B64JSON)
+	if err != nil {
+		return nil, err
+	}
+	f, err := i.store(ctx, "upscaled", raw, "")
+	if err != nil {
+		return nil, err
+	}
+	return &ImageResult{Model: model, Images: []OutputFile{f}}, nil
 }

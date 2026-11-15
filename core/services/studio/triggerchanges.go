@@ -83,7 +83,7 @@ type ChangeView struct {
 	// HasAfter is false for a delete.
 	HasAfter bool
 	// Fields are the fields the change sets: name, prompt, when, time_zone,
-	// daily_cap, enabled, reads, writes, widget, estimated_tokens.
+	// daily_cap, run_limit, enabled, reads, writes, widget, estimated_tokens.
 	Fields []string
 	// At is when the change was answered; zero while it waits.
 	At time.Time
@@ -156,6 +156,9 @@ func stamp(t triggers.Trigger) string {
 	if acts := slices.Sorted(slices.Values(t.Acts)); len(acts) > 0 {
 		_, _ = fmt.Fprintf(h, "|acts:%q", acts)
 	}
+	if t.RunLimit > 0 {
+		_, _ = fmt.Fprintf(h, "|run_limit:%d", t.RunLimit)
+	}
 	if d := deliveryKey(t); d != defaultDeliveryKey {
 		_, _ = fmt.Fprintf(h, "|delivery:%q", d)
 	}
@@ -177,6 +180,7 @@ func deliveryKey(t triggers.Trigger) string {
 func withDefinition(dst, src triggers.Trigger) triggers.Trigger {
 	dst.Name, dst.Prompt, dst.Kind, dst.Schedule, dst.TZ = src.Name, src.Prompt, src.Kind, src.Schedule, src.TZ
 	dst.Folder, dst.Quiet, dst.DailyCap, dst.AgentID, dst.Model = src.Folder, src.Quiet, src.DailyCap, src.AgentID, src.Model
+	dst.RunLimit = src.RunLimit
 	dst.MinGap, dst.Reads, dst.Writes, dst.Widget, dst.EstTokens = src.MinGap, src.Reads, src.Writes, src.Widget, src.EstTokens
 	dst.Acts = src.Acts
 	if src.Route.FromConnector() {
@@ -199,6 +203,7 @@ func changedFields(a, b triggers.Trigger) []string {
 	add("when", a.Kind != b.Kind || a.Schedule != b.Schedule || a.Folder != b.Folder)
 	add("time_zone", a.TZ != b.TZ)
 	add("daily_cap", a.DailyCap != b.DailyCap)
+	add("run_limit", a.RunLimit != b.RunLimit)
 	add("enabled", a.Enabled != b.Enabled)
 	add("reads", a.Reads != b.Reads)
 	add("writes", a.Writes != b.Writes)
@@ -215,7 +220,7 @@ func changedFields(a, b triggers.Trigger) []string {
 // owner's home.
 func (h *Triggers) inputOf(t triggers.Trigger) TriggerInput {
 	return TriggerInput{Name: t.Name, Prompt: t.Prompt, Kind: t.Kind, Schedule: t.Schedule, TZ: t.TZ, Folder: h.RelFolder(t),
-		Quiet: t.Quiet, DailyCap: t.DailyCap, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
+		Quiet: t.Quiet, DailyCap: t.DailyCap, RunLimit: t.RunLimit, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
 		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts, Route: t.Route}
 }
 
@@ -229,10 +234,12 @@ type TriggerPatch struct {
 	Schedule, Folder string
 	TZ               *string
 	DailyCap         *int
-	Enabled          *bool
-	Reads, Writes    *string
-	Widget           *string
-	EstTokens        *int
+	// RunLimit is the new time limit of a run; zero sets the default.
+	RunLimit      *time.Duration
+	Enabled       *bool
+	Reads, Writes *string
+	Widget        *string
+	EstTokens     *int
 	// Acts replaces the acts of the trigger; an empty list takes them all
 	// away, nil leaves them. The caller has checked them as a proposal's.
 	Acts *[]string
@@ -272,6 +279,9 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 	if p.DailyCap != nil {
 		in.DailyCap = *p.DailyCap
 	}
+	if p.RunLimit != nil {
+		in.RunLimit = *p.RunLimit
+	}
 	if p.EstTokens != nil {
 		in.EstTokens = *p.EstTokens
 	}
@@ -305,8 +315,17 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 // chat chatID. A change of the definition waits for the person's answer and
 // applied is false. A change that only switches the trigger off or on applies
 // at once, applied is true, and the person can undo it. It is checked as a
-// proposal is: a schedule that changes runs at most once an hour.
+// proposal is: a schedule that changes runs at most once every MinCadence.
 func (h *Triggers) ProposeChange(ctx context.Context, user, chatID string, target triggers.Trigger, p TriggerPatch) (rec triggers.Trigger, applied bool, err error) {
+	return h.proposeChange(ctx, user, chatID, target, p, nil)
+}
+
+// changeAsk is the place in a messaging app where a change waits for the
+// owner's answer: with it, even a pause or a resume waits, and the record gets
+// a code and a time to lapse.
+type changeAsk struct{ Binding, Chat, Thread string }
+
+func (h *Triggers) proposeChange(ctx context.Context, user, chatID string, target triggers.Trigger, p TriggerPatch, ask *changeAsk) (rec triggers.Trigger, applied bool, err error) {
 	owner := principal(user)
 	if target.Owner != owner || target.Proposed {
 		return triggers.Trigger{}, false, triggers.ErrNotFound
@@ -325,32 +344,46 @@ func (h *Triggers) ProposeChange(ctx context.Context, user, chatID string, targe
 	if len(fields) == 0 {
 		return triggers.Trigger{}, false, bad("nothing changes: the trigger already has these values")
 	}
+	op := triggers.ChangeUpdate
 	if len(fields) == 1 && fields[0] == "enabled" {
-		rec, err := h.switchByChange(ctx, user, chatID, target.ID, after.Enabled)
-		return rec, err == nil, err
+		if ask == nil {
+			rec, err := h.switchByChange(ctx, user, chatID, target.ID, after.Enabled)
+			return rec, err == nil, err
+		}
+		op = triggers.ChangePause
+		if after.Enabled {
+			op = triggers.ChangeResume
+		}
 	}
 	rec = after
 	rec.SourceChatID = target.SourceChatID
-	rec.Change = triggers.Change{Op: triggers.ChangeUpdate, Target: target.ID, Stamp: stamp(target), On: after.Enabled, Chat: chatID}
-	rec, err = h.keepChange(ctx, owner, rec)
+	rec.Change = triggers.Change{Op: op, Target: target.ID, Stamp: stamp(target), On: after.Enabled, Chat: chatID}
+	rec, err = h.keepChange(ctx, owner, rec, ask)
 	return rec, false, err
 }
 
 // ProposeDelete asks for the deletion of the trigger target of the user, from
 // the chat chatID. Nothing is deleted until the person answers.
 func (h *Triggers) ProposeDelete(ctx context.Context, user, chatID string, target triggers.Trigger) (triggers.Trigger, error) {
+	return h.proposeDelete(ctx, user, chatID, target, nil)
+}
+
+// proposeDelete is ProposeDelete that can wait for the answer in a messaging
+// app (ask) and, only then, can be about a proposal that still waits: the
+// answer withdraws it.
+func (h *Triggers) proposeDelete(ctx context.Context, user, chatID string, target triggers.Trigger, ask *changeAsk) (triggers.Trigger, error) {
 	owner := principal(user)
-	if target.Owner != owner || target.Proposed {
+	if target.Owner != owner || (target.Proposed && ask == nil) {
 		return triggers.Trigger{}, triggers.ErrNotFound
 	}
 	rec := withDefinition(triggers.Trigger{Owner: owner, SourceChatID: target.SourceChatID}, target)
 	rec.Change = triggers.Change{Op: triggers.ChangeDelete, Target: target.ID, Stamp: stamp(target), On: target.Enabled, Chat: chatID}
-	return h.keepChange(ctx, owner, rec)
+	return h.keepChange(ctx, owner, rec, ask)
 }
 
 // keepChange stores a waiting change record. The same change of the same
 // trigger asked again returns the one that waits.
-func (h *Triggers) keepChange(ctx context.Context, owner string, rec triggers.Trigger) (triggers.Trigger, error) {
+func (h *Triggers) keepChange(ctx context.Context, owner string, rec triggers.Trigger, ask *changeAsk) (triggers.Trigger, error) {
 	rec.Enabled = false // the record never runs; Change.On says what the change wants
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
@@ -375,6 +408,12 @@ func (h *Triggers) keepChange(ctx context.Context, owner string, rec triggers.Tr
 	}
 	rec.ID, rec.Owner, rec.Proposed, rec.Enabled = newID(), owner, true, false
 	rec.Outcome, rec.OutcomeAt, rec.Touched, rec.Since = "", time.Time{}, false, time.Time{}
+	if ask != nil {
+		now := h.o.Clock().UTC()
+		rec.Change.Binding, rec.Change.Place, rec.Change.Thread = ask.Binding, ask.Chat, ask.Thread
+		rec.Change.Code = freshCode(mine, ask.Binding)
+		rec.Change.Expires = now.Add(ProposalTTL).Unix()
+	}
 	if err := h.o.Store.PutTrigger(ctx, rec); err != nil {
 		return triggers.Trigger{}, err
 	}
@@ -525,7 +564,7 @@ func (h *Triggers) changeUndoBlock(ctx context.Context, rec, live triggers.Trigg
 		if has {
 			return UndoEdited // a trigger with its ID is back
 		}
-		if mine, err := h.o.Store.ListTriggers(ctx, rec.Owner); err != nil || countLive(mine) >= maxTriggersPerUser {
+		if mine, err := h.o.Store.ListTriggers(ctx, rec.Owner); err != nil || countLive(mine) >= h.Limits().MaxPerUser {
 			return UndoFull
 		}
 		return ""
@@ -706,7 +745,7 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	if block := h.changeUndoBlock(ctx, rec, live, lerr == nil); block != "" {
 		if block == UndoFull {
-			return triggers.Trigger{}, ErrTooManyTriggers
+			return triggers.Trigger{}, h.errTooMany()
 		}
 		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, changeUndoText[block])
 	}

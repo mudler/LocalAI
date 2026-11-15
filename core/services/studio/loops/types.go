@@ -72,6 +72,14 @@ const (
 	DefaultDailyRuns = 200
 	// MaxDailyRuns bounds the daily budget an operator can set.
 	MaxDailyRuns = 100000
+	// DefaultDailyScriptChecks is the number of checks of waits on a script
+	// that one owner may spend in one day (UTC), over all their waits. It is
+	// separate from DefaultDailyRuns: a check starts a process and calls no
+	// model. One wait that checks every minute for a whole day takes 1440, so
+	// the default leaves room for about one such wait and some short ones.
+	DefaultDailyScriptChecks = 1500
+	// MaxDailyScriptChecks bounds the daily budget of script checks.
+	MaxDailyScriptChecks = 100000
 	// MaxFailures is the number of failed runs in a row that pauses a loop.
 	MaxFailures = 3
 	// MaxPromptBytes bounds the prompt of a loop.
@@ -127,6 +135,15 @@ const (
 	UntilMatch = "match"
 	// UntilJSONEquals waits for the JSON field Field of the output to equal Equals.
 	UntilJSONEquals = "json_equals"
+	// UntilExitZero waits for the script to exit with status 0. It needs a
+	// script.
+	UntilExitZero = "exit_zero"
+	// UntilExit waits for a background job to end, with any status. It needs
+	// a job.
+	UntilExit = "exit"
+	// UntilStall waits for a background job that still runs to write no
+	// output for Idle. It needs a job.
+	UntilStall = "stall"
 )
 
 // What the last check of a wait found.
@@ -158,6 +175,8 @@ const (
 	MaxWatchChecks = 2000
 	// MaxWatchOutput bounds the output kept as the baseline of a wait.
 	MaxWatchOutput = 8000
+	// MaxScriptBytes bounds the command of a wait on a script.
+	MaxScriptBytes = 8000
 )
 
 // Watch is the state of a wait: what it checks, the condition, and what the
@@ -165,10 +184,46 @@ const (
 // cluster goes on from the baseline of the last one.
 type Watch struct {
 	// Tool and Args name a read-only tool of the chat that is polled; URL is
-	// fetched with web_fetch. Exactly one of Tool and URL is set.
+	// fetched with web_fetch.
 	Tool string          `json:"tool,omitempty"`
 	Args json.RawMessage `json:"args,omitempty"`
 	URL  string          `json:"url,omitempty"`
+	// Script is a shell command that is run for each check, with no model
+	// call; it is the third source. It is kept here, which only the owner
+	// reads, and never in a label or in a list that is shown: Describe and
+	// the API name a script, not its text. Exactly one of Tool, URL and
+	// Script is set.
+	Script string `json:"script,omitempty"`
+	// Job is the id of a background job of the chat that is watched; it is the
+	// fourth source. JobLabel is the name the person sees. Node is where the
+	// job runs (the instance, or "addon:<id>@<incarnation>"): it is copied
+	// from the job when the wait is armed and never resolved again, so a
+	// loop leader on another node asks the same one. No field here holds the
+	// command of the job. Exactly one of Tool, URL, Script and Job is set.
+	Job      string `json:"job,omitempty"`
+	JobLabel string `json:"job_label,omitempty"`
+	Node     string `json:"node,omitempty"`
+	// Idle is the silence that ends an UntilStall wait.
+	Idle time.Duration `json:"idle,omitempty"`
+	// JobOffset is the absolute output offset where the next check of an
+	// UntilMatch wait reads on, so each byte is matched once.
+	JobOffset int64 `json:"job_offset,omitempty"`
+	// What the last check saw of the job, for the wake-up: its exit status
+	// (-1 when not known), how it ended, how long it ran, and the two ways a
+	// job wait ends without its condition: the job is gone with its node, or
+	// it exited and its output never matched.
+	JobExit    int           `json:"job_exit,omitempty"`
+	JobEnd     string        `json:"job_end,omitempty"`
+	JobRan     time.Duration `json:"job_ran,omitempty"`
+	JobGone    bool          `json:"job_gone,omitempty"`
+	JobNoMatch bool          `json:"job_no_match,omitempty"`
+	// Agent says that Job is the id of a background sub-agent of the chat, not
+	// a job: the wait reads the sub-agent's transcript from the store, so it
+	// has no Node. AgentSeq is the last transcript row seen and SeenAt when a
+	// new one was first seen; the idle time is measured from SeenAt.
+	Agent    bool      `json:"agent,omitempty"`
+	AgentSeq int64     `json:"agent_seq,omitempty"`
+	SeenAt   time.Time `json:"seen_at,omitzero"`
 	// Mode is UntilChange, UntilMatch or UntilJSONEquals; Pattern, Field and
 	// Equals are its arguments.
 	Mode    string `json:"mode"`
@@ -186,6 +241,12 @@ type Watch struct {
 	Checks  int    `json:"checks"`
 	Errors  int    `json:"errors"`
 	LastErr string `json:"last_err,omitempty"`
+	// LastExit is the exit status of the last check of a script. A non-zero
+	// status is a value of the check, not a failure of it.
+	LastExit int `json:"last_exit,omitempty"`
+	// FieldSeen is set once a json_equals check has read Field, whatever its
+	// value. An older stored wait without it reads as "not seen".
+	FieldSeen bool `json:"field_seen,omitempty"`
 	// LastCheck is when the last check ended; Outcome is what it found (one of
 	// the Outcome constants). Both are empty before the first check.
 	LastCheck time.Time `json:"last_check,omitzero"`
@@ -214,12 +275,35 @@ func (w *Watch) Clone() *Watch {
 }
 
 // Describe is one short line about what the wait waits for.
+//
+// A script is never named by its text: the line goes to lists that other
+// people read.
 func (w *Watch) Describe() string {
+	switch {
+	case w.Agent:
+		if w.Mode == UntilStall {
+			return fmt.Sprintf("sub-agent %s to go quiet for %s", w.Job, ShortDuration(w.Idle))
+		}
+		return fmt.Sprintf("sub-agent %s to finish", w.Job)
+	case w.Job != "":
+		switch w.Mode {
+		case UntilStall:
+			return fmt.Sprintf("job %s to go quiet for %s", w.Job, ShortDuration(w.Idle))
+		case UntilMatch:
+			return fmt.Sprintf("job %s to print a match of %q", w.Job, w.Pattern)
+		}
+		return fmt.Sprintf("job %s to exit", w.Job)
+	}
 	src := "the URL " + w.URL
-	if w.Tool != "" {
+	switch {
+	case w.Script != "":
+		src = "the script"
+	case w.Tool != "":
 		src = "the tool " + w.Tool
 	}
 	switch w.Mode {
+	case UntilExitZero:
+		return "the script to exit with status 0"
 	case UntilMatch:
 		return fmt.Sprintf("%s to match %q", src, w.Pattern)
 	case UntilJSONEquals:

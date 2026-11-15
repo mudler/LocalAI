@@ -927,7 +927,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 # wavs is a list, take first element
                 audio_data = wavs[0] if isinstance(wavs, list) else wavs
                 audio_duration = len(audio_data) / sr if sr > 0 else 0
-                sf.write(request.dst, audio_data, sr)
+                sf.write(request.dst, audio_data, sr, format="WAV")
                 print(
                     f"Saved {audio_duration:.2f}s audio to {request.dst}",
                     file=sys.stderr,

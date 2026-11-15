@@ -286,6 +286,9 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 		}
 		in.Audio = backendPath
 	}
+	if err := f.stageVideoReferences(ctx, lifecycle, in); err != nil {
+		return nil, err
+	}
 
 	// Handle output destination
 	frontendDst := in.Dst
@@ -309,6 +312,95 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 	}
 
 	return result, nil
+}
+
+// stageVideoReferences stages the reference conditioning inputs of a video
+// request (ref_images, ref_audios and ref_videos) and rewrites the request to
+// the worker-side paths. A reference video is a directory of frames: every
+// frame goes to the same worker directory, in file-name order, because the
+// backend reads that directory in lexicographic order. The request must be a
+// private copy; it is modified in place.
+func (f *FileStagingClient) stageVideoReferences(ctx context.Context, lifecycle *stagedInputLifecycle, in *pb.GenerateVideoRequest) error {
+	// The same local file listed twice is uploaded once.
+	staged := map[string]string{}
+	stage := func(localPath string) (string, error) {
+		if remote, ok := staged[localPath]; ok {
+			return remote, nil
+		}
+		remote, err := f.stageInputFile(ctx, lifecycle, localPath, "inputs")
+		if err != nil {
+			return "", err
+		}
+		staged[localPath] = remote
+		return remote, nil
+	}
+
+	for i, img := range in.RefImages {
+		if !isFilePath(img) {
+			continue
+		}
+		remote, err := stage(img)
+		if err != nil {
+			return fmt.Errorf("staging video reference image %d: %w", i+1, err)
+		}
+		in.RefImages[i] = remote
+	}
+	for i, audio := range in.RefAudios {
+		if !isFilePath(audio) {
+			continue
+		}
+		remote, err := stage(audio)
+		if err != nil {
+			return fmt.Errorf("staging video reference audio %d: %w", i+1, err)
+		}
+		in.RefAudios[i] = remote
+	}
+	for i, video := range in.RefVideos {
+		if video == nil {
+			continue
+		}
+		if video.FramesDir != "" {
+			remoteDir, err := f.stageFramesDirectory(ctx, lifecycle, video.FramesDir, fmt.Sprintf("video-ref-frames-%d", i))
+			if err != nil {
+				return fmt.Errorf("staging video reference %d frames: %w", i+1, err)
+			}
+			video.FramesDir = remoteDir
+		}
+		if isFilePath(video.Audio) {
+			remote, err := stage(video.Audio)
+			if err != nil {
+				return fmt.Errorf("staging video reference %d audio: %w", i+1, err)
+			}
+			video.Audio = remote
+		}
+	}
+	return nil
+}
+
+// stageFramesDirectory uploads the files of a local directory under one
+// category, so they land together in one directory on the worker, and returns
+// that worker directory. Ephemeral keys have no nesting, so the directory is
+// flat; subdirectories are not part of a frame set and are skipped.
+func (f *FileStagingClient) stageFramesDirectory(ctx context.Context, lifecycle *stagedInputLifecycle, localDir, category string) (string, error) {
+	entries, err := os.ReadDir(localDir)
+	if err != nil {
+		return "", fmt.Errorf("reading frames directory: %w", err)
+	}
+	remoteDir := ""
+	for _, entry := range entries { // os.ReadDir sorts by file name
+		if !entry.Type().IsRegular() {
+			continue
+		}
+		remote, err := f.stageInputFile(ctx, lifecycle, filepath.Join(localDir, entry.Name()), category)
+		if err != nil {
+			return "", err
+		}
+		remoteDir = filepath.Dir(remote)
+	}
+	if remoteDir == "" {
+		return "", fmt.Errorf("frames directory has no files")
+	}
+	return remoteDir, nil
 }
 
 func (f *FileStagingClient) Animate3D(ctx context.Context, in *pb.Animate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {

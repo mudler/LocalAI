@@ -180,9 +180,9 @@ var _ = Describe("Backend API Routes", func() {
 
 	Describe("Backend upgrade API", func() {
 		var (
-			galleryFile        string
-			upgradeApp         *echo.Echo
-			upgradeGallerySvc  *galleryop.GalleryService
+			galleryFile       string
+			upgradeApp        *echo.Echo
+			upgradeGallerySvc *galleryop.GalleryService
 		)
 
 		BeforeEach(func() {
@@ -317,6 +317,21 @@ var _ = Describe("Backend API Routes", func() {
 					systemState.Backend.BackendsPath, "test-upgrade-backend", "metadata.json"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(metadataContent)).To(ContainSubstring(`"version": "2.0.0"`))
+			})
+		})
+
+		Describe("the backend update read model without a checker", func() {
+			It("answers with disabled sources on both routes instead of failing", func() {
+				for _, r := range [][2]string{{http.MethodGet, "/api/backends/updates"}, {http.MethodPost, "/api/backends/updates/check"}} {
+					req := httptest.NewRequest(r[0], r[1], nil)
+					rec := httptest.NewRecorder()
+					upgradeApp.ServeHTTP(rec, req)
+					Expect(rec.Code).To(Equal(http.StatusOK), r[0]+" "+r[1])
+					var got map[string]any
+					Expect(json.Unmarshal(rec.Body.Bytes(), &got)).To(Succeed())
+					Expect(got["items"]).To(BeEmpty())
+					Expect(got["sources"].(map[string]any)["gallery"].(map[string]any)["state"]).To(Equal("disabled"))
+				}
 			})
 		})
 

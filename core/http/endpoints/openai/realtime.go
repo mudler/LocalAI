@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,7 +111,9 @@ func modalitiesContainAudio(m []types.Modality) bool {
 type Session struct {
 	ID string
 	// voiceViewer is who may use which saved voice profile in this session.
-	voiceViewer       voiceprofile.Viewer
+	voiceViewer voiceprofile.Viewer
+	// client is the paired client of the session, nil for any other caller.
+	client            *RealtimeClient
 	TranscriptionOnly bool
 	// The pipeline or any-to-any model name (full realtime mode)
 	Model string
@@ -565,11 +568,78 @@ type RealtimeSessionOptions struct {
 	// User is the authenticated user of the handshake, nil when the server has
 	// no accounts. The admin tools act as this user, as they do in a chat.
 	User *auth.User
+	// Client is set when the handshake used the key of a paired client. Such a
+	// session is fixed to the model of the handshake (the key's model list was
+	// checked for that name only), and it acts for no saved voice profile.
+	Client *RealtimeClient
+}
+
+// RealtimeClient is the paired client behind a realtime session.
+type RealtimeClient struct {
+	KeyID   string
+	OwnerID string
+}
+
+// realtimeClient returns the paired client that made the handshake, or nil.
+func realtimeClient(c echo.Context) *RealtimeClient {
+	k := auth.ClientKey(c)
+	if k == nil {
+		return nil
+	}
+	return &RealtimeClient{KeyID: k.ID, OwnerID: k.UserID}
+}
+
+// errClientModelFixed refuses a session.update that names another model.
+var errClientModelFixed = errors.New("the model of this session is fixed: this key may use only the model it connected with")
+
+// clientUpdateRefusal checks a session.update of a client session. It may name
+// the model of the session, and no other: the list of the key was checked for
+// the name of the handshake, so a switch to another pipeline, or to another
+// transcription model, would reach a model that nobody checked.
+func clientUpdateRefusal(session *Session, update *types.SessionUnion) error {
+	if session.client == nil {
+		return nil
+	}
+	same := func(name string, current ...string) bool {
+		return name == "" || name == session.Model || slices.Contains(current, name)
+	}
+	if rt := update.Realtime; rt != nil {
+		if !same(rt.Model) {
+			return errClientModelFixed
+		}
+		if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil {
+			current := []string{}
+			if session.InputAudioTranscription != nil {
+				current = append(current, session.InputAudioTranscription.Model)
+			}
+			if session.ModelConfig != nil {
+				current = append(current, session.ModelConfig.Pipeline.Transcription)
+			}
+			if !same(rt.Audio.Input.Transcription.Model, current...) {
+				return errClientModelFixed
+			}
+		}
+	}
+	if tr := update.Transcription; tr != nil && tr.Audio != nil && tr.Audio.Input != nil && tr.Audio.Input.Transcription != nil {
+		current := []string{}
+		if session.InputAudioTranscription != nil {
+			current = append(current, session.InputAudioTranscription.Model)
+		}
+		if !same(tr.Audio.Input.Transcription.Model, current...) {
+			return errClientModelFixed
+		}
+	}
+	return nil
 }
 
 // realtimeVoiceViewer is the voice profile viewer of a handshake: the
 // authenticated user, or the administrator when the server has no accounts.
 func realtimeVoiceViewer(c echo.Context) voiceprofile.Viewer {
+	// A paired client acts under the account of its owner, but it must not see
+	// or use the recordings of the owner.
+	if auth.ClientKey(c) != nil {
+		return voiceprofile.NoProfiles()
+	}
 	u := auth.GetUser(c)
 	if u == nil {
 		return voiceprofile.AdminViewer()
@@ -579,6 +649,18 @@ func realtimeVoiceViewer(c echo.Context) voiceprofile.Viewer {
 
 func Realtime(application *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		// The handshake is where a paired client names its model, so the list
+		// of its key is enforced here, before the upgrade, and not only by the
+		// middleware that read the request first.
+		if auth.ClientKey(c) != nil {
+			var names []string
+			if m := c.QueryParam("model"); m != "" {
+				names = append(names, m)
+			}
+			if d := auth.CheckClientModel(c, names...); d != nil {
+				return auth.ClientModelDenialResponse(c, d)
+			}
+		}
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 		if err != nil {
 			return err
@@ -596,6 +678,7 @@ func Realtime(application *application.Application) echo.HandlerFunc {
 			IsAdmin:          isCurrentUserAdmin(c, application),
 			VoiceViewer:      realtimeVoiceViewer(c),
 			User:             auth.GetUser(c),
+			Client:           realtimeClient(c),
 		}
 
 		registerRealtime(application, model, opts)(ws)
@@ -777,6 +860,18 @@ func realtimeAssistantRefusal(opts RealtimeSessionOptions, switchedOff bool) (co
 // runRealtimeSession runs the main event loop for a realtime session.
 // It is transport-agnostic and works with both WebSocket and WebRTC.
 func runRealtimeSession(application *application.Application, t Transport, model string, evaluator *templates.Evaluator, opts RealtimeSessionOptions) {
+	// A paired client can be revoked while it talks: close the session when its
+	// key stops standing. It starts first, so it covers the model load too.
+	if opts.Client != nil {
+		db := application.AuthDB()
+		// The model list and the tools check are asked again too: a list that
+		// drops the model, or a configuration that gains tools, ends the session.
+		check := auth.ClientModelCheck(application.ModelConfigLoader().ClientModelProblem)
+		stop := watchClientKey(t, func(ctx context.Context) (bool, error) {
+			return auth.ClientKeyStatusFor(ctx, db, opts.Client.KeyID, opts.Client.OwnerID, model, check)
+		}, clientKeyRecheckInterval)
+		defer stop()
+	}
 	cl := application.ModelConfigLoader()
 	cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(model, application.ApplicationConfig())
 	if err != nil {
@@ -877,6 +972,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	session := &Session{
 		ID:                      sessionID,
 		voiceViewer:             opts.VoiceViewer,
+		client:                  opts.Client,
 		TranscriptionOnly:       false,
 		Model:                   model,
 		Voice:                   cfg.TTSConfig.Voice,
@@ -1145,6 +1241,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		switch e := event.(type) {
 		case types.SessionUpdateEvent:
 			xlog.Debug("recv", "message", string(msg))
+
+			if err := clientUpdateRefusal(session, &e.Session); err != nil {
+				sendError(t, "session_update_error", fmt.Sprintf("Failed to update session: %v", err), "", "")
+				continue
+			}
 
 			// Handle transcription session update
 			if e.Session.Transcription != nil {

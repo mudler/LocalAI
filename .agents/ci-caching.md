@@ -267,6 +267,19 @@ Making this actually work needs the cache to live outside the builder. The optio
 
 Until one of those lands, treat C++ backend builds as always-cold and spend the effort on not running them instead (path filtering, see above).
 
+## Apt mirror and the upstream fallback
+
+Hosted runners pick an apt mirror (`.github/actions/configure-apt-mirror`) and pass it to Docker as the `APT_MIRROR` / `APT_PORTS_MIRROR` build args. `.docker/apt-mirror.sh` rewrites the image's apt sources to it. A mirror can be down or partly synced (its index lists versions whose `.deb` files give `404 Not Found`), and the upstream archive has its own bad days, so the mirror is the first try and upstream is the fallback.
+
+In a Dockerfile or build script, call apt through the script, one `apt-get` call at a time:
+
+```sh
+sh /usr/local/sbin/apt-mirror apt-get update
+sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends git
+```
+
+If the call fails and the sources were rewritten, it prints one line naming the mirror, restores the upstream sources, runs `apt-get update` and runs the call once more. When the call works, or no mirror is set, it behaves exactly like plain `apt-get`. It adds no layer (the retry runs in the same `RUN`). Do not use it for apt calls that need a third-party repository only; a retry there cannot help. See the header of `.docker/apt-mirror.sh` for the details and the state it keeps.
+
 ## Composite actions
 
 Two composite actions handle runner-side prep:

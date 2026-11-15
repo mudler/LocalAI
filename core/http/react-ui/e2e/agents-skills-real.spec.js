@@ -11,7 +11,6 @@ test('a skill written on the page shows in the list and can be deleted', async (
   await page.goto('/app/skills/new')
   await page.getByLabel(/^Name/).fill(name)
   await page.getByLabel(/^Description/).fill('Go through the release checklist')
-  await page.locator('.skilledit-sidebar-item', { hasText: 'Content' }).click()
   await page.getByLabel('Skill content (markdown)').fill('Tick every box.')
   await page.getByRole('button', { name: 'Create skill' }).click()
   await expect(page).toHaveURL(/\/app\/skills$/)

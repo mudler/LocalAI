@@ -77,7 +77,6 @@ const ADDON_BUNDLES = [
   ['quantization', 'ui/src/i18n/quantization.en.json'],
   ['tables', 'ui/src/i18n/en.js', 'EN'],
   ['voice', 'ui/src/i18n/voice.en.json'],
-  ['memory', 'ui/src/i18n/memory.en.json'],
   ['slack', 'ui/src/i18n/slack.en.json'],
   ['talk', 'ui/src/i18n/talk.en.json'],
   ['telegram', 'ui/src/i18n/telegram.en.json'],

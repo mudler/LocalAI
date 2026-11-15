@@ -139,6 +139,15 @@ export function findByPrefix(names, text, from = 0) {
   return -1
 }
 
+// ARCHIVE_NAME matches the names the server can extract (zip, tar and its
+// compressed forms, 7z and RAR).
+const ARCHIVE_NAME = /\.(zip|tar|tgz|tbz2?|txz|tzst|7z|rar|tar\.(gz|bz2|xz|zst|lz4|br|sz|z))$/i
+
+// isArchive says whether the server may extract a file of this name.
+export function isArchive(entry) {
+  return entry?.kind === 'file' && ARCHIVE_NAME.test(entry.name || '')
+}
+
 // uniqueName gives name, or "name 2", "name 3"… before the extension, so a
 // new file or folder never lands on an existing one.
 export function uniqueName(name, taken) {

@@ -296,5 +296,5 @@ const (
 
 // TriggersSwitch turns off the capabilities of triggers for the whole server.
 func TriggersSwitch(reason string) CapabilitySwitch {
-	return ServerSwitch(SettingDisableTriggers, reason, contract.CapTriggersPropose, contract.CapTriggersRun)
+	return ServerSwitch(SettingDisableTriggers, reason, contract.CapTriggersPropose, contract.CapTriggersChange, contract.CapTriggersRun)
 }

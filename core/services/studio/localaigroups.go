@@ -49,11 +49,11 @@ type ClientAssistant interface {
 var clientSkipped = map[string]bool{"describe_image": true, "transcribe_audio": true}
 
 // clientToolNames are the names of the client tools that the group offers, for
-// the gate of the unattended runs.
+// the gate of the unattended runs. list_models only reads, so it is not gated.
 var clientToolNames = func() map[string]bool {
 	out := map[string]bool{}
 	for _, t := range localaitools.ClientTools {
-		if !clientSkipped[t.Tool] {
+		if !clientSkipped[t.Tool] && t.Tool != localaitools.ToolListModels {
 			out[t.Tool] = true
 		}
 	}
@@ -221,6 +221,11 @@ func (s *Service) clientToolNames(ctx context.Context, user string) ([]string, s
 		if clientSkipped[spec.Tool] || !served[spec.Tool] || slices.Contains(out, spec.Tool) {
 			continue
 		}
+		if spec.Tool == localaitools.ToolListModels {
+			// Offered below, and only with another tool: a group with the
+			// listing alone has nothing to choose a model for.
+			continue
+		}
 		if u != nil && s.d.Allowed != nil && !s.d.Allowed(u, spec.Feature) {
 			missingFeature = true
 			continue
@@ -241,6 +246,12 @@ func (s *Service) clientToolNames(ctx context.Context, user string) ([]string, s
 			continue
 		}
 		out = append(out, spec.Tool)
+	}
+	if len(out) > 0 && served[localaitools.ToolListModels] {
+		// The listing is not an inference route: it needs no feature and no
+		// model, and the route shows each user only the models their
+		// allow-list permits.
+		out = append(out, localaitools.ToolListModels)
 	}
 	switch {
 	case len(out) > 0:

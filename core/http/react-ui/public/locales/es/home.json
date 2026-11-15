@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "Mensaje...",
-    "attachImage": "Adjuntar imagen",
-    "attachAudio": "Adjuntar audio",
     "attachFile": "Adjuntar archivo",
+    "dropFiles": "Suelta los archivos para adjuntarlos",
+    "dropFilesNote": "Suelta los archivos para adjuntarlos al mensaje.",
     "enterToSend": "Enter para enviar",
     "selectModelFirst": "Selecciona un modelo primero",
     "sendMessage": "Enviar mensaje",
@@ -82,13 +82,19 @@
       "step2Title": "Instala un modelo",
       "step2Body": "Haz clic en instalar para descargarlo y configurarlo automáticamente.",
       "step3Title": "Empieza a chatear",
-      "step3Body": "Chatea con tu modelo desde el navegador o usa la API."
+      "step3Body": "Chatea con tu modelo desde el navegador o usa la API.",
+      "step4Title": "Conecta tus agentes",
+      "step4Body": "Crea una clave de API y conecta un agente de programación: {{agents}}. La guía rellena la dirección y la clave por ti.",
+      "step5Title": "Amplía LocalAI con un add-on",
+      "step5Body": "Los add-ons aportan nuevas capacidades. Instálalos desde la biblioteca."
     },
     "browseGallery": "Explorar galería de modelos",
     "importModel": "Importar modelo",
     "docs": "Documentación",
     "noModelsTitle": "No hay modelos disponibles",
-    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear."
+    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear.",
+    "connectAgents": "Conectar un agente de programación",
+    "browseAddons": "Explorar add-ons"
   },
   "connect": {
     "title": "Un endpoint, todas las APIs",
@@ -100,7 +106,8 @@
     "copied": "Copiado",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "Conectar un agente de programación: crea una clave de API y copia su configuración"
   },
   "jump": {
     "heading": "Jump back in",
@@ -147,9 +154,49 @@
     "disabled": "desactivado",
     "pinned": "fijado",
     "useTyped": "Usar \"{{name}}\"",
+    "chooseModel": "Elige un modelo",
+    "defaultMissing": "Tu modelo predeterminado {{model}} no está instalado. Elige un modelo.",
     "empty": "No hay modelos disponibles",
     "add": "Añadir un modelo",
     "remove": "Quitar {{name}}",
     "clear": "Borrar"
+  },
+  "starters": {
+    "title": "Recomendado para tu equipo",
+    "tier": {
+      "cpu": "Solo CPU",
+      "gpu-small": "GPU pequeña",
+      "gpu-mid": "GPU de gama media",
+      "gpu-large": "GPU grande"
+    },
+    "undetected": "No pudimos detectar tu hardware, así que estos son los modelos para un equipo sin GPU.",
+    "cluster": "Dimensionado para la mejor máquina de tu clúster.",
+    "nothingFits": "Ninguno de los modelos recomendados cabe en este equipo. Este es el más pequeño; puede ir lento o no cargar.",
+    "facts": {
+      "size": "{{size}} de descarga",
+      "window": "{{window}} de contexto",
+      "memory": "unos {{memory}} de memoria"
+    },
+    "fit": {
+      "tight": "Justo",
+      "does_not_fit": "No cabe"
+    },
+    "reasons": {
+      "little_headroom": "Cabe, pero deja poca memoria libre.",
+      "below_chat_minimum": "La ventana de contexto sería demasiado pequeña para el chat.",
+      "exceeds_memory": "Necesita más memoria de la que tiene este equipo.",
+      "estimate_unavailable": "No se pudo estimar su uso de memoria.",
+      "hardware_unknown": "No se pudo leer tu hardware, así que no se comprueba si cabe."
+    },
+    "more": "Más modelos",
+    "fewer": "Menos modelos",
+    "askAdmin": "Solo un administrador puede instalar modelos. Pídele que instale uno de estos.",
+    "installModel": "Instalar {{model}}",
+    "cpuNote": "No se detectó GPU. Estos modelos responden con soltura en un procesador.",
+    "gpuNote": "Elegidos para caber en tu tarjeta gráfica con espacio para un chat completo.",
+    "install": "Instalar",
+    "installing": "Instalando",
+    "installStarted": "Instalando {{model}}…",
+    "installFailed": "Error de instalación: {{message}}"
   }
 }

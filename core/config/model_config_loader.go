@@ -592,6 +592,26 @@ func (bcl *ModelConfigLoader) ResolveAlias(cfg *ModelConfig) (*ModelConfig, bool
 	return &target, true, nil
 }
 
+// ResolveAliasForRequest is ResolveAlias for a concrete request. When the
+// request carries image input, the alias declares a vision_alias and the
+// alias target cannot accept images, the vision_alias model serves the
+// request instead, with the alias's profile overlay applied on top.
+func (bcl *ModelConfigLoader) ResolveAliasForRequest(cfg *ModelConfig, hasImages bool) (*ModelConfig, bool, error) {
+	resolved, wasAlias, err := bcl.ResolveAlias(cfg)
+	if err != nil || !wasAlias || !hasImages || cfg.VisionAlias == "" || resolved.VisionSupported() {
+		return resolved, wasAlias, err
+	}
+	target, exists := bcl.GetModelConfig(cfg.VisionAlias)
+	if !exists {
+		return nil, true, fmt.Errorf("alias %q: vision_alias points to unknown model %q", cfg.Name, cfg.VisionAlias)
+	}
+	if target.IsAlias() {
+		return nil, true, fmt.Errorf("alias %q: vision_alias %q is itself an alias (chains are not allowed)", cfg.Name, cfg.VisionAlias)
+	}
+	target.applyProfileOverlay(cfg)
+	return &target, true, nil
+}
+
 // ResolveAliasName maps a model name to the name of the model that actually
 // serves it: an alias resolves to its target, anything else resolves to
 // itself. The second return reports whether name was an alias.
@@ -628,6 +648,19 @@ func (bcl *ModelConfigLoader) ValidateAliasTarget(cfg *ModelConfig) error {
 	}
 	if target.IsDisabled() {
 		return fmt.Errorf("alias target %q is disabled", cfg.Alias)
+	}
+	if cfg.VisionAlias == "" {
+		return nil
+	}
+	vision, exists := bcl.GetModelConfig(cfg.VisionAlias)
+	if !exists {
+		return fmt.Errorf("vision_alias %q does not exist", cfg.VisionAlias)
+	}
+	if vision.IsAlias() {
+		return fmt.Errorf("vision_alias %q is itself an alias (chains are not allowed)", cfg.VisionAlias)
+	}
+	if vision.IsDisabled() {
+		return fmt.Errorf("vision_alias %q is disabled", cfg.VisionAlias)
 	}
 	return nil
 }
@@ -1088,6 +1121,18 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 			xlog.Warn("alias points to unknown model", "alias", name, "target", c.Alias)
 		case target.IsAlias():
 			xlog.Warn("alias points to another alias (chains are not allowed)", "alias", name, "target", c.Alias)
+		}
+		if c.VisionAlias == "" {
+			continue
+		}
+		vision, ok := bcl.configs[c.VisionAlias]
+		switch {
+		case !ok:
+			xlog.Warn("vision_alias points to unknown model", "alias", name, "vision_alias", c.VisionAlias)
+		case vision.IsAlias():
+			xlog.Warn("vision_alias points to another alias (chains are not allowed)", "alias", name, "vision_alias", c.VisionAlias)
+		case !vision.VisionSupported():
+			xlog.Warn("vision_alias model does not declare image input", "alias", name, "vision_alias", c.VisionAlias)
 		}
 	}
 

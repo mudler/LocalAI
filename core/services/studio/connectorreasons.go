@@ -211,6 +211,7 @@ var capabilityWords = map[string]capabilityPhrase{
 	contract.CapFilesUpload:      {"receive files", "receiving files"},
 	contract.CapTriggersPropose:  {"set reminders and scheduled tasks", "reminders and scheduled tasks"},
 	contract.CapTriggersRun:      {"run scheduled tasks", "running scheduled tasks"},
+	contract.CapTriggersChange:   {"change or delete reminders and scheduled tasks", "changing or deleting reminders and scheduled tasks"},
 	contract.CapTalkbackChannels: {"write to other channels", "writing to other channels"},
 	contract.CapTalkbackNewChan:  {"start conversations in new channels", "starting conversations in new channels"},
 	contract.CapProfileWrite:     {"change the agent's rules", "changing the agent's rules"},
@@ -219,6 +220,8 @@ var capabilityWords = map[string]capabilityPhrase{
 	contract.CapDashboardWrite:   {"change the dashboard", "changing the dashboard"},
 	contract.CapKnowledgeWrite:   {"write to knowledge", "writing to knowledge"},
 	contract.CapToolsWrite:       {"change things in other services with add-on tools", "changes made by add-on tools"},
+	contract.CapLoopsWait:        {"wait for a change", "waiting for a change"},
+	contract.CapLoopsStart:       {"run on a timer", "running on a timer"},
 }
 
 // actionOf is the verb phrase of a capability, "do this" for a name that is
@@ -271,7 +274,7 @@ func thenCheck(by, capability string) []string {
 		return nil
 	}
 	out := slices.Clone(chain[i+1:])
-	if capability == contract.CapTriggersPropose {
+	if capability == contract.CapTriggersPropose || capability == contract.CapTriggersChange {
 		out = append(out, ByApproval)
 	}
 	return out

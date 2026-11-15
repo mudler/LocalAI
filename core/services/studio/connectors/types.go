@@ -34,6 +34,10 @@ const (
 	// ReplyStream shows one working message with the answer as it is
 	// written; the answer replaces it.
 	ReplyStream = "stream"
+	// ReplyReasoning is the stream mode that also shows the reasoning of the
+	// model while it thinks, under a fixed label. It is opt-in: every
+	// sender of the binding can read the reasoning.
+	ReplyReasoning = "reasoning"
 )
 
 // Conversation modes: which chat a message belongs to.
@@ -115,6 +119,24 @@ const (
 	PairingCodeTTL = 10 * time.Minute
 )
 
+// InvalidError is ErrInvalid with a reason written for the person. errors.Is
+// finds ErrInvalid in it, and a caller that shows the reason reads it with
+// errors.As, not from the text of the error.
+type InvalidError struct{ Reason string }
+
+func (e *InvalidError) Error() string { return ErrInvalid.Error() + ": " + e.Reason }
+
+// Unwrap makes errors.Is(err, ErrInvalid) true.
+func (e *InvalidError) Unwrap() error { return ErrInvalid }
+
+// Invalidf is an *InvalidError with a formatted reason.
+func Invalidf(format string, a ...any) error {
+	return &InvalidError{Reason: fmt.Sprintf(format, a...)}
+}
+
+// bad is how this package refuses an invalid binding.
+var bad = Invalidf
+
 // Errors.
 var (
 	ErrNotFound = errors.New("connectors: not found")
@@ -154,7 +176,7 @@ type Binding struct {
 	AllowTrust map[string]string
 	// NotifyChat, when set, receives the owner's run notifications.
 	NotifyChat string
-	// Reply is a reply mode (ReplyOff, ReplyProgress, ReplyStream); empty
+	// Reply is a reply mode (ReplyOff, ReplyProgress, ReplyStream, ReplyReasoning); empty
 	// means ReplyProgress.
 	Reply string
 	// Conversation is a conversation mode; empty means ConversationSender.
@@ -217,14 +239,23 @@ type Binding struct {
 	// from a chat of the binding, and the limits of the modes that create one
 	// without asking. The zero value asks.
 	Approval Approval
+	// AuthKind is how the credential of the binding is obtained: AuthToken
+	// (or empty) for a token in Token, AuthOAuth2 for an OAuth login whose
+	// tokens are in the grant of the binding (see Grant).
+	AuthKind string
 	// AccountID is the stable name of the upstream account that the token of
 	// the binding belongs to, as its add-on told it (see
 	// contract.ConnectorResponse.AccountID). Empty until the host has learned
 	// it, and for an add-on that does not tell. Two enabled bindings of one
 	// owner and kind with the same AccountID are the same bot.
 	AccountID string
+	// InboundMedia lists the kinds of file (contract.ConnectorMediaKinds)
+	// that the binding takes from senders. Empty takes every kind. A file of
+	// another kind is never read: the sender is told, and the text of the
+	// message still goes to the agent.
+	InboundMedia []string
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
-	// what it was given.
+	// what it was given. It is empty for an AuthOAuth2 binding.
 	Token   []byte
 	Created time.Time
 	Updated time.Time
@@ -318,8 +349,8 @@ type Store interface {
 	// AllBindings returns every binding of every owner, sorted by name and ID.
 	// It is for the administrator's view and for migrations.
 	AllBindings(ctx context.Context) ([]Binding, error)
-	// DeleteBinding removes the binding with its offset, senders and chats. It is
-	// not an error when it does not exist.
+	// DeleteBinding removes the binding with its offset, senders, chats, grant
+	// and pending logins. It is not an error when it does not exist.
 	DeleteBinding(ctx context.Context, id string) error
 
 	// Offset is the next update to ask the transport for; false when none was saved.
@@ -358,6 +389,13 @@ type Store interface {
 	// same time. It reports whether it wrote. A missing binding is false.
 	SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error)
 
+	// AddCapIfAbsent adds one capability to the ceiling of a binding that
+	// already has a non-empty ceiling and lacks it, as one step, so it never
+	// overwrites a choice that an owner saved at the same time. A binding with
+	// an empty ceiling is left alone: empty is the owner's choice. It reports
+	// whether it wrote. A missing binding is false.
+	AddCapIfAbsent(ctx context.Context, id, capability string) (bool, error)
+
 	// SetAccountID records the upstream account of a binding as one step, so it
 	// never overwrites a setting that an owner saved at the same time. A missing
 	// binding is not an error.
@@ -373,6 +411,8 @@ type Store interface {
 	// ReleaseMigration drops an unfinished claim so that the next start can
 	// claim it again. It does nothing for a finished migration.
 	ReleaseMigration(ctx context.Context, name string) error
+
+	OAuthStore
 }
 
 // An entry of the allowlist is a numeric ID (Telegram), an @username, or an
@@ -407,10 +447,24 @@ func needsAgent(b Binding) string {
 		return "permissions"
 	case len(b.Paired) > 0:
 		return "pairing"
-	case !b.Approval.IsZero():
+	case !b.Approval.IsDefault():
 		return "trigger approval"
 	}
 	return ""
+}
+
+// ValidateToolOnly refuses the settings that a binding of a tool-only kind
+// (contract.ConnectorKind.ToolOnly) can never have: it does not listen and
+// does not accept senders. The agent is not checked here: the host clears it,
+// because one binding serves many agents through their connection sets.
+func ValidateToolOnly(b Binding) error {
+	switch {
+	case b.Enabled:
+		return fmt.Errorf("%w: a tool-only connection does not listen: agents use it through their own connections", ErrInvalid)
+	case b.AcceptAny:
+		return fmt.Errorf("%w: a tool-only connection answers no sender, so it cannot accept anyone", ErrInvalid)
+	}
+	return nil
 }
 
 // Validate checks a binding of a kind that needs an agent. The error wraps
@@ -422,9 +476,6 @@ func Validate(b Binding) error { return ValidateKind(b, false) }
 // binding that listens, accepts senders, notifies, talks back or carries
 // permissions must name an agent.
 func ValidateKind(b Binding, agentOptional bool) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if n := utf8.RuneCountInString(strings.TrimSpace(b.Name)); n == 0 || n > MaxNameRunes {
 		return bad("the name must have 1 to %d characters", MaxNameRunes)
 	}
@@ -463,10 +514,15 @@ func ValidateKind(b Binding, agentOptional bool) error {
 	if b.NotifyChat != "" && !chatShape.MatchString(b.NotifyChat) {
 		return bad("the notification chat must be a chat ID")
 	}
+	for i, k := range b.InboundMedia {
+		if !slices.Contains(contract.ConnectorMediaKinds, k) || slices.Contains(b.InboundMedia[:i], k) {
+			return bad("%q is not a kind of file, or is repeated: the kinds are %s", k, strings.Join(contract.ConnectorMediaKinds, ", "))
+		}
+	}
 	switch b.Reply {
-	case "", ReplyOff, ReplyProgress, ReplyStream:
+	case "", ReplyOff, ReplyProgress, ReplyStream, ReplyReasoning:
 	default:
-		return bad("the reply mode must be %s, %s or %s", ReplyOff, ReplyProgress, ReplyStream)
+		return bad("the reply mode must be %s, %s, %s or %s", ReplyOff, ReplyProgress, ReplyStream, ReplyReasoning)
 	}
 	if !hostmsg.ValidSetting(b.ReplyLanguage) {
 		return bad("the reply language must be auto, %s", strings.Join(hostmsg.Languages, ", "))
@@ -482,6 +538,12 @@ func ValidateKind(b Binding, agentOptional bool) error {
 	}
 	if err := validateCaps(b); err != nil {
 		return bad("%v", err)
+	}
+	if err := validAuthKind(b); err != nil {
+		return bad("%v", err)
+	}
+	if b.UsesOAuth() && b.Enabled {
+		return bad("a connection that uses a login does not listen to messages")
 	}
 	if err := validateResources(b.Resources); err != nil {
 		return err
@@ -570,6 +632,13 @@ func (b Binding) ReplyLang() string {
 	return b.ReplyLanguage
 }
 
+// Accepts tells whether the binding takes a file of a media kind from a
+// sender. A binding that lists no kinds takes every file; one that lists
+// some never takes a file of an unknown kind ("").
+func (b Binding) Accepts(kind string) bool {
+	return len(b.InboundMedia) == 0 || (kind != "" && slices.Contains(b.InboundMedia, kind))
+}
+
 // SendsFiles tells whether the files a turn makes go to the sender.
 func (b Binding) SendsFiles() bool { return !b.FilesOff }
 
@@ -626,13 +695,11 @@ func (b Binding) clone() Binding {
 	}
 	b.Resources = slices.Clone(b.Resources)
 	b.Channels = slices.Clone(b.Channels)
+	b.InboundMedia = slices.Clone(b.InboundMedia)
 	return b
 }
 
 func validateChannels(list []Channel) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-	}
 	if len(list) > MaxChannels {
 		return bad("a binding lists at most %d channels", MaxChannels)
 	}

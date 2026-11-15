@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import React, { act } from 'react'
 import { createServer } from 'vite'
+import { readFileSync } from 'node:fs'
 import { MemoryRouter } from 'react-router-dom'
 import { createHostSettingsClient } from '../../src/utils/hostSettingsClient.js'
 import { createAddonsApi } from '../../src/utils/addonsApi.js'
@@ -11,6 +12,7 @@ import { useHostSettings } from '../../src/hooks/useHostSettings.js'
 import { checkHost } from '../../src/utils/egressHosts.js'
 import { runChecks } from '../../src/utils/settingsPending.js'
 import { FIELD_BY_KEY } from '../../src/utils/settingsSchema.js'
+const adminEnglish = JSON.parse(readFileSync(new URL('../../public/locales/en/admin.json', import.meta.url), 'utf8'))
 const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/' })
 globalThis.window = dom.window
 globalThis.document = dom.window.document
@@ -18,7 +20,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 // React DOM detects input event support at import time, after JSDOM exists.
 const { createRoot } = await import('react-dom/client')
 // All nine fields are emitted by Go Policy.MarshalJSON.
-const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0 }
+const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0, sandbox_profiles: { default: '', access: {}, memory_mib: 0, disk_mib: 0, pin_previous: [] } }
 const dto = (revision = 1, policy = {}) => ({ schema_version: 1, revision, policy: { ...defaults, ...policy } })
 const reply = data => new Response(JSON.stringify({ payload: { data } }), { status: 200 })
 
@@ -257,13 +259,14 @@ test('mounted HostControlsForm asks for the private access phrase and sends it t
 })
 
 async function providerRender() {
-  const server = await createServer({ configFile: false, server: { middlewareMode: true }, plugins: [{
+  const server = await createServer({ configFile: false, server: { middlewareMode: true }, ssr: { noExternal: ['react-i18next'] }, plugins: [{
     name: 'provider-render-stubs', enforce: 'pre',
     resolveId(id) { if (id.endsWith('/UnsavedChangesGuard') || id === 'react-i18next' || id.endsWith('/utils/api')) return `\0provider-stub:${id}` },
     load(id) {
       if (!id.startsWith('\0provider-stub:')) return
       if (id.endsWith('/UnsavedChangesGuard')) return 'export default function Guard() { return null }'
-      if (id.endsWith('react-i18next')) return 'export const useTranslation = () => ({ t: key => key, i18n: { language: "en" } })'
+      // The English words of the admin namespace for the add-on update switch; every other key stays its own name.
+      if (id.endsWith('react-i18next')) return `const en = ${JSON.stringify(adminEnglish)}; const find = key => key.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), en); const fill = (text, opts) => Object.keys(opts || {}).reduce((out, name) => out.split('{{' + name + '}}').join(String(opts[name])), text); export const useTranslation = () => ({ t: (key, opts) => { const text = key.startsWith('settings.') ? find(key) : undefined; return typeof text === 'string' ? fill(text, opts) : key }, i18n: { language: "en" } })`
       return 'export const chatBuiltinToolsApi = { list: () => globalThis.providerCatalog() }; export const chatConnectorsApi = { kinds: () => globalThis.connectorKinds() }; export const settingsApi = { get: () => fetch("/api/settings"), save: () => fetch("/api/settings") }'
     },
   }] })
@@ -375,12 +378,12 @@ test('mounted skills retain conflict edits, require visible rebase and retry unc
     await h.render(h.Upgrades, {})
     const box = () => document.querySelector('input[type="checkbox"]')
     await act(async () => box().click())
-    await act(async () => buttonNamed('Apply upgrade setting').click())
+    await act(async () => buttonNamed('Apply update setting').click())
     assert.equal(enabled, true)
     offline = true
     await act(async () => box().click())
-    await act(async () => buttonNamed('Apply upgrade setting').click())
-    assert.equal(buttonNamed('Apply upgrade setting').disabled, true)
+    await act(async () => buttonNamed('Apply update setting').click())
+    assert.equal(buttonNamed('Apply update setting').disabled, true)
     assert.match(document.body.textContent, /unavailable|changed/i)
     assert.equal(calls.filter(c => c.action === 'host-settings-update').length, 2)
   } finally { await h.close(); globalThis.fetch = previous }

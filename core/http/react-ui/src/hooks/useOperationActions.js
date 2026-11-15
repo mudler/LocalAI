@@ -7,9 +7,9 @@ import { addonUpgrades } from '../utils/addonUpgrades'
 import { upgradeFailureWords } from '../components/addons/updateReview'
 import { useOperations } from './useOperations'
 
-// Retry only ever means "install this again". A failed deletion would need the
-// delete endpoint and a staging operation is driven by the router rather than
-// by a user action, so neither is retryable.
+// Retry means "do this again": install, or upgrade for an upgrade. A failed
+// deletion would need the delete endpoint and a staging operation is driven by
+// the router rather than by a user action, so neither is retryable.
 export function isRetryable(op) {
   return Boolean(op?.error) && !op.isDeletion && op.taskType !== 'staging'
 }
@@ -49,7 +49,12 @@ export function useOperationActions(addToast) {
     // had their prefix removed server side, so fullName is the bare slug there.
     const target = op.fullName || op.id
     try {
-      if (op.nodeID) {
+      if (op.taskType === 'upgrade' && op.isBackend) {
+        // An upgrade is not an install of an installed backend: the install
+        // endpoints leave it as it is. Each scope has its own upgrade call.
+        if (op.nodeID) await nodesApi.upgradeBackend(op.nodeID, target)
+        else await backendsApi.upgrade(target)
+      } else if (op.nodeID) {
         await nodesApi.installBackend(op.nodeID, target)
       } else if (op.isBackend) {
         await backendsApi.install(target)

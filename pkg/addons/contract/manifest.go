@@ -64,6 +64,16 @@ func (r VersionRange) accepts(v uint64) bool {
 // one: a manifest declares the range {"min": 2, "max": 2}.
 const HostAPIVersion uint64 = 2
 
+// HostVersion, HostProtocolVersion and HostDataFormatVersion are the other
+// version numbers a host reports in HostCompatibility. The host protocol
+// is the process protocol of pkg/addons/sdk/protocol. The data format is the
+// layout of the files an add-on keeps in its data directory.
+const (
+	HostVersion           uint64 = 1
+	HostProtocolVersion   uint64 = 1
+	HostDataFormatVersion uint64 = 1
+)
+
 // isHostAPI reports whether the range is exactly the manifest API of the host.
 func (r VersionRange) isHostAPI() bool {
 	return r.Min == HostAPIVersion && r.Max == HostAPIVersion
@@ -79,7 +89,12 @@ func (r VersionRange) isHostAPI() bool {
 // Level 2: capabilities.resources.agentScoped.
 // Level 3: capabilities.ownerData.
 // Level 4: the setup text (the top-level setup and connector kind setup).
-const HostFeatureLevel uint64 = 4
+// Level 5: capabilities.connector.kinds[].toolOnly.
+// Level 6: capabilities.executionProvider.jobs.
+// Level 7: capabilities.client (routes that a paired client may call).
+// Level 8: a wildcard tail ({name...}) as the last segment of a client route.
+// Level 9: capabilities.modelSearch (a source of the model-search slot).
+const HostFeatureLevel uint64 = 9
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -113,6 +128,21 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	if m.Capabilities.ModelSearch != nil {
+		return 9
+	}
+	if m.usesClientTail() {
+		return 8
+	}
+	if m.Capabilities.Client != nil {
+		return 7
+	}
+	if p := m.Capabilities.ExecutionProvider; p != nil && p.Jobs != nil {
+		return 6
+	}
+	if m.usesToolOnly() {
+		return 5
+	}
 	if m.usesSetup() {
 		return 4
 	}
@@ -128,6 +158,30 @@ func (m Manifest) usedFeatureLevel() uint64 {
 		}
 	}
 	return BaseFeatureLevel
+}
+
+// usesClientTail reports whether a client route ends in a wildcard tail.
+func (m Manifest) usesClientTail() bool {
+	if c := m.Capabilities.Client; c != nil {
+		for _, r := range c.Routes {
+			if strings.HasSuffix(r.Path, "...}") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// usesToolOnly reports whether a connector kind declares toolOnly.
+func (m Manifest) usesToolOnly() bool {
+	if c := m.Capabilities.Connector; c != nil {
+		for _, k := range c.Kinds {
+			if k.ToolOnly {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type HostCompatibility struct {
@@ -227,11 +281,18 @@ type Capabilities struct {
 	// providerslots.go). The person picks one provider per slot; the add-on's
 	// context files and skills count only while it is the one picked.
 	Provides []ProviderDeclaration `json:"provides,omitempty"`
+	// ModelSearch describes the source of an add-on that provides the
+	// model-search slot (see modelsearch.go). Feature level 9.
+	ModelSearch *ModelSearch `json:"modelSearch,omitempty"`
 
 	// Credentials declare the secret that the host keeps for the person and
 	// hands to each call (see credentials.go). It needs a connector
 	// kind that holds the binding.
 	Credentials []CredentialSlot `json:"credentials,omitempty"`
+
+	// Client declares the routes that a paired client may call (see
+	// client.go). It needs the service capability and feature level 7.
+	Client *ClientCapability `json:"client,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -507,7 +568,11 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
 		}
 	}
-	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0); e != nil {
+	jobsTool := ""
+	if p := c.ExecutionProvider; p != nil && p.Jobs != nil {
+		jobsTool = p.Jobs.Tool
+	}
+	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0, jobsTool); e != nil {
 		return e
 	}
 	if e := validateExtensions(c); e != nil {
@@ -528,6 +593,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if e := validateProvides(c); e != nil {
 		return e
 	}
+	if e := validateModelSearch(m); e != nil {
+		return e
+	}
 	if e := validateResourceTools(c); e != nil {
 		return e
 	}
@@ -538,6 +606,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateConnector(c.Connector, c.UI); e != nil {
+		return e
+	}
+	if e := validateClient(c.Client, c.Service); e != nil {
 		return e
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {

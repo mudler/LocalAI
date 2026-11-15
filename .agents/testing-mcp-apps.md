@@ -27,7 +27,7 @@ Playwright runs one process at a time, against the server on port 8089. Build th
 
 ```bash
 cd core/http/react-ui && npx vite build
-cd ../../.. && go build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+cd ../../.. && go build -tags auth,nosqlite,purego_utp -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 cd core/http/react-ui && PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/google-chrome PW_WORKERS=1 npx playwright test e2e/chats-apps.spec.js --project=chromium
 ```
 

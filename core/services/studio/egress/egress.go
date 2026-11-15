@@ -134,6 +134,11 @@ type ChatState struct {
 	Rules  []Rule  `json:"rules,omitempty"`
 	Cards  []Card  `json:"cards,omitempty"`
 	Once   []Grant `json:"once,omitempty"`
+	// Profile is the sandbox profile the person picked for the chat. The state
+	// is the one record of what a chat keeps about its commands: the network
+	// and the environment they run in. Empty: the agent's or the default
+	// profile.
+	Profile string `json:"profile,omitempty"`
 }
 
 // Limits of the state of one chat.
@@ -156,7 +161,7 @@ func (s ChatState) Clone() ChatState {
 
 // Empty says whether s holds nothing.
 func (s ChatState) Empty() bool {
-	return s.Preset == "" && len(s.Rules) == 0 && len(s.Cards) == 0 && len(s.Once) == 0
+	return s.Preset == "" && s.Profile == "" && len(s.Rules) == 0 && len(s.Cards) == 0 && len(s.Once) == 0
 }
 
 // Rule returns the rule of a host and port.

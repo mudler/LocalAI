@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockStudio, stubMedia } from './studio-fixtures.js'
 
-// Server-side Studio history (see docs/content/features/studio-history.md).
+// Server-side Studio history (see docs/content/addons/catalogue/models-and-media/studio-history.md).
 // These specs drive the real Studio bundle in the browser against a stand-in
 // for /api/studio/history: what a result does on the server when it is made,
 // deleted or cleared, and what a shared browser shows to whom. The store and

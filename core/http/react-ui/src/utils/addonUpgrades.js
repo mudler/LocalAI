@@ -216,7 +216,14 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
         if (e && e.name === 'AbortError' && cancelled.has(jobID)) return store.afterCancel(api, { jobID, addon, operationId, key, current })
         const kind = e && e.kind ? e.kind : 'unavailable'
-        if (kind === 'denied' || kind === 'invalid' || kind === 'auth') book.resolve(addon.id, key)
+        if (kind === 'denied' || kind === 'invalid' || kind === 'auth' || kind === 'operation_not_found') book.resolve(addon.id, key)
+        if (kind === 'operation_not_found') {
+          // The owner no longer knows this operation (it started under another
+          // login, or the journal moved on). A saved entry would poll it
+          // forever, so drop it and let the caller say that the status is gone.
+          emit({ ...snapshot, live: snapshot.live.filter(op => op.jobID !== jobID) })
+          return { ok: false, outcome: kind, message: 'operationNotFound' }
+        }
         const errorKey = updateErrorKey(e && e.kind ? e : { kind })
         patch(jobID, { state: 'failed', cancellable: false, error: errorKey, errorKey, unknown: errorKey === 'unknownOutcome' })
         if (errorKey === 'unknownOutcome') book.markUnknown(addon.id, key)

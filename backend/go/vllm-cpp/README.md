@@ -88,6 +88,10 @@ engine_args:
 `GenerateVideo` -> `vllm_video_generate` (ABI v12). H3 renders picture and sound
 together, so the output MP4 carries a real AAC track.
 
+Status: this path does not finish a clip in a practical time, so the gallery has
+no vllm-cpp MiniMax-H3 entries. The supported route for MiniMax-H3 is the
+stable-diffusion.cpp backend (the `-ggml` gallery entries).
+
 The video engine is a SECOND handle (`vllm_video_engine`), not a mode of the
 text one, because H3 is a checkpoint SET rather than a model directory: the DiT,
 the text encoder and two VAEs are separate artifacts, and vllm.cpp has the two

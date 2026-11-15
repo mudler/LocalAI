@@ -35,6 +35,21 @@ func UseConnectorTransportForTests(t studio.ConnectorTransport) (restore func())
 	return func() { connectorTransportForTests, connectorTransportWired = prev, false }
 }
 
+// connectorOptionsForTests changes the options of the connector manager of
+// applications built after UseConnectorOptionsForTests.
+var connectorOptionsForTests func(*studio.ConnectorOptions)
+
+// UseConnectorOptionsForTests lets f change the options of the connector
+// manager of applications built after the call, and returns a function that
+// restores the real ones. It exists so a conformance test can give the OAuth
+// logins a token client that reaches a fake service on loopback, which the
+// guarded client of production refuses, and a clock it moves.
+func UseConnectorOptionsForTests(f func(*studio.ConnectorOptions)) (restore func()) {
+	prev := connectorOptionsForTests
+	connectorOptionsForTests = f
+	return func() { connectorOptionsForTests = prev }
+}
+
 // connectorTransport reaches the connector add-ons through the add-on manager.
 // The manager looks them up on every call, so an add-on that is installed or
 // removed later is seen at once.
@@ -96,6 +111,31 @@ func refuseConnectorInbound(context.Context, hostops.Call) (json.RawMessage, err
 	return nil, hostops.ErrForbidden
 }
 
+// addonOAuthDescriptor is the OAuth descriptor that the running add-on's
+// verified manifest declares. Only a process that runs the add-ons reads
+// manifests; elsewhere the OAuth login and refresh are unavailable, and the
+// tool calls that need them are forwarded to the owner anyway.
+func (a *Application) addonOAuthDescriptor(ctx context.Context, addonID string) (contract.OAuthDescriptor, error) {
+	m := a.addonManager
+	if m == nil {
+		return contract.OAuthDescriptor{}, gateway.ErrUnavailable
+	}
+	inst, err := m.Runtime(ctx, addonID)
+	if err != nil {
+		return contract.OAuthDescriptor{}, err
+	}
+	caps, err := m.DeclaredCapabilities(ctx, addonID, inst.Generation)
+	if err != nil {
+		return contract.OAuthDescriptor{}, err
+	}
+	for _, slot := range caps.Credentials {
+		if slot.Kind == contract.CredentialKindOAuth2 && slot.OAuth != nil {
+			return *slot.OAuth, nil
+		}
+	}
+	return contract.OAuthDescriptor{}, errors.New("the add-on declares no OAuth login")
+}
+
 // StudioConnectors returns the connector manager of the chats, or nil.
 func (a *Application) StudioConnectors() *studio.Connectors { return a.studioConnectors }
 
@@ -129,9 +169,12 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	// A token is checked with the platform when it is saved, so a typo is
 	// refused at once instead of switching the binding off later.
 	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds, VerifyToken: studio.VerifyTokenWithMe(tr), FileCeiling: a.studioConnectorFilesCeiling,
-		Shares: connectionShares{a}}
+		OAuthDescriptor: a.addonOAuthDescriptor, Shares: connectionShares{a}}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsConnectors, "Connectors")
+	}
+	if connectorOptionsForTests != nil {
+		connectorOptionsForTests(&opts)
 	}
 	c, err := studio.NewConnectors(svc, opts)
 	if err != nil {
@@ -188,13 +231,17 @@ const (
 	bindingCapsRetryFor   = 10 * time.Minute
 )
 
-// migrateBindingCaps gives the usual permissions, once, to the connector
+// migrateBindingCaps adds loops.wait and gives the usual permissions, once, to the connector
 // bindings saved before permissions were enforced. The store decides who runs
 // it, so any number of processes on one store may call this at start. It needs
 // the kinds that add-ons serve, to leave out a binding whose kind declares no
 // permissions, so it waits for them. With none (add-ons off, or none installed)
 // it does nothing and tries again at the next start.
 func (a *Application) migrateBindingCaps(ctx context.Context, tr studio.ConnectorTransport) {
+	// loops.wait needs no kind, so it goes first and does not wait for add-ons.
+	if _, err := studio.MigrateLoopsWait(ctx, a.studioConnStore, time.Now(), nil); err != nil {
+		xlog.Warn("Connectors: could not add loops.wait to old bindings; it is tried again at the next start", "error", err)
+	}
 	deadline := time.Now().Add(bindingCapsRetryFor)
 	for {
 		kinds, err := tr.Kinds(ctx)

@@ -4663,7 +4663,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/host-exec/events": {
             "get": {
-                "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
+                "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the kind of line (run, or job_start, job_input, job_kill and job_end for a background job, with its job id), the command or the input (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
                 "tags": [
                     "chats"
                 ],
@@ -4681,6 +4681,100 @@ const docTemplate = `{
                         "description": "The newest commands first",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsHostExecEventList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/oauth-clients/{addonId}": {
+            "get": {
+                "description": "The client ID, whether a secret is stored (never the secret), the approval and the login the add-on declares, with the callback address to register with the service. No MCP tool reads or writes it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the OAuth client of an add-on (administrator).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the add-on's id",
+                        "name": "addonId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The client",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClient"
+                        }
+                    },
+                    "503": {
+                        "description": "The add-on does not run",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Saving is the approval of the login the add-on declares now: send its current_digest as descriptor_digest. When the login changed since, nothing is saved and the answer is 409 with the new current_digest. client_secret is write-only; absent keeps the stored one. No MCP tool reads or writes it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Save the OAuth client of an add-on and approve its login (administrator).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the add-on's id",
+                        "name": "addonId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the client",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClientWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The client",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClient"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The login changed since the form showed it",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClientConflict"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/sandbox-profiles": {
+            "get": {
+                "description": "The profiles of the Sandbox add-on with their limits, tools and the state of their images (has_previous says an older image is kept, so a profile can be pinned to it), and the roles a policy can name. The policy is the owner host setting sandbox_profiles (default, access by role and user, memory_mib and disk_mib quota, pin_previous); change it with the add-on host settings.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the sandbox profiles (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "The profiles",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfilesAdmin"
                         }
                     }
                 }
@@ -5910,7 +6004,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "// @Description For a kind that lists wildcard_resources, resources may hold owner/* (every resource of one owner) and * (every resource the token reaches); the request that adds * must also carry confirm_any_resource set to \"allow any resource\". A kind that lists token_guards refuses a token with a guarded prefix (a classic GitHub token) unless options sets the guarded option to its allow value in a request that also carries confirm_wider_token set to \"accept wider token\". Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 50 bindings.",
+                "description": "// @Description For a kind that lists wildcard_resources, resources may hold owner/* (every resource of one owner) and * (every resource the token reaches); the request that adds * must also carry confirm_any_resource set to \"allow any resource\". A kind that lists token_guards refuses a token with a guarded prefix (a classic GitHub token) unless options sets the guarded option to its allow value in a request that also carries confirm_wider_token set to \"accept wider token\". Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream, reasoning; default progress; reasoning shows the model's thinking to every sender of the binding), conversation (sender, chat, window with window_minutes, thread; default sender), send_files (default true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the language of the sentences the bot writes itself) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 50 bindings.",
                 "tags": [
                     "chats"
                 ],
@@ -5973,6 +6067,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/connectors/oauth/callback": {
+            "get": {
+                "description": "The service sends the browser here after the login; register this address with the service as the redirect URI. It needs the session of the person who started the login (with authentication off, the nonce cookie alone binds the login to the browser). It always answers 303 to the page the login started from, with oauth=ok, oauth=denied (you declined; the connection stays as it was) or oauth=error and class=invalid_state, provider_error, exchange_failed, scopes_missing, token_too_large or unavailable. The state works once and for ten minutes. Nothing the service says is shown or logged.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Finish the login of a connection that uses OAuth.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the state of the login",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the code the service gave",
+                        "name": "code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the error the service gave",
+                        "name": "error",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "303": {
+                        "description": "To the page of the web app, with the outcome in the query"
+                    }
+                }
+            }
+        },
         "/api/chats/connectors/{id}": {
             "get": {
                 "tags": [
@@ -5998,7 +6126,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files and reply_language, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
+                "description": "The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.",
                 "tags": [
                     "chats"
                 ],
@@ -6043,7 +6171,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Its offset, sender log and sender-to-chat map go; the chats it made stay.",
+                "description": "Its offset, sender log and sender-to-chat map go; the chats it made stay. A connection that logs in with OAuth asks the service to revoke its login first, as a disconnect does, and is deleted even when the service does not answer.",
                 "tags": [
                     "chats"
                 ],
@@ -6188,6 +6316,96 @@ const docTemplate = `{
                         "description": "The binding",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/oauth/disconnect": {
+            "post": {
+                "description": "Asks the service to revoke the login when the add-on declares a revocation address, then removes the login here in any case. revoked says whether the service confirmed it; when it is false, revoke the access at the service too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Disconnect a connection that uses OAuth.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Whether the service was told",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuthDisconnected"
+                        }
+                    },
+                    "404": {
+                        "description": "No such binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/oauth/start": {
+            "post": {
+                "description": "Returns the address of the service's login page; open it in the same browser. The required scopes of the add-on are always asked for, plus the optional ones in scopes. The service sends the browser back to the callback route, which ends on return_to (a page of the web app; default the Connectors page). The response sets an HttpOnly cookie that binds the login to this browser for ten minutes; each login has its own cookie, named localai_oauth_nonce_ and a suffix of eight hex digits of the hash of its state. The callback address is built from LOCALAI_BASE_URL, or from the forwarding headers of a trusted proxy, or from a loopback host; without one of them, or when a trusted proxy forwards plain http for a host that is not loopback, the start is a 409 base_url_required. An administrator must have saved the add-on's client first (409 needs_approval).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Start the login of a connection that uses OAuth.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the optional scopes and the page to come back to",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuthStart"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Where to send the browser",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuthStarted"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "No approved client, or no trusted base URL",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many logins wait for their callback, or were started in the last minute (too_many_logins)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The add-on owner or the add-on does not answer",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -6351,7 +6569,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors/{id}/test": {
             "post": {
-                "description": "Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached.",
+                "description": "Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached. A connection that logs in with OAuth uses its access token, renewed first when it ends soon: 409 not_connected before its login, 409 reconnect_needed when the login ended, 409 needs_approval when an administrator must approve the add-on, 429 rate_limited when the service asked to wait, and 503 unavailable when the login cannot be checked now (also on a frontend, which does not read the add-on's login).",
                 "tags": [
                     "chats"
                 ],
@@ -6370,6 +6588,18 @@ const docTemplate = `{
                         "description": "The bot",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnectorTest"
+                        }
+                    },
+                    "409": {
+                        "description": "An OAuth connection that is not connected, must reconnect or waits for an approval",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The login of an OAuth connection cannot be checked now",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -6453,6 +6683,55 @@ const docTemplate = `{
                         "description": "The add-ons and the commands state, with the draft switches applied",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAddonList"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Refused",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/draft/egress": {
+            "get": {
+                "description": "What GET /api/chats/{id}/egress returns, for a chat that does not exist yet, as GET /api/chats/draft/tools takes it: the preset the chat would start with (the instance default, or the saved agent's, under the administrator's ceiling), the ceiling, the add-on that would run its commands and draw the network controls (addon), and applies, which stays false before the chat exists because no sandbox is bound to it yet and so nothing reports enforcement: use addon, and the profiles of GET /api/chats/sandbox-profiles, to decide whether to offer the presets. It has no rules and no cards. The composer of a new chat shows the presets from it and sets the chosen one with PUT /api/chats/{id}/egress after the chat is created.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the network a new chat would start with.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the model of the new chat",
+                        "name": "model",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "a saved agent of yours",
+                        "name": "agent_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The network of the new chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgress"
                         }
                     },
                     "400": {
@@ -6661,6 +6940,58 @@ const docTemplate = `{
                     },
                     "413": {
                         "description": "The file is too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/extract": {
+            "post": {
+                "description": "Reads a zip, tar (also tar.gz, tar.bz2, tar.xz, tar.zst and others) or, when an administrator allows it, 7z or RAR archive from your files and writes its files into a folder, as one change set that undo takes back whole. Without dest the folder is new, next to the archive, named like it without the extension (\"name 2\" when taken). A name that is taken in dest keeps the existing file; the new content is saved next to it as a copy and listed in conflicts. Symbolic links, hard links and devices are skipped and listed. Nested archives are written as plain files. The limits (bytes, entries, size of one file, time) are counted on what is really read, and an archive over a limit writes nothing: 413, or 408 for the time limit. A path that leaves the destination refuses the archive (400).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Extract an archive into a folder of your files.",
+                "parameters": [
+                    {
+                        "description": "the archive and, optionally, the folder",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsExtractRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder, the change set and what was skipped",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsExtractResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid, or the archive is damaged or not supported",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "408": {
+                        "description": "The extraction ran past its time limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "dest is a file, or files are off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The archive expands past a limit",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -7993,6 +8324,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/pages/{name}/errors": {
+            "post": {
+                "description": "The UI calls this for an error that the script of the caller's own page threw (window.onerror or an unhandled rejection), caught by the frame. Nothing is added to a chat; the assistant reads the errors with its page_errors tool. The texts are cut, the browser's own noise (such as ResizeObserver loop) is dropped, the same error is counted once, and a page keeps its 10 newest errors until any of its files changes. A page that reports too fast gets 429. Shared pages have no such route: only the owner's own view records.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Report a runtime error of a page (bridge error capture).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the error",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesErrorRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "recorded is false for noise",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesErrorResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "No message",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such page of yours",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many reports",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/pages/{name}/file": {
             "get": {
                 "description": "With encoding=base64 the file must be an image (png, jpg, gif, webp, avif, bmp, ico or svg, by extension) and content is its bytes in base64. The UI uses it to put the images next to a page into the page as data: URLs; the bridge of a page reads text only.",
@@ -8328,6 +8712,23 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/sandbox-profiles": {
+            "get": {
+                "description": "The profiles of the Sandbox add-on that runs your commands, whether you may use each one, and the administrator's default. Empty when no add-on with profiles runs commands. Use it for the sandbox_profile of a saved agent.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the sandbox profiles you may pick.",
+                "responses": {
+                    "200": {
+                        "description": "The profiles",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileChoices"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/search": {
             "get": {
                 "description": "Finds the messages and titles of your chats that hold every word of the text (a phrase in double quotes counts as one word), ignoring case. It searches all your chats, not only the newest, except the runs of sub-agents. The best match comes first: whole words, the whole phrase and newer messages rank higher. By default each chat appears once, with its best line; group=message returns every matching line. A hit has the line (seq), who wrote it, when, a snippet and the parts of the snippet that match (highlights, UTF-16 offsets). Messages written before the search index existed are added in the background after an upgrade (indexing is true meanwhile). A server that keeps chats in files has no index: it scans for a few seconds and says when it stopped early (partial).",
@@ -8580,7 +8981,7 @@ const docTemplate = `{
         },
         "/api/chats/shared-pages/{folder}/{name}/consent": {
             "put": {
-                "description": "hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. Each consent and revoke is audited.",
+                "description": "hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. embed is a lasting consent that also lets the version run on Home and in the slots of ui.json, where it starts without a click; it cannot go with once (400). A lasting consent to the same version keeps embed. Each consent and revoke is audited.",
                 "tags": [
                     "pages"
                 ],
@@ -8859,6 +9260,88 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/skills/import": {
+            "post": {
+                "description": "Send a zip file as the file field of a multipart form. It holds either one skill (SKILL.md at the top) or one folder per skill, each with a SKILL.md and optional scripts/, references/ and assets/, as the Agent Skills specification (agentskills.io) defines. The skills go to your personal layer. The whole archive is checked first and nothing is stored when any part is not valid: the name and description rules of the specification, paths that leave the skill folder, absolute paths, links, duplicate or case-colliding names, and size limits (500 entries, 5 MiB a file, 20 MiB in all). A name that exists already in your skills is refused with 409, and so is the name of a skill that ships with LocalAI; the import never replaces a skill. Files, scripts included, are only stored: the import runs nothing. An imported skill is listed with new set until a chat uses it for the first time.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Import skills from a zip archive.",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "the zip archive",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The stored skills",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSkillImportResult"
+                        }
+                    },
+                    "400": {
+                        "description": "The archive is not a valid skill archive",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A skill of that name exists already",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The archive is over a size limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/skills/personal/{name}/export": {
+            "get": {
+                "description": "The archive follows the Agent Skills layout: one folder named after the skill, with SKILL.md and the files below it (scripts/, references/, assets/). Importing it again gives the same skill. Only skills of your personal layer can be exported.",
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Export a skill as a zip archive.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the skill's name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The zip archive",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "No such skill",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9589,7 +10072,7 @@ const docTemplate = `{
         },
         "/api/chats/wellknown/{name}": {
             "get": {
-                "description": "name is persona, user, shortcuts, home, ui or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.",
+                "description": "name is persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.",
                 "tags": [
                     "chats"
                 ],
@@ -9597,7 +10080,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9639,7 +10122,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9704,7 +10187,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9753,7 +10236,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -9786,7 +10269,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "description": "persona, user, shortcuts, setups, defaults, home, ui, nav, commands or widget-data",
                         "name": "name",
                         "in": "path",
                         "required": true
@@ -10283,6 +10766,89 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/dock": {
+            "get": {
+                "description": "The dock is the panel of pages that the interface shows beside the chat. It is stored with the chat, so every browser and every frontend shows the same one. The assistant opens a page of your home in it with its open_page tool.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get a chat's dock.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The dock, or null",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDockResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replaces the dock: its tabs (at most 6 pages, each once; folder is the id of a shared folder, absent for a page of your home), the index of the tab in front, whether the panel is open and its width in CSS pixels (0 for the default, else 320 to 4096). A dock with no tab clears it. The page names are not checked here: a page that is gone shows as missing in the interface, and a shared page still needs your consent before it runs. Watchers of the chat get a dock event. A sub-agent run has no dock (409).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set a chat's dock.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the dock",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The dock as stored, or null when it was cleared",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsDockResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The dock is out of its bounds",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A sub-agent run has no dock",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -10820,6 +11386,51 @@ const docTemplate = `{
                     },
                     "410": {
                         "description": "The card expired (consent_expired): the turn that asked has ended, its frontend stopped, or a newer card replaced it; the command did not run",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/jobs/{job}/kill": {
+            "post": {
+                "description": "Stops a job that the model started with the job tool (a build, a server): the process gets term, and kill after 10 seconds. The job ends with the reason \"stopped\". Only the owner of the chat may stop it. The job may belong to a sub-agent of the chat.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop a background job.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "job id",
+                        "name": "job",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The job after the signal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsJob"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation or job",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The job has ended already",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -11584,6 +12195,89 @@ const docTemplate = `{
                         "description": "Whether a turn started",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsSendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/sandbox-profile": {
+            "get": {
+                "description": "The profile the next command of the chat runs (the one you picked, else the saved agent's, else the administrator's default, else media, else base), where it comes from, the profiles the Sandbox add-on offers with their tools and limits, whether the administrator's policy lets you use each one (allowed), and where the image of each is on the host (state: pulling shows percent). fallback is true when the next command cannot use the profile because its image failed or is missing, and runs base. newer_image is true when the running sandbox is older than the current image. applies is false when the commands of the chat run in no sandbox with profiles. Another user's chat is 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the sandbox profile of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The profile of the chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileView"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Switches the environment the commands of the chat run in. The sandbox restarts at the next command: your files stay, running processes and installed packages are lost. An empty profile goes back to the saved agent's or the default profile. A profile the Sandbox does not have is 400 sandbox_profile_unknown; one the administrator did not give you is 403 sandbox_profile_not_allowed. A sub-agent follows its parent: 409.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set the sandbox profile of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the profile",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileSet"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The profile of the chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsSandboxProfileView"
+                        }
+                    },
+                    "400": {
+                        "description": "No such profile",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "The administrator did not give you this profile",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -12777,6 +13471,260 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/recommended": {
+            "get": {
+                "description": "Returns the curated models for the hardware tier of the machine, best first, with the context window each would be installed with and whether it fits. Every signed-in user may read it; installing stays admin-only. The hardware is the host, or the best single node of a cluster.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Recommend models for this machine.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/localai.RecommendedModelsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/remote/estimate": {
+            "get": {
+                "description": "Same answer as GET /api/models/estimate/{id} for a gallery model, for one quantization of a Hugging Face or Pirate Face repository: the download size and the memory needed at each requested context size, plus ` + "`" + `file` + "`" + `, ` + "`" + `quantization` + "`" + ` and ` + "`" + `source` + "`" + `. ` + "`" + `source` + "`" + ` is ` + "`" + `gguf-header` + "`" + ` when the layer count, width and heads were read from the GGUF header (exact KV cache term), ` + "`" + `file-size` + "`" + ` when only the file size was known, and ` + "`" + `unknown` + "`" + ` when no size was known. ` + "`" + `approximate` + "`" + ` is true whenever the architecture was not read, so the figure is the file size plus a rule of thumb per context token. ` + "`" + `variants` + "`" + ` repeats the estimate for every quantization of a GGUF repository: they share one architecture, so the header read of the chosen file serves them all and one call answers a whole variant list. When the header cannot be read (a gated repository, a host without range requests) the figures fall back to file sizes and ` + "`" + `approximate` + "`" + ` is true. The header read runs through the same bounded upstream budget as the file listing.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Estimate the memory a remote model file needs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Repository uri: huggingface://owner/repo or pirateface://owner/repo",
+                        "name": "uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "First file of a variant, as listed by /api/models/remote/files (default: the recommended variant)",
+                        "name": "file",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated context sizes (default 8192)",
+                        "name": "contexts",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.EstimateResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/remote/files": {
+            "get": {
+                "description": "Reads one repository of Hugging Face or Pirate Face and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's ` + "`" + `preference` + "`" + ` is the value for ` + "`" + `preferences.quantizations` + "`" + ` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; ` + "`" + `size_known` + "`" + ` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the weight files of a remote model, grouped by quantization",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo or a huggingface.co url",
+                        "name": "uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quantization preference to dry-run the import with (default: the importer's)",
+                        "name": "quantization",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.RepoFiles"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/search": {
+            "get": {
+                "description": "Fans the query out to the sources and returns the merged results plus one status per source, so a source that is down does not fail the search. Without ` + "`" + `providers` + "`" + ` the sources are the caller's enabled set (every source the caller can see that they did not turn off; see /api/models/search/sources). A source can come from an add-on that provides the model-search slot. ` + "`" + `filters.\u003csource\u003e.\u003cid\u003e=value` + "`" + ` sets a filter that the source declares in ` + "`" + `sources` + "`" + ` of the answer; an unknown filter or a value that does not fit its type gives a 400 that names the filter. Each result's ` + "`" + `uri` + "`" + ` can be passed to POST /models/import-uri. Results also say whether an installed model already comes from the repository (` + "`" + `installed` + "`" + `, ` + "`" + `installed_name` + "`" + `), the backend an import would likely pick (` + "`" + `backend` + "`" + `, a hint derived from the tags) and whether the repository likely has several quantizations (` + "`" + `has_variants` + "`" + `). Use /api/models/remote/files for the exact files, sizes and backend of one result. With sort=latest the search text may be empty: the answer is the newest models of each source that can list them. A source that cannot is not called and its status says ` + "`" + `unsupported` + "`" + `. A status has ` + "`" + `dropped` + "`" + `, the number of rows the host refused because of a scheme or a size it does not accept.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Search remote sources for installable models",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search text. Required unless sort is latest",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated source IDs (default: the enabled set of the caller)",
+                        "name": "providers",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Results per source (default 20, max 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "File format filter (default gguf, any disables it)",
+                        "name": "format",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "downloads (default), likes, updated, trending or latest (newest first; the only sort that works with no q)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "A filter of one source, for example filters.pirateface.min_seeders=2. The sources and their filters are listed in ` + "`" + `sources` + "`" + ` of the answer.",
+                        "name": "filters.source.id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/search/sources": {
+            "get": {
+                "description": "Lists the sources that are installed (Hugging Face, and every add-on that provides the model-search slot and that the caller can see) with their titles, sorts and filters, and the enabled set of the caller: every source they can see that they did not turn off, so a source from a newly installed add-on is on with no action. ` + "`" + `missing` + "`" + ` is kept for older clients and is always empty.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the model search sources and the enabled set",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Overview"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Stores the set of sources the caller searches. The host stores what the caller turned off: every source they can see that is not in the list. An ID that is off and whose add-on is gone stays off, so installing the add-on again keeps the choice. The list has at most as many IDs as the visible sources, the stored off IDs and the built-in source, and never more than 64; a longer list gives a 400. It takes effect at once, with no restart. An ID must be a built-in source, a visible source, or already off. An empty list means nothing is searched.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Set the enabled model search sources",
+                "parameters": [
+                    {
+                        "description": "The enabled set",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.SearchSourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelsearch.Overview"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -15188,6 +16136,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/backends/updates": {
+            "get": {
+                "description": "Gallery and library backends with a newer build, the state of each source (checkedAt, lastSuccessAt, error, stale) and what the automatic update covers. Answers from the cache of the instance that serves the request; in a cluster each frontend has its own cache. Contacts no registry.",
+                "tags": [
+                    "backends"
+                ],
+                "summary": "List the backend updates",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/backendupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/updates/check": {
+            "post": {
+                "description": "Refreshes the sources, waits for the check (at most 45 seconds) and returns the new data. A failed check shows as an error in the state of its source and keeps the previous list. Callers that arrive during a check share it; a call within 15 seconds of the last check is answered from it with throttled set. In a cluster the frontend that gets the request updates its own cache only. Installs nothing.",
+                "tags": [
+                    "backends"
+                ],
+                "summary": "Check for backend updates now",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/backendupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
         "/backends/upgrade/{name}": {
             "post": {
                 "tags": [
@@ -17507,6 +18489,14 @@ const docTemplate = `{
                     "description": "ManagementURL opens the management view of the addon.",
                     "type": "string",
                     "example": "/app/addons?manage=notes"
+                },
+                "official": {
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "description": "SourceID is the library the package came from, and Official is true\nwhen that is the official library and the signature was checked. An\nadministrator who approves something for the add-on, such as its OAuth\nlogin, is warned when it is not.",
+                    "type": "string",
+                    "example": "official"
                 }
             }
         },
@@ -17605,6 +18595,14 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/apps.NetworkView"
+                        }
+                    ]
+                },
+                "oauth": {
+                    "description": "OAuth is present when the credential slot is of kind oauth2: the host\nlogs the person in to the service. It names the scopes, so the person\ncan choose the optional ones when they connect, and tells the\nadministrator's Settings tab to draw the form that approves the login.\nThe addresses of the login are not here: an administrator reads them\nwith the OAuth client.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/apps.OAuthView"
                         }
                     ]
                 },
@@ -17830,6 +18828,29 @@ const docTemplate = `{
                 }
             }
         },
+        "apps.OAuthView": {
+            "type": "object",
+            "properties": {
+                "optionalScopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "write"
+                    ]
+                },
+                "requiredScopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "read"
+                    ]
+                }
+            }
+        },
         "apps.Operation": {
             "type": "object",
             "properties": {
@@ -17930,7 +18951,8 @@ const docTemplate = `{
                         "type": "string",
                         "enum": [
                             "network-policy",
-                            "tool-providers"
+                            "tool-providers",
+                            "sandbox-profiles"
                         ]
                     },
                     "example": [
@@ -18036,6 +19058,158 @@ const docTemplate = `{
                 },
                 "version": {
                     "description": "Version and Digest are the build the library lists now. Version is what\nan install of the update names.",
+                    "type": "string"
+                }
+            }
+        },
+        "backendupdates.AutoUpdate": {
+            "type": "object",
+            "properties": {
+                "backends": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "backendupdates.Item": {
+            "type": "object",
+            "properties": {
+                "availableDigest": {
+                    "type": "string"
+                },
+                "availableVersion": {
+                    "type": "string"
+                },
+                "driftNodes": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "installedDigest": {
+                    "type": "string"
+                },
+                "installedVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nodes": {
+                    "description": "Nodes is every node that reports the backend (cluster only).\nDriftNodes is the subset that differs from the majority.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/backendupdates.Node"
+                    }
+                },
+                "reason": {
+                    "description": "Reason is why the backend is flagged when version and digest alone\nwould not flag it (the stale reason).",
+                    "type": "string"
+                },
+                "signed": {
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "description": "SourceID and Signed are set on library items.",
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "backendupdates.Node": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "drift": {
+                    "description": "Drift is true when the node differs from the cluster majority.",
+                    "type": "boolean"
+                },
+                "models": {
+                    "description": "Models are the models loaded on this node whose recorded backend is\nthis one. The registry records the backend a model was loaded with,\nwhich can be empty or a different name than the installed variant, so\nan empty list does not prove that nothing would stop.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "nodeName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "backendupdates.Snapshot": {
+            "type": "object",
+            "properties": {
+                "autoUpdate": {
+                    "$ref": "#/definitions/backendupdates.AutoUpdate"
+                },
+                "checkedAt": {
+                    "description": "CheckedAt is the latest check of any source; zero (omitted) before the\nfirst check.",
+                    "type": "string"
+                },
+                "installsDisabled": {
+                    "description": "InstallsDisabled is true when this server refuses backend installs, so\nno item can be updated here.",
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/backendupdates.Item"
+                    }
+                },
+                "sources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/backendupdates.Source"
+                    }
+                },
+                "throttled": {
+                    "description": "Throttled is set by a check-now call that was answered from a check\nthat ran a few seconds ago.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "backendupdates.Source": {
+            "type": "object",
+            "properties": {
+                "checkedAt": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error is the error of the last check, empty when it succeeded.",
+                    "type": "string"
+                },
+                "lastSuccessAt": {
+                    "type": "string"
+                },
+                "note": {
+                    "description": "Note states a limit of what the source can see.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why a source is disabled.",
+                    "type": "string"
+                },
+                "stale": {
+                    "description": "Stale is true when the items of this source come from an older check\nthan CheckedAt, because the last one failed.",
+                    "type": "boolean"
+                },
+                "state": {
+                    "description": "State is ok, failed, never or disabled.",
                     "type": "string"
                 }
             }
@@ -18377,6 +19551,13 @@ const docTemplate = `{
                     "description": "Note is one plain sentence for the model when the provider reports\nisolated execution, such as the programs its environment has.",
                     "type": "string"
                 },
+                "profiles": {
+                    "description": "Profiles are the environments the provider can run commands in. The\nfirst one is the fallback and has the ID FallbackProfile. When there\nare profiles, the host builds the note for the model from the profile\nof the chat and Note is not used.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ExecutionProfile"
+                    }
+                },
                 "skills": {
                     "description": "Skills says which skills run on this provider.",
                     "allOf": [
@@ -18388,6 +19569,40 @@ const docTemplate = `{
                 "title": {
                     "description": "Title names the provider in the text the host shows the person and the\nmodel, for example \"Sandbox\". It falls back to the add-on's title.",
                     "type": "string"
+                }
+            }
+        },
+        "contract.ExecutionProfile": {
+            "type": "object",
+            "properties": {
+                "cpus": {
+                    "description": "CPUs, MemoryMiB and DiskMiB are the limits of one sandbox.",
+                    "type": "integer"
+                },
+                "description": {
+                    "description": "Description says what the profile is for, in one sentence.",
+                    "type": "string"
+                },
+                "diskMiB": {
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "ID is a short lower case name, such as base or media.",
+                    "type": "string"
+                },
+                "memoryMiB": {
+                    "type": "integer"
+                },
+                "title": {
+                    "description": "Title is the name the person sees.",
+                    "type": "string"
+                },
+                "tools": {
+                    "description": "Tools are the programs the environment has. The provider's image build\nfails when one of them is missing (see ProfileTool.Check).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ProfileTool"
+                    }
                 }
             }
         },
@@ -18417,6 +19632,20 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.ModelSearchText": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/contract.SearchFilterText"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "contract.NetworkPreset": {
             "type": "object",
             "properties": {
@@ -18442,6 +19671,26 @@ const docTemplate = `{
                 },
                 "size": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.ProfileTool": {
+            "type": "object",
+            "properties": {
+                "check": {
+                    "description": "Check are the commands the image build runs to prove the tool works,\neach a program name with its version flags, for example \"jq --version\".",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "detail": {
+                    "description": "Detail is an optional short remark, for example the libraries of Python.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is how the model and the person read it, for example ffmpeg.",
+                    "type": "string"
                 }
             }
         },
@@ -18559,6 +19808,67 @@ const docTemplate = `{
                 },
                 "schema": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.SearchFilter": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "description": "Default is a string (enum, text), a bool or a number (range)."
+                },
+                "help": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "maxLength": {
+                    "description": "MaxLength bounds a text filter; zero means MaxFilterTextLength.",
+                    "type": "integer"
+                },
+                "min": {
+                    "description": "Min, Max, Step and Unit describe a range filter.",
+                    "type": "number"
+                },
+                "step": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "values": {
+                    "description": "Values are the choices of an enum filter.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "contract.SearchFilterText": {
+            "type": "object",
+            "properties": {
+                "help": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -19058,6 +20368,26 @@ const docTemplate = `{
                 }
             }
         },
+        "gallery.NodeVersionInfo": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "node_status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "gallery.StorageFile": {
             "type": "object",
             "properties": {
@@ -19129,6 +20459,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/gallery.NodeDriftInfo"
+                    }
+                },
+                "nodes": {
+                    "description": "Nodes lists every node that reports this backend, with the version it\nhas, so a view of one backend can show the nodes that are current too.\nEmpty in single-node mode.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.NodeVersionInfo"
                     }
                 },
                 "reason": {
@@ -19229,6 +20566,10 @@ const docTemplate = `{
                 },
                 "total_bytes": {
                     "type": "integer"
+                },
+                "upgrade": {
+                    "description": "Upgrade is true if the operation re-installs a backend to move it to a\nnewer build. Without it an upgrade reads as an install: the UI needs the\ndifference for its wording and for what Retry has to call.",
+                    "type": "boolean"
                 }
             }
         },
@@ -21062,6 +22403,121 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.RecommendedHardwareInfo": {
+            "type": "object",
+            "properties": {
+                "detected": {
+                    "description": "Detected is false when no memory figure could be read; the cpu tier is\nthen shown without a fit verdict.",
+                    "type": "boolean"
+                },
+                "kind": {
+                    "description": "Kind is \"gpu\", \"cpu\" or \"unknown\".",
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the per-device VRAM on a GPU host and the system memory\notherwise.",
+                    "type": "integer"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "scope": {
+                    "description": "Scope is \"local\" or \"cluster\"; NodeName names the cluster node sized for.",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.RecommendedModel": {
+            "type": "object",
+            "properties": {
+                "context_size": {
+                    "description": "ContextSize is the window the install will use. Pass it as the\ncontext_size parameter of the install route so the installed config\ncarries it. 0 when it could not be computed; then install without it.",
+                    "type": "integer"
+                },
+                "fit": {
+                    "description": "Fit is \"fits\", \"tight\", \"does_not_fit\" or \"unknown\".",
+                    "type": "string"
+                },
+                "fit_reasons": {
+                    "description": "FitReasons are stable keys a client turns into text.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "description": "ID is the gallery name; pass it to the install route.",
+                    "type": "string"
+                },
+                "installed": {
+                    "type": "boolean"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the estimated memory at ContextSize.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is the one-line reason the curated list gives.",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role is \"default\" or \"alternative\", as the curated list has it.",
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "description": "SizeBytes is the size of the weights to download.",
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.RecommendedModelsResponse": {
+            "type": "object",
+            "properties": {
+                "hardware": {
+                    "$ref": "#/definitions/localai.RecommendedHardwareInfo"
+                },
+                "min_context": {
+                    "description": "MinContext and RecommendedContext are the chat windows the fit is judged by.",
+                    "type": "integer"
+                },
+                "models": {
+                    "description": "Models are ranked best first. The first one is the recommendation.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.RecommendedModel"
+                    }
+                },
+                "nothing_fits": {
+                    "description": "NothingFits is true when no curated model fits the machine. Models then\nholds the smallest one, with a fit of does_not_fit.",
+                    "type": "boolean"
+                },
+                "recommended_context": {
+                    "type": "integer"
+                },
+                "tier": {
+                    "description": "Tier is the hardware tier: cpu, gpu-small, gpu-mid or gpu-large.",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.SearchSourcesRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled is the new enabled set of source IDs. The host stores the\nvisible sources that are not in it as the ones turned off. An empty list\nsearches nothing.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "localai.TTSModelVoices": {
             "type": "object",
             "properties": {
@@ -21188,11 +22644,19 @@ const docTemplate = `{
         "modeladmin.VRAMResponse": {
             "type": "object",
             "properties": {
+                "block_count": {
+                    "description": "BlockCount is the number of layers of the model, read from the GGUF\nmetadata. Absent when it is unknown.",
+                    "type": "integer"
+                },
                 "context_length": {
                     "type": "integer"
                 },
                 "context_note": {
                     "type": "string"
+                },
+                "expert_count": {
+                    "description": "ExpertCount is the number of experts of a mixture-of-experts model, read\nfrom the GGUF metadata. Absent for a dense model or when it is unknown.",
+                    "type": "integer"
                 },
                 "model_max_context": {
                     "type": "integer"
@@ -21207,6 +22671,438 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vram_display": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.EstimateResult": {
+            "type": "object",
+            "properties": {
+                "approximate": {
+                    "description": "Approximate is true when the architecture was not read from a GGUF\nheader, so the KV cache term is a rule of thumb (size plus 2 KiB per\ncontext token) and not computed from layers, width and heads.",
+                    "type": "boolean"
+                },
+                "blockCount": {
+                    "description": "from GGUF metadata; the layer count",
+                    "type": "integer"
+                },
+                "estimates": {
+                    "description": "keys: context size as string",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/vram.VRAMAt"
+                    }
+                },
+                "expertCount": {
+                    "description": "from GGUF metadata; zero for a dense model",
+                    "type": "integer"
+                },
+                "file": {
+                    "description": "File is the first file of the variant that was estimated; empty when\nthe whole repository was.",
+                    "type": "string"
+                },
+                "modelMaxContext": {
+                    "description": "from GGUF metadata",
+                    "type": "integer"
+                },
+                "quantization": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "sizeDisplay": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source says where the architecture came from: \"gguf-header\" when the\nheader of the file was read (layers, width and heads are exact),\n\"file-size\" when only the file size was known (the KV cache term is a\nrule of thumb) and \"unknown\" when no size was known at all.",
+                    "type": "string"
+                },
+                "variants": {
+                    "description": "Variants has the same estimate for every quantization of a GGUF\nrepository. Quantizations of one model share an architecture, so the\nheader read for the chosen file serves them all: one upstream read\nanswers the whole variant list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.VariantEstimate"
+                    }
+                }
+            }
+        },
+        "modelsearch.GGUFInfo": {
+            "type": "object",
+            "properties": {
+                "architecture": {
+                    "type": "string"
+                },
+                "context_length": {
+                    "type": "integer"
+                },
+                "parameters": {
+                    "type": "integer"
+                }
+            }
+        },
+        "modelsearch.Overview": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled is the enabled set: every source the person can see that they\ndid not turn off, in the order of Sources.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missing": {
+                    "description": "Missing is kept for older clients and is always empty: the store holds\nwhat the person turned off, so no stored ID asks for an add-on to be\ninstalled.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Source"
+                    }
+                }
+            }
+        },
+        "modelsearch.ProviderStatus": {
+            "type": "object",
+            "properties": {
+                "cached": {
+                    "description": "Cached is true when the results came from the cache.",
+                    "type": "boolean"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "dropped": {
+                    "description": "Dropped counts the rows that the host refused: a scheme it does not\nhandle, or a field over its cap.",
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "description": "Title is the name of the source, when it has one.",
+                    "type": "string"
+                },
+                "unsupported": {
+                    "description": "Unsupported is true when the provider was not asked because it cannot\nanswer this kind of request: a list of the newest models with no search\ntext. The provider is ok and has no results; nothing went upstream.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "modelsearch.RepoFile": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is \"gguf\", \"mmproj\" or \"weights\" (safetensors, bin, pt).",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Size is in bytes; zero when the provider did not say.",
+                    "type": "integer"
+                }
+            }
+        },
+        "modelsearch.RepoFiles": {
+            "type": "object",
+            "properties": {
+                "backend": {
+                    "description": "The fields below are filled by the route, not by the Inspector.\nBackend and ImportFiles come from a dry run of the import (no download,\nno job) on this very listing; ImportError says why it could not run.",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description is the first paragraph of the model card, at most 400\ncharacters. Empty when the card could not be read.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.RepoFile"
+                    }
+                },
+                "gated": {
+                    "description": "Gated is reported as is. For Pirate Face it is also true when the site\nshows no magnet link, which is what a gated licence looks like there.",
+                    "type": "boolean"
+                },
+                "gguf": {
+                    "$ref": "#/definitions/modelsearch.GGUFInfo"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "import_error": {
+                    "type": "string"
+                },
+                "import_files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "installed": {
+                    "type": "boolean"
+                },
+                "installed_name": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "library_name": {
+                    "type": "string"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "pipeline_tag": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "revision": {
+                    "description": "Revision is the commit the file list and sizes come from.",
+                    "type": "string"
+                },
+                "size_known": {
+                    "description": "SizeKnown is false when no file size could be found, which happens for\na Pirate Face repository Hugging Face does not know.",
+                    "type": "boolean"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "uri": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "variants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Variant"
+                    }
+                }
+            }
+        },
+        "modelsearch.Response": {
+            "type": "object",
+            "properties": {
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.ProviderStatus"
+                    }
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Result"
+                    }
+                },
+                "sources": {
+                    "description": "Sources describes the sources that were asked, with their filters, so a\nclient needs no second call to draw the controls.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelsearch.Source"
+                    }
+                }
+            }
+        },
+        "modelsearch.Result": {
+            "type": "object",
+            "properties": {
+                "backend": {
+                    "description": "Backend is the backend an import would likely pick, derived from the\ntags; a hint. RepoFiles.Backend is exact.",
+                    "type": "string"
+                },
+                "downloads": {
+                    "type": "integer"
+                },
+                "gated": {
+                    "description": "Gated is true when the provider says access needs approval. It is\nreported as is; nothing here tries to get around it.",
+                    "type": "boolean"
+                },
+                "has_variants": {
+                    "description": "HasVariants is true when opening the model is likely to list several\nquantizations: a GGUF repository, or any Pirate Face one (the source of an add-on).",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is the owner/repo name.",
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is true when an installed model comes from this repository;\nInstalledName is that model's name.",
+                    "type": "boolean"
+                },
+                "installed_name": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "string"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "likes": {
+                    "type": "integer"
+                },
+                "magnet": {
+                    "description": "Magnet is the BitTorrent magnet link, when the provider lists one.",
+                    "type": "string"
+                },
+                "pipeline_tag": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "seeders": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "uri": {
+                    "description": "URI is what the import route accepts: huggingface://owner/repo for\nHugging Face, pirateface://owner/repo for Pirate Face.",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is a page a person can open.",
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.Source": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SearchFilter"
+                    }
+                },
+                "has_variants": {
+                    "type": "boolean"
+                },
+                "i18n": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/contract.ModelSearchText"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is \"builtin\" or \"addon\".",
+                    "type": "string"
+                },
+                "lists_latest": {
+                    "type": "boolean"
+                },
+                "p2p": {
+                    "type": "boolean"
+                },
+                "running": {
+                    "description": "Running is false for an add-on that is installed and not running.",
+                    "type": "boolean"
+                },
+                "sorts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelsearch.Variant": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "description": "File is the first shard; pass it to the estimate route.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "preference": {
+                    "description": "Preference is the value for preferences.quantizations on\nPOST /models/import-uri that makes the import pick exactly this\nvariant. Empty when no safe value exists.",
+                    "type": "string"
+                },
+                "quantization": {
+                    "description": "Quantization is the label read from the file name, such as \"Q4_K_M\".",
+                    "type": "string"
+                },
+                "recommended": {
+                    "description": "Recommended marks the variant LocalAI would suggest first.",
+                    "type": "boolean"
+                },
+                "shards": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "description": "SizeBytes sums the shards; zero when sizes are unknown.",
+                    "type": "integer"
+                }
+            }
+        },
+        "modelsearch.VariantEstimate": {
+            "type": "object",
+            "properties": {
+                "estimates": {
+                    "description": "Estimates is keyed by context size, like the gallery estimate.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/vram.VRAMAt"
+                    }
+                },
+                "file": {
+                    "type": "string"
+                },
+                "quantization": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "sizeDisplay": {
                     "type": "string"
                 }
             }
@@ -21929,6 +23825,14 @@ const docTemplate = `{
                 "connection_by": {
                     "type": "string"
                 },
+                "connection_state": {
+                    "description": "ConnectionState is reconnect_needed when an enabled connection that\nuses a login must be connected again, connected when the enabled ones\nthat use a login work, and empty when none uses a login.",
+                    "type": "string",
+                    "enum": [
+                        "connected",
+                        "reconnect_needed"
+                    ]
+                },
                 "connections": {
                     "type": "array",
                     "items": {
@@ -22169,6 +24073,13 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "auth_kind": {
+                    "description": "AuthKind is oauth2 for a binding whose credential comes from a login\nat the service (see oauth). Absent for a binding that holds a token\nyou gave.",
+                    "type": "string",
+                    "enum": [
+                        "oauth2"
+                    ]
+                },
                 "caps": {
                     "description": "Caps are the capabilities you enabled for this binding: the ceiling of\nwhat any sender can use. Grants give roles of the kind some of them.",
                     "type": "array",
@@ -22232,6 +24143,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "inbound_media": {
+                    "description": "InboundMedia lists the kinds of file that the bot takes from senders:\nphoto, voice, audio, video_note, document. Empty takes every kind.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "kind": {
                     "type": "string"
                 },
@@ -22240,6 +24158,14 @@ const docTemplate = `{
                 },
                 "notify_chat": {
                     "type": "string"
+                },
+                "oauth": {
+                    "description": "OAuth is the state of the login of an oauth2 binding; absent for a\ntoken binding. It never holds a token or a secret.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuth"
+                        }
+                    ]
                 },
                 "options": {
                     "description": "Options are the choices made for the options of the kind, by option id.\nAn option that is absent has its default (see ChatsConnectorKind).",
@@ -22267,7 +24193,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
+                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart), stream (a working message that shows the answer as it is\nwritten) or reasoning (like stream, and it shows the reasoning of the\nmodel while it thinks; every sender of the binding can read it). The\nanswer replaces the working message.",
                     "type": "string"
                 },
                 "resources": {
@@ -22292,6 +24218,10 @@ const docTemplate = `{
                 "ui_language": {
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
                     "type": "string"
+                },
+                "used_by": {
+                    "description": "UsedBy is how many of your saved agents have this connection in their\nconnections. Present only for a binding of a tool_only kind.",
+                    "type": "integer"
                 },
                 "window_minutes": {
                     "type": "integer"
@@ -22356,6 +24286,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "effective_run_limit": {
+                    "type": "string"
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -22413,6 +24346,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "read_only_why": {
+                    "type": "string"
+                },
+                "run_limit": {
+                    "description": "RunLimit is the longest one run may take, as a duration such as 30m;\nempty means the administrator's run limit. EffectiveRunLimit is what\napplies now: the least of RunLimit and the administrator's limit.",
                     "type": "string"
                 },
                 "schedule": {
@@ -22571,6 +24508,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/resourcesets.Sets"
                         }
                     ]
+                },
+                "sandbox_profile": {
+                    "description": "SandboxProfile is the sandbox profile of the agent's unattended runs and\nthe starting profile of its chats (GET /api/chats/sandbox-profiles lists\nthem). Empty: the administrator's default. A profile the Sandbox does\nnot have, or that you may not use, runs the default or base.",
+                    "type": "string"
                 },
                 "skills": {
                     "type": "array",
@@ -23081,6 +25022,10 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "sandbox_profile": {
+                    "description": "SandboxProfile is the sandbox profile of the agent (see ChatsAgent).\nA profile ID, or empty for the default; a value that is not a profile ID\nis 400.",
+                    "type": "string"
+                },
                 "skills": {
                     "type": "array",
                     "items": {
@@ -23529,6 +25474,14 @@ const docTemplate = `{
         "schema.ChatsConnection": {
             "type": "object",
             "properties": {
+                "connection_state": {
+                    "description": "ConnectionState is the state of the login of a connection that uses\none (connected or reconnect_needed); empty for a token.",
+                    "type": "string",
+                    "enum": [
+                        "connected",
+                        "reconnect_needed"
+                    ]
+                },
                 "handle": {
                     "type": "string"
                 },
@@ -23537,6 +25490,13 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "shared": {
+                    "description": "Shared is true for a connection that another person shared with you;\nOwner is that person's name. Its login is theirs: only they can connect\nit again.",
+                    "type": "boolean"
                 }
             }
         },
@@ -23596,6 +25556,13 @@ const docTemplate = `{
                         {
                             "$ref": "#/definitions/schema.ChatsConnectorApproval"
                         }
+                    ]
+                },
+                "auth_kind": {
+                    "description": "AuthKind is oauth2 for a binding whose credential comes from a login\nat the service (see oauth). Absent for a binding that holds a token\nyou gave.",
+                    "type": "string",
+                    "enum": [
+                        "oauth2"
                     ]
                 },
                 "caps": {
@@ -23661,6 +25628,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "inbound_media": {
+                    "description": "InboundMedia lists the kinds of file that the bot takes from senders:\nphoto, voice, audio, video_note, document. Empty takes every kind.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "kind": {
                     "type": "string"
                 },
@@ -23669,6 +25643,14 @@ const docTemplate = `{
                 },
                 "notify_chat": {
                     "type": "string"
+                },
+                "oauth": {
+                    "description": "OAuth is the state of the login of an oauth2 binding; absent for a\ntoken binding. It never holds a token or a secret.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuth"
+                        }
+                    ]
                 },
                 "options": {
                     "description": "Options are the choices made for the options of the kind, by option id.\nAn option that is absent has its default (see ChatsConnectorKind).",
@@ -23693,7 +25675,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
+                    "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart), stream (a working message that shows the answer as it is\nwritten) or reasoning (like stream, and it shows the reasoning of the\nmodel while it thinks; every sender of the binding can read it). The\nanswer replaces the working message.",
                     "type": "string"
                 },
                 "resources": {
@@ -23718,6 +25700,10 @@ const docTemplate = `{
                 "ui_language": {
                     "description": "UILanguage is the interface language the owner's page last sent, such as\nit or pt-BR. With reply_language auto, the bot speaks in it before it\nreads the language of the sender. Absent when the server was not told.",
                     "type": "string"
+                },
+                "used_by": {
+                    "description": "UsedBy is how many of your saved agents have this connection in their\nconnections. Present only for a binding of a tool_only kind.",
+                    "type": "integer"
                 },
                 "window_minutes": {
                     "type": "integer"
@@ -24221,6 +26207,10 @@ const docTemplate = `{
                     "description": "AgentOptional is true when a binding of this kind may have no agent. It\nthen only holds credentials (token, resource list, write mode).",
                     "type": "boolean"
                 },
+                "auth_kind": {
+                    "description": "AuthKind is oauth2 when the add-on logs people in with OAuth: create\nits bindings with auth_kind oauth2 and no token. Absent for a kind\nwhose bindings hold a token.",
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -24312,6 +26302,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.ChatsConnectorTokenGuard"
                     }
                 },
+                "tool_only": {
+                    "description": "ToolOnly is true for a kind whose bindings only serve tools. A binding\nhas no agent, never listens and never accepts senders; the server clears\nagent_id, enabled and accept_any. Many agents can use one binding\nthrough their connections. It implies agent_optional.",
+                    "type": "boolean"
+                },
                 "wildcard_resources": {
                     "description": "WildcardResources is true when a binding of this kind may list owner/*\nor * as resources; * needs confirm_any_resource.",
                     "type": "boolean"
@@ -24355,6 +26349,80 @@ const docTemplate = `{
                 "sharing": {
                     "description": "Sharing says whether bindings can be shared on this server: false with\nno named accounts (local-owner mode) or when the sharing policy does not\nrun.",
                     "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsConnectorOAuth": {
+            "type": "object",
+            "properties": {
+                "account_label": {
+                    "description": "AccountLabel is who the login is at the service, as the add-on says.",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "description": "ExpiresAt is when the access token ends; the host renews it before.\nAbsent when the service gave no end.",
+                    "type": "string"
+                },
+                "has_client": {
+                    "description": "HasClient is true when an administrator saved a client for the add-on.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason is a fixed code: revoked, client_rejected, refused,\nneeds_approval, credential_rejected, expired, write_failed, unreadable,\nscopes_missing, endpoint_changed or token_too_large.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes are the scopes the service granted.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "description": "State is connected, reconnect_needed (the login ended; reason says\nwhy), not_connected (nobody logged in yet) or needs_approval (an\nadministrator must save the add-on's client first, or approve it again\nafter its login changed; a login that exists keeps its tokens until\nthen). It is read from the shared store: a changed login of the add-on\nshows as needs_approval once a call or a refresh found it.",
+                    "type": "string",
+                    "enum": [
+                        "connected",
+                        "reconnect_needed",
+                        "not_connected",
+                        "needs_approval"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsConnectorOAuthDisconnected": {
+            "type": "object",
+            "properties": {
+                "revoked": {
+                    "description": "Revoked is true when the service confirmed that it revoked the login.\nThe login is removed here in any case.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsConnectorOAuthStart": {
+            "type": "object",
+            "properties": {
+                "return_to": {
+                    "description": "ReturnTo is the page of the web app you come back to, a path under\n/app with an optional query and no fragment. Empty means the\nConnectors page.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes are the optional scopes of the add-on that you ticked. The\nrequired ones are always asked for.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsConnectorOAuthStarted": {
+            "type": "object",
+            "properties": {
+                "authorize_url": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "string"
                 }
             }
         },
@@ -24592,6 +26660,14 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "auth_kind": {
+                    "description": "AuthKind is token (the default) or oauth2. An oauth2 binding takes no\ntoken: it gets its credential from a login (see the oauth/start call).\nIt is set at create and ignored by an update.",
+                    "type": "string",
+                    "enum": [
+                        "token",
+                        "oauth2"
+                    ]
+                },
                 "caps": {
                     "description": "Caps are the capabilities you enable for the binding (a closed list,\nsee the kind's permissions for the ones it can grant to a role).\nAbsent means none for a new binding and unchanged for an update; an\nempty list clears.",
                     "type": "array",
@@ -24643,6 +26719,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.ChatsConnectorRoleGrant"
                     }
                 },
+                "inbound_media": {
+                    "description": "InboundMedia lists the kinds of file that the bot takes from senders\n(photo, voice, audio, video_note, document); a file of another kind is\nnever read, and the sender is told. Empty takes every kind. Absent\nmeans every kind for a new binding and unchanged for an update.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "kind": {
                     "description": "Kind is the platform, as a connector add-on declares it (see the kinds\ncall). It is required to create a binding and ignored by an update.",
                     "type": "string"
@@ -24674,7 +26757,7 @@ const docTemplate = `{
                     ]
                 },
                 "reply_mode": {
-                    "description": "ReplyMode is off, progress or stream; empty means progress.",
+                    "description": "ReplyMode is off, progress, stream or reasoning; empty means progress.",
                     "type": "string"
                 },
                 "resources": {
@@ -24735,11 +26818,27 @@ const docTemplate = `{
                 "created": {
                     "type": "string"
                 },
+                "dock": {
+                    "description": "Dock is the panel of pages the interface shows beside the chat, when\nsomething opened one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    ]
+                },
                 "goal": {
                     "description": "Goal is the chat's goal, when it has one.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsGoal"
+                        }
+                    ]
+                },
+                "harness": {
+                    "description": "Harness says whether the chat has the context window the chat agent\nneeds. It is set when a single chat is opened, created or changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHarness"
                         }
                     ]
                 },
@@ -24814,11 +26913,27 @@ const docTemplate = `{
                 "created": {
                     "type": "string"
                 },
+                "dock": {
+                    "description": "Dock is the panel of pages the interface shows beside the chat, when\nsomething opened one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsDock"
+                        }
+                    ]
+                },
                 "goal": {
                     "description": "Goal is the chat's goal, when it has one.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsGoal"
+                        }
+                    ]
+                },
+                "harness": {
+                    "description": "Harness says whether the chat has the context window the chat agent\nneeds. It is set when a single chat is opened, created or changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHarness"
                         }
                     ]
                 },
@@ -24832,6 +26947,13 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "jobs": {
+                    "description": "Jobs are the background jobs of the chat and of its sub-agents, running\nones first (POST /api/chats/{id}/jobs/{job}/kill stops one).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsJob"
+                    }
                 },
                 "kind": {
                     "description": "chat or subagent",
@@ -25017,6 +27139,46 @@ const docTemplate = `{
                 },
                 "title": {
                     "description": "Title is optional; the conversation is named after its first message otherwise.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsDock": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer"
+                },
+                "open": {
+                    "type": "boolean"
+                },
+                "tabs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsDockTab"
+                    }
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsDockResponse": {
+            "type": "object",
+            "properties": {
+                "dock": {
+                    "$ref": "#/definitions/schema.ChatsDock"
+                }
+            }
+        },
+        "schema.ChatsDockTab": {
+            "type": "object",
+            "properties": {
+                "folder": {
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the folder name of the page (^[a-z0-9][a-z0-9-]{0,63}$).",
                     "type": "string"
                 }
             }
@@ -25479,6 +27641,84 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsExtractConflict": {
+            "type": "object",
+            "properties": {
+                "kept": {
+                    "description": "Kept is where the new content went; empty when it was dropped.",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsExtractRequest": {
+            "type": "object",
+            "properties": {
+                "dest": {
+                    "description": "Dest is the folder to extract into. Empty: a new folder next to the\narchive, named like it without the extension.",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the archive, inside your home.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsExtractResponse": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "integer"
+                },
+                "conflicts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsExtractConflict"
+                    }
+                },
+                "dest": {
+                    "description": "Dest is the folder that holds the files.",
+                    "type": "string"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "folders": {
+                    "type": "integer"
+                },
+                "rev": {
+                    "description": "Rev is the change set; POST /api/chats/files/undo with it takes it all back.",
+                    "type": "integer"
+                },
+                "skipped": {
+                    "description": "Skipped lists up to 200 entries that were not extracted;\nskipped_count counts all of them.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsExtractSkipped"
+                    }
+                },
+                "skipped_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsExtractSkipped": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is symlink, hard_link, special, bad_name, not_utf8, too_deep,\ntoo_large, duplicate, encrypted, managed or unreadable.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsFailure": {
             "type": "object",
             "properties": {
@@ -25767,6 +28007,38 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsHarness": {
+            "type": "object",
+            "properties": {
+                "admin": {
+                    "description": "Admin is true when Minimum is the administrator's.",
+                    "type": "boolean"
+                },
+                "can_fix": {
+                    "description": "CanFix is true when this user may change what limits the window: an\nadministrator for the model's window, the chat's owner for the chat's\nown context size.",
+                    "type": "boolean"
+                },
+                "minimum": {
+                    "description": "Minimum is the smallest window that works for this user's role, and\nRecommended is the window to aim at.",
+                    "type": "integer"
+                },
+                "ok": {
+                    "description": "OK is false when the window of the chat is below Minimum.",
+                    "type": "boolean"
+                },
+                "recommended": {
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "Source is what limits the window when OK is false: \"model\" or \"chat\".",
+                    "type": "string"
+                },
+                "window": {
+                    "description": "Window is the window the chat runs with, in tokens (0 when unknown).",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ChatsHistory": {
             "type": "object",
             "properties": {
@@ -25813,6 +28085,10 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "job": {
+                    "description": "Job is set when the command starts a background job of the ` + "`" + `job` + "`" + ` tool:\nallowing it also allows the input the model writes to that job later.",
+                    "type": "boolean"
                 }
             }
         },
@@ -25848,6 +28124,13 @@ const docTemplate = `{
                 },
                 "exit": {
                     "type": "integer"
+                },
+                "job": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is run (a command of bash, also when empty), job_start, job_input,\njob_kill or job_end. Job is the job id on the lines of a background job.",
+                    "type": "string"
                 },
                 "timed_out": {
                     "type": "boolean"
@@ -25904,6 +28187,53 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsJob": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "boolean"
+                },
+                "bytes": {
+                    "type": "integer"
+                },
+                "chat": {
+                    "description": "Chat is the chat that started the job: this chat, or one of its\nsub-agents. Agent is set for a sub-agent's job.",
+                    "type": "string"
+                },
+                "end": {
+                    "description": "End says why a finished job ended: exit, killed, stopped, lifetime,\nchat_deleted, shell_off, group_off, fenced, sandbox_remade, agent_ended,\nshutdown or start_failed.",
+                    "type": "string"
+                },
+                "ended": {
+                    "type": "string"
+                },
+                "exit": {
+                    "description": "Exit is the exit status of a finished job (128 plus n for signal n);\n-1 when it is not known.",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_output": {
+                    "description": "LastOutput is when a running job last wrote output; Bytes is how much it\nwrote. Both are absent when the node that runs it did not answer.",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider is \"builtin\" (this machine) or the id of the add-on that runs it.",
+                    "type": "string"
+                },
+                "started": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is starting, running, ending, exited, killed, failed or lost (the\nnode that ran it is gone).",
                     "type": "string"
                 }
             }
@@ -25975,6 +28305,13 @@ const docTemplate = `{
         "schema.ChatsLoopList": {
             "type": "object",
             "properties": {
+                "jobs": {
+                    "description": "Jobs are the background jobs of the chat and of its sub-agents.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsJob"
+                    }
+                },
                 "loops": {
                     "type": "array",
                     "items": {
@@ -26669,6 +29006,9 @@ const docTemplate = `{
                 "body": {
                     "type": "string"
                 },
+                "code": {
+                    "type": "string"
+                },
                 "created": {
                     "type": "string"
                 },
@@ -26680,6 +29020,10 @@ const docTemplate = `{
                 },
                 "link": {
                     "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {}
                 },
                 "read": {
                     "type": "boolean"
@@ -26752,6 +29096,139 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "schema.ChatsOAuthClient": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "approved": {
+                    "type": "boolean"
+                },
+                "approved_at": {
+                    "type": "string"
+                },
+                "approved_by": {
+                    "type": "string"
+                },
+                "approved_digest": {
+                    "description": "ApprovedDigest is the digest the stored approval is for;\nCurrentDigest the digest of the login the add-on declares now. Send\ncurrent_digest back to save.",
+                    "type": "string"
+                },
+                "callback_url": {
+                    "description": "CallbackURL is the address to register with the service, as this\nrequest reaches the server. Empty when the server cannot tell it (set\nLOCALAI_BASE_URL).",
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "configured": {
+                    "description": "Configured is true when a client is stored; Approved when its approval\nis for the login the add-on declares now.",
+                    "type": "boolean"
+                },
+                "current_digest": {
+                    "type": "string"
+                },
+                "descriptor": {
+                    "description": "Descriptor is the login the add-on declares, for the form to show.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsOAuthDescriptor"
+                        }
+                    ]
+                },
+                "has_secret": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsOAuthClientConflict": {
+            "type": "object",
+            "properties": {
+                "current_digest": {
+                    "type": "string"
+                },
+                "error": {
+                    "$ref": "#/definitions/schema.APIError"
+                }
+            }
+        },
+        "schema.ChatsOAuthClientWrite": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "description": "ClientSecret is write-only. Absent keeps the stored secret; a public\nclient (client_auth none) has none.",
+                    "type": "string"
+                },
+                "descriptor_digest": {
+                    "description": "DescriptorDigest is the current_digest the form showed. When the\nadd-on's login changed since, the save is a 409 with the new digest.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsOAuthDescriptor": {
+            "type": "object",
+            "properties": {
+                "authorize_params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsOAuthParam"
+                    }
+                },
+                "authorize_url": {
+                    "type": "string"
+                },
+                "client_auth": {
+                    "type": "string",
+                    "enum": [
+                        "basic",
+                        "post",
+                        "none"
+                    ]
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "optional_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pkce": {
+                    "type": "string"
+                },
+                "required_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "revoke_url": {
+                    "type": "string"
+                },
+                "token_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsOAuthParam": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         },
@@ -27010,6 +29487,165 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsSandboxProfile": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "description": "Allowed says whether the administrator's policy lets you use it.",
+                    "type": "boolean"
+                },
+                "cpus": {
+                    "description": "CPUs, MemoryMiB and DiskMiB are the limits of one sandbox of the\nprofile, before the administrator's quota.",
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disk_mib": {
+                    "type": "integer",
+                    "example": 20480
+                },
+                "has_previous": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "media"
+                },
+                "memory_mib": {
+                    "type": "integer",
+                    "example": 4096
+                },
+                "state": {
+                    "$ref": "#/definitions/schema.ChatsSandboxProfileState"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Media"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileChoices": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSandboxProfile"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileSet": {
+            "type": "object",
+            "properties": {
+                "profile": {
+                    "description": "Profile is a profile ID, or empty for the agent's or the default one.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileState": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "percent": {
+                    "type": "integer"
+                },
+                "phase": {
+                    "description": "Phase is idle (not pulled yet; the first use pulls it), pulling, ready,\nfailed or absent (this release has no image for it).",
+                    "type": "string",
+                    "enum": [
+                        "idle",
+                        "pulling",
+                        "ready",
+                        "failed",
+                        "absent"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsSandboxProfileView": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "applies": {
+                    "description": "Applies is false when the commands of the chat run in no sandbox with\nprofiles (built-in bash, no add-on, or commands on this machine).",
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "fallback": {
+                    "description": "Fallback is true when the next command cannot use Profile because its\nimage is not available, and runs base. FallbackReason says why.",
+                    "type": "boolean"
+                },
+                "fallback_reason": {
+                    "type": "string"
+                },
+                "newer_image": {
+                    "description": "NewerImage is true when the running sandbox was made from an older image\nthan the current one. The newer image applies when the sandbox restarts.",
+                    "type": "boolean"
+                },
+                "profile": {
+                    "description": "Profile is the one the next command runs. Selected is your own choice\nfor the chat (\"\" when none). Source says where Profile comes from.",
+                    "type": "string"
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSandboxProfile"
+                    }
+                },
+                "selected": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "chat",
+                        "agent",
+                        "default"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsSandboxProfilesAdmin": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSandboxProfile"
+                    }
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsSearchHit": {
             "type": "object",
             "properties": {
@@ -27238,6 +29874,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "new": {
+                    "description": "New is true for a personal skill that was imported and that no chat has\nused yet. The first use clears it.",
+                    "type": "boolean"
+                },
                 "path": {
                     "description": "Path is the path of its SKILL.md as the model sees it.",
                     "type": "string"
@@ -27277,6 +29917,42 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSkillImportResult": {
+            "type": "object",
+            "properties": {
+                "rev": {
+                    "description": "Rev is the revision of the change set; undo it from the file history.",
+                    "type": "integer"
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSkillImported"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSkillImported": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scripts": {
+                    "description": "Scripts counts the files below scripts/. They are stored, never run by\nthe import.",
+                    "type": "integer"
                 }
             }
         },
@@ -27741,6 +30417,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "effective_run_limit": {
+                    "type": "string"
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -27795,6 +30474,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "read_only_why": {
+                    "type": "string"
+                },
+                "run_limit": {
+                    "description": "RunLimit is the longest one run may take, as a duration such as 30m;\nempty means the administrator's run limit. EffectiveRunLimit is what\napplies now: the least of RunLimit and the administrator's limit.",
                     "type": "string"
                 },
                 "schedule": {
@@ -28061,6 +30744,10 @@ const docTemplate = `{
                 "quiet_seconds": {
                     "type": "integer"
                 },
+                "run_limit": {
+                    "description": "RunLimit is the longest one run may take, a duration from 1m to 24h such\nas 30m. Empty or 0 means the administrator's run limit, which is also\nthe ceiling: a longer value is accepted and runs cut to it.",
+                    "type": "string"
+                },
                 "schedule": {
                     "type": "string"
                 },
@@ -28182,7 +30869,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "mode": {
-                    "description": "Mode is change, match or json_equals; Condition says it in words.",
+                    "description": "Mode is change, match, json_equals, exit_zero, exit or stall; Condition says it in\nwords.",
                     "type": "string"
                 },
                 "next_check": {
@@ -28204,7 +30891,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source_kind": {
-                    "description": "SourceKind is \"tool\" or \"url\". Source is the name of the tool, or the\nhost and path of the URL without the query.",
+                    "description": "SourceKind is \"tool\", \"url\", \"script\", \"job\" or \"agent\". Source is the\nname of the tool, the host and path of the URL without the query, \"a\nscript\", the id and label of the job, or the id of the background\nsub-agent: the text of a command is never in this object.",
                     "type": "string"
                 }
             }
@@ -28352,6 +31039,13 @@ const docTemplate = `{
                 "version": {
                     "description": "Version is what a write sends back in If-Match. It is 0 when the file\ndoes not exist.",
                     "type": "integer"
+                },
+                "withheld": {
+                    "description": "Withheld names the keys of the file that the server leaves out of data\nbecause an administrator turned their feature off (pageArea of home\nwhile the page area of Home is off). The file keeps them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -30330,6 +33024,10 @@ const docTemplate = `{
                     "description": "ContextSize is the effective context window in tokens the backend will\nrun with: the configured context_size, or the default when unset. 0 means\nthe value is unknown (e.g. a loose file with no config). Clients can use\nthis to size their context budget for auto-compaction and pruning.",
                     "type": "integer"
                 },
+                "description": {
+                    "description": "Description is the short text the model's configuration carries, when it\nhas one. It never includes paths or settings.",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -31616,12 +34314,25 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.PagesCompact": {
+            "type": "object",
+            "properties": {
+                "width": {
+                    "description": "Width is the width of the tile in CSS pixels, 72 to 220.",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.PagesConsent": {
             "type": "object",
             "properties": {
                 "allowed_at": {
                     "description": "The version you allowed: when, and the size of its index.html and\npage.json and the lines of its index.html, to say what changed.",
                     "type": "string"
+                },
+                "embed": {
+                    "description": "Embed is true when you also allowed this version to run on Home and in\nthe slots of the app (ui.json slots), where it starts without a click.",
+                    "type": "boolean"
                 },
                 "lines": {
                     "type": "integer"
@@ -31641,6 +34352,10 @@ const docTemplate = `{
         "schema.PagesConsentRequest": {
             "type": "object",
             "properties": {
+                "embed": {
+                    "description": "Embed also allows the version on Home and in the slots of the app. It\nis a lasting consent: it cannot go with once.",
+                    "type": "boolean"
+                },
                 "hash": {
                     "type": "string"
                 },
@@ -31652,6 +34367,9 @@ const docTemplate = `{
         "schema.PagesConsentResponse": {
             "type": "object",
             "properties": {
+                "embed": {
+                    "type": "boolean"
+                },
                 "expires": {
                     "type": "string"
                 },
@@ -31666,6 +34384,40 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.PagesErrorRequest": {
+            "type": "object",
+            "properties": {
+                "column": {
+                    "type": "integer"
+                },
+                "count": {
+                    "description": "Count is how many times the frame saw this error since its last report.",
+                    "type": "integer"
+                },
+                "file": {
+                    "description": "File is the script file of the page that threw; empty for index.html.",
+                    "type": "string"
+                },
+                "line": {
+                    "description": "Line and Column are 0 when the browser gave none.",
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "stack": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesErrorResponse": {
+            "type": "object",
+            "properties": {
+                "recorded": {
+                    "type": "boolean"
                 }
             }
         },
@@ -31734,6 +34486,10 @@ const docTemplate = `{
         "schema.PagesList": {
             "type": "object",
             "properties": {
+                "page_area_enabled": {
+                    "description": "PageAreaEnabled is false when an administrator turned the page area of\nHome off: a pageArea of home.json is then ignored.",
+                    "type": "boolean"
+                },
                 "pages": {
                     "type": "array",
                     "items": {
@@ -31896,6 +34652,14 @@ const docTemplate = `{
         "schema.PagesWidget": {
             "type": "object",
             "properties": {
+                "compact": {
+                    "description": "Compact is set when the page has a layout for a slot, a strip about\n40 px high (ui.json slots). Without it a slot shows a button that opens\nthe page.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.PagesCompact"
+                        }
+                    ]
+                },
                 "size": {
                     "description": "Size is the height of the tile: small, medium or large.",
                     "type": "string"
@@ -33697,6 +36461,20 @@ const docTemplate = `{
                     "$ref": "#/definitions/voiceprofile.AudioMetadata"
                 },
                 "transcript": {
+                    "type": "string"
+                }
+            }
+        },
+        "vram.VRAMAt": {
+            "type": "object",
+            "properties": {
+                "contextLength": {
+                    "type": "integer"
+                },
+                "vramBytes": {
+                    "type": "integer"
+                },
+                "vramDisplay": {
                     "type": "string"
                 }
             }

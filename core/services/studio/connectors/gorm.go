@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"gorm.io/gorm"
@@ -56,13 +57,19 @@ type bindingRow struct {
 	Caps   string
 	Grants string
 	Paired string
+	// AuthKind is added by AutoMigrate; a row stored before it is a token
+	// binding.
+	AuthKind string `gorm:"size:16"`
 	// WriteTickRemoved is added by AutoMigrate; a row stored before it reads as false.
 	WriteTickRemoved bool
 	// AccountID is added by AutoMigrate; a row stored before it has none.
 	AccountID string `gorm:"size:128"`
-	Token     []byte
-	Created   time.Time
-	Updated   time.Time
+	// InboundMedia is JSON, added by AutoMigrate; a row stored before it takes
+	// every kind.
+	InboundMedia string
+	Token        []byte
+	Created      time.Time
+	Updated      time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -131,7 +138,8 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("connectors: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{}); err != nil {
+	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{},
+		&grantRow{}, &oauthClientRow{}, &loginStateRow{}); err != nil {
 		return nil, fmt.Errorf("connectors: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -140,7 +148,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
 		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ReplyLanguage: r.ReplyLanguage, UILanguage: r.UILanguage, WriteMode: r.WriteMode, AccountID: r.AccountID, WriteTickRemoved: r.WriteTickRemoved,
-		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
+		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax, AuthKind: r.AuthKind,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
@@ -155,7 +163,7 @@ func (r bindingRow) binding() (Binding, error) {
 	for _, f := range []struct {
 		raw string
 		dst any
-	}{{r.Caps, &b.Caps}, {r.AllowTrust, &b.AllowTrust}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}} {
+	}{{r.Caps, &b.Caps}, {r.AllowTrust, &b.AllowTrust}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}, {r.InboundMedia, &b.InboundMedia}} {
 		if f.raw == "" {
 			continue
 		}
@@ -177,17 +185,10 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(b.Options)
 		options = string(raw)
 	}
-	enc := func(v any, empty bool) string {
-		if empty {
-			return ""
-		}
-		raw, _ := json.Marshal(v)
-		return string(raw)
-	}
-	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: enc(b.AllowTrust, len(b.AllowTrust) == 0), Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), WriteTickRemoved: b.WriteTickRemoved, Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	return s.db.WithContext(ctx).Save(&bindingRow{AllowTrust: encJSON(b.AllowTrust, len(b.AllowTrust) == 0), Approval: encJSON(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: encList(b.Resources), Channels: encList(b.Channels), Caps: encList(b.Caps), WriteTickRemoved: b.WriteTickRemoved, Grants: encList(b.Grants), Paired: encList(b.Paired), InboundMedia: encList(b.InboundMedia), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
 		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, UILanguage: b.UILanguage, AccountID: b.AccountID, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
-		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		AuthKind: b.AuthKind, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {
@@ -232,12 +233,17 @@ func (s *gormStore) EnabledBindings(ctx context.Context) ([]Binding, error) {
 
 func (s *gormStore) DeleteBinding(ctx context.Context, id string) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}} {
+		// The binding goes first, so a PutGrant that waits on its lock finds
+		// it gone, and one that wrote before is removed below.
+		if err := tx.Where("id = ?", id).Delete(&bindingRow{}).Error; err != nil {
+			return err
+		}
+		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}, &grantRow{}, &loginStateRow{}} {
 			if err := tx.Where("binding = ?", id).Delete(m).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Where("id = ?", id).Delete(&bindingRow{}).Error
+		return nil
 	})
 }
 
@@ -376,6 +382,38 @@ func (s *gormStore) SetCapsIfEmpty(ctx context.Context, id string, caps []string
 	return res.RowsAffected == 1, res.Error
 }
 
+// AddCapIfAbsent reads the ceiling and writes it back only while the stored
+// text is still the one it read, so a save of the owner between the two steps
+// wins and the add is tried again on the new text.
+func (s *gormStore) AddCapIfAbsent(ctx context.Context, id, capability string) (bool, error) {
+	for range 5 {
+		var row bindingRow
+		err := s.db.WithContext(ctx).Where("id = ?", id).Take(&row).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		var caps []string
+		if row.Caps != "" {
+			_ = json.Unmarshal([]byte(row.Caps), &caps)
+		}
+		if len(caps) == 0 || slices.Contains(caps, capability) {
+			return false, nil
+		}
+		raw, _ := json.Marshal(append(caps, capability))
+		res := s.db.WithContext(ctx).Model(&bindingRow{}).Where("id = ? AND caps = ?", id, row.Caps).Update("caps", string(raw))
+		if res.Error != nil {
+			return false, res.Error
+		}
+		if res.RowsAffected == 1 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s *gormStore) SetAccountID(ctx context.Context, id, accountID string) error {
 	return s.db.WithContext(ctx).Model(&bindingRow{}).Where("id = ?", id).Update("account_id", accountID).Error
 }
@@ -403,4 +441,16 @@ func (s *gormStore) FinishMigration(ctx context.Context, name string, now time.T
 
 func (s *gormStore) ReleaseMigration(ctx context.Context, name string) error {
 	return s.db.WithContext(ctx).Where("name = ? AND done = ?", name, false).Delete(&migrationRow{}).Error
+}
+
+// encList encodes a list for a JSON text column; an empty list is stored as "".
+func encList[S ~[]E, E any](v S) string { return encJSON(v, len(v) == 0) }
+
+// encJSON encodes v for a JSON text column; an empty value is stored as "".
+func encJSON(v any, empty bool) string {
+	if empty {
+		return ""
+	}
+	raw, _ := json.Marshal(v)
+	return string(raw)
 }

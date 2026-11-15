@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "id": "pirateface-search",
+  "version": "0.1.0",
+  "executable": "pirateface-search",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 1
+  },
+  "api": {
+    "min": 2,
+    "max": 2
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 1
+  },
+  "featureLevel": 9,
+  "capabilities": {
+    "tools": [
+      "search"
+    ],
+    "toolDefinitions": [
+      {
+        "name": "search",
+        "description": "Search Pirate Face for open-weight models that are shared as torrents. Returns the repository, its size, the number of seeders and a magnet link. Used by the model search of the host.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "Search text.",
+              "maxLength": 200
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Most results wanted.",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "sort": {
+              "type": "string",
+              "description": "Sort of the host. The site keeps its own order, so it is ignored.",
+              "maxLength": 20
+            },
+            "format": {
+              "type": "string",
+              "description": "File format of the host. The site lists models of any format, so it is ignored.",
+              "maxLength": 20
+            },
+            "filters": {
+              "type": "object",
+              "description": "Values of the filters of this source, by filter ID."
+            }
+          },
+          "required": [
+            "q"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "provides": [
+      {
+        "slot": "model-search",
+        "slotVersion": 1,
+        "roles": {
+          "search": "search"
+        }
+      }
+    ],
+    "modelSearch": {
+      "source": {
+        "id": "pirateface",
+        "title": "Pirate Face",
+        "icon": "cloud",
+        "listsLatest": false,
+        "hasVariants": true,
+        "p2p": true
+      },
+      "sorts": [],
+      "filters": [
+        {
+          "id": "min-seeders",
+          "type": "range",
+          "label": "Minimum seeders",
+          "help": "Hide models that fewer peers share.",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "seeds"
+        }
+      ]
+    }
+  }
+}

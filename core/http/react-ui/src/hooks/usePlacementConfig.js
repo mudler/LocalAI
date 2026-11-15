@@ -3,7 +3,9 @@ import YAML from 'yaml'
 import { modelsApi } from '../utils/api'
 
 // The keys the Placement section writes, and the one it reads.
-export const PLACEMENT_KEYS = ['gpu_layers', 'tensor_split', 'main_gpu', 'context_size']
+// `options` is the engine's option list; the section edits only its expert
+// entries (see utils/moePlacement.js) and keeps the rest as they are.
+export const PLACEMENT_KEYS = ['gpu_layers', 'tensor_split', 'main_gpu', 'context_size', 'options']
 
 function pick(config) {
   const values = {}
@@ -84,6 +86,11 @@ export function usePlacementConfig(name, { onSaved, onError } = {}) {
     }
   }, [name, values, state.saved, onSaved, onError])
 
+  const shown = useMemo(() => {
+    const backend = state.parsed?.backend
+    return backend === undefined || backend === null ? values : { ...values, backend }
+  }, [values, state.parsed])
+
   const reload = useCallback(() => setNonce(n => n + 1), [])
-  return { status: state.status, error: state.error, values, setValue, preview, dirty, save, saving, reload }
+  return { status: state.status, error: state.error, values: shown, setValue, preview, dirty, save, saving, reload }
 }

@@ -123,6 +123,19 @@ var _ = Describe("ListModelCapabilitiesEndpoint", func() {
 		}
 	})
 
+	It("carries the short description of a model, and no path or setting", func() {
+		writeConfig("painter", "name: painter\nbackend: stablediffusion-ggml\nknown_usecases: [image]\ndescription: Fast image model.\nmodel: /private/path/weights.gguf\n")
+		writeConfig("plain", "name: plain\nbackend: stablediffusion-ggml\nknown_usecases: [image]\n")
+		resp := call()
+		Expect(entryFor(resp, "painter").Description).To(Equal("Fast image model."))
+		raw, err := json.Marshal(entryFor(resp, "plain"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring(`"description"`))
+		raw, err = json.Marshal(entryFor(resp, "painter"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("/private/path"))
+	})
+
 	It("returns the list envelope even with no models", func() {
 		resp := call()
 		Expect(resp.Object).To(Equal("list"))
@@ -221,7 +234,7 @@ parameters:
 		Expect(entry.ContextSize).To(Equal(8192))
 	})
 
-	It("keeps the backend fallback when the model sets a non-positive context_size", func() {
+	It("reads a context_size of 0 as unset and reports the instance default", func() {
 		writeConfig("llm-explicit-zero", `
 name: llm-explicit-zero
 backend: llama-cpp
@@ -232,7 +245,7 @@ parameters:
 		appConf.ContextSize = 8192
 		entry := entryFor(call(), "llm-explicit-zero")
 		Expect(entry).NotTo(BeNil())
-		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
+		Expect(entry.ContextSize).To(Equal(8192))
 	})
 	It("reports an alias with its target's capabilities and context_size", func() {
 		writeConfig("real-llm", `

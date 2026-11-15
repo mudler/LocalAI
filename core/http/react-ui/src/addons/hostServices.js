@@ -9,7 +9,7 @@ import {
   Button, Spinner, EmptyState, Badge, Stack, Text,
   Section, Field, Select, TextInput, Switch, Choice, Callout, Notice, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
   PageHeader, ConfirmDialog, SideSheet, SidePane, PaneLayout, ActionMenu, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
-  DistributionBars, EmbeddingInspector, TabSwitch, ShareDialog, ConnectionShareDialog, RoleBadge, SharedByBadge,
+  DistributionBars, EmbeddingInspector, TabSwitch, ShareDialog, ConnectionShareDialog, ConnectionLogin, RoleBadge, SharedByBadge,
 } from './hostComponents'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Modal from '../components/Modal'
@@ -76,7 +76,7 @@ export const host = Object.freeze({
     Button, Spinner, EmptyState, Badge, Stack, Text, ArtifactCard,
     Section, Field, Select, TextInput, Switch, Choice, Callout, Notice, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
     PageHeader, ConfirmDialog, SideSheet, SidePane, PaneLayout, ActionMenu, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
-    DistributionBars, EmbeddingInspector, TabSwitch, ShareDialog, ConnectionShareDialog, RoleBadge, SharedByBadge,
+    DistributionBars, EmbeddingInspector, TabSwitch, ShareDialog, ConnectionShareDialog, ConnectionLogin, RoleBadge, SharedByBadge,
     LoadingSpinner, Modal, Lightbox, ModelPicker, HomeModelPicker: ModelPicker,
   },
   hooks: {

@@ -35,7 +35,7 @@ for pkg in ./core/services/addons/apps ./core/services/addons ./core/services/ad
     i=$((i + 1))
     go_report="$cache/logs/esm-ui-go-$i.json"
     rm -f "$go_report"
-    go test -count=1 -p 2 -tags auth "$pkg" -ginkgo.label-filter=assets -ginkgo.json-report="$go_report" >"$cache/logs/esm-ui-go-$i.log" 2>&1 || { tail -40 "$cache/logs/esm-ui-go-$i.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp "$pkg" -ginkgo.label-filter=assets -ginkgo.json-report="$go_report" >"$cache/logs/esm-ui-go-$i.log" 2>&1 || { tail -40 "$cache/logs/esm-ui-go-$i.log" >&2; exit 1; }
     python3 -I - "$go_report" <<'PY'
 import json, sys
 for report in json.load(open(sys.argv[1])):
@@ -55,7 +55,7 @@ done
 
 # 3. The real owner and the browser.
 fixture_exe="$cache/tmp/fixture-addon"
-go build -p 2 -tags auth -o "$fixture_exe" ./tests/addons/fixture/cmd
+go build -p 2 -tags auth,nosqlite,purego_utp -o "$fixture_exe" ./tests/addons/fixture/cmd
 port=$(python3 -I -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
 creds="$cache/logs/esm-ui-credentials.json"
 rm -f "$creds"

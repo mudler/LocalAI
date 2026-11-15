@@ -109,6 +109,9 @@ type RuntimeSettings struct {
 	ChatsLocalAIClient *bool   `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
 	ChatsLocalAIAdmin  *bool   `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
 	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups on demand: auto, on or off (default: auto)
+	// Jobs that an add-on starts for a paired client. Read when a job
+	// runs. By default such a job may only use tools that read.
+	ClientJobsAllowAllTools *bool `json:"client_jobs_allow_all_tools,omitempty"` // let jobs from a paired client use the write and act tools that the task's agent is set up with, no more (default: false)
 	// The network of the commands the chats run in the Sandbox. Read at each
 	// check of the host proxy, so a change applies at once (a cached allow
 	// lives at most 30 seconds).
@@ -136,6 +139,13 @@ type RuntimeSettings struct {
 	ChatsLoopMaxPerChat  *int    `json:"chats_loop_max_per_chat,omitempty"`
 	ChatsLoopMaxPerUser  *int    `json:"chats_loop_max_per_user,omitempty"`
 	ChatsLoopDailyRuns   *int    `json:"chats_loop_daily_runs,omitempty"`
+	// The triggers of the chats: the longest one run may take (a duration,
+	// 1m to 24h, default 15m), the triggers one user may have (1 to 1000,
+	// default 50) and the highest daily limit one trigger may have (1 to 1000,
+	// default 1000). Read at each use.
+	ChatsTriggerRunLimit    *string `json:"chats_trigger_run_limit,omitempty"`
+	ChatsTriggerMaxPerUser  *int    `json:"chats_trigger_max_per_user,omitempty"`
+	ChatsTriggerMaxDailyCap *int    `json:"chats_trigger_max_daily_cap,omitempty"`
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`
@@ -149,6 +159,13 @@ type RuntimeSettings struct {
 	ChatsIndexFiles        *bool `json:"chats_index_files,omitempty"`
 	ChatsIndexMaxTextBytes *int  `json:"chats_index_max_text_bytes,omitempty"`
 
+	// Limits of "Extract here" on the Files page: the most bytes (default:
+	// 1 GiB) and entries (default: 20000) one archive may expand to, and
+	// whether 7z and RAR archives are read at all (default: false).
+	ChatsExtractMaxBytes    *int64 `json:"chats_extract_max_bytes,omitempty"`
+	ChatsExtractMaxEntries  *int   `json:"chats_extract_max_entries,omitempty"`
+	ChatsExtractSevenZipRar *bool  `json:"chats_extract_7z_rar,omitempty"`
+
 	// Offers from the assistant in the chats, for users who did not choose.
 	// Read at each turn, so a change applies at once.
 	ChatsSuggestions *bool `json:"chats_suggestions,omitempty"` // negation of DisableChatSuggestions (default: true)
@@ -156,6 +173,11 @@ type RuntimeSettings struct {
 	// Pages of shared folders — read live by the pages handlers on every
 	// request, so switching them off stops open pages at their next call.
 	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
+
+	// The page area of Home: a page of the user's workspace that fills the
+	// area below the composer. Read live on every list of pages, so switching
+	// it off hides the area at the next read.
+	HomePageAreaEnabled *bool `json:"home_page_area_enabled,omitempty"` // negation of DisablePageArea
 
 	// Built-in chat tools (Settings > Tools) — read live at every turn.
 	// ChatsHostExec is who gets the built-in bash that runs commands on this

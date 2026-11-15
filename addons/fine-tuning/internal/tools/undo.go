@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/jobundo"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The undo of a chat's change (see contract.UndoAction). The start of a job is
@@ -32,12 +32,12 @@ func (r *runtime) undoer() *jobundo.Undoer[job] {
 		Entry: func(j job, known bool) jobundo.Entry {
 			return jobundo.Entry{Known: known && !j.Dataset, Name: j.Name, JobID: j.JobID, Revision: j.Revision, StartOp: j.StartOp, Started: j.startedAt(), UndoneBy: j.UndoneBy}
 		},
-		Receipt: r.j.receipt,
+		Receipt: r.j.Receipt,
 		Commit: func(resource string, j job, undoneBy string, rec contract.Receipt) error {
 			next := j
 			next.Revision++
 			next.UndoneBy = undoneBy
-			return r.j.commit(resource, &next, rec)
+			return r.j.CommitJob(rec, resource, &next)
 		},
 		MapErr: protocol.FromHostError, Payload: protocol.Payload,
 	}

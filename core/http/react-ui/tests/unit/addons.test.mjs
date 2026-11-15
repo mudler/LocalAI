@@ -12,7 +12,7 @@ import {
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
   shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
-  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf, localizeEntry, localizeRecord, sortEntriesByTitle,
+  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf, localizeEntry, localizeRecord, sortEntriesByTitle, untrustedSource,
   operationOf, upgradingTitles, staleKind, saveLastKnown, loadLastKnown,
 } from '../../src/components/addons/addonState.js'
 import { buildTiles, filterTiles } from '../../src/utils/addonTiles.js'
@@ -728,4 +728,32 @@ test('translations: the lists are in the alphabetical order of the user language
   const apps = entries.map(e => ({ ...e, enabled: true, state: 'running' }))
   assert.deepEqual(buildTiles(apps, [], { language: 'it' }).map(t => t.id), ['discord', 'fine-tuning', 'tables', 'face'])
   assert.deepEqual(buildTiles(apps, [], { language: 'en' }).map(t => t.id), ['discord', 'face', 'fine-tuning', 'tables'])
+})
+
+test('addons: the catalog entry carries the official flag only when the host sent true', async () => {
+  const rel = (id, extra = {}) => ({ id, name: id, version: '1.0.0', sourceId: 'lib', os: 'linux', arch: 'amd64', digest: 'sha256:a', ...extra })
+  const adapterFor = (releases) => createAddonsCatalogAdapter({ dispatch: async () => ({ releases, total: releases.length }) })
+  const page = await adapterFor([rel('a', { official: true }), rel('b', { official: false }), rel('c'), rel('d', { official: 'yes' })]).search({ text: '', sourceId: '', page: 1 })
+  assert.deepEqual(page.entries.map(e => e.official), [true, false, false, false])
+})
+
+test('addons: the dialog warns about the source unless the entry is official and the preview agrees', () => {
+  assert.equal(untrustedSource({ official: false }, null), true)
+  assert.equal(untrustedSource({}, null), true)
+  assert.equal(untrustedSource(null, null), true)
+  assert.equal(untrustedSource({ official: true }, null), false)
+  assert.equal(untrustedSource({ official: true }, { official: true }), false)
+  // The preview also checks the signature: it can only add the warning.
+  assert.equal(untrustedSource({ official: true }, { official: false }), true)
+  assert.equal(untrustedSource({ official: true }, { official: null }), false)
+  assert.equal(untrustedSource({ official: false }, { official: true }), true)
+})
+
+test('addons: every locale words the source warning with the library name and no markup', () => {
+  for (const lang of readdirSync(localesDir)) {
+    const text = JSON.parse(readFileSync(join(localesDir, lang, 'addons.json'), 'utf8')).hostAccess.notOfficialWarning
+    assert.equal(typeof text, 'string', lang)
+    assert.ok(text.includes('{{library}}'), lang)
+    assert.ok(!/[<>]/.test(text), lang)
+  }
 })

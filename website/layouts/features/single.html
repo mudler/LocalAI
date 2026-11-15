@@ -1,0 +1,24 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell duo duo--wide">
+  <div>
+    <p class="crumb"><a href="{{ "features/" | relURL }}">Features</a> / {{ .Title }}</p>
+    <h1>{{ .Params.headline | safeHTML }}</h1>
+    <p class="lede">{{ .Params.lede }}</p>
+    {{ if .Params.dev }}<p class="need need--dev">In development builds, coming in the next release.</p>{{ end }}
+    <div class="acts">
+      {{ with .Params.docs }}<a class="btn" href="{{ . }}">Read the {{ $.Title }} docs</a>{{ end }}
+      <a class="btn btn--o" href="{{ "get-started/" | relURL }}">Get started</a>
+    </div>
+  </div>
+  {{ partial "demo-slot.html" (dict "kind" .Params.illus "demo" .Params.demo "alt" (printf "%s: a short demo" .Title)) }}
+</div></header>
+<section><div class="shell"><div class="prose">
+  <h2>What it does</h2>
+  <ul class="list">{{ range .Params.points }}<li>{{ . | markdownify }}</li>{{ end }}</ul>
+  {{ with .Params.notes }}<div class="note note--mt"><b>Good to know</b><ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul></div>{{ end }}
+  {{ .Content }}
+  {{ if eq .Params.special "models" }}{{ partial "engines-teaser.html" . }}{{ end }}
+</div></div></section>
+</main>
+{{ end }}

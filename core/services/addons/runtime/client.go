@@ -4,6 +4,8 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -30,7 +32,12 @@ type Client struct {
 	// polls counts the connector long polls in flight. They have a pool of
 	// their own (maxPolls) so that a binding that waits up to 25 s does not
 	// take a slot from the short calls (see admitIn).
-	polls                int
+	polls int
+	// clientCalls counts the client route calls in flight. A route may run for
+	// a minute, so these calls have a pool of their own (clientCallLimit):
+	// paired clients cannot take every slot of the short calls that the chat
+	// tool calls of the add-on use.
+	clientCalls          int
 	observationLeases    int
 	observations         map[string]context.CancelFunc
 	endpoint, credential string
@@ -68,7 +75,7 @@ func (c *Client) drain(ctx context.Context) {
 	defer ticker.Stop()
 	for {
 		c.mu.Lock()
-		n := c.active + c.polls + c.observationLeases
+		n := c.active + c.polls + c.clientCalls + c.observationLeases
 		c.mu.Unlock()
 		if n == 0 {
 			return
@@ -87,18 +94,47 @@ func (c *Client) drain(ctx context.Context) {
 // why it must not draw on limits.Concurrency, the budget of the short calls.
 const maxPolls = 64
 
-func (c *Client) admit() (func(), error) { return c.admitIn(false) }
+// pool names the budget a call draws on.
+type pool int
 
-// admitIn admits one call into the pool of short calls or, for a long poll,
-// into the poll pool. Both pools stop at withdraw, and the returned function
+const (
+	poolCall   pool = iota // short calls: read, act, preview, connector pushes
+	poolPoll               // connector long polls and client streams
+	poolClient             // client route calls that do not stream
+)
+
+// clientCallLimit is how many client route calls may run at once in one
+// add-on: half of the short call budget, and at least one. The other half stays
+// for the tool calls of chats. A client call also counts in the short call
+// budget (active), so the sum of both never passes limits.Concurrency.
+func (c *Client) clientCallLimit() int {
+	return int(max(1, c.limits.Concurrency/2))
+}
+
+func (c *Client) admit() (func(), error) { return c.admitIn(poolCall) }
+
+// admitIn admits one call into the pool of short calls, the poll pool or the
+// client call pool. All pools stop at withdraw, and the returned function
 // frees the slot once.
-func (c *Client) admitIn(poll bool) (func(), error) {
+func (c *Client) admitIn(p pool) (func(), error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.accept {
 		return nil, ErrNotSent
 	}
-	if poll {
+	switch p {
+	case poolClient:
+		// A client call takes a slot of the short call budget, so the add-on
+		// never gets more calls than it declared, and it takes no more than
+		// half of them, so the tool calls of chats keep the other half.
+		if c.clientCalls >= c.clientCallLimit() || int64(c.active) >= c.limits.Concurrency {
+			return nil, ErrNotSent
+		}
+		c.clientCalls++
+		c.active++
+		var once sync.Once
+		return func() { once.Do(func() { c.mu.Lock(); c.clientCalls--; c.active--; c.mu.Unlock() }) }, nil
+	case poolPoll:
 		if c.polls >= maxPolls {
 			return nil, ErrNotSent
 		}
@@ -155,7 +191,7 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 			// The service behind the add-on asks the caller to wait. The call
 			// had no effect and the same call may succeed later.
 			n, _ := strconv.Atoi(wait)
-			return nil, &contract.ErrRateLimited{RetryAfter: min(max(n, 1), contract.MaxRetryAfter)}
+			return nil, contract.RateLimitedAfter(n)
 		}
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict
@@ -164,6 +200,11 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 			// The answer of an add-on runtime to a permission it checked. A 403
 			// with another body is the envelope check, a host fault.
 			return nil, ErrDenied
+		}
+		if resp.StatusCode == http.StatusUnauthorized && reason == "credential_rejected" {
+			// The service refused the access token and the call changed
+			// nothing. Any other 401 is not this answer and stays an outage.
+			return nil, ErrCredentialRejected
 		}
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
 			r := &Refusal{Status: resp.StatusCode, Reason: reason}
@@ -243,10 +284,17 @@ func (c *Client) begin(ctx context.Context, env *contract.Envelope) func() {
 	return c.inflight.BeginRuntime(*env, hostops.Binding{}, false, c.registration.Incarnation)
 }
 func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
-	return c.callIn(false, ctx, path, env, in, out, timeout)
+	return c.callIn(poolCall, ctx, path, env, in, out, timeout)
 }
-func (c *Client) callIn(poll bool, ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
-	done, e := c.admitIn(poll)
+func (c *Client) callIn(p pool, ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
+	return c.callThen(p, ctx, path, env, in, out, timeout, nil)
+}
+
+// callThen is callIn with a step that runs after a good answer and before the
+// envelope stops being live: a job lease must take over a request that is
+// still in flight.
+func (c *Client) callThen(p pool, ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration, then func()) error {
+	done, e := c.admitIn(p)
 	if e != nil {
 		return e
 	}
@@ -259,7 +307,10 @@ func (c *Client) callIn(poll bool, ctx context.Context, path string, env *contra
 		return e
 	}
 	defer func() { _ = resp.Body.Close() }()
-	return decode(resp.Body, c.limits.EnvelopeBytes, out)
+	if e = decode(resp.Body, c.limits.EnvelopeBytes, out); e == nil && then != nil {
+		then()
+	}
+	return e
 }
 func (c *Client) Read(ctx context.Context, v contract.Envelope) (contract.Result, error) {
 	var r contract.Result
@@ -287,7 +338,16 @@ func (c *Client) Act(ctx context.Context, v contract.Envelope) (contract.Result,
 	if e := c.valid(v, "act"); e != nil {
 		return r, e
 	}
-	e := c.call(ctx, "/act", &v, v, &r, contract.ActTimeout)
+	slot, refusal := c.reserveJobLease(v)
+	if refusal != nil {
+		return *refusal, nil
+	}
+	defer slot.Release()
+	e := c.callThen(poolCall, ctx, "/act", &v, v, &r, contract.ActTimeout, func() {
+		if r.Validate(c.limits) == nil {
+			c.leaseJobs(v, r, slot)
+		}
+	})
 	if e == nil {
 		e = r.Validate(c.limits)
 	}
@@ -305,8 +365,136 @@ func (c *Client) Connector(ctx context.Context, v contract.ConnectorRequest) (co
 	if c.registration.Capabilities.Connector == nil {
 		return r, ErrNotSent
 	}
-	e := c.callIn(v.Op == contract.ConnectorOpPoll, ctx, "/connector", nil, v, &r, v.CallTimeout())
+	p := poolCall
+	if v.Op == contract.ConnectorOpPoll {
+		p = poolPoll
+	}
+	e := c.callIn(p, ctx, "/connector", nil, v, &r, v.CallTimeout())
 	return r, e
+}
+
+var (
+	_ contract.ClientCaller      = (*Client)(nil)
+	_ contract.ClientRouteSource = (*Client)(nil)
+)
+
+// ClientRoutes are the routes the running incarnation declared for clients.
+func (c *Client) ClientRoutes() []contract.ClientRoute {
+	if d := c.registration.Capabilities.Client; d != nil {
+		return append([]contract.ClientRoute(nil), d.Routes...)
+	}
+	return nil
+}
+
+// clientRoute finds the declared route a request names and checks the request
+// against it, so a request that the host did not match is never sent.
+func (c *Client) clientRoute(v contract.ClientRequest, stream bool) (contract.ClientRoute, error) {
+	for _, r := range c.ClientRoutes() {
+		if r.ID != v.RouteID {
+			continue
+		}
+		if r.Method != v.Method || r.Stream != stream || int64(len(v.Body)) > r.BodyLimit() ||
+			contract.ValidateClientQuery(v.Query) != nil || !contract.ValidEventID(v.LastEventID) || v.Client.ID == "" {
+			return r, ErrNotSent
+		}
+		return r, nil
+	}
+	return contract.ClientRoute{}, ErrNotSent
+}
+
+// clientEnvelope is the host's record of a live client call. It never goes to
+// the add-on: it is what the host operations of the call are checked against.
+// The authority is a read scope (see below for the one exception), and the call
+// can reach only the operations of hostops.ClientCallOps. It lasts as long as
+// the call.
+//
+// A call on a route that changes things (any method but GET) gets the apply
+// scope, so that client.workspace.write can run for it. The broker still limits
+// a client call to the exact operations of hostops.ClientCallOps, so the apply
+// scope reaches that one operation and no other. A GET route and every stream
+// keep the read scope, and no client call gets the act scope.
+func (c *Client) clientEnvelope(actor contract.Actor, op string, life time.Duration, mutating bool) (contract.Envelope, error) {
+	if !strings.HasPrefix(actor.CredentialID, contract.ClientCredentialPrefix) || actor.UserID == "" {
+		return contract.Envelope{}, ErrNotSent
+	}
+	scope := "read"
+	if mutating {
+		scope = "apply"
+	}
+	return contract.Envelope{
+		Request:   contract.Request{AddonID: c.registration.AddonID, OperationID: op, Generation: c.registration.Generation, Action: "client", Arguments: json.RawMessage(`{}`)},
+		Authority: contract.Authority{Actor: actor, Scope: scope, ExpiresAt: time.Now().Add(life + time.Minute)},
+	}, nil
+}
+
+func newClientOperationID() (string, error) {
+	var b [12]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", ErrNotSent
+	}
+	return "cl-" + hex.EncodeToString(b[:]), nil
+}
+
+// ClientCallAs calls a client route that does not stream. It is not retried here: a
+// call that may have run is the caller's to report.
+func (c *Client) ClientCallAs(ctx context.Context, actor contract.Actor, v contract.ClientRequest) (contract.ClientResponse, error) {
+	var r contract.ClientResponse
+	route, e := c.clientRoute(v, false)
+	if e != nil {
+		return r, e
+	}
+	if v.OperationID, e = newClientOperationID(); e != nil {
+		return r, e
+	}
+	env, e := c.clientEnvelope(actor, v.OperationID, route.Timeout(), route.Method != http.MethodGet)
+	if e != nil {
+		return r, e
+	}
+	if e = c.callIn(poolClient, ctx, "/client", &env, v, &r, route.Timeout()); e == nil {
+		e = r.Validate(c.limits)
+	}
+	return r, e
+}
+
+// ClientStreamAs opens a client route that streams. A stream holds a slot of
+// the long call pool until it closes, and ends after
+// contract.MaxClientStreamSeconds. The live record of the call lasts as long as
+// the stream, so the add-on may make host operations while it serves it.
+func (c *Client) ClientStreamAs(ctx context.Context, actor contract.Actor, v contract.ClientRequest) (io.ReadCloser, error) {
+	if _, e := c.clientRoute(v, true); e != nil {
+		return nil, e
+	}
+	var e error
+	if v.OperationID, e = newClientOperationID(); e != nil {
+		return nil, e
+	}
+	env, e := c.clientEnvelope(actor, v.OperationID, contract.MaxClientStreamSeconds*time.Second, false)
+	if e != nil {
+		return nil, e
+	}
+	done, e := c.admitIn(poolPoll)
+	if e != nil {
+		return nil, e
+	}
+	end := c.begin(ctx, &env)
+	ctx, cancel := context.WithTimeout(ctx, contract.MaxClientStreamSeconds*time.Second)
+	resp, e := c.send(ctx, "/client/stream", v)
+	if e != nil {
+		cancel()
+		end()
+		done()
+		return nil, e
+	}
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+		_ = resp.Body.Close()
+		cancel()
+		end()
+		done()
+		return nil, ErrRuntime
+	}
+	stream := &boundedStream{body: resp.Body, remaining: 1 << 50, finish: func() { cancel(); end(); done() }}
+	context.AfterFunc(ctx, func() { _ = stream.Close() })
+	return stream, nil
 }
 func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {
 	var r contract.Preview

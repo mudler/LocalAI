@@ -56,12 +56,13 @@ var _ = Describe("Run retention", func() {
 		Expect(r.runs("t1")).To(HaveLen(10))
 	})
 
-	It("does not remove a run that is still going and counts skipped runs", func() {
+	It("does not remove a run that is still going, and keeps one row for its repeated skips", func() {
 		r := newRig(func(o *triggers.Options) { o.Retention = triggers.RunRetention{Keep: 2, MaxAge: -1} })
-		// The run of day 0 never ends, so the later days are skipped at once.
+		// The run of day 0 never ends, so the later days are skipped at once; the
+		// same skip is recorded once, not once for each day.
 		daily(r, 8, func(day int) bool { return day == 0 })
 		runs := r.runs("t1")
-		Expect(runs).To(HaveLen(3), statuses(runs))
+		Expect(runs).To(HaveLen(2), statuses(runs))
 		Expect(runs[len(runs)-1].Status).To(Equal(triggers.StatusRunning), "the running run stays")
 		Expect(runs[0].Status).To(Equal(triggers.StatusSkipped))
 	})

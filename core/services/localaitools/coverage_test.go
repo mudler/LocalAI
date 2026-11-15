@@ -27,6 +27,8 @@ import (
 var toolToHTTPRoute = map[string]string{
 	// Read-only tools.
 	ToolGallerySearch:             "GET /models/available",
+	ToolSearchModels:              "GET /api/models/search",
+	ToolInspectRemoteModel:        "GET /api/models/remote/files", // and GET /api/models/remote/estimate when estimate is set
 	ToolListInstalledModels:       "GET /api/models/capabilities",
 	ToolListGalleries:             "GET /models/galleries",
 	ToolGetJobStatus:              "GET /models/jobs/:uuid",
@@ -34,6 +36,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListBackends:              "GET /backends",
 	ToolListKnownBackends:         "GET /backends/known",
 	ToolListBackendLibraryUpdates: "GET /backends/library/updates",
+	ToolBackendUpdates:            "GET /backends/updates (action list), POST /backends/updates/check (action check)",
 	ToolSystemInfo:                "GET /version + GET /system (composed)",
 	ToolListNodes:                 "GET /api/nodes",
 	ToolListScheduling:            "GET /api/nodes/scheduling",
@@ -127,6 +130,17 @@ var adminRoutesWithoutTool = map[string]string{
 	"GET /api/chats/admin/connectors":              "oversight of other users' connectors: a person's act on the admin page",
 	"POST /api/chats/admin/connectors/:id/disable": "stops another user's connector: a person's act on the admin page",
 	"DELETE /api/chats/admin/connectors/:id":       "deletes another user's connector: a person's act on the admin page",
+	// The OAuth client of an add-on: its client ID and secret, and the
+	// approval of the login the add-on declares. A secret must not pass
+	// through a chat, and saving is the approval, a person's act on the
+	// add-on's settings form. See connector_oauth_unmapped_test.go.
+	"GET /api/chats/admin/oauth-clients/:addonId": "shows the client and the approval of an add-on's login: read on the add-on's settings form",
+	"PUT /api/chats/admin/oauth-clients/:addonId": "takes a client secret and approves an add-on's login: a secret must not pass through a chat",
+	// Which model sources a person searches is a personal choice made in the
+	// search panel. The search tool already uses that choice, so a model never
+	// needs to read or change it.
+	"GET /api/models/search/sources": "the sources and the enabled set of the person: read in the search panel; search_models uses the enabled set",
+	"PUT /api/models/search/sources": "the enabled set is a personal choice made in the search panel, not something a model changes",
 	// A diagnostic button of Settings > Tools, not a setting to manage.
 	"POST /api/chats/admin/web/test": "a diagnostic button: it runs one search and changes nothing",
 	// Settings of the chats that change what commands may do on this machine
@@ -135,7 +149,13 @@ var adminRoutesWithoutTool = map[string]string{
 	"POST /api/settings (chats_host_exec)":            "lets chats run commands on the server with no isolation: a person's act in Settings > Tools",
 	"POST /api/settings (chats_tool_providers)":       "chooses which add-on serves a tool or skill: set in Settings > Tools",
 	"POST /api/settings (chats_egress_allow_private)": "needs the typed phrase in chats_egress_private_confirm, a person's act",
-	"POST /api/settings (chats_web_*)":                "the web tools settings: set in Settings > Tools, with Test search",
+	// An owner host setting of the Sandbox add-on: the default profile, who may
+	// use each profile, the quota and the previous-image pins. It is written
+	// with the owner dispatch (host-settings-update), which needs the
+	// administrator's own session, and the assistant holds no per-call
+	// credential for it.
+	"POST /api/addons/dispatch (host-settings-update, sandbox_profiles)": "an owner setting changed on the add-on Settings tab through owner dispatch, like chats_tool_providers and the egress lists; the assistant has no per-call owner credential",
+	"POST /api/settings (chats_web_*)":                                   "the web tools settings: set in Settings > Tools, with Test search",
 	// Read by get_chat_egress. Opening a host or a registry to every chat
 	// is a decision made on the Settings > Tools list editor, like the
 	// private switch.
@@ -148,6 +168,9 @@ var adminRoutesWithoutTool = map[string]string{
 	"POST /api/settings (chats_work_folder)":          "where every chat keeps its helper files: set in Settings > Tools",
 	"POST /api/settings (chats_index_files)":          "reads the text of every user's documents into the server's store: a person's choice in Settings > Tools",
 	"POST /api/settings (chats_index_max_text_bytes)": "how much text the index keeps per document, which sizes the database: set in Settings > Tools",
+	"POST /api/settings (chats_extract_max_bytes)":    "a limit of the Files page Extract action that protects the server: a model must not raise it; set in Settings > Tools",
+	"POST /api/settings (chats_extract_max_entries)":  "a limit of the Files page Extract action that protects the server: a model must not raise it; set in Settings > Tools",
+	"POST /api/settings (chats_extract_7z_rar)":       "turns on parsers of untrusted 7z and RAR files inside the server: a person's choice in Settings > Tools",
 	"POST /api/settings (chats_saved_agents)":         "lets every chat start the user's saved agents: set in Settings > Tools",
 	"POST /api/settings (chats_suggestions)":          "the default of each user's own choice of assistant offers: set in Settings > Agents",
 	"POST /api/settings (chats_vision_model)":         "the helper model of describe_image: set in Settings > Agents, with the model picker",

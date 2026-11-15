@@ -288,6 +288,9 @@ type ModelCapabilities struct {
 	// Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
 	// tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
 	Capabilities []string `json:"capabilities"`
+	// Description is the short text the model's configuration carries, when it
+	// has one. It never includes paths or settings.
+	Description string `json:"description,omitempty"`
 	// InputModalities is the subset of {text,image,audio,video} the model accepts.
 	InputModalities []string `json:"input_modalities"`
 	// OutputModalities is the subset of {text,image,audio,video} the model produces.

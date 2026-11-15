@@ -2,7 +2,13 @@ import { test, expect } from './coverage-fixtures.js'
 
 // Layers must read as layers in both themes: a card against the canvas, the
 // current row against the list, and the send button against its disabled self.
-const rgb = (css) => css.match(/[\d.]+/g).slice(0, 3).map(Number)
+// A colour the theme mixes with color-mix() is reported as color(srgb r g b)
+// with channels from 0 to 1; a plain colour is reported as rgb(r, g, b) with
+// channels from 0 to 255. Compare both on the 0 to 255 scale.
+const rgb = (css) => {
+  const channels = css.match(/[\d.]+/g).slice(0, 3).map(Number)
+  return css.startsWith('color(') ? channels.map((v) => v * 255) : channels
+}
 const distance = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]))
 
 for (const theme of ['light', 'dark']) {

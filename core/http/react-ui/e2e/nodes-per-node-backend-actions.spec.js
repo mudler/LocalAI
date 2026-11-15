@@ -1,7 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
+import { galleryItem, mockUpdates, snapshotOf } from './updates-fixtures.js'
 
 // These specs cover the per-node backend row on the node detail page:
-//   - the upgrade affordance is self-explanatory (icon + tooltip)
+//   - the update affordance is offered only when the node is behind, and asks first
 //   - a delete affordance is present and goes through ConfirmDialog
 //
 // We mock the distributed-mode API so the tests can run against the
@@ -11,7 +12,13 @@ const NODE_ID = 'test-node-1'
 const NODE_NAME = 'worker-test'
 const BACKEND_NAME = 'cuda12-vllm-development'
 
-async function mockDistributedNodes(page, { onDelete } = {}) {
+// `behind`: the read model lists an update for the backend on this node.
+async function mockDistributedNodes(page, { onDelete, behind = true } = {}) {
+  await mockUpdates(page, {
+    snapshot: snapshotOf(behind
+      ? [galleryItem(BACKEND_NAME, '0.9.4', '0.9.7', { nodes: [{ nodeId: NODE_ID, nodeName: NODE_NAME, status: 'healthy', version: '0.9.4', models: ['qwen3-coder'] }] })]
+      : []),
+  })
   const nodeRecord = {
     id: NODE_ID,
     name: NODE_NAME,
@@ -107,7 +114,7 @@ async function openBackendActions(page) {
 }
 
 test.describe('Node detail — per-node backend actions', () => {
-  test('upgrade affordance is self-explanatory (not "Reinstall backend" with a sync icon)', async ({ page }) => {
+  test('update affordance is self-explanatory: "Update" with an up arrow, never "Reinstall backend"', async ({ page }) => {
     await mockDistributedNodes(page)
     await openNodeDetail(page)
 
@@ -118,11 +125,37 @@ test.describe('Node detail — per-node backend actions', () => {
 
     // Negative: the old, ambiguous wording must not be used.
     await expect(menu.getByRole('menuitem', { name: 'Reinstall backend' })).toHaveCount(0)
+    await expect(menu.getByRole('menuitem', { name: 'Upgrade backend' })).toHaveCount(0)
 
     // Positive: the action menu names the operation and uses an upgrade icon.
-    const upgradeItem = menu.getByRole('menuitem', { name: 'Upgrade backend' })
-    await expect(upgradeItem).toBeVisible()
-    await expect(upgradeItem.locator('svg[data-icon="arrow-up"]')).toBeVisible()
+    const updateItem = menu.getByRole('menuitem', { name: 'Update', exact: true })
+    await expect(updateItem).toBeVisible()
+    await expect(updateItem.locator('svg[data-icon="arrow-up"]')).toBeVisible()
+  })
+
+  test('update is offered only when the node is behind', async ({ page }) => {
+    await mockDistributedNodes(page, { behind: false })
+    await openNodeDetail(page)
+    const menu = await openBackendActions(page)
+    await expect(menu.getByRole('menuitem', { name: 'Update', exact: true })).toHaveCount(0)
+    await expect(menu.getByRole('menuitem', { name: 'Delete backend…' })).toBeVisible()
+  })
+
+  test('update asks first, naming the models that stop, and cancel sends nothing', async ({ page }) => {
+    await mockDistributedNodes(page)
+    const posts = []
+    await page.route(`**/api/nodes/${NODE_ID}/backends/upgrade`, (route) => { posts.push(route.request().postDataJSON()); return route.fulfill({ status: 202, json: { jobID: 'j1' } }) })
+    await openNodeDetail(page)
+    const menu = await openBackendActions(page)
+    await menu.getByRole('menuitem', { name: 'Update', exact: true }).click()
+    const dialog = page.getByTestId('node-update-dialog')
+    await expect(dialog.getByRole('heading', { name: `Update ${BACKEND_NAME} on 1 node?` })).toBeVisible()
+    await expect(dialog).toContainText(NODE_NAME)
+    await expect(dialog).toContainText('Stops qwen3-coder')
+    await expect(page.getByTestId('node-update-confirm')).toHaveText('Update 1 node and stop 1 model')
+    await page.getByTestId('node-update-cancel').click()
+    await expect(dialog).toHaveCount(0)
+    expect(posts).toEqual([])
   })
 
   test('per-node backend row shows a delete (trash) button next to upgrade', async ({ page }) => {

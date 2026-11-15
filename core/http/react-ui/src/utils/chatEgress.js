@@ -49,8 +49,40 @@ export function presetLabel(egress, id, t) {
 // that runs the commands to draw the network-policy host control (addon).
 export function networkMode(egress) {
   if (!egress || !egress.loaded) return 'hidden'
+  // A new chat shows the row or nothing: the lines about commands that run on
+  // this machine or an unverified provider are for a chat that has started.
+  if (egress.draft && !(egress.applies && egress.addon)) return 'hidden'
   if (egress.applies) return egress.addon ? 'row' : 'hidden'
   return egress.applies_reason === 'host' ? 'host' : 'unverified'
+}
+
+// A chat that does not exist yet has no sandbox bound to it, so the server
+// cannot say that the network policy is enforced (applies stays false). The row
+// is still offered when the add-on that would run the commands draws the
+// network controls (addon) and the sandbox profiles say an isolating add-on
+// runs them (profilesApply): the choice is saved with the chat, and the
+// administrator's limit applies to it then. choice is the preset picked in the
+// draft, '' for none; a choice above the limit is ignored.
+export function draftEgressView(res, profilesApply, choice = '') {
+  const view = { ...(res || {}), draft: true }
+  if (!view.applies && view.addon && profilesApply && view.applies_reason !== 'host') {
+    view.applies = true
+    view.applies_reason = ''
+  }
+  const ceiling = view.ceiling || 'off'
+  if (PRESETS.includes(choice) && !aboveCeiling(choice, ceiling)) {
+    view.preset = choice
+    view.effective = choice
+  }
+  return view
+}
+
+// The preset to save once the chat exists: the draft's choice, when it differs
+// from what a new chat starts with and the limit admits it; else ''.
+export function draftPresetToSave(res, choice) {
+  if (!PRESETS.includes(choice)) return ''
+  if (choice === (res?.preset || 'off')) return ''
+  return aboveCeiling(choice, res?.ceiling || 'off') ? '' : choice
 }
 
 export const hostPort = (c) => `${c.host}:${c.port}`

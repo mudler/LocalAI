@@ -1,0 +1,33 @@
+/* The Sandbox profile row of the chat's Tools menu. Tokens only. */
+.chat-sandbox-profile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--color-border-divider);
+  font-size: var(--fs-meta);
+}
+.chat-sandbox-profile__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.chat-sandbox-profile__label { font-weight: 600; color: var(--color-text-primary); }
+.chat-sandbox-profile__note,
+.chat-sandbox-profile__warn,
+.chat-sandbox-profile__error { margin: 0; color: var(--color-text-secondary); }
+.chat-sandbox-profile__error { color: var(--color-error); }
+.chat-sandbox-profile__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--color-border-divider);
+  border-radius: var(--radius-md, 8px);
+}
+.chat-sandbox-profile__warn { color: var(--color-text-primary); }
+.chat-sandbox-profile__actions { display: flex; gap: var(--sp-2); }
+.chat-sandbox-profile__progress { display: flex; align-items: center; gap: var(--sp-2); color: var(--color-text-secondary); }
+.chat-sandbox-profile__progress progress { flex: 0 0 8rem; }

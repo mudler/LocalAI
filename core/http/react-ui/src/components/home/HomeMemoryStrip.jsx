@@ -32,10 +32,15 @@ function Figure({ used, total }) {
 // The bar is the memory in use on the device, drawn as one solid fill. The API
 // reports no per-model figure, so the list carries the model and its engine and
 // no size.
+//
+// models is null while the server has not said which models are loaded: GET
+// /system is for administrators, so for anyone else it stays unknown, and the
+// strip is left out rather than claiming that nothing is loaded.
 export default function HomeMemoryStrip({
   open, onOpenChange, models, resources, cluster, stagingOp, failedOp, onStop, onStopAll,
 }) {
   const { t } = useTranslation('home')
+  if (!models) return null
   const count = models.length
   const host = hostMemory(resources)
   const clustered = !!cluster
