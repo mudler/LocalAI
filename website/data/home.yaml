@@ -142,7 +142,7 @@ sections:
     points:
       - It runs on a CPU, so no GPU is required. NVIDIA, AMD, Intel and Apple GPUs make it faster.
       - Run it on a laptop, a server, in a container or on Kubernetes. Distributed mode spreads models over several machines.
-      - More than 70 backends cover many model families.
+      - More than 80 backends cover many model families.
       - Engines download the first time a model needs one.
       - The team wrote {{engines}} of the engines itself.
     links:

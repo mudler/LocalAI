@@ -17,7 +17,7 @@ points:
   - "It runs on a CPU, so no GPU is required. A GPU makes it faster. See the hardware list on the Download page."
   - "Models of many kinds: text, vision, images, video, music, speech and embeddings. See [every modality](../modalities/)."
   - "Run it on a laptop, a server, in a container or on Kubernetes. [Distributed mode](/docs/administration/distributed-mode/) spreads models over several machines."
-  - "More than 70 backends serve many model families. See the [compatibility table](/docs/models/compatibility-table/)."
+  - "More than 80 backends serve many model families. See the [compatibility table](/docs/models/compatibility-table/)."
 notes:
   - "LocalAI runs open models. It does not run every model."
 ---
