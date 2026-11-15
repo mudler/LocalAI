@@ -19,4 +19,8 @@ points:
 notes:
   - "An admin installs the models for images, sound and speech. Voice cloning asks for your consent first."
   - "A new result from an image request is saved in Files. It is not shown inside the chat message."
+films:
+  - {name: "files-and-sandbox", title: "Files and Sandbox.", caption: "Ask for a chart of a CSV file. The assistant runs Python in the Sandbox and saves the result in Files.", seconds: 34}
+  - {name: "agents", title: "Agents.", caption: "Make a saved agent from a few steps: a purpose, abilities, where it works and a review.", seconds: 35}
+  - {name: "tasks", title: "Tasks.", caption: "Write a prompt once, choose what runs it, and run it whenever you need.", seconds: 34}
 ---

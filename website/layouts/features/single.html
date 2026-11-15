@@ -17,6 +17,7 @@
   <h2>What it does</h2>
   <ul class="list">{{ range .Params.points }}<li>{{ . | markdownify }}</li>{{ end }}</ul>
   {{ with .Params.notes }}<div class="note note--mt"><b>Good to know</b><ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul></div>{{ end }}
+  {{ partial "films.html" . }}
   {{ .Content }}
   {{ if eq .Params.special "models" }}{{ partial "engines-teaser.html" . }}{{ end }}
 </div></div></section>

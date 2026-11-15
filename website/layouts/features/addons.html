@@ -14,6 +14,7 @@
   <div class="note"><b>Good to know</b><ul>
     {{ range .Params.notes }}<li>{{ . | markdownify }}</li>{{ end }}
   </ul></div>
+  {{ partial "films.html" . }}
   {{ range hugo.Data.addons.groups }}
   <h2 class="sec-h sec-h--mt">{{ .title }}</h2>
   <div class="grid">

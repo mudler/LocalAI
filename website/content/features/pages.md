@@ -20,4 +20,6 @@ notes:
   - "Pages are off for ordinary users until an admin turns them on. Admins always have them. Pages also need Chats."
   - "Widgets read data from JSON files. A page has no network access."
   - "Home has no resize control. The size comes from the page."
+films:
+  - {name: "pages", title: "Pages.", caption: "Ask for a task board. The assistant builds the page and keeps it in your files.", seconds: 33}
 ---

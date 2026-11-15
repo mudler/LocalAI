@@ -17,4 +17,6 @@ notes:
   - "Before it installs, you see what the add-on may do on the server, and you choose."
   - "For add-ons that can write, such as Gmail, an admin or user picks one of three modes: Read only, Asks you first (the default for a new connection) or Allow all. In Allow all, a write runs with no card."
   - "The library changes over time. Check it for the current list."
+films:
+  - {name: "add-ons", title: "Add-ons.", caption: "Install an add-on, let LocalAI check it, then turn it on.", seconds: 38}
 ---

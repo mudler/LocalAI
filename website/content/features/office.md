@@ -17,4 +17,6 @@ points:
 notes:
   - "Office is an add-on. An admin installs it."
   - "LocalAI makes and reads PDF files. It does not edit them."
+films:
+  - {name: "office", title: "Office.", caption: "Ask in plain words for a one-page project plan as a Word document.", seconds: 41}
 ---

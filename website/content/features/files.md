@@ -19,4 +19,6 @@ points:
 notes:
   - "Collections are off until an admin turns them on."
   - "Shared folders are made by an admin."
+films:
+  - {name: "files-and-sandbox", title: "Files and Sandbox.", caption: "Ask for a chart of a CSV file. The assistant runs Python in the Sandbox and saves the result in Files.", seconds: 34}
 ---

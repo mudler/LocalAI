@@ -20,4 +20,6 @@ points:
 notes:
   - "Sandbox is an add-on. An admin installs it."
   - "An admin can allow network access."
+films:
+  - {name: "files-and-sandbox", title: "Files and Sandbox.", caption: "Ask for a chart of a CSV file. The assistant runs Python in the Sandbox and saves the result in Files.", seconds: 34}
 ---
