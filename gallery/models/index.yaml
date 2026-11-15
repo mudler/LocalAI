@@ -6629,7 +6629,7 @@
     files:
       - filename: ds4flash.gguf
         uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-        sha256: e7cf422041ae85182ae697110899467a259406d56726c9d096d476529b432ae2
+        sha256: 1a44978dbe6f1442347b4b309ca9816733a84a32d7c6f63045aa42a8b6afae3f
     overrides:
       backend: ds4
       function:
@@ -44118,8 +44118,8 @@
     url: github:mudler/LocalAI/gallery/smolvlm.yaml@master
     files:
       - filename: SmolVLM2-256M-Video-Instruct-Q8_0.gguf
-        sha256: 1202d1c54493bddff5b0ecbc36fcb7520ff720b9fa3d7224aeb293581f90529a
         uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+        sha256: ab12ad7a42e2ed0e72e7f8136d0f71b190797f0c9834f0036c714ffb7b6617ed
       - filename: mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
         sha256: 05d5751132244a6ebd64cba9b34898c0d874b2cb78159d758e1d4da3aad91581
         uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
