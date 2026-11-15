@@ -104,8 +104,8 @@ The easiest start is the desktop app above. To install a server, on Linux or mac
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run
-# open http://localhost:8080 and install the model it recommends
+local-ai
+# open http://localhost:8080 and install a model from there
 ```
 
 Or with a container:
