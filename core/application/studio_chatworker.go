@@ -85,26 +85,27 @@ const ChatWorkerRole = "chat-worker"
 const chatWorkerInstanceLabel = "node.instance"
 
 // chatWorkerInstances lists the replicas that run a chat worker and are live
-// now: the chat-worker nodes that name a replica, and of those the replicas
-// that live reports. A worker whose labels an admin removed is not listed, and
-// its starts go to the other workers.
+// now: the healthy agent nodes with the chat-worker role that name a replica,
+// and of those the replicas that live reports. A worker whose labels an admin
+// removed, or that went offline, is not listed, and its starts go to the other
+// workers. Another kind of node that carries the labels is not a chat worker.
+//
+// It runs on every chat start, so it reads only the labels of those nodes, and
+// it lists the live replicas only when some node names one.
 func chatWorkerInstances(reg *nodes.NodeRegistry, live func(context.Context) ([]string, error)) carrier.QueueMembers {
 	return func(ctx context.Context) ([]string, error) {
-		labels, err := reg.GetAllNodeLabelsMap(ctx)
+		named, err := reg.LabelValuesOfHealthy(ctx, nodes.NodeTypeAgent, map[string]string{"node.role": ChatWorkerRole}, chatWorkerInstanceLabel)
 		if err != nil {
-			return nil, fmt.Errorf("reading the labels of the chat workers: %w", err)
+			return nil, fmt.Errorf("reading the replicas of the chat workers: %w", err)
+		}
+		if len(named) == 0 {
+			return nil, nil
 		}
 		alive, err := live(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("listing the live replicas: %w", err)
 		}
-		var out []string
-		for _, l := range labels {
-			if id := l[chatWorkerInstanceLabel]; l["node.role"] == ChatWorkerRole && slices.Contains(alive, id) && !slices.Contains(out, id) {
-				out = append(out, id)
-			}
-		}
-		return out, nil
+		return slices.DeleteFunc(named, func(id string) bool { return !slices.Contains(alive, id) }), nil
 	}
 }
 

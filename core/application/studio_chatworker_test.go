@@ -64,6 +64,43 @@ var _ = Describe("chat worker node", func() {
 		Expect(got).To(ConsistOf("replica-a"), "replica-b is not live, and replica-c is no chat worker")
 	})
 
+	It("lists only healthy agent nodes, whatever labels another node carries", func() {
+		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(n.stop)
+		labelled := func(name, nodeType, instance string) *nodes.BackendNode {
+			GinkgoHelper()
+			node := &nodes.BackendNode{Name: name, NodeType: nodeType}
+			Expect(reg.Register(context.Background(), node, true)).To(Succeed())
+			Expect(reg.SetNodeLabels(context.Background(), node.ID, map[string]string{
+				"node.role": ChatWorkerRole, chatWorkerInstanceLabel: instance,
+			})).To(Succeed())
+			return node
+		}
+		// A backend node that an admin gave the labels of a chat worker.
+		labelled("backend-1", nodes.NodeTypeBackend, "replica-b")
+		// A chat worker that went offline, while its replica is still listed live.
+		gone := labelled("chat-c", nodes.NodeTypeAgent, "replica-c")
+		Expect(reg.MarkOffline(context.Background(), gone.ID)).To(Succeed())
+
+		members := chatWorkerInstances(reg, func(context.Context) ([]string, error) {
+			return []string{"replica-a", "replica-b", "replica-c"}, nil
+		})
+		got, err := members(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(ConsistOf("replica-a"))
+	})
+
+	It("does not list the live replicas when no node names a chat worker", func() {
+		members := chatWorkerInstances(reg, func(context.Context) ([]string, error) {
+			Fail("the live replicas were listed although no chat worker exists")
+			return nil, nil
+		})
+		got, err := members(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeEmpty())
+	})
+
 	It("gets no model: the scheduler skips it", func() {
 		n, err := registerChatWorkerNode(context.Background(), reg, "chat-a", "replica-a", time.Hour)
 		Expect(err).NotTo(HaveOccurred())

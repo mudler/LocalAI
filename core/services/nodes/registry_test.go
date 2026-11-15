@@ -764,6 +764,32 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("LabelValuesOfHealthy", func() {
+		It("returns the distinct values of a label on the healthy nodes of one type that match the selector", func() {
+			ctx := context.Background()
+			add := func(name, nodeType string, labels map[string]string) *BackendNode {
+				GinkgoHelper()
+				n := makeNode(name, "", 0)
+				n.NodeType = nodeType
+				Expect(registry.Register(ctx, n, true)).To(Succeed())
+				Expect(registry.SetNodeLabels(ctx, n.ID, labels)).To(Succeed())
+				return n
+			}
+			add("lv-a", NodeTypeAgent, map[string]string{"role": "w", "inst": "r1"})
+			add("lv-b", NodeTypeAgent, map[string]string{"role": "w", "inst": "r1"})
+			add("lv-c", NodeTypeAgent, map[string]string{"role": "w", "inst": "r2"})
+			add("lv-d", NodeTypeAgent, map[string]string{"role": "other", "inst": "r3"})
+			add("lv-e", NodeTypeBackend, map[string]string{"role": "w", "inst": "r4"})
+			add("lv-f", NodeTypeAgent, map[string]string{"role": "w", "inst": ""})
+			off := add("lv-g", NodeTypeAgent, map[string]string{"role": "w", "inst": "r5"})
+			Expect(registry.MarkOffline(ctx, off.ID)).To(Succeed())
+
+			values, err := registry.LabelValuesOfHealthy(ctx, NodeTypeAgent, map[string]string{"role": "w"}, "inst")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(values).To(ConsistOf("r1", "r2"))
+		})
+	})
+
 	Describe("FindNodesBySelector", func() {
 		It("returns nodes matching all labels in selector", func() {
 			n1 := makeNode("sel-match", "10.0.0.80:50051", 8_000_000_000)
