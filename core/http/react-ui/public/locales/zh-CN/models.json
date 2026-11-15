@@ -394,5 +394,19 @@
         "body": "它是私有的、已被删除，或未被此来源收录。"
       }
     }
+  },
+  "remotes": {
+    "tab": "远程",
+    "filter": "远程",
+    "unavailable": "上游不可用",
+    "rowMark": "远程模型",
+    "sizeRemote": "远程",
+    "connectButton": "连接远程",
+    "sheetTitle": "连接远程",
+    "sheetDescription": "添加在其他服务器或服务上运行的模型。",
+    "toastDone": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "toastDone_other": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "toastSkipped": "有 {{count}} 个模型未添加。",
+    "toastSkipped_other": "有 {{count}} 个模型未添加。"
   }
 }

@@ -81,6 +81,16 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.GET("/api/motion/sessions/:id/poses", motion.Poses)
 	router.POST("/api/motion/sessions/:id/tickets", motion.Ticket)
 
+	// Remotes: a saved address and key of another LocalAI or an
+	// OpenAI-compatible or Anthropic endpoint, whose models become entries
+	// here. Admin only. They are not part of the model gallery: a server that
+	// turns the gallery off can still connect a remote, so these routes stay
+	// outside the gallery block. The service writes model configs through the
+	// config loader and needs no gallery service. The provider is read for
+	// every request: the service is built after the routes exist and is nil
+	// when its store could not be opened.
+	registerRemoteRoutes(router, app.Remotes, adminMiddleware)
+
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
 		// The old server-rendered import and edit pages are gone. Both URLs
@@ -149,13 +159,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/api/models/remote/estimate", localai.RemoteModelEstimateEndpoint(remotemodel.Shared()), adminMiddleware)
 
 		// Custom model edit endpoint
-		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, galleryService, appConfig, app.ModelRevisionLifecycle()), adminMiddleware)
 
 		// List model aliases endpoint
 		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
 
 		// Toggle model enable/disable endpoint
-		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(app)), adminMiddleware)
+		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, galleryService, appConfig, app.ModelRevisionLifecycle()), adminMiddleware)
 
 		// Toggle model pinned status endpoint
 		router.PUT("/models/toggle-pinned/:name/:action", localai.TogglePinnedModelEndpoint(cl, appConfig, func() {
@@ -624,4 +634,17 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
 		router.OPTIONS("/api/cors-proxy", localai.CORSProxyOptionsEndpoint())
 	}
+}
+
+// registerRemoteRoutes mounts the eight remote routes, each behind
+// adminMiddleware.
+func registerRemoteRoutes(router *echo.Echo, get localai.RemotesProvider, adminMiddleware echo.MiddlewareFunc) {
+	router.POST("/api/remotes/test", localai.CheckRemoteEndpoint(get), adminMiddleware)
+	router.POST("/api/remotes", localai.CreateRemoteEndpoint(get), adminMiddleware)
+	router.GET("/api/remotes", localai.ListRemotesEndpoint(get), adminMiddleware)
+	router.GET("/api/remotes/:id", localai.GetRemoteEndpoint(get), adminMiddleware)
+	router.PATCH("/api/remotes/:id", localai.UpdateRemoteEndpoint(get), adminMiddleware)
+	router.DELETE("/api/remotes/:id", localai.DeleteRemoteEndpoint(get), adminMiddleware)
+	router.POST("/api/remotes/:id/refresh", localai.RefreshRemoteEndpoint(get), adminMiddleware)
+	router.POST("/api/remotes/:id/adopt", localai.AdoptRemoteModelsEndpoint(get), adminMiddleware)
 }

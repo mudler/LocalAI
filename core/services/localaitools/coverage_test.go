@@ -116,6 +116,18 @@ func init() {
 // must not be wrapped by a tool too (the spec below checks it); to add a tool
 // for one, move it to toolToHTTPRoute.
 var adminRoutesWithoutTool = map[string]string{
+	// Remotes hold the address and API key of another server. The
+	// key is write-only and credential handling for a remote does
+	// not belong in the always-sent assistant tool budget: a person manages
+	// them on the Remotes page or over REST.
+	"POST /api/remotes/test":        "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes":             "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"GET /api/remotes":              "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"GET /api/remotes/:id":          "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"PATCH /api/remotes/:id":        "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"DELETE /api/remotes/:id":       "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes/:id/refresh": "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes/:id/adopt":   "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	// The administrator's oversight of other users' saved agents, triggers
 	// and connectors. Each acts on another person's private automation
 	// (disable or delete it). It stays a deliberate click on the

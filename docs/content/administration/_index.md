@@ -26,6 +26,7 @@ These pages are for the person who runs a LocalAI instance: users and access, se
 ## Proxies and middleware
 
 - [Middleware: PII filtering and routing]({{% relref "/administration/middleware" %}})
+- [Remotes]({{% relref "/administration/remotes" %}}): use the models of another LocalAI, an OpenAI-compatible service or Anthropic.
 - [Cloud passthrough proxy]({{% relref "/administration/cloud-proxy" %}})
 - [MITM proxy for Claude Code and Codex CLI]({{% relref "/administration/mitm-proxy" %}})
 

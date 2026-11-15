@@ -1182,7 +1182,7 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 		EnabledGlobally: c.PIIEvents != nil,
 		Models:          []localaitools.MiddlewarePIIModel{},
 	}
-	piiSection.DefaultEnabledForBackends = []string{model.CloudProxyBackend}
+	piiSection.DefaultEnabledForBackends = config.PIIDefaultBackends()
 	if c.ConfigLoader != nil {
 		for _, cfg := range c.ConfigLoader.GetAllModelsConfigs() {
 			cfg := cfg
@@ -1191,7 +1191,7 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 				Backend:           cfg.Backend,
 				Enabled:           cfg.PIIIsEnabled(),
 				Explicit:          cfg.PII.Enabled != nil,
-				DefaultForBackend: cfg.Backend == model.CloudProxyBackend,
+				DefaultForBackend: config.PIIDefaultFor(cfg.Backend),
 				Detectors:         cfg.PIIDetectors(),
 			})
 		}

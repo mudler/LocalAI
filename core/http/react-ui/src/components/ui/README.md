@@ -39,6 +39,7 @@ in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 | A setting that applies at once | `Switch` | On or off, no Save. |
 | A choice that applies on Save | `dk-check` | A yes or no inside a form. |
 | One choice of a few that filters | `Segmented` | A list filter with counts. |
+| One choice of 2-4 that sets a value | `Segmented mode="radio"` | A value, such as where models run or a kind. Not a filter and not a view switch. |
 | A state | `StatusChip` | The state of one item. |
 | Something that needs attention | `Callout` | A warning, news or a result on this page. |
 | The detail of an item beside a list | `SidePane` | Read, act, close. |
@@ -337,9 +338,28 @@ The list toolbar: a search box that fills the row, and one choice of a few.
 ```
 
 - `SearchField` needs a `label`; it is the accessible name and the placeholder.
-- `Segmented` is a filter, not navigation: pressed buttons in a tray, with an
-  optional count after each label. Each button has `data-filter={id}`. Use tabs
-  to change views.
+- `Segmented` has two modes. Both draw the same tray and the same buttons, and
+  each button has `data-filter={id}`.
+  - `mode="filter"` (default): a filter, not navigation. Pressed buttons
+    (`aria-pressed`) in a `role="group"`, with an optional count after each
+    label. Use it to filter a list on the page.
+  - `mode="radio"`: a choice of one among 2-4 options that sets a value, for
+    example where models run or a kind selector. Do not use it to filter a
+    list; to switch views use tabs.
+- Props: `options` (`{ id, label, count, disabled }`), `value`, `onChange(id)`,
+  `label` (the accessible name), `labelledBy` (radio mode: the id of an element
+  that names the group, used instead of `label`), `mode`, `className`,
+  `testId`, `itemTestId`.
+- Radio contract: the container is `role="radiogroup"` with `aria-label` (or
+  `aria-labelledby`); each item is `role="radio"` with `aria-checked` and no
+  `aria-pressed`. The group is one tab stop: the checked item has `tabIndex` 0
+  and the others -1; when `value` matches no option, the first enabled item has
+  it. ArrowRight and ArrowDown choose the next enabled option, ArrowLeft and
+  ArrowUp the previous one (both wrap), Home the first and End the last. The
+  choice follows the focus: the key calls `onChange(id)` and moves focus to that
+  item. Disabled options are skipped. Space and Enter choose the focused item.
+  The arrow keys are not mirrored in right-to-left layouts; the kit has no
+  right-to-left handling.
 - On a phone the page can let the tray fill the row and scroll sideways.
 
 ## SidePane
