@@ -179,18 +179,40 @@ var _ = Describe("Request and reply between replicas on the tunnel carrier, end 
 			Expect(rep.List).To(HaveLen(1))
 		})
 
-		It("reads a replica that left as no route, and one that does not answer as a doubt", func() {
-			ask := func(instance string) error {
-				_, err := studio.NewJobCarrier(front.bus, nil).Ask(instance, bgjob.Request{Action: bgjob.ActionList, Owner: "alice", Chat: "c1"})
-				return err
-			}
-			Expect(errors.Is(ask("replica-gone"), bgjob.ErrNoRoute)).To(BeTrue(), "a replica that is not in the deployment left it")
-			Expect(errors.Is(ask("replica-c"), bgjob.ErrNoRoute)).To(BeTrue(), "a replica that serves no jobs has none")
+		ask := func(instance string) error {
+			_, err := studio.NewJobCarrier(front.bus, nil).Ask(instance, bgjob.Request{Action: bgjob.ActionList, Owner: "alice", Chat: "c1"})
+			return err
+		}
 
-			err := ask("replica-dead")
-			Expect(err).To(HaveOccurred())
-			Expect(errors.Is(err, bgjob.ErrNoRoute)).To(BeFalse(), "a replica that does not answer has not left: %v", err)
-			Expect(bgjob.Gone(err)).To(BeFalse())
+		It("reads no failure of an ask to a named replica as a node that left", func() {
+			for instance, why := range map[string]string{
+				"replica-gone": "a replica with no row may be a live one whose heartbeats stalled",
+				"replica-c":    "a replica that serves no jobs may not have prepared a forced change of carrier",
+				"replica-dead": "a replica that does not answer has not left",
+			} {
+				err := ask(instance)
+				Expect(err).To(HaveOccurred(), instance)
+				Expect(errors.Is(err, bgjob.ErrNoRoute)).To(BeFalse(), "%s: %v", why, err)
+				Expect(bgjob.Gone(err)).To(BeFalse(), why)
+				Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue(), "%s: %v", why, err)
+			}
+		})
+
+		It("does not count a live replica whose row was reaped toward a lost job, however many sweeps pass", func() {
+			stop, err := studio.NewJobCarrier(b.bus, nil).Serve("replica-b", func(q bgjob.Request) bgjob.Reply {
+				return bgjob.Reply{List: []bgjob.Info{{ID: "job-1", Owner: q.Owner, Chat: q.Chat}}}
+			})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(stop)
+			// Its heartbeats stall past the reap window, and the leader reaps its
+			// row. The process still runs the job.
+			b.stopHeartbeat()
+			Expect(clusterR.Deregister(ctx, "replica-b")).To(Succeed())
+			for i := range 3 {
+				err := ask("replica-b")
+				Expect(err).To(HaveOccurred(), "ask %d", i+1)
+				Expect(bgjob.Gone(err)).To(BeFalse(), "ask %d: %v", i+1, err)
+			}
 		})
 	})
 })

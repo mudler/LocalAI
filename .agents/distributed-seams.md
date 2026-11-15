@@ -20,7 +20,7 @@ files to that spec.
 | Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter` over NATS request/reply and `TunnelControl` over the HTTP control plane of a worker; `S3FileStager` over either (`NewS3NATSFileStager`, `NewS3TunnelFileStager`); `HTTPFileStager` over HTTP |
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer`, `httpControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl`, `nodes.AgentControlClient` (tunnel) |
-| Agent RPC, worker half | unexported `agentRPCServer` on NATS, `agentworker.Handler` on the tunnel | `core/cli/agent_worker.go`, `core/services/agentworker` | `nodes.NATSAgentRPCServer`, `agentworker.Config` |
+| Agent RPC, worker half | `agentworker.FollowConfig`, which serves the active carrier: `nodes.NATSAgentRPCServer` on NATS, `agentworker.Handler` on the tunnel | `core/services/agentworker`, `core/services/nodes` | `nodes.NATSAgentRPCServer`, `agentworker.Config` |
 | Chat start, frontend half | `studio.ChatWorkers` | `core/services/studio` | `nodes.NATSChatStarter`, over the queue request of the broadcaster holder (NATS queue group, or a pick by the frontend on the tunnel) |
 | Chat start, worker half | `studio.Service.ServeStart`, served by `nodes.ChatStartHandler` | `core/application/studio_chatworker.go` | `nodes.NATSChatStartServer` |
 | Dial to a worker | `nodes.BackendClientFactory`, `nodes.ModelProber`, `nodes.WorkerNetDialerFor` | `core/services/nodes` | direct dial |
@@ -285,17 +285,23 @@ replica it names (`tunnel.PeerPool.Request`), and the far replica runs the
 handler that it registered for the subject (`tunnel.Replies`; the tunnel package
 names no subject). A request for this replica runs in the process. A queue
 request lists the members (`TunnelOptions.Queues`: for `chats.start`, the live
-replicas that a node with `node.role=chat-worker` names in `node.instance`),
-tries them in a random order, at most three, and moves on only when the failure
-proves that the member ran nothing:
+replicas that a healthy `agent` node with `node.role=chat-worker` names in
+`node.instance`), tries them in a random order, at most three, and moves on only
+when the failure proves that the member ran nothing. Each try may spend only its
+share of what is left of the budget to open its stream (the dial of the peer
+link included), so one member that does not answer leaves time for the others;
+a member that took the request has the rest of the budget for its handler.
 
 - **Not started** (`tunnel.NotStarted`): the request was not written whole, the
-  replica serves nothing for the subject, it is not the replica named, or it
-  predates request and reply. Or the member answered with a refusal that
-  `moveOn` reads as proof, such as `ChatStartReply.Full`.
+  replica serves nothing for the subject, it is not the replica named, it
+  serves too many requests (`tunnel.ErrReplicaBusy`), or it predates request
+  and reply. Or the member answered with a refusal that `moveOn` reads as
+  proof, such as `ChatStartReply.Full`.
 - **Unknown**: the request was written and the reply did not arrive, or the
-  handler ran and failed. It is returned and never sent again, so a message is
-  never run twice.
+  handler ran and failed. A reply above the bound is a handler that ran
+  (`tunnel.ErrHandlerFailed` with `tunnel.ErrReplyTooLarge`), wherever the
+  handler ran. It is returned and never sent again, so a message is never run
+  twice.
 
 `SubscribeReply` and `QueueSubscribeReply` are kept in the registry of the
 holder like a broadcast subscription, so a handler follows a change of carrier;
@@ -303,15 +309,28 @@ a request in flight ends on the carrier where it began. The handler gets no
 context, as on NATS: the stream is closed when the caller gives up, and the
 reply is dropped. The budget of the caller crosses in the request frame and
 bounds the wait of the far replica. A request and a reply are bounded by
-`messaging.MaxBroadcastBytes`.
+`messaging.MaxBroadcastBytes`. A body is read into a buffer that grows with the
+bytes that arrive, never to the size that the peer declared. A replica serves at
+most 64 requests at once for one peer link and 256 in all, counted from before
+the body is read; it refuses the next as busy.
 
 `carrier.mapReplyError` is where the errors of the tunnel become messaging
-errors. Only a replica that is not in the deployment, or that serves nothing for
-the subject, is `messaging.ErrNoResponders`. A peer that does not answer, an
-older release and a replica that is not the one named are
-`messaging.ErrNotDelivered`, which is never absence: no caller may read it as a
-process that left. A set with no request and reply (`Set.Replies` nil) answers
+errors. Absence (`messaging.ErrNoResponders`) exists only for a queue request,
+when every member tried is not in the deployment or serves nothing for the
+subject. A request to a named replica (`RequestInstance`) is never absent: a
+replica with no row may be a live one whose heartbeats stalled past the reap
+window, and one that serves nothing may not have prepared a forced change of
+carrier, so both are `messaging.ErrNotDelivered`. So are a peer that does not
+answer, an older release, a busy replica and a replica that is not the one
+named. `ErrNotDelivered` is never absence: no caller may read it as a process
+that left. A request above the bound is `messaging.ErrPayloadTooLarge`; a reply
+above it is not. A set with no request and reply (`Set.Replies` nil) answers
 `ErrNotDelivered` too.
+
+On the tunnel a background job is therefore never marked lost because its node
+did not answer: only a node that answers that it does not know the job makes it
+lost. A job whose node left for good stays running in the view, and an ask about
+it says that the node could not be reached.
 
 ## Control verbs
 
