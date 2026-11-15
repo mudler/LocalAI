@@ -3806,6 +3806,9 @@ button.collapsible-header:focus-visible {
   font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  /* A title that holds one long word (a name) must not leave the dialog. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .confirm-dialog-body {
   font-size: var(--text-base);

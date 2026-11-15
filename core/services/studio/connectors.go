@@ -1151,7 +1151,7 @@ var errAgentGone = errors.New("the agent was deleted")
 // now, or when fresh asks for a new one. created says that the chat is new.
 func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, name string, fresh bool) (string, bool, error) {
 	if id, ok, err := c.o.Store.ChatOf(ctx, b.ID, key); err == nil && ok && !fresh {
-		if rec, err := c.svc.Get(ctx, b.Owner, id); err == nil && rec.AgentID == b.AgentID {
+		if rec, err := c.svc.Get(ctx, b.Owner, id); err == nil && rec.AgentID == b.AgentID && !c.svc.chatMoved(ctx, rec) {
 			c.followAgentModel(ctx, b, rec)
 			return id, false, nil
 		}

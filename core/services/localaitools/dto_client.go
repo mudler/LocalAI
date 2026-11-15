@@ -363,6 +363,13 @@ const (
 	ActionTriggers       = "triggers"
 	ActionLoops          = "loops"
 	ActionShared         = "shared"
+	// memory reads the memory of a project, write_memory writes one file of
+	// it, chats lists its chats. shared_get reads a project that someone
+	// shared with its memory (project is its ref).
+	ActionMemory      = "memory"
+	ActionWriteMemory = "write_memory"
+	ActionChats       = "chats"
+	ActionSharedGet   = "shared_get"
 )
 
 // VoiceToolInput is the input of the voice tool. One flat object: the action
@@ -465,12 +472,14 @@ type ModelList struct {
 // ProjectsToolInput is the input of the projects tool. One flat object: the
 // action says which fields count, and the handler checks them.
 type ProjectsToolInput struct {
-	Action  string `json:"action"                jsonschema:"Needs: get, agents, connections, triggers, loops, archive, restore, delete, update: project; create: name; set_chat_project, pull, unpull: chat_id, project."`
-	Project string `json:"project,omitempty"     jsonschema:"Project id."`
+	Action  string `json:"action"                jsonschema:"Needs: get, agents, connections, triggers, loops, chats, memory, archive, restore, delete, update: project; create: name; set_chat_project, pull, unpull: chat_id, project; write_memory: project, file, content; shared_get: project (a ref from shared)."`
+	Project string `json:"project,omitempty"     jsonschema:"Project id; a ref for shared_get."`
 	Name    string `json:"name,omitempty"`
 	// Description is a pointer so that update can clear it: "" is sent, absent is left alone.
 	Description *string `json:"description,omitempty"`
 	ChatID      string  `json:"chat_id,omitempty"`
+	File        string  `json:"file,omitempty"        jsonschema:"Such as food.md; write_memory."`
+	Content     *string `json:"content,omitempty"     jsonschema:"Whole new text, up to 16 KiB; write_memory."`
 }
 
 // ProjectsRequest is what the client sends for one action of the projects
@@ -481,6 +490,8 @@ type ProjectsRequest struct {
 	Name        string
 	Description *string
 	ChatID      string
+	File        string
+	Content     *string
 }
 
 // ProjectInfo is one project as the tool shows it. The defaults of a project
@@ -551,6 +562,22 @@ type ProjectLoopInfo struct {
 	State     string `json:"state"`
 }
 
+// ProjectMemoryInfo is the memory of a project: the text of index.md and the
+// names of the topic files next to it. Size and time stay out.
+type ProjectMemoryInfo struct {
+	Index string   `json:"index"`
+	Files []string `json:"files"`
+}
+
+// ProjectChatInfo is one chat of a project as the chats action shows it: a
+// brief row, never a message.
+type ProjectChatInfo struct {
+	ID      string `json:"id"`
+	Title   string `json:"title,omitempty"`
+	AgentID string `json:"agent_id,omitempty"`
+	Updated string `json:"updated,omitempty"`
+}
+
 // ProjectChat is the project part of a chat after set_chat_project, pull or unpull.
 type ProjectChat struct {
 	ID             string   `json:"id"`
@@ -568,6 +595,10 @@ type ProjectsResult struct {
 	Triggers    []ProjectTriggerInfo    `json:"triggers,omitempty"`
 	Loops       []ProjectLoopInfo       `json:"loops,omitempty"`
 	Shared      []SharedProjectInfo     `json:"shared,omitempty"`
+	SharedOne   *SharedProjectInfo      `json:"shared_project,omitempty"`
+	Memory      *ProjectMemoryInfo      `json:"memory,omitempty"`
+	Chats       []ProjectChatInfo       `json:"chats,omitempty"`
+	Written     string                  `json:"written,omitempty"`
 	Chat        *ProjectChat            `json:"chat,omitempty"`
 	Deleted     bool                    `json:"deleted,omitempty"`
 }

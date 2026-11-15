@@ -26,7 +26,9 @@ import { SEARCH_MIN, fallbackNotice, filterSkills, skillCounts, skillKey, skillS
 export default function SkillsMenu({ skills, replaced = [], onSet, error, testId = 'chat-skills' }) {
   const { t } = useTranslation('chat')
   if (skills.length === 0) return null
-  const { on } = skillCounts(skills)
+  // The chip counts what the panel counts: the skills a person can switch.
+  // A skill the host grants has no switch and is not in the panel's total.
+  const { on } = skillCounts(skills.filter((s) => !s.locked))
   return (
     <SwitchPopover icon="book" label={t('skills.label')} title={t('skills.title')} count={on} testId={testId}>
       <SkillsPanel skills={skills} replaced={replaced} onSet={onSet} error={error} testId={testId} />

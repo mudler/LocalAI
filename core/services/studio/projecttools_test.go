@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -86,6 +87,42 @@ var _ = Describe("the list_projects chat tool", func() {
 		other := call(r, bob)
 		Expect(other.Out).To(ContainSubstring(theirs.ID))
 		Expect(other.Out).NotTo(ContainSubstring(mine.ID))
+	})
+
+	It("shows a chat that works inside a fence its own project only", func() {
+		f := newFiles()
+		ps, err := projects.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		proj := projects.NewService(projects.Options{Store: ps, Files: f})
+		ag, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc, h := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "list_projects", Args: `{}`}, {Say: "ok"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files, d.Projects, d.Agents = f, proj, ag })
+		own, err := proj.Create(ctx, alice, projects.CreateInput{Name: "Kitchen", Description: "own text"})
+		Expect(err).NotTo(HaveOccurred())
+		other, err := proj.Create(ctx, alice, projects.CreateInput{Name: "Taxes", Description: "private text"})
+		Expect(err).NotTo(HaveOccurred())
+		a, err := svc.SaveAgent(ctx, alice, agents.Agent{Name: "Helper", Model: "m", ProjectID: own.ID})
+		Expect(err).NotTo(HaveOccurred())
+
+		fenced, err := svc.Create(ctx, alice, studio.CreateInput{Model: "m", AgentID: a.ID})
+		Expect(err).NotTo(HaveOccurred())
+		sent(svc, alice, fenced.ID, "go")
+		idle(svc, alice, fenced.ID)
+		res := h.ResultsFor("list_projects")
+		Expect(res).NotTo(BeEmpty())
+		Expect(res[len(res)-1].Out).To(And(ContainSubstring(own.ID), Not(ContainSubstring(other.ID)), Not(ContainSubstring("Taxes")), Not(ContainSubstring("private text"))))
+
+		// A chat of the same person with no agent sees both.
+		open := create(svc, alice)
+		sent(svc, alice, open, "go")
+		idle(svc, alice, open)
+		res = h.ResultsFor("list_projects")
+		Expect(res[len(res)-1].Out).To(And(ContainSubstring(own.ID), ContainSubstring(other.ID)))
 	})
 
 	It("says there are no projects, instead of failing", func() {

@@ -32,7 +32,8 @@
     "openMemory": "Ouvrir",
     "openInFiles": "Ouvrir dans Fichiers",
     "openInFilesNamed": "Ouvrir le dossier de {{name}} dans Fichiers",
-    "share": "Partager"
+    "share": "Partager",
+    "editArchived": "Restaurez le projet pour le modifier"
   },
   "row": {
     "chats_one": "{{count}} discussion",
@@ -85,7 +86,7 @@
     "files": "Fichiers",
     "chats": "Discussions",
     "memory": "Mémoire",
-    "tools": "Outils",
+    "tools": "Outils par défaut",
     "agents": "Agents",
     "connections": "Connexions",
     "automations": "Automatisations"
@@ -98,7 +99,7 @@
     "noChats": "Aucune discussion dans ce projet pour l'instant.",
     "stats": "Dans ce projet",
     "statChats": "Discussions",
-    "statMemory": "Fichiers de mémoire",
+    "statMemory": "Mémoire",
     "statTools": "Outils par défaut",
     "memory": "Mémoire du projet",
     "memoryEmpty": "Rien dans la mémoire pour l'instant.",
@@ -109,9 +110,19 @@
   },
   "files": {
     "title": "Fichiers de ce projet",
-    "body": "Les fichiers de travail de ce projet sont dans ce dossier. Les discussions du projet les voient.",
+    "body": "Les fichiers que vous ajoutez ici sont ceux que les conversations et les agents de ce projet peuvent utiliser.",
     "path": "Dossier",
-    "open": "Ouvrir dans Fichiers"
+    "open": "Ouvrir dans Fichiers",
+    "dropTitle": "Déposez les fichiers ici",
+    "upload": "Téléverser des fichiers",
+    "newFile": "Nouveau fichier",
+    "empty": "Aucun fichier pour l'instant. Déposez-en ici ou téléversez-en.",
+    "openFile": "Ouvrir {{name}}",
+    "dropOver": "Déposez pour ajouter à ce projet",
+    "loadFailed": "Impossible de charger les fichiers de ce projet.",
+    "loading": "Chargement des fichiers",
+    "archivedNote": "Ce projet est archivé. Restaurez-le pour ajouter ou créer des fichiers. Les fichiers restent lisibles.",
+    "emptyArchived": "Aucun fichier dans ce projet."
   },
   "chats": {
     "title": "Discussions de ce projet",
@@ -144,19 +155,38 @@
   },
   "tools": {
     "title": "Outils par défaut",
-    "note": "Vide = aucun changement ; une liste non vide n'active que ces éléments.",
-    "none": "Aucun changement",
+    "none": "Aucune limite",
     "skills": "Skills",
     "addons": "Add-ons",
-    "mcp_servers": "Serveurs MCP",
-    "connectors": "Connecteurs",
+    "mcp_servers": "Serveurs MCP d'un modèle",
+    "connectors": "Connecteurs MCP",
     "collections": "Collections",
-    "connectorsHint": "Seuls ces connecteurs sont activés dans les nouvelles discussions",
-    "collectionsHint": "Seules ces collections de connaissances sont disponibles dans les nouvelles discussions",
+    "connectorsHint": "Seuls ces connecteurs MCP (ceux que vous ajoutez sur la page Connecteurs MCP) sont activés. Les applications de messagerie sont distinctes : voir l'onglet Connexions.",
+    "collectionsHint": "Seules ces collections de connaissances sont disponibles dans les nouvelles discussions et pour les agents du projet.",
     "addLabel": "Ajouter à {{list}}",
-    "addPlaceholder": "Nom",
+    "addPlaceholder": "Chercher ou saisir un nom",
     "add": "Ajouter",
-    "removeChip": "Retirer {{name}}"
+    "removeChip": "Retirer {{name}}",
+    "lead": "Vide signifie aucune limite. Si vous remplissez une liste, les nouvelles discussions du projet démarrent avec ces seules entrées activées, et chaque agent du projet ne peut utiliser que ces entrées.",
+    "skillsHint": "Seuls ces skills sont activés dans les nouvelles discussions et ouverts aux agents du projet. Utilisez le nom affiché sur la page Skills.",
+    "addonsHint": "Seuls ces add-ons sont activés dans les nouvelles discussions et ouverts aux agents du projet.",
+    "mcp_serversHint": "Seuls ces serveurs MCP sont activés. Utilisez le nom du serveur dans la configuration d'un modèle.",
+    "state": {
+      "missing": "Indisponible",
+      "off": "Désactivé",
+      "missingTitle": "Rien nommé « {{name}} » n'est installé ici. Cette entrée ne fait rien tant qu'il n'existe pas.",
+      "offTitle": "« {{name}} » est désactivé. Cette entrée ne fait rien tant qu'il n'est pas activé."
+    },
+    "countMissing": "{{n}} indisponible(s)",
+    "pickerLoading": "Lecture de ce qui est installé…",
+    "pickerNone": "Rien d'installé à choisir. Saisissez un nom.",
+    "pickerLead": "Installés, cliquez pour ajouter :",
+    "pickerLabel": "Installés : {{list}}",
+    "addNotInstalled": "Ajouter « {{name}} » (non installé ici)",
+    "addTyped": "Ajouter « {{name}} »",
+    "save": "Enregistrer",
+    "discard": "Annuler les changements",
+    "archivedNote": "Ce projet est archivé. Restaurez-le pour changer ses outils par défaut."
   },
   "sheet": {
     "newTitle": "Nouveau projet",
@@ -164,17 +194,16 @@
     "newBody": "Donnez-lui un nom et dites à quoi il sert. Vous pourrez ajouter des fichiers et de la mémoire ensuite.",
     "editBody": "Changez le nom, la description ou les outils par défaut.",
     "name": "Nom",
-    "nameHint": "Affiché dans les listes. Le dossier est Projects/{{slug}}.",
+    "nameHint": "Affiché dans les listes. Dossier : Projects/{{slug}} (il ne change pas si vous renommez le projet)",
     "nameHintNew": "Affiché dans les listes. Le dossier est créé à partir du nom.",
     "nameRequired": "Saisissez un nom.",
     "description": "Description",
-    "descriptionHint": "Une ou deux phrases. Les discussions la voient comme contexte.",
-    "defaults": "Outils par défaut",
-    "defaultsHint": "Facultatif. Vide = aucun changement.",
+    "descriptionHint": "Une ou deux phrases. Les {{limit}} premiers caractères sont donnés aux discussions comme contexte.",
     "count_one": "{{count}} défini",
     "count_other": "{{count}} définis",
     "save": "Enregistrer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "nameCounter": "{{length}} caractères sur {{max}}"
   },
   "composer": {
     "label": "Projet",
@@ -252,7 +281,7 @@
     "archivedHint": "Ce projet est archivé. Restaurez-le pour ajouter des agents ou discuter avec eux.",
     "new": "Nouvel agent",
     "empty": "Aucun agent dans ce projet pour le moment",
-    "emptyBody": "Créez un agent qui travaille uniquement dans les fichiers et la mémoire de ce projet. Les dossiers partagés et les skills restent lisibles.",
+    "emptyBody": "Créez un agent qui discute ici et peut s'exécuter seul.",
     "ready": "Prêt",
     "unavailable": "Indisponible",
     "filesRead": "Lecture seule",
@@ -313,7 +342,14 @@
     "nextNone": "Prochaine exécution : aucune",
     "nextFile": "Prochaine exécution : à l'arrivée d'un fichier",
     "pausedWhy": "En pause tant que le projet est archivé",
-    "openChat": "Ouvrir le chat"
+    "openChat": "Ouvrir le chat",
+    "newTrigger": "Nouveau déclencheur",
+    "newArchived": "Restaurez le projet pour ajouter un déclencheur.",
+    "newUnavailable": "Aucun agent de ce projet ne peut travailler pour l’instant : un nouveau déclencheur n’aurait rien à lancer. Ouvrez Agents pour voir pourquoi.",
+    "triggersDenied": "Les déclencheurs ne sont pas disponibles pour votre compte",
+    "triggersDeniedBody": "Un administrateur peut les activer pour vous.",
+    "triggersNoneNoAgents": "Un déclencheur lance un agent du projet, et ce projet n’en a pas encore.",
+    "goAgents": "Aller aux agents"
   },
   "share": {
     "dialogIntro": "Les personnes avec qui vous partagez voient tout le projet : fichiers, mémoire et réglages. Celles qui peuvent modifier peuvent changer ses fichiers, sa mémoire et ses réglages.",
@@ -356,5 +392,19 @@
     "backToProjects": "Retour aux projets",
     "loadError": "Impossible de charger ce projet.",
     "off": "Les projets sont désactivés sur ce serveur."
+  },
+  "delete": {
+    "title": "Supprimer « {{name}} » ?",
+    "body": "Son dossier, avec ses fichiers et sa mémoire, va dans la corbeille. Vous pouvez annuler pendant quelques secondes, ou restaurer le dossier plus tard depuis la corbeille dans Fichiers.",
+    "agents": "Agents qui cessent de fonctionner : {{n}}",
+    "triggers": "Déclencheurs de ces agents qui s'arrêtent : {{n}}",
+    "chats": "Discussions qui gardent leur historique mais perdent le projet : {{n}}",
+    "nothing": "Aucun agent, déclencheur ou discussion ne dépend de ce projet."
+  },
+  "access": {
+    "agents": "Les agents ne sont pas disponibles pour votre compte",
+    "agentsBody": "Un administrateur peut les activer pour vous.",
+    "connections": "Les connexions ne sont pas disponibles pour votre compte",
+    "connectionsBody": "Cet onglet demande les fonctions Connecteurs et Agents. Un administrateur peut les activer pour vous."
   }
 }

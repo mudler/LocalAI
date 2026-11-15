@@ -798,6 +798,7 @@
     "about": {
       "localai": "Réglages que LocalAI lit : persona, profil, raccourcis, Accueil, thème.",
       "chats": "Un dossier par discussion, avec les fichiers de la discussion.",
+      "projects": "Vos projets. Chaque dossier est un projet.",
       "memory": "Les notes que l'assistant garde sur vous.",
       "pages": "Les pages de votre espace de travail.",
       "skills": "Les skills que les agents utilisent.",
@@ -806,7 +807,8 @@
     "open": {
       "memory": "Ouvrir la Mémoire",
       "pages": "Ouvrir les Pages",
-      "skills": "Ouvrir les Skills"
+      "skills": "Ouvrir les Skills",
+      "projects": "Ouvrir les Projets"
     },
     "confirm": {
       "deleteTitle": "Mettre {{name}} à la corbeille ?",
@@ -819,6 +821,7 @@
     "loses": {
       "settings": "LocalAI oublie votre persona, votre profil, vos raccourcis, la disposition de votre Accueil et votre thème.",
       "chats": "Chaque discussion perd ses fichiers : ce que vous avez joint et ce que l'assistant y a écrit.",
+      "projects": "Chaque projet perd ses fichiers et sa mémoire, et les conversations d'un projet perdent ce qu'elles en utilisaient.",
       "persona": "L'assistant perd son nom et ses instructions.",
       "user": "L'assistant oublie ce que vous lui avez dit sur vous et vos réponses à ses propositions.",
       "shortcuts": "La zone de message affiche de nouveau les raccourcis par défaut.",
@@ -1267,5 +1270,8 @@
       },
       "remote": "{{model}} n'est pas un modèle local. Le texte de chaque réponse que vous faites lire à voix haute est envoyé à un autre serveur."
     }
+  },
+  "projectMark": {
+    "open": "Ouvrir le projet {{name}}"
   }
 }

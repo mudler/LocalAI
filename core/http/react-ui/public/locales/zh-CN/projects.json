@@ -32,7 +32,8 @@
     "openMemory": "打开",
     "openInFiles": "在文件中打开",
     "openInFilesNamed": "在文件中打开 {{name}} 的文件夹",
-    "share": "共享"
+    "share": "共享",
+    "editArchived": "恢复项目后才能编辑"
   },
   "row": {
     "chats_one": "{{count}} 个聊天",
@@ -85,7 +86,7 @@
     "files": "文件",
     "chats": "聊天",
     "memory": "记忆",
-    "tools": "工具",
+    "tools": "工具默认值",
     "agents": "智能体",
     "connections": "连接",
     "automations": "自动化"
@@ -98,7 +99,7 @@
     "noChats": "此项目中还没有聊天。",
     "stats": "此项目中",
     "statChats": "聊天",
-    "statMemory": "记忆文件",
+    "statMemory": "记忆",
     "statTools": "工具默认值",
     "memory": "项目记忆",
     "memoryEmpty": "记忆中还没有内容。",
@@ -109,9 +110,19 @@
   },
   "files": {
     "title": "此项目的文件",
-    "body": "此项目的工作文件都在这个文件夹里。项目中的聊天可以看到它们。",
+    "body": "你在这里添加的文件，就是此项目的聊天和智能体可以使用的文件。",
     "path": "文件夹",
-    "open": "在文件中打开"
+    "open": "在文件中打开",
+    "dropTitle": "将文件拖放到这里",
+    "upload": "上传文件",
+    "newFile": "新建文件",
+    "empty": "还没有文件。将文件拖放到这里或上传。",
+    "openFile": "打开 {{name}}",
+    "dropOver": "松开以添加到此项目",
+    "loadFailed": "无法加载此项目的文件。",
+    "loading": "正在加载文件",
+    "archivedNote": "此项目已归档。恢复后才能添加或新建文件。文件仍可查看。",
+    "emptyArchived": "此项目中没有文件。"
   },
   "chats": {
     "title": "此项目中的聊天",
@@ -144,19 +155,38 @@
   },
   "tools": {
     "title": "工具默认值",
-    "note": "空 = 不覆盖；非空列表只开启列表中的项。",
-    "none": "不覆盖",
+    "none": "不限制",
     "skills": "技能",
     "addons": "插件",
-    "mcp_servers": "MCP 服务器",
-    "connectors": "连接器",
+    "mcp_servers": "模型的 MCP 服务器",
+    "connectors": "MCP 连接器",
     "collections": "集合",
-    "connectorsHint": "新聊天中只启用这些连接器",
-    "collectionsHint": "新聊天中只能使用这些知识集合",
+    "connectorsHint": "只有这些 MCP 连接器（在 MCP 连接器页面添加的）会启用。消息应用是另一回事：请看“连接”标签。",
+    "collectionsHint": "只有这些知识库在新对话和项目智能体中可用。",
     "addLabel": "添加到{{list}}",
-    "addPlaceholder": "名称",
+    "addPlaceholder": "搜索或输入名称",
     "add": "添加",
-    "removeChip": "移除 {{name}}"
+    "removeChip": "移除 {{name}}",
+    "lead": "留空表示不限制。填写某个列表后，此项目的新对话只启用这些条目，项目的每个智能体也只能使用这些条目。",
+    "skillsHint": "只有这些技能会在新对话中启用，并对项目智能体开放。请使用技能页面上显示的名称。",
+    "addonsHint": "只有这些扩展会在新对话中启用，并对项目智能体开放。",
+    "mcp_serversHint": "只有这些 MCP 服务器会启用。请使用模型配置中的服务器名称。",
+    "state": {
+      "missing": "不可用",
+      "off": "当前已关闭",
+      "missingTitle": "这里没有安装名为“{{name}}”的内容。在它存在之前，此条目不起作用。",
+      "offTitle": "“{{name}}”已关闭。在它开启之前，此条目不起作用。"
+    },
+    "countMissing": "{{n}} 个不可用",
+    "pickerLoading": "正在读取已安装的内容…",
+    "pickerNone": "没有可选的已安装内容。请输入名称。",
+    "pickerLead": "已安装，点击添加：",
+    "pickerLabel": "已安装：{{list}}",
+    "addNotInstalled": "添加“{{name}}”（此处未安装）",
+    "addTyped": "添加“{{name}}”",
+    "save": "保存",
+    "discard": "放弃更改",
+    "archivedNote": "此项目已归档。恢复后才能更改其工具默认值。"
   },
   "sheet": {
     "newTitle": "新建项目",
@@ -164,17 +194,16 @@
     "newBody": "起个名字，说明它的用途。文件和记忆之后再添加。",
     "editBody": "更改名称、描述或工具默认值。",
     "name": "名称",
-    "nameHint": "显示在列表中。文件夹是 Projects/{{slug}}。",
+    "nameHint": "显示在列表中。文件夹：Projects/{{slug}}（重命名项目后不会改变）",
     "nameHintNew": "显示在列表中。文件夹由名称生成。",
     "nameRequired": "请输入名称。",
     "description": "描述",
-    "descriptionHint": "一两句话。聊天会把它当作上下文。",
-    "defaults": "工具默认值",
-    "defaultsHint": "可选。空 = 不覆盖。",
+    "descriptionHint": "一两句话。前 {{limit}} 个字符会作为上下文提供给对话。",
     "count_one": "已设置 {{count}} 项",
     "count_other": "已设置 {{count}} 项",
     "save": "保存",
-    "cancel": "取消"
+    "cancel": "取消",
+    "nameCounter": "{{length}} / {{max}} 个字符"
   },
   "composer": {
     "label": "项目",
@@ -252,7 +281,7 @@
     "archivedHint": "此项目已归档。恢复后才能添加智能体或与其聊天。",
     "new": "新建智能体",
     "empty": "此项目中还没有智能体",
-    "emptyBody": "创建一个只在此项目的文件和记忆中工作的智能体。 共享文件夹和技能仍可读取。",
+    "emptyBody": "创建一个可在此对话并能自行运行的智能体。",
     "ready": "就绪",
     "unavailable": "不可用",
     "filesRead": "只读",
@@ -313,7 +342,14 @@
     "nextNone": "下次运行：无",
     "nextFile": "下次运行：有新文件时",
     "pausedWhy": "项目归档期间已暂停",
-    "openChat": "打开聊天"
+    "openChat": "打开聊天",
+    "newTrigger": "新建触发器",
+    "newArchived": "恢复项目后才能添加触发器。",
+    "newUnavailable": "此项目目前没有可工作的智能体，新触发器没有可运行的对象。请打开“智能体”查看原因。",
+    "triggersDenied": "你的账户无法使用触发器",
+    "triggersDeniedBody": "管理员可以为你启用。",
+    "triggersNoneNoAgents": "触发器运行项目的智能体，而此项目还没有智能体。",
+    "goAgents": "前往智能体"
   },
   "share": {
     "dialogIntro": "你共享给的人可以看到整个项目：文件、记忆和设置。有编辑权限的人可以修改其中的文件、记忆和设置。",
@@ -356,5 +392,19 @@
     "backToProjects": "返回项目",
     "loadError": "无法加载此项目。",
     "off": "此服务器已关闭项目功能。"
+  },
+  "delete": {
+    "title": "删除“{{name}}”？",
+    "body": "它的文件夹连同文件和记忆会移入回收站。你可以在几秒内撤销，也可以稍后在“文件”的回收站中恢复文件夹。",
+    "agents": "将停止工作的智能体：{{n}}",
+    "triggers": "这些智能体将停止的触发器：{{n}}",
+    "chats": "保留记录但失去项目的对话：{{n}}",
+    "nothing": "没有智能体、触发器或对话依赖此项目。"
+  },
+  "access": {
+    "agents": "你的账户无法使用智能体",
+    "agentsBody": "管理员可以为你启用。",
+    "connections": "你的账户无法使用连接",
+    "connectionsBody": "此标签页需要“连接器”和“智能体”功能。管理员可以为你启用。"
   }
 }

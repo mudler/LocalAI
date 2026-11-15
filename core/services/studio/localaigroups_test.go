@@ -98,6 +98,10 @@ func (f *fakeClientTools) ExecuteTool(ctx context.Context, name, args string) (s
 		f.voice = append(f.voice, "refused")
 		return localaitools.ErrConsentNeeded.Error(), nil
 	}
+	if name == localaitools.ToolProjects {
+		// The shape of the real tool: the JSON of the result, one project.
+		return `{"projects":[{"id":"p1","name":"Acme","slug":"acme","status":"active"}]}`, nil
+	}
 	return "made", nil
 }
 func (f *fakeClientTools) voiceCalls() []string {

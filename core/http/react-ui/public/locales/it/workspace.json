@@ -798,6 +798,7 @@
     "about": {
       "localai": "Impostazioni che LocalAI legge: persona, profilo, scorciatoie, Home, tema.",
       "chats": "Una cartella per chat, con i file della chat.",
+      "projects": "I tuoi progetti. Ogni cartella è un progetto.",
       "memory": "Le note che l'assistente conserva su di te.",
       "pages": "Le pagine del tuo spazio di lavoro.",
       "skills": "Le skill che gli agenti usano.",
@@ -806,7 +807,8 @@
     "open": {
       "memory": "Apri Memoria",
       "pages": "Apri Pagine",
-      "skills": "Apri Skill"
+      "skills": "Apri Skill",
+      "projects": "Apri Progetti"
     },
     "confirm": {
       "deleteTitle": "Spostare {{name}} nel Cestino?",
@@ -819,6 +821,7 @@
     "loses": {
       "settings": "LocalAI dimentica la tua persona, il tuo profilo, le tue scorciatoie, il layout della Home e il tuo tema.",
       "chats": "Ogni chat perde i suoi file: quello che hai allegato e quello che l'assistente ha scritto lì.",
+      "projects": "Ogni progetto perde i suoi file e la sua memoria, e le chat di un progetto perdono ciò che ne usavano.",
       "persona": "L'assistente perde il suo nome e le sue istruzioni.",
       "user": "L'assistente dimentica quello che gli hai detto di te e le tue risposte alle sue proposte.",
       "shortcuts": "Il campo di scrittura mostra di nuovo le scorciatoie predefinite.",
@@ -1267,5 +1270,8 @@
       },
       "remote": "{{model}} non è un modello locale. Il testo di ogni risposta che fai leggere ad alta voce viene inviato a un altro server."
     }
+  },
+  "projectMark": {
+    "open": "Apri il progetto {{name}}"
   }
 }

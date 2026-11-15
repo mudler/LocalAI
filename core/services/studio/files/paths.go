@@ -58,12 +58,16 @@ func (s *Service) Rel(principal, abs string) string {
 
 // What a managed path holds (see Managed).
 const (
-	ManagedSettings = "localai" // LocalAI/ and the settings files in it
-	ManagedChats    = "chats"   // Chats/, one folder per chat
-	ManagedMemory   = "memory"  // Memory/, the memory notes
-	ManagedPages    = "pages"   // pages/, one folder per page
-	ManagedSkills   = "skills"  // .skills/, one folder per personal skill
+	ManagedSettings = "localai"  // LocalAI/ and the settings files in it
+	ManagedChats    = "chats"    // Chats/, one folder per chat
+	ManagedMemory   = "memory"   // Memory/, the memory notes
+	ManagedPages    = "pages"    // pages/, one folder per page
+	ManagedSkills   = "skills"   // .skills/, one folder per personal skill
+	ManagedProjects = "projects" // Projects/, one folder per project
 )
+
+// projectsDir is the folder of the home that holds one folder per project.
+const projectsDir = "Projects"
 
 // Managed says whether LocalAI manages a path inside the home: ManagedSettings
 // for LocalAI/ and what is in it, and for the folders Chats/, Memory/, pages/
@@ -75,7 +79,15 @@ const (
 // workfiles.Managed is the one list of these folders, and the rules of
 // sharing and moving use it. Managed only gives a label to a path of that list,
 // so the Files page cannot mark a folder that sharing treats as the user's own.
+//
+// Projects/ is the one exception: it is only a label. A project folder can be
+// shared and moved like any of the user's own folders, so Projects is not in
+// workfiles.Managed and nothing but this label (exact path, not what is in the
+// folder) marks it.
 func Managed(rel string) string {
+	if rel == "/"+projectsDir {
+		return ManagedProjects
+	}
 	if !workfiles.Managed(rel) {
 		return ""
 	}
@@ -144,7 +156,10 @@ func (s *Service) Trash(ctx context.Context, principal string, limit int) ([]Tra
 		if len(gone) == 0 {
 			continue
 		}
-		out = append(out, TrashEntry{Rev: cs.Rev, Title: cs.Title, At: cs.CreatedAt, Paths: gone})
+		// The stored title names the deleted path in full, with the home of the
+		// user. The Trash is shown to that user, so it reads relative to the home.
+		title := strings.ReplaceAll(cs.Title, home, "")
+		out = append(out, TrashEntry{Rev: cs.Rev, Title: title, At: cs.CreatedAt, Paths: gone})
 		if limit > 0 && len(out) >= limit {
 			break
 		}

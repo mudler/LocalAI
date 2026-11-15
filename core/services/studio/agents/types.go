@@ -108,6 +108,11 @@ type Agent struct {
 	// store keeps what it is given, and the service refuses a write that
 	// changes it.
 	ProjectID string
+	// MovedAt is when the agent last moved to another project or out of its
+	// project (zero when it never did). The chats that were started before it,
+	// in the project the agent has left, take no new turn. A store keeps what it
+	// is given and only the move of the service sets it.
+	MovedAt time.Time
 	// Folders are the folders the agent works in, at most MaxFolders, in the
 	// order the person gave them. Each is kept by workspace node so a rename
 	// or a move of the folder is followed. No folder means the agent works on

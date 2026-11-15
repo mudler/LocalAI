@@ -156,6 +156,14 @@ var _ = Describe("folders an owner shares from their home", func() {
 		Expect(owned[0].Members).To(HaveLen(1))
 	})
 
+	It("still shares a project folder, although the Files page labels Projects/", func() {
+		mkdir("u-marta", "/users/u-marta/Projects")
+		id := mkdir("u-marta", "/users/u-marta/Projects/alpha")
+		got, err := svc.OwnSetMember(ctx, marta, id, "u-sara", workspace.ModeRead)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Path).To(Equal("/Projects/alpha"))
+	})
+
 	It("takes a revoke and a lowering at the grantee's next call and reports the lost access", func() {
 		id := mkdir("u-marta", "/users/u-marta/Projects")
 		Expect(put("u-marta", "/users/u-marta/Projects/a.txt", "a")).To(Succeed())

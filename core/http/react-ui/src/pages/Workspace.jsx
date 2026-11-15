@@ -13,10 +13,10 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { uploads, useUploads } from '../hooks/useUploads'
-import { chatAgentsApi, filesApi, folderSharesApi } from '../utils/api'
+import { chatAgentsApi, chatProjectsApi, filesApi, folderSharesApi } from '../utils/api'
 import { agentFolderMarks } from '../utils/chatAgents'
 import { fileSize } from '../utils/fileInfo'
-import { splitEntries, isSettingsFolder, guardOf, pageOf } from '../utils/managedFiles'
+import { splitEntries, isSettingsFolder, guardOf, pageOf, projectMarks, PROJECTS_ROOT } from '../utils/managedFiles'
 import {
   DRAG_TYPE, filterEntries, parseViewPrefs, pastedName, rangeOf, sortEntries, uniqueName, isArchive,
 } from '../utils/fileBrowser'
@@ -299,6 +299,19 @@ export default function Workspace() {
     const who = list.map(a => t(a.mode === 'write' ? 'agentMark.write' : 'agentMark.read', { name: a.name })).join(', ')
     return { label: list.length === 1 ? list[0].name : t('agentMark.many', { count: list.length }), title: t('agentMark.usedBy', { agents: who }) }
   }, [agentMarks, t])
+  // The projects, read when the open folder is Projects/, so each project
+  // folder shows its name and links to its page. Without the Projects feature
+  // (or on an error) the folders show only their slug.
+  const [projectList, setProjectList] = useState([])
+  const inProjects = ws.path === PROJECTS_ROOT && hasFeature('chats')
+  useEffect(() => {
+    if (!inProjects) return undefined
+    let live = true
+    chatProjectsApi.list().then(r => { if (live) setProjectList(r.projects || []) }).catch(() => {})
+    return () => { live = false }
+  }, [inProjects])
+  const projectMarkMap = useMemo(() => projectMarks(projectList), [projectList])
+  const projectMark = useCallback((path) => (inProjects ? projectMarkMap.get(path) || null : null), [inProjects, projectMarkMap])
   // A permanent delete that waits for the confirmation: { all: true } for the
   // whole Trash, { entry } for one item.
   const [purging, setPurging] = useState(null)
@@ -601,7 +614,7 @@ export default function Workspace() {
   const paths = order.map(e => e.path)
   const selectOnly = (p) => { setSelected(new Set([p])); setAnchor(p); setCursor(p) }
   const ctx = {
-    t, locale: i18n.language, now, taken, touch, menuItems, agentMark, shareMark,
+    t, locale: i18n.language, now, taken, touch, menuItems, agentMark, shareMark, projectMark,
     onOpen: openEntry,
     onRowClick: (entry, e) => {
       if (e.target.closest('button, a, input')) return

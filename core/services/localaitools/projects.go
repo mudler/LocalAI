@@ -17,8 +17,10 @@ import (
 var (
 	projectsActions = []string{ActionList, ActionGet, ActionCreate, ActionUpdate, ActionArchive, ActionRestore,
 		ActionDelete, ActionSetChatProject, ActionPull, ActionUnpull, ActionAgents,
-		ActionConnections, ActionTriggers, ActionLoops, ActionShared}
-	projectsReads = []string{ActionList, ActionGet, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared}
+		ActionConnections, ActionTriggers, ActionLoops, ActionShared, ActionSharedGet,
+		ActionMemory, ActionWriteMemory, ActionChats}
+	projectsReads = []string{ActionList, ActionGet, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared,
+		ActionSharedGet, ActionMemory, ActionChats}
 )
 
 // projectsAction serves the projects tool: it checks the fields each action
@@ -31,8 +33,13 @@ func projectsAction(ctx context.Context, client LocalAIClient, in ProjectsToolIn
 	var err error
 	switch in.Action {
 	case ActionList, ActionShared:
-	case ActionGet, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionArchive, ActionRestore, ActionDelete:
+	case ActionGet, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionChats, ActionMemory,
+		ActionSharedGet, ActionArchive, ActionRestore, ActionDelete:
 		err = need(ToolProjects, in.Action, [2]string{"project", in.Project})
+	case ActionWriteMemory:
+		if err = need(ToolProjects, in.Action, [2]string{"project", in.Project}, [2]string{"file", in.File}); err == nil && in.Content == nil {
+			err = errors.New(`projects: action "write_memory" needs content (the full new text of the file)`)
+		}
 	case ActionCreate:
 		err = need(ToolProjects, in.Action, [2]string{"name", in.Name})
 	case ActionUpdate:
@@ -51,7 +58,8 @@ func projectsAction(ctx context.Context, client LocalAIClient, in ProjectsToolIn
 		return nil, err
 	}
 	return client.Projects(ctx, ProjectsRequest{Action: in.Action, Project: strings.TrimSpace(in.Project),
-		Name: in.Name, Description: in.Description, ChatID: strings.TrimSpace(in.ChatID)})
+		Name: in.Name, Description: in.Description, ChatID: strings.TrimSpace(in.ChatID),
+		File: strings.TrimSpace(in.File), Content: in.Content})
 }
 
 // apiProject is what the project routes answer.
@@ -110,6 +118,66 @@ func (i *Inference) Projects(ctx context.Context, req ProjectsRequest) (*Project
 		for _, p := range out.Projects {
 			// Only these fields reach the model, whatever the route adds.
 			res.Shared = append(res.Shared, SharedProjectInfo{Ref: p.Ref, Name: p.Name, Mode: p.Mode, Status: p.Status, OwnerName: p.OwnerName})
+		}
+		return res, nil
+	case ActionSharedGet:
+		data, err := i.call(ctx, spec, http.MethodGet, "/api/chats/projects/shared/"+id, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		var p SharedProjectInfo
+		if err := json.Unmarshal(data, &p); err != nil {
+			return nil, fmt.Errorf("read the shared project: %w", err)
+		}
+		res := &ProjectsResult{SharedOne: &SharedProjectInfo{Ref: p.Ref, Name: p.Name, Mode: p.Mode, Status: p.Status, OwnerName: p.OwnerName}}
+		// The memory is read as the person through the grant. An archived or
+		// broken project has none to read: the project is still shown.
+		if p.Status != "active" {
+			return res, nil
+		}
+		mem, err := i.call(ctx, clientSpecAction(ToolProjects, actionSharedMemory), http.MethodGet, "/api/chats/projects/shared/"+id+"/memory", "", nil)
+		if err != nil {
+			return nil, err
+		}
+		m, err := readProjectMemory(mem, false)
+		if err != nil {
+			return nil, err
+		}
+		res.Memory = m.Memory
+		return res, nil
+	case ActionMemory:
+		data, err := i.call(ctx, spec, http.MethodGet, "/api/chats/projects/"+id+"/memory", "", nil)
+		if err != nil {
+			return nil, err
+		}
+		return readProjectMemory(data, true)
+	case ActionWriteMemory:
+		if req.Content == nil {
+			return nil, errors.New(`projects: action "write_memory" needs content`)
+		}
+		if _, err := i.sendJSON(ctx, spec, http.MethodPut, "/api/chats/projects/"+id+"/memory/"+url.PathEscape(req.File), map[string]any{"content": *req.Content}); err != nil {
+			return nil, err
+		}
+		return &ProjectsResult{Written: req.File}, nil
+	case ActionChats:
+		data, err := i.call(ctx, spec, http.MethodGet, "/api/chats/projects/"+id+"/chats", "", nil)
+		if err != nil {
+			return nil, err
+		}
+		var out struct {
+			Conversations []struct {
+				ID      string `json:"id"`
+				Title   string `json:"title"`
+				AgentID string `json:"agent_id"`
+				Updated string `json:"updated"`
+			} `json:"conversations"`
+		}
+		if err := json.Unmarshal(data, &out); err != nil {
+			return nil, fmt.Errorf("read the chats: %w", err)
+		}
+		res := &ProjectsResult{Chats: make([]ProjectChatInfo, 0, len(out.Conversations))}
+		for _, c := range out.Conversations {
+			res.Chats = append(res.Chats, ProjectChatInfo{ID: c.ID, Title: c.Title, AgentID: c.AgentID, Updated: c.Updated})
 		}
 		return res, nil
 	case ActionAgents:
@@ -172,6 +240,34 @@ func (i *Inference) Projects(ctx context.Context, req ProjectsRequest) (*Project
 	return nil, fmt.Errorf("projects: unknown action %q", req.Action)
 }
 
+// readProjectMemory reads the answer of a memory route. The owner's route
+// lists topic files as rows with a size and a time, the shared route as names;
+// only the names reach the model.
+func readProjectMemory(data []byte, owner bool) (*ProjectsResult, error) {
+	var raw struct {
+		Index string          `json:"index"`
+		Files json.RawMessage `json:"files"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("read the memory: %w", err)
+	}
+	mem := &ProjectMemoryInfo{Index: raw.Index, Files: []string{}}
+	if owner {
+		var rows []struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(raw.Files, &rows); err != nil {
+			return nil, fmt.Errorf("read the memory files: %w", err)
+		}
+		for _, r := range rows {
+			mem.Files = append(mem.Files, r.Name)
+		}
+	} else if err := json.Unmarshal(raw.Files, &mem.Files); err != nil {
+		return nil, fmt.Errorf("read the memory files: %w", err)
+	}
+	return &ProjectsResult{Memory: mem}, nil
+}
+
 func projectBody(req ProjectsRequest) map[string]any {
 	body := map[string]any{}
 	if req.Name != "" {
@@ -225,7 +321,7 @@ func (i *Inference) sendJSON(ctx context.Context, spec ClientToolSpec, method, r
 func projectsStatus(e *StatusError) error {
 	switch e.Status {
 	case http.StatusForbidden:
-		return errors.New("projects: the server refused it (403): this account may not use the chats")
+		return errors.New("projects: the server refused it (403): this account may not use the chats, or the agents, connectors or triggers that the action lists")
 	case http.StatusNotFound:
 		return errors.New("projects: no such project or chat (404). Use list for the projects of this account")
 	case http.StatusConflict:

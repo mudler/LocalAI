@@ -432,6 +432,11 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 		// Without the agent nothing says whether it has a folder.
 		return nil, fmt.Errorf("studio: read the chat's agent: %w", err)
 	}
+	// A chat that was started before its agent moved to another project keeps
+	// its record but takes no new turn: its history belongs to the old fence.
+	if movedChat(rec, ag) {
+		return nil, ErrAgentMoved
+	}
 	// An agent saved with No files (the files group off) is scoped to its
 	// chat's own folder, whatever folders it still holds: they are ignored,
 	// so a missing one cannot block the chat either.

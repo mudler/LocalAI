@@ -52,8 +52,10 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/agents/:id/share",
 			"GET /api/chats/agents/:id/references",
 			"GET /api/chats/agents/:id/needs",
+			"GET /api/chats/projects/:id/agents",
 			"GET /api/chats/agents/:id",
 			"PUT /api/chats/agents/:id",
+			"PUT /api/chats/agents/:id/project",
 			"DELETE /api/chats/agents/:id",
 		))
 		Expect(AgentFeatures).To(ContainElement(FeatureAgents))
@@ -77,6 +79,7 @@ var _ = Describe("Chats feature registration", func() {
 			}
 		}
 		Expect(routes).To(ConsistOf(
+			"GET /api/chats/projects/:id/triggers",
 			"GET /api/chats/triggers",
 			"POST /api/chats/triggers",
 			"GET /api/chats/triggers/preview",
@@ -120,6 +123,7 @@ var _ = Describe("Chats feature registration", func() {
 			}
 		}
 		Expect(routes).To(ConsistOf(
+			"GET /api/chats/projects/:id/connections",
 			"GET /api/chats/connectors",
 			"GET /api/chats/connectors/kinds",
 			"POST /api/chats/connectors",

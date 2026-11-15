@@ -5685,6 +5685,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents/{id}/project": {
+            "put": {
+                "description": "The one way to change the project of an agent: a normal save (PUT /api/chats/agents/{id}) refuses a changed project. project_id is an active project of yours, or empty to leave the project. Into a project the agent gets the project's files folder (files_mode read or write, write by default) and the memory folder at read; the grant to write the project's memory is removed, and its waiting project notes are voided. Out of a project, folders (or whole_home true) are required, so the agent never gets all your files by accident. The agent's own notes start empty: the old ones are moved to Memory/Moved agent notes in your files, not deleted. Chats the agent already has keep their history but take no new turn (the answer is 409 agent_moved: start a new chat), and their loops end. The move is refused with 409 agent_move_blocked while a chat of the agent runs a turn, while the agent is shared and enters a project (revoke_shares true removes the grants), or while an enabled file trigger watches a folder outside the new folders (disable_triggers true switches it off). With dry_run true nothing is written and the answer lists what the move touches, including the blockers.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Move a saved agent to another project, or out of its project.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the target project and the options",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentMove"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What the move did, or would do",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAgentMoveReport"
+                        }
+                    },
+                    "400": {
+                        "description": "The target or the folders are not valid, or the target is archived",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent or project, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The move is blocked (agent_move_blocked)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/agents/{id}/references": {
             "get": {
                 "description": "The add-ons, collections, skills, folders, connections, add-on resources, MCP servers and built-in grants the agent names, with a label each. share says how a reference can be shared with a person you share the agent with; without it the person needs access of their own. Only the owner may call it.",
@@ -8770,7 +8823,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "A field that is left out keeps its value. The folder keeps its name. For each of skills, add-ons and MCP servers, a non-empty default list means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only.",
+                "description": "A field that is left out keeps its value. The folder keeps its name. The defaults are five lists: skills, add-ons, connectors, MCP servers and collections. For each list, a non-empty value means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only; the agents of the project are also limited by them.",
                 "tags": [
                     "chats"
                 ],
@@ -25813,6 +25866,142 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAgent"
                     }
+                }
+            }
+        },
+        "schema.ChatsAgentMove": {
+            "type": "object",
+            "properties": {
+                "disable_triggers": {
+                    "description": "DisableTriggers switches off the file triggers whose folder is outside\nthe new folders, in place of refusing the move.",
+                    "type": "boolean"
+                },
+                "dry_run": {
+                    "description": "DryRun reports what the move would do and writes nothing.",
+                    "type": "boolean"
+                },
+                "files_mode": {
+                    "description": "FilesMode is read or write (the default): how the agent uses the files\nfolder of the new project.",
+                    "type": "string"
+                },
+                "folders": {
+                    "description": "Folders are the folders the agent keeps when it leaves a project. They\nare required then, unless WholeHome is true.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
+                    }
+                },
+                "project_id": {
+                    "description": "ProjectID is an active project of yours, or empty to take the agent out\nof its project.",
+                    "type": "string"
+                },
+                "revoke_shares": {
+                    "description": "RevokeShares removes the grants of a shared agent so that it can enter a\nproject.",
+                    "type": "boolean"
+                },
+                "whole_home": {
+                    "description": "WholeHome lets an agent that leaves a project work on all your files.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsAgentMoveReport": {
+            "type": "object",
+            "properties": {
+                "blockers": {
+                    "description": "Blockers lists why the move cannot be done as asked: busy, shared or\ntriggers_outside.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "chats": {
+                    "description": "Chats is the number of chats of the agent that stop taking turns, and\nLoops the number of their loops that end.",
+                    "type": "integer"
+                },
+                "dropped_tools": {
+                    "$ref": "#/definitions/schema.ChatsAgentMoveTools"
+                },
+                "dry_run": {
+                    "type": "boolean"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "loops": {
+                    "type": "integer"
+                },
+                "memory_grant_dropped": {
+                    "type": "boolean"
+                },
+                "moved": {
+                    "description": "Moved is true when the agent was moved.",
+                    "type": "boolean"
+                },
+                "proposals": {
+                    "description": "Proposals is the number of waiting project notes of the agent that are\nvoided.",
+                    "type": "integer"
+                },
+                "shares": {
+                    "description": "Shares is the number of people the agent is shared with.",
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "triggers_outside": {
+                    "description": "TriggersOutside are the file triggers that watch a folder outside the\nnew folders.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentMoveTrigger"
+                    }
+                },
+                "warnings": {
+                    "description": "Warnings lists steps after the move that did not finish.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentMoveTools": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsAgentMoveTrigger": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },

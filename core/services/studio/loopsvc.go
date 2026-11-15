@@ -504,6 +504,12 @@ func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopL
 		h.skipBusy(ctx, l, now)
 		return
 	}
+	// The chat was started before its agent moved to another project: the
+	// loop ends, with no run and nothing counted.
+	if h.chatMoved(ctx, l) {
+		h.end(ctx, l.ID, AgentMovedText)
+		return
+	}
 	// A project that is not available gates the run, it does not change the
 	// loop: the run is skipped for its slot, nothing is counted as a failure
 	// and nothing is told, and the loop runs again when the project is back.
@@ -645,6 +651,16 @@ func (h *Loops) busy(ctx context.Context, l loops.Loop) bool {
 	}
 	pend, err := h.svc.d.Store.Pending(ctx, l.Owner, l.ChatID)
 	return err != nil || len(pend) > 0
+}
+
+// chatMoved says whether the chat of a loop is stale for its agent, which
+// moved to another project (ErrAgentMoved).
+func (h *Loops) chatMoved(ctx context.Context, l loops.Loop) bool {
+	rec, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID)
+	if err != nil {
+		return false
+	}
+	return h.svc.chatMoved(ctx, rec)
 }
 
 // projectGone says whether the chat of a loop cannot start its next run for

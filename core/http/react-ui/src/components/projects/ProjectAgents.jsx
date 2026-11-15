@@ -58,6 +58,7 @@ export default function ProjectAgents({ project, archived, addToast, onChanged }
     </Button>
   )
 
+  if (error?.status === 403 && !rows) return <div data-testid="project-agents-denied"><EmptyState variant="unavailable" title={t('access.agents')} body={t('access.agentsBody')} /></div>
   if (error && !rows) return <LoadError title={t('load.agents')} error={error} onRetry={load} />
   if (!rows) return <SkeletonRows count={3} />
 
@@ -72,7 +73,7 @@ export default function ProjectAgents({ project, archived, addToast, onChanged }
       {error && <LoadError title={t('load.agentsStale')} error={error} onRetry={load} />}
       {rows.length === 0 ? (
         <div data-testid="project-agents-empty">
-          <EmptyState variant="no-results" title={t('agents.empty')} body={t('agents.emptyBody')} actions={newAgent} />
+          <EmptyState variant="no-results" icon="robot" title={t('agents.empty')} body={t('agents.emptyBody')} actions={newAgent} />
         </div>
       ) : (
         <ul className="pj-list" data-testid="project-agent-list">

@@ -798,6 +798,7 @@
     "about": {
       "localai": "Ajustes que LocalAI lee: persona, perfil, atajos, Inicio, tema.",
       "chats": "Una carpeta por chat, con los archivos del chat.",
+      "projects": "Tus proyectos. Cada carpeta es un proyecto.",
       "memory": "Las notas que el asistente guarda sobre ti.",
       "pages": "Las páginas de tu espacio de trabajo.",
       "skills": "Las skills que usan los agentes.",
@@ -806,7 +807,8 @@
     "open": {
       "memory": "Abrir Memoria",
       "pages": "Abrir Páginas",
-      "skills": "Abrir Skills"
+      "skills": "Abrir Skills",
+      "projects": "Abrir Proyectos"
     },
     "confirm": {
       "deleteTitle": "¿Mover {{name}} a la Papelera?",
@@ -819,6 +821,7 @@
     "loses": {
       "settings": "LocalAI olvida tu persona, tu perfil, tus atajos, el diseño de tu Inicio y tu tema.",
       "chats": "Cada chat pierde sus archivos: lo que adjuntaste y lo que el asistente escribió allí.",
+      "projects": "Cada proyecto pierde sus archivos y su memoria, y los chats de un proyecto pierden lo que usaban de ellos.",
       "persona": "El asistente pierde su nombre y sus instrucciones.",
       "user": "El asistente olvida lo que le contaste sobre ti y tus respuestas a sus ofertas.",
       "shortcuts": "El cuadro de mensaje vuelve a mostrar los atajos predeterminados.",
@@ -1267,5 +1270,8 @@
       },
       "remote": "{{model}} no es un modelo local. El texto de cada respuesta que hagas leer en voz alta se envía a otro servidor."
     }
+  },
+  "projectMark": {
+    "open": "Abrir el proyecto {{name}}"
   }
 }

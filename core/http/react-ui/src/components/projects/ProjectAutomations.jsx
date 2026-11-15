@@ -6,6 +6,8 @@ import { Button, Callout, EmptyState, LoadError, SkeletonRows, StatusChip } from
 import { chatProjectsApi } from '../../utils/api'
 import { loopState, nextRunLabel, triggerState } from '../../utils/projectLinks'
 import { useProjectPoll } from '../../hooks/useProjectPoll'
+import { useAuth } from '../../context/AuthContext'
+import { firstProjectAgent } from '../../utils/triggerProjects'
 import './projectlinks.css'
 
 const CHIPS = {
@@ -15,17 +17,31 @@ const CHIPS = {
   ended: { tone: 'idle', icon: 'check-circle' },
 }
 
+// A refusal for lack of a permission (403) is an answer, not a failure: the
+// list is left out and the tab says why. Any other error is the tab's error.
+const denied = (err) => (err?.status === 403 ? null : Promise.reject(err))
+
 const readAutomations = async (id) => {
-  const [tr, lo] = await Promise.all([chatProjectsApi.triggers(id), chatProjectsApi.loops(id)])
-  return { triggers: tr.triggers || [], loops: lo.loops || [] }
+  const [tr, lo, ag] = await Promise.all([
+    chatProjectsApi.triggers(id).catch(denied),
+    chatProjectsApi.loops(id),
+    // Only to start a new trigger with an agent; without the agents permission the form is left to choose.
+    chatProjectsApi.agents(id).catch(() => null),
+  ])
+  return { triggers: tr ? tr.triggers || [] : null, loops: lo.loops || [], agents: ag ? ag.agents || [] : null }
 }
 
 // The Automations tab: the triggers of the project's agents and the loops in
-// its chats. Both are read only here; each opens on its own page. While the
-// project is archived the server holds them: an active one reads Paused.
+// its chats. Both are read only here; each opens on its own page, and a
+// person without the triggers permission sees the rows without the link (the
+// page would refuse them). New trigger opens the form with a project agent
+// and its folder chosen. While the project is archived the server holds the
+// triggers and loops: an active one reads Paused.
 export default function ProjectAutomations({ project, archived, onRestore }) {
   const { t, i18n } = useTranslation('projects')
-  const { data, error, reload: load } = useProjectPoll(project.id, readAutomations) // { triggers, loops }
+  const { hasFeature } = useAuth()
+  const canTriggers = hasFeature('triggers')
+  const { data, error, reload: load } = useProjectPoll(project.id, readAutomations) // { triggers, loops, agents }
 
   if (error && !data) return <LoadError title={t('load.automations')} error={error} onRetry={load} />
   if (!data) return <SkeletonRows count={3} />
@@ -43,6 +59,22 @@ export default function ProjectAutomations({ project, archived, onRestore }) {
     return when ? t('automations.next', { when }) : t('automations.nextNone')
   }
 
+  const starter = firstProjectAgent(data.agents)
+  // The project has agents when the list says so; with no list (no permission) the form chooses.
+  const noAgents = data.agents !== null && data.agents.length === 0
+  const newTrigger = (
+    <Button
+      variant="primary"
+      icon="plus"
+      to={`/app/triggers/new?project=${encodeURIComponent(project.id)}`}
+      disabled={archived || noAgents || (data.agents !== null && !starter)}
+      data-testid="project-trigger-new"
+    >
+      {t('automations.newTrigger')}
+    </Button>
+  )
+  const newHint = archived ? t('automations.newArchived') : noAgents ? null : (data.agents !== null && !starter) ? t('automations.newUnavailable') : null
+
   return (
     <div className="pj-stack" data-testid="project-automations">
       {archived && (
@@ -57,10 +89,25 @@ export default function ProjectAutomations({ project, archived, onRestore }) {
       )}
       {error && <LoadError title={t('load.automationsStale')} error={error} onRetry={load} />}
       <section className="pj-section" data-testid="project-triggers">
-        <h2 className="pj-h2">{t('automations.triggersTitle')}</h2>
+        <div className="pj-head">
+          <h2 className="pj-h2">{t('automations.triggersTitle')}</h2>
+          {canTriggers && data.triggers !== null && data.triggers.length > 0 && newTrigger}
+        </div>
         <p className="pj-note">{t('automations.triggersLead')}</p>
-        {data.triggers.length === 0 ? (
-          <div data-testid="project-triggers-empty"><EmptyState variant="no-results" title={t('automations.triggersNone')} body={t('automations.triggersNoneBody')} /></div>
+        {newHint && canTriggers && <p className="pj-note" data-testid="project-trigger-new-hint">{newHint}</p>}
+        {data.triggers === null || !canTriggers ? (
+          <div data-testid="project-triggers-denied"><EmptyState variant="unavailable" title={t('automations.triggersDenied')} body={t('automations.triggersDeniedBody')} /></div>
+        ) : data.triggers.length === 0 ? (
+          <div data-testid="project-triggers-empty">
+            <EmptyState
+              variant="no-results"
+              title={t('automations.triggersNone')}
+              body={noAgents ? (
+                <>{t('automations.triggersNoneNoAgents')} <Link to={`/app/projects/${encodeURIComponent(project.id)}?tab=agents`}>{t('automations.goAgents')}</Link></>
+              ) : t('automations.triggersNoneBody')}
+              actions={noAgents ? undefined : newTrigger}
+            />
+          </div>
         ) : (
           <ul className="pj-list" data-testid="project-trigger-list">
             {data.triggers.map((tr) => {

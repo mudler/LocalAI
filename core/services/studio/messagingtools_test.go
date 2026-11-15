@@ -125,12 +125,20 @@ var _ = Describe("the LocalAI groups in a messaging chat", func() {
 		}
 	})
 
-	It("lets a run that starts by itself read projects and refuses every change", func() {
+	It("lets a run that starts by itself list projects, shows it only its own, and refuses every change", func() {
+		// The agent of this run belongs to no project: it sees none, and cannot
+		// read the detail of one by its id.
+		res, calls := run(session.OriginTrigger, localaitools.ToolProjects, `{"action":"list"}`)
+		Expect(res.Err).NotTo(HaveOccurred())
+		Expect(calls).To(Equal(1))
+		Expect(res.Out).NotTo(ContainSubstring("Acme"))
+		res, calls = run(session.OriginTrigger, localaitools.ToolProjects, `{"action":"get","project":"p1"}`)
+		Expect(res.Err).To(MatchError(ContainSubstring("only the project this chat works for")))
+		Expect(calls).To(BeZero())
 		for _, c := range []struct {
 			args string
 			ok   bool
 		}{
-			{`{"action":"list"}`, true}, {`{"action":"get","project":"p1"}`, true},
 			{`{"action":"create","name":"x"}`, false}, {`{"action":"delete","project":"p1"}`, false},
 			{`{"action":"pull","chat_id":"c1","project":"p1"}`, false}, {`{"action":"set_chat_project","chat_id":"c1"}`, false},
 		} {

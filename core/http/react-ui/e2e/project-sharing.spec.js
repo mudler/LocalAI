@@ -154,7 +154,7 @@ test.describe('A shared project page', () => {
     for (const name of ['Edit', 'Archive', 'Delete', 'Share', 'Start chat in this project']) {
       await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
     }
-    for (const tab of ['Agents', 'Connections', 'Automations', 'Tools', 'Files']) await expect(page.getByRole('tab', { name: tab })).toHaveCount(0)
+    for (const tab of ['Agents', 'Connections', 'Automations', 'Tool defaults', 'Files']) await expect(page.getByRole('tab', { name: tab })).toHaveCount(0)
     await expectNoIds(page)
     await shot(page, 'shared-page-read')
   })
