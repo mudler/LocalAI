@@ -54,6 +54,34 @@ Podman works the same way. For GPU images, see [Containers]({{% relref "/start/i
 
 Download [LocalAI.dmg](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg), open it and move LocalAI to Applications. The DMG is signed and notarized. See [macOS]({{% relref "/start/install/macos" %}}) for the details.
 
+## Development builds
+
+Every push to the `master` branch that changes the code is built and published to one rolling pre-release, tagged `dev-master`: [github.com/mudler/LocalAI/releases/tag/dev-master](https://github.com/mudler/LocalAI/releases/tag/dev-master). Each new build replaces the files of the last one. The release notes give the commit of the build.
+
+A development build is not supported. It can have bugs and it can change without notice. Use a stable release for anything that matters. The `dev-master` release is a pre-release, so the install script and the "latest" download links never use it.
+
+The release has these files:
+
+| File | Platform |
+|---|---|
+| `local-ai-master-linux-amd64` | Linux, x86-64 |
+| `local-ai-master-linux-arm64` | Linux, ARM64 |
+| `local-ai-master-darwin-arm64` | macOS, Apple Silicon |
+
+Each file has a checksum file with the same name and the suffix `.sha256`. To download and verify a binary:
+
+```bash
+base=https://github.com/mudler/LocalAI/releases/download/dev-master
+curl -fLO "$base/local-ai-master-linux-amd64"
+curl -fLO "$base/local-ai-master-linux-amd64.sha256"
+sha256sum --check local-ai-master-linux-amd64.sha256
+chmod +x local-ai-master-linux-amd64
+```
+
+On macOS, use `shasum -a 256 --check` instead of `sha256sum --check`. The command must print `OK`. If it does not, delete the files and download them again.
+
+The Development update channel of the Electron launcher downloads these binaries.
+
 ## What next
 
 Run a first model with the [quickstart]({{% relref "/start/quickstart" %}}).
