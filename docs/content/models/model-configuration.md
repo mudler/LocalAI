@@ -1352,10 +1352,10 @@ remote upstream. The `proxy:` block holds its settings (`upstream_url`,
 `api_key_file`, `request_timeout_seconds`). See
 [Cloud passthrough proxy]({{% relref "/administration/cloud-proxy" %}}).
 
-`proxy.connection` is the id of a
-[remote connection]({{% relref "/administration/remote-connections" %}}). The
-connection feature sets it. Do not write it by hand. LocalAI reads the key from
-the connection when the model loads. The field is exclusive with `api_key`,
+`proxy.remote` is the id of a
+[remote]({{% relref "/administration/remotes" %}}). LocalAI sets it when a
+remote creates the model. Do not write it by hand. LocalAI reads the key from
+the remote when the model loads. The field is exclusive with `api_key`,
 `api_key_env` and `api_key_file`.
 
 ## Environment Variables Configuration
