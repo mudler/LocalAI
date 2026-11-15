@@ -9,6 +9,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/mudler/LocalAI/core/config"
 )
 
 // Kind is the kind of remote.
@@ -137,7 +139,7 @@ type Service interface {
 	// entry file.
 	Refresh(ctx context.Context, id string) (Remote, error)
 	Adopt(ctx context.Context, id string, models []UpstreamModel) (Result, error)
-	// ResolveKey returns the key for a model load. It is never exposed over
-	// HTTP.
-	ResolveKey(ctx context.Context, id string) (string, error)
+	// ResolveKey returns the key for a model load and the address the key
+	// is bound to. It is never exposed over HTTP.
+	ResolveKey(ctx context.Context, id string) (config.ProxyRemoteKey, error)
 }

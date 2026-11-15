@@ -220,12 +220,24 @@ func (s *service) Get(ctx context.Context, id string) (Remote, error) {
 	return r.view(), nil
 }
 
-func (s *service) ResolveKey(ctx context.Context, id string) (string, error) {
+// ResolveKey returns the key of a remote together with the address its
+// entries are built from. The address comes from the same derivation as the
+// proxy.upstream_url of a generated entry, so the address check of a model
+// load always accepts a generated entry.
+func (s *service) ResolveKey(ctx context.Context, id string) (config.ProxyRemoteKey, error) {
 	r, err := s.o.Store.Get(ctx, id)
 	if err != nil {
-		return "", err
+		return config.ProxyRemoteKey{}, err
 	}
-	return s.openKey(ctx, r)
+	t, err := parseTarget(r.Kind, r.URL, "")
+	if err != nil {
+		return config.ProxyRemoteKey{}, errors.New("remotes: the address of the remote is not valid")
+	}
+	key, err := s.openKey(ctx, r)
+	if err != nil {
+		return config.ProxyRemoteKey{}, err
+	}
+	return config.ProxyRemoteKey{Key: key, Kind: string(r.Kind), Base: t.base.String()}, nil
 }
 
 // --- Create ---------------------------------------------------------------

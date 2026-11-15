@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/xlog"
@@ -74,8 +75,8 @@ func (s *stubRemotes) Adopt(_ context.Context, id string, m []remotes.UpstreamMo
 	s.got = m
 	return s.adopt(id, m)
 }
-func (s *stubRemotes) ResolveKey(context.Context, string) (string, error) {
-	return "", errors.New("never called over HTTP")
+func (s *stubRemotes) ResolveKey(context.Context, string) (config.ProxyRemoteKey, error) {
+	return config.ProxyRemoteKey{}, errors.New("never called over HTTP")
 }
 
 var _ = Describe("remote endpoints", func() {

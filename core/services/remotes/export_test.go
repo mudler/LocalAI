@@ -72,3 +72,12 @@ func BuildEntry(kind Kind, rawURL, name, remoteID string, m UpstreamModel) ([]by
 	}
 	return buildEntry(t, name, remoteID, m)
 }
+
+// TargetBase returns the address a key of the remote is bound to.
+func TargetBase(kind Kind, rawURL string) (string, error) {
+	t, err := parseTarget(kind, rawURL, "")
+	if err != nil {
+		return "", err
+	}
+	return t.base.String(), nil
+}

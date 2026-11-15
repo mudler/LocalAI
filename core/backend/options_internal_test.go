@@ -485,14 +485,25 @@ var _ = Describe("Proxy credential options", func() {
 	})
 })
 
-type fakeKeyResolver map[string]string
+type fakeKeyResolver map[string]config.ProxyRemoteKey
 
-func (f fakeKeyResolver) ResolveKey(_ context.Context, id string) (string, error) {
+func (f fakeKeyResolver) ResolveKey(_ context.Context, id string) (config.ProxyRemoteKey, error) {
 	k, ok := f[id]
 	if !ok {
-		return "", errors.New("not found")
+		return config.ProxyRemoteKey{}, errors.New("not found")
 	}
 	return k, nil
+}
+
+func boundKey(key string) config.ProxyRemoteKey {
+	return config.ProxyRemoteKey{Key: key, Kind: "localai", Base: "https://remote.example.com"}
+}
+
+type configMap map[string]config.ModelConfig
+
+func (m configMap) GetModelConfig(name string) (config.ModelConfig, bool) {
+	c, ok := m[name]
+	return c, ok
 }
 
 var _ = Describe("proxy remote key", func() {
@@ -511,7 +522,7 @@ var _ = Describe("proxy remote key", func() {
 	}
 
 	It("sets the key from the resolver and leaves key file and env empty", func() {
-		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "fake-key"})
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
 		opts, err := finalize(remoteConfig("c1"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
@@ -519,8 +530,25 @@ var _ = Describe("proxy remote key", func() {
 		Expect(opts.Proxy.ApiKeyEnv).To(BeEmpty())
 	})
 	It("does not put the key in the options built before the load", func() {
-		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "fake-key"})
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
 		Expect(grpcModelOpts(remoteConfig("c1"), "/models").Proxy.ApiKey).To(BeEmpty())
+	})
+	It("refuses to send the key of a remote to another server", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+		cfg := remoteConfig("c1")
+		cfg.Proxy.UpstreamURL = "https://attacker.example.net"
+		opts, err := finalize(cfg)
+		Expect(err).To(MatchError(ContainSubstring("not an address of this localai remote")))
+		Expect(err.Error()).NotTo(ContainSubstring("fake-key"))
+		Expect(opts.Proxy.ApiKey).To(BeEmpty())
+	})
+	It("accepts a trailing slash and the default port", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+		cfg := remoteConfig("c1")
+		cfg.Proxy.UpstreamURL = "https://remote.example.com:443/"
+		opts, err := finalize(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
 	})
 	It("fails with a clear error when no resolver is set", func() {
 		_, err := finalize(remoteConfig("c1"))
@@ -532,12 +560,44 @@ var _ = Describe("proxy remote key", func() {
 		Expect(err).To(MatchError(ContainSubstring(`proxy remote "gone": key unavailable`)))
 	})
 	It("keeps a plain key and ignores the resolver for models without a remote", func() {
-		config.SetProxyKeyResolver(fakeKeyResolver{"c1": "other"})
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("other")})
 		cfg := remoteConfig("")
 		cfg.Proxy.APIKey = "plain"
 		opts := grpcModelOpts(cfg, "/models")
 		Expect(opts.Proxy.ApiKey).To(Equal("plain"))
 		so := &config.ApplicationConfig{SystemState: &system.SystemState{}}
 		Expect(ModelOptions(cfg, so)).NotTo(BeEmpty())
+	})
+
+	Describe("LoadOptionsFinalizer", func() {
+		It("resolves the key of a remote model from its current config", func() {
+			config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+			cfg := remoteConfig("c1")
+			fin := LoadOptionsFinalizer(configMap{"remote-model": cfg})
+			opts := grpcModelOpts(cfg, "/models")
+			Expect(fin(context.Background(), "remote-model", opts)).To(Succeed())
+			Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
+		})
+		It("refuses stored options that point at another server", func() {
+			config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+			cfg := remoteConfig("c1")
+			opts := grpcModelOpts(cfg, "/models")
+			opts.Proxy.UpstreamUrl = "https://attacker.example.net"
+			err := LoadOptionsFinalizer(configMap{"remote-model": cfg})(context.Background(), "remote-model", opts)
+			Expect(err).To(HaveOccurred())
+			Expect(opts.Proxy.ApiKey).To(BeEmpty())
+		})
+		It("puts an inline key back and leaves other models alone", func() {
+			plain := remoteConfig("")
+			plain.Proxy.APIKey = "inline"
+			fin := LoadOptionsFinalizer(configMap{"remote-model": plain})
+			opts := grpcModelOpts(plain, "/models")
+			opts.Proxy.ApiKey = ""
+			Expect(fin(context.Background(), "remote-model", opts)).To(Succeed())
+			Expect(opts.Proxy.ApiKey).To(Equal("inline"))
+			other := &pb.ModelOptions{Model: "x"}
+			Expect(fin(context.Background(), "unknown", other)).To(Succeed())
+			Expect(fin(context.Background(), "unknown", nil)).To(Succeed())
+		})
 	})
 })

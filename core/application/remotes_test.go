@@ -62,7 +62,7 @@ var _ = Describe("remotes wiring", func() {
 		cfg, ok := app.ModelConfigLoader().GetModelConfig("one")
 		Expect(ok).To(BeTrue(), "the new model is visible without a restart")
 		Expect(cfg.Proxy.Remote).To(Equal(res.Remote.ID))
-		got, err := config.ResolveProxyRemoteKey(context.Background(), res.Remote.ID)
+		got, err := config.ResolveProxyRemoteKey(context.Background(), res.Remote.ID, cfg.Proxy.UpstreamURL)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(Equal(key))
 

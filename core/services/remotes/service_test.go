@@ -242,7 +242,7 @@ var _ = Describe("Service", func() {
 			Expect(e.read("alpha")).NotTo(ContainSubstring(secret))
 			Expect(e.bus.ops("alpha")).To(Equal([]string{"install"}))
 
-			key, err := e.svc.ResolveKey(ctx, c.ID)
+			key, err := resolveKey(ctx, e.svc, c.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(key).To(Equal(secret))
 		})
@@ -455,7 +455,7 @@ var _ = Describe("Service", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got.KeySet).To(BeTrue())
 			Expect(e.unloader.seen()).To(ConsistOf("alpha", "beta"))
-			resolved, err := e.svc.ResolveKey(ctx, c.ID)
+			resolved, err := resolveKey(ctx, e.svc, c.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(Equal(key))
 			Expect(e.read("alpha")).NotTo(ContainSubstring(key))
@@ -473,7 +473,7 @@ var _ = Describe("Service", func() {
 			got, err := e.svc.Update(ctx, c.ID, remotes.UpdateRequest{APIKey: &empty})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got.KeySet).To(BeFalse())
-			key, err := e.svc.ResolveKey(ctx, c.ID)
+			key, err := resolveKey(ctx, e.svc, c.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(key).To(BeEmpty())
 			an, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindAnthropic, Name: "Claude", APIKey: "k"})
@@ -518,7 +518,7 @@ var _ = Describe("Service", func() {
 			Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
 			Expect(e.bus.ops("alpha")).To(Equal([]string{"install", "delete"}))
 			Expect(e.unloader.seen()).To(ConsistOf("alpha", "beta"))
-			_, err = e.svc.ResolveKey(ctx, c.ID)
+			_, err = resolveKey(ctx, e.svc, c.ID)
 			Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
 		})
 		It("detaches the entries without copying the key", func() {
@@ -604,7 +604,7 @@ var _ = Describe("Service", func() {
 			recA, _ := store.Get(ctx, a.Remote.ID)
 			_, err = store.Update(ctx, b.Remote.ID, func(r *remotes.Record) error { r.Sealed = recA.Sealed; return nil })
 			Expect(err).NotTo(HaveOccurred())
-			_, err = e2.svc.ResolveKey(ctx, b.Remote.ID)
+			_, err = resolveKey(ctx, e2.svc, b.Remote.ID)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
 		})
@@ -615,9 +615,60 @@ var _ = Describe("Service", func() {
 		It("serves the key to the proxy key resolver", func() {
 			c := create().Remote
 			config.SetProxyKeyResolver(e.svc)
-			Expect(config.ResolveProxyRemoteKey(ctx, c.ID)).To(Equal(secret))
-			_, err := config.ResolveProxyRemoteKey(ctx, "missing")
+			Expect(config.ResolveProxyRemoteKey(ctx, c.ID, remote.URL)).To(Equal(secret))
+			_, err := config.ResolveProxyRemoteKey(ctx, "missing", remote.URL)
 			Expect(err).To(MatchError(ContainSubstring("key unavailable")))
+		})
+		It("gives the key to every generated entry and to no other address", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("x-api-key") != "" {
+					writeJSON(w, map[string]any{"data": []map[string]any{{"id": "claude-x"}}, "has_more": false})
+					return
+				}
+				writeJSON(w, map[string]any{"data": []map[string]any{{"id": "gpt-x"}}})
+			}))
+			defer srv.Close()
+			local := create(chat("alpha")...)
+			oa, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindOpenAI, Name: "OpenAI", URL: srv.URL + "/v1/", APIKey: "oa-key", Models: []remotes.UpstreamModel{{ID: "gpt-x"}}})
+			Expect(err).NotTo(HaveOccurred())
+			an, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindAnthropic, Name: "Claude", URL: srv.URL, APIKey: "an-key", Models: []remotes.UpstreamModel{{ID: "claude-x"}}})
+			Expect(err).NotTo(HaveOccurred())
+			config.SetProxyKeyResolver(e.svc)
+			for entry, want := range map[string]string{"alpha": secret, "gpt-x": "oa-key", "claude-x": "an-key"} {
+				cfg := e.config(entry)
+				Expect(config.ResolveProxyRemoteKey(ctx, cfg.Proxy.Remote, cfg.Proxy.UpstreamURL)).To(Equal(want), entry)
+			}
+			// The probe of the security review: an entry that names a remote
+			// but points at another server gets no key.
+			for _, id := range []string{local.Remote.ID, oa.Remote.ID, an.Remote.ID} {
+				key, err := config.ResolveProxyRemoteKey(ctx, id, "https://attacker.example.net/v1/chat/completions")
+				Expect(err).To(HaveOccurred())
+				Expect(key).To(BeEmpty())
+				Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
+			}
+			// The same host on another port is another server.
+			other := replaceOnce(srv.URL, "127.0.0.1:", "127.0.0.1:1")
+			_, err = config.ResolveProxyRemoteKey(ctx, oa.Remote.ID, other+"/v1/chat/completions")
+			Expect(err).To(HaveOccurred())
+		})
+		It("binds every generated address to the base the key resolves with", func() {
+			for _, c := range []struct {
+				kind remotes.Kind
+				url  string
+			}{
+				{remotes.KindAnthropic, ""},
+				{remotes.KindAnthropic, "https://gw.example.com/anthropic/v1/"},
+				{remotes.KindOpenAI, "https://api.example.com:443/v1/"},
+				{remotes.KindLocalAI, "http://10.0.0.2:8080/ai/v1"},
+			} {
+				entry, err := remotes.EntryUpstreamURL(c.kind, c.url)
+				Expect(err).NotTo(HaveOccurred())
+				base, err := remotes.TargetBase(c.kind, c.url)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config.UpstreamWithinBase(entry, base)).To(BeTrue(), "%s %s", c.kind, c.url)
+			}
+			base, _ := remotes.TargetBase(remotes.KindAnthropic, "")
+			Expect(base).To(Equal("https://api.anthropic.com"))
 		})
 	})
 
@@ -630,7 +681,7 @@ var _ = Describe("Service", func() {
 			got, err := b.svc.Get(ctx, res.Remote.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got.Name).To(Equal("Home"))
-			key, err := b.svc.ResolveKey(ctx, res.Remote.ID)
+			key, err := resolveKey(ctx, b.svc, res.Remote.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(key).To(Equal(secret))
 			name := "Renamed"
@@ -648,7 +699,7 @@ var _ = Describe("Service", func() {
 			a, b := newEnv(s1), newEnv(s2)
 			res, err := a.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "Home", URL: remote.URL, APIKey: secret})
 			Expect(err).NotTo(HaveOccurred())
-			key, err := b.svc.ResolveKey(ctx, res.Remote.ID)
+			key, err := resolveKey(ctx, b.svc, res.Remote.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(key).To(Equal(secret))
 		})
@@ -767,6 +818,11 @@ func (c *countingService) refreshes() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.n
+}
+
+func resolveKey(ctx context.Context, svc remotes.Service, id string) (string, error) {
+	rk, err := svc.ResolveKey(ctx, id)
+	return rk.Key, err
 }
 
 func replaceOnce(s, old, repl string) string {
