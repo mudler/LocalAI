@@ -34,8 +34,11 @@ Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run qwen3-4b
+local-ai run
+# open http://localhost:8080 and install the model it recommends
 ```
+
+To pick the model yourself, for example a small one that runs on a CPU: `local-ai run gemma-4-e2b-it-qat-q4_0`.
 
 **Container** (Docker, podman, ...):
 
@@ -83,7 +86,7 @@ Load a model:
 
 ```bash
 # From the model gallery (list it with `local-ai models list` or at https://models.localai.io)
-local-ai run qwen3-4b
+local-ai run gemma-4-e2b-it-qat-q4_0
 # From Hugging Face
 local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 # From the Ollama OCI registry
@@ -95,7 +98,7 @@ local-ai run oci://localai/phi-2:latest
 To talk to a running server from the terminal, start the built-in agent in another shell. It asks you to approve anything that changes state. See the [Terminal agent](https://localai.io/docs/features/terminal-agent/) docs.
 
 ```bash
-local-ai chat --model qwen3-4b
+local-ai chat --model gemma-4-e2b-it-qat-q4_0
 ```
 
 More in the [Quickstart](https://localai.io/docs/start/quickstart/).
