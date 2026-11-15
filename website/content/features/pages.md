@@ -1,6 +1,6 @@
 ---
 title: "Pages and widgets"
-weight: 7
+weight: 9
 card: "Ask for a small page and pin it to Home."
 headline: 'Ask for a page. Pin it to <span class="hl">Home</span>.'
 lede: "The assistant proposes a small page. You confirm it. Home shows it as a tile, next to widgets that show your data."

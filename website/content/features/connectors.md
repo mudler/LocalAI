@@ -1,6 +1,6 @@
 ---
 title: "Connectors"
-weight: 9
+weight: 11
 card: "Message an agent from Slack, Telegram or Discord."
 headline: 'Text it from your <span class="hl">phone</span>.'
 lede: "Connect an agent to the chat apps you already use. Add-ons do the connecting."

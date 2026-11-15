@@ -1,6 +1,6 @@
 ---
 title: "Team"
-weight: 5
+weight: 7
 card: "One server, a login for each person, and admin control."
 headline: 'One server. Your whole <span class="hl">team</span>.'
 lede: "Each person has a login and their own chats. An admin chooses what each person can use."

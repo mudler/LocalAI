@@ -1,6 +1,6 @@
 ---
 title: "Files"
-weight: 2
+weight: 4
 card: "Upload files and let an agent read, search and share them."
 headline: 'Files in. Results <span class="hl">out</span>.'
 lede: "Keep your files on the server. An agent reads them, searches them and writes results back."

@@ -1,6 +1,6 @@
 ---
 title: "Collections"
-weight: 6
+weight: 8
 card: "Index documents and let an agent search them by meaning."
 headline: 'Ask your <span class="hl">documents</span>.'
 lede: "Collections index PDF, text, Markdown and web pages. An agent finds the passages that answer you."

@@ -1,10 +1,10 @@
 ---
 title: "Add-ons"
-weight: 8
+weight: 10
 card: "Install software that adds chat apps, tools and pages."
 headline: 'New powers for your <span class="hl">assistant</span>.'
 lede: "An add-on is software you install. It adds chat apps, tools and pages."
-description: "Add-ons add chat apps, tools and pages to LocalAI. See what each one does and what an admin has to turn on."
+description: "Add-ons add chat apps, tools and pages to LocalAI. See what each one does and who installs it."
 docs: "/docs/addons/user-guide/"
 dev: true
 icon: "addons"

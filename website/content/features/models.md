@@ -1,6 +1,6 @@
 ---
 title: "Models"
-weight: 10
+weight: 12
 card: "Pick an open model from the gallery. LocalAI picks the engine."
 headline: 'Open models, your <span class="hl">hardware</span>.'
 lede: "Pick an open model from the gallery. LocalAI installs it and runs it on your own hardware."

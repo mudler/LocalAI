@@ -1,6 +1,6 @@
 ---
 title: "Sandbox"
-weight: 4
+weight: 6
 card: "Run Python on your files in an isolated sandbox."
 headline: 'Python in a <span class="hl">box</span>.'
 lede: "Put a spreadsheet in Files and ask for a chart. The Sandbox runs the code and saves the result in Files."

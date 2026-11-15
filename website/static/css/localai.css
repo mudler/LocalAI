@@ -283,3 +283,12 @@ html.rv-on .rv { transition: opacity .3s ease, transform .3s ease; }
 }
 @media print { .top, .foot, .skip { display: none; } }
 .pagehead + section { padding-top: clamp(1.8rem, 4vw, 3rem); }
+
+/* desktop app download */
+.dl { margin: 0 0 1.4rem; }
+.dl__h { margin: 0 0 .7rem; font: 700 .8rem/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--dk-muted); }
+.dl .btn svg { width: 20px; height: 20px; flex: none; }
+.dl .fine { margin: .8rem 0 0; }
+.dl .need { margin: .8rem 0 0; }
+.dl code { overflow-wrap: anywhere; }
+@media (max-width: 480px) { .dl .acts .btn { width: 100%; } }
