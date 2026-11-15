@@ -44,7 +44,7 @@ sections:
     dev: true
     links:
       - {t: "See Projects", href: "features/projects/"}
-      - {t: "Projects docs", href: "/docs/features/chats-connectors/#projects"}
+      - {t: "Projects docs", href: "/docs/features/projects/"}
     illus: projects
     demo: ""
   - id: files
@@ -152,7 +152,7 @@ sections:
     demo: ""
 
 cards:
-  - {dev: true, t: Projects, p: "Files, notes and agents for one piece of work.", icon: projects, href: "/docs/features/chats-connectors/#projects"}
+  - {dev: true, t: Projects, p: "Files, notes and agents for one piece of work.", icon: projects, href: "/docs/features/projects/"}
   - {dev: true, t: "Desktop app", p: "Install and run LocalAI from a window, on macOS and Linux.", icon: desktop, href: "/docs/start/install/desktop/"}
   - {t: "Every modality", p: "Images, video, music, speech, embeddings and vision.", icon: modalities, href: "/docs/models/capabilities/"}
   - {dev: true, t: Office, p: "Word, Excel, PowerPoint and PDF from a sentence.", icon: office, href: "/docs/features/office/"}

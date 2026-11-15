@@ -4,7 +4,7 @@ weight: 3
 card: "Group chats, files, notes and agents around one piece of work."
 headline: 'One place for the work, the notes and the <span class="hl">agents</span>.'
 lede: "A project groups chats around one folder. It holds files, notes that its chats read, and defaults for new chats."
-docs: "/docs/features/chats-connectors/#projects"
+docs: "/docs/features/projects/"
 dev: true
 icon: "projects"
 illus: "projects"
