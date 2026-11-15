@@ -179,7 +179,19 @@ var _ = Describe("Allowed with metadata addresses", func() {
 		Entry("AWS through NAT64", "64:ff9b::a9fe:a9fe"),
 		Entry("AWS through 6to4", "2002:a9fe:a9fe::1"),
 		Entry("AWS through IPv4-compatible", "::a9fe:a9fe"),
+		Entry("EKS Pod Identity", "169.254.170.23"),
+		Entry("EKS Pod Identity over IPv6", "fd00:ec2::23"),
+		Entry("Google over IPv6", "fd20:ce::254"),
+		Entry("AWS time and DNS range", "169.254.169.123"),
+		Entry("ECS agent range", "169.254.170.99"),
+		Entry("EKS Pod Identity through NAT64", "64:ff9b::a9fe:aa17"),
 	)
+
+	It("keeps the rest of the link-local range reachable when private addresses are allowed", func() {
+		a := netip.MustParseAddr("169.254.10.20")
+		Expect(safehttp.Allowed(a, false)).To(BeFalse())
+		Expect(safehttp.Allowed(a, true)).To(BeTrue())
+	})
 
 	It("lets private addresses through NAT64 only when allowed", func() {
 		a := netip.MustParseAddr("64:ff9b::a00:1") // 10.0.0.1

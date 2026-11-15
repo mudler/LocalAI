@@ -343,10 +343,22 @@ func looksNumeric(host string) bool {
 var metadata = []netip.Addr{
 	netip.MustParseAddr("169.254.169.254"),
 	netip.MustParseAddr("169.254.170.2"),
-	netip.MustParseAddr("fd00:ec2::254"),
+	netip.MustParseAddr("169.254.170.23"),  // EKS Pod Identity
+	netip.MustParseAddr("fd00:ec2::254"),   // AWS over IPv6
+	netip.MustParseAddr("fd00:ec2::23"),    // EKS Pod Identity over IPv6
+	netip.MustParseAddr("fd20:ce::254"),    // Google Compute Engine over IPv6
 	netip.MustParseAddr("168.63.129.16"),   // Azure wire server, a public address
 	netip.MustParseAddr("192.0.0.192"),     // Oracle Cloud
 	netip.MustParseAddr("100.100.100.200"), // Alibaba Cloud
+}
+
+// metadataRanges are the link-local ranges where the clouds put their
+// metadata, credential and container agents (AWS, ECS, EKS, Google, Azure).
+// They stay blocked with private addresses allowed; the rest of the
+// link-local range stays reachable for a server on a link-local network.
+var metadataRanges = []netip.Prefix{
+	netip.MustParsePrefix("169.254.169.0/24"),
+	netip.MustParsePrefix("169.254.170.0/24"),
 }
 
 var (
@@ -384,6 +396,11 @@ func Allowed(a netip.Addr, allowPrivate bool) bool {
 	}
 	if slices.Contains(metadata, a) {
 		return false
+	}
+	for _, p := range metadataRanges {
+		if p.Contains(a) {
+			return false
+		}
 	}
 	if a.IsUnspecified() {
 		return false
