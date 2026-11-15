@@ -1027,7 +1027,14 @@ In the chat:
   folder layout kept. It is off when the list is empty.
 - **The preview** that opens by itself after a turn shows the newest file
   that is not a working file. A working file never opens it by itself.
-- **The chips under the answer** name only what the chat made for you.
+- **The chips under the answer** name only what the chat made for you. An
+  image the answer does not show itself also appears above the chips as a
+  thumbnail that opens the pane.
+- **Images and links in an answer** that name a file of the chat, by its path in
+  the sandbox, by its path in your files (a folder name with spaces is fine) or
+  by its name, show the file in the message. A link to a file opens it in the
+  pane. An image that does not load shows as a chip with its name, never as a
+  broken image.
 - **A step** that saved working files says so in one line ("Also saved 2
   working files"); click it to see their chips.
 
