@@ -95,7 +95,7 @@ func normalizeURL(kind Kind, raw string) (*url.URL, error) {
 
 func parseTarget(kind Kind, rawURL, key string) (target, error) {
 	if !kind.valid() {
-		return target{}, invalid("The kind must be localai, openai or anthropic.")
+		return target{}, errBadKind()
 	}
 	u, err := normalizeURL(kind, rawURL)
 	if err != nil {
@@ -127,10 +127,13 @@ func (t target) entryUpstreamURL() string {
 	}
 }
 
-// fetcher makes the outbound calls to a remote.
+// fetcher makes the outbound calls to a remote. list sets hc for the
+// length of one listing, so the calls of a listing share one client and its
+// connections.
 type fetcher struct {
 	timeout time.Duration
 	maxBody int64
+	hc      *http.Client
 }
 
 func newFetcher() fetcher { return fetcher{timeout: defaultTimeout, maxBody: defaultMaxBody} }
@@ -158,8 +161,11 @@ func (f fetcher) get(ctx context.Context, address string, headers map[string]str
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	c := f.client()
-	defer c.CloseIdleConnections()
+	c := f.hc
+	if c == nil {
+		c = f.client()
+		defer c.CloseIdleConnections()
+	}
 	resp, err := c.Do(req)
 	if err != nil {
 		return classifyTransportError(err, req.URL.Host)
@@ -212,12 +218,12 @@ func bearer(key string) map[string]string {
 }
 
 // list asks the remote which models it offers. It fails with an
-// upstreamError; zero usable models is the step no_models.
-func (f fetcher) list(ctx context.Context, t target) ([]UpstreamModel, error) {
-	var (
-		models []UpstreamModel
-		err    error
-	)
+// upstreamError; zero usable models is the step no_models. The listing is
+// cut to MaxListedModels in sort order; total says how many usable models
+// the remote listed.
+func (f fetcher) list(ctx context.Context, t target) (models []UpstreamModel, total int, err error) {
+	f.hc = f.client()
+	defer f.hc.CloseIdleConnections()
 	switch t.kind {
 	case KindLocalAI:
 		models, err = f.listLocalAI(ctx, t)
@@ -226,13 +232,17 @@ func (f fetcher) list(ctx context.Context, t target) ([]UpstreamModel, error) {
 	case KindAnthropic:
 		models, err = f.listAnthropic(ctx, t)
 	default:
-		return nil, invalid("The kind must be localai, openai or anthropic.")
+		return nil, 0, errBadKind()
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if len(models) == 0 {
-		return nil, upstreamErr(StepNoModels, "The server lists no model that can be used.")
+		return nil, 0, upstreamErr(StepNoModels, "The server lists no model that can be used.")
 	}
-	return models, nil
+	total = len(models)
+	if total > MaxListedModels {
+		models = models[:MaxListedModels]
+	}
+	return models, total, nil
 }

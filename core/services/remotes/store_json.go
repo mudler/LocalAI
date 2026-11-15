@@ -50,6 +50,14 @@ func NewJSONStore(dir string) (Store, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("remotes: create store directory: %w", err)
 	}
+	// MkdirAll keeps the mode of a directory that exists. The directory
+	// holds the sealing key, so it is closed to others whatever made it.
+	if st, err := os.Stat(dir); err == nil && st.Mode().Perm()&0o077 != 0 {
+		if err := os.Chmod(dir, 0o700); err != nil { // #nosec G302 -- directory mode: the owner needs the search bit
+			return nil, fmt.Errorf("remotes: the store directory can be read by others and its mode could not be set to 700: %w", err)
+		}
+		xlog.Warn("The remotes store directory could be read by others; its mode was set to 700", "dir", dir)
+	}
 	s.path = filepath.Join(dir, jsonFileName)
 	s.keyPath = filepath.Join(dir, jsonKeyName)
 	return s, nil
@@ -65,6 +73,9 @@ func (s *jsonStore) load() (map[string]record, error) {
 	raw, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return map[string]record{}, nil
+	}
+	if err == nil {
+		s.fixFileMode()
 	}
 	if err != nil {
 		return nil, fmt.Errorf("remotes: read store: %w", err)
@@ -82,6 +93,21 @@ func (s *jsonStore) load() (map[string]record, error) {
 		f.Remotes = map[string]record{}
 	}
 	return f.Remotes, nil
+}
+
+// fixFileMode closes the store file to others when an outside tool loosened
+// its mode. The sealed values are useless without the key, but the file is
+// still not for others to read.
+func (s *jsonStore) fixFileMode() {
+	st, err := os.Stat(s.path)
+	if err != nil || st.Mode().Perm()&0o077 == 0 {
+		return
+	}
+	if err := os.Chmod(s.path, 0o600); err != nil {
+		xlog.Warn("The remotes file can be read by others and its mode could not be set to 600", "path", s.path, "error", err)
+		return
+	}
+	xlog.Warn("The remotes file could be read by others; its mode was set to 600", "path", s.path)
 }
 
 func (s *jsonStore) save(m map[string]record) error {
@@ -176,15 +202,21 @@ func (s *jsonStore) Update(_ context.Context, id string, fn func(*record) error)
 	return next, nil
 }
 
-func (s *jsonStore) Delete(_ context.Context, id string) error {
+func (s *jsonStore) Delete(_ context.Context, id string, check func(record) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	m, err := s.load()
 	if err != nil {
 		return err
 	}
-	if _, ok := m[id]; !ok {
+	cur, ok := m[id]
+	if !ok {
 		return ErrNotFound
+	}
+	if check != nil {
+		if err := check(cur.clone()); err != nil {
+			return err
+		}
 	}
 	delete(m, id)
 	return s.save(m)
@@ -197,6 +229,9 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 	defer s.mu.Unlock()
 	if s.keyPath == "" {
 		if s.key == nil {
+			if anySealed(s.mem) {
+				return nil, errKeyMissing
+			}
 			k, err := generate()
 			if err != nil {
 				return nil, err
@@ -218,6 +253,14 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 		return k, nil
 	case !errors.Is(err, os.ErrNotExist):
 		return nil, err
+	}
+	m, err := s.load()
+	if err != nil {
+		return nil, err
+	}
+	if anySealed(m) {
+		xlog.Error("The remotes key file is missing but remotes.json holds keys sealed with it; no new key is made", "key_file", s.keyPath)
+		return nil, errKeyMissing
 	}
 	k, err := generate()
 	if err != nil {

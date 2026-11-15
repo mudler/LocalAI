@@ -35,19 +35,13 @@ type RemoteTestRequest struct {
 	APIKey string       `json:"api_key"` // write-only
 }
 
-// RemoteModel is a model that an admin picked from a remote.
-type RemoteModel struct {
-	ID       string   `json:"id"`
-	Usecases []string `json:"usecases"`
-}
-
 // RemoteCreateRequest is the body of POST /api/remotes.
 type RemoteCreateRequest struct {
-	Kind   remotes.Kind  `json:"kind"`
-	Name   string        `json:"name"`
-	URL    string        `json:"url"`
-	APIKey string        `json:"api_key"` // write-only
-	Models []RemoteModel `json:"models"`
+	Kind   remotes.Kind            `json:"kind"`
+	Name   string                  `json:"name"`
+	URL    string                  `json:"url"`
+	APIKey string                  `json:"api_key"` // write-only
+	Models []remotes.UpstreamModel `json:"models"`
 }
 
 // RemoteUpdateRequest is the body of PATCH /api/remotes/{id}. An
@@ -60,21 +54,24 @@ type RemoteUpdateRequest struct {
 
 // RemoteAdoptRequest is the body of POST /api/remotes/{id}/adopt.
 type RemoteAdoptRequest struct {
-	Models []RemoteModel `json:"models"`
+	Models []remotes.UpstreamModel `json:"models"`
 }
 
-// RemoteSkipped is a model that was not turned into an entry.
-type RemoteSkipped struct {
-	ID     string `json:"id"`
-	Reason string `json:"reason"`
-}
-
-// RemoteResultResponse is the body of a create or an adopt.
+// RemoteResultResponse is the body of a create or an adopt. Warning is set
+// when the call was saved only in part: the remote exists, the lists say
+// what was done, and the text says what failed. It never holds a secret.
 type RemoteResultResponse struct {
-	Remote  remotes.Remote  `json:"remote"`
-	Created []string        `json:"created"`
-	Skipped []RemoteSkipped `json:"skipped"`
+	Remote  remotes.Remote `json:"remote"`
+	Created []string       `json:"created"`
+	Skipped []remotes.Skip `json:"skipped"`
+	Warning string         `json:"warning,omitempty"`
 }
+
+// Warnings of a partial create or adopt.
+const (
+	remoteCreateWarning = "The remote was saved, but some models could not be added. Check the list of models and the server log, then add the missing models again."
+	remoteAdoptWarning  = "Some models could not be added. Check the list of models and the server log, then add the missing models again."
+)
 
 // RemoteListResponse is the body of GET /api/remotes.
 type RemoteListResponse struct {
@@ -149,23 +146,25 @@ func decodeRemoteBody(c echo.Context, dst any) bool {
 	return false
 }
 
-func upstreamModels(in []RemoteModel) []remotes.UpstreamModel {
-	out := make([]remotes.UpstreamModel, 0, len(in))
-	for _, m := range in {
-		out = append(out, remotes.UpstreamModel{ID: m.ID, Usecases: m.Usecases})
+func remoteResult(r remotes.Result) RemoteResultResponse {
+	out := RemoteResultResponse{Remote: r.Remote, Created: r.Created, Skipped: r.Skipped}
+	if out.Created == nil {
+		out.Created = []string{}
+	}
+	if out.Skipped == nil {
+		out.Skipped = []remotes.Skip{}
 	}
 	return out
 }
 
-func remoteResult(r remotes.Result) RemoteResultResponse {
-	out := RemoteResultResponse{Remote: r.Remote, Created: r.Created, Skipped: make([]RemoteSkipped, 0, len(r.Skipped))}
-	if out.Created == nil {
-		out.Created = []string{}
-	}
-	for _, s := range r.Skipped {
-		out.Skipped = append(out.Skipped, RemoteSkipped{ID: s.ID, Reason: s.Reason})
-	}
-	return out
+// partialResult answers a create or adopt that was saved only in part: the
+// status of success, the partial result and a warning, so a client does not
+// repeat a create into a name conflict. The cause goes to the log only.
+func partialResult(c echo.Context, op string, code int, res remotes.Result, err error, warning string) error {
+	xlog.Error("Remote operation was saved only in part", "op", op, "error", err)
+	out := remoteResult(res)
+	out.Warning = warning
+	return c.JSON(code, out)
 }
 
 // CheckRemoteEndpoint lists the models of a remote without saving anything.
@@ -202,7 +201,7 @@ func CheckRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 // CreateRemoteEndpoint saves a remote and adopts the chosen models.
 //
 //	@Summary	Create a remote
-//	@Description	Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in "skipped" with a reason. Admin only.
+//	@Description	Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in "skipped" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with "warning" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.
 //	@Tags		remotes
 //	@Accept		json
 //	@Produce	json
@@ -224,8 +223,11 @@ func CreateRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 			return nil
 		}
 		res, err := svc.Create(c.Request().Context(), remotes.CreateRequest{
-			Kind: req.Kind, Name: req.Name, URL: req.URL, APIKey: req.APIKey, Models: upstreamModels(req.Models),
+			Kind: req.Kind, Name: req.Name, URL: req.URL, APIKey: req.APIKey, Models: req.Models,
 		})
+		if errors.Is(err, remotes.ErrPartial) && res.Remote.ID != "" {
+			return partialResult(c, "create", http.StatusCreated, res, err, remoteCreateWarning)
+		}
 		if err != nil {
 			return mapRemoteError(c, "create", err)
 		}
@@ -286,7 +288,7 @@ func GetRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 // UpdateRemoteEndpoint changes the name, address or key of a remote.
 //
 //	@Summary	Update a remote
-//	@Description	An absent field is left as it is; an empty api_key removes the key (not allowed for the anthropic kind). A new key restarts the loaded entries and a new url patches the entries the remote owns. When the change is saved but patching some entries failed, the answer is a 500 error that says so, not the saved remote: read it again with GET. Admin only.
+//	@Description	An absent field is left as it is; an empty api_key removes the key (not allowed for the anthropic kind). The key must be printable ASCII. A new key restarts every loaded model that names the remote and a new url patches the entries the remote owns. A new key or url also refreshes the remote, so status, last_error, new and unavailable in the answer are current; a rename does not. When the change is saved but patching some entries failed, the answer is a 500 error that says so, not the saved remote: read it again with GET. Admin only.
 //	@Tags		remotes
 //	@Accept		json
 //	@Produce	json
@@ -315,7 +317,7 @@ func UpdateRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 			// The service returns the saved remote together with an
 			// error when patching some entries failed. The status carries the
 			// failure; the caller reads the saved state with GET.
-			if conn.ID != "" && !errors.Is(err, remotes.ErrInvalid) && !errors.Is(err, remotes.ErrNotFound) && !errors.Is(err, remotes.ErrConflict) {
+			if errors.Is(err, remotes.ErrPartial) {
 				return mapRemoteErrorMsg(c, "update", err, "the change was saved, but some entries of the remote could not be updated; read the remote again and see the server log")
 			}
 			return mapRemoteError(c, "update", err)
@@ -389,7 +391,7 @@ func RefreshRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 // AdoptRemoteModelsEndpoint turns models of a remote into entries.
 //
 //	@Summary	Adopt models of a remote
-//	@Description	Turns each chosen model into a model config (an entry) that carries only the remote id. Models that cannot be adopted are listed in "skipped" with a reason. Admin only.
+//	@Description	Turns each chosen model into a model config (an entry) that carries only the remote id. Models that cannot be adopted are listed in "skipped" with a reason. At most 500 models per call. When some models were added but the rest failed, the answer is still 200 with "warning" set. Admin only.
 //	@Tags		remotes
 //	@Accept		json
 //	@Produce	json
@@ -411,7 +413,10 @@ func AdoptRemoteModelsEndpoint(get RemotesProvider) echo.HandlerFunc {
 		if !decodeRemoteBody(c, &req) {
 			return nil
 		}
-		res, err := svc.Adopt(c.Request().Context(), c.Param("id"), upstreamModels(req.Models))
+		res, err := svc.Adopt(c.Request().Context(), c.Param("id"), req.Models)
+		if errors.Is(err, remotes.ErrPartial) && res.Remote.ID != "" {
+			return partialResult(c, "adopt", http.StatusOK, res, err, remoteAdoptWarning)
+		}
 		if err != nil {
 			return mapRemoteError(c, "adopt", err)
 		}

@@ -21,15 +21,13 @@ func StartupRefresh(ctx context.Context, svc Service, db *gorm.DB) {
 	if svc == nil {
 		return
 	}
-	run := func() error {
-		if failed := RefreshAll(ctx, svc); failed > 0 {
-			xlog.Warn("remotes: the startup refresh did not finish for some remotes", "failed", failed)
-		}
-		return nil
-	}
 	if db == nil {
-		_ = run()
+		refreshAll(ctx, svc)
 		return
+	}
+	run := func() error {
+		refreshAll(ctx, svc)
+		return nil
 	}
 	if _, err := advisorylock.TryWithLockCtx(ctx, db, advisorylock.KeyRemotesRefresh, run); err != nil {
 		xlog.Warn("remotes: could not take the refresh lock", "error", err)

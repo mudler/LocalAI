@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -23,14 +24,14 @@ type remoteRow struct {
 	Updated time.Time
 }
 
-func (remoteRow) TableName() string { return "remotes" }
+func (remoteRow) TableName() string { return "proxy_remotes" }
 
 type keyRow struct {
 	Name  string `gorm:"primaryKey;size:32"`
 	Value []byte
 }
 
-func (keyRow) TableName() string { return "remote_keys" }
+func (keyRow) TableName() string { return "proxy_remote_keys" }
 
 type gormStore struct{ db *gorm.DB }
 
@@ -156,15 +157,36 @@ func (s *gormStore) Update(ctx context.Context, id string, fn func(*record) erro
 	return out, err
 }
 
-func (s *gormStore) Delete(ctx context.Context, id string) error {
-	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&remoteRow{})
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return ErrNotFound
-	}
-	return nil
+// Delete locks the row when there is a check, so the check and the delete
+// see the same record even when another frontend writes it meanwhile.
+func (s *gormStore) Delete(ctx context.Context, id string, check func(record) error) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if check != nil {
+			var row remoteRow
+			err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Take(&row).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotFound
+			}
+			if err != nil {
+				return err
+			}
+			cur, err := row.record()
+			if err != nil {
+				return err
+			}
+			if err := check(cur); err != nil {
+				return err
+			}
+		}
+		res := tx.Where("id = ?", id).Delete(&remoteRow{})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
 }
 
 func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, error)) ([]byte, error) {
@@ -178,6 +200,14 @@ func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, erro
 	}
 	if k, ok, err := read(); err != nil || ok {
 		return k, err
+	}
+	var sealed int64
+	if err := s.db.WithContext(ctx).Model(&remoteRow{}).Where("sealed IS NOT NULL AND length(sealed) > 0").Count(&sealed).Error; err != nil {
+		return nil, err
+	}
+	if sealed > 0 {
+		xlog.Error("The remotes sealing key is missing from the database but stored keys were sealed with it; no new key is made")
+		return nil, errKeyMissing
 	}
 	k, err := generate()
 	if err != nil {

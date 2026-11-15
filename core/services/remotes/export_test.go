@@ -32,7 +32,7 @@ func ListUpstream(ctx context.Context, kind Kind, rawURL, key string, timeout ti
 		return nil, "", err.Error(), err
 	}
 	f := fetcher{timeout: timeout, maxBody: maxBody}
-	models, err = f.list(ctx, t)
+	models, _, err = f.list(ctx, t)
 	var ue *upstreamError
 	if errors.As(err, &ue) {
 		return nil, ue.Step, ue.Message, err
@@ -81,3 +81,6 @@ func TargetBase(kind Kind, rawURL string) (string, error) {
 	}
 	return t.base.String(), nil
 }
+
+// SetNow replaces the clock of a service made by New.
+func SetNow(svc Service, now func() time.Time) { svc.(*service).now = now }

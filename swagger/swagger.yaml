@@ -3471,7 +3471,7 @@ definitions:
     properties:
       models:
         items:
-          $ref: '#/definitions/localai.RemoteModel'
+          $ref: '#/definitions/remotes.UpstreamModel'
         type: array
     type: object
   localai.RemoteCreateRequest:
@@ -3483,7 +3483,7 @@ definitions:
         $ref: '#/definitions/remotes.Kind'
       models:
         items:
-          $ref: '#/definitions/localai.RemoteModel'
+          $ref: '#/definitions/remotes.UpstreamModel'
         type: array
       name:
         type: string
@@ -3497,15 +3497,6 @@ definitions:
           $ref: '#/definitions/remotes.Remote'
         type: array
     type: object
-  localai.RemoteModel:
-    properties:
-      id:
-        type: string
-      usecases:
-        items:
-          type: string
-        type: array
-    type: object
   localai.RemoteResultResponse:
     properties:
       created:
@@ -3516,14 +3507,9 @@ definitions:
         $ref: '#/definitions/remotes.Remote'
       skipped:
         items:
-          $ref: '#/definitions/localai.RemoteSkipped'
+          $ref: '#/definitions/remotes.Skip'
         type: array
-    type: object
-  localai.RemoteSkipped:
-    properties:
-      id:
-        type: string
-      reason:
+      warning:
         type: string
     type: object
   localai.RemoteTestRequest:
@@ -4378,6 +4364,13 @@ definitions:
         type: array
       url:
         description: address as entered; empty for anthropic
+        type: string
+    type: object
+  remotes.Skip:
+    properties:
+      id:
+        type: string
+      reason:
         type: string
     type: object
   remotes.Status:
@@ -25385,7 +25378,10 @@ paths:
       description: Saves a remote and turns each chosen model into a model config
         (an entry) that carries only the remote id. The key is stored sealed and is
         never returned. Models that cannot be adopted are listed in "skipped" with
-        a reason. Admin only.
+        a reason. At most 500 models per call. When the remote is saved but some models
+        could not be added, the answer is still 201 with "warning" set; read the lists
+        and add the missing models with the adopt route, not with a second create.
+        Admin only.
       parameters:
       - description: Remote to create; api_key is write-only, for example \
         in: body
@@ -25492,10 +25488,13 @@ paths:
       consumes:
       - application/json
       description: 'An absent field is left as it is; an empty api_key removes the
-        key (not allowed for the anthropic kind). A new key restarts the loaded entries
-        and a new url patches the entries the remote owns. When the change is saved
-        but patching some entries failed, the answer is a 500 error that says so,
-        not the saved remote: read it again with GET. Admin only.'
+        key (not allowed for the anthropic kind). The key must be printable ASCII.
+        A new key restarts every loaded model that names the remote and a new url
+        patches the entries the remote owns. A new key or url also refreshes the remote,
+        so status, last_error, new and unavailable in the answer are current; a rename
+        does not. When the change is saved but patching some entries failed, the answer
+        is a 500 error that says so, not the saved remote: read it again with GET.
+        Admin only.'
       parameters:
       - description: Remote id
         in: path
@@ -25548,7 +25547,8 @@ paths:
       - application/json
       description: Turns each chosen model into a model config (an entry) that carries
         only the remote id. Models that cannot be adopted are listed in "skipped"
-        with a reason. Admin only.
+        with a reason. At most 500 models per call. When some models were added but
+        the rest failed, the answer is still 200 with "warning" set. Admin only.
       parameters:
       - description: Remote id
         in: path

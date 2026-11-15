@@ -2,6 +2,7 @@ package remotes
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"time"
@@ -90,8 +91,28 @@ type Store interface {
 	// step, so two writers do not lose each other's change. If fn fails,
 	// nothing is written. A new name that is taken fails with ErrConflict.
 	Update(ctx context.Context, id string, fn func(*record) error) (record, error)
-	Delete(ctx context.Context, id string) error
+	// Delete removes a record. When check is not nil it runs on the
+	// current record in the same step, and an error from it keeps the record
+	// and is returned, so a condition cannot change between the check and
+	// the delete.
+	Delete(ctx context.Context, id string, check func(record) error) error
 	// EnsureKey returns the sealing key. The first call stores what generate
-	// returns; every later call, from any frontend, returns that key.
+	// returns; every later call, from any frontend, returns that key. It
+	// refuses to make a new key while sealed records exist: those were sealed
+	// with a key that is now missing and would never open again.
 	EnsureKey(ctx context.Context, generate func() ([]byte, error)) ([]byte, error)
+}
+
+// errKeyMissing is returned by EnsureKey when sealed records exist but the
+// key that sealed them is gone.
+var errKeyMissing = errors.New("remotes: the sealing key is missing but stored keys were sealed with it; restore the key (remotes.key, or the seal row of the database) instead of letting a new one be made")
+
+// anySealed says whether a record holds a sealed key.
+func anySealed(rs map[string]record) bool {
+	for _, r := range rs {
+		if len(r.Sealed) > 0 {
+			return true
+		}
+	}
+	return false
 }

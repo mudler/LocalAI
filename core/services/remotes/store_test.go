@@ -44,7 +44,7 @@ func storeContract(newStore func() remotes.Store) {
 		Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
 		_, err = s.Update(ctx, "x", func(*remotes.Record) error { return nil })
 		Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
-		Expect(errors.Is(s.Delete(ctx, "x"), remotes.ErrNotFound)).To(BeTrue())
+		Expect(errors.Is(s.Delete(ctx, "x", nil), remotes.ErrNotFound)).To(BeTrue())
 	})
 	It("refuses a name that is taken, ignoring case", func() {
 		Expect(s.Create(ctx, rec("a", "Home"))).To(Succeed())
@@ -103,9 +103,35 @@ func storeContract(newStore func() remotes.Store) {
 	})
 	It("deletes", func() {
 		Expect(s.Create(ctx, rec("a", "home"))).To(Succeed())
-		Expect(s.Delete(ctx, "a")).To(Succeed())
+		Expect(s.Delete(ctx, "a", nil)).To(Succeed())
 		_, err := s.Get(ctx, "a")
 		Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
+	})
+	It("keeps the record when the delete check fails, in the same step", func() {
+		r := rec("a", "home")
+		r.Owned = []remotes.OwnedEntry{{Name: "m", UpstreamID: "u"}}
+		Expect(s.Create(ctx, r)).To(Succeed())
+		owned := errors.New("still owns entries")
+		err := s.Delete(ctx, "a", func(r remotes.Record) error {
+			if len(r.Owned) > 0 {
+				return owned
+			}
+			return nil
+		})
+		Expect(err).To(MatchError(owned))
+		_, err = s.Get(ctx, "a")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Delete(ctx, "a", func(remotes.Record) error { return nil })).To(Succeed())
+		Expect(errors.Is(s.Delete(ctx, "a", func(remotes.Record) error { return nil }), remotes.ErrNotFound)).To(BeTrue())
+	})
+	It("refuses to make a new sealing key while sealed records exist", func() {
+		r := rec("a", "home")
+		r.Sealed = []byte{1, 2, 3}
+		Expect(s.Create(ctx, r)).To(Succeed())
+		called := false
+		_, err := s.EnsureKey(ctx, func() ([]byte, error) { called = true; return remotes.NewSealKey() })
+		Expect(err).To(MatchError(ContainSubstring("sealing key is missing")))
+		Expect(called).To(BeFalse())
 	})
 	It("returns the same sealing key on every call", func() {
 		calls := 0
@@ -173,8 +199,8 @@ var _ = Describe("stores", func() {
 				Expect(err).NotTo(HaveOccurred())
 				s, err := remotes.NewGORMStore(db)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(db.Exec("DELETE FROM remotes").Error).To(Succeed())
-				Expect(db.Exec("DELETE FROM remote_keys").Error).To(Succeed())
+				Expect(db.Exec("DELETE FROM proxy_remotes").Error).To(Succeed())
+				Expect(db.Exec("DELETE FROM proxy_remote_keys").Error).To(Succeed())
 				return s
 			}
 			db = testutil.SetupTestDB()
@@ -229,6 +255,34 @@ var _ = Describe("stores", func() {
 			Expect(os.Chmod(filepath.Join(dir, remotes.JSONKeyName), 0o644)).To(Succeed())
 			_, err = s.EnsureKey(context.Background(), remotes.NewSealKey)
 			Expect(err).To(MatchError(ContainSubstring("chmod 600")))
+		})
+		It("refuses to replace a lost key file while remotes.json holds sealed keys", func() {
+			s, _ := remotes.NewJSONStore(dir)
+			_, err := s.EnsureKey(context.Background(), remotes.NewSealKey)
+			Expect(err).NotTo(HaveOccurred())
+			r := rec("a", "home")
+			r.Sealed = []byte{1, 2, 3}
+			Expect(s.Create(context.Background(), r)).To(Succeed())
+			Expect(os.Remove(filepath.Join(dir, remotes.JSONKeyName))).To(Succeed())
+			again, _ := remotes.NewJSONStore(dir)
+			_, err = again.EnsureKey(context.Background(), remotes.NewSealKey)
+			Expect(err).To(MatchError(ContainSubstring("sealing key is missing")))
+			Expect(filepath.Join(dir, remotes.JSONKeyName)).NotTo(BeAnExistingFile())
+		})
+		It("closes a directory and a store file that others can read", func() {
+			Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
+			Expect(os.Chmod(dir, 0o755)).To(Succeed())
+			s, err := remotes.NewJSONStore(dir)
+			Expect(err).NotTo(HaveOccurred())
+			st, _ := os.Stat(dir)
+			Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+			Expect(s.Create(context.Background(), rec("a", "home"))).To(Succeed())
+			file := filepath.Join(dir, remotes.JSONFileName)
+			Expect(os.Chmod(file, 0o644)).To(Succeed())
+			_, err = s.List(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			st, _ = os.Stat(file)
+			Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)))
 		})
 		It("refuses a key file of the wrong size", func() {
 			s, _ := remotes.NewJSONStore(dir)

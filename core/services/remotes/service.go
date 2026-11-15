@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/xlog"
-	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
@@ -33,6 +32,7 @@ type ModelAdmin interface {
 // ModelConfigs reads the model configs that the loader holds.
 type ModelConfigs interface {
 	GetModelConfig(name string) (config.ModelConfig, bool)
+	GetAllModelsConfigs() []config.ModelConfig
 }
 
 // ModelUnloader stops a loaded model. In distributed mode it also stops the
@@ -68,6 +68,48 @@ type service struct {
 
 	sealMu sync.Mutex
 	sealer *sealer
+
+	// locks serialises Adopt, Update and Delete of one remote in this
+	// process. Frontends of a cluster share the models directory, and the
+	// store's own read-change-write step keeps the record whole across
+	// them.
+	locks keyedMutex
+}
+
+// keyedMutex is a mutex per key. An entry lives only while someone holds or
+// waits for it.
+type keyedMutex struct {
+	mu sync.Mutex
+	m  map[string]*keyedEntry
+}
+
+type keyedEntry struct {
+	mu sync.Mutex
+	n  int
+}
+
+// lock takes the mutex of key and returns the function that releases it.
+func (k *keyedMutex) lock(key string) func() {
+	k.mu.Lock()
+	if k.m == nil {
+		k.m = map[string]*keyedEntry{}
+	}
+	e := k.m[key]
+	if e == nil {
+		e = &keyedEntry{}
+		k.m[key] = e
+	}
+	e.n++
+	k.mu.Unlock()
+	e.mu.Lock()
+	return func() {
+		e.mu.Unlock()
+		k.mu.Lock()
+		if e.n--; e.n == 0 {
+			delete(k.m, key)
+		}
+		k.mu.Unlock()
+	}
 }
 
 // New returns the Service. The service keeps no remote state in memory:
@@ -99,10 +141,16 @@ func cleanName(name string) (string, error) {
 	return name, nil
 }
 
+func errBadKind() error { return invalid("The kind must be localai, openai or anthropic.") }
+
 func cleanKey(kind Kind, key string) (string, error) {
 	key = strings.TrimSpace(key)
-	if strings.ContainsAny(key, "\r\n\x00") {
-		return "", invalid("The key must be a single line.")
+	// An HTTP header takes printable ASCII. Anything else would be saved
+	// and then fail on every call with a message that hides the cause.
+	for i := 0; i < len(key); i++ {
+		if key[i] < 0x21 || key[i] > 0x7e {
+			return "", invalid("The key can hold only printable ASCII characters, with no spaces or line breaks.")
+		}
 	}
 	if key == "" && kind == KindAnthropic {
 		return "", invalid("Anthropic needs a key.")
@@ -115,11 +163,7 @@ func cleanKey(kind Kind, key string) (string, error) {
 func cleanURL(kind Kind, raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if _, err := normalizeURL(kind, raw); err != nil {
-		var ue *upstreamError
-		if errors.As(err, &ue) {
-			return "", invalid(ue.Message)
-		}
-		return "", err
+		return "", invalid(err.Error())
 	}
 	return raw, nil
 }
@@ -188,14 +232,22 @@ func (s *service) Test(ctx context.Context, kind Kind, url, apiKey string) (Test
 		}
 		return TestResult{}, err
 	}
-	models, err := s.fetch.list(ctx, t)
+	models, total, err := s.fetch.list(ctx, t)
 	if err != nil {
 		if res, ok := resultOf(err); ok {
 			return res, nil
 		}
 		return TestResult{}, err
 	}
-	return TestResult{OK: true, Models: models}, nil
+	res := TestResult{OK: true, Models: models}
+	if total > len(models) {
+		res.Message = truncatedNotice(total)
+	}
+	return res, nil
+}
+
+func truncatedNotice(total int) string {
+	return fmt.Sprintf("The server lists %d models. Only the first %d are shown.", total, MaxListedModels)
 }
 
 // --- reads ----------------------------------------------------------------
@@ -244,7 +296,10 @@ func (s *service) ResolveKey(ctx context.Context, id string) (config.ProxyRemote
 
 func (s *service) Create(ctx context.Context, r CreateRequest) (Result, error) {
 	if !r.Kind.valid() {
-		return Result{}, invalid("The kind must be localai, openai or anthropic.")
+		return Result{}, errBadKind()
+	}
+	if len(r.Models) > MaxAdoptModels {
+		return Result{}, tooManyModels()
 	}
 	name, err := cleanName(r.Name)
 	if err != nil {
@@ -270,21 +325,46 @@ func (s *service) Create(ctx context.Context, r CreateRequest) (Result, error) {
 		}
 		return Result{}, err
 	}
+	// From here the remote exists: any failure is partial, so the caller
+	// does not retry into a name conflict.
+	unlock := s.locks.lock(id)
+	defer unlock()
 	res := Result{Created: []string{}, Skipped: []Skip{}}
 	if len(r.Models) > 0 {
-		res, err = s.adopt(ctx, id, r.Models)
-		if err != nil {
-			return res, err
+		if res, err = s.adopt(ctx, id, r.Models); err != nil {
+			return s.partial(ctx, id, res, err)
 		}
 	}
 	// One refresh records the status and the models not adopted. A remote
 	// that fails is recorded, not returned: the remote exists.
 	conn, err := s.Refresh(ctx, id)
 	if err != nil {
-		return res, err
+		return s.partial(ctx, id, res, err)
 	}
 	res.Remote = conn
 	return res, nil
+}
+
+// partial returns res with the current view of the remote and err marked as
+// ErrPartial.
+func (s *service) partial(ctx context.Context, id string, res Result, err error) (Result, error) {
+	if res.Created == nil {
+		res.Created = []string{}
+	}
+	if res.Skipped == nil {
+		res.Skipped = []Skip{}
+	}
+	if conn, gerr := s.Get(ctx, id); gerr == nil {
+		res.Remote = conn
+	}
+	if errors.Is(err, ErrPartial) {
+		return res, err
+	}
+	return res, fmt.Errorf("%w: %w", ErrPartial, err)
+}
+
+func tooManyModels() error {
+	return invalid(fmt.Sprintf("Pick at most %d models at a time.", MaxAdoptModels))
 }
 
 // --- Adopt ----------------------------------------------------------------
@@ -293,8 +373,16 @@ func (s *service) Adopt(ctx context.Context, id string, models []UpstreamModel) 
 	if len(models) == 0 {
 		return Result{}, invalid("Pick at least one model.")
 	}
+	if len(models) > MaxAdoptModels {
+		return Result{}, tooManyModels()
+	}
+	unlock := s.locks.lock(id)
+	defer unlock()
 	res, err := s.adopt(ctx, id, models)
 	if err != nil {
+		if errors.Is(err, ErrPartial) {
+			return s.partial(ctx, id, res, err)
+		}
 		return res, err
 	}
 	conn, err := s.Get(ctx, id)
@@ -305,9 +393,10 @@ func (s *service) Adopt(ctx context.Context, id string, models []UpstreamModel) 
 	return res, nil
 }
 
-// takenNames returns a function that says whether a model name is in use: as
-// a model config here, or as an entry of any remote.
-func (s *service) takenNames(ctx context.Context) (func(string) bool, error) {
+// takenNames returns the model names that the entries of every remote
+// use. A name is also taken when a model config of that name exists, which
+// the caller checks.
+func (s *service) takenNames(ctx context.Context) (map[string]bool, error) {
 	all, err := s.o.Store.List(ctx)
 	if err != nil {
 		return nil, err
@@ -318,13 +407,7 @@ func (s *service) takenNames(ctx context.Context) (func(string) bool, error) {
 			owned[o.Name] = true
 		}
 	}
-	return func(name string) bool {
-		if owned[name] {
-			return true
-		}
-		_, ok := s.o.Configs.GetModelConfig(name)
-		return ok
-	}, nil
+	return owned, nil
 }
 
 func (s *service) adopt(ctx context.Context, id string, models []UpstreamModel) (Result, error) {
@@ -336,9 +419,16 @@ func (s *service) adopt(ctx context.Context, id string, models []UpstreamModel) 
 	if err != nil {
 		return Result{}, invalid("The address of the remote is not valid. Change it first.")
 	}
-	taken, err := s.takenNames(ctx)
+	owned, err := s.takenNames(ctx)
 	if err != nil {
 		return Result{}, err
+	}
+	taken := func(name string) bool {
+		if owned[name] {
+			return true
+		}
+		_, ok := s.o.Configs.GetModelConfig(name)
+		return ok
 	}
 	res := Result{Created: []string{}, Skipped: []Skip{}}
 	slug := remoteSlug(rec.Name)
@@ -384,18 +474,14 @@ func (s *service) adopt(ctx context.Context, id string, models []UpstreamModel) 
 			r.New = slices.DeleteFunc(r.New, func(n UpstreamModel) bool { return n.ID == m.ID })
 			return nil
 		}); err != nil {
-			return res, fmt.Errorf("remotes: the entry %q was written but could not be recorded: %w", name, err)
+			return res, fmt.Errorf("%w: the entry %q was written but could not be recorded: %w", ErrPartial, name, err)
 		}
 		res.Created = append(res.Created, name)
 		adopted[m.ID] = true
 		// The name is used now, in this batch and for the next.
-		taken = withName(taken, name)
+		owned[name] = true
 	}
 	return res, nil
-}
-
-func withName(taken func(string) bool, name string) func(string) bool {
-	return func(n string) bool { return n == name || taken(n) }
 }
 
 func skipReason(err error) string {
@@ -461,7 +547,19 @@ func (s *service) Refresh(ctx context.Context, id string) (Remote, error) {
 	} else if t, perr := parseTarget(rec.Kind, rec.URL, key); perr != nil {
 		listErr = perr
 	} else {
-		models, listErr = s.fetch.list(ctx, t)
+		var total int
+		models, total, listErr = s.fetch.list(ctx, t)
+		if total > len(models) {
+			xlog.Warn("remotes: the listing was cut", "remote", id, "listed", total, "kept", len(models))
+		}
+	}
+	// Which entries are gone is decided before the store step: it reads the
+	// disk and the loader, which must not happen under a row lock.
+	gone := map[string]bool{}
+	for _, o := range rec.Owned {
+		if s.entryGone(o.Name) {
+			gone[o.Name] = true
+		}
 	}
 	now := s.now()
 	out, err := s.o.Store.Update(ctx, id, func(r *record) error {
@@ -471,7 +569,7 @@ func (s *service) Refresh(ctx context.Context, id string) (Remote, error) {
 		case listErr == nil || (errors.As(listErr, &ue) && ue.Step == StepNoModels):
 			// A server that lists nothing usable is reachable and accepts the
 			// key; its entries all show as unavailable.
-			r.Owned = slices.DeleteFunc(r.Owned, func(o ownedEntry) bool { return s.entryGone(o.Name) })
+			r.Owned = slices.DeleteFunc(r.Owned, func(o ownedEntry) bool { return gone[o.Name] })
 			d := diffModels(models, r.Owned)
 			r.New, r.Unavailable = d.New, d.Unavailable
 			r.Status, r.LastError = StatusOK, ""
@@ -494,6 +592,8 @@ func (s *service) Refresh(ctx context.Context, id string) (Remote, error) {
 // --- Update ---------------------------------------------------------------
 
 func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Remote, error) {
+	unlock := s.locks.lock(id)
+	defer unlock()
 	old, err := s.o.Store.Get(ctx, id)
 	if err != nil {
 		return Remote{}, err
@@ -548,21 +648,43 @@ func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Rem
 		errs = append(errs, s.patchEntryURLs(ctx, old, out)...)
 	}
 	if keyChanged {
-		// A loaded entry holds the old key in its process. The next request
+		// A loaded model holds the old key in its process. The next request
 		// loads it again and resolves the new one.
-		s.unload(entryNames(out)...)
+		s.unload(s.modelsOf(out)...)
 	}
 	conn := out.view()
+	if keyChanged || urlChanged {
+		// The status, the last error and the lists belong to the old key or
+		// address; ask the remote again so the answer is current.
+		if fresh, rerr := s.Refresh(ctx, id); rerr == nil {
+			conn = fresh
+		} else {
+			xlog.Warn("remotes: refresh after a change failed", "remote", id, "error", rerr)
+		}
+	}
 	if len(errs) > 0 {
-		return conn, fmt.Errorf("remotes: the remote was saved but some entries could not be updated: %w", errors.Join(errs...))
+		return conn, fmt.Errorf("%w: the remote was saved but some entries could not be updated: %w", ErrPartial, errors.Join(errs...))
 	}
 	return conn, nil
 }
 
-func entryNames(r record) []string {
+// modelsOf returns the names of every model that uses the key of the
+// remote: the entries it recorded and any other model config that names it
+// in proxy.remote (a renamed entry or a copy made by hand).
+func (s *service) modelsOf(r record) []string {
+	seen := map[string]bool{}
 	names := make([]string, 0, len(r.Owned))
 	for _, o := range r.Owned {
-		names = append(names, o.Name)
+		if !seen[o.Name] {
+			seen[o.Name] = true
+			names = append(names, o.Name)
+		}
+	}
+	for _, cfg := range s.o.Configs.GetAllModelsConfigs() {
+		if cfg.Proxy.Remote == r.ID && !seen[cfg.Name] {
+			seen[cfg.Name] = true
+			names = append(names, cfg.Name)
+		}
 	}
 	return names
 }
@@ -624,6 +746,8 @@ func (s *service) rehash(ctx context.Context, id, name string) {
 // --- Delete ---------------------------------------------------------------
 
 func (s *service) Delete(ctx context.Context, id string, removeEntries bool) error {
+	unlock := s.locks.lock(id)
+	defer unlock()
 	rec, err := s.o.Store.Get(ctx, id)
 	if err != nil {
 		return err
@@ -663,30 +787,26 @@ func (s *service) Delete(ctx context.Context, id string, removeEntries bool) err
 	}
 	if len(errs) > 0 {
 		// The remote stays, so a retry can finish the rest.
-		return fmt.Errorf("remotes: not every entry could be handled: %w", errors.Join(errs...))
+		return fmt.Errorf("%w: not every entry could be handled: %w", ErrPartial, errors.Join(errs...))
 	}
-	return s.o.Store.Delete(ctx, id)
+	// Another frontend may have adopted a model meanwhile. The record goes
+	// only if it owns nothing, checked in the same store step, so no entry
+	// is left naming a deleted remote.
+	err = s.o.Store.Delete(ctx, id, func(r record) error {
+		if len(r.Owned) > 0 {
+			return fmt.Errorf("%w: the remote got new models while it was being removed; remove it again", ErrPartial)
+		}
+		return nil
+	})
+	return err
 }
 
-// detach removes proxy.remote from an entry file. The key is not copied
-// into it: the model then calls the remote without a key.
+// detach clears proxy.remote in an entry file. The key is not copied into
+// it: the model then calls the server without a key. PatchConfig runs under
+// the model config lock, so an edit made at the same time is not lost. The
+// file keeps `remote: ""`, which the loader reads as no remote.
 func (s *service) detach(ctx context.Context, name string) error {
-	v, err := s.o.Admin.GetConfig(ctx, name)
-	if err != nil {
-		return err
-	}
-	var doc map[string]any
-	if err := yaml.Unmarshal([]byte(v.YAML), &doc); err != nil {
-		return fmt.Errorf("read the entry: %w", err)
-	}
-	if proxy, ok := doc["proxy"].(map[string]any); ok {
-		delete(proxy, "remote")
-	}
-	body, err := yaml.Marshal(doc)
-	if err != nil {
-		return err
-	}
-	res, err := s.o.Admin.EditYAML(ctx, name, body)
+	res, err := s.o.Admin.PatchConfig(ctx, name, map[string]any{"proxy": map[string]any{"remote": ""}})
 	if err != nil {
 		return err
 	}
@@ -696,23 +816,20 @@ func (s *service) detach(ctx context.Context, name string) error {
 
 // --- startup refresh ------------------------------------------------------
 
-// RefreshAll refreshes every remote once and returns how many could not
-// be refreshed because the store failed. A remote that fails is not counted:
-// its status records it.
-func RefreshAll(ctx context.Context, svc Service) (failed int) {
+// refreshAll refreshes every remote once. A remote that fails is recorded
+// in its status; a store failure is logged.
+func refreshAll(ctx context.Context, svc Service) {
 	all, err := svc.List(ctx)
 	if err != nil {
 		xlog.Warn("remotes: could not list remotes for the refresh", "error", err)
-		return 1
+		return
 	}
 	for _, c := range all {
 		if ctx.Err() != nil {
-			return failed
+			return
 		}
 		if _, err := svc.Refresh(ctx, c.ID); err != nil && !errors.Is(err, ErrNotFound) {
 			xlog.Warn("remotes: refresh failed", "remote", c.Name, "error", err)
-			failed++
 		}
 	}
-	return failed
 }

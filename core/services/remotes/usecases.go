@@ -14,7 +14,8 @@ var reservedUsecases = []string{
 	config.UsecaseTokenClassify,
 }
 
-// validUsecases keeps the names of capabilities that known_usecases accepts,
+// validUsecases keeps the names of capabilities that are usecases of
+// config.UsecaseInfoMap (each is a valid known_usecases value),
 // in the order given and without repeats. It drops modifiers such as "tools"
 // and "thinking" and the reserved ones. If nothing is left it returns chat,
 // because the localai-proxy backend needs a declared usecase.
@@ -24,9 +25,7 @@ func validUsecases(capabilities []string) []string {
 		if slices.Contains(out, c) || slices.Contains(reservedUsecases, c) {
 			continue
 		}
-		// GetUsecasesFromYAML returns a non-nil zero value for a name it
-		// does not know, so the value is checked as well.
-		if u := config.GetUsecasesFromYAML([]string{c}); u == nil || *u == config.FLAG_ANY {
+		if _, ok := config.UsecaseInfoMap[c]; !ok {
 			continue
 		}
 		out = append(out, c)

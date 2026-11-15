@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -134,13 +135,21 @@ type env struct {
 	bus      *fakeBroadcaster
 }
 
-func newEnv(store remotes.Store) *env {
+func newEnv(store remotes.Store) *env { return newEnvWith(store, nil) }
+
+// newEnvWith is newEnv with the model admin seen by the service wrapped,
+// so a spec can make it fail on demand.
+func newEnvWith(store remotes.Store, wrap func(remotes.ModelAdmin) remotes.ModelAdmin) *env {
 	dir := GinkgoT().TempDir()
 	loader := config.NewModelConfigLoader(dir)
 	app := &config.ApplicationConfig{SystemState: &system.SystemState{Model: system.Model{ModelsPath: dir}}}
 	e := &env{dir: dir, loader: loader, admin: modeladmin.NewConfigService(loader, app), unloader: &fakeUnloader{}, bus: &fakeBroadcaster{}}
+	var admin remotes.ModelAdmin = e.admin
+	if wrap != nil {
+		admin = wrap(admin)
+	}
 	svc, err := remotes.New(remotes.Options{
-		Store: store, Admin: e.admin, Configs: loader, Unloader: e.unloader, Broadcaster: e.bus, ModelsPath: dir,
+		Store: store, Admin: admin, Configs: loader, Unloader: e.unloader, Broadcaster: e.bus, ModelsPath: dir,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	e.svc = svc
@@ -532,7 +541,10 @@ var _ = Describe("Service", func() {
 			body := e.read("alpha")
 			Expect(body).NotTo(ContainSubstring(secret))
 			Expect(body).NotTo(ContainSubstring("api_key"))
-			Expect(body).NotTo(ContainSubstring("remote"))
+			// The patch leaves an empty value, which the loader reads as
+			// no remote.
+			Expect(body).To(ContainSubstring(`remote: ""`))
+			Expect(body).NotTo(ContainSubstring(c.ID))
 			_, err := e.svc.Get(ctx, c.ID)
 			Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
 		})
@@ -731,6 +743,309 @@ var _ = Describe("Service", func() {
 	})
 })
 
+// flakyAdmin fails the calls whose model name is in failFor.
+type flakyAdmin struct {
+	remotes.ModelAdmin
+	mu      sync.Mutex
+	failFor map[string]bool
+}
+
+var errInjected = errors.New("injected failure")
+
+func (f *flakyAdmin) fails(name string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.failFor[name]
+}
+
+func (f *flakyAdmin) set(names ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.failFor = map[string]bool{}
+	for _, n := range names {
+		f.failFor[n] = true
+	}
+}
+
+func (f *flakyAdmin) PatchConfig(ctx context.Context, name string, patch map[string]any) (*modeladmin.PatchResult, error) {
+	if f.fails(name) {
+		return nil, errInjected
+	}
+	return f.ModelAdmin.PatchConfig(ctx, name, patch)
+}
+
+func (f *flakyAdmin) DeleteConfig(ctx context.Context, name string) (*modeladmin.DeleteResult, error) {
+	if f.fails(name) {
+		return nil, errInjected
+	}
+	return f.ModelAdmin.DeleteConfig(ctx, name)
+}
+
+// flakyStore fails Update after failAfter successful calls when armed.
+type flakyStore struct {
+	remotes.Store
+	mu        sync.Mutex
+	armed     bool
+	failAfter int
+}
+
+func (f *flakyStore) arm(after int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.armed, f.failAfter = true, after
+}
+
+func (f *flakyStore) Update(ctx context.Context, id string, fn func(*remotes.Record) error) (remotes.Record, error) {
+	f.mu.Lock()
+	fail := f.armed && f.failAfter == 0
+	if f.armed && f.failAfter > 0 {
+		f.failAfter--
+	}
+	f.mu.Unlock()
+	if fail {
+		return remotes.Record{}, errInjected
+	}
+	return f.Store.Update(ctx, id, fn)
+}
+
+var _ = Describe("Service hardening", func() {
+	var (
+		ctx    = context.Background()
+		remote *fakeRemote
+	)
+	BeforeEach(func() {
+		remote = newFakeRemote("alpha", "beta", "gamma")
+		DeferCleanup(remote.Close)
+	})
+
+	It("refuses a key with characters an HTTP header cannot carry", func() {
+		e := newEnv(memStore())
+		for _, k := range []string{"a\x7fb", "a b", "ключ", "a\tb"} {
+			_, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: k})
+			Expect(errors.Is(err, remotes.ErrInvalid)).To(BeTrue(), "%q", k)
+			Expect(err.Error()).To(ContainSubstring("printable ASCII"))
+		}
+		_, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: " " + secret + " "})
+		Expect(err).NotTo(HaveOccurred(), "spaces around the key are trimmed")
+	})
+
+	It("refuses to adopt more than the cap in one call", func() {
+		e := newEnv(memStore())
+		many := make([]remotes.UpstreamModel, remotes.MaxAdoptModels+1)
+		for i := range many {
+			many[i] = remotes.UpstreamModel{ID: fmt.Sprintf("m%04d", i)}
+		}
+		_, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret, Models: many})
+		Expect(errors.Is(err, remotes.ErrInvalid)).To(BeTrue())
+		res, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = e.svc.Adopt(ctx, res.Remote.ID, many)
+		Expect(errors.Is(err, remotes.ErrInvalid)).To(BeTrue())
+		Expect(err.Error()).To(ContainSubstring("500"))
+	})
+
+	It("cuts a listing above the cap and says so in the test result", func() {
+		e := newEnv(memStore())
+		ids := make([]string, remotes.MaxListedModels+5)
+		for i := range ids {
+			ids[i] = fmt.Sprintf("m%05d", i)
+		}
+		remote.set(ids...)
+		res, err := e.svc.Test(ctx, remotes.KindLocalAI, remote.URL, secret)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.OK).To(BeTrue())
+		Expect(res.Models).To(HaveLen(remotes.MaxListedModels))
+		Expect(res.Models[0].ID).To(Equal("m00000"))
+		Expect(res.Message).To(ContainSubstring("2005"))
+		c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.Remote.New).To(HaveLen(remotes.MaxListedModels))
+		Expect(c.Remote.LastError).To(BeEmpty())
+	})
+
+	Describe("Update", func() {
+		It("refreshes when the key changes, so the status is current", func() {
+			e := newEnv(memStore())
+			c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: "wrong"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(c.Remote.Status).To(Equal(remotes.StatusAuthFailed))
+			key := secret
+			got, err := e.svc.Update(ctx, c.Remote.ID, remotes.UpdateRequest{APIKey: &key})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Status).To(Equal(remotes.StatusOK))
+			Expect(got.LastError).To(BeEmpty())
+			Expect(ids(got.New)).To(Equal([]string{"alpha", "beta", "gamma"}))
+		})
+		It("refreshes when the address changes and not when only the name does", func() {
+			e := newEnv(memStore())
+			other := newFakeRemote("delta")
+			defer other.Close()
+			c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret})
+			Expect(err).NotTo(HaveOccurred())
+			callsBefore := other.calls
+			name := "renamed"
+			_, err = e.svc.Update(ctx, c.Remote.ID, remotes.UpdateRequest{Name: &name})
+			Expect(err).NotTo(HaveOccurred())
+			remote.mu.Lock()
+			before := remote.calls
+			remote.mu.Unlock()
+			_, err = e.svc.Update(ctx, c.Remote.ID, remotes.UpdateRequest{Name: &name})
+			Expect(err).NotTo(HaveOccurred())
+			remote.mu.Lock()
+			Expect(remote.calls).To(Equal(before), "a rename does not call the server")
+			remote.mu.Unlock()
+			got, err := e.svc.Update(ctx, c.Remote.ID, remotes.UpdateRequest{URL: &other.URL})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ids(got.New)).To(Equal([]string{"delta"}))
+			Expect(other.calls).To(BeNumerically(">", callsBefore))
+		})
+		It("stops every loaded model that names the remote on a key change", func() {
+			e := newEnv(memStore())
+			c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret, Models: chat("alpha")})
+			Expect(err).NotTo(HaveOccurred())
+			// A copy made by hand that names the same remote.
+			copied := replaceOnce(e.read("alpha"), "name: alpha", "name: my-copy")
+			Expect(os.WriteFile(e.file("my-copy"), []byte(copied), 0o644)).To(Succeed())
+			Expect(e.loader.LoadModelConfigsFromPath(e.dir)).To(Succeed())
+			key := "sk-OTHER"
+			_, err = e.svc.Update(ctx, c.Remote.ID, remotes.UpdateRequest{APIKey: &key})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(e.unloader.seen()).To(ConsistOf("alpha", "my-copy"))
+		})
+		It("returns ErrPartial and the saved remote when an entry patch fails", func() {
+			var flaky *flakyAdmin
+			e := newEnvWith(memStore(), func(a remotes.ModelAdmin) remotes.ModelAdmin {
+				flaky = &flakyAdmin{ModelAdmin: a}
+				return flaky
+			})
+			c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret, Models: chat("alpha", "beta")})
+			Expect(err).NotTo(HaveOccurred())
+			flaky.set("beta")
+			moved := "https://moved.example.com"
+			got, err := e.svc.Update(ctx, c.Remote.ID, remotes.UpdateRequest{URL: &moved})
+			Expect(errors.Is(err, remotes.ErrPartial)).To(BeTrue())
+			Expect(got.ID).To(Equal(c.Remote.ID))
+			Expect(got.URL).To(Equal(moved))
+			Expect(e.config("alpha").Proxy.UpstreamURL).To(Equal(moved))
+			Expect(e.config("beta").Proxy.UpstreamURL).To(Equal(remote.URL))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("stops half way with ErrPartial and finishes on a retry", func() {
+			var flaky *flakyAdmin
+			e := newEnvWith(memStore(), func(a remotes.ModelAdmin) remotes.ModelAdmin {
+				flaky = &flakyAdmin{ModelAdmin: a}
+				return flaky
+			})
+			c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret, Models: chat("alpha", "beta")})
+			Expect(err).NotTo(HaveOccurred())
+			flaky.set("beta")
+			err = e.svc.Delete(ctx, c.Remote.ID, true)
+			Expect(errors.Is(err, remotes.ErrPartial)).To(BeTrue())
+			got, err := e.svc.Get(ctx, c.Remote.ID)
+			Expect(err).NotTo(HaveOccurred(), "the remote stays")
+			Expect(got.Entries).To(Equal([]string{"beta"}))
+			Expect(e.file("alpha")).NotTo(BeAnExistingFile())
+			flaky.set()
+			Expect(e.svc.Delete(ctx, c.Remote.ID, true)).To(Succeed())
+			Expect(e.file("beta")).NotTo(BeAnExistingFile())
+			_, err = e.svc.Get(ctx, c.Remote.ID)
+			Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
+		})
+		It("does not delete a remote that another frontend gave a model meanwhile", func() {
+			store := memStore()
+			a := newEnv(store)
+			c, err := a.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret, Models: chat("alpha")})
+			Expect(err).NotTo(HaveOccurred())
+			// Frontend b adopts while frontend a deletes: b's entry is
+			// recorded after a handled alpha and before a removes the record.
+			b := newEnv(store)
+			racing := &raceStore{Store: store, before: func() {
+				_, err := b.svc.Adopt(ctx, c.Remote.ID, chat("beta"))
+				Expect(err).NotTo(HaveOccurred())
+			}}
+			a2 := newEnv(racing)
+			Expect(a2.svc.Delete(ctx, c.Remote.ID, false)).To(MatchError(remotes.ErrPartial))
+			got, err := a.svc.Get(ctx, c.Remote.ID)
+			Expect(err).NotTo(HaveOccurred(), "the record stays, so beta does not name a deleted remote")
+			Expect(got.Entries).To(Equal([]string{"beta"}))
+		})
+		It("serialises Adopt and Delete of one remote in a process", func() {
+			e := newEnv(memStore())
+			c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret})
+			Expect(err).NotTo(HaveOccurred())
+			var wg sync.WaitGroup
+			var adoptErr, deleteErr error
+			wg.Add(2)
+			go func() { defer wg.Done(); _, adoptErr = e.svc.Adopt(ctx, c.Remote.ID, chat("alpha", "beta")) }()
+			go func() { defer wg.Done(); deleteErr = e.svc.Delete(ctx, c.Remote.ID, false) }()
+			wg.Wait()
+			_, getErr := e.svc.Get(ctx, c.Remote.ID)
+			switch {
+			case deleteErr == nil:
+				// Delete ran last or first; either way no entry names a gone remote.
+				Expect(errors.Is(getErr, remotes.ErrNotFound)).To(BeTrue())
+				for _, n := range []string{"alpha", "beta"} {
+					if cfg, ok := e.loader.GetModelConfig(n); ok {
+						Expect(cfg.Proxy.Remote).To(BeEmpty(), n)
+					}
+				}
+				if adoptErr != nil {
+					Expect(errors.Is(adoptErr, remotes.ErrNotFound)).To(BeTrue())
+				}
+			default:
+				Fail("delete failed: " + deleteErr.Error())
+			}
+		})
+	})
+
+	Describe("partial results", func() {
+		It("returns the remote and ErrPartial when adopting fails after it was stored", func() {
+			store := &flakyStore{Store: memStore()}
+			e := newEnv(store)
+			// The first Update records alpha; the second fails.
+			store.arm(1)
+			res, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret, Models: chat("alpha", "beta")})
+			Expect(errors.Is(err, remotes.ErrPartial)).To(BeTrue())
+			Expect(res.Remote.ID).NotTo(BeEmpty())
+			Expect(res.Remote.Entries).To(Equal([]string{"alpha"}))
+			Expect(res.Created).To(Equal([]string{"alpha"}))
+			Expect(e.file("beta")).To(BeAnExistingFile(), "the entry was written, only the record failed")
+			Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
+		})
+		It("returns ErrPartial from Adopt when the store write fails after an entry was written", func() {
+			store := &flakyStore{Store: memStore()}
+			e := newEnv(store)
+			c, err := e.svc.Create(ctx, remotes.CreateRequest{Kind: remotes.KindLocalAI, Name: "n", URL: remote.URL, APIKey: secret})
+			Expect(err).NotTo(HaveOccurred())
+			store.arm(0)
+			res, err := e.svc.Adopt(ctx, c.Remote.ID, chat("alpha"))
+			Expect(errors.Is(err, remotes.ErrPartial)).To(BeTrue())
+			Expect(res.Remote.ID).To(Equal(c.Remote.ID))
+			Expect(res.Created).To(BeEmpty())
+		})
+		It("does not mark a plain failure of Adopt as partial", func() {
+			e := newEnv(memStore())
+			_, err := e.svc.Adopt(ctx, "missing", chat("alpha"))
+			Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
+			Expect(errors.Is(err, remotes.ErrPartial)).To(BeFalse())
+		})
+	})
+})
+
+// raceStore runs before once, right before the first conditional Delete.
+type raceStore struct {
+	remotes.Store
+	once   sync.Once
+	before func()
+}
+
+func (r *raceStore) Delete(ctx context.Context, id string, check func(remotes.Record) error) error {
+	r.once.Do(r.before)
+	return r.Store.Delete(ctx, id, check)
+}
+
 var _ = Describe("startup refresh", func() {
 	ctx := context.Background()
 
@@ -746,11 +1061,12 @@ var _ = Describe("startup refresh", func() {
 		Expect(err).NotTo(HaveOccurred())
 		good.set("a", "c")
 		before := g.Remote.LastRefresh
-		time.Sleep(5 * time.Millisecond)
+		later := before.Add(time.Minute)
+		remotes.SetNow(e.svc, func() time.Time { return later })
 		remotes.StartupRefresh(ctx, e.svc, nil)
 		got, _ := e.svc.Get(ctx, g.Remote.ID)
 		Expect(ids(got.New)).To(Equal([]string{"a", "c"}))
-		Expect(got.LastRefresh.After(*before)).To(BeTrue())
+		Expect(*got.LastRefresh).To(Equal(later))
 		gotBad, _ := e.svc.Get(ctx, b.Remote.ID)
 		Expect(gotBad.Status).To(Equal(remotes.StatusUnreachable))
 	})

@@ -53,6 +53,19 @@ var (
 	ErrConflict = errors.New("a remote with that name already exists")
 	// ErrInvalid is wrapped by InvalidError, which carries the message.
 	ErrInvalid = errors.New("invalid remote")
+	// ErrPartial means the change was saved only in part: the remote
+	// exists (or still exists) and the error says what is missing. A retry
+	// of the same call can finish the rest. Create, Adopt, Update and Delete
+	// return it; Create and Adopt also return the partial Result.
+	ErrPartial = errors.New("remotes: the change was saved only in part")
+)
+
+const (
+	// MaxListedModels caps the models one listing keeps. An upstream that
+	// lists more is cut to the first MaxListedModels ids in sort order.
+	MaxListedModels = 2000
+	// MaxAdoptModels caps the models one Create or Adopt call may adopt.
+	MaxAdoptModels = 500
 )
 
 // InvalidError is an ErrInvalid with a message that a UI can show as is.
@@ -97,8 +110,8 @@ type TestResult struct {
 	Models  []UpstreamModel `json:"models,omitempty"`
 }
 
-// CreateRequest makes a remote. Models are adopted at once; with none, the
-// remote starts with the models it finds in New.
+// CreateRequest makes a remote. Models are adopted at once. With none, no
+// entry is made: the models the remote lists are only recorded in New.
 type CreateRequest struct {
 	Kind              Kind
 	Name, URL, APIKey string
@@ -110,7 +123,10 @@ type CreateRequest struct {
 type UpdateRequest struct{ Name, URL, APIKey *string }
 
 // Skip is a model that Create or Adopt did not turn into an entry.
-type Skip struct{ ID, Reason string }
+type Skip struct {
+	ID     string `json:"id"`
+	Reason string `json:"reason"`
+}
 
 // Result is the outcome of Create or Adopt.
 type Result struct {
@@ -127,8 +143,10 @@ type Service interface {
 	Create(ctx context.Context, r CreateRequest) (Result, error)
 	List(ctx context.Context) ([]Remote, error)
 	Get(ctx context.Context, id string) (Remote, error)
-	// Update changes the remote. A new key restarts the loaded entries;
-	// a new URL patches proxy.upstream_url on the entries it owns.
+	// Update changes the remote. A new key restarts every loaded model
+	// that names the remote; a new URL patches proxy.upstream_url on the
+	// entries it owns. A new key or URL also refreshes the remote, so the
+	// answer holds the current status.
 	Update(ctx context.Context, id string, r UpdateRequest) (Remote, error)
 	// Delete removes the remote. With removeEntries false the entries
 	// stay as plain models: only proxy.remote is removed from them, and

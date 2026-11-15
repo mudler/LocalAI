@@ -340,13 +340,51 @@ var _ = Describe("remote endpoints", func() {
 
 		It("answers a partial update failure with an error status, not the saved remote", func() {
 			stub.update = func(string, remotes.UpdateRequest) (remotes.Remote, error) {
-				return conn, errors.New("some entries could not be updated: home-a: disk full")
+				return conn, fmt.Errorf("%w: some entries could not be updated: home-a: disk full", remotes.ErrPartial)
 			}
 			rec := do(http.MethodPatch, "/api/remotes/c1", `{"url":"https://example.org"}`)
 			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
 			Expect(errorOf(rec).Message).To(ContainSubstring("saved"))
 			Expect(rec.Body.String()).NotTo(ContainSubstring("disk full"))
 			Expect(rec.Body.String()).NotTo(ContainSubstring(`"entries"`))
+		})
+
+		It("answers a create saved in part with 201, the result and a warning", func() {
+			stub.create = func(remotes.CreateRequest) (remotes.Result, error) {
+				return remotes.Result{Remote: conn, Created: []string{"home-a"}, Skipped: []remotes.Skip{}},
+					fmt.Errorf("%w: the entry %q was written but could not be recorded: disk /srv/x full", remotes.ErrPartial, "home-b")
+			}
+			rec := do(http.MethodPost, "/api/remotes", `{"kind":"localai","name":"home","url":"https://example.com","models":[{"id":"a"},{"id":"b"}]}`)
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+			var resp RemoteResultResponse
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Remote.ID).To(Equal("c1"))
+			Expect(resp.Created).To(Equal([]string{"home-a"}))
+			Expect(resp.Warning).To(ContainSubstring("could not be added"))
+			Expect(rec.Body.String()).NotTo(ContainSubstring("/srv/x"))
+			Expect(logs.String()).To(ContainSubstring("/srv/x"))
+		})
+
+		It("answers an adopt saved in part with 200, the result and a warning", func() {
+			stub.adopt = func(string, []remotes.UpstreamModel) (remotes.Result, error) {
+				return remotes.Result{Remote: conn, Created: []string{}, Skipped: []remotes.Skip{}}, fmt.Errorf("%w: boom", remotes.ErrPartial)
+			}
+			rec := do(http.MethodPost, "/api/remotes/c1/adopt", `{"models":[{"id":"a"}]}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var resp RemoteResultResponse
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Warning).NotTo(BeEmpty())
+			Expect(resp.Skipped).To(BeEmpty())
+		})
+
+		It("leaves out the warning on a full success", func() {
+			stub.adopt = func(string, []remotes.UpstreamModel) (remotes.Result, error) {
+				return remotes.Result{Remote: conn, Created: []string{"a"}}, nil
+			}
+			rec := do(http.MethodPost, "/api/remotes/c1/adopt", `{"models":[{"id":"a"}]}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).NotTo(ContainSubstring("warning"))
+			Expect(rec.Body.String()).To(ContainSubstring(`"skipped":[]`))
 		})
 
 		It("answers a partial delete failure with an error status", func() {

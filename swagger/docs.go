@@ -14476,7 +14476,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. Admin only.",
+                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14683,7 +14683,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "An absent field is left as it is; an empty api_key removes the key (not allowed for the anthropic kind). A new key restarts the loaded entries and a new url patches the entries the remote owns. When the change is saved but patching some entries failed, the answer is a 500 error that says so, not the saved remote: read it again with GET. Admin only.",
+                "description": "An absent field is left as it is; an empty api_key removes the key (not allowed for the anthropic kind). The key must be printable ASCII. A new key restarts every loaded model that names the remote and a new url patches the entries the remote owns. A new key or url also refreshes the remote, so status, last_error, new and unavailable in the answer are current; a rename does not. When the change is saved but patching some entries failed, the answer is a 500 error that says so, not the saved remote: read it again with GET. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14760,7 +14760,7 @@ const docTemplate = `{
         },
         "/api/remotes/{id}/adopt": {
             "post": {
-                "description": "Turns each chosen model into a model config (an entry) that carries only the remote id. Models that cannot be adopted are listed in \"skipped\" with a reason. Admin only.",
+                "description": "Turns each chosen model into a model config (an entry) that carries only the remote id. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When some models were added but the rest failed, the answer is still 200 with \"warning\" set. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -22662,7 +22662,7 @@ const docTemplate = `{
                 "models": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/localai.RemoteModel"
+                        "$ref": "#/definitions/remotes.UpstreamModel"
                     }
                 }
             }
@@ -22680,7 +22680,7 @@ const docTemplate = `{
                 "models": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/localai.RemoteModel"
+                        "$ref": "#/definitions/remotes.UpstreamModel"
                     }
                 },
                 "name": {
@@ -22702,20 +22702,6 @@ const docTemplate = `{
                 }
             }
         },
-        "localai.RemoteModel": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "usecases": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
         "localai.RemoteResultResponse": {
             "type": "object",
             "properties": {
@@ -22731,18 +22717,10 @@ const docTemplate = `{
                 "skipped": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/localai.RemoteSkipped"
+                        "$ref": "#/definitions/remotes.Skip"
                     }
-                }
-            }
-        },
-        "localai.RemoteSkipped": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
                 },
-                "reason": {
+                "warning": {
                     "type": "string"
                 }
             }
@@ -23888,6 +23866,17 @@ const docTemplate = `{
                 },
                 "url": {
                     "description": "address as entered; empty for anthropic",
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.Skip": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
                     "type": "string"
                 }
             }
