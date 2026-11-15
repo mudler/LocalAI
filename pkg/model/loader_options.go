@@ -19,9 +19,10 @@ type Options struct {
 	gRPCOptions *pb.ModelOptions
 
 	// gRPCOptionsFinalizer runs on a copy of gRPCOptions right before a real
-	// load, never on a cache hit. It lets the caller add a value that is
-	// costly to fetch or must not sit in the options for long, such as a
-	// credential.
+	// load in this process, never on a cache hit and never in distributed
+	// mode (the router completes the options when it sends a load). It lets
+	// the caller add a value that is costly to fetch or must not sit in the
+	// options for long, such as a credential.
 	gRPCOptionsFinalizer func(context.Context, *pb.ModelOptions) error
 
 	externalBackends map[string]string
