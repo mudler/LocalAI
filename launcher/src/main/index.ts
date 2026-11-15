@@ -480,6 +480,7 @@ if (!gotLock) {
       { includePrereleases: core.channelIsRc() },
     )
     createWindow()
+    core.openDefaultRemote()
     void core.autoStart()
     // Packaged builds check by themselves (the server once a day), unless the user turned it off.
     if (app.isPackaged) {

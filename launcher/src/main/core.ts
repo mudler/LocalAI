@@ -455,11 +455,18 @@ export class LauncherCore {
       now: () => this.nowMs(),
       retryMs: this.d.remoteRetryMs ?? REMOTE_RETRY_MS,
     })
-    const first = remotes(config).find((r) => r.id === defaultTarget(config))
-    if (first) {
-      launcherLog('servers: a remote server is the default; the local server is not used')
-      this.openRemote(first)
-    }
+    if (remotes(config).some((r) => r.id === defaultTarget(config))) launcherLog('servers: a remote server is the default; the local server is not used')
+  }
+
+  /**
+   * Opens the default server when it is a remote one. The shell calls this once
+   * its window exists, like autoStart(): the 'show' effect is dropped when there
+   * is no window yet, and the model would then think the view is up.
+   */
+  openDefaultRemote(): void {
+    const c = this.store.get()
+    const r = remotes(c).find((x) => x.id === defaultTarget(c))
+    if (r) this.openRemote(r)
   }
 
   // ---- servers -------------------------------------------------------------------
