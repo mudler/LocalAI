@@ -201,7 +201,7 @@ gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
 
 | Workflow | Trigger | Permissions | What it does |
 |---|---|---|---|
-| `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; on macOS the DMG is signed, notarized and stapled, then checked with `codesign`, `spctl` and `stapler`, and the app from the mounted DMG is checked the same way before the smoke), then workflow artifacts. amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-14`. |
+| `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; on macOS the DMG is signed, notarized and stapled, then checked with `codesign`, `spctl` and `stapler`, and the app from the mounted DMG is checked the same way before the smoke), then workflow artifacts. amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-latest`. |
 | `launcher-electron-release.yaml` | `workflow_call` from `release.yaml`, every `v*` tag, after GoReleaser | build: read; upload: `contents: write`; check: read | Version from the tag, build with required signing, feed files, upload to the existing release (no checkout, files first, feed files last, `--clobber`), then a check of the attached feed. |
 | `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | build: read; publish: `contents: write` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64` (14 days; pull requests: amd64 only, no secrets, 7 days). Master builds are not cancelled by a newer push (a waiting run is replaced). After they pass, the `publish` job (master pushes only, never pull requests or manual runs) attaches the AppImages, the DMG and their `.sha256` files to the `dev-master` pre-release with `--clobber`, next to the server binaries. It waits for that release (made by `master-dev-binary.yml`) and never creates it. Manual run: build and smoke only. |
 
@@ -288,7 +288,7 @@ State of the packaging work, compared with the earlier Go launcher's packages:
 | 4. Updater zip | Done (zip and `latest-mac.yml`). |
 | 5. Architecture | Done. Apple Silicon only. |
 | 6. Dev builds on master | Done. Signed and notarized when the secrets are present; `LAUNCHER_DEV_SIGN_MACOS=false` is the documented fallback. |
-| 7. Shared signing runner | Done. GitHub-hosted `macos-14` so no lock. |
+| 7. Shared signing runner | Done. GitHub-hosted `macos-latest` so no lock. |
 | 8. Version | Done (`scripts/version.mjs`). |
 | 9. Quarantine | Not done. Needs a clean Mac with two macOS versions. |
 

@@ -176,7 +176,7 @@ jobs:
     # GitHub-hosted Apple Silicon runner. It is not shared with other
     # repositories, so the build needs no signing lock: the keychain that
     # electron-builder makes is gone with the runner.
-    runs-on: macos-14
+    runs-on: macos-latest
     permissions:
       contents: read
     steps:
