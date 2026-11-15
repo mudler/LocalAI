@@ -110,7 +110,7 @@ export LOCALAI_LAUNCHER_ENDPOINT="http://127.0.0.1:$((SMOKE_PORT + 1))"
 # The checks. On Linux, xvfb-run starts and stops the display around them.
 INNER='
   now_ms() { node -e "process.stdout.write(String(Date.now()))"; }
-  fail() { echo "FAIL: $*"; echo "--- startup signals"; cat "$SIGNAL" 2>/dev/null || echo "(none)"; if [ "$(uname -s)" = Darwin ] && kill -0 $wrapper 2>/dev/null; then echo "--- where the app waits"; sample $wrapper 3 2>&1 | head -60 || true; fi; echo "--- app log"; cat "$SMOKE_DIR/app.log" 2>/dev/null || true; kill -KILL $wrapper 2>/dev/null || true; exit 1; }
+  fail() { echo "FAIL: $*"; echo "--- startup signals"; cat "$SIGNAL" 2>/dev/null || echo "(none)"; if [ "$(uname -s)" = Darwin ] && kill -0 $wrapper 2>/dev/null; then echo "--- where the app waits"; sample $wrapper 3 2>&1 | head -60 || true; fi; echo "--- files the app made"; (cd "$SMOKE_DIR/home" 2>/dev/null && find . -type f -not -path "./Library/Keychains/*" | head -40); for f in "$SMOKE_DIR"/home/.localai/logs/*; do [ -f "$f" ] && { echo "--- $f"; tail -n 40 "$f"; }; done; echo "--- app log"; cat "$SMOKE_DIR/app.log" 2>/dev/null || true; kill -KILL $wrapper 2>/dev/null || true; exit 1; }
   t0=$(now_ms)
   "$APP_EXE" "$@" > "$SMOKE_DIR/app.log" 2>&1 &
   wrapper=$!
