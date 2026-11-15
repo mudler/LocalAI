@@ -214,7 +214,7 @@ if [ -n "$EXPECTED" ] && [ "${LOCALAI_FORCE:-0}" != "1" ] && [ -x "${TARGET_DIR}
 	if [ -n "$CURRENT" ] && [ "$CURRENT" = "$EXPECTED" ]; then
 		step "already at    ${VERSION}, nothing to do"
 		say ""
-		say "Run it with:  ${BIN} run qwen3.5-35b-a3b-apex"
+		say "Run it with:  ${BIN} run"
 		exit 0
 	fi
 fi
@@ -263,11 +263,11 @@ if ! on_path "$TARGET_DIR"; then
 	say "  ${TARGET_DIR} is not on your PATH yet. Add it:"
 	say "    export PATH=\"${TARGET_DIR}:\$PATH\""
 fi
-say "  Start the API and pull a model in one go:"
-say "    ${BIN} run qwen3.5-35b-a3b-apex"
-say "  Or just start the server and use the web interface:"
-say "    ${BIN}"
-say "    open http://localhost:8080"
+say "  Start the server:"
+say "    ${BIN} run"
+say "  Then open http://localhost:8080 and install the model it recommends."
+say "  To pick a model yourself, name it, for example:"
+say "    ${BIN} run gemma-4-e2b-it-qat-q4_0"
 say ""
 say "  Backends download themselves the first time a model asks for one."
 say "  Documentation: https://localai.io/docs/"
