@@ -57,6 +57,9 @@ describe('electron-builder.yml', () => {
       { target: 'zip', arch: ['arm64'] },
     ])
     expect(cfg.dmg.artifactName).toBe('LocalAI.dmg')
+    // The workflow signs and notarizes the DMG file with scripts/sign-dmg.sh.
+    // The builder's own DMG signing has no secure timestamp.
+    expect(cfg.dmg.sign).not.toBe(true)
     expect(cfg.mac.artifactName).not.toMatch(/\s/)
     expect(cfg.mac.artifactName).toContain('${version}')
   })

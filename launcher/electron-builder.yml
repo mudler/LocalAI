@@ -66,6 +66,7 @@ mac:
   # Notarization runs when APPLE_API_KEY, APPLE_API_KEY_ID and
   # APPLE_API_ISSUER are set (CI only). The builder notarizes and staples the
   # .app before it makes the DMG and the zip, so the app verifies offline.
+  # It does not notarize the DMG file: the workflow does that afterwards.
   # Without these variables it logs "skipped macOS notarization".
   extendInfo:
     NSMicrophoneUsageDescription: The LocalAI WebUI uses the microphone for voice input and talk mode, only when you start them.
@@ -74,6 +75,9 @@ mac:
   artifactName: LocalAI-Launcher-${version}-${arch}-mac.${ext}
 
 dmg:
+  # No `sign: true` here. The builder's own DMG signing adds no secure
+  # timestamp, which notarization needs. The build workflow signs,
+  # notarizes and staples the DMG file with scripts/sign-dmg.sh.
   # The name of the DMG link that earlier releases used, so that link works.
   # The build workflow adds "dev" for a development build.
   artifactName: LocalAI.dmg

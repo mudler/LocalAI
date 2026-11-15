@@ -23,7 +23,7 @@ on:
         type: boolean
         default: true
       sign-macos:
-        description: Sign and notarize the macOS app. Without the secrets, the build is unsigned and says so, unless require-signing is set.
+        description: Sign and notarize the macOS app and the DMG. Without the secrets, the build is unsigned and says so, unless require-signing is set.
         type: boolean
         default: false
       require-signing:
@@ -263,6 +263,35 @@ jobs:
       - name: Remove the notary key
         if: always()
         run: rm -f "$RUNNER_TEMP/notary-key.p8"
+      # electron-builder signs, notarizes and staples the app inside the DMG,
+      # not the DMG file. This step does the DMG file: Developer ID signature
+      # with a timestamp, notarization, staple. It changes the file, so it must
+      # run before the checksums. It also refreshes the DMG entry of
+      # latest-mac.yml, which holds the hash of the unsigned file. Without
+      # secrets (a development build) the step does not run.
+      - name: Sign, notarize and staple the DMG
+        if: steps.signing.outputs.signed == 'true'
+        timeout-minutes: 60
+        working-directory: launcher/release
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+        run: |
+          dmg=$(ls ./*.dmg)
+          [ "$(echo "$dmg" | wc -l)" = 1 ] || { echo "expected one DMG, got: $dmg"; exit 1; }
+          bash ../scripts/sign-dmg.sh "$dmg" latest-mac.yml
+      - name: Check the signature and the stapled ticket of the DMG
+        if: steps.signing.outputs.signed == 'true'
+        working-directory: launcher/release
+        run: |
+          dmg=$(ls ./*.dmg)
+          codesign --verify --verbose=2 "$dmg"
+          spctl --assess --type open --context context:primary-signature -v "$dmg"
+          xcrun stapler validate "$dmg"
+      # After the signing step, so the checksum is the one of the final file.
       - name: Write the checksums
         working-directory: launcher/release
         run: |
@@ -312,8 +341,10 @@ jobs:
           cp "$DMG" "$DMG.sha256" ../keep/
           if [ "$FEED" = true ]; then
             # The updater applies the zip; latest-mac.yml names it.
+            # Only the blockmap of the zip. The blockmap of the DMG is from
+            # before signing, and nothing uses it.
             cp "$ZIP" "$ZIP.sha256" latest-mac.yml ../keep/
-            cp ./*.blockmap ../keep/ 2>/dev/null || true
+            cp "$ZIP.blockmap" ../keep/ 2>/dev/null || true
           fi
           ls -l ../keep
       - uses: actions/upload-artifact@v7
