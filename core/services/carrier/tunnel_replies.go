@@ -15,7 +15,9 @@ import (
 )
 
 // PeerRequester sends one request to another replica over the peer link.
-// tunnel.PeerPool is one.
+// tunnel.PeerPool is one. openWithin, when it is above zero, bounds the open
+// of the stream (and so the dial of the link), and the rest of ctx stays for
+// the handler.
 type PeerRequester interface {
 	Request(ctx context.Context, target, subject string, data []byte, maxBytes int, openWithin time.Duration) ([]byte, error)
 }
@@ -87,10 +89,21 @@ func (t *tunnelReplies) Request(subject string, data []byte, timeout time.Durati
 }
 
 // RequestInstance sends the request to the replica instance.
+//
+// A named replica is never absent here, and its failures are never
+// messaging.ErrNoResponders. A replica with no row may be a live one whose
+// heartbeats stalled past the reap window, and one that serves nothing for the
+// subject may be a live one that did not prepare a forced change of carrier.
+// Both still run what they ran, and a caller that read either as a process
+// that left would give up work that is going on, such as a background job.
+// Both prove that nothing ran, so they are messaging.ErrNotDelivered.
 func (t *tunnelReplies) RequestInstance(instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	out, err := t.ask(ctx, instance, subject, data)
+	out, err := t.ask(ctx, instance, subject, data, 0)
+	if isAbsent(err) {
+		return nil, fmt.Errorf("%w: %w", messaging.ErrNotDelivered, err)
+	}
 	return out, mapReplyError(err)
 }
 
@@ -123,8 +136,17 @@ func (t *tunnelReplies) RequestQueue(subject string, data []byte, timeout time.D
 		failures []error
 		absent   = true
 	)
-	for _, id := range ids[:min(len(ids), maxQueueTries)] {
-		out, err := t.ask(ctx, id, subject, data)
+	tries := ids[:min(len(ids), maxQueueTries)]
+	for i, id := range tries {
+		// Each member gets a share of what is left to open its stream, so a
+		// member in the liveness window that does not answer the dial leaves
+		// time for the others. The share bounds the open only: a member that
+		// took the request has the rest of the budget for its handler.
+		var share time.Duration
+		if deadline, ok := ctx.Deadline(); ok {
+			share = max(time.Until(deadline)/time.Duration(len(tries)-i), time.Millisecond)
+		}
+		out, err := t.ask(ctx, id, subject, data, share)
 		switch {
 		case err == nil && moveOn != nil && moveOn(out):
 			refused = out
@@ -148,7 +170,7 @@ func (t *tunnelReplies) RequestQueue(subject string, data []byte, timeout time.D
 	return nil, err
 }
 
-func (t *tunnelReplies) ask(ctx context.Context, instance, subject string, data []byte) ([]byte, error) {
+func (t *tunnelReplies) ask(ctx context.Context, instance, subject string, data []byte, openWithin time.Duration) ([]byte, error) {
 	// Refused before any member is tried: no member would take it.
 	if len(data) > messaging.MaxBroadcastBytes {
 		return nil, fmt.Errorf("%w: a request of %d bytes on %s", messaging.ErrPayloadTooLarge, len(data), subject)
@@ -156,21 +178,28 @@ func (t *tunnelReplies) ask(ctx context.Context, instance, subject string, data 
 	if instance == t.self {
 		return t.local.Dispatch(ctx, subject, data)
 	}
-	return t.peers.Request(ctx, instance, subject, data, messaging.MaxBroadcastBytes, 0)
+	return t.peers.Request(ctx, instance, subject, data, messaging.MaxBroadcastBytes, openWithin)
 }
 
 // isAbsent reports a failure that says that nobody serves the subject there: the
 // replica is not part of the deployment, or nothing on it serves the subject.
+// Only a queue request reads it as absence, and only when every member it tried
+// said so: a member of the queue is one of several equivalent ones, and the
+// request ran nowhere. A request to a named replica never does (RequestInstance).
 func isAbsent(err error) bool {
 	return errors.Is(err, tunnel.ErrNoResponder) || errors.Is(err, cluster.ErrInstanceNotFound)
 }
 
 // mapReplyError is the one place where the errors of a request on the tunnel
 // become the conditions of messaging. Only absence becomes
-// messaging.ErrNoResponders. A request that proves that it ran nothing for any
-// other reason (a peer that does not answer, a release that predates request
-// and reply, a replica that is not the one named) is messaging.ErrNotDelivered.
-// Everything else leaves the outcome unknown and keeps its own identity.
+// messaging.ErrNoResponders, and RequestInstance takes absence out before it
+// gets here. A request above the bound, which was not sent, is
+// messaging.ErrPayloadTooLarge; a reply above the bound is a handler that ran
+// (tunnel.ErrReplyTooLarge) and is not. A request that proves that it ran
+// nothing for any other reason (a peer that does not answer, a release that
+// predates request and reply, a replica that is not the one named, a replica
+// that serves too many requests) is messaging.ErrNotDelivered. Everything else
+// leaves the outcome unknown and keeps its own identity.
 func mapReplyError(err error) error {
 	switch {
 	case err == nil:

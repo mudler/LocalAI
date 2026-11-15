@@ -24,11 +24,13 @@ type peerNet struct {
 	mu       sync.Mutex
 	replicas map[string]*tunnel.Replies
 	fail     map[string]error
+	hang     map[string]bool
 	asked    []string
+	shares   []time.Duration
 }
 
 func newPeerNet() *peerNet {
-	return &peerNet{replicas: map[string]*tunnel.Replies{}, fail: map[string]error{}}
+	return &peerNet{replicas: map[string]*tunnel.Replies{}, fail: map[string]error{}, hang: map[string]bool{}}
 }
 
 func (n *peerNet) replica(id string) *tunnel.Replies {
@@ -51,11 +53,24 @@ func (n *peerNet) askedOf() []string {
 	return slices.Clone(n.asked)
 }
 
-func (n *peerNet) Request(ctx context.Context, target, subject string, data []byte, _ int, _ time.Duration) ([]byte, error) {
+func (n *peerNet) Request(ctx context.Context, target, subject string, data []byte, _ int, openWithin time.Duration) ([]byte, error) {
 	n.mu.Lock()
 	n.asked = append(n.asked, target)
-	err, r := n.fail[target], n.replicas[target]
+	n.shares = append(n.shares, openWithin)
+	err, r, hang := n.fail[target], n.replicas[target], n.hang[target]
 	n.mu.Unlock()
+	if hang {
+		// A replica in the liveness window whose dial does not complete: the open
+		// waits for its share of the budget, as tunnel.PeerPool.Open does.
+		octx := ctx
+		if openWithin > 0 {
+			var cancel context.CancelFunc
+			octx, cancel = context.WithTimeout(ctx, openWithin)
+			defer cancel()
+		}
+		<-octx.Done()
+		return nil, fmt.Errorf("%w: %w", tunnel.ErrRequestNotSent, octx.Err())
+	}
 	switch {
 	case err != nil:
 		return nil, err
@@ -116,7 +131,8 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 			Expect(peers.askedOf()).To(BeEmpty())
 			Expect(sub.Unsubscribe()).To(Succeed())
 			_, err = addressed("self", "chats.replay.self")
-			Expect(messaging.IsNoResponders(err)).To(BeTrue())
+			Expect(messaging.IsNoResponders(err)).To(BeFalse(), "a named replica is never read as absent")
+			Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
 		})
 
 		DescribeTable("classifies a failure",
@@ -127,8 +143,11 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 				Expect(messaging.IsNoResponders(err)).To(Equal(noResponders), "no responders: %v", err)
 				Expect(errors.Is(err, messaging.ErrNotDelivered)).To(Equal(notDelivered), "not delivered: %v", err)
 			},
-			Entry("a replica that is not part of the deployment: nobody listens", func() {}, true, false),
-			Entry("a replica that serves no handler for the subject: nobody listens", func() { peers.replica("r2") }, true, false),
+			// A live replica whose heartbeats stalled past the reap window has no
+			// row, and one that did not prepare a forced change of carrier serves
+			// nothing yet. Neither is a process that left.
+			Entry("a replica that is not part of the deployment: not delivered, not absence", func() {}, false, true),
+			Entry("a replica that serves no handler for the subject: not delivered, not absence", func() { peers.replica("r2") }, false, true),
 			Entry("a peer that does not answer: not delivered, not absence", func() { peers.failWith("r2", unreachable) }, false, true),
 			Entry("a release that predates request and reply: not delivered, not absence", func() {
 				peers.failWith("r2", fmt.Errorf("%w: relay-bad-request", tunnel.ErrRequestUnsupported))
@@ -146,6 +165,28 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 			_, err := rr.(messaging.InstanceRequester).RequestInstance("r2", "chats.jobs.h", make([]byte, messaging.MaxBroadcastBytes+1), time.Second)
 			Expect(errors.Is(err, messaging.ErrPayloadTooLarge)).To(BeTrue())
 			Expect(peers.askedOf()).To(BeEmpty())
+		})
+
+		It("reports a reply above the bound as a handler that ran, on this replica and on another", func() {
+			_, err := rr.SubscribeReply("chats.replay.self", func(_ []byte, reply func([]byte)) {
+				reply(make([]byte, messaging.MaxBroadcastBytes+1))
+			})
+			Expect(err).ToNot(HaveOccurred())
+			peers.failWith("r2", fmt.Errorf("%w: %w: from afar", tunnel.ErrHandlerFailed, tunnel.ErrReplyTooLarge))
+			for _, instance := range []string{"self", "r2"} {
+				_, err := addressed(instance, "chats.replay."+instance)
+				Expect(errors.Is(err, tunnel.ErrReplyTooLarge)).To(BeTrue(), "%s: %v", instance, err)
+				Expect(errors.Is(err, messaging.ErrPayloadTooLarge)).To(BeFalse(), "%s: the request was sent and ran", instance)
+				Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeFalse(), instance)
+				Expect(messaging.IsNoResponders(err)).To(BeFalse(), instance)
+			}
+		})
+
+		It("reads a replica that serves too many requests as not delivered", func() {
+			peers.failWith("r2", fmt.Errorf("%w: busy", tunnel.ErrReplicaBusy))
+			_, err := addressed("r2", "chats.jobs.h")
+			Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue(), "got %v", err)
+			Expect(messaging.IsNoResponders(err)).To(BeFalse())
 		})
 
 		It("sends nothing for a subject that names no replica and no queue", func() {
@@ -227,6 +268,27 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 			_, err = queued(nil)
 			Expect(messaging.IsNoResponders(err)).To(BeFalse(), "an unreachable member is not absence")
 			Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
+		})
+
+		It("gives each member a share of the budget to open its stream, so a member that does not answer leaves time for the others", func() {
+			members = []string{"w1", "w2"}
+			peers.mu.Lock()
+			peers.hang["w1"] = true
+			peers.mu.Unlock()
+			serve("w2", messaging.SubjectChatStart, "w2:")
+			for range 4 {
+				began := time.Now()
+				out, err := queued(nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(out)).To(Equal("w2:x"))
+				Expect(time.Since(began)).To(BeNumerically("<", time.Second))
+			}
+			peers.mu.Lock()
+			defer peers.mu.Unlock()
+			for _, share := range peers.shares {
+				Expect(share).To(BeNumerically(">", 0))
+				Expect(share).To(BeNumerically("<=", time.Second))
+			}
 		})
 
 		It("tries at most three members", func() {
