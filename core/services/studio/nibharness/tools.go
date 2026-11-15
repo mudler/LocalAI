@@ -33,6 +33,7 @@ func newToolServer(tools []session.Tool) (*toolServer, mcp.Transport, error) {
 		if err := json.Unmarshal(tl.Schema, &schema); err != nil {
 			return nil, nil, fmt.Errorf("nib: tool %q: bad schema: %w", tl.Name, err)
 		}
+		schema = normalizeObjectSchemas(schema)
 		run := tl.Run
 		srv.AddTool(&mcp.Tool{Name: tl.Name, Description: tl.Description, InputSchema: schema},
 			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -45,6 +46,42 @@ func newToolServer(tools []session.Tool) (*toolServer, mcp.Transport, error) {
 	}
 	srvT, cliT := mcp.NewInMemoryTransports()
 	return &toolServer{srv: srv, t: srvT}, chat.HostTransport(cliT), nil
+}
+
+// normalizeObjectSchemas makes a tool schema acceptable to upstream model
+// providers whose validator requires every object schema to carry a
+// "required" array (an empty one is valid JSON Schema). Providers that
+// validate against a metaschema treat a missing "required" key as null and
+// reject the whole tool list, so fill it in recursively.
+func normalizeObjectSchemas(node any) map[string]any {
+	m, ok := node.(map[string]any)
+	if !ok {
+		return nil
+	}
+	for k, v := range m {
+		switch vv := v.(type) {
+		case map[string]any:
+			m[k] = normalizeObjectSchemas(vv)
+		case []any:
+			for i, item := range vv {
+				if child, ok := item.(map[string]any); ok {
+					vv[i] = normalizeObjectSchemas(child)
+				}
+			}
+		}
+	}
+	_, hasProperties := m["properties"]
+	required, ok := m["required"]
+	if !ok {
+		if hasProperties || m["type"] == "object" {
+			m["required"] = []any{}
+		}
+		return m
+	}
+	if _, isList := required.([]any); !isList {
+		m["required"] = []any{}
+	}
+	return m
 }
 
 func (s *toolServer) start(ctx context.Context) {
