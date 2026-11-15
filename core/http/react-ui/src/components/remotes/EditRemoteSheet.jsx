@@ -6,11 +6,13 @@ import Button from '../ui/Button'
 import Callout from '../ui/Callout'
 import Segmented from '../ui/Segmented'
 import { remotesApi } from '../../utils/api'
-import { createErrorKind } from '../../utils/remotes'
+import NoUsable from './NoUsable'
+import { createErrorKind, noUsableModels } from '../../utils/remotes'
 
 // Edit one remote: its name, its address and a new key. The key is
 // write-only: the server never sends it back, so the field is empty and an
 // empty field keeps the key that is set. A new key restarts the loaded models.
+// It says so when the remote answers yet has no usable model.
 // "Remove remote" asks what happens to the models first.
 export default function EditRemoteSheet({ remote, onClose, onSaved, onRemoved }) {
   const { t } = useTranslation('remotes')
@@ -38,7 +40,7 @@ export default function EditRemoteSheet({ remote, onClose, onSaved, onRemoved })
     setSaving(true); setError(null)
     try {
       const updated = await remotesApi.update(remote.id, body)
-      onSaved?.(updated, { keyChanged: !!body.api_key })
+      onSaved?.(updated, { keyChanged: !!body.api_key, refreshed: !!(body.api_key || body.url) })
     } catch (err) {
       setError({ kind: createErrorKind(err), message: err.message || '' })
     } finally {
@@ -82,6 +84,7 @@ export default function EditRemoteSheet({ remote, onClose, onSaved, onRemoved })
         )}
       >
         <form className="remotes-form" onSubmit={save} noValidate>
+          {noUsableModels(remote) && <NoUsable remote={remote} />}
           <div className="dk-field">
             <label className="dk-label" htmlFor={`${uid}-name`}>{t('edit.name')}</label>
             <input id={`${uid}-name`} className="dk-input" autoComplete="off" value={name} onChange={e => setName(e.target.value)} data-testid="edit-name" aria-invalid={error?.kind === 'nameTaken' || undefined} />

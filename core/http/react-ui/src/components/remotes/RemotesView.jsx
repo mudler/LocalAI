@@ -7,7 +7,9 @@ import LoadError from '../ui/LoadError'
 import { SkeletonRows } from '../Skeleton'
 import EditRemoteSheet from './EditRemoteSheet'
 import { remotesApi } from '../../utils/api'
-import { ageParts, hostOf, initialTicked, needsAttention, statusOf } from '../../utils/remotes'
+import SkippedList from './SkippedList'
+import NoUsable from './NoUsable'
+import { ageParts, hostOf, idsText, initialTicked, needsAttention, noUsableModels, resultParts, statusOf, usecasesOf } from '../../utils/remotes'
 
 // New models the person said "not now" to, for as long as this page is open.
 // The key holds the ids too, so a model that arrives later shows the banner
@@ -41,10 +43,14 @@ function NewModels({ remote, onAdded, addToast }) {
   const add = async () => {
     setBusy(true)
     try {
-      const models = remote.new.filter(m => ticked.includes(m.id)).map(m => ({ id: m.id, usecases: m.usecases || [] }))
+      const models = remote.new.filter(m => ticked.includes(m.id)).map(m => ({ id: m.id, usecases: usecasesOf(remote.kind, m) }))
       const result = await remotesApi.adopt(remote.id, models)
-      addToast?.(t('card.adopted', { count: result?.created?.length ?? models.length, name: remote.name }), 'success')
-      onAdded?.(result)
+      const { created, skipped, warning } = resultParts(result)
+      addToast?.(t('card.adopted', { count: created.length, name: remote.name }), 'success')
+      // The models that did not go in stay listed as new, so adding them again
+      // is one click. The card keeps the reasons.
+      if (skipped.length > 0) addToast?.(`${t('skipped.summary', { count: skipped.length })}: ${idsText(skipped)}`, 'warning')
+      onAdded?.(result, { warning, skipped })
     } catch (err) {
       addToast?.(t('card.adoptFailed', { message: err.message }), 'error')
     } finally {
@@ -61,7 +67,7 @@ function NewModels({ remote, onAdded, addToast }) {
             <label className="remotes-model">
               <input type="checkbox" className="dk-check" checked={ticked.includes(m.id)} onChange={() => toggle(m.id)} />
               <span className="remotes-model__id">{m.id}</span>
-              <span className="remotes-model__uses">{(m.usecases || []).map(u => <span key={u} className="dk-badge">{label(u)}</span>)}</span>
+              <span className="remotes-model__uses">{usecasesOf(remote.kind, m).map(u => <span key={u} className="dk-badge">{label(u)}</span>)}</span>
             </label>
           </li>
         ))}
@@ -78,17 +84,25 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
   const { t } = useTranslation('remotes')
   const when = useWhen()
   const [refreshing, setRefreshing] = useState(false)
+  // The skipped models and the warning of the last add, kept on the card.
+  const [added, setAdded] = useState(null)
   const status = statusOf(remote)
+  const noUsable = noUsableModels(remote)
   const attention = needsAttention(remote)
-  const dot = status === 'ok' ? ' dk-dot--ok' : attention ? ' dk-dot--error' : ''
-  const statusText = status === 'ok'
+  const dot = noUsable ? ' dk-dot--warn' : status === 'ok' ? ' dk-dot--ok' : attention ? ' dk-dot--error' : ''
+  const statusText = noUsable
+    ? t('card.status.noUsable')
+    : status === 'ok'
     ? t('card.status.ok', { when: when(remote.last_refresh) || t('card.justNow') })
     : t(`card.status.${status}`)
 
   const refresh = async () => {
     setRefreshing(true)
     try {
-      replace(await remotesApi.refresh(remote.id))
+      const fresh = await remotesApi.refresh(remote.id)
+      replace(fresh)
+      // A refresh that worked can still leave nothing to use.
+      if (noUsableModels(fresh)) addToast?.(t('card.refreshWarn', { name: remote.name }), 'warning')
       onChanged?.()
     } catch (err) {
       addToast?.(t('card.refreshFailed', { name: remote.name, message: err.message }), 'error')
@@ -100,7 +114,7 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
   const count = remote.entries?.length || 0
   const gone = remote.unavailable?.length || 0
   return (
-    <article className="remotes-card" data-testid="remote-card" data-status={status} aria-label={remote.name}>
+    <article className="remotes-card" data-testid="remote-card" data-status={status} data-warning={noUsable || undefined} aria-label={remote.name}>
       <header className="remotes-card__head">
         <div className="remotes-card__title">
           <h2 className="remotes-card__name">{remote.name}</h2>
@@ -129,12 +143,21 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
             </Button>
           )}
         >
-          {remote.last_error || t(status === 'auth_failed' ? 'card.authText' : 'card.unreachableText')}
+          {remote.last_error || t(status === 'auth_failed' ? (remote.kind === 'localai' ? 'card.authTextLocalai' : 'card.authText') : 'card.unreachableText')}
         </Callout>
       )}
 
+      {noUsable && <NoUsable remote={remote} onEdit={onEdit} />}
+
+      {added && (added.warning || added.skipped.length > 0) && (
+        <div className="remotes-outcome" data-testid="remote-added-note">
+          <Callout tone="warn" role="status" testId="remote-warning">{t('result.skippedTitle')}</Callout>
+          <SkippedList skipped={added.skipped} />
+        </div>
+      )}
+
       {remote.new?.length > 0 && (
-        <NewModels key={dismissKey(remote)} remote={remote} addToast={addToast} onAdded={() => { onChanged?.(); }} />
+        <NewModels key={dismissKey(remote)} remote={remote} addToast={addToast} onAdded={(_result, note) => { setAdded(note); onChanged?.() }} />
       )}
 
       <footer className="remotes-card__foot">
@@ -151,9 +174,15 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
 // The Remotes tab of the Models page: one card for each remote.
 export default function RemotesView({ state, addToast, onConnect, onChanged, onViewInstalled }) {
   const { t } = useTranslation('remotes')
-  const { remotes, loading, error, refetch, replace } = state
-  const [editing, setEditing] = useState(null)
+  const { remotes, loading, error, unsupported, refetch, replace } = state
+  // The sheet reads the remote from the list, so a refresh shows in it.
+  const [editingId, setEditingId] = useState(null)
+  const editing = remotes.find(c => c.id === editingId) || null
+  const setEditing = (c) => setEditingId(c ? c.id : null)
 
+  if (unsupported) {
+    return <EmptyState title={t('unsupported.title')} body={t('unsupported.body')} testId="remotes-unsupported" />
+  }
   if (loading && remotes.length === 0) return <SkeletonRows count={2} />
   if (error && remotes.length === 0) {
     return <LoadError title={t('load.error')} error={{ message: error }} onRetry={refetch} />
@@ -177,10 +206,12 @@ export default function RemotesView({ state, addToast, onConnect, onChanged, onV
         <EditRemoteSheet
           remote={editing}
           onClose={() => setEditing(null)}
-          onSaved={(updated, { keyChanged }) => {
+          onSaved={(updated, { keyChanged, refreshed }) => {
             replace(updated)
             setEditing(null)
             addToast?.(t(keyChanged ? 'edit.savedKey' : 'edit.saved', { name: updated.name }), 'success')
+            // The server refreshed after the change: say so when it still fails.
+            if (refreshed && (needsAttention(updated) || noUsableModels(updated))) addToast?.(t('edit.savedWarn', { name: updated.name }), 'warning')
             onChanged?.()
           }}
           onRemoved={(c, entries) => {
