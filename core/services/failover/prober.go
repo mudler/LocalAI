@@ -116,15 +116,7 @@ func (p *DefaultProber) authorize(req *http.Request, cfg config.ModelConfig) err
 			xlog.Warn("failover: remote target has api_key_env set but no credential lookup is configured; liveness and requests will fail authorization", "target", cfg.Name, "api_key_env", cfg.Proxy.APIKeyEnv)
 		}
 	}
-	key, err := cfg.Proxy.ResolveAPIKey(func(name string) string {
-		if value, ok := cfg.Environment[name]; ok {
-			return value
-		}
-		if p.EnvLookup != nil {
-			return p.EnvLookup(name)
-		}
-		return ""
-	})
+	key, err := p.resolveKey(req, cfg)
 	if err != nil || key == "" {
 		return err
 	}
@@ -135,6 +127,24 @@ func (p *DefaultProber) authorize(req *http.Request, cfg config.ModelConfig) err
 	}
 	req.Header.Set("Authorization", "Bearer "+key)
 	return nil
+}
+
+// resolveKey returns the key a probe sends. A target that names a remote
+// gets the key of that remote, with the same address check as a model load,
+// so a probe never carries the key to another server.
+func (p *DefaultProber) resolveKey(req *http.Request, cfg config.ModelConfig) (string, error) {
+	if cfg.Proxy.Remote != "" {
+		return config.ResolveProxyRemoteKey(req.Context(), cfg.Proxy.Remote, cfg.Proxy.UpstreamURL)
+	}
+	return cfg.Proxy.ResolveAPIKey(func(name string) string {
+		if value, ok := cfg.Environment[name]; ok {
+			return value
+		}
+		if p.EnvLookup != nil {
+			return p.EnvLookup(name)
+		}
+		return ""
+	})
 }
 
 func (p *DefaultProber) do(req *http.Request, cfg config.ModelConfig) (*http.Response, error) {
