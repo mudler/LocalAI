@@ -38,7 +38,7 @@ LocalAI is not only a chat. The same server serves many kinds of open model, eac
 - **Speech**: text to speech, transcription, voice activity detection and speaker recognition. The Realtime API takes voice in and gives voice back. Text to speech and sound generation also accept the ElevenLabs format.
 - **Search**: embeddings and a reranker, for retrieval over your own data.
 
-Each model kind needs a backend that serves it. LocalAI downloads the backend the first time a model needs it, and the library has more than 70 of them. There is a CPU build, so no GPU is required. NVIDIA, AMD, Intel and Apple GPUs make it faster. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
+Each model kind needs a backend that serves it. LocalAI downloads the backend the first time a model needs it, and the library has more than 80 of them. There is a CPU build, so no GPU is required. NVIDIA, AMD, Intel and Apple GPUs make it faster. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
 
 ## Projects
 
