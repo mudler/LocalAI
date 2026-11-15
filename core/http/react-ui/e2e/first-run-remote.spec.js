@@ -392,3 +392,14 @@ test.describe('First run: remote on a phone', () => {
     expect(over).toBeLessThanOrEqual(0)
   })
 })
+
+test.describe('First run: gallery endpoints off', () => {
+  test('the choice to use another server still shows', async ({ page }) => {
+    for (const pattern of ['**/models/available*', '**/models/galleries']) {
+      await page.route(pattern, route => route.fulfill({ status: 404, json: { error: 'not found' } }))
+    }
+    await firstRun(page)
+    await expect(where(page, 'remote')).toBeVisible()
+    await goRemote(page)
+  })
+})

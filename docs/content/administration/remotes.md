@@ -321,8 +321,8 @@ return `503`, and an entry that needs a remote fails to load with the error
 All routes need an administrator. Bodies and answers are JSON. The key is
 write-only: you can send it, and no route returns it.
 
-The routes are part of the model management routes. If you start LocalAI with
-`--disable-gallery-endpoint`, the routes do not exist and answer `404`.
+The routes do not depend on the model gallery. They work when you start LocalAI
+with `--disable-gallery-endpoint`.
 
 | Method and path | Purpose | Success |
 |---|---|---|

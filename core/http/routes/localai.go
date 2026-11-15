@@ -81,6 +81,16 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	router.GET("/api/motion/sessions/:id/poses", motion.Poses)
 	router.POST("/api/motion/sessions/:id/tickets", motion.Ticket)
 
+	// Remotes: a saved address and key of another LocalAI or an
+	// OpenAI-compatible or Anthropic endpoint, whose models become entries
+	// here. Admin only. They are not part of the model gallery: a server that
+	// turns the gallery off can still connect a remote, so these routes stay
+	// outside the gallery block. The service writes model configs through the
+	// config loader and needs no gallery service. The provider is read for
+	// every request: the service is built after the routes exist and is nil
+	// when its store could not be opened.
+	registerRemoteRoutes(router, app.Remotes, adminMiddleware)
+
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
 		// The old server-rendered import and edit pages are gone. Both URLs
@@ -153,14 +163,6 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 		// List model aliases endpoint
 		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
-
-		// Remotes: a saved address and key of another LocalAI or an
-		// OpenAI-compatible or Anthropic endpoint, whose models become entries
-		// here. Admin only, and gated with the other model management routes
-		// because adopting a model writes a model config. The provider is read
-		// for every request: the service is built after the routes exist and
-		// is nil when its store could not be opened.
-		registerRemoteRoutes(router, app.Remotes, adminMiddleware)
 
 		// Toggle model enable/disable endpoint
 		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, galleryService, appConfig, app.ModelRevisionLifecycle()), adminMiddleware)

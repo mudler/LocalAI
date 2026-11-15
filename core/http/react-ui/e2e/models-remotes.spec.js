@@ -489,3 +489,30 @@ test.describe('Remotes on a phone', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
   })
 })
+
+// Remotes are not part of the model gallery. A server started with the gallery
+// endpoints off answers 404 on the gallery routes and still serves /api/remotes.
+test.describe('A server with the gallery endpoints off', () => {
+  const galleryOff = async (page) => {
+    for (const pattern of ['**/models/available*', '**/models/galleries', '**/models/jobs*', '**/api/models/search*']) {
+      await page.route(pattern, route => route.fulfill({ status: 404, json: { error: 'not found' } }))
+    }
+  }
+
+  test('the Remotes tab, the list and the Connect button still show', async ({ page }) => {
+    await galleryOff(page)
+    await open(page, { url: '/app/models?view=remotes' })
+    await expect(page.getByTestId('models-tab-remotes')).toBeVisible()
+    await expect(page.getByTestId('models-connect-remote')).toBeVisible()
+    await expect(cards(page)).toHaveCount(1, { timeout: 15_000 })
+    await expect(page.getByTestId('models-tab-remotes')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('the Installed tab is still there next to Remotes', async ({ page }) => {
+    await galleryOff(page)
+    await open(page)
+    await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('models-tab-remotes')).toBeVisible()
+    await expect(page.getByTestId('models-connect-remote')).toBeVisible()
+  })
+})
