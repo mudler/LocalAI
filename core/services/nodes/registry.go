@@ -2346,6 +2346,21 @@ func (r *NodeRegistry) GetAllNodeLabelsMap(ctx context.Context) (map[string]map[
 	return result, nil
 }
 
+// LabelValuesOfHealthy returns the distinct values of the label key on the
+// healthy nodes of nodeType that carry every label of selector. It reads only
+// those rows, so a caller on a hot path does not load the whole label table.
+func (r *NodeRegistry) LabelValuesOfHealthy(ctx context.Context, nodeType string, selector map[string]string, key string) ([]string, error) {
+	db := r.db.WithContext(ctx).Model(&NodeLabel{}).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_labels.node_id").
+		Where("node_labels.key = ? AND node_labels.value <> '' AND backend_nodes.status = ? AND backend_nodes.node_type = ?", key, StatusHealthy, nodeType)
+	for k, v := range selector {
+		db = db.Where("EXISTS (SELECT 1 FROM node_labels AS s WHERE s.node_id = node_labels.node_id AND s.key = ? AND s.value = ?)", k, v)
+	}
+	var values []string
+	err := db.Distinct().Pluck("node_labels.value", &values).Error
+	return values, err
+}
+
 // --- Selector-based queries ---
 
 // FindNodesBySelector returns healthy backend nodes matching ALL key-value pairs in the selector.
