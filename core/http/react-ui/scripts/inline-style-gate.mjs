@@ -24,7 +24,8 @@ import { join, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const SCAN = ['src/pages', 'src/components']
+// The kit package holds the shared controls that used to be in src/components/ui.
+const SCAN = ['src/pages', 'src/components', 'packages/ui-kit/src']
 const BASELINE = join(ROOT, 'inline-style-baseline.txt')
 const PATTERN = /style=\{\{/g
 

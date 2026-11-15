@@ -6,6 +6,6 @@ sprite and `icons/fa-map.json`, which maps Font Awesome names to icon ids. Do
 not edit these files by hand. To update, take a newer snapshot of the kit and
 replace the files, then refresh `.ui-kit.lock`.
 
-The LocalAI theme is not part of the kit: it lives in `src/theme-localai.css`.
+The LocalAI theme is not part of the kit: it lives in `../themes/localai.css`.
 The two sample themes are kept because the kit's manifest ships them. The app
 does not load them.

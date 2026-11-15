@@ -808,7 +808,7 @@
   white-space: nowrap;
 }
 
-/* Toast: moved to components/ui/ui.css. */
+/* Toast: moved to packages/ui-kit/css/kit.css. */
 
 /* Chat error trace link */
 .chat-error-trace-link {
@@ -825,7 +825,7 @@
   text-decoration: underline;
 }
 
-/* Spinner and skeleton: moved to components/ui/ui.css. */
+/* Spinner and skeleton: moved to packages/ui-kit/css/kit.css. */
 
 /* Model selector */
 .model-selector {
@@ -845,23 +845,15 @@
   border-color: var(--color-border-strong);
 }
 
-/* Common page styles — width archetype is opt-in via modifiers.
-   Default cap fits 9-column data tables on ultrawide displays without
-   feeling untethered. Add .page--narrow for forms / single-record edit
-   views, .page--wide for full-bleed (chat shells, log streams). */
-.page {
-  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-2xl);
-  width: 100%;
-  max-width: var(--page-max, var(--page-max-default));
-  margin: 0 auto;
-  animation: dk-veil-in var(--duration-normal) var(--ease-default);
-}
-
+/* The .page frame is in the UI kit (packages/ui-kit/css/kit.css). The width
+   archetypes below are the app's own: add .page--narrow for forms /
+   single-record edit views, .page--wide for full-bleed (chat shells, log
+   streams). */
 .page--narrow { --page-max: var(--page-max-narrow); }
 .page--medium { --page-max: var(--page-max-medium); }
 .page--wide   { --page-max: var(--page-max-wide); }
 
-/* .page-header and .page-title: moved to components/ui/ui.css. */
+/* .page-header and .page-title: moved to packages/ui-kit/css/kit.css. */
 
 /* Mid hierarchy tier — between page title and the xs uppercase group labels */
 .section-heading {
@@ -1132,7 +1124,7 @@ button.card:active {
   accent-color: var(--color-primary);
   cursor: pointer;
 }
-/* Buttons (.btn and its variants): moved to components/ui/ui.css, where
+/* Buttons (.btn and its variants): moved to packages/ui-kit/css/kit.css, where
    they are aliases of the kit button. */
 
 /* Global focus ring for any interactive that is not a .btn: a 2px outline in
@@ -2255,7 +2247,7 @@ button.collapsible-header:focus-visible {
   margin-top: var(--spacing-sm);
 }
 
-/* Empty state: moved to components/ui/ui.css. */
+/* Empty state: moved to packages/ui-kit/css/kit.css. */
 
 /* Animations */
 
@@ -3635,7 +3627,7 @@ button.collapsible-header:focus-visible {
 /* Mobile reflow polish — phone-only (<640) layout adjustments for
    page chrome that was designed flex-row on desktop. */
 @media (max-width: 639px) {
-  /* Page header on a phone: components/ui/ui.css. */
+  /* Page header on a phone: packages/ui-kit/css/kit.css. */
 
   /* Filter chip rows scroll horizontally instead of wrapping into walls */
   .filter-bar {
@@ -6273,11 +6265,11 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   }
 }
 
-/* Route fallback: moved to components/ui/ui.css. */
+/* Route fallback: moved to packages/ui-kit/css/kit.css. */
 
 /* Hub layout: moved to components/hub/hub.css. */
 
-/* .status-pill is a StatusChip now: components/ui/ui.css. */
+/* .status-pill is a StatusChip now: packages/ui-kit/css/kit.css. */
 
 /* ──────────────────── Voice Library ──────────────────── */
 
@@ -6767,7 +6759,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .text-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
 .text-mono { font-family: var(--font-mono); }
 
-/* .loading-center: moved to components/ui/ui.css. */
+/* .loading-center: moved to packages/ui-kit/css/kit.css. */
 
 /* Grow-to-fill inside a .hstack. Named rather than inline because "which child
    absorbs the slack" is a layout decision worth being able to grep for. */
@@ -8354,22 +8346,10 @@ button.lane:hover {
   cursor: grab;
 }
 
-/* ---- Icons (shared kit outline set, see components/Icon.jsx) ---------- */
+/* ---- Icons ------------------------------------------------------------
+   The base icon rules are in the UI kit (packages/ui-kit/css/kit.css). The
+   sprite holder is for the HTML strings of utils/iconHtml.js. */
 .lai-icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-/* The kit draws on a 24 unit grid with a 2 unit margin, so at 1em the mark
-   looks about a sixth smaller than a font glyph did. 1.2em gives the same
-   visual size, and the em unit keeps every icon following its context's font
-   size. The line is a little heavier than the kit's 1.75 so it holds up at the
-   12-16px sizes the app uses. */
-:where(.lai-icon) {
-  display: inline-block;
-  width: 1.2em;
-  height: 1.2em;
-  vertical-align: -0.25em;
-  flex: none;
-}
-.lai-icon--glyph { fill: currentColor; stroke: none; }
-.lai-icon:not(.lai-icon--glyph) { fill: none; stroke: currentColor; stroke-width: var(--lai-stroke, 2); stroke-linecap: round; stroke-linejoin: round; }
 /* Large marks (empty states, heroes) read heavier at the same line weight. */
 .empty-state-icon.lai-icon,
 .empty-state-icon .lai-icon,

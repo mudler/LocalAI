@@ -24,9 +24,11 @@ test('colour gate: roles, tints from a role, comments, masks and entities are no
 })
 
 test('colour gate: the palette files and the vendor colours are exempt', () => {
-  assert.equal(count('src/theme-localai.css', ':root { --dk-canvas: #fff4dc }'), 0)
+  assert.equal(count('packages/ui-kit/themes/localai.css', ':root { --dk-canvas: #fff4dc }'), 0)
   assert.equal(count('src/theme/theme-localai.json', '#fff4dc'), 0)
-  assert.equal(count('src/vendor/ui-kit/tokens.css', ':root { --x: #fff }'), 0)
+  assert.equal(count('packages/ui-kit/vendor/tokens.css', ':root { --x: #fff }'), 0)
+  // The kit's own rules are scanned like a page.
+  assert.equal(count('packages/ui-kit/css/kit.css', '.a { color: #fff }'), 1)
   assert.equal(count('src/utils/format.js', "return '#76b900'"), 0)
 })
 

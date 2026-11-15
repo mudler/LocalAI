@@ -5,12 +5,12 @@ import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { NOTICE_ICONS, noticeRole, noticeSeverity, noticeAction } from '../../src/components/ui/noticeModel.js'
+import { NOTICE_ICONS, noticeRole, noticeSeverity, noticeAction } from '../../packages/ui-kit/src/noticeModel.js'
 
 // Compile the production Notice. Button and Callout are boundaries with their
 // own markup rules; they draw plain elements here so the test reads the order
 // and the actions Notice asks for.
-const source = readFileSync(new URL('../../src/components/ui/Notice.jsx', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../../packages/ui-kit/src/Notice.jsx', import.meta.url), 'utf8')
 const h = React.createElement
 const scope = {
   React, NOTICE_ICONS, noticeAction, noticeRole, noticeSeverity,

@@ -34,8 +34,8 @@ const CONTROL = [['control-edge', 'canvas'], ['control-edge', 'inset'], ['contro
   ...[1, 2, 3, 4, 5, 6].flatMap(k => [[`series-${k}`, 'canvas'], [`series-${k}`, 'card']])]
 
 test('theme: the CSS is generated from the source file', () => {
-  assert.ok(isCurrent(), 'src/theme-localai.css is out of date: run node scripts/gen-theme.mjs')
-  const css = readFileSync(join(root, 'src/theme-localai.css'), 'utf8')
+  assert.ok(isCurrent(), 'packages/ui-kit/themes/localai.css is out of date: run node scripts/gen-theme.mjs')
+  const css = readFileSync(join(root, 'packages/ui-kit/themes/localai.css'), 'utf8')
   assert.equal(css, buildCss(theme))
   assert.equal((css.match(/--dk-canvas:/g) || []).length, 3, 'one light and two dark blocks')
   assert.equal(readFileSync(join(root, '../static/theme-localai.css'), 'utf8'), css, 'the copy for the server-rendered pages')

@@ -9,7 +9,7 @@ import { iconFromFa, faSpins, FALLBACK_ICON } from '../src/utils/faIcon.js'
 // not resolve, draws nothing and fails no build, so these tests check both.
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const VENDOR = join(HERE, '..', 'src', 'vendor', 'ui-kit', 'icons')
+const VENDOR = join(HERE, '..', 'packages', 'ui-kit', 'vendor', 'icons')
 const faMap = JSON.parse(readFileSync(join(VENDOR, 'fa-map.json'), 'utf8'))
 const spriteIds = [...readFileSync(join(VENDOR, 'sprite.svg'), 'utf8').matchAll(/id="dk-icon-([^"]+)"/g)].map((m) => m[1])
 const mappedIds = [...new Set(Object.entries(faMap).filter(([k]) => k !== 'unmapped').map(([, v]) => v))]
