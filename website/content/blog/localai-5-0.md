@@ -104,7 +104,8 @@ The easiest start is the desktop app above. To install a server, on Linux or mac
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh
-local-ai run qwen3-4b
+local-ai run
+# open http://localhost:8080 and install the model it recommends
 ```
 
 Or with a container:
